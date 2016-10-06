@@ -129,7 +129,7 @@ func cleanup(c *client.Client) {
 	}
 	for _, rc := range rcs.Items {
 		fmt.Println("Deleting rc", rc.GetName())
-		if err := c.ReplicationControllers(testNamespace).Delete(rc.GetName()); err != nil {
+		if err := c.ReplicationControllers(testNamespace).Delete(rc.GetName(), &api.DeleteOptions{}); err != nil {
 			fmt.Println("Failed to delete rc", rc.GetName(), err)
 		}
 	}
@@ -412,7 +412,8 @@ func main() {
 		fmt.Println("Failed to setup REST client to Kubernetes cluster")
 		return
 	}
-	if nodes := getMinionNodes(c); nodes == nil {
+	nodes := getMinionNodes(c)
+	if nodes == nil {
 		return
 	}
 	if len(nodes.Items) < 2 {

@@ -1,0 +1,16 @@
+branches:
+  only:
+    - master
+language: python
+python:
+    - "2.7"
+install:
+# Create and move build under the go path
+    - mkdir -p $HOME/gopath/src/k8s.io
+    - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/k8s.io/perf-tests
+    - cd $HOME/gopath/src/k8s.io/perf-tests
+script:
+    - ./verify/verify-boilerplate.py
+    - ./verify/verify-gofmt.sh
+    - ./verify/verify-golint.sh
+    - go test k8s.io/perf-tests/...

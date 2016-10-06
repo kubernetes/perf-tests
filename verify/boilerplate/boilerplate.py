@@ -33,7 +33,7 @@ rootdir = os.path.abspath(rootdir)
 
 def get_refs():
     refs = {}
-    for path in glob.glob(os.path.join(rootdir, "hack/boilerplate/boilerplate.*.txt")):
+    for path in glob.glob(os.path.join(rootdir, "verify/boilerplate/boilerplate.*.txt")):
         extension = os.path.basename(path).split(".")[1]
 
         ref_file = open(path, 'r')

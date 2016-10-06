@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -414,14 +414,13 @@ func main() {
 	}
 	if nodes := getMinionNodes(c); nodes == nil {
 		return
-	} else {
-		if len(nodes.Items) < 2 {
-			fmt.Println("Insufficient number of nodes for test (need minimum 2 nodes)")
-			return
-		}
-		primaryNode = nodes.Items[0]
-		secondaryNode = nodes.Items[1]
 	}
+	if len(nodes.Items) < 2 {
+		fmt.Println("Insufficient number of nodes for test (need minimum 2 nodes)")
+		return
+	}
+	primaryNode = nodes.Items[0]
+	secondaryNode = nodes.Items[1]
 	fmt.Printf("Selected primary,secondary nodes = (%s, %s)\n", primaryNode.GetName(), secondaryNode.GetName())
 	executeTests(c)
 	cleanup(c)

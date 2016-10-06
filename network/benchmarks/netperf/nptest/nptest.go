@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -86,7 +86,11 @@ const (
 	netperfTest  = iota
 )
 
+// NetPerfRpc stores something
+// TODO: someone who knows what this all this does should update comments.
 type NetPerfRpc int
+
+// ClientRegistrationData stores a data about a single client
 type ClientRegistrationData struct {
 	Host     string
 	KubeNode string
@@ -94,6 +98,7 @@ type ClientRegistrationData struct {
 	IP       string
 }
 
+// IperfClientWorkItem represents a single task for an Iperf client
 type IperfClientWorkItem struct {
 	Host string
 	Port string
@@ -101,11 +106,13 @@ type IperfClientWorkItem struct {
 	Type int
 }
 
+// IperfServerWorkItem represents a single task for an Iperf server
 type IperfServerWorkItem struct {
 	ListenPort string
 	Timeout    int
 }
 
+// WorkItem represents a single task for a worker
 type WorkItem struct {
 	IsClientItem bool
 	IsServerItem bool
@@ -121,6 +128,7 @@ type workerState struct {
 	worker         string
 }
 
+// WorkerOutput stores the results from a single worker
 type WorkerOutput struct {
 	Output string
 	Code   int
@@ -304,6 +312,7 @@ func allocateWorkToClient(workerS *workerState, reply *WorkItem) {
 	reply.IsIdle = true
 }
 
+// RegisterClient registers a single and assign a work item to it
 func (t *NetPerfRpc) RegisterClient(data *ClientRegistrationData, reply *WorkItem) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -412,6 +421,7 @@ func parseNetperfBandwidth(output string) string {
 	return "0"
 }
 
+// ReceiveOutput processes a data received from a single client
 func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()

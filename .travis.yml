@@ -15,7 +15,7 @@ install:
 # Create and move build under the go path
     - mkdir -p $HOME/gopath/src/k8s.io
     - mv $TRAVIS_BUILD_DIR $HOME/gopath/src/k8s.io/perf-tests
-    - hack/install-verify-tools.sh
+    - verify/install-verify-tools.sh
     - export PATH=$GOPATH/bin:$PATH
 
 script:

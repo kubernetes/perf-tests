@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies that all source files contain the necessary copyright boilerplate
-# snippet.
-
 from __future__ import print_function
 
 import argparse
@@ -29,20 +26,14 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filenames", help="list of files to check, all files if unspecified", nargs='*')
-
-rootdir = os.path.dirname(__file__) + "/../"
-rootdir = os.path.abspath(rootdir)
-parser.add_argument("--rootdir", default=rootdir, help="root directory to examine")
-
-default_boilerplate_dir = os.path.join(rootdir, "verify/boilerplate")
-parser.add_argument("--boilerplate-dir", default=default_boilerplate_dir)
 args = parser.parse_args()
 
+rootdir = os.path.dirname(__file__) + "/../../"
+rootdir = os.path.abspath(rootdir)
 
 def get_refs():
     refs = {}
-
-    for path in glob.glob(os.path.join(args.boilerplate_dir, "boilerplate.*.txt")):
+    for path in glob.glob(os.path.join(rootdir, "hack/boilerplate/boilerplate.*.txt")):
         extension = os.path.basename(path).split(".")[1]
 
         ref_file = open(path, 'r')
@@ -61,12 +52,8 @@ def file_passes(filename, refs, regexs):
     data = f.read()
     f.close()
 
-    basename = os.path.basename(filename)
     extension = file_extension(filename)
-    if extension != "":
-        ref = refs[extension]
-    else:
-        ref = refs[basename]
+    ref = refs[extension]
 
     # remove build tags from the top of Go files
     if extension == "go":
@@ -74,7 +61,7 @@ def file_passes(filename, refs, regexs):
         (data, found) = p.subn("", data, 1)
 
     # remove shebang from the top of shell files
-    if extension == "sh" or extension == "py":
+    if extension == "sh":
         p = regexs["shebang"]
         (data, found) = p.subn("", data, 1)
 
@@ -108,8 +95,7 @@ def file_passes(filename, refs, regexs):
 def file_extension(filename):
     return os.path.splitext(filename)[1].split(".")[-1].lower()
 
-skipped_dirs = ['Godeps', 'third_party', '_gopath', '_output', '.git', 'vendor', '__init__.py']
-
+skipped_dirs = ['Godeps', 'third_party', '_output', '.git', 'vendor']
 def normalize_files(files):
     newfiles = []
     for pathname in files:
@@ -118,7 +104,7 @@ def normalize_files(files):
         newfiles.append(pathname)
     for i, pathname in enumerate(newfiles):
         if not os.path.isabs(pathname):
-            newfiles[i] = os.path.join(args.rootdir, pathname)
+            newfiles[i] = os.path.join(rootdir, pathname)
     return newfiles
 
 def get_files(extensions):
@@ -126,7 +112,7 @@ def get_files(extensions):
     if len(args.filenames) > 0:
         files = args.filenames
     else:
-        for root, dirs, walkfiles in os.walk(args.rootdir):
+        for root, dirs, walkfiles in os.walk(rootdir):
             # don't visit certain dirs. This is just a performance improvement
             # as we would prune these later in normalize_files(). But doing it
             # cuts down the amount of filesystem walking we do and cuts down
@@ -142,9 +128,8 @@ def get_files(extensions):
     files = normalize_files(files)
     outfiles = []
     for pathname in files:
-        basename = os.path.basename(pathname)
         extension = file_extension(pathname)
-        if extension in extensions or basename in extensions:
+        if extension in extensions:
             outfiles.append(pathname)
     return outfiles
 
@@ -152,27 +137,22 @@ def get_regexs():
     regexs = {}
     # Search for "YEAR" which exists in the boilerplate, but shouldn't in the real thing
     regexs["year"] = re.compile( 'YEAR' )
-    # dates can be 2014, 2015 or 2016, company holder names can be anything
+    # dates can be 2014 or 2015, company holder names can be anything
     regexs["date"] = re.compile( '(2014|2015|2016)' )
     # strip // +build \n\n build constraints
     regexs["go_build_constraints"] = re.compile(r"^(// \+build.*\n)+\n", re.MULTILINE)
-    # strip #!.* from shell/python scripts
+    # strip #!.* from shell scripts
     regexs["shebang"] = re.compile(r"^(#!.*\n)\n*", re.MULTILINE)
     return regexs
 
-if __name__ == "__main__":
-    exit_code = 0
+def main():
     regexs = get_regexs()
     refs = get_refs()
     filenames = get_files(refs.keys())
-    nonconforming_files = []
+
     for filename in filenames:
         if not file_passes(filename, refs, regexs):
-            nonconforming_files.append(filename)
+            print(filename, file=sys.stdout)
 
-    if nonconforming_files:
-        print('%d files have incorrect boilerplate headers:' %
-              len(nonconforming_files))
-        for filename in sorted(nonconforming_files):
-            print(filename)
-        sys.exit(1)
+if __name__ == "__main__":
+  sys.exit(main())

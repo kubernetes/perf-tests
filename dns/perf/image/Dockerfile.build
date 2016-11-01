@@ -1,0 +1,12 @@
+FROM alpine
+
+RUN apk update
+RUN apk add \
+	bind \
+	bind-dev \
+	bind-libs \
+	gcc \
+	libcap-dev \
+	make \
+	musl-dev \
+	openssl-dev

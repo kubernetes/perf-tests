@@ -1,0 +1,7 @@
+# Single shot test parameters
+run_length_seconds: [5]
+kubedns_cpu: [null]
+dnsmasq_cpu: [null]
+dnsmasq_cache: [0]
+max_qps: [null]
+query_file: ["service.txt"]

@@ -1,0 +1,35 @@
+DNS Performance Testing Tool
+Nominum Version 2.1.0.0
+
+[Status] Command line: dnsperf -d /queries/service.txt -l 10 -s 10.0.0.20 -Q 100
+[Status] Sending queries (to 10.0.0.20)
+[Status] Started at: Mon Nov 28 19:00:56 2016
+[Status] Stopping after 10.000000 seconds
+[Status] Testing complete (time limit)
+
+Statistics:
+
+  Queries sent:         1000
+  Queries completed:    1000 (100.00%)
+  Queries lost:         0 (0.00%)
+
+  Response codes:       NOERROR 1000 (100.00%)
+  Average packet size:  request 56, response 72
+  Run time (s):         10.000256
+  Queries per second:   99.997440
+
+  Average Latency (s):  0.000772 (min 0.000402, max 0.019581)
+  Latency StdDev (s):   0.000892
+
+  Latency histogram
+#histogram 0 956
+#histogram 1 24
+#histogram 2 8
+#histogram 3 1
+#histogram 4 3
+#histogram 5 1
+#histogram 6 1
+#histogram 7 2
+#histogram 8 2
+#histogram 9 1
+#histogram 19 1

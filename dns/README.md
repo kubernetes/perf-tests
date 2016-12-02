@@ -1,10 +1,10 @@
 # Overview
 
-This directory contains scripts used to run a dns performance test in a
+This directory contains scripts used to run a DNS performance test in a
 Kubernetes cluster. The performance script `run` benchmarks the performance of a
 single DNS server instance with a synthetic query workload.
 
-# Quickstart
+# Quick start
 
 ## Prerequisites
 
@@ -96,10 +96,10 @@ $ kubectl create -f cluster/prometheus.yaml
 
 Key metrics to look at are:
 
-* dnsmasq\_cache\_hits, dnsmasq\_cache\_misses - number of dns requests to the
-  caching layer. Note: dnsmasq\_cache\_hits + dnsmasq\_cache\_misses = total DNS
+* `dnsmasq\_cache\_hits`, `dnsmasq\_cache\_misses` - number of DNS requests to the
+  caching layer. Note: `dnsmasq\_cache\_hits + dnsmasq\_cache\_misses` = total DNS
   QPS.
-* skydns\_skydns\_request\_duration\_seconds\_count - total number of requests
+* `skydns\_skydns\_request\_duration\_seconds\_count` - total number of requests
   served by the kube-dns component.
 
 # Details
@@ -110,7 +110,7 @@ The questions we want to answer:
 
 * What is the maximum queries per second (QPS) we can get from the Kubernetes
   DNS service given no limits?
-* If we restrict CPU resources, what is the peformance we can expect?
+* If we restrict CPU resources, what is the performance we can expect?
   (i.e. resource limits in the pod yaml).
 * What are the SLOs (e.g. query latency) for a given setting that the
   user can expect? Alternate phrasing: what can we expect in realistic

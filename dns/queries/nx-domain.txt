@@ -1,0 +1,1 @@
+no-such-thing.default.svc.cluster.local A

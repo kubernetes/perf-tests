@@ -29,18 +29,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-	restclient "k8s.io/kubernetes/pkg/client/restclient"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/labels"
-	"k8s.io/kubernetes/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	api "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/util/intstr"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -60,59 +56,43 @@ var (
 	iterations     int
 	hostnetworking bool
 	tag            string
+	kubeConfig     string
 
-	everythingSelector api.ListOptions
+	everythingSelector api.ListOptions = api.ListOptions{}
 
 	primaryNode   api.Node
 	secondaryNode api.Node
 )
 
 func init() {
-	flag.BoolVar(&hostnetworking, "hostnetworking", false, "(boolean) Enable Host Networking Mode for PODs")
-	flag.IntVar(&iterations, "iterations", 1, "Number of iterations to run")
+	flag.BoolVar(&hostnetworking, "hostnetworking", false,
+		"(boolean) Enable Host Networking Mode for PODs")
+	flag.IntVar(&iterations, "iterations", 1,
+		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
-	everythingSelector = api.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}
+	flag.StringVar(&kubeConfig, "kubeConfig", "",
+		"Location of the kube configuration file ($HOME/.kube/config")
 }
 
-func setupClient() *client.Client {
-	genericError := "is your .kube/config setup to point to a running cluster ?"
-
-	// Read user's kube config and use the server and credentials from the current context
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	kubeConfig, err := loadingRules.Load()
+func setupClient() *kubernetes.Clientset {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
-		log.Fatalf("Failure loading kubeconfig credentials and server location - %s", genericError)
+		panic(err)
 	}
-
-	context, ok := kubeConfig.Contexts[kubeConfig.CurrentContext]
-	if !ok {
-		log.Fatalf("Failed to find kubectl context %s - %s", kubeConfig.CurrentContext, genericError)
-	}
-	authInfo, ok := kubeConfig.AuthInfos[fmt.Sprintf("%s-basic-auth", context.AuthInfo)]
-	if !ok {
-		log.Fatalf("Failed to find the default auth info in the kubectl config file - %s", genericError)
-	}
-
-	fmt.Printf("Setting up kubeConfig parameters for REST client User %s Password ***** Host: %s\n",
-		authInfo.Username,
-		kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server)
-
-	config := &restclient.Config{
-		Username: authInfo.Username,
-		Password: authInfo.Password,
-		Host:     kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server,
-		Insecure: true,
-	}
-	c, err := client.New(config)
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalf("Failed to connect to Kubernetes API server (%s) - %s", err, genericError)
+		panic(err)
 	}
-	return c
+
+	return clientset
 }
 
 // getMinions : Only return schedulable/worker nodes
-func getMinionNodes(c *client.Client) *api.NodeList {
-	nodes, err := c.Nodes().List(api.ListOptions{FieldSelector: fields.Set{"spec.unschedulable": "false"}.AsSelector()})
+func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
+	nodes, err := c.Nodes().List(
+		api.ListOptions{
+			FieldSelector: "spec.unschedulable=false",
+		})
 	if err != nil {
 		fmt.Println("Failed to fetch nodes", err)
 		return nil
@@ -120,7 +100,7 @@ func getMinionNodes(c *client.Client) *api.NodeList {
 	return nodes
 }
 
-func cleanup(c *client.Client) {
+func cleanup(c *kubernetes.Clientset) {
 	// Cleanup existing rcs, pods and services in our namespace
 	rcs, err := c.ReplicationControllers(testNamespace).List(everythingSelector)
 	if err != nil {
@@ -129,7 +109,8 @@ func cleanup(c *client.Client) {
 	}
 	for _, rc := range rcs.Items {
 		fmt.Println("Deleting rc", rc.GetName())
-		if err := c.ReplicationControllers(testNamespace).Delete(rc.GetName(), &api.DeleteOptions{}); err != nil {
+		if err := c.ReplicationControllers(testNamespace).Delete(
+			rc.GetName(), &api.DeleteOptions{}); err != nil {
 			fmt.Println("Failed to delete rc", rc.GetName(), err)
 		}
 	}
@@ -151,12 +132,13 @@ func cleanup(c *client.Client) {
 	}
 	for _, svc := range svcs.Items {
 		fmt.Println("Deleting svc", svc.GetName())
-		c.Services(testNamespace).Delete(svc.GetName())
+		c.Services(testNamespace).Delete(
+			svc.GetName(), &api.DeleteOptions{})
 	}
 }
 
 // createServices: Long-winded function to programmatically create our two services
-func createServices(c *client.Client) bool {
+func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
 	if _, err := c.Namespaces().Get(testNamespace); err != nil {
 		c.Namespaces().Create(&api.Namespace{ObjectMeta: api.ObjectMeta{Name: testNamespace}})
@@ -225,14 +207,16 @@ func createServices(c *client.Client) bool {
 }
 
 // createRCs - Create replication controllers for all workers and the orchestrator
-func createRCs(c *client.Client) bool {
+func createRCs(c *kubernetes.Clientset) bool {
 	// Create the orchestrator RC
 	name := "netperf-orch"
 	fmt.Println("Creating replication controller", name)
+	replicas := int32(1)
+
 	_, err := c.ReplicationControllers(testNamespace).Create(&api.ReplicationController{
 		ObjectMeta: api.ObjectMeta{Name: name},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{"app": name},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
@@ -272,15 +256,19 @@ func createRCs(c *client.Client) bool {
 			// Worker W1 is a client-only pod - no ports are exposed
 			portSpec = append(portSpec, api.ContainerPort{ContainerPort: iperf3Port, Protocol: api.ProtocolTCP})
 		}
+
 		workerEnv := []api.EnvVar{
 			{Name: "worker", Value: name},
 			{Name: "kubeNode", Value: kubeNode},
 			{Name: "podname", Value: name},
 		}
+
+		replicas := int32(1)
+
 		_, err := c.ReplicationControllers(testNamespace).Create(&api.ReplicationController{
 			ObjectMeta: api.ObjectMeta{Name: name},
 			Spec: api.ReplicationControllerSpec{
-				Replicas: 1,
+				Replicas: &replicas,
 				Selector: map[string]string{"app": name},
 				Template: &api.PodTemplateSpec{
 					ObjectMeta: api.ObjectMeta{
@@ -298,7 +286,6 @@ func createRCs(c *client.Client) bool {
 								ImagePullPolicy: "Always",
 							},
 						},
-						SecurityContext:               &api.PodSecurityContext{HostNetwork: hostnetworking},
 						TerminationGracePeriodSeconds: new(int64),
 					},
 				},
@@ -323,7 +310,7 @@ func getOrchestratorPodName(pods *api.PodList) string {
 }
 
 // Retrieve the logs for the pod/container and check if csv data has been generated
-func getCsvResultsFromPod(c *client.Client, podName string) *string {
+func getCsvResultsFromPod(c *kubernetes.Clientset, podName string) *string {
 	body, err := c.Pods(testNamespace).GetLogs(podName, &api.PodLogOptions{Timestamps: false}).DoRaw()
 	if err != nil {
 		fmt.Printf("Error (%s) reading logs from pod %s", err, podName)
@@ -353,7 +340,7 @@ func processCsvData(csvData *string) bool {
 	return true
 }
 
-func executeTests(c *client.Client) bool {
+func executeTests(c *kubernetes.Clientset) bool {
 	for i := 0; i < iterations; i++ {
 		cleanup(c)
 		if !createServices(c) {
@@ -407,7 +394,7 @@ func main() {
 	fmt.Println("Host Networking : ", hostnetworking)
 	fmt.Println("------------------------------------------------------------")
 
-	var c *client.Client
+	var c *kubernetes.Clientset
 	if c = setupClient(); c == nil {
 		fmt.Println("Failed to setup REST client to Kubernetes cluster")
 		return

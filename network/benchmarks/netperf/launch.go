@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	api "k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -140,7 +141,7 @@ func cleanup(c *kubernetes.Clientset) {
 // createServices: Long-winded function to programmatically create our two services
 func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
-	if _, err := c.Namespaces().Get(testNamespace); err != nil {
+	if _, err := c.Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
 		c.Namespaces().Create(&api.Namespace{ObjectMeta: api.ObjectMeta{Name: testNamespace}})
 	}
 

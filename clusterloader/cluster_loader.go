@@ -17,20 +17,15 @@ limitations under the License.
 package clusterloader
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
-	"time"
 
 	clusterloaderframework "github.com/kubernetes/perf-tests/clusterloader/framework"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
 	testutils "k8s.io/kubernetes/test/utils"
@@ -57,8 +52,10 @@ var _ = framework.KubeDescribe("Cluster Loader [Feature:ManualPerformance]", fun
 		// TODO sjug: add concurrency
 		for _, p := range project {
 			// Find tuning if we have it
-			tuning := getTuningSet(tuningSets, p.Tuning)
-			framework.Logf("Our tuning set is: %v", tuning)
+			tuning := clusterloaderframework.GetTuningSet(tuningSets, p.Tuning)
+			if tuning != nil {
+				framework.Logf("Our tuning set is: %v", tuning)
+			}
 			for j := 0; j < p.Number; j++ {
 				// Create namespaces as defined in Cluster Loader config
 				nsName := appendIntToString(p.Basename, j)
@@ -69,11 +66,24 @@ var _ = framework.KubeDescribe("Cluster Loader [Feature:ManualPerformance]", fun
 
 				// Create templates as defined
 				for _, template := range p.Templates {
-					createTemplate(template.Basename, ns, mkPath(template.File), template.Number, tuning)
+					clusterloaderframework.CreateTemplate(template.Basename, ns, mkPath(template.File), template.Number, tuning)
 				}
 				// This is too familiar, create pods
 				for _, pod := range p.Pods {
-					config := parsePods(mkPath(pod.File))
+					// Parse Pod file into struct
+					config := clusterloaderframework.ParsePods(mkPath(pod.File))
+					// Check if environment variables are defined in CL config
+					if pod.Parameters == (clusterloaderframework.ParameterConfigType{}) {
+						framework.Logf("Pod environment variables will not be modified.")
+					} else {
+						// Override environment variables for Pod using ConfigMap
+						configMapName := clusterloaderframework.InjectConfigMap(f, ns.Name, pod.Parameters, config)
+						// Cleanup ConfigMap at some point after the Pods are created
+						defer func() {
+							_ = f.ClientSet.Core().ConfigMaps(ns.Name).Delete(configMapName, nil)
+						}()
+					}
+					// TODO sjug: pass label via config
 					labels := map[string]string{"purpose": "test"}
 					clusterloaderframework.CreatePods(f, pod.Basename, ns.Name, labels, config.Spec, pod.Number, tuning)
 				}
@@ -90,24 +100,16 @@ var _ = framework.KubeDescribe("Cluster Loader [Feature:ManualPerformance]", fun
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			framework.Logf("All pods running in namespace %s.", ns.Name)
 		}
+
+		// Start sync WS
+		//c := &clusterloaderframework.PodCount{Shutdown: make(chan bool)}
+		//if err := clusterloaderframework.Server(c); err != nil {
+		//	framework.Logf("HTTP server messed up: %v", err)
+		//}
+		//close(c.Shutdown)
+
 	})
 })
-
-// getTuningSet matches the name of the tuning set defined in the project and returns a pointer to the set
-func getTuningSet(tuningSets []clusterloaderframework.TuningSetType, podTuning string) (tuning *clusterloaderframework.TuningSetType) {
-	if podTuning != "" {
-		// Iterate through defined tuningSets
-		for _, ts := range tuningSets {
-			// If we have a matching tuningSet keep it
-			if ts.Name == podTuning {
-				tuning = &ts
-				return
-			}
-		}
-		framework.Failf("No pod tuning found for: %s", podTuning)
-	}
-	return nil
-}
 
 // mkPath returns fully qualfied file location as a string
 func mkPath(file string) string {
@@ -118,73 +120,7 @@ func mkPath(file string) string {
 	return filepath.Join("content/", file)
 }
 
-// createTemplate does regex substitution against the template file, then creates the template
-func createTemplate(baseName string, ns *v1.Namespace, configPath string, numObjects int, tuning *clusterloaderframework.TuningSetType) {
-	// Try to read the file
-	content, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		framework.Failf("Error reading file: %s", err)
-	}
-
-	// ${IDENTIFER} is what we're replacing in the file
-	regex, err := regexp.Compile("\\${IDENTIFIER}")
-	if err != nil {
-		framework.Failf("Error compiling regex: %v", err)
-	}
-
-	for i := 0; i < numObjects; i++ {
-		result := regex.ReplaceAll(content, []byte(strconv.Itoa(i)))
-
-		tmpfile, err := ioutil.TempFile("", "cl")
-		if err != nil {
-			framework.Failf("Error creating new tempfile: %v", err)
-		}
-		defer os.Remove(tmpfile.Name())
-
-		if _, err := tmpfile.Write(result); err != nil {
-			framework.Failf("Error writing to tempfile: %v", err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			framework.Failf("Error closing tempfile: %v", err)
-		}
-
-		framework.RunKubectlOrDie("create", "-f", tmpfile.Name(), getNsCmdFlag(ns))
-		framework.Logf("%d/%d : Created template %s", i+1, numObjects, baseName)
-
-		// If there is a tuning set defined for this template
-		if tuning != nil {
-			if tuning.Templates.RateLimit.Delay != 0 {
-				framework.Logf("Sleeping %d ms between template creation.", tuning.Templates.RateLimit.Delay)
-				time.Sleep(time.Duration(tuning.Templates.RateLimit.Delay) * time.Millisecond)
-			}
-			if tuning.Templates.Stepping.StepSize != 0 && (i+1)%tuning.Templates.Stepping.StepSize == 0 {
-				framework.Logf("We have created %d templates and are now sleeping for %d seconds", i+1, tuning.Templates.Stepping.Pause)
-				time.Sleep(time.Duration(tuning.Templates.Stepping.Pause) * time.Second)
-			}
-		}
-	}
-}
-
-// parsePods unmarshalls the json file defined in the CL config into a struct
-func parsePods(jsonFile string) (configStruct v1.Pod) {
-	configFile, err := ioutil.ReadFile(jsonFile)
-	if err != nil {
-		framework.Failf("Cant read config file. Error: %v", err)
-	}
-
-	err = json.Unmarshal(configFile, &configStruct)
-	if err != nil {
-		framework.Failf("Unable to unmarshal pod config. Error: %v", err)
-	}
-
-	framework.Logf("The loaded config file is: %+v", configStruct.Spec.Containers)
-	return
-}
-
-func getNsCmdFlag(ns *v1.Namespace) string {
-	return fmt.Sprintf("--namespace=%v", ns.Name)
-}
-
+// appendIntToString appends an integer i to string s
 func appendIntToString(s string, i int) string {
 	return s + strconv.Itoa(i)
 }

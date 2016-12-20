@@ -1,0 +1,17 @@
+provider: local
+deletenamespace: false
+ClusterLoader:
+  projects:
+    - num: 1
+      basename: clusterproject
+      pods:
+        - num: 1
+          image: gcr.io/google_containers/resource_consumer:beta
+          basename: resourceconsumer
+          file: rc-pod.json
+          parameters:
+            run: stress
+            router_ip: 10.0.0.1
+            target_host: 192.168.1.1
+            duration: 66
+            megabytes: 1024

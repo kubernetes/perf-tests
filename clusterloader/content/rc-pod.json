@@ -1,0 +1,54 @@
+{
+    "kind": "Pod",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "rc-pod",
+        "creationTimestamp": null,
+        "labels": {
+            "name": "rc-pod"
+        }
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "rc-pod",
+                "image": "gcr.io/google_containers/resource_consumer:beta",
+                "ports": [
+                    {
+                        "containerPort": 8080,
+                        "protocol": "TCP"
+                    }
+                ],
+		"env": [
+		    {
+			"name": "run"
+		    },
+		    {
+			"name": "routerIP"
+		    },
+		    {
+			"name": "targetHost"
+		    },
+		    {
+			"name": "durationSec",
+			"value": "30"
+		    },
+		    {
+			"name": "megabytes"
+		    }
+		],
+                "terminationMessagePath": "/dev/termination-log",
+                "imagePullPolicy": "IfNotPresent",
+                "capabilities": {},
+                "securityContext": {
+                    "capabilities": {},
+                    "privileged": false
+                }
+            }
+        ],
+        "restartPolicy": "Always",
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccount": ""
+    },
+    "status": {}
+}

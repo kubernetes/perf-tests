@@ -41,11 +41,21 @@ type ClusterLoaderType struct {
 
 // ClusterLoaderObjectType is nested object type for cluster loader struct
 type ClusterLoaderObjectType struct {
-	Total    int
-	Number   int `mapstructure:"num"`
-	Image    string
-	Basename string
-	File     string
+	Total      int
+	Number     int `mapstructure:"num"`
+	Image      string
+	Basename   string
+	File       string
+	Parameters ParameterConfigType
+}
+
+// ParameterConfigType contains config parameters for each object
+type ParameterConfigType struct {
+	Run         string
+	RouterIP    string `mapstructure:"router_ip"`
+	TargetHost  string `mapstructure:"target_host"`
+	DurationSec int    `mapstructure:"duration"`
+	Megabytes   int
 }
 
 // TuningSetType is nested type for controlling Cluster Loader deployment pattern
@@ -69,6 +79,20 @@ type TuningSetObjectType struct {
 
 // ConfigContext variable of type ContextType
 var ConfigContext ContextType
+
+// PodCount struct keeps HTTP requst counts and state
+type PodCount struct {
+	Started  int
+	Stopped  int
+	Shutdown chan bool
+}
+
+// ServiceInfo struct to bundle env data
+type ServiceInfo struct {
+	Name string
+	IP   string
+	Port int32
+}
 
 // ParseConfig will complete flag parsing as well as viper tasks
 func ParseConfig(config string) {

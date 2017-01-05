@@ -1,0 +1,11 @@
+# Configures appc tests at Travis CI (https://travis-ci.org).
+
+language: go
+
+matrix:
+  include:
+    - go: 1.5.1
+    - go: 1.6
+
+script:
+ - ./test

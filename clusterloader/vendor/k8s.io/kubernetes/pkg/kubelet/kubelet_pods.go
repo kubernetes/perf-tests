@@ -466,7 +466,7 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *v1.Pod, container *v1.Container
 					if kl.kubeClient == nil {
 						return result, fmt.Errorf("Couldn't get configMap %v/%v, no kubeClient defined", pod.Namespace, name)
 					}
-					configMap, err = kl.kubeClient.Core().ConfigMaps(pod.Namespace).Get(name)
+					configMap, err = kl.kubeClient.Core().ConfigMaps(pod.Namespace).Get(name, metav1.GetOptions{})
 					if err != nil {
 						return result, err
 					}
@@ -484,7 +484,7 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *v1.Pod, container *v1.Container
 					if kl.kubeClient == nil {
 						return result, fmt.Errorf("Couldn't get secret %v/%v, no kubeClient defined", pod.Namespace, name)
 					}
-					secret, err = kl.kubeClient.Core().Secrets(pod.Namespace).Get(name)
+					secret, err = kl.kubeClient.Core().Secrets(pod.Namespace).Get(name, metav1.GetOptions{})
 					if err != nil {
 						return result, err
 					}
@@ -592,11 +592,6 @@ func (kl *Kubelet) makePodDataDirs(pod *v1.Pod) error {
 	return nil
 }
 
-// returns whether the pod uses the host network namespace.
-func podUsesHostNetwork(pod *v1.Pod) bool {
-	return pod.Spec.HostNetwork
-}
-
 // getPullSecretsForPod inspects the Pod and retrieves the referenced pull
 // secrets.
 // TODO: duplicate secrets are being retrieved multiple times and there
@@ -606,7 +601,7 @@ func (kl *Kubelet) getPullSecretsForPod(pod *v1.Pod) ([]v1.Secret, error) {
 	pullSecrets := []v1.Secret{}
 
 	for _, secretRef := range pod.Spec.ImagePullSecrets {
-		secret, err := kl.kubeClient.Core().Secrets(pod.Namespace).Get(secretRef.Name)
+		secret, err := kl.kubeClient.Core().Secrets(pod.Namespace).Get(secretRef.Name, metav1.GetOptions{})
 		if err != nil {
 			glog.Warningf("Unable to retrieve pull secret %s/%s for %s/%s due to %v.  The image pull may not succeed.", pod.Namespace, secretRef.Name, pod.Namespace, pod.Name, err)
 			continue
@@ -1066,7 +1061,7 @@ func (kl *Kubelet) generateAPIPodStatus(pod *v1.Pod, podStatus *kubecontainer.Po
 			glog.V(4).Infof("Cannot get host IP: %v", err)
 		} else {
 			s.HostIP = hostIP.String()
-			if podUsesHostNetwork(pod) && s.PodIP == "" {
+			if kubecontainer.IsHostNetworkPod(pod) && s.PodIP == "" {
 				s.PodIP = hostIP.String()
 			}
 		}
@@ -1441,21 +1436,9 @@ func (kl *Kubelet) cleanupOrphanedPodCgroups(
 // or it will not have the correct capabilities in the namespace.  This means that host user namespace
 // is enabled per pod, not per container.
 func (kl *Kubelet) enableHostUserNamespace(pod *v1.Pod) bool {
-	if hasPrivilegedContainer(pod) || hasHostNamespace(pod) ||
+	if kubecontainer.HasPrivilegedContainer(pod) || hasHostNamespace(pod) ||
 		hasHostVolume(pod) || hasNonNamespacedCapability(pod) || kl.hasHostMountPVC(pod) {
 		return true
-	}
-	return false
-}
-
-// hasPrivilegedContainer returns true if any of the containers in the pod are privileged.
-func hasPrivilegedContainer(pod *v1.Pod) bool {
-	for _, c := range pod.Spec.Containers {
-		if c.SecurityContext != nil &&
-			c.SecurityContext.Privileged != nil &&
-			*c.SecurityContext.Privileged {
-			return true
-		}
 	}
 	return false
 }
@@ -1497,13 +1480,13 @@ func hasHostNamespace(pod *v1.Pod) bool {
 func (kl *Kubelet) hasHostMountPVC(pod *v1.Pod) bool {
 	for _, volume := range pod.Spec.Volumes {
 		if volume.PersistentVolumeClaim != nil {
-			pvc, err := kl.kubeClient.Core().PersistentVolumeClaims(pod.Namespace).Get(volume.PersistentVolumeClaim.ClaimName)
+			pvc, err := kl.kubeClient.Core().PersistentVolumeClaims(pod.Namespace).Get(volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 			if err != nil {
 				glog.Warningf("unable to retrieve pvc %s:%s - %v", pod.Namespace, volume.PersistentVolumeClaim.ClaimName, err)
 				continue
 			}
 			if pvc != nil {
-				referencedVolume, err := kl.kubeClient.Core().PersistentVolumes().Get(pvc.Spec.VolumeName)
+				referencedVolume, err := kl.kubeClient.Core().PersistentVolumes().Get(pvc.Spec.VolumeName, metav1.GetOptions{})
 				if err != nil {
 					glog.Warningf("unable to retrieve pvc %s - %v", pvc.Spec.VolumeName, err)
 					continue

@@ -28,8 +28,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	unversionedcore "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	unversionedcore "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller"
@@ -302,7 +302,7 @@ func (s *ServiceController) createLoadBalancerIfNeeded(key string, service *v1.S
 			return fmt.Errorf("Failed to persist updated status to apiserver, even after retries. Giving up: %v", err), notRetryable
 		}
 	} else {
-		glog.V(2).Infof("Not persisting unchanged LoadBalancerStatus to registry.")
+		glog.V(2).Infof("Not persisting unchanged LoadBalancerStatus for service %s to registry.", key)
 	}
 
 	return nil, notRetryable
@@ -324,12 +324,10 @@ func (s *ServiceController) persistUpdate(service *v1.Service) error {
 			return nil
 		}
 		// TODO: Try to resolve the conflict if the change was unrelated to load
-		// balancer status. For now, just rely on the fact that we'll
-		// also process the update that caused the resource version to change.
+		// balancer status. For now, just pass it up the stack.
 		if errors.IsConflict(err) {
-			glog.V(4).Infof("Not persisting update to service '%s/%s' that has been changed since we received it: %v",
+			return fmt.Errorf("Not persisting update to service '%s/%s' that has been changed since we received it: %v",
 				service.Namespace, service.Name, err)
-			return nil
 		}
 		glog.Warningf("Failed to persist updated LoadBalancerStatus to service '%s/%s' after creating its load balancer: %v",
 			service.Namespace, service.Name, err)

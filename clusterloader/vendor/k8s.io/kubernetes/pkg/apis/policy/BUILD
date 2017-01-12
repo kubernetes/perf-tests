@@ -4,10 +4,7 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -15,7 +12,6 @@ go_library(
     srcs = [
         "doc.go",
         "register.go",
-        "types.generated.go",
         "types.go",
         "zz_generated.deepcopy.go",
     ],
@@ -26,8 +22,6 @@ go_library(
         "//pkg/conversion:go_default_library",
         "//pkg/runtime:go_default_library",
         "//pkg/runtime/schema:go_default_library",
-        "//pkg/types:go_default_library",
         "//pkg/util/intstr:go_default_library",
-        "//vendor:github.com/ugorji/go/codec",
     ],
 )

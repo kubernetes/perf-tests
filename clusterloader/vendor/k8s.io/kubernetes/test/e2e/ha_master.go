@@ -26,7 +26,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -42,7 +42,7 @@ func addMasterReplica(zone string) error {
 
 func removeMasterReplica(zone string) error {
 	framework.Logf(fmt.Sprintf("Removing an existing master replica, zone: %s", zone))
-	v, _, err := framework.RunCmd(path.Join(framework.TestContext.RepoRoot, "hack/e2e-internal/e2e-remove-master.sh"), zone)
+	v, _, err := framework.RunCmd(path.Join(framework.TestContext.RepoRoot, "hack/e2e-internal/e2e-remove-master.sh"), zone, "true")
 	framework.Logf("%s", v)
 	if err != nil {
 		return err

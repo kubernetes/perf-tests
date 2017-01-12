@@ -24,7 +24,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/uuid"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -44,6 +45,7 @@ var masterNodes sets.String
 type pausePodConfig struct {
 	Name                              string
 	Affinity                          string
+	NodeAffinity                      *v1.Affinity
 	Annotations, Labels, NodeSelector map[string]string
 	Resources                         *v1.ResourceRequirements
 }
@@ -59,7 +61,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 	ignoreLabels := framework.ImagePullerLabels
 
 	AfterEach(func() {
-		rc, err := cs.Core().ReplicationControllers(ns).Get(RCName)
+		rc, err := cs.Core().ReplicationControllers(ns).Get(RCName, metav1.GetOptions{})
 		if err == nil && *(rc.Spec.Replicas) != 0 {
 			By("Cleaning up the replication controller")
 			err := framework.DeleteRCAndPods(f.ClientSet, f.InternalClientset, ns, RCName)
@@ -90,7 +92,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 			}
 		}
 
-		err = framework.WaitForPodsRunningReady(cs, api.NamespaceSystem, int32(systemPodsNo), framework.PodReadyBeforeTimeout, ignoreLabels)
+		err = framework.WaitForPodsRunningReady(cs, api.NamespaceSystem, int32(systemPodsNo), framework.PodReadyBeforeTimeout, ignoreLabels, true)
 		Expect(err).NotTo(HaveOccurred())
 
 		for _, node := range nodeList.Items {
@@ -239,15 +241,17 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		podName := "without-label"
 		_, err := cs.Core().Pods(ns).Create(initPausePod(f, pausePodConfig{
 			Name: podName,
-			Affinity: `{
-				"nodeAffinity": {
-					"requiredDuringSchedulingIgnoredDuringExecution": {
-						"nodeSelectorTerms": [{
-							"matchExpressions": []
-						}]
+			NodeAffinity: &v1.Affinity{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{
+								MatchExpressions: []v1.NodeSelectorRequirement{},
+							},
+						},
 					},
-				}
-			}`,
+				},
+			},
 		}))
 
 		if err == nil || !errors.IsInvalid(err) {
@@ -284,7 +288,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, labelPodName, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(labelPodName)
+		labelPod, err := cs.Core().Pods(ns).Get(labelPodName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -299,28 +303,31 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 
 		createPausePod(f, pausePodConfig{
 			Name: podName,
-			Affinity: `{
-				"nodeAffinity": {
-					"requiredDuringSchedulingIgnoredDuringExecution": {
-						"nodeSelectorTerms": [
+			NodeAffinity: &v1.Affinity{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
 							{
-								"matchExpressions": [{
-									"key": "foo",
-									"operator": "In",
-									"values": ["bar", "value2"]
-								}]
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "foo",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{"bar", "value2"},
+									},
+								},
+							}, {
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "diffkey",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{"wrong", "value2"},
+									},
+								},
 							},
-							{
-								"matchExpressions": [{
-									"key": "diffkey",
-									"operator": "In",
-									"values": ["wrong", "value2"]
-								}]
-							}
-						]
-					}
-				}
-			}`,
+						},
+					},
+				},
+			},
 			Labels: map[string]string{"name": "restricted"},
 		})
 		waitForScheduler()
@@ -343,23 +350,27 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		labelPodName := "with-labels"
 		pod := createPausePod(f, pausePodConfig{
 			Name: labelPodName,
-			Affinity: `{
-				"nodeAffinity": {
-					"requiredDuringSchedulingIgnoredDuringExecution": {
-						"nodeSelectorTerms": [{
-							"matchExpressions": [{
-								"key": "kubernetes.io/hostname",
-								"operator": "In",
-								"values": ["` + nodeName + `"]
-							},{
-								"key": "` + k + `",
-								"operator": "In",
-								"values": ["` + v + `"]
-							}]
-						}]
-					}
-				}
-			}`,
+			NodeAffinity: &v1.Affinity{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "kubernetes.io/hostname",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{nodeName},
+									}, {
+										Key:      k,
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{v},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		})
 
 		// check that pod got scheduled. We intentionally DO NOT check that the
@@ -368,32 +379,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, labelPodName, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(labelPodName)
-		framework.ExpectNoError(err)
-		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
-	})
-
-	// Verify that an escaped JSON string of NodeAffinity in a YAML PodSpec works.
-	It("validates that embedding the JSON NodeAffinity setting as a string in the annotation value work", func() {
-		nodeName := getNodeThatCanRunPod(f)
-
-		By("Trying to apply a label with fake az info on the found node.")
-		k := "kubernetes.io/e2e-az-name"
-		v := "e2e-az1"
-		framework.AddOrUpdateLabelOnNode(cs, nodeName, k, v)
-		framework.ExpectNodeHasLabel(cs, nodeName, k, v)
-		defer framework.RemoveLabelOffNode(cs, nodeName, k)
-
-		By("Trying to launch a pod that with NodeAffinity setting as embedded JSON string in the annotation value.")
-		pod := createPodWithNodeAffinity(f)
-
-		// check that pod got scheduled. We intentionally DO NOT check that the
-		// pod is running because this will create a race condition with the
-		// kubelet and the scheduler: the scheduler might have scheduled a pod
-		// already when the kubelet does not know about its new label yet. The
-		// kubelet will then refuse to launch the pod.
-		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, pod.Name, ""))
-		labelPod, err := cs.Core().Pods(ns).Get(pod.Name)
+		labelPod, err := cs.Core().Pods(ns).Get(labelPodName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -499,7 +485,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, labelPodName, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(labelPodName)
+		labelPod, err := cs.Core().Pods(ns).Get(labelPodName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -514,7 +500,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		CreateHostPortPods(f, "host-port", 2, true)
 		defer framework.DeleteRCAndPods(f.ClientSet, f.InternalClientset, ns, "host-port")
 		podList, err := cs.Core().Pods(ns).List(v1.ListOptions{})
-		ExpectNoError(err)
+		framework.ExpectNoError(err)
 		Expect(len(podList.Items)).To(Equal(2))
 		nodeNames := []string{podList.Items[0].Spec.NodeName, podList.Items[1].Spec.NodeName}
 		Expect(nodeNames[0]).ToNot(Equal(nodeNames[1]))
@@ -610,7 +596,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, labelPodName, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(labelPodName)
+		labelPod, err := cs.Core().Pods(ns).Get(labelPodName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -635,7 +621,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, pod.Name, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(pod.Name)
+		labelPod, err := cs.Core().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -659,7 +645,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new label yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, pod.Name, pod.ResourceVersion))
-		labelPod, err := cs.Core().Pods(ns).Get(pod.Name)
+		labelPod, err := cs.Core().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(labelPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -711,7 +697,7 @@ var _ = framework.KubeDescribe("SchedulerPredicates [Serial]", func() {
 		// already when the kubelet does not know about its new taint yet. The
 		// kubelet will then refuse to launch the pod.
 		framework.ExpectNoError(framework.WaitForPodNotPending(cs, ns, tolerationPodName, pod.ResourceVersion))
-		deployedPod, err := cs.Core().Pods(ns).Get(tolerationPodName)
+		deployedPod, err := cs.Core().Pods(ns).Get(tolerationPodName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		Expect(deployedPod.Spec.NodeName).To(Equal(nodeName))
 	})
@@ -776,6 +762,7 @@ func initPausePod(f *framework.Framework, conf pausePodConfig) *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			NodeSelector: conf.NodeSelector,
+			Affinity:     conf.NodeAffinity,
 			Containers: []v1.Container{
 				{
 					Name:  podName,
@@ -799,7 +786,7 @@ func createPausePod(f *framework.Framework, conf pausePodConfig) *v1.Pod {
 func runPausePod(f *framework.Framework, conf pausePodConfig) *v1.Pod {
 	pod := createPausePod(f, conf)
 	framework.ExpectNoError(framework.WaitForPodRunningInNamespace(f.ClientSet, pod))
-	pod, err := f.ClientSet.Core().Pods(f.Namespace.Name).Get(conf.Name)
+	pod, err := f.ClientSet.Core().Pods(f.Namespace.Name).Get(conf.Name, metav1.GetOptions{})
 	framework.ExpectNoError(err)
 	return pod
 }
@@ -821,19 +808,23 @@ func runPodAndGetNodeName(f *framework.Framework, conf pausePodConfig) string {
 func createPodWithNodeAffinity(f *framework.Framework) *v1.Pod {
 	return createPausePod(f, pausePodConfig{
 		Name: "with-nodeaffinity-" + string(uuid.NewUUID()),
-		Affinity: `{
-			"nodeAffinity": {
-				"requiredDuringSchedulingIgnoredDuringExecution": {
-					"nodeSelectorTerms": [{
-						"matchExpressions": [{
-							"key": "kubernetes.io/e2e-az-name",
-							"operator": "In",
-							"values": ["e2e-az1", "e2e-az2"]
-						}]
-					}]
-				}
-			}
-		}`,
+		NodeAffinity: &v1.Affinity{
+			NodeAffinity: &v1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/e2e-az-name",
+									Operator: v1.NodeSelectorOpIn,
+									Values:   []string{"e2e-az1", "e2e-az2"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	})
 }
 

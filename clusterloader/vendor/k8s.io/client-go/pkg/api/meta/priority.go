@@ -163,9 +163,9 @@ func (m PriorityRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string)
 	if len(versions) > 0 {
 		priorities = make([]schema.GroupVersionKind, 0, len(m.KindPriority)+len(versions))
 		for _, version := range versions {
-			gv, err := schema.ParseGroupVersion(version)
-			if err != nil {
-				return nil, err
+			gv := schema.GroupVersion{
+				Version: version,
+				Group:   gk.Group,
 			}
 			priorities = append(priorities, gv.WithKind(AnyKind))
 		}
@@ -205,8 +205,8 @@ func (m PriorityRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string)
 	return nil, &AmbiguousKindError{PartialKind: gk.WithVersion(""), MatchingKinds: kinds}
 }
 
-func (m PriorityRESTMapper) RESTMappings(gk schema.GroupKind) ([]*RESTMapping, error) {
-	return m.Delegate.RESTMappings(gk)
+func (m PriorityRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string) ([]*RESTMapping, error) {
+	return m.Delegate.RESTMappings(gk, versions...)
 }
 
 func (m PriorityRESTMapper) AliasesForResource(alias string) (aliases []string, ok bool) {

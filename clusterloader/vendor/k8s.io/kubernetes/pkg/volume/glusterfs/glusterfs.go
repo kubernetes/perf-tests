@@ -32,8 +32,9 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/types"
 	"k8s.io/kubernetes/pkg/util/exec"
@@ -73,7 +74,12 @@ const (
 	gciGlusterMountBinariesPath = "/sbin/mount.glusterfs"
 	defaultGidMin               = 2000
 	defaultGidMax               = math.MaxInt32
-	absoluteGidMax              = math.MaxInt32
+	// absoluteGidMin/Max are currently the same as the
+	// default values, but they play a different role and
+	// could take a different value. Only thing we need is:
+	// absGidMin <= defGidMin <= defGidMax <= absGidMax
+	absoluteGidMin = 2000
+	absoluteGidMax = math.MaxInt32
 )
 
 func (plugin *glusterfsPlugin) Init(host volume.VolumeHost) error {
@@ -123,7 +129,7 @@ func (plugin *glusterfsPlugin) NewMounter(spec *volume.Spec, pod *v1.Pod, _ volu
 	ep_name := source.EndpointsName
 	// PVC/POD is in same ns.
 	ns := pod.Namespace
-	ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name)
+	ep, err := plugin.host.GetKubeClient().Core().Endpoints(ns).Get(ep_name, metav1.GetOptions{})
 	if err != nil {
 		glog.Errorf("glusterfs: failed to get endpoints %s[%v]", ep_name, err)
 		return nil, err
@@ -251,8 +257,7 @@ func (b *glusterfsMounter) SetUpAt(dir string, fsGroup *int64) error {
 	}
 
 	// Cleanup upon failure.
-	c := &glusterfsUnmounter{b.glusterfs}
-	c.cleanup(dir)
+	volutil.UnmountPath(dir, b.mounter)
 	return err
 }
 
@@ -272,32 +277,7 @@ func (c *glusterfsUnmounter) TearDown() error {
 }
 
 func (c *glusterfsUnmounter) TearDownAt(dir string) error {
-	return c.cleanup(dir)
-}
-
-func (c *glusterfsUnmounter) cleanup(dir string) error {
-	notMnt, err := c.mounter.IsLikelyNotMountPoint(dir)
-	if err != nil {
-		return fmt.Errorf("glusterfs: Error checking IsLikelyNotMountPoint: %v", err)
-	}
-	if notMnt {
-		return os.RemoveAll(dir)
-	}
-
-	if err := c.mounter.Unmount(dir); err != nil {
-		return fmt.Errorf("glusterfs: Unmounting failed: %v", err)
-	}
-	notMnt, mntErr := c.mounter.IsLikelyNotMountPoint(dir)
-	if mntErr != nil {
-		return fmt.Errorf("glusterfs: IsLikelyNotMountPoint check failed: %v", mntErr)
-	}
-	if notMnt {
-		if err := os.RemoveAll(dir); err != nil {
-			return fmt.Errorf("glusterfs: RemoveAll failed: %v", err)
-		}
-	}
-
-	return nil
+	return volutil.UnmountPath(dir, c.mounter)
 }
 
 func (b *glusterfsMounter) setUpAtInternal(dir string) error {
@@ -849,6 +829,9 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 	var cfg provisioningConfig
 	var err error
 
+	cfg.gidMin = defaultGidMin
+	cfg.gidMax = defaultGidMax
+
 	authEnabled := true
 	for k, v := range params {
 		switch dstrings.ToLower(k) {
@@ -873,11 +856,23 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 			if err != nil {
 				return nil, fmt.Errorf("glusterfs: invalid value %q for volume plugin %s", k, glusterfsPluginName)
 			}
+			if parseGidMin < absoluteGidMin {
+				return nil, fmt.Errorf("glusterfs: gidMin must be >= %v", absoluteGidMin)
+			}
+			if parseGidMin > absoluteGidMax {
+				return nil, fmt.Errorf("glusterfs: gidMin must be <= %v", absoluteGidMax)
+			}
 			cfg.gidMin = parseGidMin
 		case "gidmax":
 			parseGidMax, err := convertGid(v)
 			if err != nil {
 				return nil, fmt.Errorf("glusterfs: invalid value %q for volume plugin %s", k, glusterfsPluginName)
+			}
+			if parseGidMax < absoluteGidMin {
+				return nil, fmt.Errorf("glusterfs: gidMax must be >= %v", absoluteGidMin)
+			}
+			if parseGidMax > absoluteGidMax {
+				return nil, fmt.Errorf("glusterfs: gidMax must be <= %v", absoluteGidMax)
 			}
 			cfg.gidMax = parseGidMax
 		default:
@@ -909,14 +904,6 @@ func parseClassParameters(params map[string]string, kubeClient clientset.Interfa
 		}
 	} else {
 		cfg.secretValue = cfg.userKey
-	}
-
-	if cfg.gidMin == 0 {
-		cfg.gidMin = defaultGidMin
-	}
-
-	if cfg.gidMax == 0 {
-		cfg.gidMax = defaultGidMax
 	}
 
 	if cfg.gidMin > cfg.gidMax {

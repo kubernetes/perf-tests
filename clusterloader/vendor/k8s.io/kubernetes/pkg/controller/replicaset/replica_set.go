@@ -32,8 +32,8 @@ import (
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/informers"
@@ -207,7 +207,7 @@ func (rsc *ReplicaSetController) getPodReplicaSet(pod *v1.Pod) *extensions.Repli
 		// overlap, sort by creation timestamp, subsort by name, then pick
 		// the first.
 		utilruntime.HandleError(fmt.Errorf("user error! more than one ReplicaSet is selecting pods with labels: %+v", pod.Labels))
-		sort.Sort(overlappingReplicaSets(rss))
+		sort.Sort(controller.ReplicaSetsByCreationTimestamp(rss))
 	}
 
 	// update lookup cache
@@ -354,6 +354,7 @@ func (rsc *ReplicaSetController) updatePod(old, cur interface{}) {
 		// Note that this still suffers from #29229, we are just moving the problem one level
 		// "closer" to kubelet (from the deployment to the replica set controller).
 		if changedToReady && curRS.Spec.MinReadySeconds > 0 {
+			glog.V(2).Infof("ReplicaSet %q will be enqueued after %ds for availability check", curRS.Name, curRS.Spec.MinReadySeconds)
 			rsc.enqueueReplicaSetAfter(curRS, time.Duration(curRS.Spec.MinReadySeconds)*time.Second)
 		}
 	}
@@ -485,7 +486,7 @@ func (rsc *ReplicaSetController) manageReplicas(filteredPods []*v1.Pod, rs *exte
 
 				if rsc.garbageCollectorEnabled {
 					var trueVar = true
-					controllerRef := &v1.OwnerReference{
+					controllerRef := &metav1.OwnerReference{
 						APIVersion: getRSKind().GroupVersion().String(),
 						Kind:       getRSKind().Kind,
 						Name:       rs.Name,
@@ -577,15 +578,6 @@ func (rsc *ReplicaSetController) syncReplicaSet(key string) error {
 	}
 	rs := *obj.(*extensions.ReplicaSet)
 
-	// Check the expectations of the ReplicaSet before counting active pods, otherwise a new pod can sneak
-	// in and update the expectations after we've retrieved active pods from the store. If a new pod enters
-	// the store after we've checked the expectation, the ReplicaSet sync is just deferred till the next
-	// relist.
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for ReplicaSet %#v: %v", rs, err))
-		// Explicitly return nil to avoid re-enqueue bad key
-		return nil
-	}
 	rsNeedsSync := rsc.expectations.SatisfiedExpectations(key)
 	selector, err := metav1.LabelSelectorAsSelector(rs.Spec.Selector)
 	if err != nil {
@@ -606,16 +598,19 @@ func (rsc *ReplicaSetController) syncReplicaSet(key string) error {
 		}
 		cm := controller.NewPodControllerRefManager(rsc.podControl, rs.ObjectMeta, selector, getRSKind())
 		matchesAndControlled, matchesNeedsController, controlledDoesNotMatch := cm.Classify(pods)
-		for _, pod := range matchesNeedsController {
-			err := cm.AdoptPod(pod)
-			// continue to next pod if adoption fails.
-			if err != nil {
-				// If the pod no longer exists, don't even log the error.
-				if !errors.IsNotFound(err) {
-					utilruntime.HandleError(err)
+		// Adopt pods only if this replica set is not going to be deleted.
+		if rs.DeletionTimestamp == nil {
+			for _, pod := range matchesNeedsController {
+				err := cm.AdoptPod(pod)
+				// continue to next pod if adoption fails.
+				if err != nil {
+					// If the pod no longer exists, don't even log the error.
+					if !errors.IsNotFound(err) {
+						utilruntime.HandleError(err)
+					}
+				} else {
+					matchesAndControlled = append(matchesAndControlled, pod)
 				}
-			} else {
-				matchesAndControlled = append(matchesAndControlled, pod)
 			}
 		}
 		filteredPods = matchesAndControlled

@@ -31,6 +31,8 @@ import (
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/util/intstr"
+
+	"github.com/blang/semver"
 )
 
 // Static pod definitions in golang form are included below so that `kubeadm init` can get going.
@@ -47,7 +49,14 @@ const (
 	kubeControllerManager = "kube-controller-manager"
 	kubeScheduler         = "kube-scheduler"
 	kubeProxy             = "kube-proxy"
-	pkiDir                = "/etc/kubernetes/pki"
+)
+
+var (
+	// Minimum version of kube-apiserver that supports --kubelet-preferred-address-types
+	preferredAddressAPIServerMinVersion = semver.MustParse("1.5.0")
+
+	// Minimum version of kube-apiserver that has to have --anonymous-auth=false set
+	anonAuthDisableAPIServerMinVersion = semver.MustParse("1.5.0")
 )
 
 // WriteStaticPodManifests builds manifest objects based on user provided configuration and then dumps it to disk
@@ -124,16 +133,16 @@ func WriteStaticPodManifests(cfg *kubeadmapi.MasterConfiguration) error {
 
 	manifestsPath := path.Join(kubeadmapi.GlobalEnvParams.KubernetesDir, "manifests")
 	if err := os.MkdirAll(manifestsPath, 0700); err != nil {
-		return fmt.Errorf("<master/manifests> failed to create directory %q [%v]", manifestsPath, err)
+		return fmt.Errorf("failed to create directory %q [%v]", manifestsPath, err)
 	}
 	for name, spec := range staticPodSpecs {
 		filename := path.Join(manifestsPath, name+".json")
 		serialized, err := json.MarshalIndent(spec, "", "  ")
 		if err != nil {
-			return fmt.Errorf("<master/manifests> failed to marshall manifest for %q to JSON [%v]", name, err)
+			return fmt.Errorf("failed to marshal manifest for %q to JSON [%v]", name, err)
 		}
 		if err := cmdutil.DumpReaderToFile(bytes.NewReader(serialized), filename); err != nil {
-			return fmt.Errorf("<master/manifests> failed to create static pod manifest file for %q (%q) [%v]", name, filename, err)
+			return fmt.Errorf("failed to create static pod manifest file for %q (%q) [%v]", name, filename, err)
 		}
 	}
 	return nil
@@ -265,33 +274,48 @@ func componentPod(container api.Container, volumes ...api.Volume) api.Pod {
 	}
 }
 
-func getComponentBaseCommand(component string) (command []string) {
+func getComponentBaseCommand(component string) []string {
 	if kubeadmapi.GlobalEnvParams.HyperkubeImage != "" {
-		command = []string{"/hyperkube", component}
-	} else {
-		command = []string{"kube-" + component}
+		return []string{"/hyperkube", component}
 	}
-	command = append(command, kubeadmapi.GlobalEnvParams.ComponentLoglevel)
-	return
+
+	return []string{"kube-" + component}
 }
 
-func getAPIServerCommand(cfg *kubeadmapi.MasterConfiguration) (command []string) {
-	command = append(getComponentBaseCommand(apiServer),
+func getAPIServerCommand(cfg *kubeadmapi.MasterConfiguration) []string {
+	command := append(getComponentBaseCommand(apiServer),
 		"--insecure-bind-address=127.0.0.1",
 		"--admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota",
 		"--service-cluster-ip-range="+cfg.Networking.ServiceSubnet,
-		"--service-account-key-file="+pkiDir+"/apiserver-key.pem",
-		"--client-ca-file="+pkiDir+"/ca.pem",
-		"--tls-cert-file="+pkiDir+"/apiserver.pem",
-		"--tls-private-key-file="+pkiDir+"/apiserver-key.pem",
-		"--token-auth-file="+pkiDir+"/tokens.csv",
-		fmt.Sprintf("--secure-port=%d", cfg.API.BindPort),
+		"--service-account-key-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/apiserver-key.pem",
+		"--client-ca-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/ca.pem",
+		"--tls-cert-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/apiserver.pem",
+		"--tls-private-key-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/apiserver-key.pem",
+		"--token-auth-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/tokens.csv",
+		fmt.Sprintf("--secure-port=%d", cfg.API.Port),
 		"--allow-privileged",
 	)
 
 	// Use first address we are given
 	if len(cfg.API.AdvertiseAddresses) > 0 {
 		command = append(command, fmt.Sprintf("--advertise-address=%s", cfg.API.AdvertiseAddresses[0]))
+	}
+
+	if len(cfg.KubernetesVersion) != 0 {
+		// If the k8s version is v1.5-something, this argument is set and makes `kubectl logs` and `kubectl exec`
+		// work on bare-metal where hostnames aren't usually resolvable
+		// Omit the "v" in the beginning, otherwise semver will fail
+		k8sVersion, err := semver.Parse(cfg.KubernetesVersion[1:])
+
+		// If the k8s version is greater than this version, it supports telling it which way it should contact kubelets
+		if err == nil && k8sVersion.GTE(preferredAddressAPIServerMinVersion) {
+			command = append(command, "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname")
+		}
+
+		// This is a critical "bugfix". Any version above this is vulnarable unless a RBAC/ABAC-authorizer is provided (which kubeadm doesn't for the time being)
+		if err == nil && k8sVersion.GTE(anonAuthDisableAPIServerMinVersion) {
+			command = append(command, "--anonymous-auth=false")
+		}
 	}
 
 	// Check if the user decided to use an external etcd cluster
@@ -320,19 +344,19 @@ func getAPIServerCommand(cfg *kubeadmapi.MasterConfiguration) (command []string)
 		}
 	}
 
-	return
+	return command
 }
 
-func getControllerManagerCommand(cfg *kubeadmapi.MasterConfiguration) (command []string) {
-	command = append(getComponentBaseCommand(controllerManager),
+func getControllerManagerCommand(cfg *kubeadmapi.MasterConfiguration) []string {
+	command := append(getComponentBaseCommand(controllerManager),
 		"--address=127.0.0.1",
 		"--leader-elect",
 		"--master=127.0.0.1:8080",
 		"--cluster-name="+DefaultClusterName,
-		"--root-ca-file="+pkiDir+"/ca.pem",
-		"--service-account-private-key-file="+pkiDir+"/apiserver-key.pem",
-		"--cluster-signing-cert-file="+pkiDir+"/ca.pem",
-		"--cluster-signing-key-file="+pkiDir+"/ca-key.pem",
+		"--root-ca-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/ca.pem",
+		"--service-account-private-key-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/apiserver-key.pem",
+		"--cluster-signing-cert-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/ca.pem",
+		"--cluster-signing-key-file="+kubeadmapi.GlobalEnvParams.HostPKIPath+"/ca-key.pem",
 		"--insecure-experimental-approve-all-kubelet-csrs-for-group=system:kubelet-bootstrap",
 	)
 
@@ -340,7 +364,6 @@ func getControllerManagerCommand(cfg *kubeadmapi.MasterConfiguration) (command [
 		command = append(command, "--cloud-provider="+cfg.CloudProvider)
 
 		// Only append the --cloud-config option if there's a such file
-		// TODO(phase1+) this won't work unless it's in one of the few directories we bind-mount
 		if _, err := os.Stat(DefaultCloudConfigPath); err == nil {
 			command = append(command, "--cloud-config="+DefaultCloudConfigPath)
 		}
@@ -351,24 +374,19 @@ func getControllerManagerCommand(cfg *kubeadmapi.MasterConfiguration) (command [
 	if cfg.Networking.PodSubnet != "" {
 		command = append(command, "--allocate-node-cidrs=true", "--cluster-cidr="+cfg.Networking.PodSubnet)
 	}
-
-	return
+	return command
 }
 
-func getSchedulerCommand(cfg *kubeadmapi.MasterConfiguration) (command []string) {
-	command = append(getComponentBaseCommand(scheduler),
+func getSchedulerCommand(cfg *kubeadmapi.MasterConfiguration) []string {
+	return append(getComponentBaseCommand(scheduler),
 		"--address=127.0.0.1",
 		"--leader-elect",
 		"--master=127.0.0.1:8080",
 	)
-
-	return
 }
 
-func getProxyCommand(cfg *kubeadmapi.MasterConfiguration) (command []string) {
-	command = getComponentBaseCommand(proxy)
-
-	return
+func getProxyCommand(cfg *kubeadmapi.MasterConfiguration) []string {
+	return getComponentBaseCommand(proxy)
 }
 
 func getProxyEnvVars() []api.EnvVar {

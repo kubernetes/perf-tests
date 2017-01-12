@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	utilerrors "k8s.io/kubernetes/pkg/util/errors"
 	"k8s.io/kubernetes/pkg/util/interrupt"
+	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -193,7 +195,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 	// handle watch separately since we cannot watch multiple resource types
 	isWatch, isWatchOnly := cmdutil.GetFlagBool(cmd, "watch"), cmdutil.GetFlagBool(cmd, "watch-only")
 	if isWatch || isWatchOnly {
-		r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), runtime.UnstructuredJSONScheme).
+		r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), unstructured.UnstructuredJSONScheme).
 			NamespaceParam(cmdNamespace).DefaultNamespace().AllNamespaces(allNamespaces).
 			FilenameParam(enforceNamespace, &options.FilenameOptions).
 			SelectorParam(selector).
@@ -278,7 +280,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 		return nil
 	}
 
-	r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), runtime.UnstructuredJSONScheme).
+	r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), unstructured.UnstructuredJSONScheme).
 		NamespaceParam(cmdNamespace).DefaultNamespace().AllNamespaces(allNamespaces).
 		FilenameParam(enforceNamespace, &options.FilenameOptions).
 		SelectorParam(selector).
@@ -326,7 +328,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 			obj = infos[0].Object
 		} else {
 			// we have more than one item, so coerce all items into a list
-			list := &runtime.UnstructuredList{
+			list := &unstructured.UnstructuredList{
 				Object: map[string]interface{}{
 					"kind":       "List",
 					"apiVersion": "v1",
@@ -334,7 +336,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 				},
 			}
 			for _, info := range infos {
-				list.Items = append(list.Items, info.Object.(*runtime.Unstructured))
+				list.Items = append(list.Items, info.Object.(*unstructured.Unstructured))
 			}
 			obj = list
 		}
@@ -347,7 +349,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 			}
 
 			// take the filtered items and create a new list for display
-			list := &runtime.UnstructuredList{
+			list := &unstructured.UnstructuredList{
 				Object: map[string]interface{}{
 					"kind":       "List",
 					"apiVersion": "v1",
@@ -360,7 +362,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 			}
 
 			for _, item := range items {
-				list.Items = append(list.Items, item.(*runtime.Unstructured))
+				list.Items = append(list.Items, item.(*unstructured.Unstructured))
 			}
 			if err := printer.PrintObj(list, out); err != nil {
 				errs = append(errs, err)
@@ -386,6 +388,7 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 	}
 
 	allErrs := []error{}
+	errs := sets.NewString()
 	infos, err := r.Infos()
 	if err != nil {
 		allErrs = append(allErrs, err)
@@ -438,7 +441,10 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 			}
 			printer, err = f.PrinterForMapping(cmd, mapping, allNamespaces)
 			if err != nil {
-				allErrs = append(allErrs, err)
+				if !errs.Has(err.Error()) {
+					errs.Insert(err.Error())
+					allErrs = append(allErrs, err)
+				}
 				continue
 			}
 
@@ -452,13 +458,19 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 			lastMapping = mapping
 		}
 
+		// try to convert before apply filter func
+		decodedObj, _ := kubectl.DecodeUnknownObject(original)
+
 		// filter objects if filter has been defined for current object
-		if isFiltered, err := filterFuncs.Filter(original, filterOpts); isFiltered {
+		if isFiltered, err := filterFuncs.Filter(decodedObj, filterOpts); isFiltered {
 			if err == nil {
 				filteredResourceCount++
 				continue
 			}
-			allErrs = append(allErrs, err)
+			if !errs.Has(err.Error()) {
+				errs.Insert(err.Error())
+				allErrs = append(allErrs, err)
+			}
 		}
 
 		if resourcePrinter, found := printer.(*kubectl.HumanReadablePrinter); found {
@@ -480,13 +492,19 @@ func RunGet(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args [
 				resourcePrinter.EnsurePrintWithKind(resourceName)
 			}
 
-			if err := printer.PrintObj(original, w); err != nil {
-				allErrs = append(allErrs, err)
+			if err := printer.PrintObj(decodedObj, w); err != nil {
+				if !errs.Has(err.Error()) {
+					errs.Insert(err.Error())
+					allErrs = append(allErrs, err)
+				}
 			}
 			continue
 		}
-		if err := printer.PrintObj(original, w); err != nil {
-			allErrs = append(allErrs, err)
+		if err := printer.PrintObj(decodedObj, w); err != nil {
+			if !errs.Has(err.Error()) {
+				errs.Insert(err.Error())
+				allErrs = append(allErrs, err)
+			}
 			continue
 		}
 	}

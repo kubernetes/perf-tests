@@ -32,12 +32,14 @@ import (
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/registry/cachesize"
+	"k8s.io/kubernetes/pkg/registry/generic"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/runtime/schema"
 	"k8s.io/kubernetes/pkg/storage"
 	utilruntime "k8s.io/kubernetes/pkg/util/runtime"
 	"k8s.io/kubernetes/pkg/util/validation/field"
-	"k8s.io/kubernetes/pkg/version"
+	utilversion "k8s.io/kubernetes/pkg/util/version"
 	"k8s.io/kubernetes/pkg/watch"
 
 	"github.com/golang/glog"
@@ -233,11 +235,11 @@ func isOldKubectl(userAgent string) bool {
 	if len(subs) != 2 {
 		return false
 	}
-	kubectlVersion, versionErr := version.Parse(subs[1])
+	kubectlVersion, versionErr := utilversion.ParseSemantic(subs[1])
 	if versionErr != nil {
 		return false
 	}
-	return kubectlVersion.LT(version.MustParse("v1.4.0"))
+	return kubectlVersion.LessThan(utilversion.MustParseSemantic("v1.4.0"))
 }
 
 // Create inserts a new item according to the unique key from the object.
@@ -877,9 +879,6 @@ func (e *Store) Watch(ctx api.Context, options *api.ListOptions) (watch.Interfac
 func (e *Store) WatchPredicate(ctx api.Context, p storage.SelectionPredicate, resourceVersion string) (watch.Interface, error) {
 	if name, ok := p.MatchesSingle(); ok {
 		if key, err := e.KeyFunc(ctx, name); err == nil {
-			if err != nil {
-				return nil, err
-			}
 			w, err := e.Storage.Watch(ctx, key, resourceVersion, p)
 			if err != nil {
 				return nil, err
@@ -953,4 +952,111 @@ func (e *Store) Export(ctx api.Context, name string, opts metav1.ExportOptions) 
 		e.CreateStrategy.PrepareForCreate(ctx, obj)
 	}
 	return obj, nil
+}
+
+// CompleteWithOptions updates the store with the provided options and defaults common fields
+func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
+	if e.QualifiedResource.Empty() {
+		return fmt.Errorf("store %#v must have a non-empty qualified resource", e)
+	}
+	if e.NewFunc == nil {
+		return fmt.Errorf("store for %s must have NewFunc set", e.QualifiedResource.String())
+	}
+	if e.NewListFunc == nil {
+		return fmt.Errorf("store for %s must have NewListFunc set", e.QualifiedResource.String())
+	}
+	if (e.KeyRootFunc == nil) != (e.KeyFunc == nil) {
+		return fmt.Errorf("store for %s must set both KeyRootFunc and KeyFunc or neither", e.QualifiedResource.String())
+	}
+
+	var isNamespaced bool
+	switch {
+	case e.CreateStrategy != nil:
+		isNamespaced = e.CreateStrategy.NamespaceScoped()
+	case e.UpdateStrategy != nil:
+		isNamespaced = e.UpdateStrategy.NamespaceScoped()
+	default:
+		return fmt.Errorf("store for %s must have CreateStrategy or UpdateStrategy set", e.QualifiedResource.String())
+	}
+
+	if options.RESTOptions == nil {
+		return fmt.Errorf("options for %s must have RESTOptions set", e.QualifiedResource.String())
+	}
+	if options.AttrFunc == nil {
+		return fmt.Errorf("options for %s must have AttrFunc set", e.QualifiedResource.String())
+	}
+
+	opts, err := options.RESTOptions.GetRESTOptions(e.QualifiedResource)
+	if err != nil {
+		return err
+	}
+
+	// Resource prefix must come from the underlying factory
+	prefix := opts.ResourcePrefix
+	if !strings.HasPrefix(prefix, "/") {
+		prefix = "/" + prefix
+	}
+	if prefix == "/" {
+		return fmt.Errorf("store for %s has an invalid prefix %q", e.QualifiedResource.String(), opts.ResourcePrefix)
+	}
+
+	// Set the default behavior for storage key generation
+	if e.KeyRootFunc == nil && e.KeyFunc == nil {
+		if isNamespaced {
+			e.KeyRootFunc = func(ctx api.Context) string {
+				return NamespaceKeyRootFunc(ctx, prefix)
+			}
+			e.KeyFunc = func(ctx api.Context, name string) (string, error) {
+				return NamespaceKeyFunc(ctx, prefix, name)
+			}
+		} else {
+			e.KeyRootFunc = func(ctx api.Context) string {
+				return prefix
+			}
+			e.KeyFunc = func(ctx api.Context, name string) (string, error) {
+				return NoNamespaceKeyFunc(ctx, prefix, name)
+			}
+		}
+	}
+
+	// We adapt the store's keyFunc so that we can use it with the StorageDecorator
+	// without making any assumptions about where objects are stored in etcd
+	keyFunc := func(obj runtime.Object) (string, error) {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return "", err
+		}
+
+		if isNamespaced {
+			return e.KeyFunc(api.WithNamespace(api.NewContext(), accessor.GetNamespace()), accessor.GetName())
+		}
+
+		return e.KeyFunc(api.NewContext(), accessor.GetName())
+	}
+
+	triggerFunc := options.TriggerFunc
+	if triggerFunc == nil {
+		triggerFunc = storage.NoTriggerPublisher
+	}
+
+	if e.DeleteCollectionWorkers == 0 {
+		e.DeleteCollectionWorkers = opts.DeleteCollectionWorkers
+	}
+
+	e.EnableGarbageCollection = opts.EnableGarbageCollection
+
+	if e.Storage == nil {
+		e.Storage, e.DestroyFunc = opts.Decorator(
+			opts.StorageConfig,
+			cachesize.GetWatchCacheSizeByResource(cachesize.Resource(e.QualifiedResource.Resource)),
+			e.NewFunc(),
+			prefix,
+			keyFunc,
+			e.NewListFunc,
+			options.AttrFunc,
+			triggerFunc,
+		)
+	}
+
+	return nil
 }

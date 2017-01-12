@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
@@ -406,7 +406,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 	}
 
 	// TODO: make me easier to express from client code
-	pod, err := m.kubeClient.Core().Pods(status.podNamespace).Get(status.podName)
+	pod, err := m.kubeClient.Core().Pods(status.podNamespace).Get(status.podName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		glog.V(3).Infof("Pod %q (%s) does not exist on the server", status.podName, uid)
 		// If the Pod is deleted the status will be cleared in

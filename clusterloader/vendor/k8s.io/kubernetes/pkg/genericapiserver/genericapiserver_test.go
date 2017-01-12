@@ -58,15 +58,14 @@ func setUp(t *testing.T) (*etcdtesting.EtcdTestServer, Config, *assert.Assertion
 	config.RequestContextMapper = api.NewRequestContextMapper()
 	config.LegacyAPIGroupPrefixes = sets.NewString("/api")
 
-	config.EnableOpenAPISupport = true
-	config.EnableSwaggerSupport = true
-	config.OpenAPIConfig.Definitions = openapigen.OpenAPIDefinitions
+	config.OpenAPIConfig = DefaultOpenAPIConfig(openapigen.OpenAPIDefinitions)
 	config.OpenAPIConfig.Info = &spec.Info{
 		InfoProps: spec.InfoProps{
 			Title:   "Kubernetes",
 			Version: "unversioned",
 		},
 	}
+	config.SwaggerConfig = DefaultSwaggerConfig()
 
 	return etcdServer, *config, assert.New(t)
 }
@@ -88,13 +87,14 @@ func TestNew(t *testing.T) {
 	defer etcdserver.Terminate(t)
 
 	// Verify many of the variables match their config counterparts
-	assert.Equal(s.enableSwaggerSupport, config.EnableSwaggerSupport)
 	assert.Equal(s.legacyAPIGroupPrefixes, config.LegacyAPIGroupPrefixes)
 	assert.Equal(s.admissionControl, config.AdmissionControl)
 	assert.Equal(s.RequestContextMapper(), config.RequestContextMapper)
 
 	// these values get defaulted
-	assert.Equal(s.ExternalAddress, net.JoinHostPort(config.PublicAddress.String(), "6443"))
+	assert.Equal(net.JoinHostPort(config.PublicAddress.String(), "6443"), s.ExternalAddress)
+	assert.NotNil(s.swaggerConfig)
+	assert.Equal("http://"+s.ExternalAddress, s.swaggerConfig.WebServicesUrl)
 }
 
 // Verifies that AddGroupVersions works as expected.
@@ -270,8 +270,8 @@ func TestPrepareRun(t *testing.T) {
 	s, etcdserver, config, assert := newMaster(t)
 	defer etcdserver.Terminate(t)
 
-	assert.True(config.EnableSwaggerSupport)
-	assert.True(config.EnableOpenAPISupport)
+	assert.NotNil(config.SwaggerConfig)
+	assert.NotNil(config.OpenAPIConfig)
 
 	server := httptest.NewServer(s.HandlerContainer.ServeMux)
 	defer server.Close()
@@ -285,6 +285,14 @@ func TestPrepareRun(t *testing.T) {
 
 	// swagger is installed in PrepareRun
 	resp, err = http.Get(server.URL + "/swaggerapi/")
+	assert.NoError(err)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+
+	// healthz checks are installed in PrepareRun
+	resp, err = http.Get(server.URL + "/healthz")
+	assert.NoError(err)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	resp, err = http.Get(server.URL + "/healthz/ping")
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, resp.StatusCode)
 }
@@ -315,7 +323,7 @@ func TestCustomHandlerChain(t *testing.T) {
 	}
 
 	s.HandlerContainer.NonSwaggerRoutes.Handle("/nonswagger", handler)
-	s.HandlerContainer.SecretRoutes.Handle("/secret", handler)
+	s.HandlerContainer.UnlistedRoutes.Handle("/secret", handler)
 
 	type Test struct {
 		handler   http.Handler
@@ -361,7 +369,7 @@ func TestNotRestRoutesHaveAuth(t *testing.T) {
 	config.EnableSwaggerUI = true
 	config.EnableIndex = true
 	config.EnableProfiling = true
-	config.EnableSwaggerSupport = true
+	config.SwaggerConfig = DefaultSwaggerConfig()
 
 	kubeVersion := version.Get()
 	config.Version = &kubeVersion

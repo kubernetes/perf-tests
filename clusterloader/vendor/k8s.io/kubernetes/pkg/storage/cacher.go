@@ -177,6 +177,10 @@ type Cacher struct {
 	watcherIdx int
 	watchers   indexedWatchers
 
+	// Defines a time budget that can be spend on waiting for not-ready watchers
+	// while dispatching event before shutting them down.
+	dispatchTimeoutBudget *timeBudget
+
 	// Handling graceful termination.
 	stopLock sync.RWMutex
 	stopped  bool
@@ -199,6 +203,7 @@ func NewCacherFromConfig(config CacherConfig) *Cacher {
 		}
 	}
 
+	stopCh := make(chan struct{})
 	cacher := &Cacher{
 		ready:       newReady(),
 		storage:     config.Storage,
@@ -213,18 +218,18 @@ func NewCacherFromConfig(config CacherConfig) *Cacher {
 			valueWatchers: make(map[string]watchersMap),
 		},
 		// TODO: Figure out the correct value for the buffer size.
-		incoming: make(chan watchCacheEvent, 100),
+		incoming:              make(chan watchCacheEvent, 100),
+		dispatchTimeoutBudget: newTimeBudget(stopCh),
 		// We need to (potentially) stop both:
 		// - wait.Until go-routine
 		// - reflector.ListAndWatch
 		// and there are no guarantees on the order that they will stop.
 		// So we will be simply closing the channel, and synchronizing on the WaitGroup.
-		stopCh: make(chan struct{}),
+		stopCh: stopCh,
 	}
 	watchCache.SetOnEvent(cacher.processEvent)
 	go cacher.dispatchEvents()
 
-	stopCh := cacher.stopCh
 	cacher.stopWg.Add(1)
 	go func() {
 		defer cacher.stopWg.Done()
@@ -371,7 +376,7 @@ func (c *Cacher) Get(ctx context.Context, key string, resourceVersion string, ob
 
 	obj, exists, readResourceVersion, err := c.watchCache.WaitUntilFreshAndGet(getRV, key, nil)
 	if err != nil {
-		return fmt.Errorf("failed to wait for fresh get: %v", err)
+		return err
 	}
 
 	if exists {
@@ -424,7 +429,7 @@ func (c *Cacher) GetToList(ctx context.Context, key string, resourceVersion stri
 
 	obj, exists, readResourceVersion, err := c.watchCache.WaitUntilFreshAndGet(listRV, key, trace)
 	if err != nil {
-		return fmt.Errorf("failed to wait for fresh get: %v", err)
+		return err
 	}
 	trace.Step("Got from cache")
 
@@ -480,7 +485,7 @@ func (c *Cacher) List(ctx context.Context, key string, resourceVersion string, p
 
 	objs, readResourceVersion, err := c.watchCache.WaitUntilFreshAndList(listRV, trace)
 	if err != nil {
-		return fmt.Errorf("failed to wait for fresh list: %v", err)
+		return err
 	}
 	trace.Step(fmt.Sprintf("Listed %d items from cache", len(objs)))
 	if len(objs) > listVal.Cap() && pred.Label.Empty() && pred.Field.Empty() {
@@ -552,12 +557,12 @@ func (c *Cacher) triggerValues(event *watchCacheEvent) ([]string, bool) {
 	return result, len(result) > 0
 }
 
-func (c *Cacher) processEvent(event watchCacheEvent) {
+func (c *Cacher) processEvent(event *watchCacheEvent) {
 	if curLen := int64(len(c.incoming)); c.incomingHWM.Update(curLen) {
 		// Monitor if this gets backed up, and how much.
 		glog.V(1).Infof("cacher (%v): %v objects queued in incoming channel.", c.objectType.String(), curLen)
 	}
-	c.incoming <- event
+	c.incoming <- *event
 }
 
 func (c *Cacher) dispatchEvents() {
@@ -577,23 +582,17 @@ func (c *Cacher) dispatchEvents() {
 func (c *Cacher) dispatchEvent(event *watchCacheEvent) {
 	triggerValues, supported := c.triggerValues(event)
 
-	// TODO: For now we assume we have a given <timeout> budget for dispatching
-	// a single event. We should consider changing to the approach with:
-	// - budget has upper bound at <max_timeout>
-	// - we add <portion> to current timeout every second
-	timeout := time.Duration(250) * time.Millisecond
-
 	c.Lock()
 	defer c.Unlock()
 	// Iterate over "allWatchers" no matter what the trigger function is.
 	for _, watcher := range c.watchers.allWatchers {
-		watcher.add(event, &timeout)
+		watcher.add(event, c.dispatchTimeoutBudget)
 	}
 	if supported {
 		// Iterate over watchers interested in the given values of the trigger.
 		for _, triggerValue := range triggerValues {
 			for _, watcher := range c.watchers.valueWatchers[triggerValue] {
-				watcher.add(event, &timeout)
+				watcher.add(event, c.dispatchTimeoutBudget)
 			}
 		}
 	} else {
@@ -606,7 +605,7 @@ func (c *Cacher) dispatchEvent(event *watchCacheEvent) {
 		// Iterate over watchers interested in exact values for all values.
 		for _, watchers := range c.watchers.valueWatchers {
 			for _, watcher := range watchers {
-				watcher.add(event, &timeout)
+				watcher.add(event, c.dispatchTimeoutBudget)
 			}
 		}
 	}
@@ -751,15 +750,17 @@ type cacheWatcher struct {
 	sync.Mutex
 	input   chan watchCacheEvent
 	result  chan watch.Event
+	done    chan struct{}
 	filter  watchFilterFunc
 	stopped bool
 	forget  func(bool)
 }
 
-func newCacheWatcher(resourceVersion uint64, chanSize int, initEvents []watchCacheEvent, filter watchFilterFunc, forget func(bool)) *cacheWatcher {
+func newCacheWatcher(resourceVersion uint64, chanSize int, initEvents []*watchCacheEvent, filter watchFilterFunc, forget func(bool)) *cacheWatcher {
 	watcher := &cacheWatcher{
 		input:   make(chan watchCacheEvent, chanSize),
 		result:  make(chan watch.Event, chanSize),
+		done:    make(chan struct{}),
 		filter:  filter,
 		stopped: false,
 		forget:  forget,
@@ -784,13 +785,14 @@ func (c *cacheWatcher) stop() {
 	defer c.Unlock()
 	if !c.stopped {
 		c.stopped = true
+		close(c.done)
 		close(c.input)
 	}
 }
 
 var timerPool sync.Pool
 
-func (c *cacheWatcher) add(event *watchCacheEvent, timeout *time.Duration) {
+func (c *cacheWatcher) add(event *watchCacheEvent, budget *timeBudget) {
 	// Try to send the event immediately, without blocking.
 	select {
 	case c.input <- *event:
@@ -802,12 +804,13 @@ func (c *cacheWatcher) add(event *watchCacheEvent, timeout *time.Duration) {
 	// cacheWatcher.add is called very often, so arrange
 	// to reuse timers instead of constantly allocating.
 	startTime := time.Now()
+	timeout := budget.takeAvailable()
 
 	t, ok := timerPool.Get().(*time.Timer)
 	if ok {
-		t.Reset(*timeout)
+		t.Reset(timeout)
 	} else {
-		t = time.NewTimer(*timeout)
+		t = time.NewTimer(timeout)
 	}
 	defer timerPool.Put(t)
 
@@ -827,9 +830,7 @@ func (c *cacheWatcher) add(event *watchCacheEvent, timeout *time.Duration) {
 		c.stop()
 	}
 
-	if *timeout = *timeout - time.Since(startTime); *timeout < 0 {
-		*timeout = 0
-	}
+	budget.returnUnused(timeout - time.Since(startTime))
 }
 
 // NOTE: sendWatchCacheEvent is assumed to not modify <event> !!!
@@ -849,17 +850,23 @@ func (c *cacheWatcher) sendWatchCacheEvent(event *watchCacheEvent) {
 		glog.Errorf("unexpected copy error: %v", err)
 		return
 	}
+	var watchEvent watch.Event
 	switch {
 	case curObjPasses && !oldObjPasses:
-		c.result <- watch.Event{Type: watch.Added, Object: object}
+		watchEvent = watch.Event{Type: watch.Added, Object: object}
 	case curObjPasses && oldObjPasses:
-		c.result <- watch.Event{Type: watch.Modified, Object: object}
+		watchEvent = watch.Event{Type: watch.Modified, Object: object}
 	case !curObjPasses && oldObjPasses:
-		c.result <- watch.Event{Type: watch.Deleted, Object: object}
+		watchEvent = watch.Event{Type: watch.Deleted, Object: object}
+	}
+	select {
+	case c.result <- watchEvent:
+	// don't block on c.result if c.done is closed
+	case <-c.done:
 	}
 }
 
-func (c *cacheWatcher) process(initEvents []watchCacheEvent, resourceVersion uint64) {
+func (c *cacheWatcher) process(initEvents []*watchCacheEvent, resourceVersion uint64) {
 	defer utilruntime.HandleCrash()
 
 	// Check how long we are processing initEvents.
@@ -878,7 +885,7 @@ func (c *cacheWatcher) process(initEvents []watchCacheEvent, resourceVersion uin
 	const initProcessThreshold = 500 * time.Millisecond
 	startTime := time.Now()
 	for _, event := range initEvents {
-		c.sendWatchCacheEvent(&event)
+		c.sendWatchCacheEvent(event)
 	}
 	processingTime := time.Since(startTime)
 	if processingTime > initProcessThreshold {

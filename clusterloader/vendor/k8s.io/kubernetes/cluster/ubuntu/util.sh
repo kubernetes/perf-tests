@@ -19,6 +19,7 @@
 set -e
 
 SSH_OPTS="-oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oLogLevel=ERROR -C"
+source "${KUBE_ROOT}/cluster/common.sh"
 
 MASTER=""
 MASTER_IP=""
@@ -28,7 +29,7 @@ NODE_IPS=""
 #   KUBE_ROOT
 function test-build-release() {
   # Make a release
-  "${KUBE_ROOT}/build-tools/release.sh"
+  "${KUBE_ROOT}/build/release.sh"
 }
 
 # From user input set the necessary k8s and etcd configuration information
@@ -296,7 +297,7 @@ KUBELET_OPTS="\
  --logtostderr=true \
  --cluster-dns=${3} \
  --cluster-domain=${4} \
- --config=${5} \
+ --pod-manifest-path=${5} \
  --allow-privileged=${6}
  $cni_opts"
 EOF
@@ -412,8 +413,6 @@ function kube-up() {
   detect-master
   export CONTEXT="ubuntu"
   export KUBE_SERVER="http://${KUBE_MASTER_IP}:8080"
-
-  source "${KUBE_ROOT}/cluster/common.sh"
 
   # set kubernetes user and password
   load-or-gen-kube-basicauth
@@ -558,7 +557,7 @@ function provision-node() {
       '${MASTER_IP}' \
       '${DNS_SERVER_IP}' \
       '${DNS_DOMAIN}' \
-      '${KUBELET_CONFIG}' \
+      '${KUBELET_POD_MANIFEST_PATH}' \
       '${ALLOW_PRIVILEGED}' \
       '${CNI_PLUGIN_CONF}'
     create-kube-proxy-opts \
@@ -660,7 +659,7 @@ function provision-masterandnode() {
       '${MASTER_IP}' \
       '${DNS_SERVER_IP}' \
       '${DNS_DOMAIN}' \
-      '${KUBELET_CONFIG}' \
+      '${KUBELET_POD_MANIFEST_PATH}' \
       '${ALLOW_PRIVILEGED}' \
       '${CNI_PLUGIN_CONF}'
     create-kube-proxy-opts \
@@ -709,8 +708,6 @@ function kube-down() {
 
   export KUBE_CONFIG_FILE=${KUBE_CONFIG_FILE:-${KUBE_ROOT}/cluster/ubuntu/config-default.sh}
   source "${KUBE_CONFIG_FILE}"
-
-  source "${KUBE_ROOT}/cluster/common.sh"
 
   tear_down_alive_resources
   check-pods-torn-down

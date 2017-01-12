@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/kubernetes/cmd/kube-dns/app/options"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	kclientcmd "k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	kdns "k8s.io/kubernetes/pkg/dns"
@@ -47,16 +47,10 @@ type KubeDNSServer struct {
 }
 
 func NewKubeDNSServerDefault(config *options.KubeDNSConfig) *KubeDNSServer {
-	ks := KubeDNSServer{domain: config.ClusterDomain}
-
 	kubeClient, err := newKubeClient(config)
 	if err != nil {
 		glog.Fatalf("Failed to create a kubernetes client: %v", err)
 	}
-
-	ks.healthzPort = config.HealthzPort
-	ks.dnsBindAddress = config.DNSBindAddress
-	ks.dnsPort = config.DNSPort
 
 	var configSync dnsconfig.Sync
 	if config.ConfigMap == "" {
@@ -70,9 +64,13 @@ func NewKubeDNSServerDefault(config *options.KubeDNSConfig) *KubeDNSServer {
 			kubeClient, config.ConfigMapNs, config.ConfigMap)
 	}
 
-	ks.kd = kdns.NewKubeDNS(kubeClient, config.ClusterDomain, configSync)
-
-	return &ks
+	return &KubeDNSServer{
+		domain:         config.ClusterDomain,
+		healthzPort:    config.HealthzPort,
+		dnsBindAddress: config.DNSBindAddress,
+		dnsPort:        config.DNSPort,
+		kd:             kdns.NewKubeDNS(kubeClient, config.ClusterDomain, config.InitialSyncTimeout, configSync),
+	}
 }
 
 // TODO: evaluate using pkg/client/clientcmd

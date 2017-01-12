@@ -34,7 +34,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/typed/discovery"
 	"k8s.io/kubernetes/pkg/client/typed/dynamic"
@@ -63,7 +63,7 @@ const oneValidOwnerPodName = "test.pod.3"
 const toBeDeletedRCName = "test.rc.1"
 const remainingRCName = "test.rc.2"
 
-func newPod(podName, podNamespace string, ownerReferences []v1.OwnerReference) *v1.Pod {
+func newPod(podName, podNamespace string, ownerReferences []metav1.OwnerReference) *v1.Pod {
 	for i := 0; i < len(ownerReferences); i++ {
 		if len(ownerReferences[i].Kind) == 0 {
 			ownerReferences[i].Kind = "ReplicationController"
@@ -182,14 +182,14 @@ func TestCascadingDeletion(t *testing.T) {
 	}
 
 	// this pod should be cascadingly deleted.
-	pod := newPod(garbageCollectedPodName, ns.Name, []v1.OwnerReference{{UID: toBeDeletedRC.ObjectMeta.UID, Name: toBeDeletedRCName}})
+	pod := newPod(garbageCollectedPodName, ns.Name, []metav1.OwnerReference{{UID: toBeDeletedRC.ObjectMeta.UID, Name: toBeDeletedRCName}})
 	_, err = podClient.Create(pod)
 	if err != nil {
 		t.Fatalf("Failed to create Pod: %v", err)
 	}
 
 	// this pod shouldn't be cascadingly deleted, because it has a valid reference.
-	pod = newPod(oneValidOwnerPodName, ns.Name, []v1.OwnerReference{
+	pod = newPod(oneValidOwnerPodName, ns.Name, []metav1.OwnerReference{
 		{UID: toBeDeletedRC.ObjectMeta.UID, Name: toBeDeletedRCName},
 		{UID: remainingRC.ObjectMeta.UID, Name: remainingRCName},
 	})
@@ -199,7 +199,7 @@ func TestCascadingDeletion(t *testing.T) {
 	}
 
 	// this pod shouldn't be cascadingly deleted, because it doesn't have an owner.
-	pod = newPod(independentPodName, ns.Name, []v1.OwnerReference{})
+	pod = newPod(independentPodName, ns.Name, []metav1.OwnerReference{})
 	_, err = podClient.Create(pod)
 	if err != nil {
 		t.Fatalf("Failed to create Pod: %v", err)
@@ -232,10 +232,10 @@ func TestCascadingDeletion(t *testing.T) {
 		t.Fatalf("expect pod %s to be garbage collected, got err= %v", garbageCollectedPodName, err)
 	}
 	// checks the garbage collect doesn't delete pods it shouldn't delete.
-	if _, err := podClient.Get(independentPodName); err != nil {
+	if _, err := podClient.Get(independentPodName, metav1.GetOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := podClient.Get(oneValidOwnerPodName); err != nil {
+	if _, err := podClient.Get(oneValidOwnerPodName, metav1.GetOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -251,7 +251,7 @@ func TestCreateWithNonExistentOwner(t *testing.T) {
 
 	podClient := clientSet.Core().Pods(ns.Name)
 
-	pod := newPod(garbageCollectedPodName, ns.Name, []v1.OwnerReference{{UID: "doesn't matter", Name: toBeDeletedRCName}})
+	pod := newPod(garbageCollectedPodName, ns.Name, []metav1.OwnerReference{{UID: "doesn't matter", Name: toBeDeletedRCName}})
 	_, err := podClient.Create(pod)
 	if err != nil {
 		t.Fatalf("Failed to create Pod: %v", err)
@@ -291,7 +291,7 @@ func setupRCsPods(t *testing.T, gc *garbagecollector.GarbageCollector, clientSet
 	var podUIDs []types.UID
 	for j := 0; j < 3; j++ {
 		podName := "test.pod." + nameSuffix + "-" + strconv.Itoa(j)
-		pod := newPod(podName, namespace, []v1.OwnerReference{{UID: rc.ObjectMeta.UID, Name: rc.ObjectMeta.Name}})
+		pod := newPod(podName, namespace, []metav1.OwnerReference{{UID: rc.ObjectMeta.UID, Name: rc.ObjectMeta.Name}})
 		_, err = podClient.Create(pod)
 		if err != nil {
 			t.Fatalf("Failed to create Pod: %v", err)
@@ -428,12 +428,12 @@ func TestOrphaning(t *testing.T) {
 		t.Fatalf("Failed to create replication controller: %v", err)
 	}
 
-	// these pods should be ophaned.
+	// these pods should be orphaned.
 	var podUIDs []types.UID
 	podsNum := 3
 	for i := 0; i < podsNum; i++ {
 		podName := garbageCollectedPodName + strconv.Itoa(i)
-		pod := newPod(podName, ns.Name, []v1.OwnerReference{{UID: toBeDeletedRC.ObjectMeta.UID, Name: toBeDeletedRCName}})
+		pod := newPod(podName, ns.Name, []metav1.OwnerReference{{UID: toBeDeletedRC.ObjectMeta.UID, Name: toBeDeletedRCName}})
 		_, err = podClient.Create(pod)
 		if err != nil {
 			t.Fatalf("Failed to create Pod: %v", err)
@@ -478,7 +478,7 @@ func TestOrphaning(t *testing.T) {
 	}
 	for _, pod := range pods.Items {
 		if len(pod.ObjectMeta.OwnerReferences) != 0 {
-			t.Errorf("pod %s still has non-empty OwnerRefereces: %v", pod.ObjectMeta.Name, pod.ObjectMeta.OwnerReferences)
+			t.Errorf("pod %s still has non-empty OwnerReferences: %v", pod.ObjectMeta.Name, pod.ObjectMeta.OwnerReferences)
 		}
 	}
 }

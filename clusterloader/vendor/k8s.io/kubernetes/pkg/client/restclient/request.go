@@ -540,10 +540,10 @@ func (r *Request) Body(obj interface{}) *Request {
 			r.err = err
 			return r
 		}
-		glog.V(8).Infof("Request Body: %#v", string(data))
+		glogBody("Request Body", data)
 		r.body = bytes.NewReader(data)
 	case []byte:
-		glog.V(8).Infof("Request Body: %#v", string(t))
+		glogBody("Request Body", t)
 		r.body = bytes.NewReader(t)
 	case io.Reader:
 		r.body = t
@@ -557,7 +557,7 @@ func (r *Request) Body(obj interface{}) *Request {
 			r.err = err
 			return r
 		}
-		glog.V(8).Infof("Request Body: %#v", string(data))
+		glogBody("Request Body", data)
 		r.body = bytes.NewReader(data)
 		r.SetHeader("Content-Type", r.content.ContentType)
 	default:
@@ -694,9 +694,10 @@ func updateURLMetrics(req *Request, resp *http.Response, err error) {
 		url = req.baseURL.Host
 	}
 
-	// If we have an error (i.e. apiserver down) we report that as a metric label.
+	// Errors can be arbitrary strings. Unbound label cardinality is not suitable for a metric
+	// system so we just report them as `<error>`.
 	if err != nil {
-		metrics.RequestResult.Increment(err.Error(), req.verb, url)
+		metrics.RequestResult.Increment("<error>", req.verb, url)
 	} else {
 		//Metrics for failure codes
 		metrics.RequestResult.Increment(strconv.Itoa(resp.StatusCode), req.verb, url)
@@ -877,6 +878,7 @@ func (r *Request) DoRaw() ([]byte, error) {
 	var result Result
 	err := r.request(func(req *http.Request, resp *http.Response) {
 		result.body, result.err = ioutil.ReadAll(resp.Body)
+		glogBody("Response Body", result.body)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
 			result.err = r.transformUnstructuredResponseError(resp, req, result.body)
 		}
@@ -896,15 +898,7 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 		}
 	}
 
-	if glog.V(8) {
-		if bytes.IndexFunc(body, func(r rune) bool {
-			return r < 0x0a
-		}) != -1 {
-			glog.Infof("Response Body:\n%s", hex.Dump(body))
-		} else {
-			glog.Infof("Response Body: %s", string(body))
-		}
-	}
+	glogBody("Response Body", body)
 
 	// verify the content type is accurate
 	contentType := resp.Header.Get("Content-Type")
@@ -956,6 +950,21 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 	}
 }
 
+// glogBody logs a body output that could be either JSON or protobuf. It explicitly guards against
+// allocating a new string for the body output unless necessary. Uses a simple heuristic to determine
+// whether the body is printable.
+func glogBody(prefix string, body []byte) {
+	if glog.V(8) {
+		if bytes.IndexFunc(body, func(r rune) bool {
+			return r < 0x0a
+		}) != -1 {
+			glog.Infof("%s:\n%s", prefix, hex.Dump(body))
+		} else {
+			glog.Infof("%s: %s", prefix, string(body))
+		}
+	}
+}
+
 // maxUnstructuredResponseTextBytes is an upper bound on how much output to include in the unstructured error.
 const maxUnstructuredResponseTextBytes = 2048
 
@@ -993,7 +1002,6 @@ func (r *Request) newUnstructuredResponseError(body []byte, isTextResponse bool,
 	if len(body) > maxUnstructuredResponseTextBytes {
 		body = body[:maxUnstructuredResponseTextBytes]
 	}
-	glog.V(8).Infof("Response Body: %#v", string(body))
 
 	message := "unknown"
 	if isTextResponse {

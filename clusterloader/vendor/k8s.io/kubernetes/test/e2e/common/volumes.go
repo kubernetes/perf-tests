@@ -50,7 +50,7 @@ import (
 	apierrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	"github.com/golang/glog"
@@ -148,7 +148,7 @@ func startVolumeServer(f *framework.Framework, config VolumeTestConfig) *v1.Pod 
 	serverPod = podClient.CreateSync(serverPod)
 
 	By("locating the server pod")
-	pod, err := podClient.Get(serverPod.Name)
+	pod, err := podClient.Get(serverPod.Name, metav1.GetOptions{})
 	framework.ExpectNoError(err, "Cannot locate the server pod %v: %v", serverPod.Name, err)
 
 	By("sleeping a bit to give the server time to start")

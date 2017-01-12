@@ -32,7 +32,8 @@ import (
 	internalextensions "k8s.io/kubernetes/pkg/apis/extensions"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	"k8s.io/kubernetes/pkg/client/cache"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/kubernetes/pkg/util/integer"
 	intstrutil "k8s.io/kubernetes/pkg/util/intstr"
 	labelsutil "k8s.io/kubernetes/pkg/util/labels"
-	podutil "k8s.io/kubernetes/pkg/util/pod"
 	"k8s.io/kubernetes/pkg/util/wait"
 )
 
@@ -677,7 +677,7 @@ func FindOldReplicaSets(deployment *extensions.Deployment, rsList []*extensions.
 // WaitForReplicaSetUpdated polls the replica set until it is updated.
 func WaitForReplicaSetUpdated(c clientset.Interface, desiredGeneration int64, namespace, name string) error {
 	return wait.Poll(10*time.Millisecond, 1*time.Minute, func() (bool, error) {
-		rs, err := c.Extensions().ReplicaSets(namespace).Get(name)
+		rs, err := c.Extensions().ReplicaSets(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -688,7 +688,7 @@ func WaitForReplicaSetUpdated(c clientset.Interface, desiredGeneration int64, na
 // WaitForPodsHashPopulated polls the replica set until updated and fully labeled.
 func WaitForPodsHashPopulated(c clientset.Interface, desiredGeneration int64, namespace, name string) error {
 	return wait.Poll(1*time.Second, 1*time.Minute, func() (bool, error) {
-		rs, err := c.Extensions().ReplicaSets(namespace).Get(name)
+		rs, err := c.Extensions().ReplicaSets(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -699,12 +699,11 @@ func WaitForPodsHashPopulated(c clientset.Interface, desiredGeneration int64, na
 
 // LabelPodsWithHash labels all pods in the given podList with the new hash label.
 // The returned bool value can be used to tell if all pods are actually labeled.
-func LabelPodsWithHash(podList *v1.PodList, rs *extensions.ReplicaSet, c clientset.Interface, namespace, hash string) (bool, error) {
-	allPodsLabeled := true
+func LabelPodsWithHash(podList *v1.PodList, c clientset.Interface, podLister *cache.StoreToPodLister, namespace, name, hash string) error {
 	for _, pod := range podList.Items {
 		// Only label the pod that doesn't already have the new hash
 		if pod.Labels[extensions.DefaultDeploymentUniqueLabelKey] != hash {
-			if _, podUpdated, err := podutil.UpdatePodWithRetries(c.Core().Pods(namespace), &pod,
+			_, err := UpdatePodWithRetries(c.Core().Pods(namespace), podLister, pod.Namespace, pod.Name,
 				func(podToUpdate *v1.Pod) error {
 					// Precondition: the pod doesn't contain the new hash in its label.
 					if podToUpdate.Labels[extensions.DefaultDeploymentUniqueLabelKey] == hash {
@@ -712,18 +711,14 @@ func LabelPodsWithHash(podList *v1.PodList, rs *extensions.ReplicaSet, c clients
 					}
 					podToUpdate.Labels = labelsutil.AddLabel(podToUpdate.Labels, extensions.DefaultDeploymentUniqueLabelKey, hash)
 					return nil
-				}); err != nil {
-				return false, fmt.Errorf("error in adding template hash label %s to pod %+v: %s", hash, pod, err)
-			} else if podUpdated {
-				glog.V(4).Infof("Labeled %s %s/%s of %s %s/%s with hash %s.", pod.Kind, pod.Namespace, pod.Name, rs.Kind, rs.Namespace, rs.Name, hash)
-			} else {
-				// If the pod wasn't updated but didn't return error when we try to update it, we've hit "pod not found" or "precondition violated" error.
-				// Then we can't say all pods are labeled
-				allPodsLabeled = false
+				})
+			if err != nil {
+				return fmt.Errorf("error in adding template hash label %s to pod %q: %v", hash, pod.Name, err)
 			}
+			glog.V(4).Infof("Labeled pod %s/%s of ReplicaSet %s/%s with hash %s.", pod.Namespace, pod.Name, namespace, name, hash)
 		}
 	}
-	return allPodsLabeled, nil
+	return nil
 }
 
 // GetNewReplicaSetTemplate returns the desired PodTemplateSpec for the new ReplicaSet corresponding to the given ReplicaSet.
@@ -736,7 +731,7 @@ func GetNewReplicaSetTemplate(deployment *extensions.Deployment) v1.PodTemplateS
 	newRSTemplate.ObjectMeta.Labels = labelsutil.CloneAndAddLabel(
 		deployment.Spec.Template.ObjectMeta.Labels,
 		extensions.DefaultDeploymentUniqueLabelKey,
-		podutil.GetPodTemplateSpecHash(newRSTemplate))
+		GetPodTemplateSpecHash(newRSTemplate))
 	return newRSTemplate
 }
 
@@ -751,7 +746,7 @@ func GetNewReplicaSetTemplateInternal(deployment *internalextensions.Deployment)
 	newRSTemplate.ObjectMeta.Labels = labelsutil.CloneAndAddLabel(
 		deployment.Spec.Template.ObjectMeta.Labels,
 		internalextensions.DefaultDeploymentUniqueLabelKey,
-		podutil.GetInternalPodTemplateSpecHash(newRSTemplate))
+		GetInternalPodTemplateSpecHash(newRSTemplate))
 	return newRSTemplate
 }
 
@@ -832,12 +827,14 @@ func IsRollingUpdate(deployment *extensions.Deployment) bool {
 // updatedReplicas and it doesn't violate minimum availability.
 func DeploymentComplete(deployment *extensions.Deployment, newStatus *extensions.DeploymentStatus) bool {
 	return newStatus.UpdatedReplicas == *(deployment.Spec.Replicas) &&
-		newStatus.AvailableReplicas >= *(deployment.Spec.Replicas)-MaxUnavailable(*deployment)
+		newStatus.AvailableReplicas >= *(deployment.Spec.Replicas)-MaxUnavailable(*deployment) &&
+		newStatus.ObservedGeneration >= deployment.Generation
 }
 
 // DeploymentProgressing reports progress for a deployment. Progress is estimated by comparing the
-// current with the new status of the deployment that the controller is observing. The following
-// algorithm is already used in the kubectl rolling updater to report lack of progress.
+// current with the new status of the deployment that the controller is observing. More specifically,
+// when new pods are scaled up or become available, or old pods are scaled down, then we consider the
+// deployment is progressing.
 func DeploymentProgressing(deployment *extensions.Deployment, newStatus *extensions.DeploymentStatus) bool {
 	oldStatus := deployment.Status
 
@@ -845,7 +842,9 @@ func DeploymentProgressing(deployment *extensions.Deployment, newStatus *extensi
 	oldStatusOldReplicas := oldStatus.Replicas - oldStatus.UpdatedReplicas
 	newStatusOldReplicas := newStatus.Replicas - newStatus.UpdatedReplicas
 
-	return (newStatus.UpdatedReplicas > oldStatus.UpdatedReplicas) || (newStatusOldReplicas < oldStatusOldReplicas)
+	return (newStatus.UpdatedReplicas > oldStatus.UpdatedReplicas) ||
+		(newStatusOldReplicas < oldStatusOldReplicas) ||
+		newStatus.AvailableReplicas > deployment.Status.AvailableReplicas
 }
 
 // used for unit testing
@@ -1042,9 +1041,7 @@ func OverlapsWith(current, other *extensions.Deployment) (bool, error) {
 	}
 	otherSelector, err := metav1.LabelSelectorAsSelector(other.Spec.Selector)
 	if err != nil {
-		// Broken selectors from other deployments shouldn't block current deployment. Just log the error and continue.
-		glog.V(2).Infof("Skip overlapping check: deployment %s/%s has invalid label selector: %v", other.Namespace, other.Name, err)
-		return false, nil
+		return false, fmt.Errorf("deployment %s/%s has invalid label selector: %v", other.Namespace, other.Name, err)
 	}
 	return (!currentSelector.Empty() && currentSelector.Matches(labels.Set(other.Spec.Template.Labels))) ||
 		(!otherSelector.Empty() && otherSelector.Matches(labels.Set(current.Spec.Template.Labels))), nil

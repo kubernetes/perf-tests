@@ -61,6 +61,8 @@ const (
 	backOffPeriod = 1 * time.Second
 	// how many times we can retry before back off
 	triesBeforeBackOff = 1
+
+	warningNoLastAppliedConfigAnnotation = "Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply\n"
 )
 
 var (
@@ -88,7 +90,7 @@ var (
 		kubectl apply --prune -f manifest.yaml --all --prune-whitelist=core/v1/ConfigMap`)
 )
 
-func NewCmdApply(f cmdutil.Factory, out io.Writer) *cobra.Command {
+func NewCmdApply(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
 	var options ApplyOptions
 
 	cmd := &cobra.Command{
@@ -100,7 +102,7 @@ func NewCmdApply(f cmdutil.Factory, out io.Writer) *cobra.Command {
 			cmdutil.CheckErr(validateArgs(cmd, args))
 			cmdutil.CheckErr(cmdutil.ValidateOutputArgs(cmd))
 			cmdutil.CheckErr(validatePruneAll(options.Prune, cmdutil.GetFlagBool(cmd, "all"), options.Selector))
-			cmdutil.CheckErr(RunApply(f, cmd, out, &options))
+			cmdutil.CheckErr(RunApply(f, cmd, out, errOut, &options))
 		},
 	}
 
@@ -161,7 +163,7 @@ func parsePruneResources(gvks []string) ([]pruneResource, error) {
 	return pruneResources, nil
 }
 
-func RunApply(f cmdutil.Factory, cmd *cobra.Command, out io.Writer, options *ApplyOptions) error {
+func RunApply(f cmdutil.Factory, cmd *cobra.Command, out, errOut io.Writer, options *ApplyOptions) error {
 	shortOutput := cmdutil.GetFlagString(cmd, "output") == "name"
 	schema, err := f.Validator(cmdutil.GetFlagBool(cmd, "validate"), cmdutil.GetFlagString(cmd, "schema-cache-dir"))
 	if err != nil {
@@ -256,6 +258,13 @@ func RunApply(f cmdutil.Factory, cmd *cobra.Command, out io.Writer, options *App
 		}
 
 		if !dryRun {
+			annotationMap, err := info.Mapping.MetadataAccessor.Annotations(info.Object)
+			if err != nil {
+				return err
+			}
+			if _, ok := annotationMap[annotations.LastAppliedConfigAnnotation]; !ok {
+				fmt.Fprintf(errOut, warningNoLastAppliedConfigAnnotation)
+			}
 			overwrite := cmdutil.GetFlagBool(cmd, "overwrite")
 			helper := resource.NewHelper(info.Client, info.Mapping)
 			patcher := &patcher{
@@ -527,14 +536,11 @@ func (p *patcher) patchSimple(obj runtime.Object, modified []byte, source, names
 		return nil, cmdutil.AddSourceToErr(fmt.Sprintf("retrieving original configuration from:\n%v\nfor:", obj), source, err)
 	}
 
-	// Create the versioned struct from the original from the server for
-	// strategic patch.
-	// TODO: Move all structs in apply to use raw data. Can be done once
-	// builder has a RawResult method which delivers raw data instead of
-	// internal objects.
-	versionedObject, _, err := p.decoder.Decode(current, nil, nil)
+	// Create the versioned struct from the type defined in the restmapping
+	// (which is the API version we'll be submitting the patch to)
+	versionedObject, err := api.Scheme.New(p.mapping.GroupVersionKind)
 	if err != nil {
-		return nil, cmdutil.AddSourceToErr(fmt.Sprintf("converting encoded server-side object back to versioned struct:\n%v\nfor:", obj), source, err)
+		return nil, cmdutil.AddSourceToErr(fmt.Sprintf("getting instance of versioned object for %v:", p.mapping.GroupVersionKind), source, err)
 	}
 
 	// Compute a three way strategic merge patch to send to server.

@@ -23,8 +23,9 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -268,7 +269,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			Expect(err).NotTo(HaveOccurred())
 			nodeName := pods.Items[0].Spec.NodeName
 
-			node, err := c.Core().Nodes().Get(nodeName)
+			node, err := c.Core().Nodes().Get(nodeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			// This creates a temporary network partition, verifies that 'podNameToDisappear',
@@ -306,7 +307,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 
 			// verify that it is really on the requested node
 			{
-				pod, err := c.Core().Pods(ns).Get(additionalPod)
+				pod, err := c.Core().Pods(ns).Get(additionalPod, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				if pod.Spec.NodeName != node.Name {
 					framework.Logf("Pod %s found on invalid node: %s instead of %s", pod.Name, pod.Spec.NodeName, node.Name)
@@ -333,7 +334,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			Expect(err).NotTo(HaveOccurred())
 			nodeName := pods.Items[0].Spec.NodeName
 
-			node, err := c.Core().Nodes().Get(nodeName)
+			node, err := c.Core().Nodes().Get(nodeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			// This creates a temporary network partition, verifies that 'podNameToDisappear',
@@ -360,7 +361,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 	})
 
 	framework.KubeDescribe("[StatefulSet]", func() {
-		psName := "pet"
+		psName := "ss"
 		labels := map[string]string{
 			"foo": "bar",
 		}
@@ -380,7 +381,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			if CurrentGinkgoTestDescription().Failed {
 				dumpDebugInfo(c, ns)
 			}
-			framework.Logf("Deleting all petset in ns %v", ns)
+			framework.Logf("Deleting all stateful set in ns %v", ns)
 			deleteAllStatefulSets(c, ns)
 		})
 
@@ -402,7 +403,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			pst.waitForRunningAndReady(*ps.Spec.Replicas, ps)
 		})
 
-		It("should not reschedule pets if there is a network partition [Slow] [Disruptive]", func() {
+		It("should not reschedule stateful pods if there is a network partition [Slow] [Disruptive]", func() {
 			ps := newStatefulSet(psName, ns, headlessSvcName, 3, []v1.VolumeMount{}, []v1.VolumeMount{}, labels)
 			_, err := c.Apps().StatefulSets(ns).Create(ps)
 			Expect(err).NotTo(HaveOccurred())
@@ -411,14 +412,14 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			pst.waitForRunningAndReady(*ps.Spec.Replicas, ps)
 
 			pod := pst.getPodList(ps).Items[0]
-			node, err := c.Core().Nodes().Get(pod.Spec.NodeName)
+			node, err := c.Core().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 			framework.ExpectNoError(err)
 
 			// Blocks outgoing network traffic on 'node'. Then verifies that 'podNameToDisappear',
-			// that belongs to StatefulSet 'petSetName', **does not** disappear due to forced deletion from the apiserver.
-			// The grace period on the petset pods is set to a value > 0.
+			// that belongs to StatefulSet 'statefulSetName', **does not** disappear due to forced deletion from the apiserver.
+			// The grace period on the stateful pods is set to a value > 0.
 			testUnderTemporaryNetworkFailure(c, ns, node, func() {
-				framework.Logf("Checking that the NodeController does not force delete pet %v", pod.Name)
+				framework.Logf("Checking that the NodeController does not force delete stateful pods %v", pod.Name)
 				err := framework.WaitTimeoutForPodNoLongerRunningInNamespace(c, pod.Name, ns, pod.ResourceVersion, 10*time.Minute)
 				Expect(err).To(Equal(wait.ErrWaitTimeout), "Pod was not deleted during network partition.")
 			})
@@ -453,7 +454,7 @@ var _ = framework.KubeDescribe("Network Partition [Disruptive] [Slow]", func() {
 			Expect(err).NotTo(HaveOccurred())
 			nodeName := pods.Items[0].Spec.NodeName
 
-			node, err := c.Core().Nodes().Get(nodeName)
+			node, err := c.Core().Nodes().Get(nodeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			// This creates a temporary network partition, verifies that the job has 'parallelism' number of

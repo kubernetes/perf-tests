@@ -27,9 +27,9 @@ import (
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	policy "k8s.io/kubernetes/pkg/apis/policy/v1beta1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
-	policyclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/policy/v1beta1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
+	policyclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/policy/v1beta1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -644,14 +644,14 @@ func (dc *DisruptionController) buildDisruptedPodMap(pods []*v1.Pod, pdb *policy
 // this field correctly, we will prevent the /evict handler from approving an
 // eviction when it may be unsafe to do so.
 func (dc *DisruptionController) failSafe(pdb *policy.PodDisruptionBudget) error {
-	obj, err := api.Scheme.DeepCopy(*pdb)
+	obj, err := api.Scheme.DeepCopy(pdb)
 	if err != nil {
 		return err
 	}
-	newPdb := obj.(policy.PodDisruptionBudget)
+	newPdb := obj.(*policy.PodDisruptionBudget)
 	newPdb.Status.PodDisruptionsAllowed = 0
 
-	return dc.getUpdater()(&newPdb)
+	return dc.getUpdater()(newPdb)
 }
 
 func (dc *DisruptionController) updatePdbStatus(pdb *policy.PodDisruptionBudget, currentHealthy, desiredHealthy, expectedCount int32,
@@ -675,11 +675,11 @@ func (dc *DisruptionController) updatePdbStatus(pdb *policy.PodDisruptionBudget,
 		return nil
 	}
 
-	obj, err := api.Scheme.DeepCopy(*pdb)
+	obj, err := api.Scheme.DeepCopy(pdb)
 	if err != nil {
 		return err
 	}
-	newPdb := obj.(policy.PodDisruptionBudget)
+	newPdb := obj.(*policy.PodDisruptionBudget)
 
 	newPdb.Status = policy.PodDisruptionBudgetStatus{
 		CurrentHealthy:        currentHealthy,
@@ -690,14 +690,14 @@ func (dc *DisruptionController) updatePdbStatus(pdb *policy.PodDisruptionBudget,
 		ObservedGeneration:    pdb.Generation,
 	}
 
-	return dc.getUpdater()(&newPdb)
+	return dc.getUpdater()(newPdb)
 }
 
 // refresh tries to re-GET the given PDB.  If there are any errors, it just
 // returns the old PDB.  Intended to be used in a retry loop where it runs a
 // bounded number of times.
 func refresh(pdbClient policyclientset.PodDisruptionBudgetInterface, pdb *policy.PodDisruptionBudget) *policy.PodDisruptionBudget {
-	newPdb, err := pdbClient.Get(pdb.Name)
+	newPdb, err := pdbClient.Get(pdb.Name, metav1.GetOptions{})
 	if err == nil {
 		return newPdb
 	} else {

@@ -25,7 +25,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/labels"
 )
 
@@ -63,7 +63,7 @@ func updateReplicationControllerStatus(c v1core.ReplicationControllerInterface, 
 			return updateErr
 		}
 		// Update the controller with the latest resource version for the next poll
-		if rc, getErr = c.Get(rc.Name); getErr != nil {
+		if rc, getErr = c.Get(rc.Name, metav1.GetOptions{}); getErr != nil {
 			// If the GET fails we can't trust status.Replicas anymore. This error
 			// is bound to be more interesting than the update failure.
 			return getErr

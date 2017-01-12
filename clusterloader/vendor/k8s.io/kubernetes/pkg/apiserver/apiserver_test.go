@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -38,9 +39,12 @@ import (
 	apierrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/rest"
+	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/api/v1"
+	apiv1 "k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/apiserver/filters"
+	"k8s.io/kubernetes/pkg/apiserver/handlers/responsewriters"
 	"k8s.io/kubernetes/pkg/apiserver/request"
 	apiservertesting "k8s.io/kubernetes/pkg/apiserver/testing"
 	"k8s.io/kubernetes/pkg/fields"
@@ -56,10 +60,6 @@ import (
 
 	"github.com/emicklei/go-restful"
 )
-
-func convert(obj runtime.Object) (runtime.Object, error) {
-	return obj, nil
-}
 
 // This creates fake API versions, similar to api/latest.go.
 var testAPIGroup = "test.group"
@@ -78,12 +78,10 @@ var grouplessPrefix = "api"
 var groupVersions = []schema.GroupVersion{grouplessGroupVersion, testGroupVersion, newGroupVersion}
 
 var codec = api.Codecs.LegacyCodec(groupVersions...)
-var grouplessCodec = api.Codecs.LegacyCodec(grouplessGroupVersion)
 var testCodec = api.Codecs.LegacyCodec(testGroupVersion)
 var newCodec = api.Codecs.LegacyCodec(newGroupVersion)
 
 var accessor = meta.NewAccessor()
-var versioner runtime.ResourceVersioner = accessor
 var selfLinker runtime.SelfLinker = accessor
 var mapper, namespaceMapper meta.RESTMapper // The mappers with namespace and with legacy namespace scopes.
 var admissionControl admission.Interface
@@ -132,7 +130,7 @@ func addGrouplessTypes() {
 	}
 	api.Scheme.AddKnownTypes(grouplessGroupVersion,
 		&apiservertesting.Simple{}, &apiservertesting.SimpleList{}, &ListOptions{}, &metav1.ExportOptions{},
-		&api.DeleteOptions{}, &apiservertesting.SimpleGetOptions{}, &apiservertesting.SimpleRoot{})
+		&v1.DeleteOptions{}, &apiservertesting.SimpleGetOptions{}, &apiservertesting.SimpleRoot{})
 	api.Scheme.AddKnownTypes(grouplessInternalGroupVersion,
 		&apiservertesting.Simple{}, &apiservertesting.SimpleList{}, &api.ListOptions{}, &metav1.ExportOptions{},
 		&apiservertesting.SimpleGetOptions{}, &apiservertesting.SimpleRoot{})
@@ -150,7 +148,7 @@ func addTestTypes() {
 	}
 	api.Scheme.AddKnownTypes(testGroupVersion,
 		&apiservertesting.Simple{}, &apiservertesting.SimpleList{}, &ListOptions{}, &metav1.ExportOptions{},
-		&api.DeleteOptions{}, &apiservertesting.SimpleGetOptions{}, &apiservertesting.SimpleRoot{},
+		&v1.DeleteOptions{}, &apiservertesting.SimpleGetOptions{}, &apiservertesting.SimpleRoot{},
 		&SimpleXGSubresource{})
 	api.Scheme.AddKnownTypes(testGroupVersion, &v1.Pod{})
 	api.Scheme.AddKnownTypes(testInternalGroupVersion,
@@ -317,7 +315,7 @@ func handleInternal(storage map[string]rest.Storage, admissionControl admission.
 }
 
 func TestSimpleSetupRight(t *testing.T) {
-	s := &apiservertesting.Simple{ObjectMeta: api.ObjectMeta{Name: "aName"}}
+	s := &apiservertesting.Simple{ObjectMeta: apiv1.ObjectMeta{Name: "aName"}}
 	wire, err := runtime.Encode(codec, s)
 	if err != nil {
 		t.Fatal(err)
@@ -470,7 +468,7 @@ func (storage *SimpleRESTStorage) Delete(ctx api.Context, id string, options *ap
 	var obj runtime.Object = &metav1.Status{Status: metav1.StatusSuccess}
 	var err error
 	if storage.injectedFunction != nil {
-		obj, err = storage.injectedFunction(&apiservertesting.Simple{ObjectMeta: api.ObjectMeta{Name: id}})
+		obj, err = storage.injectedFunction(&apiservertesting.Simple{ObjectMeta: apiv1.ObjectMeta{Name: id}})
 	}
 	return obj, err
 }
@@ -1119,7 +1117,7 @@ func TestNonEmptyList(t *testing.T) {
 	simpleStorage := SimpleRESTStorage{
 		list: []apiservertesting.Simple{
 			{
-				ObjectMeta: api.ObjectMeta{Name: "something", Namespace: "other"},
+				ObjectMeta: apiv1.ObjectMeta{Name: "something", Namespace: "other"},
 				Other:      "foo",
 			},
 		},
@@ -1170,7 +1168,7 @@ func TestSelfLinkSkipsEmptyName(t *testing.T) {
 	simpleStorage := SimpleRESTStorage{
 		list: []apiservertesting.Simple{
 			{
-				ObjectMeta: api.ObjectMeta{Namespace: "other"},
+				ObjectMeta: apiv1.ObjectMeta{Namespace: "other"},
 				Other:      "foo",
 			},
 		},
@@ -1244,7 +1242,7 @@ func TestExport(t *testing.T) {
 	storage := map[string]rest.Storage{}
 	simpleStorage := SimpleRESTStorage{
 		item: apiservertesting.Simple{
-			ObjectMeta: api.ObjectMeta{
+			ObjectMeta: apiv1.ObjectMeta{
 				ResourceVersion:   "1234",
 				CreationTimestamp: metav1.NewTime(time.Unix(10, 10)),
 			},
@@ -2177,7 +2175,7 @@ func TestPatch(t *testing.T) {
 	storage := map[string]rest.Storage{}
 	ID := "id"
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: "", // update should allow the client to send an empty namespace
 			UID:       "uid",
@@ -2216,7 +2214,7 @@ func TestPatchRequiresMatchingName(t *testing.T) {
 	storage := map[string]rest.Storage{}
 	ID := "id"
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: "", // update should allow the client to send an empty namespace
 			UID:       "uid",
@@ -2257,7 +2255,7 @@ func TestUpdate(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: "", // update should allow the client to send an empty namespace
 		},
@@ -2294,7 +2292,7 @@ func TestUpdateInvokesAdmissionControl(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: api.NamespaceDefault,
 		},
@@ -2356,7 +2354,7 @@ func TestUpdateAllowsMissingNamespace(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name: ID,
 		},
 		Other: "bar",
@@ -2393,7 +2391,7 @@ func TestUpdateAllowsMismatchedNamespaceOnError(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: "other", // does not match request
 		},
@@ -2430,7 +2428,7 @@ func TestUpdatePreventsMismatchedNamespace(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: "other",
 		},
@@ -2465,7 +2463,7 @@ func TestUpdateMissing(t *testing.T) {
 	defer server.Close()
 
 	item := &apiservertesting.Simple{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: apiv1.ObjectMeta{
 			Name:      ID,
 			Namespace: api.NamespaceDefault,
 		},
@@ -2769,18 +2767,6 @@ func TestUpdateChecksDecode(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	} else if !strings.Contains(string(b), "cannot be handled as a Simple") {
 		t.Errorf("unexpected response: %s", string(b))
-	}
-}
-
-func TestParseTimeout(t *testing.T) {
-	if d := parseTimeout(""); d != 30*time.Second {
-		t.Errorf("blank timeout produces %v", d)
-	}
-	if d := parseTimeout("not a timeout"); d != 30*time.Second {
-		t.Errorf("bad timeout produces %v", d)
-	}
-	if d := parseTimeout("10s"); d != 10*time.Second {
-		t.Errorf("10s timeout produced: %v", d)
 	}
 }
 
@@ -3088,7 +3074,7 @@ func (obj *UnregisteredAPIObject) GetObjectKind() schema.ObjectKind {
 
 func TestWriteJSONDecodeError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		writeNegotiated(api.Codecs, newGroupVersion, w, req, http.StatusOK, &UnregisteredAPIObject{"Undecodable"})
+		responsewriters.WriteObjectNegotiated(api.Codecs, newGroupVersion, w, req, http.StatusOK, &UnregisteredAPIObject{"Undecodable"})
 	}))
 	defer server.Close()
 	// We send a 200 status code before we encode the object, so we expect OK, but there will
@@ -3113,7 +3099,7 @@ func (m *marshalError) MarshalJSON() ([]byte, error) {
 
 func TestWriteRAWJSONMarshalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		WriteRawJSON(http.StatusOK, &marshalError{errors.New("Undecodable")}, w)
+		responsewriters.WriteRawJSON(http.StatusOK, &marshalError{errors.New("Undecodable")}, w)
 	}))
 	defer server.Close()
 	client := http.Client{}
@@ -3226,7 +3212,7 @@ func TestUpdateChecksAPIVersion(t *testing.T) {
 	defer server.Close()
 	client := http.Client{}
 
-	simple := &apiservertesting.Simple{ObjectMeta: api.ObjectMeta{Name: "bar"}}
+	simple := &apiservertesting.Simple{ObjectMeta: apiv1.ObjectMeta{Name: "bar"}}
 	data, err := runtime.Encode(newCodec, simple)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3423,4 +3409,16 @@ func newTestRequestInfoResolver() *request.RequestInfoFactory {
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
+}
+
+const benchmarkSeed = 100
+
+func benchmarkItems() []api.Pod {
+	apiObjectFuzzer := apitesting.FuzzerFor(nil, api.SchemeGroupVersion, rand.NewSource(benchmarkSeed))
+	items := make([]api.Pod, 3)
+	for i := range items {
+		apiObjectFuzzer.Fuzz(&items[i])
+		items[i].Spec.InitContainers, items[i].Status.InitContainerStatuses = nil, nil
+	}
+	return items
 }

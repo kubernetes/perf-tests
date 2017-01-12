@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -21,6 +19,7 @@ go_library(
     ],
     tags = ["automanaged"],
     deps = [
+        "//cmd/kube-apiserver/app/options:go_default_library",
         "//pkg/api:go_default_library",
         "//pkg/api/endpoints:go_default_library",
         "//pkg/api/errors:go_default_library",
@@ -43,20 +42,19 @@ go_library(
         "//pkg/apis/extensions/install:go_default_library",
         "//pkg/apis/extensions/v1beta1:go_default_library",
         "//pkg/apis/imagepolicy/install:go_default_library",
+        "//pkg/apis/meta/v1:go_default_library",
         "//pkg/apis/policy/install:go_default_library",
         "//pkg/apis/policy/v1beta1:go_default_library",
         "//pkg/apis/rbac/install:go_default_library",
         "//pkg/apis/rbac/v1alpha1:go_default_library",
         "//pkg/apis/storage/install:go_default_library",
         "//pkg/apis/storage/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/core/v1:go_default_library",
         "//pkg/client/clientset_generated/internalclientset/typed/core/internalversion:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/core/v1:go_default_library",
         "//pkg/genericapiserver:go_default_library",
-        "//pkg/genericapiserver/options:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/kubelet/client:go_default_library",
         "//pkg/master/thirdparty:go_default_library",
-        "//pkg/registry:go_default_library",
         "//pkg/registry/apps/rest:go_default_library",
         "//pkg/registry/authentication/rest:go_default_library",
         "//pkg/registry/authorization/rest:go_default_library",
@@ -113,8 +111,8 @@ go_test(
         "//pkg/apis/extensions/v1beta1:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
         "//pkg/apis/rbac:go_default_library",
+        "//pkg/client/clientset_generated/clientset/fake:go_default_library",
         "//pkg/client/clientset_generated/internalclientset/fake:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/fake:go_default_library",
         "//pkg/client/restclient:go_default_library",
         "//pkg/client/testing/core:go_default_library",
         "//pkg/generated/openapi:go_default_library",

@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -18,6 +16,7 @@ go_library(
         "errors.go",
         "interfaces.go",
         "selection_predicate.go",
+        "time_budget.go",
         "util.go",
         "watch_cache.go",
     ],
@@ -49,7 +48,9 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "cacher_whitebox_test.go",
         "selection_predicate_test.go",
+        "time_budget_test.go",
         "util_test.go",
         "watch_cache_test.go",
     ],

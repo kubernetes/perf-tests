@@ -982,19 +982,6 @@ func (ObjectReference) SwaggerDoc() map[string]string {
 	return map_ObjectReference
 }
 
-var map_OwnerReference = map[string]string{
-	"":           "OwnerReference contains enough information to let you identify an owning object. Currently, an owning object must be in the same namespace, so there is no namespace field.",
-	"apiVersion": "API version of the referent.",
-	"kind":       "Kind of the referent. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds",
-	"name":       "Name of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
-	"uid":        "UID of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
-	"controller": "If true, this reference points to the managing controller.",
-}
-
-func (OwnerReference) SwaggerDoc() map[string]string {
-	return map_OwnerReference
-}
-
 var map_PersistentVolume = map[string]string{
 	"":         "PersistentVolume (PV) is a storage resource provisioned by an administrator. It is analogous to a node. More info: http://kubernetes.io/docs/user-guide/persistent-volumes",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
@@ -1287,6 +1274,7 @@ var map_PodSpec = map[string]string{
 	"imagePullSecrets":              "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod",
 	"hostname":                      "Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value.",
 	"subdomain":                     "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+	"affinity":                      "If specified, the pod's scheduling constraints",
 }
 
 func (PodSpec) SwaggerDoc() map[string]string {
@@ -1303,6 +1291,7 @@ var map_PodStatus = map[string]string{
 	"podIP":             "IP address allocated to the pod. Routable at least within the cluster. Empty if not yet allocated.",
 	"startTime":         "RFC 3339 date and time at which the object was acknowledged by the Kubelet. This is before the Kubelet pulled the container image(s) for the pod.",
 	"containerStatuses": "The list has one entry per container in the manifest. Each entry is currently the output of `docker inspect`. More info: http://kubernetes.io/docs/user-guide/pod-states#container-statuses",
+	"qosClass":          "The Quality of Service (QOS) classification assigned to the pod based on resource requirements See PodQOSClass type for available QOS classes More info: https://github.com/kubernetes/kubernetes/blob/master/docs/design/resource-qos.md",
 }
 
 func (PodStatus) SwaggerDoc() map[string]string {

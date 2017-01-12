@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -26,14 +24,12 @@ go_library(
         "register.go",
         "requestcontext.go",
         "resource_helpers.go",
-        "types.generated.go",
         "types.go",
         "zz_generated.deepcopy.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//pkg/api/meta:go_default_library",
-        "//pkg/api/meta/metatypes:go_default_library",
         "//pkg/api/resource:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
         "//pkg/auth/user:go_default_library",
@@ -53,7 +49,6 @@ go_library(
         "//pkg/util/validation/field:go_default_library",
         "//vendor:github.com/davecgh/go-spew/spew",
         "//vendor:github.com/golang/glog",
-        "//vendor:github.com/ugorji/go/codec",
         "//vendor:golang.org/x/net/context",
     ],
 )
@@ -93,7 +88,6 @@ go_test(
     deps = [
         "//pkg/api:go_default_library",
         "//pkg/api/meta:go_default_library",
-        "//pkg/api/meta/metatypes:go_default_library",
         "//pkg/api/testapi:go_default_library",
         "//pkg/api/testing:go_default_library",
         "//pkg/api/v1:go_default_library",

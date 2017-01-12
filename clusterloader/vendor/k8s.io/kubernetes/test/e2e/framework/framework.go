@@ -29,13 +29,14 @@ import (
 	staging "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/util/sets"
 	clientreporestclient "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/federation/client/clientset_generated/federation_release_1_5"
+	"k8s.io/kubernetes/federation/client/clientset_generated/federation_clientset"
 	"k8s.io/kubernetes/pkg/api"
 	apierrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/typed/dynamic"
 	"k8s.io/kubernetes/pkg/fields"
@@ -93,7 +94,7 @@ type Framework struct {
 	federated bool
 
 	// Federation specific params. These are set only if federated = true.
-	FederationClientset_1_5 *federation_release_1_5.Clientset
+	FederationClientset_1_5 *federation_clientset.Clientset
 	FederationNamespace     *v1.Namespace
 }
 
@@ -283,7 +284,7 @@ func (f *Framework) deleteFederationNs() {
 	}
 	// Verify that it got deleted.
 	err := wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		if _, err := clientset.Core().Namespaces().Get(ns.Name); err != nil {
+		if _, err := clientset.Core().Namespaces().Get(ns.Name, metav1.GetOptions{}); err != nil {
 			if apierrs.IsNotFound(err) {
 				return true, nil
 			}
@@ -387,7 +388,9 @@ func (f *Framework) AfterEach() {
 	summaries := make([]TestDataSummary, 0)
 	if TestContext.GatherKubeSystemResourceUsageData != "false" && TestContext.GatherKubeSystemResourceUsageData != "none" && f.gatherer != nil {
 		By("Collecting resource usage data")
-		summaries = append(summaries, f.gatherer.stopAndSummarize([]int{90, 99, 100}, f.AddonResourceConstraints))
+		summary, resourceViolationError := f.gatherer.stopAndSummarize([]int{90, 99, 100}, f.AddonResourceConstraints)
+		defer ExpectNoError(resourceViolationError)
+		summaries = append(summaries, summary)
 	}
 
 	if TestContext.GatherLogsSizes {
@@ -747,7 +750,7 @@ func (f *Framework) GetUnderlyingFederatedContexts() []E2EContext {
 
 	e2eContexts := []E2EContext{}
 	for _, context := range kubeconfig.Contexts {
-		if strings.HasPrefix(context.Name, "federation") && context.Name != "federation-cluster" {
+		if strings.HasPrefix(context.Name, "federation") && context.Name != federatedKubeContext {
 
 			user := kubeconfig.findUser(context.Context.User)
 			if user == nil {

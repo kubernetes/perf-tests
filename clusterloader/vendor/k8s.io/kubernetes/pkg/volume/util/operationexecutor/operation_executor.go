@@ -22,12 +22,14 @@ package operationexecutor
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
 	kevents "k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/pkg/types"
@@ -709,7 +711,7 @@ func (oe *operationExecutor) generateDetachVolumeFunc(
 func (oe *operationExecutor) verifyVolumeIsSafeToDetach(
 	volumeToDetach AttachedVolume) error {
 	// Fetch current node object
-	node, fetchErr := oe.kubeClient.Core().Nodes().Get(string(volumeToDetach.NodeName))
+	node, fetchErr := oe.kubeClient.Core().Nodes().Get(string(volumeToDetach.NodeName), metav1.GetOptions{})
 	if fetchErr != nil {
 		if errors.IsNotFound(fetchErr) {
 			glog.Warningf("Node %q not found on API server. DetachVolume will skip safe to detach check.",
@@ -1053,7 +1055,8 @@ func (oe *operationExecutor) generateUnmountDeviceFunc(
 				err)
 		}
 		refs, err := attachableVolumePlugin.GetDeviceMountRefs(deviceMountPath)
-		if err != nil || len(refs) > 0 {
+
+		if err != nil || hasMountRefs(deviceMountPath, refs) {
 			if err == nil {
 				err = fmt.Errorf("The device mount path %q is still mounted by other references %v", deviceMountPath, refs)
 			}
@@ -1124,6 +1127,24 @@ func (oe *operationExecutor) generateUnmountDeviceFunc(
 	}, nil
 }
 
+// TODO: this is a workaround for the unmount device issue caused by gci mounter.
+// In GCI cluster, if gci mounter is used for mounting, the container started by mounter
+// script will cause additional mounts created in the container. Since these mounts are
+// irrelavant to the original mounts, they should be not considered when checking the
+// mount references. Current solution is to filter out those mount paths that contain
+// the string of original mount path.
+// Plan to work on better approach to solve this issue.
+
+func hasMountRefs(mountPath string, mountRefs []string) bool {
+	count := 0
+	for _, ref := range mountRefs {
+		if !strings.Contains(ref, mountPath) {
+			count = count + 1
+		}
+	}
+	return count > 0
+}
+
 func (oe *operationExecutor) generateVerifyControllerAttachedVolumeFunc(
 	volumeToMount VolumeToMount,
 	nodeName types.NodeName,
@@ -1165,7 +1186,7 @@ func (oe *operationExecutor) generateVerifyControllerAttachedVolumeFunc(
 		}
 
 		// Fetch current node object
-		node, fetchErr := oe.kubeClient.Core().Nodes().Get(string(nodeName))
+		node, fetchErr := oe.kubeClient.Core().Nodes().Get(string(nodeName), metav1.GetOptions{})
 		if fetchErr != nil {
 			// On failure, return error. Caller will log and retry.
 			return fmt.Errorf(

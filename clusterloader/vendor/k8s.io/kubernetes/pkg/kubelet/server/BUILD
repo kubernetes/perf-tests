@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -41,6 +39,7 @@ go_library(
         "//pkg/util/configz:go_default_library",
         "//pkg/util/flushwriter:go_default_library",
         "//pkg/util/limitwriter:go_default_library",
+        "//pkg/util/runtime:go_default_library",
         "//pkg/util/term:go_default_library",
         "//pkg/volume:go_default_library",
         "//vendor:github.com/emicklei/go-restful",

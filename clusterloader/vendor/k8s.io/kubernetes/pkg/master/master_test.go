@@ -42,7 +42,7 @@ import (
 	extensionsapiv1beta1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/apis/rbac"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/fake"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	openapigen "k8s.io/kubernetes/pkg/generated/openapi"
 	"k8s.io/kubernetes/pkg/genericapiserver"
@@ -314,15 +314,16 @@ func TestValidOpenAPISpec(t *testing.T) {
 	_, etcdserver, config, assert := setUp(t)
 	defer etcdserver.Terminate(t)
 
-	config.GenericConfig.OpenAPIConfig.Definitions = openapigen.OpenAPIDefinitions
-	config.GenericConfig.EnableOpenAPISupport = true
 	config.GenericConfig.EnableIndex = true
+	config.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(openapigen.OpenAPIDefinitions)
 	config.GenericConfig.OpenAPIConfig.Info = &spec.Info{
 		InfoProps: spec.InfoProps{
 			Title:   "Kubernetes",
 			Version: "unversioned",
 		},
 	}
+	config.GenericConfig.SwaggerConfig = genericapiserver.DefaultSwaggerConfig()
+
 	master, err := config.Complete().New()
 	if err != nil {
 		t.Fatalf("Error in bringing up the master: %v", err)

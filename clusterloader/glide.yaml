@@ -13,6 +13,7 @@ import:
   subpackages:
   - pkg/api
   - pkg/api/v1
+  - pkg/apis/meta/v1
   - pkg/client/clientset_generated/clientset
   - pkg/labels
   - pkg/util/logs

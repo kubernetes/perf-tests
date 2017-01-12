@@ -21,7 +21,7 @@ import (
 	"time"
 
 	federationapi "k8s.io/kubernetes/federation/apis/federation/v1beta1"
-	federationclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_release_1_5"
+	federationclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_clientset"
 	"k8s.io/kubernetes/federation/pkg/federation-controller/util"
 	"k8s.io/kubernetes/federation/pkg/federation-controller/util/deletionhelper"
 	"k8s.io/kubernetes/federation/pkg/federation-controller/util/eventsink"
@@ -29,10 +29,9 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	apiv1 "k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/watch"
@@ -338,7 +337,7 @@ func (nc *NamespaceController) reconcileNamespace(namespace string) {
 	}
 	// Create a copy before modifying the namespace to prevent race condition with
 	// other readers of namespace from store.
-	namespaceObj, err := conversion.NewCloner().DeepCopy(namespaceObjFromStore)
+	namespaceObj, err := api.Scheme.DeepCopy(namespaceObjFromStore)
 	baseNamespace, ok := namespaceObj.(*apiv1.Namespace)
 	if err != nil || !ok {
 		glog.Errorf("Error in retrieving obj from store: %v, %v", ok, err)
@@ -390,7 +389,7 @@ func (nc *NamespaceController) reconcileNamespace(namespace string) {
 		// The object should not be modified.
 		desiredNamespace := &apiv1.Namespace{
 			ObjectMeta: util.DeepCopyRelevantObjectMeta(baseNamespace.ObjectMeta),
-			Spec:       util.DeepCopyApiTypeOrPanic(baseNamespace.Spec).(apiv1.NamespaceSpec),
+			Spec:       *(util.DeepCopyApiTypeOrPanic(&baseNamespace.Spec).(*apiv1.NamespaceSpec)),
 		}
 		glog.V(5).Infof("Desired namespace in underlying clusters: %+v", desiredNamespace)
 

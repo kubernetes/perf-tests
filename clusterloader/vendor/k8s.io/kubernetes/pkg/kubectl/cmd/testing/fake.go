@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	fedclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_internalclientset"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/testapi"
@@ -229,8 +230,25 @@ func (f *FakeFactory) ClientConfig() (*restclient.Config, error) {
 	return f.tf.ClientConfig, f.tf.Err
 }
 
+func (f *FakeFactory) BareClientConfig() (*restclient.Config, error) {
+	return f.tf.ClientConfig, f.tf.Err
+}
+
 func (f *FakeFactory) ClientForMapping(*meta.RESTMapping) (resource.RESTClient, error) {
 	return f.tf.Client, f.tf.Err
+}
+
+func (f *FakeFactory) FederationClientSetForVersion(version *schema.GroupVersion) (fedclientset.Interface, error) {
+	return nil, nil
+}
+func (f *FakeFactory) FederationClientForVersion(version *schema.GroupVersion) (*restclient.RESTClient, error) {
+	return nil, nil
+}
+func (f *FakeFactory) ClientSetForVersion(requiredVersion *schema.GroupVersion) (*internalclientset.Clientset, error) {
+	return nil, nil
+}
+func (f *FakeFactory) ClientConfigForVersion(requiredVersion *schema.GroupVersion) (*restclient.Config, error) {
+	return nil, nil
 }
 
 func (f *FakeFactory) UnstructuredClientForMapping(*meta.RESTMapping) (resource.RESTClient, error) {
@@ -291,6 +309,10 @@ func (f *FakeFactory) Pauser(info *resource.Info) (bool, error) {
 
 func (f *FakeFactory) Resumer(info *resource.Info) (bool, error) {
 	return false, nil
+}
+
+func (f *FakeFactory) ResolveImage(name string) (string, error) {
+	return name, nil
 }
 
 func (f *FakeFactory) Validator(validate bool, cacheDir string) (validation.Schema, error) {

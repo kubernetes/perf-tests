@@ -40,6 +40,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/certificates"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/pkg/apis/policy"
 	"k8s.io/kubernetes/pkg/apis/rbac"
 	"k8s.io/kubernetes/pkg/apis/storage"
@@ -232,7 +233,7 @@ func (p *NamePrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		if errs := runtime.DecodeList(items, p.Decoder, runtime.UnstructuredJSONScheme); len(errs) > 0 {
+		if errs := runtime.DecodeList(items, p.Decoder, unstructured.UnstructuredJSONScheme); len(errs) > 0 {
 			return utilerrors.NewAggregate(errs)
 		}
 		for _, obj := range items {
@@ -485,7 +486,7 @@ var (
 	ingressColumns               = []string{"NAME", "HOSTS", "ADDRESS", "PORTS", "AGE"}
 	statefulSetColumns           = []string{"NAME", "DESIRED", "CURRENT", "AGE"}
 	endpointColumns              = []string{"NAME", "ENDPOINTS", "AGE"}
-	nodeColumns                  = []string{"NAME", "STATUS", "AGE"}
+	nodeColumns                  = []string{"NAME", "STATUS", "AGE", "VERSION"}
 	daemonSetColumns             = []string{"NAME", "DESIRED", "CURRENT", "READY", "NODE-SELECTOR", "AGE"}
 	eventColumns                 = []string{"LASTSEEN", "FIRSTSEEN", "COUNT", "NAME", "KIND", "SUBOBJECT", "TYPE", "REASON", "SOURCE", "MESSAGE"}
 	limitRangeColumns            = []string{"NAME", "AGE"}
@@ -1532,7 +1533,7 @@ func printNode(node *api.Node, w io.Writer, options PrintOptions) error {
 		status = append(status, role)
 	}
 
-	if _, err := fmt.Fprintf(w, "%s\t%s\t%s", name, strings.Join(status, ","), translateTimestamp(node.CreationTimestamp)); err != nil {
+	if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s", name, strings.Join(status, ","), translateTimestamp(node.CreationTimestamp), node.Status.NodeInfo.KubeletVersion); err != nil {
 		return err
 	}
 
@@ -2393,14 +2394,7 @@ func (h *HumanReadablePrinter) PrintObj(obj runtime.Object, output io.Writer) er
 
 	// check if the object is unstructured.  If so, let's attempt to convert it to a type we can understand before
 	// trying to print, since the printers are keyed by type.  This is extremely expensive.
-	switch obj.(type) {
-	case *runtime.UnstructuredList, *runtime.Unstructured, *runtime.Unknown:
-		if objBytes, err := runtime.Encode(api.Codecs.LegacyCodec(), obj); err == nil {
-			if decodedObj, err := runtime.Decode(api.Codecs.UniversalDecoder(), objBytes); err == nil {
-				obj = decodedObj
-			}
-		}
-	}
+	obj, _ = DecodeUnknownObject(obj)
 
 	t := reflect.TypeOf(obj)
 	if handler := h.handlerMap[t]; handler != nil {
@@ -2423,12 +2417,6 @@ func (h *HumanReadablePrinter) PrintObj(obj runtime.Object, output io.Writer) er
 		return resultValue.Interface().(error)
 	}
 
-	// we don't recognize this type, but we can still attempt to print some reasonable information about.
-	unstructured, ok := obj.(*runtime.Unstructured)
-	if !ok {
-		return fmt.Errorf("error: unknown type %#v", obj)
-	}
-
 	if _, err := meta.Accessor(obj); err == nil {
 		if !h.options.NoHeaders && t != h.lastType {
 			headers := []string{"NAME", "KIND"}
@@ -2441,6 +2429,12 @@ func (h *HumanReadablePrinter) PrintObj(obj runtime.Object, output io.Writer) er
 			h.printHeader(headers, w)
 			h.lastType = t
 		}
+
+		// we don't recognize this type, but we can still attempt to print some reasonable information about.
+		unstructured, ok := obj.(runtime.Unstructured)
+		if !ok {
+			return fmt.Errorf("error: unknown type %#v", obj)
+		}
 		// if the error isn't nil, report the "I don't recognize this" error
 		if err := printUnstructured(unstructured, w, h.options); err != nil {
 			return err
@@ -2452,7 +2446,7 @@ func (h *HumanReadablePrinter) PrintObj(obj runtime.Object, output io.Writer) er
 	return fmt.Errorf("error: unknown type %#v", obj)
 }
 
-func printUnstructured(unstructured *runtime.Unstructured, w io.Writer, options PrintOptions) error {
+func printUnstructured(unstructured runtime.Unstructured, w io.Writer, options PrintOptions) error {
 	metadata, err := meta.Accessor(unstructured)
 	if err != nil {
 		return err
@@ -2464,13 +2458,14 @@ func printUnstructured(unstructured *runtime.Unstructured, w io.Writer, options 
 		}
 	}
 
+	content := unstructured.UnstructuredContent()
 	kind := "<missing>"
-	if objKind, ok := unstructured.Object["kind"]; ok {
+	if objKind, ok := content["kind"]; ok {
 		if str, ok := objKind.(string); ok {
 			kind = str
 		}
 	}
-	if objAPIVersion, ok := unstructured.Object["apiVersion"]; ok {
+	if objAPIVersion, ok := content["apiVersion"]; ok {
 		if str, ok := objAPIVersion.(string); ok {
 			version, err := schema.ParseGroupVersion(str)
 			if err != nil {
@@ -2521,12 +2516,7 @@ func (p *TemplatePrinter) AfterPrint(w io.Writer, res string) error {
 func (p *TemplatePrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 	var data []byte
 	var err error
-	if unstructured, ok := obj.(*runtime.Unstructured); ok {
-		data, err = json.Marshal(unstructured.Object)
-	} else {
-		data, err = json.Marshal(obj)
-
-	}
+	data, err = json.Marshal(obj)
 	if err != nil {
 		return err
 	}
@@ -2700,7 +2690,7 @@ func (j *JSONPathPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 			return err
 		}
 	}
-	if unstructured, ok := obj.(*runtime.Unstructured); ok {
+	if unstructured, ok := obj.(*unstructured.Unstructured); ok {
 		queryObj = unstructured.Object
 	}
 

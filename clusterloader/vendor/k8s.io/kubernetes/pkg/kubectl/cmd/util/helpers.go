@@ -28,12 +28,17 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/golang/glog"
+	"github.com/spf13/cobra"
+
 	"k8s.io/kubernetes/pkg/api"
 	kerrors "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
@@ -43,10 +48,6 @@ import (
 	utilexec "k8s.io/kubernetes/pkg/util/exec"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/strategicpatch"
-
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/glog"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -523,18 +524,24 @@ func RecordChangeCause(obj runtime.Object, changeCause string) error {
 // ChangeResourcePatch creates a strategic merge patch between the origin input resource info
 // and the annotated with change-cause input resource info.
 func ChangeResourcePatch(info *resource.Info, changeCause string) ([]byte, error) {
-	oldData, err := json.Marshal(info.Object)
+	// Get a versioned object
+	obj, err := info.Mapping.ConvertToVersion(info.Object, info.Mapping.GroupVersionKind.GroupVersion())
 	if err != nil {
 		return nil, err
 	}
-	if err := RecordChangeCause(info.Object, changeCause); err != nil {
-		return nil, err
-	}
-	newData, err := json.Marshal(info.Object)
+
+	oldData, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-	return strategicpatch.CreateTwoWayMergePatch(oldData, newData, info.Object)
+	if err := RecordChangeCause(obj, changeCause); err != nil {
+		return nil, err
+	}
+	newData, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return strategicpatch.CreateTwoWayMergePatch(oldData, newData, obj)
 }
 
 // containsChangeCause checks if input resource info contains change-cause annotation.
@@ -657,7 +664,7 @@ func FilterResourceList(obj runtime.Object, filterFuncs kubectl.Filters, filterO
 	if err != nil {
 		return 0, []runtime.Object{obj}, utilerrors.NewAggregate([]error{err})
 	}
-	if errs := runtime.DecodeList(items, api.Codecs.UniversalDecoder(), runtime.UnstructuredJSONScheme); len(errs) > 0 {
+	if errs := runtime.DecodeList(items, api.Codecs.UniversalDecoder(), unstructured.UnstructuredJSONScheme); len(errs) > 0 {
 		return 0, []runtime.Object{obj}, utilerrors.NewAggregate(errs)
 	}
 

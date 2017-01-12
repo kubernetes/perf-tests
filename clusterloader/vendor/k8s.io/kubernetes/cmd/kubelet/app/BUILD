@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -26,16 +24,17 @@ go_library(
         "//pkg/api/v1:go_default_library",
         "//pkg/apis/componentconfig:go_default_library",
         "//pkg/apis/componentconfig/v1alpha1:go_default_library",
+        "//pkg/apis/meta/v1:go_default_library",
         "//pkg/apiserver/authenticator:go_default_library",
         "//pkg/auth/authenticator:go_default_library",
         "//pkg/auth/authorizer:go_default_library",
         "//pkg/capabilities:go_default_library",
         "//pkg/client/chaosclient:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/authentication/v1beta1:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/authorization/v1beta1:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/certificates/v1alpha1:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/core/v1:go_default_library",
+        "//pkg/client/clientset_generated/clientset:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/authentication/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/authorization/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/certificates/v1alpha1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/core/v1:go_default_library",
         "//pkg/client/record:go_default_library",
         "//pkg/client/restclient:go_default_library",
         "//pkg/client/unversioned/auth:go_default_library",
@@ -45,6 +44,7 @@ go_library(
         "//pkg/cloudprovider/providers:go_default_library",
         "//pkg/credentialprovider:go_default_library",
         "//pkg/credentialprovider/aws:go_default_library",
+        "//pkg/credentialprovider/azure:go_default_library",
         "//pkg/credentialprovider/gcp:go_default_library",
         "//pkg/genericapiserver/authorizer:go_default_library",
         "//pkg/healthz:go_default_library",

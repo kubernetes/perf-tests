@@ -19,6 +19,7 @@ package internalversion
 import (
 	apiregistration "k8s.io/kubernetes/cmd/kubernetes-discovery/pkg/apis/apiregistration"
 	api "k8s.io/kubernetes/pkg/api"
+	v1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
@@ -33,9 +34,10 @@ type APIServicesGetter interface {
 type APIServiceInterface interface {
 	Create(*apiregistration.APIService) (*apiregistration.APIService, error)
 	Update(*apiregistration.APIService) (*apiregistration.APIService, error)
+	UpdateStatus(*apiregistration.APIService) (*apiregistration.APIService, error)
 	Delete(name string, options *api.DeleteOptions) error
 	DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error
-	Get(name string) (*apiregistration.APIService, error)
+	Get(name string, options v1.GetOptions) (*apiregistration.APIService, error)
 	List(opts api.ListOptions) (*apiregistration.APIServiceList, error)
 	Watch(opts api.ListOptions) (watch.Interface, error)
 	Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *apiregistration.APIService, err error)
@@ -77,6 +79,21 @@ func (c *aPIServices) Update(aPIService *apiregistration.APIService) (result *ap
 	return
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclientstatus=false comment above the type to avoid generating UpdateStatus().
+
+func (c *aPIServices) UpdateStatus(aPIService *apiregistration.APIService) (result *apiregistration.APIService, err error) {
+	result = &apiregistration.APIService{}
+	err = c.client.Put().
+		Resource("apiservices").
+		Name(aPIService.Name).
+		SubResource("status").
+		Body(aPIService).
+		Do().
+		Into(result)
+	return
+}
+
 // Delete takes name of the aPIService and deletes it. Returns an error if one occurs.
 func (c *aPIServices) Delete(name string, options *api.DeleteOptions) error {
 	return c.client.Delete().
@@ -98,11 +115,12 @@ func (c *aPIServices) DeleteCollection(options *api.DeleteOptions, listOptions a
 }
 
 // Get takes name of the aPIService, and returns the corresponding aPIService object, and an error if there is any.
-func (c *aPIServices) Get(name string) (result *apiregistration.APIService, err error) {
+func (c *aPIServices) Get(name string, options v1.GetOptions) (result *apiregistration.APIService, err error) {
 	result = &apiregistration.APIService{}
 	err = c.client.Get().
 		Resource("apiservices").
 		Name(name).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return

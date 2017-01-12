@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/fake"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	"k8s.io/kubernetes/pkg/client/testing/core"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/types"
@@ -349,6 +349,130 @@ func TestParseClassParameters(t *testing.T) {
 			nil,  // secret
 			true, // expect error
 			nil,
+		},
+		{
+			"invalid gidMin #1",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "0",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMin #2",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "1999",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMin #3",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "1999",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMax #1",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMax":          "0",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMax #2",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMax":          "1999",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMax #3",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMax":          "1999",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"invalid gidMin:gidMax",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "5001",
+				"gidMax":          "5000",
+			},
+			&secret,
+			true, // expect error
+			nil,
+		},
+		{
+			"valid gidMin",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "4000",
+			},
+			&secret,
+			false, // expect error
+			&provisioningConfig{
+				url:    "https://localhost:8080",
+				gidMin: 4000,
+				gidMax: 2147483647,
+			},
+		},
+		{
+			"valid gidMax",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMax":          "5000",
+			},
+			&secret,
+			false, // expect error
+			&provisioningConfig{
+				url:    "https://localhost:8080",
+				gidMin: 2000,
+				gidMax: 5000,
+			},
+		},
+		{
+			"valid gidMin:gidMax",
+			map[string]string{
+				"resturl":         "https://localhost:8080",
+				"restauthenabled": "false",
+				"gidMin":          "4000",
+				"gidMax":          "5000",
+			},
+			&secret,
+			false, // expect error
+			&provisioningConfig{
+				url:    "https://localhost:8080",
+				gidMin: 4000,
+				gidMax: 5000,
+			},
 		},
 	}
 

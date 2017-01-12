@@ -308,7 +308,8 @@ func NewGenericServerResponse(code int, verb string, qualifiedResource schema.Gr
 		message = "the server has asked for the client to provide credentials"
 	case http.StatusForbidden:
 		reason = metav1.StatusReasonForbidden
-		message = "the server does not allow access to the requested resource"
+		// the server message has details about who is trying to perform what action.  Keep its message.
+		message = serverMessage
 	case http.StatusMethodNotAllowed:
 		reason = metav1.StatusReasonMethodNotAllowed
 		message = "the server does not allow this method on the requested resource"
@@ -401,6 +402,12 @@ func IsUnauthorized(err error) bool {
 // be completed as requested.
 func IsForbidden(err error) bool {
 	return reasonForError(err) == metav1.StatusReasonForbidden
+}
+
+// IsTimeout determines if err is an error which indicates that request times out due to long
+// processing.
+func IsTimeout(err error) bool {
+	return reasonForError(err) == metav1.StatusReasonTimeout
 }
 
 // IsServerTimeout determines if err is an error which indicates that the request needs to be retried

@@ -195,7 +195,7 @@ type ObjectMeta struct {
 	// then an entry in this list will point to this controller, with the controller field set to true.
 	// There cannot be more than one managing controller.
 	// +optional
-	OwnerReferences []OwnerReference `json:"ownerReferences,omitempty" patchStrategy:"merge" patchMergeKey:"uid" protobuf:"bytes,13,rep,name=ownerReferences"`
+	OwnerReferences []metav1.OwnerReference `json:"ownerReferences,omitempty" patchStrategy:"merge" patchMergeKey:"uid" protobuf:"bytes,13,rep,name=ownerReferences"`
 
 	// Must be empty before the object is deleted from the registry. Each entry
 	// is an identifier for the responsible component that will remove the entry
@@ -2107,6 +2107,9 @@ type PodSpec struct {
 	// If not specified, the pod will not have a domainname at all.
 	// +optional
 	Subdomain string `json:"subdomain,omitempty" protobuf:"bytes,17,opt,name=subdomain"`
+	// If specified, the pod's scheduling constraints
+	// +optional
+	Affinity *Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
 }
 
 // PodSecurityContext holds pod-level security attributes and common container settings.
@@ -2153,6 +2156,18 @@ type PodSecurityContext struct {
 	FSGroup *int64 `json:"fsGroup,omitempty" protobuf:"varint,5,opt,name=fsGroup"`
 }
 
+// PodQOSClass defines the supported qos classes of Pods.
+type PodQOSClass string
+
+const (
+	// PodQOSGuaranteed is the Guaranteed qos class.
+	PodQOSGuaranteed PodQOSClass = "Guaranteed"
+	// PodQOSBurstable is the Burstable qos class.
+	PodQOSBurstable PodQOSClass = "Burstable"
+	// PodQOSBestEffort is the BestEffort qos class.
+	PodQOSBestEffort PodQOSClass = "BestEffort"
+)
+
 // PodStatus represents information about the status of a pod. Status may trail the actual
 // state of a system.
 type PodStatus struct {
@@ -2196,6 +2211,11 @@ type PodStatus struct {
 	// More info: http://kubernetes.io/docs/user-guide/pod-states#container-statuses
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
+	// The Quality of Service (QOS) classification assigned to the pod based on resource requirements
+	// See PodQOSClass type for available QOS classes
+	// More info: https://github.com/kubernetes/kubernetes/blob/master/docs/design/resource-qos.md
+	// +optional
+	QOSClass PodQOSClass `json:"qosClass,omitempty" protobuf:"bytes,9,rep,name=qosClass"`
 }
 
 // PodStatusResult is a wrapper for PodStatus returned by kubelet that can be encode/decoded
@@ -2491,7 +2511,7 @@ type LoadBalancerIngress struct {
 type ServiceSpec struct {
 	// The list of ports that are exposed by this service.
 	// More info: http://kubernetes.io/docs/user-guide/services#virtual-ips-and-service-proxies
-	Ports []ServicePort `json:"ports" patchStrategy:"merge" patchMergeKey:"port" protobuf:"bytes,1,rep,name=ports"`
+	Ports []ServicePort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port" protobuf:"bytes,1,rep,name=ports"`
 
 	// Route service traffic to pods with label keys and values matching this
 	// selector. If empty or not present, the service is assumed to have an
@@ -2953,7 +2973,7 @@ type PreferAvoidPodsEntry struct {
 type PodSignature struct {
 	// Reference to controller whose pods should avoid this node.
 	// +optional
-	PodController *OwnerReference `json:"podController,omitempty" protobuf:"bytes,1,opt,name=podController"`
+	PodController *metav1.OwnerReference `json:"podController,omitempty" protobuf:"bytes,1,opt,name=podController"`
 }
 
 // Describe a container image
@@ -2995,7 +3015,7 @@ const (
 	NodeDiskPressure NodeConditionType = "DiskPressure"
 	// NodeNetworkUnavailable means that network for the node is not correctly configured.
 	NodeNetworkUnavailable NodeConditionType = "NetworkUnavailable"
-	// NodeInodePressure means the kublet is under pressure due to insufficient available inodes.
+	// NodeInodePressure means the kubelet is under pressure due to insufficient available inodes.
 	NodeInodePressure NodeConditionType = "InodePressure"
 )
 
@@ -3103,6 +3123,7 @@ type NodeList struct {
 	Items []Node `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// FinalizerName is the name identifying a finalizer during namespace lifecycle.
 type FinalizerName string
 
 // These are internal finalizer values to Kubernetes, must be qualified name unless defined here
@@ -3233,6 +3254,10 @@ type ListOptions struct {
 	Watch bool `json:"watch,omitempty" protobuf:"varint,3,opt,name=watch"`
 	// When specified with a watch call, shows changes that occur after that particular version of a resource.
 	// Defaults to changes from the beginning of history.
+	// When specified for list:
+	// - if unset, then the result is returned from remote storage based on quorum-read flag;
+	// - if it's 0, then we simply return what we currently have in cache, no guarantee;
+	// - if set to non zero, then the result is at least as fresh as given rv.
 	// +optional
 	ResourceVersion string `json:"resourceVersion,omitempty" protobuf:"bytes,4,opt,name=resourceVersion"`
 	// Timeout for the list/watch call.
@@ -3380,26 +3405,6 @@ type ServiceProxyOptions struct {
 	// Path is _search?q=user:kimchy.
 	// +optional
 	Path string `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
-}
-
-// OwnerReference contains enough information to let you identify an owning
-// object. Currently, an owning object must be in the same namespace, so there
-// is no namespace field.
-type OwnerReference struct {
-	// API version of the referent.
-	APIVersion string `json:"apiVersion" protobuf:"bytes,5,opt,name=apiVersion"`
-	// Kind of the referent.
-	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds
-	Kind string `json:"kind" protobuf:"bytes,1,opt,name=kind"`
-	// Name of the referent.
-	// More info: http://kubernetes.io/docs/user-guide/identifiers#names
-	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
-	// UID of the referent.
-	// More info: http://kubernetes.io/docs/user-guide/identifiers#uids
-	UID types.UID `json:"uid" protobuf:"bytes,4,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
-	// If true, this reference points to the managing controller.
-	// +optional
-	Controller *bool `json:"controller,omitempty" protobuf:"varint,6,opt,name=controller"`
 }
 
 // ObjectReference contains enough information to let you inspect or modify the referred object.

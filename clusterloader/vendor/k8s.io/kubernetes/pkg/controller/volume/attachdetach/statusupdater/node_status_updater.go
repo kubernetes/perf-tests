@@ -24,11 +24,11 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	kcache "k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/controller/volume/attachdetach/cache"
-	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/util/strategicpatch"
 )
 
@@ -76,7 +76,7 @@ func (nsu *nodeStatusUpdater) UpdateNodeStatuses() error {
 			continue
 		}
 
-		clonedNode, err := conversion.NewCloner().DeepCopy(nodeObj)
+		clonedNode, err := api.Scheme.DeepCopy(nodeObj)
 		if err != nil {
 			return fmt.Errorf("error cloning node %q: %v",
 				nodeName,
@@ -91,6 +91,7 @@ func (nsu *nodeStatusUpdater) UpdateNodeStatuses() error {
 				clonedNode)
 		}
 
+		// TODO: Change to pkg/util/node.UpdateNodeStatus.
 		oldData, err := json.Marshal(node)
 		if err != nil {
 			return fmt.Errorf(

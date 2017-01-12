@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	docker "k8s.io/kubernetes/pkg/kubelet/dockertools"
 	"k8s.io/kubernetes/test/e2e/framework"
 
@@ -38,10 +39,10 @@ const (
 	maxTotalContainers = -1
 
 	defaultRuntimeRequestTimeoutDuration = 1 * time.Minute
-	garbageCollectDuration               = 2 * time.Minute
+	defaultImagePullProgressDeadline     = 1 * time.Minute
+	garbageCollectDuration               = 3 * time.Minute
 	setupDuration                        = 10 * time.Minute
 	runtimePollInterval                  = 10 * time.Second
-	deleteTimeout                        = 4 * time.Minute
 )
 
 type testPodSpec struct {
@@ -149,7 +150,7 @@ func containerGCTest(f *framework.Framework, test testRun) {
 			By("Making sure all containers restart the specified number of times")
 			Eventually(func() error {
 				for _, podSpec := range test.testPods {
-					updatedPod, err := f.ClientSet.Core().Pods(f.Namespace.Name).Get(podSpec.podName)
+					updatedPod, err := f.ClientSet.Core().Pods(f.Namespace.Name).Get(podSpec.podName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -259,7 +260,7 @@ func containerGCTest(f *framework.Framework, test testRun) {
 func dockerContainerGCTest(f *framework.Framework, test testRun) {
 	var runtime docker.DockerInterface
 	BeforeEach(func() {
-		runtime = docker.ConnectToDockerOrDie(defaultDockerEndpoint, defaultRuntimeRequestTimeoutDuration)
+		runtime = docker.ConnectToDockerOrDie(defaultDockerEndpoint, defaultRuntimeRequestTimeoutDuration, defaultImagePullProgressDeadline)
 	})
 	for _, pod := range test.testPods {
 		// Initialize the getContainerNames function to use the dockertools api

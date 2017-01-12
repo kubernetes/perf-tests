@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	storage "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
 	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	. "github.com/onsi/ginkgo"
@@ -45,11 +45,11 @@ func testDynamicProvisioning(client clientset.Interface, claim *v1.PersistentVol
 
 	By("checking the claim")
 	// Get new copy of the claim
-	claim, err = client.Core().PersistentVolumeClaims(claim.Namespace).Get(claim.Name)
+	claim, err = client.Core().PersistentVolumeClaims(claim.Namespace).Get(claim.Name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	// Get the bound PV
-	pv, err := client.Core().PersistentVolumes().Get(claim.Spec.VolumeName)
+	pv, err := client.Core().PersistentVolumes().Get(claim.Spec.VolumeName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	// Check sizes

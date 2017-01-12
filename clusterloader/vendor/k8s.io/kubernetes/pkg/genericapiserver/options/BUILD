@@ -4,10 +4,7 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -24,11 +21,14 @@ go_library(
     deps = [
         "//pkg/admission:go_default_library",
         "//pkg/api:go_default_library",
+        "//pkg/api/v1:go_default_library",
         "//pkg/apimachinery/registered:go_default_library",
         "//pkg/apiserver/authenticator:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/authentication/v1beta1:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/authorization/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/authentication/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/authorization/v1beta1:go_default_library",
+        "//pkg/client/restclient:go_default_library",
         "//pkg/client/unversioned/clientcmd:go_default_library",
+        "//pkg/cloudprovider:go_default_library",
         "//pkg/controller/informers:go_default_library",
         "//pkg/genericapiserver/authorizer:go_default_library",
         "//pkg/runtime/schema:go_default_library",

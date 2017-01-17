@@ -1,6 +1,8 @@
 FROM alpine
 
-RUN apk update && apk add bind-libs libcap
+RUN \
+	apk update && \
+	apk add bind-libs bind-tools libcap
 
 COPY build/src/dnsperf /dnsperf
 COPY build/src/resperf /resperf

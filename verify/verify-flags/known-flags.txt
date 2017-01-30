@@ -1,6 +1,14 @@
+comparison-scheme
 enable-output-coloring
 kubernetes-url
 left-build-number
+left-job-name
 listen-url
+log-source-mode
+match-threshold
+n-hours-count
+n-runs-count
 purge-after-seconds
 right-build-number
+right-job-name
+run-selection-scheme

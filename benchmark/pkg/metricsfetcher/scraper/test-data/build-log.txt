@@ -1,0 +1,393 @@
+I0421 06:13:41.920] [90m------------------------------[0m
+I0421 06:13:41.921] [0m[k8s.io] Density[0m 
+I0421 06:13:41.921]   [1m[Feature:Performance] should allow starting 30 pods per node using { ReplicationController} with 0 secrets and 0 daemons[0m
+I0421 06:13:41.921]   [37m/go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/density.go:736[0m
+I0421 06:13:41.921] [BeforeEach] [k8s.io] Density
+I0421 06:13:41.921]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/framework/framework.go:125
+I0421 06:13:41.921] [1mSTEP[0m: Creating a kubernetes client
+I0421 06:13:41.921] Apr 21 06:13:41.920: INFO: >>> kubeConfig: /workspace/kubernetes/test/kubemark/resources/kubeconfig.kubemark
+I0421 06:13:41.921] 
+I0421 06:13:41.924] [1mSTEP[0m: Building a namespace api object
+I0421 06:13:41.928] Apr 21 06:13:41.928: INFO: Skipping waiting for service account
+I0421 06:13:41.928] [BeforeEach] [k8s.io] Density
+I0421 06:13:41.928]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/density.go:379
+I0421 06:13:41.939] Apr 21 06:13:41.939: INFO: Waiting for terminating namespaces to be deleted...
+I0421 06:13:41.942] Apr 21 06:13:41.942: INFO: Resetting latency metrics in apiserver...
+I0421 06:13:41.943] Apr 21 06:13:41.943: INFO: Listing nodes for easy debugging:
+I0421 06:13:41.943] 
+I0421 06:13:41.943] Apr 21 06:13:41.943: INFO: Name: hollow-node-08bpv, clusterIP: 10.100.3.18, externalIP: 
+I0421 06:13:41.943] Apr 21 06:13:41.943: INFO: Name: hollow-node-0lg8c, clusterIP: 10.100.2.24, externalIP: 
+I0421 06:13:41.943] Apr 21 06:13:41.943: INFO: Name: hollow-node-0r8c9, clusterIP: 10.100.2.36, externalIP:
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+I0421 06:16:47.558] Apr 21 06:16:47.557: INFO: 10% worst e2e total latencies: [{density-latency-pod-21-4q67b hollow-node-8gx07 1.992704652s} {density-latency-pod-22-dk2x4 hollow-node-svhwh 1.99282465s} {density-latency-pod-33-53kr2 hollow-node-g99ww 2.010435404s} {density-latency-pod-69-3qrlw hollow-node-4g3m4 2.019404783s} {density-latency-pod-96-w2jfr hollow-node-wj5w6 2.034410094s} {density-latency-pod-84-01ljw hollow-node-r5qwl 2.036835722s} {density-latency-pod-18-gpmxk hollow-node-q3w61 2.041528348s} {density-latency-pod-92-c93cb hollow-node-h9f7b 2.057982262s} {density-latency-pod-90-d58fk hollow-node-4jbb0 2.105569541s} {density-latency-pod-36-9hqd4 hollow-node-c0ps5 2.108602428s}]
+I0421 06:16:47.558] Apr 21 06:16:47.557: INFO: perc50: 1.164956975s, perc90: 1.990637065s, perc99: 2.105569541s
+I0421 06:16:47.559] Apr 21 06:16:47.557: INFO: Pod startup latency: {
+I0421 06:16:47.559]   "latency": {
+I0421 06:16:47.559]     "Perc50": 1194643832,
+I0421 06:16:47.559]     "Perc90": 1746599261,
+I0421 06:16:47.559]     "Perc99": 2064082893,
+I0421 06:16:47.559]     "Perc100": 4215510634
+I0421 06:16:47.559]   }
+I0421 06:16:47.559] }
+I0421 06:16:47.559] 
+I0421 06:16:47.559] Apr 21 06:16:47.557: INFO: Approx throughput: 2845.486622004402 pods/min
+I0421 06:16:47.560] [1mSTEP[0m: Removing additional replication controllers
+I0421 06:16:47.560] [1mSTEP[0m: deleting { ReplicationController} density-latency-pod-2 in namespace e2e-tests-density-30-1-t8rfn, will wait for the garbage collector to delete the pods
+I0421 06:16:47.560] [1mSTEP[0m: deleting { ReplicationController} density-latency-pod-1 in namespace e2e-tests-density-30-1-t8rfn, will wait for the garbage collector to delete the pods
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+I0421 06:17:04.694] [1mSTEP[0m: Deleting created Collections
+I0421 06:17:04.694] [1mSTEP[0m: Cleaning up only the { ReplicationController}, garbage collector will clean up the pods
+I0421 06:17:04.694] [1mSTEP[0m: deleting { ReplicationController} density3000-0-5747afb3-2694-11e7-8d35-0242ac110009 in namespace e2e-tests-density-30-1-t8rfn, will wait for the garbage collector to delete the pods
+I0421 06:17:04.901] Apr 21 06:17:04.901: INFO: Deleting { ReplicationController} density3000-0-5747afb3-2694-11e7-8d35-0242ac110009 took: 4.841032ms
+I0421 06:22:04.902] Apr 21 06:22:04.902: INFO: Terminating { ReplicationController} density3000-0-5747afb3-2694-11e7-8d35-0242ac110009 pods took: 5m0.000497158s
+I0421 06:22:15.083] [AfterEach] [k8s.io] Density
+I0421 06:22:15.084]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/density.go:333
+I0421 06:22:15.084] Apr 21 06:22:15.083: INFO: Cluster saturation time: {
+I0421 06:22:15.084]   "timeToStaturate": 160055334722,
+I0421 06:22:15.084]   "numberOfNodes": 100,
+I0421 06:22:15.084]   "numberOfPods": 3000,
+I0421 06:22:15.084]   "throughput": 18.75
+I0421 06:22:15.084] }
+I0421 06:22:15.084] 
+I0421 06:22:15.116] Apr 21 06:22:15.115: INFO: Top latency metric: {Resource:pods Verb:DELETE Latency:{Perc50:4.252ms Perc90:7.232ms Perc99:25.383ms Perc100:0s}}
+I0421 06:22:15.116] Apr 21 06:22:15.115: INFO: Top latency metric: {Resource:replicationcontrollers Verb:DELETE Latency:{Perc50:3.579ms Perc90:12.219ms Perc99:18.196ms Perc100:0s}}
+I0421 06:22:15.116] Apr 21 06:22:15.115: INFO: Top latency metric: {Resource:pods Verb:POST Latency:{Perc50:1.596ms Perc90:2.727ms Perc99:15.837ms Perc100:0s}}
+I0421 06:22:15.116] Apr 21 06:22:15.115: INFO: Top latency metric: {Resource:nodes Verb:PATCH Latency:{Perc50:2.387ms Perc90:3.911ms Perc99:12.78ms Perc100:0s}}
+I0421 06:22:15.116] Apr 21 06:22:15.115: INFO: Top latency metric: {Resource:bindings Verb:POST Latency:{Perc50:1.467ms Perc90:2.694ms Perc99:12.598ms Perc100:0s}}
+I0421 06:22:15.116] Apr 21 06:22:15.116: INFO: API calls latencies: {
+I0421 06:22:15.116]   "apicalls": [
+I0421 06:22:15.117]     {
+I0421 06:22:15.117]       "resource": "pods",
+I0421 06:22:15.117]       "verb": "DELETE",
+I0421 06:22:15.117]       "latency": {
+I0421 06:22:15.117]         "Perc50": 5509000,
+I0421 06:22:15.117]         "Perc90": 12512000,
+I0421 06:22:15.117]         "Perc99": 41400000,
+I0421 06:22:15.117]         "Perc100": 0
+I0421 06:22:15.117]       }
+I0421 06:22:15.117]     },
+I0421 06:22:15.117]     {
+I0421 06:22:15.117]       "resource": "replicationcontrollers",
+I0421 06:22:15.118]       "verb": "DELETE",
+I0421 06:22:15.118]       "latency": {
+I0421 06:22:15.118]         "Perc50": 3579000,
+I0421 06:22:15.118]         "Perc90": 12219000,
+I0421 06:22:15.118]         "Perc99": 18196000,
+I0421 06:22:15.118]         "Perc100": 0
+I0421 06:22:15.118]       }
+I0421 06:22:15.118]     },
+I0421 06:22:15.145]     {
+I0421 06:22:15.145]       "resource": "pods",
+I0421 06:22:15.146]       "verb": "LIST",
+I0421 06:22:15.146]       "latency": {
+I0421 06:22:15.146]         "Perc50": 223000,
+I0421 06:22:15.146]         "Perc90": 223000,
+I0421 06:22:15.146]         "Perc99": 223000,
+I0421 06:22:15.146]         "Perc100": 0
+I0421 06:22:15.146]       }
+I0421 06:22:15.146]     }
+I0421 06:22:15.146]   ]
+I0421 06:22:15.146] }
+I0421 06:22:15.146] 
+I0421 06:22:15.147] Apr 21 06:22:15.117: INFO: [Result:Performance] {
+I0421 06:22:15.147]   "version": "v1",
+I0421 06:22:15.147]   "dataItems": [
+I0421 06:22:15.147]     {
+I0421 06:22:15.147]       "data": {
+I0421 06:22:15.147]         "Perc50": 4.252,
+I0421 06:22:15.147]         "Perc90": 7.232,
+I0421 06:22:15.147]         "Perc99": 25.383
+I0421 06:22:15.147]       },
+I0421 06:22:15.147]       "unit": "ms",
+I0421 06:22:15.147]       "labels": {
+I0421 06:22:15.148]         "Resource": "pods",
+I0421 06:22:15.148]         "Verb": "DELETE"
+I0421 06:22:15.148]       }
+I0421 06:22:15.148]     },
+I0421 06:22:15.178]     {
+I0421 06:22:15.178]       "data": {
+I0421 06:22:15.178]         "Perc50": 0.706,
+I0421 06:22:15.178]         "Perc90": 0.771,
+I0421 06:22:15.178]         "Perc99": 0.932
+I0421 06:22:15.178]       },
+I0421 06:22:15.178]       "unit": "ms",
+I0421 06:22:15.178]       "labels": {
+I0421 06:22:15.178]         "Resource": "clusterrolebindings",
+I0421 06:22:15.179]         "Verb": "PATCH"
+I0421 06:22:15.179]       }
+I0421 06:22:15.179]     },
+I0421 06:22:15.179]     {
+I0421 06:22:15.179]       "data": {
+I0421 06:22:15.179]         "Perc50": 0.752,
+I0421 06:22:15.179]         "Perc90": 0.883,
+I0421 06:22:15.179]         "Perc99": 0.883
+I0421 06:22:15.179]       },
+I0421 06:22:15.180]       "unit": "ms",
+I0421 06:22:15.180]       "labels": {
+I0421 06:22:15.180]         "Resource": "persistentvolumes",
+I0421 06:22:15.180]         "Verb": "LIST"
+I0421 06:22:15.180]       }
+I0421 06:22:15.180]     },
+I0421 06:22:15.148]     {
+I0421 06:22:15.148]       "data": {
+I0421 06:22:15.148]         "Perc50": 3.579,
+I0421 06:22:15.148]         "Perc90": 12.219,
+I0421 06:22:15.148]         "Perc99": 18.196
+I0421 06:22:15.148]       },
+I0421 06:22:15.148]       "unit": "ms",
+I0421 06:22:15.149]       "labels": {
+I0421 06:22:15.149]         "Resource": "replicationcontrollers",
+I0421 06:22:15.149]         "Verb": "DELETE"
+I0421 06:22:15.149]       }
+I0421 06:22:15.149]     },
+I0421 06:22:15.182]     {
+I0421 06:22:15.183]       "data": {
+I0421 06:22:15.183]         "Perc50": 0.223,
+I0421 06:22:15.183]         "Perc90": 0.223,
+I0421 06:22:15.183]         "Perc99": 0.223
+I0421 06:22:15.183]       },
+I0421 06:22:15.183]       "unit": "ms",
+I0421 06:22:15.183]       "labels": {
+I0421 06:22:15.183]         "Resource": "pods",
+I0421 06:22:15.183]         "Verb": "LIST"
+I0421 06:22:15.183]       }
+I0421 06:22:15.184]     }
+I0421 06:22:15.184]   ]
+I0421 06:22:15.184] }
+I0421 06:22:15.184] 
+I0421 06:22:15.184] [Finish:Performance]
+I0421 06:22:15.249] Apr 21 06:22:15.249: INFO: Scheduling latency: {
+I0421 06:22:15.249]   "scheduling": {
+I0421 06:22:15.250]     "Perc50": 0,
+I0421 06:22:15.250]     "Perc90": 0,
+I0421 06:22:15.250]     "Perc99": 0,
+I0421 06:22:15.250]     "Perc100": 0
+I0421 06:22:15.250]   },
+I0421 06:22:15.250]   "binding": {
+I0421 06:22:15.250]     "Perc50": 0,
+I0421 06:22:15.250]     "Perc90": 0,
+I0421 06:22:15.250]     "Perc99": 0,
+I0421 06:22:15.250]     "Perc100": 0
+I0421 06:22:15.250]   },
+I0421 06:22:15.251]   "total": {
+I0421 06:22:15.251]     "Perc50": 0,
+I0421 06:22:15.251]     "Perc90": 0,
+I0421 06:22:15.251]     "Perc99": 0,
+I0421 06:22:15.251]     "Perc100": 0
+I0421 06:22:15.251]   }
+I0421 06:22:15.251] }
+I0421 06:22:15.251] 
+I0421 06:22:15.251] [AfterEach] [k8s.io] Density
+I0421 06:22:15.251]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/framework/framework.go:126
+I0421 06:22:15.252] [1mSTEP[0m: Collecting resource usage data
+I0421 06:22:15.252] Apr 21 06:22:15.249: INFO: Closed stop channel. Waiting for 1 workers
+I0421 06:22:15.252] Apr 21 06:22:15.249: INFO: Closing worker for 
+I0421 06:22:15.252] Apr 21 06:22:15.249: INFO: Waitgroup finished.
+I0421 06:22:15.252] Apr 21 06:22:15.249: INFO: Waiting up to 3m0s for all (but 0) nodes to be ready
+I0421 06:22:15.260] [1mSTEP[0m: Destroying namespace "e2e-tests-density-2rw56" for this suite.
+I0421 06:22:25.320] Apr 21 06:22:25.319: INFO: namespace: e2e-tests-density-2rw56, resource: bindings, ignored listing per whitelist
+I0421 06:22:25.342] [1mSTEP[0m: Destroying namespace "e2e-tests-density-30-1-t8rfn" for this suite.
+I0421 06:22:35.401] Apr 21 06:22:35.401: INFO: namespace: e2e-tests-density-30-1-t8rfn, resource: bindings, ignored listing per whitelist
+I0421 06:22:35.426] 
+I0421 06:22:35.426] [32mâ€¢ [SLOW TEST:533.505 seconds][0m
+I0421 06:22:35.426] [k8s.io] Density
+I0421 06:22:35.427] [90m/go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/framework/framework.go:694[0m
+I0421 06:22:35.427]   [Feature:Performance] should allow starting 30 pods per node using { ReplicationController} with 0 secrets and 0 daemons
+I0421 06:22:35.427]   [90m/go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/density.go:736[0m
+I0421 06:22:35.427] [90m------------------------------[0m
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+I0421 06:22:35.428] [90m------------------------------[0m
+I0421 06:22:35.428] [0m[k8s.io] Load capacity[0m 
+I0421 06:22:35.428]   [1m[Feature:Performance] should be able to handle 30 pods per node { ReplicationController} with 0 secrets and 0 daemons[0m
+I0421 06:22:35.428]   [37m/go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/load.go:265[0m
+I0421 06:22:35.428] [BeforeEach] [k8s.io] Load capacity
+I0421 06:22:35.428]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/framework/framework.go:125
+I0421 06:22:35.428] [1mSTEP[0m: Creating a kubernetes client
+I0421 06:22:35.428] Apr 21 06:22:35.427: INFO: >>> kubeConfig: /workspace/kubernetes/test/kubemark/resources/kubeconfig.kubemark
+I0421 06:22:35.428] 
+I0421 06:22:35.431] [1mSTEP[0m: Building a namespace api object
+I0421 06:22:35.435] Apr 21 06:22:35.434: INFO: Skipping waiting for service account
+I0421 06:22:35.435] [BeforeEach] [k8s.io] Load capacity
+I0421 06:22:35.435]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/load.go:130
+I0421 06:22:35.447] Apr 21 06:22:35.447: INFO: Waiting for terminating namespaces to be deleted...
+I0421 06:22:35.449] Apr 21 06:22:35.449: INFO: Resetting latency metrics in apiserver...
+I0421 06:22:35.451] [It] [Feature:Performance] should be able to handle 30 pods per node { ReplicationController} with 0 secrets and 0 daemons
+I0421 06:22:35.451]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/load.go:265
+I0421 06:22:35.454] Apr 21 06:22:35.454: INFO: >>> kubeConfig: /workspace/kubernetes/test/kubemark/resources/kubeconfig.kubemark
+I0421 06:22:35.455] 
+I0421 06:22:35.458] Apr 21 06:22:35.458: INFO: >>> kubeConfig: /workspace/kubernetes/test/kubemark/resources/kubeconfig.kubemark
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+I0421 06:36:54.682] Apr 21 06:36:54.681: INFO: Terminating { ReplicationController} load-small-102 pods took: 32.60024586s
+I0421 06:36:55.177] Apr 21 06:36:55.177: INFO: Terminating { ReplicationController} load-small-292 pods took: 33.000260363s
+I0421 06:36:55.288] Apr 21 06:36:55.287: INFO: Terminating { ReplicationController} load-small-197 pods took: 31.800279786s
+I0421 06:37:06.288] Apr 21 06:37:06.288: INFO: Starting to delete services...
+I0421 06:37:12.364] Apr 21 06:37:12.364: INFO: Services deleted
+I0421 06:37:12.365] [AfterEach] [k8s.io] Load capacity
+I0421 06:37:12.365]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/perf/load.go:94
+I0421 06:37:12.397] Apr 21 06:37:12.397: INFO: Top latency metric: {Resource:pods Verb:DELETE Latency:{Perc50:4.116ms Perc90:7.483ms Perc99:28.993ms Perc100:0s}}
+I0421 06:37:12.398] Apr 21 06:37:12.397: INFO: Top latency metric: {Resource:services Verb:DELETE Latency:{Perc50:15.564ms Perc90:18.77ms Perc99:25.579ms Perc100:0s}}
+I0421 06:37:12.398] Apr 21 06:37:12.397: INFO: Top latency metric: {Resource:replicationcontrollers Verb:DELETE Latency:{Perc50:3.002ms Perc90:4.724ms Perc99:24.841ms Perc100:0s}}
+I0421 06:37:12.398] Apr 21 06:37:12.397: INFO: Top latency metric: {Resource:services Verb:POST Latency:{Perc50:7.142ms Perc90:11.027ms Perc99:24.448ms Perc100:0s}}
+I0421 06:37:12.398] Apr 21 06:37:12.397: INFO: Top latency metric: {Resource:nodes Verb:PATCH Latency:{Perc50:2.315ms Perc90:4.068ms Perc99:16.988ms Perc100:0s}}
+I0421 06:37:12.398] Apr 21 06:37:12.397: INFO: API calls latencies: {
+I0421 06:37:12.398]   "apicalls": [
+I0421 06:37:12.398]     {
+I0421 06:37:12.398]       "resource": "pods",
+I0421 06:37:12.398]       "verb": "DELETE",
+I0421 06:37:12.399]       "latency": {
+I0421 06:37:12.399]         "Perc50": 6556000,
+I0421 06:37:12.399]         "Perc90": 15860000,
+I0421 06:37:12.399]         "Perc99": 50408000,
+I0421 06:37:12.399]         "Perc100": 0
+I0421 06:37:12.399]       }
+I0421 06:37:12.399]     },
+I0421 06:37:12.399]     {
+I0421 06:37:12.399]       "resource": "services",
+I0421 06:37:12.400]       "verb": "DELETE",
+I0421 06:37:12.400]       "latency": {
+I0421 06:37:12.400]         "Perc50": 15564000,
+I0421 06:37:12.400]         "Perc90": 18770000,
+I0421 06:37:12.400]         "Perc99": 25579000,
+I0421 06:37:12.400]         "Perc100": 0
+I0421 06:37:12.400]       }
+I0421 06:37:12.400]     },
+I0421 06:37:12.400]     {
+I0421 06:37:12.401]       "resource": "replicationcontrollers",
+I0421 06:37:12.401]       "verb": "DELETE",
+I0421 06:37:12.401]       "latency": {
+I0421 06:37:12.401]         "Perc50": 3002000,
+I0421 06:37:12.401]         "Perc90": 4724000,
+I0421 06:37:12.401]         "Perc99": 24841000,
+I0421 06:37:12.402]         "Perc100": 0
+I0421 06:37:12.402]       }
+I0421 06:37:12.403]     },
+I0421 06:37:12.404]     {
+I0421 06:37:12.404]       "resource": "services",
+I0421 06:37:12.404]       "verb": "POST",
+I0421 06:37:12.404]       "latency": {
+I0421 06:37:12.404]         "Perc50": 7142000,
+I0421 06:37:12.404]         "Perc90": 11027000,
+I0421 06:37:12.404]         "Perc99": 24448000,
+I0421 06:37:12.404]         "Perc100": 0
+I0421 06:37:12.404]       }
+I0421 06:37:12.405]     },
+I0421 06:37:12.405]     {
+I0421 06:37:12.405]       "resource": "nodes",
+I0421 06:37:12.405]       "verb": "PATCH",
+I0421 06:37:12.405]       "latency": {
+I0421 06:37:12.405]         "Perc50": 2315000,
+I0421 06:37:12.405]         "Perc90": 4068000,
+I0421 06:37:12.405]         "Perc99": 16988000,
+I0421 06:37:12.405]         "Perc100": 0
+I0421 06:37:12.405]       }
+I0421 06:37:12.405]     },
+I0421 06:37:12.406]     {
+I0421 06:37:12.406]       "resource": "pods",
+I0421 06:37:12.406]       "verb": "POST",
+I0421 06:37:12.406]       "latency": {
+I0421 06:37:12.406]         "Perc50": 1531000,
+I0421 06:37:12.406]         "Perc90": 2777000,
+I0421 06:37:12.406]         "Perc99": 14392000,
+I0421 06:37:12.406]         "Perc100": 0
+I0421 06:37:12.406]       }
+I0421 06:37:12.406]     },
+I0421 06:37:12.407]     {
+I0421 06:37:12.407]       "resource": "resourcequotas",
+I0421 06:37:12.407]       "verb": "LIST",
+I0421 06:37:12.407]       "latency": {
+I0421 06:37:12.407]         "Perc50": 912000,
+I0421 06:37:12.407]         "Perc90": 2792000,
+I0421 06:37:12.407]         "Perc99": 13531000,
+I0421 06:37:12.407]         "Perc100": 0
+I0421 06:37:12.407]       }
+I0421 06:37:12.407]     },
+I0421 06:37:12.407]     {
+I0421 06:37:12.408]       "resource": "replicationcontrollers",
+I0421 06:37:12.408]       "verb": "PUT",
+I0421 06:37:12.408]       "latency": {
+I0421 06:37:12.408]         "Perc50": 1513000,
+I0421 06:37:12.408]         "Perc90": 2788000,
+I0421 06:37:12.408]         "Perc99": 12999000,
+I0421 06:37:12.408]         "Perc100": 0
+I0421 06:37:12.408]       }
+I0421 06:37:12.408]     },
+I0421 06:37:12.408]     {
+I0421 06:37:12.408]       "resource": "bindings",
+I0421 06:37:12.409]       "verb": "POST",
+I0421 06:37:12.409]       "latency": {
+I0421 06:37:12.409]         "Perc50": 1532000,
+I0421 06:37:12.409]         "Perc90": 3564000,
+I0421 06:37:12.409]         "Perc99": 11395000,
+I0421 06:37:12.409]         "Perc100": 0
+I0421 06:37:12.409]       }
+I0421 06:37:12.409]     },
+I0421 06:37:12.429]     {
+I0421 06:37:12.429]       "resource": "nodes",
+I0421 06:37:12.429]       "verb": "GET",
+I0421 06:37:12.429]       "latency": {
+I0421 06:37:12.429]         "Perc50": 216000,
+I0421 06:37:12.429]         "Perc90": 290000,
+I0421 06:37:12.429]         "Perc99": 511000,
+I0421 06:37:12.429]         "Perc100": 0
+I0421 06:37:12.429]       }
+I0421 06:37:12.430]     }
+I0421 06:37:12.430]   ]
+I0421 06:37:12.430] }
+I0421 06:37:12.430] 
+I0421 06:37:12.430] Apr 21 06:37:12.397: INFO: [Result:Performance] {
+I0421 06:37:12.430]   "version": "v1",
+I0421 06:37:12.430]   "dataItems": [
+I0421 06:37:12.430]     {
+I0421 06:37:12.430]       "data": {
+I0421 06:37:12.430]         "Perc50": 4.116,
+I0421 06:37:12.431]         "Perc90": 7.483,
+I0421 06:37:12.431]         "Perc99": 28.993
+I0421 06:37:12.431]       },
+I0421 06:37:12.431]       "unit": "ms",
+I0421 06:37:12.431]       "labels": {
+I0421 06:37:12.431]         "Resource": "pods",
+I0421 06:37:12.431]         "Verb": "DELETE"
+I0421 06:37:12.431]       }
+I0421 06:37:12.432]     },
+I0421 06:37:12.432]     {
+I0421 06:37:12.432]       "data": {
+I0421 06:37:12.432]         "Perc50": 15.564,
+I0421 06:37:12.432]         "Perc90": 18.77,
+I0421 06:37:12.432]         "Perc99": 25.579
+I0421 06:37:12.432]       },
+I0421 06:37:12.432]       "unit": "ms",
+I0421 06:37:12.432]       "labels": {
+I0421 06:37:12.432]         "Resource": "services",
+I0421 06:37:12.432]         "Verb": "DELETE"
+I0421 06:37:12.433]       }
+I0421 06:37:12.433]     },
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+bla bla bla ...
+I0421 06:37:12.466] 
+I0421 06:37:12.466] [Finish:Performance]
+I0421 06:37:12.466] [AfterEach] [k8s.io] Load capacity
+I0421 06:37:12.466]   /go/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/framework/framework.go:126
+I0421 06:37:12.466] [1mSTEP[0m: Collecting resource usage data
+I0421 06:37:12.466] Apr 21 06:37:12.398: INFO: Closed stop channel. Waiting for 1 workers
+I0421 06:37:12.467] Apr 21 06:37:12.398: INFO: Closing worker for 
+I0421 06:37:12.467] Apr 21 06:37:12.398: INFO: Waitgroup finished.
+I0421 06:37:12.467] Apr 21 06:37:12.398: INFO: Waiting up to 3m0s for all (but 0) nodes to be ready
+I0421 06:37:12.467] [1mSTEP[0m: Destroying namespace "e2e-tests-load-0prls" for this suite.
+I0421 06:37:22.561] Apr 21 06:37:22.561: INFO: namespace: e2e-tests-load-0prls, resource: bindings, ignored listing per whitelist
+I0421 06:37:22.574] [1mSTEP[0m: Destroying namespace "e2e-tests-load-30-nodepods-1-cdw45" for this suite.
+I0421 06:37:32.643] Apr 21 06:37:32.642: INFO: namespace: e2e-tests-load-30-nodepods-1-cdw45, resource: bindings, ignored listing per whitelist

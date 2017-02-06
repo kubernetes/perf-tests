@@ -1,35 +1,35 @@
 {
     "kind": "Pod",
-    "apiVersion": "v1",
-    "metadata": {
-        "name": "loggerpod",
-        "creationTimestamp": null,
-        "labels": {
-            "name": "loggerpod"
-        }
-    },
-    "spec": {
-        "containers": [
+        "apiVersion": "v1",
+        "metadata": {
+            "name": "loggerpod",
+            "creationTimestamp": null,
+            "labels": {
+                "name": "loggerpod"
+            }
+        },
+        "spec": {
+            "containers": [
             {
                 "name": "logger-busybox",
                 "image": "gcr.io/google_containers/busybox:1.24",
                 "command": [
                     "/bin/sh",
-                    "-c",
-                    "while true; do logger -s -t EFK LOGGER_POD; sleep 1; done"
+                "-c",
+                "while true; do logger -s LOGGER_POD; sleep 1; done"
                 ],
                 "ports": [
-                    {
-                        "containerPort": 8080,
-                        "protocol": "TCP"
-                    }
+                {
+                    "containerPort": 8080,
+                    "protocol": "TCP"
+                }
                 ],
                 "terminationMessagePath": "/dev/termination-log",
                 "volumeMounts": [
-                    {
-                        "mountPath": "/dev/log",
-                        "name": "dev-log"
-                    }
+                {
+                    "mountPath": "/dev/log",
+                    "name": "dev-log"
+                }
                 ],
                 "imagePullPolicy": "IfNotPresent",
                 "capabilities": {},
@@ -38,16 +38,16 @@
                     "privileged": true
                 }
             }
-        ],
-        "restartPolicy": "Never",
-        "volumes": [
+            ],
+            "restartPolicy": "Never",
+            "volumes": [
             {
                 "hostPath": {
                     "path": "/dev/log"
                 },
                 "name": "dev-log"
             }
-        ]
-    },
-    "status": {}
+            ]
+        },
+        "status": {}
 }

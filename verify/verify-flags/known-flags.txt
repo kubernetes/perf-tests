@@ -1,0 +1,3 @@
+enable-output-coloring
+left-build-number
+right-build-number

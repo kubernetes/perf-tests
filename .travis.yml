@@ -22,5 +22,6 @@ script:
     - ./verify/verify-boilerplate.sh
     - ./verify/verify-gofmt.sh
     - ./verify/verify-golint.sh
+    - ./verify/verify-flags-underscore.py
     - go get ./...
     - go test k8s.io/perf-tests/...

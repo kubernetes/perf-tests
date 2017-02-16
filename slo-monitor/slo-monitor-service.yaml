@@ -1,0 +1,17 @@
+# Service that exposes slo-monitor to the external world using ingress.
+# Use only if you need to access it from outside of the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: slo-monitor
+  namespace: kube-system
+  labels:
+    app: slo-monitor
+spec:
+  selector:
+    app: slo-monitor
+  ports:
+  - name: metrics
+    port: 80
+    targetPort: metrics
+  type: LoadBalancer

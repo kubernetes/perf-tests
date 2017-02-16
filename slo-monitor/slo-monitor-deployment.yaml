@@ -1,0 +1,36 @@
+# Deployment config for performance monitor. To be used when deploying in on the cluster.
+# RBAC: requires view access to Pods and Events.
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: slo-monitor
+  namespace: kube-system
+  labels:
+    app: slo-monitor
+spec:
+  selector:
+    matchLabels:
+      app: slo-monitor
+  template:
+    metadata:
+      labels:
+        app: slo-monitor
+    spec:
+      containers:
+      - name: slo-monitor
+        image: gcr.io/google-containers/slo-monitor:0.9
+        command:
+          - /slo-monitor
+          -  --alsologtostderr=true
+        imagePullPolicy: Always
+        ports:
+        - name: metrics
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 300m
+            memory: 100Mi
+          limits:
+            cpu: 300m
+            memory: 100Mi
+      restartPolicy: Always

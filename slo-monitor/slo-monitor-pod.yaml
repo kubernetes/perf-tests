@@ -1,0 +1,31 @@
+# Deployment config for performance monitor. To be used when deploying from manifest on the master machine.
+# RBAC: uses insecure port :8080
+apiVersion: v1
+kind: Pod
+metadata:
+  name: slo-monitor
+  namespace: kube-system
+  labels:
+    app: slo-monitor
+spec:
+  hostNetwork: true
+  containers:
+  - name: slo-monitor
+    image: gcr.io/google-containers/slo-monitor:0.9
+    command:
+      - /slo-monitor
+      -  --alsologtostderr=true
+      -  --listen-url=:8081
+      -  --kubernetes-url=http://127.0.0.1:8080?inClusterConfig=0&useServiceAccount=0
+    imagePullPolicy: Always
+    ports:
+    - name: metrics
+      containerPort: 8081
+    resources:
+      requests:
+        cpu: 300m
+        memory: 100Mi
+      limits:
+        cpu: 300m
+        memory: 100Mi
+  restartPolicy: Always

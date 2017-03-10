@@ -1,3 +1,6 @@
 enable-output-coloring
+kubernetes-url
 left-build-number
+listen-url
+purge-after-seconds
 right-build-number

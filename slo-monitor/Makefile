@@ -26,7 +26,7 @@ build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go sr
 
 push:
 	sudo docker build . -t gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
-	gcloud docker push gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
+	gcloud docker -- push gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
 
 test: src
 	godep go test ${PACKAGE}/src -v

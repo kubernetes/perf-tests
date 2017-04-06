@@ -164,14 +164,14 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 		item = q.queue[0]
 		q.queue = q.queue[1:]
 		q.offset++
+		key, err := keyFunc(item.obj)
+		if err != nil {
+			glog.Errorf("Error in getting key for obj: %v", item.obj)
+		} else {
+			delete(q.indices, key)
+		}
 	}()
-	key, err := keyFunc(item.obj)
-	if err != nil {
-		glog.Errorf("Error in getting key for obj: %v", item.obj)
-	} else {
-		delete(q.indices, key)
-	}
-	err = process(item)
+	err := process(item)
 	if e, ok := err.(cache.ErrRequeue); ok {
 		q.AddIfNotPresent(item)
 		err = e.Err

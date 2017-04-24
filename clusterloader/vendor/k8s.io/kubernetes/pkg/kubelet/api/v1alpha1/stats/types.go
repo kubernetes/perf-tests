@@ -17,7 +17,7 @@ limitations under the License.
 package stats
 
 import (
-	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Summary is a top-level container for holding NodeStats and PodStats.
@@ -35,6 +35,8 @@ type NodeStats struct {
 	// Stats of system daemons tracked as raw containers.
 	// The system containers are named according to the SystemContainer* constants.
 	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
 	SystemContainers []ContainerStats `json:"systemContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 	// The time at which data collection for the node-scoped (i.e. aggregate) stats was (re)started.
 	StartTime metav1.Time `json:"startTime"`
@@ -81,6 +83,8 @@ type PodStats struct {
 	// The time at which data collection for the pod-scoped (e.g. network) stats was (re)started.
 	StartTime metav1.Time `json:"startTime"`
 	// Stats of containers in the measured pod.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
 	Containers []ContainerStats `json:"containers" patchStrategy:"merge" patchMergeKey:"name"`
 	// Stats pertaining to network resources.
 	// +optional
@@ -88,6 +92,8 @@ type PodStats struct {
 	// Stats pertaining to volume usage of filesystem resources.
 	// VolumeStats.UsedBytes is the number of bytes used by the Volume
 	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
 	VolumeStats []VolumeStats `json:"volume,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
@@ -112,6 +118,8 @@ type ContainerStats struct {
 	// +optional
 	Logs *FsStats `json:"logs,omitempty"`
 	// User defined metrics that are exposed by containers in the pod. Typically, we expect only one container in the pod to be exposing user defined metrics. In the event of multiple containers exposing metrics, they will be combined here.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
 	UserDefinedMetrics []UserDefinedMetric `json:"userDefinedMetrics,omitmepty" patchStrategy:"merge" patchMergeKey:"name"`
 }
 
@@ -191,6 +199,8 @@ type VolumeStats struct {
 
 // FsStats contains data about filesystem usage.
 type FsStats struct {
+	// The time at which these stats were updated.
+	Time metav1.Time `json:"time"`
 	// AvailableBytes represents the storage space available (bytes) for the filesystem.
 	// +optional
 	AvailableBytes *uint64 `json:"availableBytes,omitempty"`

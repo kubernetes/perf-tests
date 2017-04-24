@@ -24,12 +24,11 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/client/transport"
-	"k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
-	"k8s.io/kubernetes/pkg/util/httpstream"
-	"k8s.io/kubernetes/pkg/util/httpstream/spdy"
-	"k8s.io/kubernetes/pkg/util/term"
+	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/apimachinery/pkg/util/remotecommand"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/transport"
 )
 
 // StreamOptions holds information pertaining to the current streaming session: supported stream
@@ -41,7 +40,7 @@ type StreamOptions struct {
 	Stdout             io.Writer
 	Stderr             io.Writer
 	Tty                bool
-	TerminalSizeQueue  term.TerminalSizeQueue
+	TerminalSizeQueue  TerminalSizeQueue
 }
 
 // Executor is an interface for transporting shell-style streams.

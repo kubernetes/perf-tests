@@ -32,6 +32,8 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/kubernetes/pkg/api/v1"
+	runtimeapi "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
+	"k8s.io/kubernetes/pkg/util/tail"
 )
 
 // Notice that the current kuberuntime logs implementation doesn't handle
@@ -53,6 +55,11 @@ const (
 	timeFormat = time.RFC3339Nano
 	// blockSize is the block size used in tail.
 	blockSize = 1024
+
+	// stateCheckPeriod is the period to check container state while following
+	// the container log. Kubelet should not keep following the log when the
+	// container is not running.
+	stateCheckPeriod = 5 * time.Second
 )
 
 var (
@@ -109,7 +116,9 @@ func newLogOptions(apiOpts *v1.PodLogOptions, now time.Time) *logOptions {
 }
 
 // ReadLogs read the container log and redirect into stdout and stderr.
-func ReadLogs(path string, apiOpts *v1.PodLogOptions, stdout, stderr io.Writer) error {
+// Note that containerID is only needed when following the log, or else
+// just pass in empty string "".
+func (m *kubeGenericRuntimeManager) ReadLogs(path, containerID string, apiOpts *v1.PodLogOptions, stdout, stderr io.Writer) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to open log file %q: %v", path, err)
@@ -120,7 +129,7 @@ func ReadLogs(path string, apiOpts *v1.PodLogOptions, stdout, stderr io.Writer) 
 	opts := newLogOptions(apiOpts, time.Now())
 
 	// Search start point based on tail line.
-	start, err := tail(f, opts.tail)
+	start, err := tail.FindTailLineStartIndex(f, opts.tail)
 	if err != nil {
 		return fmt.Errorf("failed to tail %d lines of log file %q: %v", opts.tail, path, err)
 	}
@@ -165,8 +174,8 @@ func ReadLogs(path string, apiOpts *v1.PodLogOptions, stdout, stderr io.Writer) 
 				}
 			}
 			// Wait until the next log change.
-			if err := waitLogs(watcher); err != nil {
-				return fmt.Errorf("failed to wait logs for log file %q: %v", path, err)
+			if found, err := m.waitLogs(containerID, watcher); !found {
+				return err
 			}
 			continue
 		}
@@ -190,6 +199,42 @@ func ReadLogs(path string, apiOpts *v1.PodLogOptions, stdout, stderr io.Writer) 
 				return nil
 			}
 			glog.Errorf("Failed with err %v when writing log for log file %q: %+v", err, path, msg)
+			return err
+		}
+	}
+}
+
+// waitLogs wait for the next log write. It returns a boolean and an error. The boolean
+// indicates whether a new log is found; the error is error happens during waiting new logs.
+func (m *kubeGenericRuntimeManager) waitLogs(id string, w *fsnotify.Watcher) (bool, error) {
+	errRetry := 5
+	for {
+		select {
+		case e := <-w.Events:
+			switch e.Op {
+			case fsnotify.Write:
+				return true, nil
+			default:
+				glog.Errorf("Unexpected fsnotify event: %v, retrying...", e)
+			}
+		case err := <-w.Errors:
+			glog.Errorf("Fsnotify watch error: %v, %d error retries remaining", err, errRetry)
+			if errRetry == 0 {
+				return false, err
+			}
+			errRetry--
+		case <-time.After(stateCheckPeriod):
+			s, err := m.runtimeService.ContainerStatus(id)
+			if err != nil {
+				return false, err
+			}
+			// Only keep following container log when it is running.
+			if s.State != runtimeapi.ContainerState_CONTAINER_RUNNING {
+				glog.Errorf("Container %q is not running (state=%q)", id, s.State)
+				// Do not return error because it's normal that the container stops
+				// during waiting.
+				return false, nil
+			}
 		}
 	}
 }
@@ -265,28 +310,6 @@ func getParseFunc(log []byte) (parseFunc, error) {
 	return nil, fmt.Errorf("unsupported log format: %q", log)
 }
 
-// waitLogs wait for the next log write.
-func waitLogs(w *fsnotify.Watcher) error {
-	errRetry := 5
-	for {
-		select {
-		case e := <-w.Events:
-			switch e.Op {
-			case fsnotify.Write:
-				return nil
-			default:
-				glog.Errorf("Unexpected fsnotify event: %v, retrying...", e)
-			}
-		case err := <-w.Errors:
-			glog.Errorf("Fsnotify watch error: %v, %d error retries remaining", err, errRetry)
-			if errRetry == 0 {
-				return err
-			}
-			errRetry--
-		}
-	}
-}
-
 // logWriter controls the writing into the stream based on the log options.
 type logWriter struct {
 	stdout io.Writer
@@ -297,6 +320,9 @@ type logWriter struct {
 
 // errMaximumWrite is returned when all bytes have been written.
 var errMaximumWrite = errors.New("maximum write")
+
+// errShortWrite is returned when the message is not fully written.
+var errShortWrite = errors.New("short write")
 
 func newLogWriter(stdout io.Writer, stderr io.Writer, opts *logOptions) *logWriter {
 	w := &logWriter{
@@ -341,46 +367,13 @@ func (w *logWriter) write(msg *logMessage) error {
 	if err != nil {
 		return err
 	}
+	// If the line has not been fully written, return errShortWrite
+	if n < len(line) {
+		return errShortWrite
+	}
 	// If there are no more bytes left, return errMaximumWrite
 	if w.remain <= 0 {
 		return errMaximumWrite
 	}
 	return nil
-}
-
-// tail returns the start of last nth line.
-// * If n < 0, return the beginning of the file.
-// * If n >= 0, return the beginning of last nth line.
-// Notice that if the last line is incomplete (no end-of-line), it will not be counted
-// as one line.
-func tail(f io.ReadSeeker, n int64) (int64, error) {
-	if n < 0 {
-		return 0, nil
-	}
-	size, err := f.Seek(0, os.SEEK_END)
-	if err != nil {
-		return 0, err
-	}
-	var left, cnt int64
-	buf := make([]byte, blockSize)
-	for right := size; right > 0 && cnt <= n; right -= blockSize {
-		left = right - blockSize
-		if left < 0 {
-			left = 0
-			buf = make([]byte, right)
-		}
-		if _, err := f.Seek(left, os.SEEK_SET); err != nil {
-			return 0, err
-		}
-		if _, err := f.Read(buf); err != nil {
-			return 0, err
-		}
-		cnt += int64(bytes.Count(buf, eol))
-	}
-	for ; cnt > n; cnt-- {
-		idx := bytes.Index(buf, eol) + 1
-		buf = buf[idx:]
-		left += int64(idx)
-	}
-	return left, nil
 }

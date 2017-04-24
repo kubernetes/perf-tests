@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/util/runtime"
 )
 
 // streamProtocolV3 implements version 3 of the streaming protocol for attach
@@ -66,7 +66,6 @@ func (p *streamProtocolV3) handleResizes() {
 	if p.resizeStream == nil || p.TerminalSizeQueue == nil {
 		return
 	}
-
 	go func() {
 		defer runtime.HandleCrash()
 

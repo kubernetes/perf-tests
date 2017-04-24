@@ -13,7 +13,7 @@
 // layout.
 //
 // For more information, see http://unicode.org/reports/tr11/.
-package width // import "golang.org/x/text/width"
+package width
 
 import (
 	"unicode/utf8"

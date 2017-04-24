@@ -18,14 +18,14 @@ package kubelet
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/api/v1"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
-	"k8s.io/kubernetes/pkg/types"
-	utilerrors "k8s.io/kubernetes/pkg/util/errors"
-	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/kubernetes/pkg/util/removeall"
 	"k8s.io/kubernetes/pkg/volume"
 	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 )
@@ -106,12 +106,16 @@ func (kl *Kubelet) cleanupOrphanedPodDirs(
 		}
 		// If there are still volume directories, do not delete directory
 		volumePaths, err := kl.getPodVolumePathListFromDisk(uid)
-		if err != nil || len(volumePaths) > 0 {
-			glog.Errorf("Orphaned pod %q found, but error %v occured during reading volume dir from disk", uid, err)
+		if err != nil {
+			glog.Errorf("Orphaned pod %q found, but error %v occurred during reading volume dir from disk", uid, err)
+			continue
+		}
+		if len(volumePaths) > 0 {
+			glog.Errorf("Orphaned pod %q found, but volume paths are still present on disk.", uid)
 			continue
 		}
 		glog.V(3).Infof("Orphaned pod %q found, removing", uid)
-		if err := os.RemoveAll(kl.getPodDir(uid)); err != nil {
+		if err := removeall.RemoveAllOneFilesystem(kl.mounter, kl.getPodDir(uid)); err != nil {
 			glog.Errorf("Failed to remove orphaned pod %q dir; err: %v", uid, err)
 			errlist = append(errlist, err)
 		}

@@ -25,11 +25,11 @@ import (
 
 	"github.com/golang/groupcache/lru"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/util/clock"
-	"k8s.io/client-go/pkg/util/sets"
-	"k8s.io/client-go/pkg/util/strategicpatch"
+	"k8s.io/client-go/util/clock"
 )
 
 const (
@@ -110,10 +110,10 @@ type EventAggregator struct {
 	messageFunc EventAggregatorMessageFunc
 
 	// The maximum number of events in the specified interval before aggregation occurs
-	maxEvents int
+	maxEvents uint
 
 	// The amount of time in seconds that must transpire since the last occurrence of a similar event before it's considered new
-	maxIntervalInSeconds int
+	maxIntervalInSeconds uint
 
 	// clock is used to allow for testing over a time interval
 	clock clock.Clock
@@ -126,8 +126,8 @@ func NewEventAggregator(lruCacheSize int, keyFunc EventAggregatorKeyFunc, messag
 		cache:                lru.New(lruCacheSize),
 		keyFunc:              keyFunc,
 		messageFunc:          messageFunc,
-		maxEvents:            maxEvents,
-		maxIntervalInSeconds: maxIntervalInSeconds,
+		maxEvents:            uint(maxEvents),
+		maxIntervalInSeconds: uint(maxIntervalInSeconds),
 		clock:                clock,
 	}
 }
@@ -163,7 +163,7 @@ func (e *EventAggregator) EventAggregate(newEvent *v1.Event) (*v1.Event, error) 
 	record.lastTimestamp = now
 	e.cache.Add(aggregateKey, record)
 
-	if record.localKeys.Len() < e.maxEvents {
+	if uint(record.localKeys.Len()) < e.maxEvents {
 		return newEvent, nil
 	}
 
@@ -172,7 +172,7 @@ func (e *EventAggregator) EventAggregate(newEvent *v1.Event) (*v1.Event, error) 
 
 	// create a new aggregate event
 	eventCopy := &v1.Event{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v.%x", newEvent.InvolvedObject.Name, now.UnixNano()),
 			Namespace: newEvent.Namespace,
 		},
@@ -191,7 +191,7 @@ func (e *EventAggregator) EventAggregate(newEvent *v1.Event) (*v1.Event, error) 
 // eventLog records data about when an event was observed
 type eventLog struct {
 	// The number of times the event has occurred since first occurrence.
-	count int
+	count uint
 
 	// The time at which the event was first recorded.
 	firstTimestamp metav1.Time
@@ -244,14 +244,14 @@ func (e *eventLogger) eventObserve(newEvent *v1.Event) (*v1.Event, []byte, error
 
 		newData, _ := json.Marshal(event)
 		oldData, _ := json.Marshal(eventCopy2)
-		patch, err = strategicpatch.CreateStrategicMergePatch(oldData, newData, event)
+		patch, err = strategicpatch.CreateTwoWayMergePatch(oldData, newData, event)
 	}
 
 	// record our new observation
 	e.cache.Add(
 		key,
 		eventLog{
-			count:           int(event.Count),
+			count:           uint(event.Count),
 			firstTimestamp:  event.FirstTimestamp,
 			name:            event.Name,
 			resourceVersion: event.ResourceVersion,
@@ -269,7 +269,7 @@ func (e *eventLogger) updateState(event *v1.Event) {
 	e.cache.Add(
 		key,
 		eventLog{
-			count:           int(event.Count),
+			count:           uint(event.Count),
 			firstTimestamp:  event.FirstTimestamp,
 			name:            event.Name,
 			resourceVersion: event.ResourceVersion,

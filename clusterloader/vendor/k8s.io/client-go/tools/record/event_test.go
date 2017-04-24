@@ -25,14 +25,16 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/pkg/api"
 	_ "k8s.io/client-go/pkg/api/install" // To register api.Pod used in tests below
 	"k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/util/clock"
-	"k8s.io/client-go/pkg/util/strategicpatch"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/pkg/api/v1/ref"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/util/clock"
 )
 
 type testEventSink struct {
@@ -103,7 +105,7 @@ func OnPatchFactory(testCache map[string]*v1.Event, patchEvent chan<- *v1.Event)
 
 func TestEventf(t *testing.T) {
 	testPod := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/api/version/pods/foo",
 			Name:      "foo",
 			Namespace: "baz",
@@ -111,15 +113,15 @@ func TestEventf(t *testing.T) {
 		},
 	}
 	testPod2 := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/api/version/pods/foo",
 			Name:      "foo",
 			Namespace: "baz",
 			UID:       "differentUid",
 		},
 	}
-	testRef, err := v1.GetPartialReference(testPod, "spec.containers[2]")
-	testRef2, err := v1.GetPartialReference(testPod2, "spec.containers[3]")
+	testRef, err := ref.GetPartialReference(api.Scheme, testPod, "spec.containers[2]")
+	testRef2, err := ref.GetPartialReference(api.Scheme, testPod2, "spec.containers[3]")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +142,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -168,7 +170,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some other verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -195,7 +197,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -223,7 +225,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -251,7 +253,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -279,7 +281,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -307,7 +309,7 @@ func TestEventf(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -374,7 +376,7 @@ func TestEventf(t *testing.T) {
 }
 
 func recorderWithFakeClock(eventSource v1.EventSource, eventBroadcaster EventBroadcaster, clock clock.Clock) EventRecorder {
-	return &recorderImpl{eventSource, eventBroadcaster.(*eventBroadcasterImpl).Broadcaster, clock}
+	return &recorderImpl{api.Scheme, eventSource, eventBroadcaster.(*eventBroadcasterImpl).Broadcaster, clock}
 }
 
 func TestWriteEventError(t *testing.T) {
@@ -387,7 +389,7 @@ func TestWriteEventError(t *testing.T) {
 		"giveUp1": {
 			timesToSendError: 1000,
 			attemptsWanted:   1,
-			err:              &rest.RequestConstructionError{},
+			err:              &restclient.RequestConstructionError{},
 		},
 		"giveUp2": {
 			timesToSendError: 1000,
@@ -495,7 +497,7 @@ func TestLotsOfEvents(t *testing.T) {
 	logWatcher := eventBroadcaster.StartLogging(func(formatter string, args ...interface{}) {
 		loggerCalled <- struct{}{}
 	})
-	recorder := eventBroadcaster.NewRecorder(v1.EventSource{Component: "eventTest"})
+	recorder := eventBroadcaster.NewRecorder(api.Scheme, v1.EventSource{Component: "eventTest"})
 	ref := &v1.ObjectReference{
 		Kind:       "Pod",
 		Name:       "foo",
@@ -524,13 +526,13 @@ func TestLotsOfEvents(t *testing.T) {
 
 func TestEventfNoNamespace(t *testing.T) {
 	testPod := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			SelfLink: "/api/version/pods/foo",
 			Name:     "foo",
 			UID:      "bar",
 		},
 	}
-	testRef, err := v1.GetPartialReference(testPod, "spec.containers[2]")
+	testRef, err := ref.GetPartialReference(api.Scheme, testPod, "spec.containers[2]")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -551,7 +553,7 @@ func TestEventfNoNamespace(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "default",
 				},
@@ -621,7 +623,7 @@ func TestEventfNoNamespace(t *testing.T) {
 
 func TestMultiSinkCache(t *testing.T) {
 	testPod := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/api/version/pods/foo",
 			Name:      "foo",
 			Namespace: "baz",
@@ -629,15 +631,15 @@ func TestMultiSinkCache(t *testing.T) {
 		},
 	}
 	testPod2 := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/api/version/pods/foo",
 			Name:      "foo",
 			Namespace: "baz",
 			UID:       "differentUid",
 		},
 	}
-	testRef, err := v1.GetPartialReference(testPod, "spec.containers[2]")
-	testRef2, err := v1.GetPartialReference(testPod2, "spec.containers[3]")
+	testRef, err := ref.GetPartialReference(api.Scheme, testPod, "spec.containers[2]")
+	testRef2, err := ref.GetPartialReference(api.Scheme, testPod2, "spec.containers[3]")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,7 +660,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -686,7 +688,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some other verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -713,7 +715,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -741,7 +743,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -769,7 +771,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -797,7 +799,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},
@@ -825,7 +827,7 @@ func TestMultiSinkCache(t *testing.T) {
 			messageFmt: "some verbose message: %v",
 			elements:   []interface{}{1},
 			expect: &v1.Event{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "baz",
 				},

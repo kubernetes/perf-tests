@@ -3368,11 +3368,6 @@
 			"Rev": "becd626c8e63a967c8efaf4bedd957caaed37e91"
 		},
 		{
-			"ImportPath": "k8s.io/kubernetes/pkg/labels",
-			"Comment": "v1.7.0-alpha.2-207-gbecd626",
-			"Rev": "becd626c8e63a967c8efaf4bedd957caaed37e91"
-		},
-		{
 			"ImportPath": "k8s.io/kubernetes/pkg/master/ports",
 			"Comment": "v1.7.0-alpha.2-207-gbecd626",
 			"Rev": "becd626c8e63a967c8efaf4bedd957caaed37e91"
@@ -3599,11 +3594,6 @@
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/pkg/util/removeall",
-			"Comment": "v1.7.0-alpha.2-207-gbecd626",
-			"Rev": "becd626c8e63a967c8efaf4bedd957caaed37e91"
-		},
-		{
-			"ImportPath": "k8s.io/kubernetes/pkg/util/runtime",
 			"Comment": "v1.7.0-alpha.2-207-gbecd626",
 			"Rev": "becd626c8e63a967c8efaf4bedd957caaed37e91"
 		},

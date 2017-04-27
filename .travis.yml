@@ -9,7 +9,7 @@ language: go
 
 matrix:
     include:
-        - go: 1.6
+        - go: 1.8
 
 install:
 # Create and move build under the go path

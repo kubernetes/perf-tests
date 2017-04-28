@@ -17,7 +17,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -x
 
 VERIFYONLY=false
 while getopts ":v" opt; do
@@ -34,7 +33,7 @@ readonly VERIFYONLY
 
 echo "**PLEASE** run \"godep restore\" before running this script"
 # PREREQUISITES: run `godep restore` in the main repo before calling this script.
-CLIENTSET="release_1_5"
+CLIENTSET="clientset"
 MAIN_REPO_FROM_SRC="k8s.io/kubernetes"
 MAIN_REPO="${GOPATH%:*}/src/${MAIN_REPO_FROM_SRC}"
 CLIENT_REPO_FROM_SRC="k8s.io/client-go"
@@ -45,8 +44,7 @@ CLIENT_REPO_TEMP="${MAIN_REPO}/staging/src/${CLIENT_REPO_TEMP_FROM_SRC}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cleanup() {
-    ls "${CLIENT_REPO_TEMP}"
-    # rm -rf "${CLIENT_REPO_TEMP}"
+    rm -rf "${CLIENT_REPO_TEMP}"
 }
 
 trap cleanup EXIT SIGINT
@@ -88,7 +86,7 @@ GO15VENDOREXPERIMENT=1 godep save ./...
 popd > /dev/null
 
 echo "moving vendor/k8s.io/kubernetes"
-cp -rn "${CLIENT_REPO_TEMP}"/vendor/k8s.io/kubernetes/ "${CLIENT_REPO_TEMP}"/ || true
+cp -rn "${CLIENT_REPO_TEMP}"/vendor/k8s.io/kubernetes/* "${CLIENT_REPO_TEMP}"/
 rm -rf "${CLIENT_REPO_TEMP}"/vendor/k8s.io/kubernetes
 # client-go will share the vendor of the main repo for now. When client-go
 # becomes a standalone repo, it will have its own vendor

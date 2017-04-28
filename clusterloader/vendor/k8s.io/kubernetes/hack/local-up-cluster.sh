@@ -14,9 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+
 # This command builds and runs a local kubernetes cluster. It's just like
 # local-up.sh, but this one launches the three separate binaries.
-# You may need to run this as root to allow kubelet to open docker's socket.
+# You may need to run this as root to allow kubelet to open docker's socket,
+# and to write the test CA in /var/run/kubernetes.
 DOCKER_OPTS=${DOCKER_OPTS:-""}
 DOCKER=(docker ${DOCKER_OPTS})
 DOCKERIZE_KUBELET=${DOCKERIZE_KUBELET:-""}
@@ -30,7 +33,6 @@ KUBELET_AUTHENTICATION_WEBHOOK=${KUBELET_AUTHENTICATION_WEBHOOK:-""}
 NET_PLUGIN=${NET_PLUGIN:-""}
 # Place the binaries required by NET_PLUGIN in this directory, eg: "/home/kubernetes/bin".
 NET_PLUGIN_DIR=${NET_PLUGIN_DIR:-""}
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 SERVICE_CLUSTER_IP_RANGE=${SERVICE_CLUSTER_IP_RANGE:-10.0.0.0/24}
 # if enabled, must set CGROUP_ROOT
 EXPERIMENTAL_CGROUPS_PER_QOS=${EXPERIMENTAL_CGROUPS_PER_QOS:-false}
@@ -47,7 +49,6 @@ CGROUP_DRIVER=${CGROUP_DRIVER:-""}
 ENABLE_CLUSTER_DNS=${KUBE_ENABLE_CLUSTER_DNS:-false}
 DNS_SERVER_IP=${KUBE_DNS_SERVER_IP:-10.0.0.10}
 DNS_DOMAIN=${KUBE_DNS_NAME:-"cluster.local"}
-DNS_REPLICAS=${KUBE_DNS_REPLICAS:-1}
 KUBECTL=${KUBECTL:-cluster/kubectl.sh}
 WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-10}
 ENABLE_DAEMON=${ENABLE_DAEMON:-false}
@@ -65,7 +66,6 @@ AUTH_ARGS=${AUTH_ARGS:-""}
 # start the cache mutation detector by default so that cache mutators will be found
 KUBE_CACHE_MUTATION_DETECTOR="${KUBE_CACHE_MUTATION_DETECTOR:-true}"
 export KUBE_CACHE_MUTATION_DETECTOR
-
 
 
 # START_MODE can be 'all', 'kubeletonly', or 'nokubelet'
@@ -94,6 +94,7 @@ source "${KUBE_ROOT}/hack/lib/init.sh"
 
 function usage {
             echo "This script starts a local kube cluster. "
+            echo "Example 0: hack/local-up-cluster.sh -h  (this 'help' usage description)"
             echo "Example 1: hack/local-up-cluster.sh -o _output/dockerized/bin/linux/amd64/ (run from docker output)"
             echo "Example 2: hack/local-up-cluster.sh -O (auto-guess the bin path for your platform)"
             echo "Example 3: hack/local-up-cluster.sh (build a local copy of the source)"
@@ -110,8 +111,8 @@ function guess_built_binary_path {
 }
 
 ### Allow user to supply the source directory.
-GO_OUT=""
-while getopts "o:O" OPTION
+GO_OUT=${GO_OUT:-}
+while getopts "ho:O" OPTION
 do
     case $OPTION in
         o)
@@ -126,6 +127,10 @@ do
                 exit 1
             fi
             ;;
+        h)
+            usage
+            exit
+            ;;
         ?)
             usage
             exit
@@ -138,14 +143,6 @@ if [ "x$GO_OUT" == "x" ]; then
 else
     echo "skipped the build."
 fi
-
-function test_docker {
-    ${DOCKER[@]} ps 2> /dev/null 1> /dev/null
-    if [ "$?" != "0" ]; then
-      echo "Failed to successfully run 'docker ps', please verify that docker is installed and \$DOCKER_HOST is set correctly."
-      exit 1
-    fi
-}
 
 function test_rkt {
     if [[ -n "${RKT_PATH}" ]]; then
@@ -163,13 +160,6 @@ function test_rkt {
     fi
 }
 
-function test_openssl_installed {
-    openssl version >& /dev/null
-    if [ "$?" != "0" ]; then
-      echo "Failed to run openssl. Please ensure openssl is installed"
-      exit 1
-    fi
-}
 
 # Shut down anyway if there's an error.
 set +e
@@ -194,10 +184,11 @@ CPU_CFS_QUOTA=${CPU_CFS_QUOTA:-true}
 ENABLE_HOSTPATH_PROVISIONER=${ENABLE_HOSTPATH_PROVISIONER:-"false"}
 CLAIM_BINDER_SYNC_PERIOD=${CLAIM_BINDER_SYNC_PERIOD:-"15s"} # current k8s default
 ENABLE_CONTROLLER_ATTACH_DETACH=${ENABLE_CONTROLLER_ATTACH_DETACH:-"true"} # current default
+# This is the default dir and filename where the apiserver will generate a self-signed cert
+# which should be able to be used as the CA to verify itself
 CERT_DIR=${CERT_DIR:-"/var/run/kubernetes"}
 ROOT_CA_FILE=$CERT_DIR/apiserver.crt
 EXPERIMENTAL_CRI=${EXPERIMENTAL_CRI:-"false"}
-DISCOVERY_SECURE_PORT=${DISCOVERY_SECURE_PORT:-9090}
 
 
 # Ensure CERT_DIR is created for auto-generated crt/key and kubeconfig
@@ -301,10 +292,6 @@ cleanup()
   [[ -n "${APISERVER_PID-}" ]] && APISERVER_PIDS=$(pgrep -P ${APISERVER_PID} ; ps -o pid= -p ${APISERVER_PID})
   [[ -n "${APISERVER_PIDS-}" ]] && sudo kill ${APISERVER_PIDS}
 
-  # Check if the discovery server is still running
-  [[ -n "${DISCOVERY_PID-}" ]] && DISCOVERY_PIDS=$(pgrep -P ${DISCOVERY_PID} ; ps -o pid= -p ${DISCOVERY_PID})
-  [[ -n "${DISCOVERY_PIDS-}" ]] && sudo kill ${DISCOVERY_PIDS}
-
   # Check if the controller-manager is still running
   [[ -n "${CTLRMGR_PID-}" ]] && CTLRMGR_PIDS=$(pgrep -P ${CTLRMGR_PID} ; ps -o pid= -p ${CTLRMGR_PID})
   [[ -n "${CTLRMGR_PIDS-}" ]] && sudo kill ${CTLRMGR_PIDS}
@@ -347,50 +334,6 @@ function set_service_accounts {
     fi
 }
 
-function create_client_certkey {
-    local CA=$1
-    local ID=$2
-    local CN=${3:-$2}
-    local NAMES=""
-    local SEP=""
-    shift 3
-    while [ -n "${1:-}" ]; do
-        NAMES+="${SEP}{\"O\":\"$1\"}"
-        SEP=","
-        shift 1
-    done
-    echo "{\"CN\":\"${CN}\",\"names\":[${NAMES}],\"hosts\":[\"\"],\"key\":{\"algo\":\"rsa\",\"size\":2048}}" | docker run -i  --entrypoint /bin/bash -v "${CERT_DIR}:/certs" -w /certs cfssl/cfssl:latest -ec "cfssl gencert -ca=${CA}.crt -ca-key=${CA}.key -config=client-ca-config.json - | cfssljson -bare client-${ID}"
-    ${CONTROLPLANE_SUDO} /bin/bash -e <<EOF
-    mv "${CERT_DIR}/client-${ID}-key.pem" "${CERT_DIR}/client-${ID}.key"
-    mv "${CERT_DIR}/client-${ID}.pem" "${CERT_DIR}/client-${ID}.crt"
-    rm -f "${CERT_DIR}/client-${ID}.csr"
-EOF
-}
-
-function write_client_kubeconfig {
-    cat <<EOF | ${CONTROLPLANE_SUDO} tee "${CERT_DIR}"/$1.kubeconfig > /dev/null
-apiVersion: v1
-kind: Config
-clusters:
-  - cluster:
-      certificate-authority: ${ROOT_CA_FILE}
-      server: https://${API_HOST}:${API_SECURE_PORT}/
-    name: local-up-cluster
-users:
-  - user:
-      token: ${KUBECONFIG_TOKEN:-}
-      client-certificate: ${CERT_DIR}/client-$1.crt
-      client-key: ${CERT_DIR}/client-$1.key
-    name: local-up-cluster
-contexts:
-  - context:
-      cluster: local-up-cluster
-      user: local-up-cluster
-    name: local-up-cluster
-current-context: local-up-cluster
-EOF
-}
-
 function start_apiserver {
     security_admission=""
     if [[ -z "${ALLOW_SECURITY_CONTEXT}" ]]; then
@@ -409,7 +352,7 @@ function start_apiserver {
     anytoken_arg=""
     if [[ "${ALLOW_ANY_TOKEN}" = true ]]; then
       anytoken_arg="--insecure-allow-any-token "
-      KUBECONFIG_TOKEN=${KUBECONFIG_TOKEN:-"system:admin/system:masters"}
+      KUBECONFIG_TOKEN="${KUBECONFIG_TOKEN:-system:admin/system:masters}"
     fi
     authorizer_arg=""
     if [[ "${ENABLE_RBAC}" = true ]]; then
@@ -424,35 +367,27 @@ function start_apiserver {
       runtime_config="--runtime-config=${RUNTIME_CONFIG}"
     fi
 
-    # Let the API server pick a default address when API_HOST
+    # Let the API server pick a default address when API_HOST_IP
     # is set to 127.0.0.1
     advertise_address=""
-    if [[ "${API_HOST}" != "127.0.0.1" ]]; then
+    if [[ "${API_HOST_IP}" != "127.0.0.1" ]]; then
         advertise_address="--advertise_address=${API_HOST_IP}"
     fi
 
     # Create client ca
-    ${CONTROLPLANE_SUDO} /bin/bash -e <<EOF
-    rm -f "${CERT_DIR}/client-ca.crt" "${CERT_DIR}/client-ca.key"
-    openssl req -x509 -sha256 -new -nodes -days 365 -newkey rsa:2048 -keyout "${CERT_DIR}/client-ca.key" -out "${CERT_DIR}/client-ca.crt" -subj "/C=xx/ST=x/L=x/O=x/OU=x/CN=ca/emailAddress=x/"
-    echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","client auth"]}}}' > "${CERT_DIR}/client-ca-config.json"
-EOF
+    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" client '"client auth"'
 
     # Create client certs signed with client-ca, given id, given CN and a number of groups
     # NOTE: system:masters will be removed in the future
-    create_client_certkey client-ca kubelet system:node:${HOSTNAME_OVERRIDE} system:nodes
-    create_client_certkey client-ca kube-proxy system:kube-proxy system:nodes
-    create_client_certkey client-ca controller system:controller system:masters
-    create_client_certkey client-ca scheduler system:scheduler system:masters
-    create_client_certkey client-ca admin system:admin system:masters
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kubelet system:node:${HOSTNAME_OVERRIDE} system:nodes
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-proxy system:kube-proxy system:nodes
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' controller system:controller system:masters
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' scheduler system:scheduler system:masters
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' admin system:admin system:masters
 
     # Create auth proxy client ca
-    sudo /bin/bash -e <<EOF
-    rm -f "${CERT_DIR}/auth-proxy-client-ca.crt" "${CERT_DIR}/auth-proxy-client-ca.key"
-    openssl req -x509 -sha256 -new -nodes -days 365 -newkey rsa:2048 -keyout "${CERT_DIR}/auth-proxy-client-ca.key" -out "${CERT_DIR}/auth-proxy-client-ca.crt" -subj "/C=xx/ST=x/L=x/O=x/OU=x/CN=ca/emailAddress=x/"
-    echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","client auth"]}}}' > "${CERT_DIR}/auth-proxy-client-ca-config.json"
-EOF
-    create_client_certkey auth-proxy-client-ca auth-proxy system:auth-proxy
+    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header '"client auth"'
+    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header-ca auth-proxy system:auth-proxy
 
     APISERVER_LOG=/tmp/kube-apiserver.log
     ${CONTROLPLANE_SUDO} "${GO_OUT}/hyperkube" apiserver ${anytoken_arg} ${authorizer_arg} ${priv_arg} ${runtime_config}\
@@ -476,7 +411,7 @@ EOF
       --requestheader-username-headers=X-Remote-User \
       --requestheader-group-headers=X-Remote-Group \
       --requestheader-extra-headers-prefix=X-Remote-Extra- \
-      --requestheader-client-ca-file="${CERT_DIR}/auth-proxy-client-ca.crt" \
+      --requestheader-client-ca-file="${CERT_DIR}/request-header-ca.crt" \
       --requestheader-allowed-names=system:auth-proxy \
       --cors-allowed-origins="${API_CORS_ALLOWED_ORIGINS}" >"${APISERVER_LOG}" 2>&1 &
     APISERVER_PID=$!
@@ -486,11 +421,11 @@ EOF
     kube::util::wait_for_url "https://${API_HOST}:${API_SECURE_PORT}/version" "apiserver: " 1 ${WAIT_FOR_URL_API_SERVER} || exit 1
 
     # Create kubeconfigs for all components, using client certs
-    write_client_kubeconfig admin
-    write_client_kubeconfig kubelet
-    write_client_kubeconfig kube-proxy
-    write_client_kubeconfig controller
-    write_client_kubeconfig scheduler
+    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" admin
+    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" kubelet
+    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" kube-proxy
+    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" controller
+    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" scheduler
 
     if [[ -z "${AUTH_ARGS}"  ]]; then
         if [[ "${ALLOW_ANY_TOKEN}" = true  ]]; then
@@ -506,38 +441,6 @@ EOF
         fi
     fi
 }
-
-# start_discovery relies on certificates created by start_apiserver
-function start_discovery {
-    # TODO generate serving certificates
-    create_client_certkey client-ca discovery-auth system:discovery-auth
-    write_client_kubeconfig discovery-auth
-
-    # grant permission to run delegated authentication and authorization checks
-    kubectl create clusterrolebinding discovery:system:auth-delegator --clusterrole=system:auth-delegator --user=system:discovery-auth
-
-    DISCOVERY_SERVER_LOG=/tmp/kubernetes-discovery.log
-    ${CONTROLPLANE_SUDO} "${GO_OUT}/kubernetes-discovery" \
-      --cert-dir="${CERT_DIR}" \
-      --client-ca-file="${CERT_DIR}/client-ca-bundle.crt" \
-      --authentication-kubeconfig="${CERT_DIR}/discovery-auth.kubeconfig" \
-      --authorization-kubeconfig="${CERT_DIR}/discovery-auth.kubeconfig" \
-      --requestheader-username-headers=X-Remote-User \
-      --requestheader-group-headers=X-Remote-Group \
-      --requestheader-extra-headers-prefix=X-Remote-Extra- \
-      --requestheader-client-ca-file="${CERT_DIR}/auth-proxy-client-ca.crt" \
-      --requestheader-allowed-names=system:auth-proxy \
-      --bind-address="${API_BIND_ADDR}" \
-      --secure-port="${DISCOVERY_SECURE_PORT}" \
-      --tls-ca-file="${ROOT_CA_FILE}" \
-      --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}"  >"${DISCOVERY_SERVER_LOG}" 2>&1 &
-    DISCOVERY_PID=$!
-
-    # Wait for kubernetes-discovery to come up before launching the rest of the components.
-    echo "Waiting for kubernetes-discovery to come up"
-    kube::util::wait_for_url "https://${API_HOST}:${DISCOVERY_SECURE_PORT}/version" "kubernetes-discovery: " 1 ${WAIT_FOR_URL_API_SERVER} || exit 1
-}
-
 
 function start_controller_manager {
     node_cidr_args=""
@@ -587,10 +490,10 @@ function start_kubelet {
       fi
 
       auth_args=""
-      if [[ -n "${KUBELET_AUTHORIZATION_WEBHOOK}" ]]; then
+      if [[ -n "${KUBELET_AUTHORIZATION_WEBHOOK:-}" ]]; then
         auth_args="${auth_args} --authorization-mode=Webhook"
       fi
-      if [[ -n "${KUBELET_AUTHENTICATION_WEBHOOK}" ]]; then
+      if [[ -n "${KUBELET_AUTHENTICATION_WEBHOOK:-}" ]]; then
         auth_args="${auth_args} --authentication-token-webhook"
       fi
       if [[ -n "${CLIENT_CA_FILE:-}" ]]; then
@@ -609,7 +512,7 @@ function start_kubelet {
 
       image_service_endpoint_args=""
       if [[ -n "${IMAGE_SERVICE_ENDPOINT}" ]]; then
-	image_service_endpoint_args="--image-service-endpoint=${IMAGE_SERVICE_ENDPOINT}"
+        image_service_endpoint_args="--image-service-endpoint=${IMAGE_SERVICE_ENDPOINT}"
       fi
 
       sudo -E "${GO_OUT}/hyperkube" kubelet ${priv_arg}\
@@ -702,41 +605,32 @@ function start_kubeproxy {
 }
 
 function start_kubedns {
-
     if [[ "${ENABLE_CLUSTER_DNS}" = true ]]; then
         echo "Creating kube-system namespace"
-        sed -e "s/{{ pillar\['dns_replicas'\] }}/${DNS_REPLICAS}/g;s/{{ pillar\['dns_domain'\] }}/${DNS_DOMAIN}/g;" "${KUBE_ROOT}/cluster/addons/dns/skydns-rc.yaml.in" >| skydns-rc.yaml
+        sed -e "s/{{ pillar\['dns_domain'\] }}/${DNS_DOMAIN}/g" "${KUBE_ROOT}/cluster/addons/dns/kubedns-controller.yaml.in" >| kubedns-deployment.yaml
         if [[ "${FEDERATION:-}" == "true" ]]; then
           FEDERATIONS_DOMAIN_MAP="${FEDERATIONS_DOMAIN_MAP:-}"
           if [[ -z "${FEDERATIONS_DOMAIN_MAP}" && -n "${FEDERATION_NAME:-}" && -n "${DNS_ZONE_NAME:-}" ]]; then
             FEDERATIONS_DOMAIN_MAP="${FEDERATION_NAME}=${DNS_ZONE_NAME}"
           fi
           if [[ -n "${FEDERATIONS_DOMAIN_MAP}" ]]; then
-            sed -i -e "s/{{ pillar\['federations_domain_map'\] }}/- --federations=${FEDERATIONS_DOMAIN_MAP}/g" skydns-rc.yaml
+            sed -i -e "s/{{ pillar\['federations_domain_map'\] }}/- --federations=${FEDERATIONS_DOMAIN_MAP}/g" kubedns-deployment.yaml
           else
-            sed -i -e "/{{ pillar\['federations_domain_map'\] }}/d" skydns-rc.yaml
+            sed -i -e "/{{ pillar\['federations_domain_map'\] }}/d" kubedns-deployment.yaml
           fi
         else
-          sed -i -e "/{{ pillar\['federations_domain_map'\] }}/d" skydns-rc.yaml
+          sed -i -e "/{{ pillar\['federations_domain_map'\] }}/d" kubedns-deployment.yaml
         fi
-        sed -e "s/{{ pillar\['dns_server'\] }}/${DNS_SERVER_IP}/g" "${KUBE_ROOT}/cluster/addons/dns/skydns-svc.yaml.in" >| skydns-svc.yaml
-        cat <<EOF >namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kube-system
-EOF
-        ${KUBECTL} config set-cluster local --server=https://${API_HOST}:${API_SECURE_PORT} --certificate-authority=${ROOT_CA_FILE}
-        ${KUBECTL} config set-context local --cluster=local
-        ${KUBECTL} config use-context local
-
-        ${KUBECTL} create -f namespace.yaml
-        # use kubectl to create skydns rc and service
-        ${KUBECTL} --namespace=kube-system create -f skydns-rc.yaml
-        ${KUBECTL} --namespace=kube-system create -f skydns-svc.yaml
+        sed -e "s/{{ pillar\['dns_server'\] }}/${DNS_SERVER_IP}/g" "${KUBE_ROOT}/cluster/addons/dns/kubedns-svc.yaml.in" >| kubedns-svc.yaml
+        
+        # TODO update to dns role once we have one.
+        ${KUBECTL} --kubeconfig="${CERT_DIR}/admin.kubeconfig" create clusterrolebinding system:kube-dns --clusterrole=cluster-admin --serviceaccount=kube-system:default
+        # use kubectl to create kubedns rc and service
+        ${KUBECTL} --kubeconfig="${CERT_DIR}/admin.kubeconfig" --namespace=kube-system create -f kubedns-deployment.yaml
+        ${KUBECTL} --kubeconfig="${CERT_DIR}/admin.kubeconfig" --namespace=kube-system create -f kubedns-svc.yaml
         echo "Kube-dns rc and service successfully deployed."
+        rm  kubedns-deployment.yaml kubedns-svc.yaml
     fi
-
 }
 
 function print_success {
@@ -783,8 +677,11 @@ EOF
 fi
 }
 
-if [[ "${CONTAINER_RUNTIME}" == "docker" ]]; then
-  test_docker
+# validate that etcd is: not running, in path, and has minimum required version.
+kube::etcd::validate
+
+if [ "${CONTAINER_RUNTIME}" == "docker" ] && ! kube::util::ensure_docker_daemon_connectivity; then
+  exit 1
 fi
 
 if [[ "${CONTAINER_RUNTIME}" == "rkt" ]]; then
@@ -795,7 +692,8 @@ if [[ "${START_MODE}" != "kubeletonly" ]]; then
   test_apiserver_off
 fi
 
-test_openssl_installed
+kube::util::test_openssl_installed
+kube::util::test_cfssl_installed
 
 ### IF the user didn't supply an output/ for the build... Then we detect.
 if [ "$GO_OUT" == "" ]; then
@@ -813,7 +711,6 @@ if [[ "${START_MODE}" != "kubeletonly" ]]; then
   start_etcd
   set_service_accounts
   start_apiserver
-  start_discovery
   start_controller_manager
   start_kubeproxy
   start_kubedns

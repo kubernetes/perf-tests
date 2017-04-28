@@ -17,13 +17,13 @@ limitations under the License.
 package client
 
 import (
-	"net"
 	"net/http"
 	"strconv"
 	"time"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/transport"
 	"k8s.io/kubernetes/pkg/types"
@@ -49,7 +49,7 @@ type KubeletClientConfig struct {
 	HTTPTimeout time.Duration
 
 	// Dial is a custom dialer used for the client
-	Dial func(net, addr string) (net.Conn, error)
+	Dial utilnet.DialFunc
 }
 
 // ConnectionInfo provides the information needed to connect to a kubelet
@@ -103,14 +103,14 @@ func (c *KubeletClientConfig) transportConfig() *transport.Config {
 
 // NodeGetter defines an interface for looking up a node by name
 type NodeGetter interface {
-	Get(name string) (*v1.Node, error)
+	Get(name string, options metav1.GetOptions) (*v1.Node, error)
 }
 
 // NodeGetterFunc allows implementing NodeGetter with a function
-type NodeGetterFunc func(name string) (*v1.Node, error)
+type NodeGetterFunc func(name string, options metav1.GetOptions) (*v1.Node, error)
 
-func (f NodeGetterFunc) Get(name string) (*v1.Node, error) {
-	return f(name)
+func (f NodeGetterFunc) Get(name string, options metav1.GetOptions) (*v1.Node, error) {
+	return f(name, options)
 }
 
 // NodeConnectionInfoGetter obtains connection info from the status of a Node API object
@@ -154,7 +154,7 @@ func NewNodeConnectionInfoGetter(nodes NodeGetter, config KubeletClientConfig) (
 }
 
 func (k *NodeConnectionInfoGetter) GetConnectionInfo(ctx api.Context, nodeName types.NodeName) (*ConnectionInfo, error) {
-	node, err := k.nodes.Get(string(nodeName))
+	node, err := k.nodes.Get(string(nodeName), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

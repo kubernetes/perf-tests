@@ -39,7 +39,12 @@ import (
 
 func newStorage(t *testing.T) (*REST, *BindingREST, *StatusREST, *etcdtesting.EtcdTestServer) {
 	etcdStorage, server := registrytest.NewEtcdStorage(t, "")
-	restOptions := generic.RESTOptions{StorageConfig: etcdStorage, Decorator: generic.UndecoratedStorage, DeleteCollectionWorkers: 3}
+	restOptions := generic.RESTOptions{
+		StorageConfig:           etcdStorage,
+		Decorator:               generic.UndecoratedStorage,
+		DeleteCollectionWorkers: 3,
+		ResourcePrefix:          "pods",
+	}
 	storage := NewStorage(restOptions, nil, nil, nil)
 	return storage.Pod, storage.Binding, storage.Status, server
 }
@@ -67,6 +72,7 @@ func validNewPod() *api.Pod {
 				},
 			},
 			SecurityContext: &api.PodSecurityContext{},
+			Affinity:        &api.Affinity{},
 		},
 	}
 }
@@ -147,7 +153,12 @@ func (f FailDeletionStorage) Delete(ctx context.Context, key string, out runtime
 
 func newFailDeleteStorage(t *testing.T, called *bool) (*REST, *etcdtesting.EtcdTestServer) {
 	etcdStorage, server := registrytest.NewEtcdStorage(t, "")
-	restOptions := generic.RESTOptions{StorageConfig: etcdStorage, Decorator: generic.UndecoratedStorage, DeleteCollectionWorkers: 3}
+	restOptions := generic.RESTOptions{
+		StorageConfig:           etcdStorage,
+		Decorator:               generic.UndecoratedStorage,
+		DeleteCollectionWorkers: 3,
+		ResourcePrefix:          "pods",
+	}
 	storage := NewStorage(restOptions, nil, nil, nil)
 	storage.Pod.Store.Storage = FailDeletionStorage{storage.Pod.Store.Storage, called}
 	return storage.Pod, server
@@ -648,6 +659,7 @@ func TestEtcdUpdateScheduled(t *testing.T) {
 				},
 			},
 			SecurityContext: &api.PodSecurityContext{},
+			Affinity:        &api.Affinity{},
 		},
 	}, nil, 1)
 	if err != nil {
@@ -676,6 +688,7 @@ func TestEtcdUpdateScheduled(t *testing.T) {
 
 			TerminationGracePeriodSeconds: &grace,
 			SecurityContext:               &api.PodSecurityContext{},
+			Affinity:                      &api.Affinity{},
 		},
 	}
 	_, _, err = storage.Update(ctx, podIn.Name, rest.DefaultUpdatedObjectInfo(&podIn, api.Scheme))
@@ -716,6 +729,7 @@ func TestEtcdUpdateStatus(t *testing.T) {
 				},
 			},
 			SecurityContext: &api.PodSecurityContext{},
+			Affinity:        &api.Affinity{},
 		},
 	}
 	err := storage.Storage.Create(ctx, key, &podStart, nil, 0)
@@ -740,6 +754,7 @@ func TestEtcdUpdateStatus(t *testing.T) {
 				},
 			},
 			SecurityContext: &api.PodSecurityContext{},
+			Affinity:        &api.Affinity{},
 		},
 		Status: api.PodStatus{
 			Phase:   api.PodRunning,

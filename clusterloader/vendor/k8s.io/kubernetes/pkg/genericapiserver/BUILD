@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -32,7 +30,6 @@ go_library(
         "//pkg/admission:go_default_library",
         "//pkg/api:go_default_library",
         "//pkg/api/rest:go_default_library",
-        "//pkg/api/v1:go_default_library",
         "//pkg/apimachinery:go_default_library",
         "//pkg/apimachinery/registered:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
@@ -47,14 +44,12 @@ go_library(
         "//pkg/auth/handlers:go_default_library",
         "//pkg/auth/user:go_default_library",
         "//pkg/client/restclient:go_default_library",
-        "//pkg/cloudprovider:go_default_library",
         "//pkg/genericapiserver/authorizer:go_default_library",
         "//pkg/genericapiserver/filters:go_default_library",
         "//pkg/genericapiserver/mux:go_default_library",
         "//pkg/genericapiserver/openapi/common:go_default_library",
         "//pkg/genericapiserver/options:go_default_library",
         "//pkg/genericapiserver/routes:go_default_library",
-        "//pkg/genericapiserver/validation:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/runtime:go_default_library",
         "//pkg/runtime/schema:go_default_library",
@@ -74,6 +69,7 @@ go_library(
         "//plugin/pkg/auth/authenticator/request/union:go_default_library",
         "//vendor:github.com/coreos/go-systemd/daemon",
         "//vendor:github.com/emicklei/go-restful",
+        "//vendor:github.com/emicklei/go-restful/swagger",
         "//vendor:github.com/go-openapi/spec",
         "//vendor:github.com/golang/glog",
         "//vendor:github.com/pborman/uuid",

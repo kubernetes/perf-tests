@@ -37,7 +37,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/componentconfig"
 	componentconfigv1alpha1 "k8s.io/kubernetes/pkg/apis/componentconfig/v1alpha1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/fields"
@@ -97,7 +97,7 @@ import (
 
 const (
 	// Max amount of time to wait for the container runtime to come up.
-	maxWaitForContainerRuntime = 5 * time.Minute
+	maxWaitForContainerRuntime = 30 * time.Second
 
 	// nodeStatusUpdateRetry specifies how many times kubelet retries when posting node status failed.
 	nodeStatusUpdateRetry = 5
@@ -354,6 +354,7 @@ func NewMainKubelet(kubeCfg *componentconfig.KubeletConfiguration, kubeDeps *Kub
 		PressureTransitionPeriod: kubeCfg.EvictionPressureTransitionPeriod.Duration,
 		MaxPodGracePeriodSeconds: int64(kubeCfg.EvictionMaxPodGracePeriod),
 		Thresholds:               thresholds,
+		KernelMemcgNotification:  kubeCfg.ExperimentalKernelMemcgNotification,
 	}
 
 	reservation, err := ParseReservation(kubeCfg.KubeReserved, kubeCfg.SystemReserved)
@@ -1344,7 +1345,7 @@ func (kl *Kubelet) GetClusterDNS(pod *v1.Pod) ([]string, []string, error) {
 // * Call the container runtime's SyncPod callback
 // * Update the traffic shaping for the pod's ingress and egress limits
 //
-// If any step if this workflow errors, the error is returned, and is repeated
+// If any step of this workflow errors, the error is returned, and is repeated
 // on the next syncPod call.
 func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	// pull out the required options
@@ -1442,7 +1443,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	}
 
 	// If the network plugin is not ready, only start the pod if it uses the host network
-	if rs := kl.runtimeState.networkErrors(); len(rs) != 0 && !podUsesHostNetwork(pod) {
+	if rs := kl.runtimeState.networkErrors(); len(rs) != 0 && !kubecontainer.IsHostNetworkPod(pod) {
 		return fmt.Errorf("network is not ready: %v", rs)
 	}
 
@@ -1547,7 +1548,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 		return err
 	}
 	if egress != nil || ingress != nil {
-		if podUsesHostNetwork(pod) {
+		if kubecontainer.IsHostNetworkPod(pod) {
 			kl.recorder.Event(pod, v1.EventTypeWarning, events.HostNetworkNotSupported, "Bandwidth shaping is not currently supported on the host network")
 		} else if kl.shaper != nil {
 			if len(apiPodStatus.PodIP) > 0 {
@@ -1624,7 +1625,7 @@ func (kl *Kubelet) deletePod(pod *v1.Pod) error {
 	return nil
 }
 
-// handleOutOfDisk detects if pods can't fit due to lack of disk space.
+// isOutOfDisk detects if pods can't fit due to lack of disk space.
 func (kl *Kubelet) isOutOfDisk() bool {
 	// Check disk space once globally and reject or accept all new pods.
 	withinBounds, err := kl.diskSpaceManager.IsRuntimeDiskSpaceAvailable()
@@ -1908,8 +1909,21 @@ func (kl *Kubelet) handleMirrorPod(mirrorPod *v1.Pod, start time.Time) {
 // a config source.
 func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
 	start := kl.clock.Now()
-	sort.Sort(sliceutils.PodsByCreationTime(pods))
-	for _, pod := range pods {
+
+	// Pass critical pods through admission check first.
+	var criticalPods []*v1.Pod
+	var nonCriticalPods []*v1.Pod
+	for _, p := range pods {
+		if kubepod.IsCriticalPod(p) {
+			criticalPods = append(criticalPods, p)
+		} else {
+			nonCriticalPods = append(nonCriticalPods, p)
+		}
+	}
+	sort.Sort(sliceutils.PodsByCreationTime(criticalPods))
+	sort.Sort(sliceutils.PodsByCreationTime(nonCriticalPods))
+
+	for _, pod := range append(criticalPods, nonCriticalPods...) {
 		existingPods := kl.podManager.GetPods()
 		// Always add the pod to the pod manager. Kubelet relies on the pod
 		// manager as the source of truth for the desired state. If a pod does

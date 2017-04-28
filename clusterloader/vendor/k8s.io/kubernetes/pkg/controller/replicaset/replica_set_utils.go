@@ -28,7 +28,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	unversionedextensions "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/extensions/v1beta1"
+	unversionedextensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/labels"
 )
 
@@ -48,11 +48,11 @@ func updateReplicaSetStatus(c unversionedextensions.ReplicaSetInterface, rs exte
 
 	// deep copy to avoid mutation now.
 	// TODO this method need some work.  Retry on conflict probably, though I suspect this is stomping status to something it probably shouldn't
-	copyObj, err := api.Scheme.DeepCopy(rs)
+	copyObj, err := api.Scheme.DeepCopy(&rs)
 	if err != nil {
 		return err
 	}
-	rs = copyObj.(extensions.ReplicaSet)
+	rs = *copyObj.(*extensions.ReplicaSet)
 
 	// Save the generation number we acted on, otherwise we might wrongfully indicate
 	// that we've seen a spec update when we retry.
@@ -75,25 +75,12 @@ func updateReplicaSetStatus(c unversionedextensions.ReplicaSetInterface, rs exte
 			return updateErr
 		}
 		// Update the ReplicaSet with the latest resource version for the next poll
-		if rs, getErr = c.Get(rs.Name); getErr != nil {
+		if rs, getErr = c.Get(rs.Name, metav1.GetOptions{}); getErr != nil {
 			// If the GET fails we can't trust status.Replicas anymore. This error
 			// is bound to be more interesting than the update failure.
 			return getErr
 		}
 	}
-}
-
-// overlappingReplicaSets sorts a list of ReplicaSets by creation timestamp, using their names as a tie breaker.
-type overlappingReplicaSets []*extensions.ReplicaSet
-
-func (o overlappingReplicaSets) Len() int      { return len(o) }
-func (o overlappingReplicaSets) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-
-func (o overlappingReplicaSets) Less(i, j int) bool {
-	if o[i].CreationTimestamp.Equal(o[j].CreationTimestamp) {
-		return o[i].Name < o[j].Name
-	}
-	return o[i].CreationTimestamp.Before(o[j].CreationTimestamp)
 }
 
 func calculateStatus(rs extensions.ReplicaSet, filteredPods []*v1.Pod, manageReplicasErr error) extensions.ReplicaSetStatus {

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -221,17 +220,12 @@ func Run(f cmdutil.Factory, cmdIn io.Reader, cmdOut, cmdErr io.Writer, cmd *cobr
 		case api.RestartPolicyOnFailure:
 			if contains(resourcesList, batchv1.SchemeGroupVersion.WithResource("jobs")) {
 				generatorName = "job/v1"
-			} else if contains(resourcesList, v1beta1.SchemeGroupVersion.WithResource("jobs")) {
-				generatorName = "job/v1beta1"
 			} else {
 				generatorName = "run-pod/v1"
 			}
 		case api.RestartPolicyNever:
 			generatorName = "run-pod/v1"
 		}
-	}
-	if generatorName == "job/v1beta1" {
-		fmt.Fprintf(cmdErr, "DEPRECATED: --generator=job/v1beta1 is deprecated, use job/v1 instead.\n")
 	}
 	generators := f.Generators("run")
 	generator, found := generators[generatorName]
@@ -326,7 +320,13 @@ func Run(f cmdutil.Factory, cmdIn io.Reader, cmdOut, cmdErr io.Writer, cmd *cobr
 				ResourceNames(mapping.Resource, name).
 				Flatten().
 				Do()
-			err = ReapResult(r, f, cmdOut, true, true, 0, -1, false, false, mapper, quiet)
+			// Note: we pass in "true" for the "quiet" parameter because
+			// ReadResult will only print one thing based on the "quiet"
+			// flag, and that's the "pod xxx deleted" message. If they
+			// asked for us to remove the pod (via --rm) then telling them
+			// its been deleted is unnecessary since that's what they asked
+			// for. We should only print something if the "rm" fails.
+			err = ReapResult(r, f, cmdOut, true, true, 0, -1, false, false, mapper, true)
 			if err != nil {
 				return err
 			}
@@ -375,52 +375,18 @@ func contains(resourcesList []*metav1.APIResourceList, resource schema.GroupVers
 	return len(resources) != 0
 }
 
-// waitForPod watches the given pod until the exitCondition is true. Each two seconds
-// the tick function is called e.g. for progress output.
-func waitForPod(podClient coreclient.PodsGetter, ns, name string, exitCondition watch.ConditionFunc, tick func(*api.Pod)) (*api.Pod, error) {
+// waitForPod watches the given pod until the exitCondition is true
+func waitForPod(podClient coreclient.PodsGetter, ns, name string, exitCondition watch.ConditionFunc) (*api.Pod, error) {
 	w, err := podClient.Pods(ns).Watch(api.SingleObject(api.ObjectMeta{Name: name}))
 	if err != nil {
 		return nil, err
 	}
 
-	pods := make(chan *api.Pod) // observed pods passed to the exitCondition
-	defer close(pods)
-
-	// wait for the first event, then start the 2 sec ticker and loop
-	go func() {
-		pod := <-pods
-		if pod == nil {
-			return
-		}
-		tick(pod)
-
-		t := time.NewTicker(2 * time.Second)
-		defer t.Stop()
-
-		for {
-			select {
-			case pod = <-pods:
-				if pod == nil {
-					return
-				}
-			case _, ok := <-t.C:
-				if !ok {
-					return
-				}
-				tick(pod)
-			}
-		}
-	}()
-
 	intr := interrupt.New(nil, w.Stop)
 	var result *api.Pod
 	err = intr.Run(func() error {
 		ev, err := watch.Until(0, w, func(ev watch.Event) (bool, error) {
-			c, err := exitCondition(ev)
-			if c == false && err == nil {
-				pods <- ev.Object.(*api.Pod) // send to ticker
-			}
-			return c, err
+			return exitCondition(ev)
 		})
 		result = ev.Object.(*api.Pod)
 		return err
@@ -429,11 +395,7 @@ func waitForPod(podClient coreclient.PodsGetter, ns, name string, exitCondition 
 }
 
 func waitForPodRunning(podClient coreclient.PodsGetter, ns, name string, out io.Writer, quiet bool) (*api.Pod, error) {
-	pod, err := waitForPod(podClient, ns, name, conditions.PodRunningAndReady, func(pod *api.Pod) {
-		if !quiet {
-			fmt.Fprintf(out, "Waiting for pod %s/%s to be running, status is %s, pod ready: false\n", pod.Namespace, pod.Name, pod.Status.Phase)
-		}
-	})
+	pod, err := waitForPod(podClient, ns, name, conditions.PodRunningAndReady)
 
 	// fix generic not found error with empty name in PodRunningAndReady
 	if err != nil && errors.IsNotFound(err) {
@@ -444,11 +406,7 @@ func waitForPodRunning(podClient coreclient.PodsGetter, ns, name string, out io.
 }
 
 func waitForPodTerminated(podClient coreclient.PodsGetter, ns, name string, out io.Writer, quiet bool) (*api.Pod, error) {
-	pod, err := waitForPod(podClient, ns, name, conditions.PodCompleted, func(pod *api.Pod) {
-		if !quiet {
-			fmt.Fprintf(out, "Waiting for pod %s/%s to terminate, status is %s\n", pod.Namespace, pod.Name, pod.Status.Phase)
-		}
-	})
+	pod, err := waitForPod(podClient, ns, name, conditions.PodCompleted)
 
 	// fix generic not found error with empty name in PodCompleted
 	if err != nil && errors.IsNotFound(err) {

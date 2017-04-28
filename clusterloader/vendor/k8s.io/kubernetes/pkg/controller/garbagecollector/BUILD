@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -23,9 +21,9 @@ go_library(
         "//pkg/api:go_default_library",
         "//pkg/api/errors:go_default_library",
         "//pkg/api/meta:go_default_library",
-        "//pkg/api/meta/metatypes:go_default_library",
         "//pkg/api/v1:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
+        "//pkg/apis/meta/v1/unstructured:go_default_library",
         "//pkg/client/cache:go_default_library",
         "//pkg/client/typed/dynamic:go_default_library",
         "//pkg/controller/garbagecollector/metaonly:go_default_library",
@@ -53,7 +51,6 @@ go_test(
     tags = ["automanaged"],
     deps = [
         "//pkg/api/install:go_default_library",
-        "//pkg/api/meta/metatypes:go_default_library",
         "//pkg/api/v1:go_default_library",
         "//pkg/apimachinery/registered:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",

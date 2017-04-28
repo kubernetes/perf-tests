@@ -4,17 +4,21 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
     name = "go_default_library",
     srcs = [
+        "apps.go",
+        "autoscaling.go",
+        "batch.go",
+        "certificates.go",
         "controllermanager.go",
+        "core.go",
+        "extensions.go",
         "plugins.go",
+        "policy.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -26,8 +30,8 @@ go_library(
         "//pkg/apis/componentconfig:go_default_library",
         "//pkg/apis/extensions:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/core/v1:go_default_library",
+        "//pkg/client/clientset_generated/clientset:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/core/v1:go_default_library",
         "//pkg/client/leaderelection:go_default_library",
         "//pkg/client/leaderelection/resourcelock:go_default_library",
         "//pkg/client/record:go_default_library",

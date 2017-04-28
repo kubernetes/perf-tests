@@ -18,7 +18,7 @@ KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../..
 source "${KUBE_ROOT}/hack/lib/init.sh"
 
 focus=${FOCUS:-""}
-skip=${SKIP:-""}
+skip=${SKIP-"\[Flaky\]|\[Slow\]|\[Serial\]"}
 # The number of tests that can run in parallel depends on what tests
 # are running and on the size of the node. Too many, and tests will
 # fail due to resource contention. 8 is a reasonable default for a
@@ -73,7 +73,7 @@ if [ $remote = true ] ; then
     gci_image=$(gcloud compute images list --project $image_project \
     --no-standard-images --regexp="gci-dev.*" --format="table[no-heading](name)")
     images=$gci_image
-    metadata="user-data<${KUBE_ROOT}/test/e2e_node/jenkins/gci-init.yaml"
+    metadata="user-data<${KUBE_ROOT}/test/e2e_node/jenkins/gci-init.yaml,gci-update-strategy=update_disabled"
   fi
   instance_prefix=${INSTANCE_PREFIX:-"test"}
   cleanup=${CLEANUP:-"true"}

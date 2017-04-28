@@ -43,6 +43,7 @@ authorization-rbac-super-user
 authorization-webhook-cache-authorized-ttl
 authorization-webhook-cache-unauthorized-ttl
 authorization-webhook-config-file
+azure-container-registry-config
 babysit-daemons
 basic-auth-file
 bench-pods
@@ -174,6 +175,7 @@ etcd-config
 etcd-keyfile
 etcd-mutation-timeout
 etcd-prefix
+etcd-pv-capacity
 etcd-quorum-read
 etcd-server
 etcd-servers
@@ -202,6 +204,7 @@ experimental-nvidia-gpus
 experimental-prefix
 experimental-cri
 experimental-check-node-capabilities-before-mount
+experimental-kernel-memcg-notification
 external-etcd-cafile
 external-etcd-certfile
 external-etcd-endpoints
@@ -271,10 +274,12 @@ image-gc-high-threshold
 image-gc-low-threshold
 image-project
 image-pull-policy
+image-pull-progress-deadline
 image-service-endpoint
 include-extended-apis
 include-extended-apis
 included-types-overrides
+initial-sync-timeout
 input-base
 input-dirs
 insecure-allow-any-token
@@ -303,6 +308,7 @@ k8s-bin-dir
 k8s-build-output
 keep-gogoproto
 km-path
+kops-admin-access
 kops-cluster
 kops-kubernetes-version
 kops-nodes
@@ -427,6 +433,7 @@ node-name
 node-os-distro
 node-path-override
 node-port
+node-schedulable-timeout
 node-startup-grace-period
 node-status-update-frequency
 node-sync-period
@@ -464,6 +471,8 @@ prom-push-gateway
 protect-kernel-defaults
 proto-import
 proxy-bindall
+proxy-client-cert-file
+proxy-client-key-file
 proxy-kubeconfig
 proxy-logv
 proxy-mode
@@ -516,6 +525,7 @@ rkt-stage1-image
 root-ca-file
 root-dir
 route-reconciliation-period
+run-kubelet-mode
 run-proxy
 run-services-mode
 runtime-cgroups
@@ -558,6 +568,7 @@ since-time
 skip-generated-rewrite
 skip-munges
 skip-preflight-checks
+skip-unsafe
 sort-by
 source-file
 ssh-env

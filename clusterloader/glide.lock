@@ -1,5 +1,5 @@
-hash: 1f99c1e1e36d6e553d3de793edc0d9d8fa1662d902df1c0ceb5fadc60b6533a5
-updated: 2016-12-07T17:35:31.274372023-05:00
+hash: 72ed91b42ad12ac30ed8b782398312d5c3602d712b26556f9bf66a6a3de91e28
+updated: 2017-01-12T16:22:05.063722195-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -148,12 +148,14 @@ imports:
   subpackages:
   - spdy
 - name: github.com/emicklei/go-restful
-  version: 89ef8af493ab468a45a42bb0d89a06fccdd2fb22
+  version: 09691a3b6378b740595c1002f40c34dd5f218a22
   subpackages:
   - log
   - swagger
 - name: github.com/exponent-io/jsonpath
   version: d6023ce2651d8eafb5c75bb0c7167536102ec9f5
+- name: github.com/fatih/structs
+  version: dc3312cb1a4513a366c4c9e622ad55c32df12ed3
 - name: github.com/fsnotify/fsnotify
   version: f12c6236fe7b5cf6bcf30e5935d08cb079d78334
 - name: github.com/ghodss/yaml
@@ -515,7 +517,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/client-go
-  version: 124670e99da15091e13916f0ad4b2b2df2a39cd5
+  version: 5fe6fc56cb38d04ef4af601a03599c984229dea2
   subpackages:
   - discovery
   - kubernetes
@@ -535,7 +537,6 @@ imports:
   - pkg/api/errors
   - pkg/api/install
   - pkg/api/meta
-  - pkg/api/meta/metatypes
   - pkg/api/resource
   - pkg/api/v1
   - pkg/api/validation/path
@@ -565,6 +566,7 @@ imports:
   - pkg/apis/extensions/install
   - pkg/apis/extensions/v1beta1
   - pkg/apis/meta/v1
+  - pkg/apis/meta/v1/unstructured
   - pkg/apis/policy
   - pkg/apis/policy/install
   - pkg/apis/policy/v1beta1
@@ -606,7 +608,6 @@ imports:
   - pkg/util/net
   - pkg/util/parsers
   - pkg/util/rand
-  - pkg/util/ratelimit
   - pkg/util/runtime
   - pkg/util/sets
   - pkg/util/uuid
@@ -625,20 +626,22 @@ imports:
   - tools/metrics
   - transport
 - name: k8s.io/kubernetes
-  version: debed6fa56d90a0726683e302b3d822b2d70df02
+  version: 1bfd4f0a7171513db69d2344d997df7f34ce9ee0
   subpackages:
   - cmd/kubelet/app/options
   - federation/apis/federation
   - federation/apis/federation/install
   - federation/apis/federation/v1beta1
+  - federation/client/clientset_generated/federation_clientset
+  - federation/client/clientset_generated/federation_clientset/typed/batch/v1
+  - federation/client/clientset_generated/federation_clientset/typed/core/v1
+  - federation/client/clientset_generated/federation_clientset/typed/extensions/v1beta1
+  - federation/client/clientset_generated/federation_clientset/typed/federation/v1beta1
   - federation/client/clientset_generated/federation_internalclientset
+  - federation/client/clientset_generated/federation_internalclientset/typed/batch/internalversion
   - federation/client/clientset_generated/federation_internalclientset/typed/core/internalversion
   - federation/client/clientset_generated/federation_internalclientset/typed/extensions/internalversion
   - federation/client/clientset_generated/federation_internalclientset/typed/federation/internalversion
-  - federation/client/clientset_generated/federation_release_1_5
-  - federation/client/clientset_generated/federation_release_1_5/typed/core/v1
-  - federation/client/clientset_generated/federation_release_1_5/typed/extensions/v1beta1
-  - federation/client/clientset_generated/federation_release_1_5/typed/federation/v1beta1
   - pkg/admission
   - pkg/api
   - pkg/api/annotations
@@ -647,7 +650,6 @@ imports:
   - pkg/api/events
   - pkg/api/install
   - pkg/api/meta
-  - pkg/api/meta/metatypes
   - pkg/api/pod
   - pkg/api/resource
   - pkg/api/service
@@ -688,6 +690,7 @@ imports:
   - pkg/apis/extensions/v1beta1
   - pkg/apis/extensions/validation
   - pkg/apis/meta/v1
+  - pkg/apis/meta/v1/unstructured
   - pkg/apis/meta/v1/validation
   - pkg/apis/policy
   - pkg/apis/policy/install
@@ -704,6 +707,19 @@ imports:
   - pkg/auth/user
   - pkg/capabilities
   - pkg/client/cache
+  - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/typed/apps/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authentication/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authorization/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/autoscaling/v1
+  - pkg/client/clientset_generated/clientset/typed/batch/v1
+  - pkg/client/clientset_generated/clientset/typed/batch/v2alpha1
+  - pkg/client/clientset_generated/clientset/typed/certificates/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/core/v1
+  - pkg/client/clientset_generated/clientset/typed/extensions/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/policy/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/rbac/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/storage/v1beta1
   - pkg/client/clientset_generated/internalclientset
   - pkg/client/clientset_generated/internalclientset/typed/apps/internalversion
   - pkg/client/clientset_generated/internalclientset/typed/authentication/internalversion
@@ -716,19 +732,6 @@ imports:
   - pkg/client/clientset_generated/internalclientset/typed/policy/internalversion
   - pkg/client/clientset_generated/internalclientset/typed/rbac/internalversion
   - pkg/client/clientset_generated/internalclientset/typed/storage/internalversion
-  - pkg/client/clientset_generated/release_1_5
-  - pkg/client/clientset_generated/release_1_5/typed/apps/v1beta1
-  - pkg/client/clientset_generated/release_1_5/typed/authentication/v1beta1
-  - pkg/client/clientset_generated/release_1_5/typed/authorization/v1beta1
-  - pkg/client/clientset_generated/release_1_5/typed/autoscaling/v1
-  - pkg/client/clientset_generated/release_1_5/typed/batch/v1
-  - pkg/client/clientset_generated/release_1_5/typed/batch/v2alpha1
-  - pkg/client/clientset_generated/release_1_5/typed/certificates/v1alpha1
-  - pkg/client/clientset_generated/release_1_5/typed/core/v1
-  - pkg/client/clientset_generated/release_1_5/typed/extensions/v1beta1
-  - pkg/client/clientset_generated/release_1_5/typed/policy/v1beta1
-  - pkg/client/clientset_generated/release_1_5/typed/rbac/v1alpha1
-  - pkg/client/clientset_generated/release_1_5/typed/storage/v1beta1
   - pkg/client/conditions
   - pkg/client/listers/batch/v1
   - pkg/client/listers/core/internalversion
@@ -879,7 +882,6 @@ imports:
   - pkg/util/node
   - pkg/util/oom
   - pkg/util/parsers
-  - pkg/util/pod
   - pkg/util/procfs
   - pkg/util/rand
   - pkg/util/runtime
@@ -895,6 +897,7 @@ imports:
   - pkg/util/uuid
   - pkg/util/validation
   - pkg/util/validation/field
+  - pkg/util/version
   - pkg/util/wait
   - pkg/util/workqueue
   - pkg/util/wsstream

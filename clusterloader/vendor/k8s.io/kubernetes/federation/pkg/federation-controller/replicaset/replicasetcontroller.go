@@ -27,7 +27,7 @@ import (
 
 	fed "k8s.io/kubernetes/federation/apis/federation"
 	fedv1 "k8s.io/kubernetes/federation/apis/federation/v1beta1"
-	fedclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_release_1_5"
+	fedclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_clientset"
 	fedutil "k8s.io/kubernetes/federation/pkg/federation-controller/util"
 	"k8s.io/kubernetes/federation/pkg/federation-controller/util/deletionhelper"
 	"k8s.io/kubernetes/federation/pkg/federation-controller/util/eventsink"
@@ -38,10 +38,9 @@ import (
 	apiv1 "k8s.io/kubernetes/pkg/api/v1"
 	extensionsv1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/util/wait"
@@ -483,7 +482,7 @@ func (frsc *ReplicaSetController) reconcileReplicaSet(key string) (reconciliatio
 		// don't delete local replicasets for now. Do not reconcile it anymore.
 		return statusAllOk, nil
 	}
-	obj, err := conversion.NewCloner().DeepCopy(objFromStore)
+	obj, err := api.Scheme.DeepCopy(objFromStore)
 	frs, ok := obj.(*extensionsv1.ReplicaSet)
 	if err != nil || !ok {
 		glog.Errorf("Error in retrieving obj from store: %v, %v", ok, err)
@@ -559,7 +558,7 @@ func (frsc *ReplicaSetController) reconcileReplicaSet(key string) (reconciliatio
 		// The object can be modified.
 		lrs := &extensionsv1.ReplicaSet{
 			ObjectMeta: fedutil.DeepCopyRelevantObjectMeta(frs.ObjectMeta),
-			Spec:       fedutil.DeepCopyApiTypeOrPanic(frs.Spec).(extensionsv1.ReplicaSetSpec),
+			Spec:       *fedutil.DeepCopyApiTypeOrPanic(&frs.Spec).(*extensionsv1.ReplicaSetSpec),
 		}
 		specReplicas := int32(replicas)
 		lrs.Spec.Replicas = &specReplicas

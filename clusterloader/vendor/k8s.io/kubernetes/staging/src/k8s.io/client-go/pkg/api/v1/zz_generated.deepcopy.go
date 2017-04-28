@@ -121,7 +121,6 @@ func RegisterDeepCopies(scheme *runtime.Scheme) error {
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_ObjectFieldSelector, InType: reflect.TypeOf(&ObjectFieldSelector{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_ObjectMeta, InType: reflect.TypeOf(&ObjectMeta{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_ObjectReference, InType: reflect.TypeOf(&ObjectReference{})},
-		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_OwnerReference, InType: reflect.TypeOf(&OwnerReference{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_PersistentVolume, InType: reflect.TypeOf(&PersistentVolume{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_PersistentVolumeClaim, InType: reflect.TypeOf(&PersistentVolumeClaim{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_v1_PersistentVolumeClaimList, InType: reflect.TypeOf(&PersistentVolumeClaimList{})},
@@ -1915,9 +1914,9 @@ func DeepCopy_v1_ObjectMeta(in interface{}, out interface{}, c *conversion.Clone
 		}
 		if in.OwnerReferences != nil {
 			in, out := &in.OwnerReferences, &out.OwnerReferences
-			*out = make([]OwnerReference, len(*in))
+			*out = make([]meta_v1.OwnerReference, len(*in))
 			for i := range *in {
-				if err := DeepCopy_v1_OwnerReference(&(*in)[i], &(*out)[i], c); err != nil {
+				if err := meta_v1.DeepCopy_v1_OwnerReference(&(*in)[i], &(*out)[i], c); err != nil {
 					return err
 				}
 			}
@@ -1947,25 +1946,6 @@ func DeepCopy_v1_ObjectReference(in interface{}, out interface{}, c *conversion.
 		out.APIVersion = in.APIVersion
 		out.ResourceVersion = in.ResourceVersion
 		out.FieldPath = in.FieldPath
-		return nil
-	}
-}
-
-func DeepCopy_v1_OwnerReference(in interface{}, out interface{}, c *conversion.Cloner) error {
-	{
-		in := in.(*OwnerReference)
-		out := out.(*OwnerReference)
-		out.APIVersion = in.APIVersion
-		out.Kind = in.Kind
-		out.Name = in.Name
-		out.UID = in.UID
-		if in.Controller != nil {
-			in, out := &in.Controller, &out.Controller
-			*out = new(bool)
-			**out = **in
-		} else {
-			out.Controller = nil
-		}
 		return nil
 	}
 }
@@ -2581,8 +2561,8 @@ func DeepCopy_v1_PodSignature(in interface{}, out interface{}, c *conversion.Clo
 		out := out.(*PodSignature)
 		if in.PodController != nil {
 			in, out := &in.PodController, &out.PodController
-			*out = new(OwnerReference)
-			if err := DeepCopy_v1_OwnerReference(*in, *out, c); err != nil {
+			*out = new(meta_v1.OwnerReference)
+			if err := meta_v1.DeepCopy_v1_OwnerReference(*in, *out, c); err != nil {
 				return err
 			}
 		} else {
@@ -2680,6 +2660,15 @@ func DeepCopy_v1_PodSpec(in interface{}, out interface{}, c *conversion.Cloner) 
 		}
 		out.Hostname = in.Hostname
 		out.Subdomain = in.Subdomain
+		if in.Affinity != nil {
+			in, out := &in.Affinity, &out.Affinity
+			*out = new(Affinity)
+			if err := DeepCopy_v1_Affinity(*in, *out, c); err != nil {
+				return err
+			}
+		} else {
+			out.Affinity = nil
+		}
 		return nil
 	}
 }
@@ -2733,6 +2722,7 @@ func DeepCopy_v1_PodStatus(in interface{}, out interface{}, c *conversion.Cloner
 		} else {
 			out.ContainerStatuses = nil
 		}
+		out.QOSClass = in.QOSClass
 		return nil
 	}
 }

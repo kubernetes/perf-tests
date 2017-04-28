@@ -27,17 +27,17 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	storage "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
 	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	fakecloud "k8s.io/kubernetes/pkg/cloudprovider/providers/fake"
 	persistentvolumecontroller "k8s.io/kubernetes/pkg/controller/volume/persistentvolume"
-	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/volume"
 	volumetest "k8s.io/kubernetes/pkg/volume/testing"
 	"k8s.io/kubernetes/pkg/watch"
@@ -243,7 +243,7 @@ func TestPersistentVolumeBindRace(t *testing.T) {
 	claims := []*v1.PersistentVolumeClaim{}
 	for counter <= maxClaims {
 		counter += 1
-		clone, _ := conversion.NewCloner().DeepCopy(pvc)
+		clone, _ := api.Scheme.DeepCopy(pvc)
 		newPvc, _ := clone.(*v1.PersistentVolumeClaim)
 		newPvc.ObjectMeta = v1.ObjectMeta{Name: fmt.Sprintf("fake-pvc-race-%d", counter)}
 		claim, err := testClient.PersistentVolumeClaims(ns.Name).Create(newPvc)
@@ -275,7 +275,7 @@ func TestPersistentVolumeBindRace(t *testing.T) {
 	waitForAnyPersistentVolumeClaimPhase(watchPVC, v1.ClaimBound)
 	glog.V(2).Infof("TestPersistentVolumeBindRace pvc bound")
 
-	pv, err = testClient.PersistentVolumes().Get(pv.Name)
+	pv, err = testClient.PersistentVolumes().Get(pv.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
@@ -347,14 +347,14 @@ func TestPersistentVolumeClaimLabelSelector(t *testing.T) {
 	waitForPersistentVolumeClaimPhase(testClient, pvc.Name, ns.Name, watchPVC, v1.ClaimBound)
 	t.Log("claim bound")
 
-	pv, err := testClient.PersistentVolumes().Get("pv-false")
+	pv, err := testClient.PersistentVolumes().Get("pv-false", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
 	if pv.Spec.ClaimRef != nil {
 		t.Fatalf("False PV shouldn't be bound")
 	}
-	pv, err = testClient.PersistentVolumes().Get("pv-true")
+	pv, err = testClient.PersistentVolumes().Get("pv-true", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestPersistentVolumeClaimLabelSelectorMatchExpressions(t *testing.T) {
 	_, s := framework.RunAMaster(nil)
 	defer s.Close()
 
-	ns := framework.CreateTestingNamespace("pvc-match-expresssions", s, t)
+	ns := framework.CreateTestingNamespace("pvc-match-expressions", s, t)
 	defer framework.DeleteTestingNamespace(ns, s, t)
 
 	testClient, controller, watchPV, watchPVC := createClients(ns, t, s, defaultSyncPeriod)
@@ -446,14 +446,14 @@ func TestPersistentVolumeClaimLabelSelectorMatchExpressions(t *testing.T) {
 	waitForPersistentVolumeClaimPhase(testClient, pvc.Name, ns.Name, watchPVC, v1.ClaimBound)
 	t.Log("claim bound")
 
-	pv, err := testClient.PersistentVolumes().Get("pv-false")
+	pv, err := testClient.PersistentVolumes().Get("pv-false", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
 	if pv.Spec.ClaimRef != nil {
 		t.Fatalf("False PV shouldn't be bound")
 	}
-	pv, err = testClient.PersistentVolumes().Get("pv-true")
+	pv, err = testClient.PersistentVolumes().Get("pv-true", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
@@ -520,7 +520,7 @@ func TestPersistentVolumeMultiPVs(t *testing.T) {
 	// only one PV is bound
 	bound := 0
 	for i := 0; i < maxPVs; i++ {
-		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name)
+		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error getting pv: %v", err)
 		}
@@ -614,7 +614,7 @@ func TestPersistentVolumeMultiPVsPVCs(t *testing.T) {
 				// Modify PV
 				i := rand.Intn(objCount)
 				name := "pv-" + strconv.Itoa(i)
-				pv, err := testClient.PersistentVolumes().Get(name)
+				pv, err := testClient.PersistentVolumes().Get(name, metav1.GetOptions{})
 				if err != nil {
 					// Silently ignore error, the PV may have be already deleted
 					// or not exists yet.
@@ -638,7 +638,7 @@ func TestPersistentVolumeMultiPVsPVCs(t *testing.T) {
 				// Modify PVC
 				i := rand.Intn(objCount)
 				name := "pvc-" + strconv.Itoa(i)
-				pvc, err := testClient.PersistentVolumeClaims(v1.NamespaceDefault).Get(name)
+				pvc, err := testClient.PersistentVolumeClaims(v1.NamespaceDefault).Get(name, metav1.GetOptions{})
 				if err != nil {
 					// Silently ignore error, the PVC may have be already
 					// deleted or not exists yet.
@@ -693,7 +693,7 @@ func TestPersistentVolumeMultiPVsPVCs(t *testing.T) {
 
 	// check that everything is bound to something
 	for i := 0; i < objCount; i++ {
-		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name)
+		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error getting pv: %v", err)
 		}
@@ -702,7 +702,7 @@ func TestPersistentVolumeMultiPVsPVCs(t *testing.T) {
 		}
 		glog.V(2).Infof("PV %q is bound to PVC %q", pv.Name, pv.Spec.ClaimRef.Name)
 
-		pvc, err := testClient.PersistentVolumeClaims(ns.Name).Get(pvcs[i].Name)
+		pvc, err := testClient.PersistentVolumeClaims(ns.Name).Get(pvcs[i].Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error getting pvc: %v", err)
 		}
@@ -778,7 +778,7 @@ func TestPersistentVolumeControllerStartup(t *testing.T) {
 		}
 		pvs[i] = newPV
 		// Drain watchPV with all events generated by the PV until it's bound
-		// We don't want to catch "PV craated with Status.Phase == Pending"
+		// We don't want to catch "PV created with Status.Phase == Pending"
 		// later in this test.
 		waitForAnyPersistentVolumePhase(watchPV, v1.VolumeBound)
 	}
@@ -822,7 +822,7 @@ func TestPersistentVolumeControllerStartup(t *testing.T) {
 
 	// check that everything is bound to something
 	for i := 0; i < objCount; i++ {
-		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name)
+		pv, err := testClient.PersistentVolumes().Get(pvs[i].Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error getting pv: %v", err)
 		}
@@ -831,7 +831,7 @@ func TestPersistentVolumeControllerStartup(t *testing.T) {
 		}
 		glog.V(2).Infof("PV %q is bound to PVC %q", pv.Name, pv.Spec.ClaimRef.Name)
 
-		pvc, err := testClient.PersistentVolumeClaims(ns.Name).Get(pvcs[i].Name)
+		pvc, err := testClient.PersistentVolumeClaims(ns.Name).Get(pvcs[i].Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error getting pvc: %v", err)
 		}
@@ -991,14 +991,14 @@ func TestPersistentVolumeMultiPVsDiffAccessModes(t *testing.T) {
 	t.Log("claim bound")
 
 	// only RWM PV is bound
-	pv, err := testClient.PersistentVolumes().Get("pv-rwo")
+	pv, err := testClient.PersistentVolumes().Get("pv-rwo", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
 	if pv.Spec.ClaimRef != nil {
 		t.Fatalf("ReadWriteOnce PV shouldn't be bound")
 	}
-	pv, err = testClient.PersistentVolumes().Get("pv-rwm")
+	pv, err = testClient.PersistentVolumes().Get("pv-rwm", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unexpected error getting pv: %v", err)
 	}
@@ -1021,7 +1021,7 @@ func TestPersistentVolumeMultiPVsDiffAccessModes(t *testing.T) {
 
 func waitForPersistentVolumePhase(client *clientset.Clientset, pvName string, w watch.Interface, phase v1.PersistentVolumePhase) {
 	// Check if the volume is already in requested phase
-	volume, err := client.Core().PersistentVolumes().Get(pvName)
+	volume, err := client.Core().PersistentVolumes().Get(pvName, metav1.GetOptions{})
 	if err == nil && volume.Status.Phase == phase {
 		return
 	}
@@ -1042,7 +1042,7 @@ func waitForPersistentVolumePhase(client *clientset.Clientset, pvName string, w 
 
 func waitForPersistentVolumeClaimPhase(client *clientset.Clientset, claimName, namespace string, w watch.Interface, phase v1.PersistentVolumeClaimPhase) {
 	// Check if the claim is already in requested phase
-	claim, err := client.Core().PersistentVolumeClaims(namespace).Get(claimName)
+	claim, err := client.Core().PersistentVolumeClaims(namespace).Get(claimName, metav1.GetOptions{})
 	if err == nil && claim.Status.Phase == phase {
 		return
 	}
@@ -1135,7 +1135,7 @@ func createClients(ns *v1.Namespace, t *testing.T, s *httptest.Server, syncPerio
 	}
 	watchPVC, err := testClient.PersistentVolumeClaims(ns.Name).Watch(v1.ListOptions{})
 	if err != nil {
-		t.Fatalf("Failed to watch PersistentVolumeClaimss: %v", err)
+		t.Fatalf("Failed to watch PersistentVolumeClaims: %v", err)
 	}
 
 	return testClient, ctrl, watchPV, watchPVC

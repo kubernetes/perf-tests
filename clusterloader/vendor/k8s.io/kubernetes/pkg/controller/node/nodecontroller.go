@@ -28,8 +28,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller/informers"
@@ -41,8 +41,8 @@ import (
 	utilnode "k8s.io/kubernetes/pkg/util/node"
 	utilruntime "k8s.io/kubernetes/pkg/util/runtime"
 	"k8s.io/kubernetes/pkg/util/system"
+	utilversion "k8s.io/kubernetes/pkg/util/version"
 	"k8s.io/kubernetes/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/version"
 )
 
 func init() {
@@ -52,11 +52,11 @@ func init() {
 
 var (
 	ErrCloudInstance        = errors.New("cloud provider doesn't support instances.")
-	gracefulDeletionVersion = version.MustParse("v1.1.0")
+	gracefulDeletionVersion = utilversion.MustParseSemantic("v1.1.0")
 
 	// The minimum kubelet version for which the nodecontroller
 	// can safely flip pod.Status to NotReady.
-	podStatusReconciliationVersion = version.MustParse("v1.2.0")
+	podStatusReconciliationVersion = utilversion.MustParseSemantic("v1.2.0")
 )
 
 const (
@@ -451,7 +451,7 @@ func (nc *NodeController) monitorNodeStatus() error {
 				break
 			}
 			name := node.Name
-			node, err = nc.kubeClient.Core().Nodes().Get(name)
+			node, err = nc.kubeClient.Core().Nodes().Get(name, metav1.GetOptions{})
 			if err != nil {
 				glog.Errorf("Failed while getting a Node to retry updating NodeStatus. Probably Node %s was deleted.", name)
 				break

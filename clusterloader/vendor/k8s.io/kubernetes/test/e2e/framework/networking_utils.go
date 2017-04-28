@@ -27,7 +27,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	coreclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	coreclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/rand"
@@ -423,12 +423,12 @@ func (config *NetworkingTestConfig) createTestPods() {
 	ExpectNoError(config.f.WaitForPodRunning(hostTestContainerPod.Name))
 
 	var err error
-	config.TestContainerPod, err = config.getPodClient().Get(testContainerPod.Name)
+	config.TestContainerPod, err = config.getPodClient().Get(testContainerPod.Name, metav1.GetOptions{})
 	if err != nil {
 		Failf("Failed to retrieve %s pod: %v", testContainerPod.Name, err)
 	}
 
-	config.HostTestContainerPod, err = config.getPodClient().Get(hostTestContainerPod.Name)
+	config.HostTestContainerPod, err = config.getPodClient().Get(hostTestContainerPod.Name, metav1.GetOptions{})
 	if err != nil {
 		Failf("Failed to retrieve %s pod: %v", hostTestContainerPod.Name, err)
 	}
@@ -441,7 +441,7 @@ func (config *NetworkingTestConfig) createService(serviceSpec *v1.Service) *v1.S
 	err = WaitForService(config.f.ClientSet, config.Namespace, serviceSpec.Name, true, 5*time.Second, 45*time.Second)
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("error while waiting for service:%s err: %v", serviceSpec.Name, err))
 
-	createdService, err := config.getServiceClient().Get(serviceSpec.Name)
+	createdService, err := config.getServiceClient().Get(serviceSpec.Name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Failed to create %s service: %v", serviceSpec.Name, err))
 
 	return createdService
@@ -542,7 +542,7 @@ func (config *NetworkingTestConfig) createNetProxyPods(podName string, selector 
 	runningPods := make([]*v1.Pod, 0, len(nodes))
 	for _, p := range createdPods {
 		ExpectNoError(config.f.WaitForPodReady(p.Name))
-		rp, err := config.getPodClient().Get(p.Name)
+		rp, err := config.getPodClient().Get(p.Name, metav1.GetOptions{})
 		ExpectNoError(err)
 		runningPods = append(runningPods, rp)
 	}

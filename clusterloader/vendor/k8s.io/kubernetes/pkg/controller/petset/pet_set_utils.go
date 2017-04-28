@@ -22,8 +22,9 @@ import (
 
 	"k8s.io/kubernetes/pkg/api/v1"
 	apps "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	appsclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/apps/v1beta1"
+	appsclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/apps/v1beta1"
 	"k8s.io/kubernetes/pkg/controller"
 
 	"github.com/golang/glog"
@@ -58,7 +59,7 @@ func updatePetCount(psClient appsclientset.StatefulSetsGetter, ps apps.StatefulS
 		if updateErr == nil || i >= statusUpdateRetries {
 			return updateErr
 		}
-		if ps, getErr = psClient.StatefulSets(ps.Namespace).Get(ps.Name); getErr != nil {
+		if ps, getErr = psClient.StatefulSets(ps.Namespace).Get(ps.Name, metav1.GetOptions{}); getErr != nil {
 			return getErr
 		}
 	}

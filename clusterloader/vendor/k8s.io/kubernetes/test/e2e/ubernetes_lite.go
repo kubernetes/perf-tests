@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/sets"
@@ -150,7 +150,7 @@ func getZoneCount(c clientset.Interface) (int, error) {
 // Find the name of the zone in which the pod is scheduled
 func getZoneNameForPod(c clientset.Interface, pod v1.Pod) (string, error) {
 	By(fmt.Sprintf("Getting zone name for pod %s, on node %s", pod.Name, pod.Spec.NodeName))
-	node, err := c.Core().Nodes().Get(pod.Spec.NodeName)
+	node, err := c.Core().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	return getZoneNameForNode(*node)
 }

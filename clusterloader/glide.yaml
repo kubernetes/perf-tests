@@ -1,5 +1,6 @@
 package: github.com/kubernetes/perf-tests/clusterloader
 import:
+- package: github.com/fatih/structs
 - package: github.com/golang/glog
 - package: github.com/onsi/ginkgo
   subpackages:
@@ -12,7 +13,8 @@ import:
   subpackages:
   - pkg/api
   - pkg/api/v1
-  - pkg/client/clientset_generated/release_1_5
+  - pkg/apis/meta/v1
+  - pkg/client/clientset_generated/clientset
   - pkg/labels
   - pkg/util/logs
   - pkg/util/runtime

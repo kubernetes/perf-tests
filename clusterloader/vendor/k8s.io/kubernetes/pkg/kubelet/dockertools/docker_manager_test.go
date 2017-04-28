@@ -25,7 +25,6 @@ import (
 	"path"
 	"reflect"
 	"regexp"
-	goruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -1896,8 +1895,7 @@ func TestSeccompLocalhostProfileIsLoaded(t *testing.T) {
 		recorder := record.NewFakeRecorder(20)
 		dm.recorder = recorder
 
-		_, filename, _, _ := goruntime.Caller(0)
-		dm.seccompProfileRoot = path.Join(path.Dir(filename), "fixtures", "seccomp")
+		dm.seccompProfileRoot = path.Join("fixtures", "seccomp")
 
 		pod := makePod("foo2", &v1.PodSpec{
 			Containers: []v1.Container{
@@ -2117,12 +2115,14 @@ func TestDockerVersionComparison(t *testing.T) {
 		{version: "1.10.4-rc1", compare: -1},
 		{version: "1.11.1", compare: -1},
 		{version: "1.11.1-rc4", compare: -1},
-		{version: "invalid", compare: -1, err: true},
+		{version: "invalid", err: true},
 	} {
 		testCase := fmt.Sprintf("test case #%d test version %q", i, test.version)
 		res, err := v.Compare(test.version)
-		assert.Equal(t, test.compare, res, testCase)
 		assert.Equal(t, test.err, err != nil, testCase)
+		if !test.err {
+			assert.Equal(t, test.compare, res, testCase)
+		}
 	}
 }
 

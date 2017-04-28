@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -48,9 +46,10 @@ go_library(
         "//pkg/apis/meta/v1:go_default_library",
         "//pkg/capabilities:go_default_library",
         "//pkg/client/cache:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5:go_default_library",
+        "//pkg/client/clientset_generated/clientset:go_default_library",
         "//pkg/client/record:go_default_library",
         "//pkg/cloudprovider:go_default_library",
+        "//pkg/conversion:go_default_library",
         "//pkg/fieldpath:go_default_library",
         "//pkg/fields:go_default_library",
         "//pkg/kubelet/api:go_default_library",
@@ -156,7 +155,7 @@ go_test(
         "//pkg/apis/componentconfig:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
         "//pkg/capabilities:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/fake:go_default_library",
+        "//pkg/client/clientset_generated/clientset/fake:go_default_library",
         "//pkg/client/record:go_default_library",
         "//pkg/client/testing/core:go_default_library",
         "//pkg/kubelet/cadvisor/testing:go_default_library",
@@ -192,6 +191,7 @@ go_test(
         "//pkg/util/rand:go_default_library",
         "//pkg/util/runtime:go_default_library",
         "//pkg/util/sets:go_default_library",
+        "//pkg/util/strategicpatch:go_default_library",
         "//pkg/util/testing:go_default_library",
         "//pkg/util/uuid:go_default_library",
         "//pkg/util/wait:go_default_library",

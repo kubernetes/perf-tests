@@ -30,7 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/controller/replicaset"
@@ -173,46 +173,46 @@ func TestAdoption(t *testing.T) {
 	var trueVar = true
 	testCases := []struct {
 		name                    string
-		existingOwnerReferences func(rs *v1beta1.ReplicaSet) []v1.OwnerReference
-		expectedOwnerReferences func(rs *v1beta1.ReplicaSet) []v1.OwnerReference
+		existingOwnerReferences func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference
+		expectedOwnerReferences func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference
 	}{
 		{
 			"pod refers rs as an owner, not a controller",
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"}}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"}}
 			},
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
 			"pod doesn't have owner references",
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{}
 			},
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
 			"pod refers rs as a controller",
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
 			"pod refers other rs as the controller, refers the rs as an owner",
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{
 					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar},
 					{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"},
 				}
 			},
-			func(rs *v1beta1.ReplicaSet) []v1.OwnerReference {
-				return []v1.OwnerReference{
+			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
+				return []metav1.OwnerReference{
 					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar},
 					{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"},
 				}
@@ -245,7 +245,7 @@ func TestAdoption(t *testing.T) {
 		waitToObservePods(t, podInformer, 1)
 		go rm.Run(5, stopCh)
 		if err := wait.Poll(10*time.Second, 60*time.Second, func() (bool, error) {
-			updatedPod, err := podClient.Get(pod.Name)
+			updatedPod, err := podClient.Get(pod.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -280,7 +280,7 @@ func createRSsPods(t *testing.T, clientSet clientset.Interface, rss []*v1beta1.R
 func waitRSStable(t *testing.T, clientSet clientset.Interface, rs *v1beta1.ReplicaSet, ns string) {
 	rsClient := clientSet.Extensions().ReplicaSets(ns)
 	if err := wait.Poll(10*time.Second, 60*time.Second, func() (bool, error) {
-		updatedRS, err := rsClient.Get(rs.Name)
+		updatedRS, err := rsClient.Get(rs.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -371,7 +371,7 @@ func TestUpdateSelectorToRemoveControllerRef(t *testing.T) {
 		t.Fatal(err)
 	}
 	podClient := clientSet.Core().Pods(ns.Name)
-	pod2, err = podClient.Get(pod2.Name)
+	pod2, err = podClient.Get(pod2.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get pod2: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestUpdateLabelToRemoveControllerRef(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	pod2, err = podClient.Get(pod2.Name)
+	pod2, err = podClient.Get(pod2.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get pod2: %v", err)
 	}

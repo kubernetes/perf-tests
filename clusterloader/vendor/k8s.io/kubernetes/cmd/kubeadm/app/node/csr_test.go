@@ -22,7 +22,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	certclient "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/certificates/v1alpha1"
+	certclient "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/certificates/v1alpha1"
 	restclient "k8s.io/kubernetes/pkg/client/restclient"
 )
 
@@ -67,7 +67,7 @@ func TestPerformTLSBootstrap(t *testing.T) {
 			t.Fatalf("encountered an error while trying to get New Cert Client: %v", err)
 		}
 		cd.CertClient = tmpConfig
-		_, actual := PerformTLSBootstrap(cd)
+		_, actual := PerformTLSBootstrapDeprecated(cd)
 		if (actual == nil) != rt.expect {
 			t.Errorf(
 				"failed createClients:\n\texpected: %t\n\t  actual: %t",

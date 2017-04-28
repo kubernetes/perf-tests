@@ -16,7 +16,7 @@ go test -c -o e2e.test
 ## Running
 Cluster Loader uses e2e/framework as a library so the execution may be familiar. This command is used to test against a local cluster:
 ```
-./e2e.test --host="127.0.0.1:8080" --ginkgo.v=true --ginkgo.focus="Cluster Loader" --kubeconifg=<path to your kubeconfig> --viper-config=config/test
+./e2e.test --host="127.0.0.1:8080" --ginkgo.v=true --ginkgo.focus="Cluster Loader" --kubeconfig=<path to your kubeconfig> --viper-config=config/test
 ```
 `viper-config` does not need the extension of the config file, viper will automatically detect it.
 
@@ -28,7 +28,7 @@ The config file is a basic yaml file that follows the following structure:
 ```
 # e2e specific vars
 provider: local
-# delete namespace after exec 
+# delete namespace after exec
 deletenamespace: true
 # Cluster loader specific part
 ClusterLoader:

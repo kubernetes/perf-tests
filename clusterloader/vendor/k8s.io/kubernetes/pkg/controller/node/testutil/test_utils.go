@@ -27,8 +27,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/fake"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/clock"
 	utilnode "k8s.io/kubernetes/pkg/util/node"
@@ -107,7 +107,7 @@ func (m *FakeNodeHandler) Create(node *v1.Node) (*v1.Node, error) {
 }
 
 // Get returns a Node from the fake store.
-func (m *FakeNodeHandler) Get(name string) (*v1.Node, error) {
+func (m *FakeNodeHandler) Get(name string, opts metav1.GetOptions) (*v1.Node, error) {
 	m.lock.Lock()
 	defer func() {
 		m.RequestCount++

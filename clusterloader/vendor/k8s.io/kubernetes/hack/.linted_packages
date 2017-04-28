@@ -89,11 +89,13 @@ pkg/apis/componentconfig/install
 pkg/apis/extensions/install
 pkg/apis/extensions/v1beta1
 pkg/apis/imagepolicy/install
+pkg/apis/meta/v1/unstructured
 pkg/apis/policy/install
 pkg/apis/rbac/install
 pkg/apis/storage/install
 pkg/apis/storage/validation
 pkg/apiserver/audit
+pkg/apiserver/handlers/responsewriters
 pkg/apiserver/openapi
 pkg/auth/authenticator
 pkg/auth/authorizer/union
@@ -197,6 +199,7 @@ pkg/kubelet/volumemanager/populator
 pkg/kubelet/volumemanager/reconciler
 pkg/proxy/config
 pkg/proxy/healthcheck
+pkg/quota
 pkg/quota/install
 pkg/registry
 pkg/registry/authorization/util
@@ -262,7 +265,9 @@ pkg/util/metrics
 pkg/util/netsh
 pkg/util/ratelimit
 pkg/util/replicaset
+pkg/util/restoptions
 pkg/util/validation/field
+pkg/util/version
 pkg/util/workqueue
 pkg/version/prometheus
 pkg/volume

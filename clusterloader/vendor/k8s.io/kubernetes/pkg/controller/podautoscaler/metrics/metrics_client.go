@@ -24,8 +24,8 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/labels"
 
 	heapster "k8s.io/heapster/metrics/api/v1/types"
@@ -122,10 +122,7 @@ func (h *HeapsterMetricsClient) GetResourceMetric(resource v1.ResourceName, name
 		}
 	}
 
-	timestamp := time.Time{}
-	if len(metrics.Items) > 0 {
-		timestamp = metrics.Items[0].Timestamp.Time
-	}
+	timestamp := metrics.Items[0].Timestamp.Time
 
 	return res, timestamp, nil
 }

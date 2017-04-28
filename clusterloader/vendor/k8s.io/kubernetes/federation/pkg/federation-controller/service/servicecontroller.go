@@ -26,12 +26,14 @@ import (
 	"github.com/golang/glog"
 	v1beta1 "k8s.io/kubernetes/federation/apis/federation/v1beta1"
 	federationcache "k8s.io/kubernetes/federation/client/cache"
-	fedclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_release_1_5"
+	fedclientset "k8s.io/kubernetes/federation/client/clientset_generated/federation_clientset"
 	"k8s.io/kubernetes/federation/pkg/dnsprovider"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	cache "k8s.io/kubernetes/pkg/client/cache"
-	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	kubeclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
 	pkgruntime "k8s.io/kubernetes/pkg/runtime"
@@ -40,8 +42,6 @@ import (
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/util/workqueue"
 	"k8s.io/kubernetes/pkg/watch"
-
-	"k8s.io/kubernetes/pkg/conversion"
 )
 
 const (
@@ -361,7 +361,7 @@ func (s *ServiceController) processServiceForCluster(cachedService *cachedServic
 // should be retried.
 func (s *ServiceController) updateFederationService(key string, cachedService *cachedService) (error, bool) {
 	// Clone federation service, and create them in underlying k8s cluster
-	clone, err := conversion.NewCloner().DeepCopy(cachedService.lastState)
+	clone, err := api.Scheme.DeepCopy(cachedService.lastState)
 	if err != nil {
 		return err, !retryable
 	}
@@ -391,7 +391,7 @@ func (s *ServiceController) ensureClusterService(cachedService *cachedService, c
 	var err error
 	var needUpdate bool
 	for i := 0; i < clientRetryCount; i++ {
-		svc, err := client.Core().Services(service.Namespace).Get(service.Name)
+		svc, err := client.Core().Services(service.Namespace).Get(service.Name, metav1.GetOptions{})
 		if err == nil {
 			// service exists
 			glog.V(5).Infof("Found service %s/%s from cluster %s", service.Namespace, service.Name, clusterName)
@@ -633,7 +633,7 @@ func getClusterConditionPredicate() federationcache.ClusterConditionPredicate {
 			//We consider the cluster for load balancing only when its ClusterReady condition status
 			//is ConditionTrue
 			if cond.Type == v1beta1.ClusterReady && cond.Status != v1.ConditionTrue {
-				glog.V(4).Infof("Ignoring cluser %v with %v condition status %v", cluster.Name, cond.Type, cond.Status)
+				glog.V(4).Infof("Ignoring cluster %v with %v condition status %v", cluster.Name, cond.Type, cond.Status)
 				return false
 			}
 		}

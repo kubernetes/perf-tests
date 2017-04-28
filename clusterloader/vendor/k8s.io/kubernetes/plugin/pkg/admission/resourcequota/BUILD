@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -54,10 +52,8 @@ go_test(
         "//pkg/client/clientset_generated/internalclientset/fake:go_default_library",
         "//pkg/client/testing/core:go_default_library",
         "//pkg/quota:go_default_library",
-        "//pkg/quota/evaluator/core:go_default_library",
         "//pkg/quota/generic:go_default_library",
         "//pkg/quota/install:go_default_library",
-        "//pkg/runtime:go_default_library",
         "//pkg/runtime/schema:go_default_library",
         "//pkg/util/sets:go_default_library",
         "//vendor:github.com/hashicorp/golang-lru",

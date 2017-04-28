@@ -4,10 +4,7 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -20,6 +17,7 @@ go_library(
         "namespace_controller.go",
         "server.go",
         "services.go",
+        "util.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -27,7 +25,7 @@ go_library(
         "//cmd/kube-apiserver/app/options:go_default_library",
         "//pkg/api/v1:go_default_library",
         "//pkg/apimachinery/registered:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5:go_default_library",
+        "//pkg/client/clientset_generated/clientset:go_default_library",
         "//pkg/client/restclient:go_default_library",
         "//pkg/client/typed/dynamic:go_default_library",
         "//pkg/controller/namespace:go_default_library",

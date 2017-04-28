@@ -32,11 +32,13 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
-	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/kubelet/cadvisor"
 	"k8s.io/kubernetes/pkg/kubelet/events"
 	"k8s.io/kubernetes/pkg/kubelet/util/sliceutils"
+	"k8s.io/kubernetes/pkg/types"
 	utilnet "k8s.io/kubernetes/pkg/util/net"
+	nodeutil "k8s.io/kubernetes/pkg/util/node"
 	"k8s.io/kubernetes/pkg/version"
 	"k8s.io/kubernetes/pkg/volume/util/volumehelper"
 )
@@ -100,13 +102,25 @@ func (kl *Kubelet) tryRegisterWithApiServer(node *v1.Node) bool {
 		return false
 	}
 
-	existingNode, err := kl.kubeClient.Core().Nodes().Get(string(kl.nodeName))
+	existingNode, err := kl.kubeClient.Core().Nodes().Get(string(kl.nodeName), metav1.GetOptions{})
 	if err != nil {
 		glog.Errorf("Unable to register node %q with API server: error getting existing node: %v", kl.nodeName, err)
 		return false
 	}
 	if existingNode == nil {
 		glog.Errorf("Unable to register node %q with API server: no node instance returned", kl.nodeName)
+		return false
+	}
+
+	clonedNode, err := conversion.NewCloner().DeepCopy(existingNode)
+	if err != nil {
+		glog.Errorf("Unable to clone %q node object %#v: %v", kl.nodeName, existingNode, err)
+		return false
+	}
+
+	originalNode, ok := clonedNode.(*v1.Node)
+	if !ok || originalNode == nil {
+		glog.Errorf("Unable to cast %q node object %#v to v1.Node", kl.nodeName, clonedNode)
 		return false
 	}
 
@@ -118,7 +132,8 @@ func (kl *Kubelet) tryRegisterWithApiServer(node *v1.Node) bool {
 		// annotation.
 		requiresUpdate := kl.reconcileCMADAnnotationWithExistingNode(node, existingNode)
 		if requiresUpdate {
-			if _, err := kl.kubeClient.Core().Nodes().UpdateStatus(existingNode); err != nil {
+			if _, err := nodeutil.PatchNodeStatus(kl.kubeClient, types.NodeName(kl.nodeName),
+				originalNode, existingNode); err != nil {
 				glog.Errorf("Unable to reconcile node %q with API server: error updating node: %v", kl.nodeName, err)
 				return false
 			}
@@ -177,9 +192,10 @@ func (kl *Kubelet) initialNode() (*v1.Node, error) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: string(kl.nodeName),
 			Labels: map[string]string{
-				metav1.LabelHostname: kl.hostname,
-				metav1.LabelOS:       goruntime.GOOS,
-				metav1.LabelArch:     goruntime.GOARCH,
+				metav1.LabelHostname:       kl.hostname,
+				metav1.LabelOS:             goruntime.GOOS,
+				metav1.LabelArch:           goruntime.GOARCH,
+				metav1.LabelFluentdDsReady: "true",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -283,9 +299,7 @@ func (kl *Kubelet) initialNode() (*v1.Node, error) {
 			}
 		}
 	}
-	if err := kl.setNodeStatus(node); err != nil {
-		return nil, err
-	}
+	kl.setNodeStatus(node)
 
 	return node, nil
 }
@@ -327,40 +341,37 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 	// apiserver cache (the data might be slightly delayed but it doesn't
 	// seem to cause more confilict - the delays are pretty small).
 	// If it result in a conflict, all retries are served directly from etcd.
-	// TODO: Currently apiserver doesn't support serving GET operations
-	// from its cache. Thus we are hacking it by issuing LIST with
-	// field selector for the name of the node (field selectors with
-	// specified name are handled efficiently by apiserver). Once
-	// apiserver supports GET from cache, change it here.
-	opts := v1.ListOptions{
-		FieldSelector: fields.Set{"metadata.name": string(kl.nodeName)}.AsSelector().String(),
-	}
+	opts := metav1.GetOptions{}
 	if tryNumber == 0 {
 		opts.ResourceVersion = "0"
 	}
-	nodes, err := kl.kubeClient.Core().Nodes().List(opts)
+	node, err := kl.kubeClient.Core().Nodes().Get(string(kl.nodeName), opts)
 	if err != nil {
 		return fmt.Errorf("error getting node %q: %v", kl.nodeName, err)
 	}
-	if len(nodes.Items) != 1 {
-		return fmt.Errorf("no node instance returned for %q", kl.nodeName)
+
+	clonedNode, err := conversion.NewCloner().DeepCopy(node)
+	if err != nil {
+		return fmt.Errorf("error clone node %q: %v", kl.nodeName, err)
 	}
-	node := &nodes.Items[0]
+
+	originalNode, ok := clonedNode.(*v1.Node)
+	if !ok || originalNode == nil {
+		return fmt.Errorf("failed to cast %q node object %#v to v1.Node", kl.nodeName, clonedNode)
+	}
 
 	kl.updatePodCIDR(node.Spec.PodCIDR)
 
-	if err := kl.setNodeStatus(node); err != nil {
+	kl.setNodeStatus(node)
+	// Patch the current status on the API server
+	updatedNode, err := nodeutil.PatchNodeStatus(kl.kubeClient, types.NodeName(kl.nodeName), originalNode, node)
+	if err != nil {
 		return err
 	}
-	// Update the current status on the API server
-	updatedNode, err := kl.kubeClient.Core().Nodes().UpdateStatus(node)
 	// If update finishes sucessfully, mark the volumeInUse as reportedInUse to indicate
 	// those volumes are already updated in the node's status
-	if err == nil {
-		kl.volumeManager.MarkVolumesAsReportedInUse(
-			updatedNode.Status.VolumesInUse)
-	}
-	return err
+	kl.volumeManager.MarkVolumesAsReportedInUse(updatedNode.Status.VolumesInUse)
+	return nil
 }
 
 // recordNodeStatusEvent records an event of the given type with the given
@@ -662,6 +673,7 @@ func (kl *Kubelet) setNodeReadyCondition(node *v1.Node) {
 			kl.recordNodeStatusEvent(v1.EventTypeNormal, events.NodeReady)
 		} else {
 			kl.recordNodeStatusEvent(v1.EventTypeNormal, events.NodeNotReady)
+			glog.Infof("Node became not ready: %+v", newNodeReadyCondition)
 		}
 	}
 }
@@ -875,13 +887,12 @@ func (kl *Kubelet) setNodeVolumesInUseStatus(node *v1.Node) {
 // any fields that are currently set.
 // TODO(madhusudancs): Simplify the logic for setting node conditions and
 // refactor the node status condition code out to a different file.
-func (kl *Kubelet) setNodeStatus(node *v1.Node) error {
+func (kl *Kubelet) setNodeStatus(node *v1.Node) {
 	for _, f := range kl.setNodeStatusFuncs {
 		if err := f(node); err != nil {
-			return err
+			glog.Warningf("Failed to set some node status fields: %s", err)
 		}
 	}
-	return nil
 }
 
 // defaultNodeStatusFuncs is a factory that generates the default set of

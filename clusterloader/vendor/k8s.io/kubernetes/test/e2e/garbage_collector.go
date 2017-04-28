@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/metrics"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -182,7 +182,7 @@ var _ = framework.KubeDescribe("Garbage collector", func() {
 		}
 		// wait for rc to create pods
 		if err := wait.Poll(5*time.Second, 30*time.Second, func() (bool, error) {
-			rc, err := rcClient.Get(rc.Name)
+			rc, err := rcClient.Get(rc.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("Failed to get rc: %v", err)
 			}
@@ -242,7 +242,7 @@ var _ = framework.KubeDescribe("Garbage collector", func() {
 		}
 		// wait for rc to create some pods
 		if err := wait.Poll(5*time.Second, 30*time.Second, func() (bool, error) {
-			rc, err := rcClient.Get(rc.Name)
+			rc, err := rcClient.Get(rc.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("Failed to get rc: %v", err)
 			}

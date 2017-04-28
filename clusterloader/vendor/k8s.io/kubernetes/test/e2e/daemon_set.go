@@ -29,7 +29,7 @@ import (
 	extensionsinternal "k8s.io/kubernetes/pkg/apis/extensions"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -209,17 +209,22 @@ var _ = framework.KubeDescribe("Daemon set [Serial]", func() {
 		complexLabel := map[string]string{daemonsetNameLabel: dsName}
 		nodeSelector := map[string]string{daemonsetColorLabel: "blue"}
 		framework.Logf("Creating daemon with a node affinity %s", dsName)
-		affinity := map[string]string{
-			v1.AffinityAnnotationKey: fmt.Sprintf(`
-				{"nodeAffinity": { "requiredDuringSchedulingIgnoredDuringExecution": {
-					"nodeSelectorTerms": [{
-						"matchExpressions": [{
-							"key": "%s",
-							"operator": "In",
-							"values": ["%s"]
-					}]
-				}]
-			}}}`, daemonsetColorLabel, nodeSelector[daemonsetColorLabel]),
+		affinity := &v1.Affinity{
+			NodeAffinity: &v1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								{
+									Key:      daemonsetColorLabel,
+									Operator: v1.NodeSelectorOpIn,
+									Values:   []string{nodeSelector[daemonsetColorLabel]},
+								},
+							},
+						},
+					},
+				},
+			},
 		}
 		_, err := c.Extensions().DaemonSets(ns).Create(&extensions.DaemonSet{
 			ObjectMeta: v1.ObjectMeta{
@@ -229,10 +234,10 @@ var _ = framework.KubeDescribe("Daemon set [Serial]", func() {
 				Selector: &metav1.LabelSelector{MatchLabels: complexLabel},
 				Template: v1.PodTemplateSpec{
 					ObjectMeta: v1.ObjectMeta{
-						Labels:      complexLabel,
-						Annotations: affinity,
+						Labels: complexLabel,
 					},
 					Spec: v1.PodSpec{
+						Affinity: affinity,
 						Containers: []v1.Container{
 							{
 								Name:  dsName,
@@ -303,7 +308,7 @@ func setDaemonSetNodeLabels(c clientset.Interface, nodeName string, labels map[s
 	var newNode *v1.Node
 	var newLabels map[string]string
 	err := wait.Poll(dsRetryPeriod, dsRetryTimeout, func() (bool, error) {
-		node, err := nodeClient.Get(nodeName)
+		node, err := nodeClient.Get(nodeName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -385,7 +390,7 @@ func checkRunningOnNoNodes(f *framework.Framework, selector map[string]string) f
 }
 
 func checkDaemonStatus(f *framework.Framework, dsName string) error {
-	ds, err := f.ClientSet.Extensions().DaemonSets(f.Namespace.Name).Get(dsName)
+	ds, err := f.ClientSet.Extensions().DaemonSets(f.Namespace.Name).Get(dsName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Could not get daemon set from v1.")
 	}

@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/aws"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -51,7 +52,7 @@ func init() {
 			return priorities.PriorityMetadata
 		})
 
-	// Retisters algorithm providers. By default we use 'DefaultProvider', but user can specify one to be used
+	// Registers algorithm providers. By default we use 'DefaultProvider', but user can specify one to be used
 	// by specifying flag.
 	factory.RegisterAlgorithmProvider(factory.DefaultProvider, defaultPredicates(), defaultPriorities())
 	// Cluster autoscaler friendly scheduling algorithm.
@@ -260,5 +261,5 @@ func isValidControllerKind(kind string) bool {
 
 // EquivalencePod is a group of pod attributes which can be reused as equivalence to schedule other pods.
 type EquivalencePod struct {
-	ControllerRef v1.OwnerReference
+	ControllerRef metav1.OwnerReference
 }

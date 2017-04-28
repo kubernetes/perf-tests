@@ -30,9 +30,10 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 
+	federationapi "k8s.io/kubernetes/federation/apis/federation/v1beta1"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	gcecloud "k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/logs"
@@ -108,7 +109,7 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	// Delete any namespaces except default and kube-system. This ensures no
 	// lingering resources are left over from a previous test run.
 	if framework.TestContext.CleanStart {
-		deleted, err := framework.DeleteNamespaces(c, nil /* deleteFilter */, []string{api.NamespaceSystem, v1.NamespaceDefault})
+		deleted, err := framework.DeleteNamespaces(c, nil /* deleteFilter */, []string{api.NamespaceSystem, v1.NamespaceDefault, federationapi.FederationNamespaceSystem})
 		if err != nil {
 			framework.Failf("Error deleting orphaned namespaces: %v", err)
 		}
@@ -121,14 +122,14 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	// In large clusters we may get to this point but still have a bunch
 	// of nodes without Routes created. Since this would make a node
 	// unschedulable, we need to wait until all of them are schedulable.
-	framework.ExpectNoError(framework.WaitForAllNodesSchedulable(c, framework.NodeSchedulableTimeout))
+	framework.ExpectNoError(framework.WaitForAllNodesSchedulable(c, framework.TestContext.NodeSchedulableTimeout))
 
 	// Ensure all pods are running and ready before starting tests (otherwise,
 	// cluster infrastructure pods that are being pulled or started can block
 	// test pods from running, and tests that ensure all pods are running and
 	// ready will fail).
 	podStartupTimeout := framework.TestContext.SystemPodsStartupTimeout
-	if err := framework.WaitForPodsRunningReady(c, api.NamespaceSystem, int32(framework.TestContext.MinStartupPods), podStartupTimeout, framework.ImagePullerLabels); err != nil {
+	if err := framework.WaitForPodsRunningReady(c, api.NamespaceSystem, int32(framework.TestContext.MinStartupPods), podStartupTimeout, framework.ImagePullerLabels, true); err != nil {
 		framework.DumpAllNamespaceInfo(c, api.NamespaceSystem)
 		framework.LogFailedContainers(c, api.NamespaceSystem, framework.Logf)
 		runKubernetesServiceTestContainer(c, v1.NamespaceDefault)

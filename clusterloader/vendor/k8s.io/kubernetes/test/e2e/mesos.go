@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -68,7 +68,7 @@ var _ = framework.KubeDescribe("Mesos", func() {
 		nodelist := framework.GetReadySchedulableNodesOrDie(client)
 		const ns = "static-pods"
 		numpods := int32(len(nodelist.Items))
-		framework.ExpectNoError(framework.WaitForPodsRunningReady(client, ns, numpods, wait.ForeverTestTimeout, map[string]string{}),
+		framework.ExpectNoError(framework.WaitForPodsRunningReady(client, ns, numpods, wait.ForeverTestTimeout, map[string]string{}, false),
 			fmt.Sprintf("number of static pods in namespace %s is %d", ns, numpods))
 	})
 
@@ -101,7 +101,7 @@ var _ = framework.KubeDescribe("Mesos", func() {
 		framework.ExpectNoError(err)
 
 		framework.ExpectNoError(framework.WaitForPodNameRunningInNamespace(c, podName, ns))
-		pod, err := c.Core().Pods(ns).Get(podName)
+		pod, err := c.Core().Pods(ns).Get(podName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		nodeClient := f.ClientSet.Core().Nodes()

@@ -28,11 +28,12 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/batch"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -64,7 +65,9 @@ type DensityTestConfig struct {
 	PollInterval      time.Duration
 	PodCount          int
 	// What kind of resource we want to create
-	kind schema.GroupKind
+	kind          schema.GroupKind
+	SecretConfigs []*testutils.SecretConfig
+	DaemonConfigs []*testutils.DaemonConfig
 }
 
 func density30AddonResourceVerifier(numNodes int) map[string]framework.ResourceConstraint {
@@ -192,6 +195,15 @@ func logPodStartupStatus(c clientset.Interface, expectedPods int, observedLabels
 func runDensityTest(dtc DensityTestConfig) time.Duration {
 	defer GinkgoRecover()
 
+	// Create all secrets
+	for i := range dtc.SecretConfigs {
+		dtc.SecretConfigs[i].Run()
+	}
+
+	for i := range dtc.DaemonConfigs {
+		dtc.DaemonConfigs[i].Run()
+	}
+
 	// Start all replication controllers.
 	startTime := time.Now()
 	wg := sync.WaitGroup{}
@@ -246,16 +258,30 @@ func cleanupDensityTest(dtc DensityTestConfig) {
 		name := dtc.Configs[i].GetName()
 		namespace := dtc.Configs[i].GetNamespace()
 		kind := dtc.Configs[i].GetKind()
-		// TODO: Remove Deployment guard once GC is implemented for Deployments.
-		if framework.TestContext.GarbageCollectorEnabled && kind != extensions.Kind("Deployment") {
+		if framework.TestContext.GarbageCollectorEnabled && kindSupportsGarbageCollector(kind) {
 			By(fmt.Sprintf("Cleaning up only the %v, garbage collector will clean up the pods", kind))
 			err := framework.DeleteResourceAndWaitForGC(dtc.ClientSet, kind, namespace, name)
 			framework.ExpectNoError(err)
 		} else {
 			By(fmt.Sprintf("Cleaning up the %v and pods", kind))
-			err := framework.DeleteResourceAndPods(dtc.ClientSet, dtc.InternalClientset, kind, dtc.Configs[i].GetNamespace(), name)
+			err := framework.DeleteResourceAndPods(dtc.ClientSet, dtc.InternalClientset, kind, namespace, name)
 			framework.ExpectNoError(err)
 		}
+	}
+
+	// Delete all secrets
+	for i := range dtc.SecretConfigs {
+		dtc.SecretConfigs[i].Stop()
+	}
+
+	for i := range dtc.DaemonConfigs {
+		framework.ExpectNoError(framework.DeleteResourceAndPods(
+			dtc.ClientSet,
+			dtc.InternalClientset,
+			extensions.Kind("DaemonSet"),
+			dtc.DaemonConfigs[i].Namespace,
+			dtc.DaemonConfigs[i].Name,
+		))
 	}
 }
 
@@ -357,7 +383,9 @@ var _ = framework.KubeDescribe("Density", func() {
 		// Controls how often the apiserver is polled for pods
 		interval time.Duration
 		// What kind of resource we should be creating. Default: ReplicationController
-		kind schema.GroupKind
+		kind           schema.GroupKind
+		secretsPerPod  int
+		daemonsPerNode int
 	}
 
 	densityTests := []Density{
@@ -380,7 +408,7 @@ var _ = framework.KubeDescribe("Density", func() {
 			feature = "HighDensityPerformance"
 		}
 
-		name := fmt.Sprintf("[Feature:%s] should allow starting %d pods per node using %v", feature, testArg.podsPerNode, testArg.kind)
+		name := fmt.Sprintf("[Feature:%s] should allow starting %d pods per node using %v with %v secrets", feature, testArg.podsPerNode, testArg.kind, testArg.secretsPerPod)
 		itArg := testArg
 		It(name, func() {
 			nodePreparer := framework.NewE2ETestNodePreparer(
@@ -394,7 +422,7 @@ var _ = framework.KubeDescribe("Density", func() {
 			if podsPerNode == 30 {
 				f.AddonResourceConstraints = func() map[string]framework.ResourceConstraint { return density30AddonResourceVerifier(nodeCount) }()
 			}
-			totalPods = podsPerNode * nodeCount
+			totalPods = (podsPerNode - itArg.daemonsPerNode) * nodeCount
 			fileHndl, err := os.Create(fmt.Sprintf(framework.TestContext.OutputDir+"/%s/pod_states.csv", uuid))
 			framework.ExpectNoError(err)
 			defer fileHndl.Close()
@@ -405,6 +433,7 @@ var _ = framework.KubeDescribe("Density", func() {
 			framework.ExpectNoError(err)
 
 			configs := make([]testutils.RunObjectConfig, numberOfCollections)
+			secretConfigs := make([]*testutils.SecretConfig, 0, numberOfCollections*itArg.secretsPerPod)
 			// Since all RCs are created at the same time, timeout for each config
 			// has to assume that it will be run at the very end.
 			podThroughput := 20
@@ -412,8 +441,20 @@ var _ = framework.KubeDescribe("Density", func() {
 			// createClients is defined in load.go
 			clients, internalClients, err := createClients(numberOfCollections)
 			for i := 0; i < numberOfCollections; i++ {
-				name := fmt.Sprintf("density%v-%v-%v", totalPods, i, uuid)
 				nsName := namespaces[i].Name
+				secretNames := []string{}
+				for j := 0; j < itArg.secretsPerPod; j++ {
+					secretName := fmt.Sprintf("density-secret-%v-%v", i, j)
+					secretConfigs = append(secretConfigs, &testutils.SecretConfig{
+						Content:   map[string]string{"foo": "bar"},
+						Client:    clients[i],
+						Name:      secretName,
+						Namespace: nsName,
+						LogFunc:   framework.Logf,
+					})
+					secretNames = append(secretNames, secretName)
+				}
+				name := fmt.Sprintf("density%v-%v-%v", totalPods, i, uuid)
 				baseConfig := &testutils.RCConfig{
 					Client:               clients[i],
 					InternalClient:       internalClients[i],
@@ -429,6 +470,8 @@ var _ = framework.KubeDescribe("Density", func() {
 					MemRequest:           nodeMemCapacity / 100,
 					MaxContainerFailures: &MaxContainerFailures,
 					Silent:               true,
+					LogFunc:              framework.Logf,
+					SecretNames:          secretNames,
 				}
 				switch itArg.kind {
 				case api.Kind("ReplicationController"):
@@ -437,6 +480,8 @@ var _ = framework.KubeDescribe("Density", func() {
 					configs[i] = &testutils.ReplicaSetConfig{RCConfig: *baseConfig}
 				case extensions.Kind("Deployment"):
 					configs[i] = &testutils.DeploymentConfig{RCConfig: *baseConfig}
+				case batch.Kind("Job"):
+					configs[i] = &testutils.JobConfig{RCConfig: *baseConfig}
 				default:
 					framework.Failf("Unsupported kind: %v", itArg.kind)
 				}
@@ -449,6 +494,17 @@ var _ = framework.KubeDescribe("Density", func() {
 				PodCount:          totalPods,
 				PollInterval:      DensityPollInterval,
 				kind:              itArg.kind,
+				SecretConfigs:     secretConfigs,
+			}
+
+			for i := 0; i < itArg.daemonsPerNode; i++ {
+				dConfig.DaemonConfigs = append(dConfig.DaemonConfigs,
+					&testutils.DaemonConfig{
+						Client:    f.ClientSet,
+						Name:      fmt.Sprintf("density-daemon-%v", i),
+						Namespace: f.Namespace.Name,
+						LogFunc:   framework.Logf,
+					})
 			}
 			e2eStartupTime = runDensityTest(dConfig)
 			if itArg.runLatencyTest {
@@ -694,6 +750,7 @@ var _ = framework.KubeDescribe("Density", func() {
 				Replicas:             podsPerCollection,
 				MaxContainerFailures: &MaxContainerFailures,
 				Silent:               true,
+				LogFunc:              framework.Logf,
 			}
 		}
 		dConfig := DensityTestConfig{
@@ -748,4 +805,8 @@ func createRunningPodFromRC(wg *sync.WaitGroup, c clientset.Interface, name, ns,
 	framework.ExpectNoError(err)
 	framework.ExpectNoError(framework.WaitForControlledPodsRunning(c, ns, name, api.Kind("ReplicationController")))
 	framework.Logf("Found pod '%s' running", name)
+}
+
+func kindSupportsGarbageCollector(kind schema.GroupKind) bool {
+	return kind != extensions.Kind("Deployment") && kind != batch.Kind("Job")
 }

@@ -30,9 +30,8 @@ import (
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/record"
-	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/runtime/schema"
@@ -370,7 +369,7 @@ type PodControlInterface interface {
 	// CreatePodsOnNode creates a new pod according to the spec on the specified node.
 	CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object) error
 	// CreatePodsWithControllerRef creates new pods according to the spec, and sets object as the pod's controller.
-	CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *v1.OwnerReference) error
+	CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
 	// DeletePod deletes the pod identified by podID.
 	DeletePod(namespace string, podID string, object runtime.Object) error
 	// PatchPod patches the pod.
@@ -437,7 +436,7 @@ func (r RealPodControl) CreatePods(namespace string, template *v1.PodTemplateSpe
 	return r.createPods("", namespace, template, object, nil)
 }
 
-func (r RealPodControl) CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *v1.OwnerReference) error {
+func (r RealPodControl) CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *metav1.OwnerReference) error {
 	if controllerRef == nil {
 		return fmt.Errorf("controllerRef is nil")
 	}
@@ -462,7 +461,7 @@ func (r RealPodControl) PatchPod(namespace, name string, data []byte) error {
 	return err
 }
 
-func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Object, controllerRef *v1.OwnerReference) (*v1.Pod, error) {
+func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Object, controllerRef *metav1.OwnerReference) (*v1.Pod, error) {
 	desiredLabels := getPodsLabelSet(template)
 	desiredFinalizers := getPodsFinalizers(template)
 	desiredAnnotations, err := getPodsAnnotationSet(template, parentObject)
@@ -486,7 +485,7 @@ func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Objec
 	if controllerRef != nil {
 		pod.OwnerReferences = append(pod.OwnerReferences, *controllerRef)
 	}
-	clone, err := conversion.NewCloner().DeepCopy(&template.Spec)
+	clone, err := api.Scheme.DeepCopy(&template.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +493,7 @@ func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Objec
 	return pod, nil
 }
 
-func (r RealPodControl) createPods(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *v1.OwnerReference) error {
+func (r RealPodControl) createPods(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
 	pod, err := GetPodFromTemplate(template, object, controllerRef)
 	if err != nil {
 		return err
@@ -538,7 +537,7 @@ func (r RealPodControl) DeletePod(namespace string, podID string, object runtime
 type FakePodControl struct {
 	sync.Mutex
 	Templates      []v1.PodTemplateSpec
-	ControllerRefs []v1.OwnerReference
+	ControllerRefs []metav1.OwnerReference
 	DeletePodName  []string
 	Patches        [][]byte
 	Err            error
@@ -566,7 +565,7 @@ func (f *FakePodControl) CreatePods(namespace string, spec *v1.PodTemplateSpec, 
 	return nil
 }
 
-func (f *FakePodControl) CreatePodsWithControllerRef(namespace string, spec *v1.PodTemplateSpec, object runtime.Object, controllerRef *v1.OwnerReference) error {
+func (f *FakePodControl) CreatePodsWithControllerRef(namespace string, spec *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
 	f.Lock()
 	defer f.Unlock()
 	f.Templates = append(f.Templates, *spec)
@@ -602,7 +601,7 @@ func (f *FakePodControl) Clear() {
 	defer f.Unlock()
 	f.DeletePodName = []string{}
 	f.Templates = []v1.PodTemplateSpec{}
-	f.ControllerRefs = []v1.OwnerReference{}
+	f.ControllerRefs = []metav1.OwnerReference{}
 	f.Patches = [][]byte{}
 }
 

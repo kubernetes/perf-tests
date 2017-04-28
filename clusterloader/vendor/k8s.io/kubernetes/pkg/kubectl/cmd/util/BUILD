@@ -4,10 +4,8 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -16,6 +14,9 @@ go_library(
         "cached_discovery.go",
         "clientcache.go",
         "factory.go",
+        "factory_builder.go",
+        "factory_client_access.go",
+        "factory_object_mapping.go",
         "helpers.go",
         "printing.go",
         "shortcut_restmapper.go",
@@ -35,6 +36,7 @@ go_library(
         "//pkg/apis/batch:go_default_library",
         "//pkg/apis/extensions:go_default_library",
         "//pkg/apis/meta/v1:go_default_library",
+        "//pkg/apis/meta/v1/unstructured:go_default_library",
         "//pkg/client/clientset_generated/internalclientset:go_default_library",
         "//pkg/client/clientset_generated/internalclientset/typed/core/internalversion:go_default_library",
         "//pkg/client/restclient:go_default_library",

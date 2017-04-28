@@ -27,9 +27,10 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/v1"
+	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
-	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	v1core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/informers"
@@ -411,6 +412,7 @@ func (rm *ReplicationManager) updatePod(old, cur interface{}) {
 		// Note that this still suffers from #29229, we are just moving the problem one level
 		// "closer" to kubelet (from the deployment to the replication controller manager).
 		if changedToReady && curRC.Spec.MinReadySeconds > 0 {
+			glog.V(2).Infof("ReplicationController %q will be enqueued after %ds for availability check", curRC.Name, curRC.Spec.MinReadySeconds)
 			rm.enqueueControllerAfter(curRC, time.Duration(curRC.Spec.MinReadySeconds)*time.Second)
 		}
 	}
@@ -544,7 +546,7 @@ func (rm *ReplicationManager) manageReplicas(filteredPods []*v1.Pod, rc *v1.Repl
 				var err error
 				if rm.garbageCollectorEnabled {
 					var trueVar = true
-					controllerRef := &v1.OwnerReference{
+					controllerRef := &metav1.OwnerReference{
 						APIVersion: getRCKind().GroupVersion().String(),
 						Kind:       getRCKind().Kind,
 						Name:       rc.Name,
@@ -665,16 +667,8 @@ func (rm *ReplicationManager) syncReplicationController(key string) error {
 	}
 	rc := *obj.(*v1.ReplicationController)
 
-	// Check the expectations of the rc before counting active pods, otherwise a new pod can sneak in
-	// and update the expectations after we've retrieved active pods from the store. If a new pod enters
-	// the store after we've checked the expectation, the rc sync is just deferred till the next relist.
-	rcKey, err := controller.KeyFunc(&rc)
-	if err != nil {
-		glog.Errorf("Couldn't get key for replication controller %#v: %v", rc, err)
-		return err
-	}
 	trace.Step("ReplicationController restored")
-	rcNeedsSync := rm.expectations.SatisfiedExpectations(rcKey)
+	rcNeedsSync := rm.expectations.SatisfiedExpectations(key)
 	trace.Step("Expectations restored")
 
 	// NOTE: filteredPods are pointing to objects from cache - if you need to
@@ -692,16 +686,19 @@ func (rm *ReplicationManager) syncReplicationController(key string) error {
 		}
 		cm := controller.NewPodControllerRefManager(rm.podControl, rc.ObjectMeta, labels.Set(rc.Spec.Selector).AsSelectorPreValidated(), getRCKind())
 		matchesAndControlled, matchesNeedsController, controlledDoesNotMatch := cm.Classify(pods)
-		for _, pod := range matchesNeedsController {
-			err := cm.AdoptPod(pod)
-			// continue to next pod if adoption fails.
-			if err != nil {
-				// If the pod no longer exists, don't even log the error.
-				if !errors.IsNotFound(err) {
-					utilruntime.HandleError(err)
+		// Adopt pods only if this replication controller is not going to be deleted.
+		if rc.DeletionTimestamp == nil {
+			for _, pod := range matchesNeedsController {
+				err := cm.AdoptPod(pod)
+				// continue to next pod if adoption fails.
+				if err != nil {
+					// If the pod no longer exists, don't even log the error.
+					if !errors.IsNotFound(err) {
+						utilruntime.HandleError(err)
+					}
+				} else {
+					matchesAndControlled = append(matchesAndControlled, pod)
 				}
-			} else {
-				matchesAndControlled = append(matchesAndControlled, pod)
 			}
 		}
 		filteredPods = matchesAndControlled

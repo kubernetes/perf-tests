@@ -46,7 +46,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/v1"
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/labels"
@@ -54,8 +54,8 @@ import (
 	uexec "k8s.io/kubernetes/pkg/util/exec"
 	utilnet "k8s.io/kubernetes/pkg/util/net"
 	"k8s.io/kubernetes/pkg/util/uuid"
+	utilversion "k8s.io/kubernetes/pkg/util/version"
 	"k8s.io/kubernetes/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/version"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/generated"
 	testutils "k8s.io/kubernetes/test/utils"
@@ -101,39 +101,39 @@ var (
 	// that rely on extended pod logging options to work on clusters before that.
 	//
 	// TODO(ihmccreery): remove once we don't care about v1.0 anymore, (tentatively in v1.3).
-	extendedPodLogFilterVersion = version.MustParse("v1.1.0")
+	extendedPodLogFilterVersion = utilversion.MustParseSemantic("v1.1.0")
 
 	// NodePorts were made optional in #12831 (v1.1.0) so we don't expect tests that used to
 	// require NodePorts but no longer include them to work on clusters before that.
 	//
 	// TODO(ihmccreery): remove once we don't care about v1.0 anymore, (tentatively in v1.3).
-	nodePortsOptionalVersion = version.MustParse("v1.1.0")
+	nodePortsOptionalVersion = utilversion.MustParseSemantic("v1.1.0")
 
 	// Jobs were introduced in v1.1, so we don't expect tests that rely on jobs to work on
 	// clusters before that.
 	//
 	// TODO(ihmccreery): remove once we don't care about v1.0 anymore, (tentatively in v1.3).
-	jobsVersion = version.MustParse("v1.1.0")
+	jobsVersion = utilversion.MustParseSemantic("v1.1.0")
 
 	// Deployments were introduced by default in v1.2, so we don't expect tests that rely on
 	// deployments to work on clusters before that.
 	//
 	// TODO(ihmccreery): remove once we don't care about v1.1 anymore, (tentatively in v1.4).
-	deploymentsVersion = version.MustParse("v1.2.0-alpha.7.726")
+	deploymentsVersion = utilversion.MustParseSemantic("v1.2.0-alpha.7.726")
 
 	// Pod probe parameters were introduced in #15967 (v1.2) so we don't expect tests that use
 	// these probe parameters to work on clusters before that.
 	//
 	// TODO(ihmccreery): remove once we don't care about v1.1 anymore, (tentatively in v1.4).
-	podProbeParametersVersion = version.MustParse("v1.2.0-alpha.4")
+	podProbeParametersVersion = utilversion.MustParseSemantic("v1.2.0-alpha.4")
 
 	// 'kubectl create quota' was introduced in #28351 (v1.4) so we don't expect tests that use
 	// 'kubectl create quota' to work on kubectl clients before that.
-	kubectlCreateQuotaVersion = version.MustParse("v1.4.0-alpha.2")
+	kubectlCreateQuotaVersion = utilversion.MustParseSemantic("v1.4.0-alpha.2")
 
 	// Returning container command exit codes in kubectl run/exec was introduced in #26541 (v1.4)
 	// so we don't expect tests that verifies return code to work on kubectl clients before that.
-	kubectlContainerExitCodeVersion = version.MustParse("v1.4.0-alpha.3")
+	kubectlContainerExitCodeVersion = utilversion.MustParseSemantic("v1.4.0-alpha.3")
 )
 
 // Stops everything from filePath from namespace ns and checks if everything matching selectors from the given namespace is correctly stopped.
@@ -205,7 +205,7 @@ var _ = framework.KubeDescribe("Kubectl alpha client", func() {
 			framework.RunKubectlOrDie("run", sjName, "--restart=OnFailure", "--generator=scheduledjob/v2alpha1",
 				"--schedule="+schedule, "--image="+busyboxImage, nsFlag)
 			By("verifying the ScheduledJob " + sjName + " was created")
-			sj, err := c.BatchV2alpha1().CronJobs(ns).Get(sjName)
+			sj, err := c.BatchV2alpha1().CronJobs(ns).Get(sjName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting ScheduledJob %s: %v", sjName, err)
 			}
@@ -242,7 +242,7 @@ var _ = framework.KubeDescribe("Kubectl alpha client", func() {
 			framework.RunKubectlOrDie("run", cjName, "--restart=OnFailure", "--generator=cronjob/v2alpha1",
 				"--schedule="+schedule, "--image="+busyboxImage, nsFlag)
 			By("verifying the CronJob " + cjName + " was created")
-			sj, err := c.BatchV2alpha1().CronJobs(ns).Get(cjName)
+			sj, err := c.BatchV2alpha1().CronJobs(ns).Get(cjName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting CronJob %s: %v", cjName, err)
 			}
@@ -456,7 +456,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 
 			By("execing into a container with a successful command")
 			_, err := framework.NewKubectlCommand(nsFlag, "exec", "nginx", "--", "/bin/sh", "-c", "exit 0").Exec()
-			ExpectNoError(err)
+			framework.ExpectNoError(err)
 
 			By("execing into a container with a failing command")
 			_, err = framework.NewKubectlCommand(nsFlag, "exec", "nginx", "--", "/bin/sh", "-c", "exit 42").Exec()
@@ -466,7 +466,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 
 			By("running a successful command")
 			_, err = framework.NewKubectlCommand(nsFlag, "run", "-i", "--image="+busyboxImage, "--restart=Never", "success", "--", "/bin/sh", "-c", "exit 0").Exec()
-			ExpectNoError(err)
+			framework.ExpectNoError(err)
 
 			By("running a failing command")
 			_, err = framework.NewKubectlCommand(nsFlag, "run", "-i", "--image="+busyboxImage, "--restart=Never", "failure-1", "--", "/bin/sh", "-c", "exit 42").Exec()
@@ -478,20 +478,20 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			_, err = framework.NewKubectlCommand(nsFlag, "run", "-i", "--image="+busyboxImage, "--restart=OnFailure", "failure-2", "--", "/bin/sh", "-c", "cat && exit 42").
 				WithStdinData("abcd1234").
 				Exec()
-			ExpectNoError(err)
+			framework.ExpectNoError(err)
 
 			By("running a failing command without --restart=Never, but with --rm")
 			_, err = framework.NewKubectlCommand(nsFlag, "run", "-i", "--image="+busyboxImage, "--restart=OnFailure", "--rm", "failure-3", "--", "/bin/sh", "-c", "cat && exit 42").
 				WithStdinData("abcd1234").
 				Exec()
-			ExpectNoError(err)
+			framework.ExpectNoError(err)
 			framework.WaitForPodToDisappear(f.ClientSet, ns, "failure-3", labels.Everything(), 2*time.Second, wait.ForeverTestTimeout)
 
 			By("running a failing command with --leave-stdin-open")
 			_, err = framework.NewKubectlCommand(nsFlag, "run", "-i", "--image="+busyboxImage, "--restart=Never", "failure-4", "--leave-stdin-open", "--", "/bin/sh", "-c", "exit 42").
 				WithStdinData("abcd1234").
 				Exec()
-			ExpectNoError(err)
+			framework.ExpectNoError(err)
 		})
 
 		It("should support inline execution and attach", func() {
@@ -756,7 +756,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			})
 			validateService := func(name string, servicePort int, timeout time.Duration) {
 				err := wait.Poll(framework.Poll, timeout, func() (bool, error) {
-					endpoints, err := c.Core().Endpoints(ns).Get(name)
+					endpoints, err := c.Core().Endpoints(ns).Get(name, metav1.GetOptions{})
 					if err != nil {
 						// log the real error
 						framework.Logf("Get endpoints failed (interval %v): %v", framework.Poll, err)
@@ -787,7 +787,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				service, err := c.Core().Services(ns).Get(name)
+				service, err := c.Core().Services(ns).Get(name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				if len(service.Spec.Ports) != 1 {
@@ -1016,7 +1016,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("running the image " + nginxImage)
 			framework.RunKubectlOrDie("run", rcName, "--image="+nginxImage, "--generator=run/v1", nsFlag)
 			By("verifying the rc " + rcName + " was created")
-			rc, err := c.Core().ReplicationControllers(ns).Get(rcName)
+			rc, err := c.Core().ReplicationControllers(ns).Get(rcName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting rc %s: %v", rcName, err)
 			}
@@ -1072,7 +1072,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("running the image " + nginxImage)
 			framework.RunKubectlOrDie("run", rcName, "--image="+nginxImage, "--generator=run/v1", nsFlag)
 			By("verifying the rc " + rcName + " was created")
-			rc, err := c.Core().ReplicationControllers(ns).Get(rcName)
+			rc, err := c.Core().ReplicationControllers(ns).Get(rcName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting rc %s: %v", rcName, err)
 			}
@@ -1118,7 +1118,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("running the image " + nginxImage)
 			framework.RunKubectlOrDie("run", dName, "--image="+nginxImage, "--generator=deployment/v1beta1", nsFlag)
 			By("verifying the deployment " + dName + " was created")
-			d, err := c.Extensions().Deployments(ns).Get(dName)
+			d, err := c.Extensions().Deployments(ns).Get(dName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting deployment %s: %v", dName, err)
 			}
@@ -1160,7 +1160,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("running the image " + nginxImage)
 			framework.RunKubectlOrDie("run", jobName, "--restart=OnFailure", "--generator=job/v1", "--image="+nginxImage, nsFlag)
 			By("verifying the job " + jobName + " was created")
-			job, err := c.Batch().Jobs(ns).Get(jobName)
+			job, err := c.Batch().Jobs(ns).Get(jobName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting job %s: %v", jobName, err)
 			}
@@ -1193,7 +1193,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("running the image " + nginxImage)
 			framework.RunKubectlOrDie("run", podName, "--restart=Never", "--generator=run-pod/v1", "--image="+nginxImage, nsFlag)
 			By("verifying the pod " + podName + " was created")
-			pod, err := c.Core().Pods(ns).Get(podName)
+			pod, err := c.Core().Pods(ns).Get(podName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting pod %s: %v", podName, err)
 			}
@@ -1244,7 +1244,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			framework.RunKubectlOrDieInput(podJson, "replace", "-f", "-", nsFlag)
 
 			By("verifying the pod " + podName + " has the right image " + busyboxImage)
-			pod, err := c.Core().Pods(ns).Get(podName)
+			pod, err := c.Core().Pods(ns).Get(podName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting deployment %s: %v", podName, err)
 			}
@@ -1276,7 +1276,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			Expect(runOutput).To(ContainSubstring("stdin closed"))
 
 			By("verifying the job " + jobName + " was deleted")
-			_, err := c.Batch().Jobs(ns).Get(jobName)
+			_, err := c.Batch().Jobs(ns).Get(jobName, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(apierrs.IsNotFound(err)).To(BeTrue())
 		})
@@ -1425,7 +1425,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			framework.RunKubectlOrDie("create", "quota", quotaName, "--hard=pods=1000000,services=1000000", nsFlag)
 
 			By("verifying that the quota was created")
-			quota, err := c.Core().ResourceQuotas(ns).Get(quotaName)
+			quota, err := c.Core().ResourceQuotas(ns).Get(quotaName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting quota %s: %v", quotaName, err)
 			}
@@ -1455,7 +1455,7 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			framework.RunKubectlOrDie("create", "quota", quotaName, "--hard=pods=1000000", "--scopes=BestEffort,NotTerminating", nsFlag)
 
 			By("verifying that the quota was created")
-			quota, err := c.Core().ResourceQuotas(ns).Get(quotaName)
+			quota, err := c.Core().ResourceQuotas(ns).Get(quotaName, metav1.GetOptions{})
 			if err != nil {
 				framework.Failf("Failed getting quota %s: %v", quotaName, err)
 			}

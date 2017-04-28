@@ -41,7 +41,6 @@ import (
 	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/apis/policy"
 	"k8s.io/kubernetes/pkg/client/restclient/fake"
-	"k8s.io/kubernetes/pkg/conversion"
 	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -70,7 +69,7 @@ func TestMain(m *testing.M) {
 		},
 		Status: api.NodeStatus{},
 	}
-	clone, _ := conversion.NewCloner().DeepCopy(node)
+	clone, _ := api.Scheme.DeepCopy(node)
 
 	// A copy of the same node, but cordoned.
 	cordoned_node = clone.(*api.Node)
@@ -283,7 +282,7 @@ func TestDrain(t *testing.T) {
 			Name:              "job",
 			Namespace:         "default",
 			CreationTimestamp: metav1.Time{Time: time.Now()},
-			SelfLink:          "/apis/extensions/v1beta1/namespaces/default/jobs/job",
+			SelfLink:          "/apis/batch/v1/namespaces/default/jobs/job",
 		},
 		Spec: batch.JobSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
@@ -526,7 +525,7 @@ func TestDrain(t *testing.T) {
 					case m.isFor("GET", "/namespaces/default/daemonsets/ds"):
 						return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(testapi.Extensions.Codec(), &ds)}, nil
 					case m.isFor("GET", "/namespaces/default/jobs/job"):
-						return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(testapi.Extensions.Codec(), &job)}, nil
+						return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(testapi.Batch.Codec(), &job)}, nil
 					case m.isFor("GET", "/namespaces/default/replicasets/rs"):
 						return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(testapi.Extensions.Codec(), &test.replicaSets[0])}, nil
 					case m.isFor("GET", "/namespaces/default/pods/bar"):

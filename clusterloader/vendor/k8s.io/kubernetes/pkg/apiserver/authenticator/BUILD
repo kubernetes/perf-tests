@@ -4,10 +4,7 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -22,7 +19,7 @@ go_library(
         "//pkg/auth/authenticator/bearertoken:go_default_library",
         "//pkg/auth/group:go_default_library",
         "//pkg/auth/user:go_default_library",
-        "//pkg/client/clientset_generated/release_1_5/typed/authentication/v1beta1:go_default_library",
+        "//pkg/client/clientset_generated/clientset/typed/authentication/v1beta1:go_default_library",
         "//pkg/serviceaccount:go_default_library",
         "//pkg/util/cert:go_default_library",
         "//plugin/pkg/auth/authenticator/password/keystone:go_default_library",

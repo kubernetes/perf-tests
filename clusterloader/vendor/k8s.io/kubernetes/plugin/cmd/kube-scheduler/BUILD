@@ -5,9 +5,6 @@ licenses(["notice"])
 load(
     "@io_bazel_rules_go//go:def.bzl",
     "go_binary",
-    "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_binary(
@@ -20,6 +17,7 @@ go_binary(
         "//pkg/version/verflag:go_default_library",
         "//plugin/cmd/kube-scheduler/app:go_default_library",
         "//plugin/cmd/kube-scheduler/app/options:go_default_library",
+        "//vendor:github.com/golang/glog",
         "//vendor:github.com/spf13/pflag",
     ],
 )

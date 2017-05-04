@@ -19,9 +19,9 @@ package clusterloader
 import (
 	"testing"
 
-	clframe "k8s.io/perf-tests/clusterloader/framework"
 	"github.com/spf13/viper"
 	"k8s.io/kubernetes/test/e2e/framework"
+	clframe "k8s.io/perf-tests/clusterloader/framework"
 )
 
 func init() {

@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"time"
 
-	clusterloaderframework "github.com/kubernetes/perf-tests/clusterloader/framework"
+	clusterloaderframework "k8s.io/perf-tests/clusterloader/framework"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/labels"

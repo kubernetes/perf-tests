@@ -24,4 +24,5 @@ script:
     - ./verify/verify-golint.sh
     - ./verify/verify-flags-underscore.py
     - go get -d ./...
-    - go test $(go list ./... | grep -v "/vendor/")
+    - go build $(go list ./... | grep -v "/vendor/")
+    - ./verify/test.sh

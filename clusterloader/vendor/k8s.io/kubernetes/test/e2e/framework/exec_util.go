@@ -22,11 +22,12 @@ import (
 	"net/url"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	remocommandconsts "k8s.io/apimachinery/pkg/util/remotecommand"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/remotecommand"
-	remotecommandserver "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
 
 	. "github.com/onsi/gomega"
 )
@@ -112,14 +113,14 @@ func (f *Framework) ExecShellInContainer(podName, containerName string, cmd stri
 }
 
 func (f *Framework) ExecCommandInPod(podName string, cmd ...string) string {
-	pod, err := f.PodClient().Get(podName)
+	pod, err := f.PodClient().Get(podName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to get pod")
 	Expect(pod.Spec.Containers).NotTo(BeEmpty())
 	return f.ExecCommandInContainer(podName, pod.Spec.Containers[0].Name, cmd...)
 }
 
 func (f *Framework) ExecCommandInPodWithFullOutput(podName string, cmd ...string) (string, string, error) {
-	pod, err := f.PodClient().Get(podName)
+	pod, err := f.PodClient().Get(podName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to get pod")
 	Expect(pod.Spec.Containers).NotTo(BeEmpty())
 	return f.ExecCommandInContainerWithFullOutput(podName, pod.Spec.Containers[0].Name, cmd...)
@@ -139,7 +140,7 @@ func execute(method string, url *url.URL, config *restclient.Config, stdin io.Re
 		return err
 	}
 	return exec.Stream(remotecommand.StreamOptions{
-		SupportedProtocols: remotecommandserver.SupportedStreamingProtocols,
+		SupportedProtocols: remocommandconsts.SupportedStreamingProtocols,
 		Stdin:              stdin,
 		Stdout:             stdout,
 		Stderr:             stderr,

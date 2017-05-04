@@ -17,8 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/api/v1"
-	metav1 "k8s.io/kubernetes/pkg/apis/meta/v1"
 )
 
 // ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.
@@ -36,6 +36,8 @@ type ClusterSpec struct {
 	// This is to help clients reach servers in the most network-efficient way possible.
 	// Clients can use the appropriate server address as per the CIDR that they match.
 	// In case of multiple matches, clients should use the longest matching CIDR.
+	// +patchMergeKey=clientCIDR
+	// +patchStrategy=merge
 	ServerAddressByClientCIDRs []ServerAddressByClientCIDR `json:"serverAddressByClientCIDRs" patchStrategy:"merge" patchMergeKey:"clientCIDR" protobuf:"bytes,1,rep,name=serverAddressByClientCIDRs"`
 	// Name of the secret containing kubeconfig to access this cluster.
 	// The secret is read from the kubernetes cluster that is hosting federation control plane.
@@ -76,7 +78,7 @@ type ClusterCondition struct {
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
 
-// ClusterStatus is information about the current status of a cluster updated by cluster controller peridocally.
+// ClusterStatus is information about the current status of a cluster updated by cluster controller periodically.
 type ClusterStatus struct {
 	// Conditions is an array of current cluster conditions.
 	// +optional
@@ -99,7 +101,7 @@ type Cluster struct {
 	// Standard object's metadata.
 	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
 	// +optional
-	v1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Spec defines the behavior of the Cluster.
 	// +optional
@@ -120,3 +122,8 @@ type ClusterList struct {
 	// List of Cluster objects.
 	Items []Cluster `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+const (
+	// FederationNamespaceSystem is the system namespace where we place federation control plane components.
+	FederationNamespaceSystem string = "federation-system"
+)

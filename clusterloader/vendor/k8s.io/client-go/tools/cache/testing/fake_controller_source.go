@@ -22,12 +22,13 @@ import (
 	"strconv"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/meta"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/types"
-	"k8s.io/client-go/pkg/watch"
 )
 
 func NewFakeControllerSource() *FakeControllerSource {
@@ -114,7 +115,7 @@ func (f *FakeControllerSource) DeleteDropWatch(lastValue runtime.Object) {
 	f.Change(watch.Event{Type: watch.Deleted, Object: lastValue}, 0)
 }
 
-func (f *FakeControllerSource) key(accessor meta.Object) nnu {
+func (f *FakeControllerSource) key(accessor metav1.Object) nnu {
 	return nnu{accessor.GetNamespace(), accessor.GetName(), accessor.GetUID()}
 }
 
@@ -162,7 +163,7 @@ func (f *FakeControllerSource) getListItemsLocked() ([]runtime.Object, error) {
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakeControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakeControllerSource) List(options metav1.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.getListItemsLocked()
@@ -173,17 +174,17 @@ func (f *FakeControllerSource) List(options v1.ListOptions) (runtime.Object, err
 	if err := meta.SetList(listObj, list); err != nil {
 		return nil, err
 	}
-	objMeta, err := api.ListMetaFor(listObj)
+	listAccessor, err := meta.ListAccessor(listObj)
 	if err != nil {
 		return nil, err
 	}
 	resourceVersion := len(f.changes)
-	objMeta.ResourceVersion = strconv.Itoa(resourceVersion)
+	listAccessor.SetResourceVersion(strconv.Itoa(resourceVersion))
 	return listObj, nil
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakePVControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakePVControllerSource) List(options metav1.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.FakeControllerSource.getListItemsLocked()
@@ -194,17 +195,17 @@ func (f *FakePVControllerSource) List(options v1.ListOptions) (runtime.Object, e
 	if err := meta.SetList(listObj, list); err != nil {
 		return nil, err
 	}
-	objMeta, err := api.ListMetaFor(listObj)
+	listAccessor, err := meta.ListAccessor(listObj)
 	if err != nil {
 		return nil, err
 	}
 	resourceVersion := len(f.changes)
-	objMeta.ResourceVersion = strconv.Itoa(resourceVersion)
+	listAccessor.SetResourceVersion(strconv.Itoa(resourceVersion))
 	return listObj, nil
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakePVCControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakePVCControllerSource) List(options metav1.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.FakeControllerSource.getListItemsLocked()
@@ -215,18 +216,18 @@ func (f *FakePVCControllerSource) List(options v1.ListOptions) (runtime.Object, 
 	if err := meta.SetList(listObj, list); err != nil {
 		return nil, err
 	}
-	objMeta, err := api.ListMetaFor(listObj)
+	listAccessor, err := meta.ListAccessor(listObj)
 	if err != nil {
 		return nil, err
 	}
 	resourceVersion := len(f.changes)
-	objMeta.ResourceVersion = strconv.Itoa(resourceVersion)
+	listAccessor.SetResourceVersion(strconv.Itoa(resourceVersion))
 	return listObj, nil
 }
 
 // Watch returns a watch, which will be pre-populated with all changes
 // after resourceVersion.
-func (f *FakeControllerSource) Watch(options v1.ListOptions) (watch.Interface, error) {
+func (f *FakeControllerSource) Watch(options metav1.ListOptions) (watch.Interface, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	rc, err := strconv.Atoi(options.ResourceVersion)

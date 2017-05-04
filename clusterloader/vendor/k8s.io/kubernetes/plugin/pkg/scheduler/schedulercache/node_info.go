@@ -21,9 +21,10 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	clientcache "k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api/v1"
-	clientcache "k8s.io/kubernetes/pkg/client/cache"
+	v1helper "k8s.io/kubernetes/pkg/api/v1/helper"
 	priorityutil "k8s.io/kubernetes/plugin/pkg/scheduler/algorithm/priorities/util"
 )
 
@@ -36,6 +37,7 @@ type NodeInfo struct {
 
 	pods             []*v1.Pod
 	podsWithAffinity []*v1.Pod
+	usedPorts        map[int]bool
 
 	// Total requested resource of all pods on this node.
 	// It includes assumed pods which scheduler sends binding to apiserver but
@@ -82,6 +84,31 @@ func (r *Resource) ResourceList() v1.ResourceList {
 	return result
 }
 
+func (r *Resource) Clone() *Resource {
+	res := &Resource{
+		MilliCPU:  r.MilliCPU,
+		Memory:    r.Memory,
+		NvidiaGPU: r.NvidiaGPU,
+	}
+	res.OpaqueIntResources = make(map[v1.ResourceName]int64)
+	for k, v := range r.OpaqueIntResources {
+		res.OpaqueIntResources[k] = v
+	}
+	return res
+}
+
+func (r *Resource) AddOpaque(name v1.ResourceName, quantity int64) {
+	r.SetOpaque(name, r.OpaqueIntResources[name]+quantity)
+}
+
+func (r *Resource) SetOpaque(name v1.ResourceName, quantity int64) {
+	// Lazily allocate opaque integer resource map.
+	if r.OpaqueIntResources == nil {
+		r.OpaqueIntResources = map[v1.ResourceName]int64{}
+	}
+	r.OpaqueIntResources[name] = quantity
+}
+
 // NewNodeInfo returns a ready to use empty NodeInfo object.
 // If any pods are given in arguments, their information will be aggregated in
 // the returned object.
@@ -92,6 +119,7 @@ func NewNodeInfo(pods ...*v1.Pod) *NodeInfo {
 		allocatableResource: &Resource{},
 		allowedPodNumber:    0,
 		generation:          0,
+		usedPorts:           make(map[int]bool),
 	}
 	for _, pod := range pods {
 		ni.addPod(pod)
@@ -113,6 +141,13 @@ func (n *NodeInfo) Pods() []*v1.Pod {
 		return nil
 	}
 	return n.pods
+}
+
+func (n *NodeInfo) UsedPorts() map[int]bool {
+	if n == nil {
+		return nil
+	}
+	return n.usedPorts
 }
 
 // PodsWithAffinity return all pods with (anti)affinity constraints on this node.
@@ -178,9 +213,9 @@ func (n *NodeInfo) AllocatableResource() Resource {
 func (n *NodeInfo) Clone() *NodeInfo {
 	clone := &NodeInfo{
 		node:                    n.node,
-		requestedResource:       &(*n.requestedResource),
-		nonzeroRequest:          &(*n.nonzeroRequest),
-		allocatableResource:     &(*n.allocatableResource),
+		requestedResource:       n.requestedResource.Clone(),
+		nonzeroRequest:          n.nonzeroRequest.Clone(),
+		allocatableResource:     n.allocatableResource.Clone(),
 		allowedPodNumber:        n.allowedPodNumber,
 		taintsErr:               n.taintsErr,
 		memoryPressureCondition: n.memoryPressureCondition,
@@ -189,6 +224,12 @@ func (n *NodeInfo) Clone() *NodeInfo {
 	}
 	if len(n.pods) > 0 {
 		clone.pods = append([]*v1.Pod(nil), n.pods...)
+	}
+	if len(n.usedPorts) > 0 {
+		clone.usedPorts = make(map[int]bool)
+		for k, v := range n.usedPorts {
+			clone.usedPorts[k] = v
+		}
 	}
 	if len(n.podsWithAffinity) > 0 {
 		clone.podsWithAffinity = append([]*v1.Pod(nil), n.podsWithAffinity...)
@@ -205,20 +246,16 @@ func (n *NodeInfo) String() string {
 	for i, pod := range n.pods {
 		podKeys[i] = pod.Name
 	}
-	return fmt.Sprintf("&NodeInfo{Pods:%v, RequestedResource:%#v, NonZeroRequest: %#v}", podKeys, n.requestedResource, n.nonzeroRequest)
+	return fmt.Sprintf("&NodeInfo{Pods:%v, RequestedResource:%#v, NonZeroRequest: %#v, UsedPort: %#v}", podKeys, n.requestedResource, n.nonzeroRequest, n.usedPorts)
 }
 
 func hasPodAffinityConstraints(pod *v1.Pod) bool {
-	affinity, err := v1.GetAffinityFromPodAnnotations(pod.Annotations)
-	if err != nil || affinity == nil {
-		return false
-	}
-	return affinity.PodAffinity != nil || affinity.PodAntiAffinity != nil
+	affinity := ReconcileAffinity(pod)
+	return affinity != nil && (affinity.PodAffinity != nil || affinity.PodAntiAffinity != nil)
 }
 
 // addPod adds pod information to this NodeInfo.
 func (n *NodeInfo) addPod(pod *v1.Pod) {
-	// cpu, mem, nvidia_gpu, non0_cpu, non0_mem := calculateResource(pod)
 	res, non0_cpu, non0_mem := calculateResource(pod)
 	n.requestedResource.MilliCPU += res.MilliCPU
 	n.requestedResource.Memory += res.Memory
@@ -235,6 +272,10 @@ func (n *NodeInfo) addPod(pod *v1.Pod) {
 	if hasPodAffinityConstraints(pod) {
 		n.podsWithAffinity = append(n.podsWithAffinity, pod)
 	}
+
+	// Consume ports when pods added.
+	n.updateUsedPorts(pod, true)
+
 	n.generation++
 }
 
@@ -282,7 +323,12 @@ func (n *NodeInfo) removePod(pod *v1.Pod) error {
 			}
 			n.nonzeroRequest.MilliCPU -= non0_cpu
 			n.nonzeroRequest.Memory -= non0_mem
+
+			// Release ports when remove Pods.
+			n.updateUsedPorts(pod, false)
+
 			n.generation++
+
 			return nil
 		}
 	}
@@ -300,12 +346,8 @@ func calculateResource(pod *v1.Pod) (res Resource, non0_cpu int64, non0_mem int6
 			case v1.ResourceNvidiaGPU:
 				res.NvidiaGPU += rQuant.Value()
 			default:
-				if v1.IsOpaqueIntResourceName(rName) {
-					// Lazily allocate opaque resource map.
-					if res.OpaqueIntResources == nil {
-						res.OpaqueIntResources = map[v1.ResourceName]int64{}
-					}
-					res.OpaqueIntResources[rName] += rQuant.Value()
+				if v1helper.IsOpaqueIntResourceName(rName) {
+					res.AddOpaque(rName, rQuant.Value())
 				}
 			}
 		}
@@ -316,6 +358,20 @@ func calculateResource(pod *v1.Pod) (res Resource, non0_cpu int64, non0_mem int6
 		// No non-zero resources for GPUs or opaque resources.
 	}
 	return
+}
+
+func (n *NodeInfo) updateUsedPorts(pod *v1.Pod, used bool) {
+	for j := range pod.Spec.Containers {
+		container := &pod.Spec.Containers[j]
+		for k := range container.Ports {
+			podPort := &container.Ports[k]
+			// "0" is explicitly ignored in PodFitsHostPorts,
+			// which is the only function that uses this value.
+			if podPort.HostPort != 0 {
+				n.usedPorts[int(podPort.HostPort)] = used
+			}
+		}
+	}
 }
 
 // Sets the overall node information.
@@ -332,16 +388,12 @@ func (n *NodeInfo) SetNode(node *v1.Node) error {
 		case v1.ResourcePods:
 			n.allowedPodNumber = int(rQuant.Value())
 		default:
-			if v1.IsOpaqueIntResourceName(rName) {
-				// Lazily allocate opaque resource map.
-				if n.allocatableResource.OpaqueIntResources == nil {
-					n.allocatableResource.OpaqueIntResources = map[v1.ResourceName]int64{}
-				}
-				n.allocatableResource.OpaqueIntResources[rName] = rQuant.Value()
+			if v1helper.IsOpaqueIntResourceName(rName) {
+				n.allocatableResource.SetOpaque(rName, rQuant.Value())
 			}
 		}
 	}
-	n.taints, n.taintsErr = v1.GetTaintsFromNodeAnnotations(node.Annotations)
+	n.taints = node.Spec.Taints
 	for i := range node.Status.Conditions {
 		cond := &node.Status.Conditions[i]
 		switch cond.Type {

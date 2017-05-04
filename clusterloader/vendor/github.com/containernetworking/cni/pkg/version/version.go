@@ -15,28 +15,47 @@
 package version
 
 import (
-	"encoding/json"
-	"io"
+	"fmt"
+
+	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/020"
+	"github.com/containernetworking/cni/pkg/types/current"
 )
-
-// A PluginVersioner can encode information about its version
-type PluginVersioner interface {
-	Encode(io.Writer) error
-}
-
-// BasicVersioner is a PluginVersioner which reports a single cniVersion string
-type BasicVersioner struct {
-	CNIVersion string `json:"cniVersion"`
-}
-
-func (p *BasicVersioner) Encode(w io.Writer) error {
-	return json.NewEncoder(w).Encode(p)
-}
 
 // Current reports the version of the CNI spec implemented by this library
 func Current() string {
-	return "0.2.0"
+	return "0.3.1"
 }
 
-// DefaultPluginVersioner reports the Current library spec version as the cniVersion
-var DefaultPluginVersioner = &BasicVersioner{CNIVersion: Current()}
+// Legacy PluginInfo describes a plugin that is backwards compatible with the
+// CNI spec version 0.1.0.  In particular, a runtime compiled against the 0.1.0
+// library ought to work correctly with a plugin that reports support for
+// Legacy versions.
+//
+// Any future CNI spec versions which meet this definition should be added to
+// this list.
+var Legacy = PluginSupports("0.1.0", "0.2.0")
+var All = PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1")
+
+var resultFactories = []struct {
+	supportedVersions []string
+	newResult         types.ResultFactoryFunc
+}{
+	{current.SupportedVersions, current.NewResult},
+	{types020.SupportedVersions, types020.NewResult},
+}
+
+// Finds a Result object matching the requested version (if any) and asks
+// that object to parse the plugin result, returning an error if parsing failed.
+func NewResult(version string, resultBytes []byte) (types.Result, error) {
+	reconciler := &Reconciler{}
+	for _, resultFactory := range resultFactories {
+		err := reconciler.CheckRaw(version, resultFactory.supportedVersions)
+		if err == nil {
+			// Result supports this version
+			return resultFactory.newResult(resultBytes)
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported CNI result version %q", version)
+}

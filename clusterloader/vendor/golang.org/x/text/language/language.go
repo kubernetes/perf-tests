@@ -100,7 +100,7 @@
 //
 // BCP 47 - Tags for Identifying Languages
 // http://tools.ietf.org/html/bcp47
-package language // import "golang.org/x/text/language"
+package language
 
 // TODO: Remove above NOTE after:
 // - verifying that tables are dropped correctly (most notably matcher tables).

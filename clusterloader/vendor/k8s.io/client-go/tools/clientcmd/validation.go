@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"strings"
 
-	utilerrors "k8s.io/client-go/pkg/util/errors"
-	"k8s.io/client-go/pkg/util/validation"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/validation"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -167,7 +167,8 @@ func ConfirmUsable(config clientcmdapi.Config, passedContextName string) error {
 func validateClusterInfo(clusterName string, clusterInfo clientcmdapi.Cluster) []error {
 	validationErrors := make([]error, 0)
 
-	if reflect.DeepEqual(clientcmdapi.Cluster{}, clusterInfo) {
+	emptyCluster := clientcmdapi.NewCluster()
+	if reflect.DeepEqual(*emptyCluster, clusterInfo) {
 		return []error{ErrEmptyCluster}
 	}
 

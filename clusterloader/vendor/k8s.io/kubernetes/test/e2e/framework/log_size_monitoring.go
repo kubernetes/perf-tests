@@ -25,7 +25,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 )
 
 const (
@@ -102,6 +102,10 @@ func (s *LogsSizeDataSummary) PrintHumanReadable() string {
 
 func (s *LogsSizeDataSummary) PrintJSON() string {
 	return PrettyPrintJSON(*s)
+}
+
+func (s *LogsSizeDataSummary) SummaryKind() string {
+	return "LogSizeSummary"
 }
 
 type LogsSizeData struct {

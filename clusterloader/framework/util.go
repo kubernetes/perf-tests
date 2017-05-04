@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
@@ -33,7 +34,7 @@ func CreatePods(f *framework.Framework, appName string, ns string, labels map[st
 		// Retry on pod creation failure
 		for retryCount := 0; retryCount < maxRetries; retryCount++ {
 			_, err := f.ClientSet.Core().Pods(ns).Create(&v1.Pod{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf(appName+"-pod-%v", i),
 					Namespace: ns,
 					Labels:    labels,
@@ -55,7 +56,7 @@ func CreatePods(f *framework.Framework, appName string, ns string, labels map[st
 			if tuning.Pods.Stepping.StepSize != 0 && (i+1)%tuning.Pods.Stepping.StepSize == 0 {
 				verifyRunning := f.NewClusterVerification(
 					&v1.Namespace{
-						ObjectMeta: v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: ns,
 						},
 						Status: v1.NamespaceStatus{},

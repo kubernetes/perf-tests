@@ -38,6 +38,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 17499,
 							Perc99: 360726,
 						},
+						Count: 10,
 					},
 					{
 						Resource: "pod",
@@ -47,6 +48,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 99265,
 							Perc99: 889297,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -60,6 +62,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 735918,
 							Perc99: 725196,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -76,6 +79,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 181956,
 							Perc99: 564837,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -95,6 +99,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 130667,
 							Perc99: 898554,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -108,6 +113,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 741522,
 							Perc99: 284668,
 						},
+						Count: 9,
 					},
 				},
 			},
@@ -124,6 +130,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 899073,
 							Perc99: 29665,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -137,6 +144,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 							Perc90: 843692,
 							Perc99: 763390,
 						},
+						Count: 10,
 					},
 				},
 			},
@@ -288,7 +296,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Percentile: "Perc50",
 			}: {
 				LeftJobSample:  []float64{560427},
-				RightJobSample: []float64{781639, 370847},
+				RightJobSample: []float64{370847},
 			},
 			{
 				TestName:   "Density",
@@ -297,7 +305,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Percentile: "Perc90",
 			}: {
 				LeftJobSample:  []float64{735918},
-				RightJobSample: []float64{741522, 843692},
+				RightJobSample: []float64{843692},
 			},
 			{
 				TestName:   "Density",
@@ -306,7 +314,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Percentile: "Perc99",
 			}: {
 				LeftJobSample:  []float64{725196},
-				RightJobSample: []float64{284668, 763390},
+				RightJobSample: []float64{763390},
 			},
 			{
 				TestName:   "Load",
@@ -383,7 +391,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 		},
 	}
 
-	jobComparisonData := GetFlattennedComparisonData(leftAPILatencies, rightAPILatencies, leftPodLatencies, rightPodLatencies)
+	jobComparisonData := GetFlattennedComparisonData(leftAPILatencies, rightAPILatencies, leftPodLatencies, rightPodLatencies, 10)
 	if !reflect.DeepEqual(*jobComparisonData, *expectedJobComparisonData) {
 		t.Errorf("Flattenned comparison data mismatched from what was expected")
 	}

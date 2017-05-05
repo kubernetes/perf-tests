@@ -6,6 +6,7 @@ left-job-name
 listen-url
 log-source-mode
 match-threshold
+min-allowed-api-request-count
 n-hours-count
 n-runs-count
 purge-after-seconds

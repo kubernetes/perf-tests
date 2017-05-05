@@ -92,7 +92,10 @@ func (j *JobComparisonData) addSampleValue(sample float64, testName, verb, resou
 	}
 }
 
-func (j *JobComparisonData) addAPICallLatencyValues(apiCall *e2e.APICall, testName string, fromLeftJob bool) {
+func (j *JobComparisonData) addAPICallLatencyValues(apiCall *e2e.APICall, minAllowedRequestCount int, testName string, fromLeftJob bool) {
+	if apiCall.Count < minAllowedRequestCount {
+		return
+	}
 	perc50 := float64(apiCall.Latency.Perc50)
 	perc90 := float64(apiCall.Latency.Perc90)
 	perc99 := float64(apiCall.Latency.Perc99)
@@ -113,14 +116,17 @@ func (j *JobComparisonData) addPodStartupLatencyValues(podStartupLatency *e2e.Po
 }
 
 // GetFlattennedComparisonData flattens arrays of API and pod latencies of left & right jobs into JobComparisonData.
-func GetFlattennedComparisonData(leftApiLatencies, rightApiLatencies []map[string]*e2e.APIResponsiveness,
-	leftPodLatencies, rightPodLatencies []map[string]*e2e.PodStartupLatency) *JobComparisonData {
+// In the process, it also discards those metric samples with request count less than minAllowedAPIRequestCount.
+func GetFlattennedComparisonData(
+	leftApiLatencies, rightApiLatencies []map[string]*e2e.APIResponsiveness,
+	leftPodLatencies, rightPodLatencies []map[string]*e2e.PodStartupLatency,
+	minAllowedAPIRequestCount int) *JobComparisonData {
 	j := NewJobComparisonData()
 	// Add API call latencies of left job.
 	for _, runApiLatencies := range leftApiLatencies {
 		for testName, apiCallLatencies := range runApiLatencies {
 			for _, apiCallLatency := range apiCallLatencies.APICalls {
-				j.addAPICallLatencyValues(&apiCallLatency, testName, true)
+				j.addAPICallLatencyValues(&apiCallLatency, minAllowedAPIRequestCount, testName, true)
 			}
 		}
 	}
@@ -128,7 +134,7 @@ func GetFlattennedComparisonData(leftApiLatencies, rightApiLatencies []map[strin
 	for _, runApiLatencies := range rightApiLatencies {
 		for testName, apiCallLatencies := range runApiLatencies {
 			for _, apiCallLatency := range apiCallLatencies.APICalls {
-				j.addAPICallLatencyValues(&apiCallLatency, testName, false)
+				j.addAPICallLatencyValues(&apiCallLatency, minAllowedAPIRequestCount, testName, false)
 			}
 		}
 	}

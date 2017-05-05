@@ -35,11 +35,12 @@ func init() {
 // to allow building arbitrary schemes.
 func RegisterDeepCopies(scheme *runtime.Scheme) error {
 	return scheme.AddGeneratedDeepCopyFuncs(
-		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_AdmissionConfiguration, InType: reflect.TypeOf(&AdmissionConfiguration{})},
-		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_AdmissionPluginConfiguration, InType: reflect.TypeOf(&AdmissionPluginConfiguration{})},
+		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_ClientConnectionConfiguration, InType: reflect.TypeOf(&ClientConnectionConfiguration{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_IPVar, InType: reflect.TypeOf(&IPVar{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeControllerManagerConfiguration, InType: reflect.TypeOf(&KubeControllerManagerConfiguration{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeProxyConfiguration, InType: reflect.TypeOf(&KubeProxyConfiguration{})},
+		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeProxyConntrackConfiguration, InType: reflect.TypeOf(&KubeProxyConntrackConfiguration{})},
+		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeProxyIPTablesConfiguration, InType: reflect.TypeOf(&KubeProxyIPTablesConfiguration{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeSchedulerConfiguration, InType: reflect.TypeOf(&KubeSchedulerConfiguration{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeletAnonymousAuthentication, InType: reflect.TypeOf(&KubeletAnonymousAuthentication{})},
 		conversion.GeneratedDeepCopyFunc{Fn: DeepCopy_componentconfig_KubeletAuthentication, InType: reflect.TypeOf(&KubeletAuthentication{})},
@@ -55,37 +56,11 @@ func RegisterDeepCopies(scheme *runtime.Scheme) error {
 	)
 }
 
-func DeepCopy_componentconfig_AdmissionConfiguration(in interface{}, out interface{}, c *conversion.Cloner) error {
+func DeepCopy_componentconfig_ClientConnectionConfiguration(in interface{}, out interface{}, c *conversion.Cloner) error {
 	{
-		in := in.(*AdmissionConfiguration)
-		out := out.(*AdmissionConfiguration)
+		in := in.(*ClientConnectionConfiguration)
+		out := out.(*ClientConnectionConfiguration)
 		*out = *in
-		if in.Plugins != nil {
-			in, out := &in.Plugins, &out.Plugins
-			*out = make([]AdmissionPluginConfiguration, len(*in))
-			for i := range *in {
-				if err := DeepCopy_componentconfig_AdmissionPluginConfiguration(&(*in)[i], &(*out)[i], c); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-}
-
-func DeepCopy_componentconfig_AdmissionPluginConfiguration(in interface{}, out interface{}, c *conversion.Cloner) error {
-	{
-		in := in.(*AdmissionPluginConfiguration)
-		out := out.(*AdmissionPluginConfiguration)
-		*out = *in
-		// in.Configuration is kind 'Interface'
-		if in.Configuration != nil {
-			if newVal, err := c.DeepCopy(&in.Configuration); err != nil {
-				return err
-			} else {
-				out.Configuration = *newVal.(*runtime.Object)
-			}
-		}
 		return nil
 	}
 }
@@ -123,13 +98,34 @@ func DeepCopy_componentconfig_KubeProxyConfiguration(in interface{}, out interfa
 		in := in.(*KubeProxyConfiguration)
 		out := out.(*KubeProxyConfiguration)
 		*out = *in
-		if in.IPTablesMasqueradeBit != nil {
-			in, out := &in.IPTablesMasqueradeBit, &out.IPTablesMasqueradeBit
-			*out = new(int32)
-			**out = **in
+		if err := DeepCopy_componentconfig_KubeProxyIPTablesConfiguration(&in.IPTables, &out.IPTables, c); err != nil {
+			return err
 		}
 		if in.OOMScoreAdj != nil {
 			in, out := &in.OOMScoreAdj, &out.OOMScoreAdj
+			*out = new(int32)
+			**out = **in
+		}
+		return nil
+	}
+}
+
+func DeepCopy_componentconfig_KubeProxyConntrackConfiguration(in interface{}, out interface{}, c *conversion.Cloner) error {
+	{
+		in := in.(*KubeProxyConntrackConfiguration)
+		out := out.(*KubeProxyConntrackConfiguration)
+		*out = *in
+		return nil
+	}
+}
+
+func DeepCopy_componentconfig_KubeProxyIPTablesConfiguration(in interface{}, out interface{}, c *conversion.Cloner) error {
+	{
+		in := in.(*KubeProxyIPTablesConfiguration)
+		out := out.(*KubeProxyIPTablesConfiguration)
+		*out = *in
+		if in.MasqueradeBit != nil {
+			in, out := &in.MasqueradeBit, &out.MasqueradeBit
 			*out = new(int32)
 			**out = **in
 		}
@@ -193,6 +189,11 @@ func DeepCopy_componentconfig_KubeletConfiguration(in interface{}, out interface
 			*out = make([]string, len(*in))
 			copy(*out, *in)
 		}
+		if in.ClusterDNS != nil {
+			in, out := &in.ClusterDNS, &out.ClusterDNS
+			*out = make([]string, len(*in))
+			copy(*out, *in)
+		}
 		if in.RegisterWithTaints != nil {
 			in, out := &in.RegisterWithTaints, &out.RegisterWithTaints
 			*out = make([]api.Taint, len(*in))
@@ -209,6 +210,18 @@ func DeepCopy_componentconfig_KubeletConfiguration(in interface{}, out interface
 				(*out)[key] = val
 			}
 		}
+		if in.ExperimentalQOSReserved != nil {
+			in, out := &in.ExperimentalQOSReserved, &out.ExperimentalQOSReserved
+			*out = make(ConfigurationMap)
+			for key, val := range *in {
+				(*out)[key] = val
+			}
+		}
+		if in.AllowedUnsafeSysctls != nil {
+			in, out := &in.AllowedUnsafeSysctls, &out.AllowedUnsafeSysctls
+			*out = make([]string, len(*in))
+			copy(*out, *in)
+		}
 		if in.SystemReserved != nil {
 			in, out := &in.SystemReserved, &out.SystemReserved
 			*out = make(ConfigurationMap)
@@ -223,8 +236,8 @@ func DeepCopy_componentconfig_KubeletConfiguration(in interface{}, out interface
 				(*out)[key] = val
 			}
 		}
-		if in.AllowedUnsafeSysctls != nil {
-			in, out := &in.AllowedUnsafeSysctls, &out.AllowedUnsafeSysctls
+		if in.EnforceNodeAllocatable != nil {
+			in, out := &in.EnforceNodeAllocatable, &out.EnforceNodeAllocatable
 			*out = make([]string, len(*in))
 			copy(*out, *in)
 		}

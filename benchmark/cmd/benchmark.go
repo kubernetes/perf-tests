@@ -36,6 +36,7 @@ var (
 	runSelectionScheme        string
 	nHoursCount               int
 	nRunsCount                int
+	minAllowedAPIRequestCount int
 	comparisonScheme          string
 	matchThreshold            float64
 )
@@ -47,6 +48,7 @@ func registerFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&runSelectionScheme, "run-selection-scheme", runselector.LastNHours, fmt.Sprintf("Scheme for selecting the runs to be compared. Allowed options: %v, %v", runselector.LastNHours, runselector.LastNRuns))
 	fs.IntVar(&nHoursCount, "n-hours-count", 24, "Value of 'n' to use in the last-n-hours run-selection scheme")
 	fs.IntVar(&nRunsCount, "n-runs-count", 20, "Value of 'n' to use in the last-n-runs run-selection scheme")
+	fs.IntVar(&minAllowedAPIRequestCount, "min-allowed-api-request-count", 10, "The minimum requests count for an API call (within a particular test of a particular run) to be included for comparison")
 	fs.StringVar(&comparisonScheme, "comparison-scheme", comparer.AvgTest, fmt.Sprintf("Statistical test to be used as the algorithm for comparison. Allowed options: %v, %v", comparer.AvgTest, comparer.KSTest))
 	fs.Float64Var(&matchThreshold, "match-threshold", 0.8, "The threshold for metric comparison, interpretation depends on test used (significance level for KSTest, bound for ratio of avgs in AvgTest)")
 }
@@ -99,7 +101,7 @@ func getMetrics(leftJobRuns, rightJobRuns []int) *util.JobComparisonData {
 	}
 
 	glog.Infof("Flattening the metrics maps into per-metric structs")
-	jobComparisonData := util.GetFlattennedComparisonData(leftJobApiCallLatencies, rightJobApiCallLatencies, leftJobPodStartupLatencies, rightJobPodStartupLatencies)
+	jobComparisonData := util.GetFlattennedComparisonData(leftJobApiCallLatencies, rightJobApiCallLatencies, leftJobPodStartupLatencies, rightJobPodStartupLatencies, minAllowedAPIRequestCount)
 	return jobComparisonData
 }
 

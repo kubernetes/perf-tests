@@ -19,6 +19,7 @@ install:
     - export PATH=$GOPATH/bin:$PATH
 
 script:
+    - grep -c ^processor /proc/cpuinfo
     - ./verify/verify-boilerplate.sh
     - ./verify/verify-gofmt.sh
     - ./verify/verify-golint.sh

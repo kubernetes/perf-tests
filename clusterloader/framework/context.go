@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,58 +18,63 @@ package framework
 
 import (
 	"os"
-	"time"
 
 	"github.com/spf13/viper"
 )
 
-// ContextType is the root config struct
-type ContextType struct {
+// Context is the root config struct
+type Context struct {
 	ClusterLoader struct {
-		Projects   []ClusterLoaderType
-		TuningSets []TuningSetType
+		Projects   []ClusterLoader
+		TuningSets []TuningSet
 	}
 }
 
-// ClusterLoaderType struct only used for Cluster Loader test config
-type ClusterLoaderType struct {
+// TuningSets is custom slice type so we can define methods on it
+type TuningSets []TuningSet
+
+// ClusterLoader struct only used for Cluster Loader test config
+type ClusterLoader struct {
 	Number    int `mapstructure:"num"`
 	Basename  string
 	Tuning    string
-	Pods      []ClusterLoaderObjectType
-	Templates []ClusterLoaderObjectType
+	Pods      []ClusterLoaderObject
+	RCs       []ClusterLoaderObject
+	Templates []ClusterLoaderObject
 }
 
-// ClusterLoaderObjectType is nested object type for cluster loader struct
-type ClusterLoaderObjectType struct {
+// ClusterLoaderObject is nested object type for cluster loader struct
+type ClusterLoaderObject struct {
 	Total    int
 	Number   int `mapstructure:"num"`
 	Image    string
 	Basename string
 	File     string
+	Label    string
 }
 
-// TuningSetType is nested type for controlling Cluster Loader deployment pattern
-type TuningSetType struct {
+// TuningSet is nested type for controlling Cluster Loader deployment pattern
+type TuningSet struct {
 	Name      string
-	Pods      TuningSetObjectType
-	Templates TuningSetObjectType
+	Project   TuningSetObject
+	Pods      TuningSetObject
+	Templates TuningSetObject
 }
 
-// TuningSetObjectType is shared struct for Pods & Templates
-type TuningSetObjectType struct {
+// TuningSetObject is shared struct for Pods & Templates
+type TuningSetObject struct {
 	Stepping struct {
 		StepSize int
-		Pause    time.Duration
-		Timeout  time.Duration
+		Pause    string
+		Timeout  string
 	}
 	RateLimit struct {
-		Delay time.Duration
+		Delay string
 	}
 }
 
-// ConfigContext variable of type ContextType
-var ConfigContext ContextType
+// ConfigContext variable of type Context
+var ConfigContext Context
 
 // ParseConfig will complete flag parsing as well as viper tasks
 func ParseConfig(config string) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,14 +17,11 @@ limitations under the License.
 package clusterloader
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
-	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -57,31 +54,63 @@ var _ = framework.KubeDescribe("Cluster Loader [Feature:ManualPerformance]", fun
 		// TODO sjug: add concurrency
 		for _, p := range project {
 			// Find tuning if we have it
-			tuning := getTuningSet(tuningSets, p.Tuning)
-			framework.Logf("Our tuning set is: %v", tuning)
+			tuning := clusterloaderframework.TuningSets(tuningSets).Get(p.Tuning)
+
+			framework.Logf("Tuning set is: %+v", tuning)
 			for j := 0; j < p.Number; j++ {
-				// Create namespaces as defined in Cluster Loader config
+				// Create namespaces as defined in the config
 				nsName := appendIntToString(p.Basename, j)
-				ns, err := f.CreateNamespace(nsName, nil)
-				framework.ExpectNoError(err)
-				framework.Logf("%d/%d : Created new namespace: %v", j+1, p.Number, nsName)
-				namespaces = append(namespaces, ns)
+				ns, err := clusterloaderframework.CreateNSIfNotExists(f, nsName)
+				if err != nil {
+					framework.Failf("Error creating NS: %v", err)
+				}
+				// Keep track of all the namespaces we have created, not too useful currently
+				namespaces = appendUnique(namespaces, ns)
 
 				// Create templates as defined
 				for _, template := range p.Templates {
-					createTemplate(template.Basename, ns, mkPath(template.File), template.Number, tuning)
+					if err = createTemplate(template.Basename, ns, clusterloaderframework.MakePath(template.File), template.Number, tuning); err != nil {
+						framework.Failf("Error creating template, %v", err)
+					}
+				}
+				// RCs are a thing as well
+				for _, RC := range p.RCs {
+					config, err := RC.ParseConfig()
+					if err != nil {
+						framework.Failf("Error parsing config, %v", err)
+					}
+					label, err := RC.ConvertToLabelSet()
+					if err != nil {
+						framework.Failf("Error creating Labels, %v", err)
+					}
+					if err = clusterloaderframework.CreateRC(f, RC.Basename, ns.Name, label, config.Spec, RC.Number); err != nil {
+						framework.Failf("Error creating RC, %v", err)
+					}
 				}
 				// This is too familiar, create pods
 				for _, pod := range p.Pods {
-					config := parsePods(mkPath(pod.File))
-					labels := map[string]string{"purpose": "test"}
-					clusterloaderframework.CreatePods(f, pod.Basename, ns.Name, labels, config.Spec, pod.Number, tuning)
+					config, err := pod.ParseConfig()
+					if err != nil {
+						framework.Failf("Error parsing config, %v", err)
+					}
+					label, err := pod.ConvertToLabelSet()
+					if err != nil {
+						framework.Failf("Error creating Labels, %v", err)
+					}
+					clusterloaderframework.CreatePods(f, pod.Basename, ns.Name, label, config.Spec, pod.Number, tuning)
 				}
+			}
+			// Only sleeps for each new project defined in the config
+			// need to move up to sleep for every copy
+			// TODO: Consider if we want sleeps between each iteration
+			if tuning != nil {
+				tuning.Project.Delay()
 			}
 		}
 
-		// Wait for pods to be running
+		// Wait for pods to be running in all new namespaces
 		for _, ns := range namespaces {
+			// TODO If created namespace doesn't have a pod with matching label we will hang
 			label := labels.SelectorFromSet(labels.Set(map[string]string{"purpose": "test"}))
 			err := testutils.WaitForPodsWithLabelRunning(c, ns.Name, label)
 			if err != nil {
@@ -93,60 +122,41 @@ var _ = framework.KubeDescribe("Cluster Loader [Feature:ManualPerformance]", fun
 	})
 })
 
-// getTuningSet matches the name of the tuning set defined in the project and returns a pointer to the set
-func getTuningSet(tuningSets []clusterloaderframework.TuningSetType, podTuning string) (tuning *clusterloaderframework.TuningSetType) {
-	if podTuning != "" {
-		// Iterate through defined tuningSets
-		for _, ts := range tuningSets {
-			// If we have a matching tuningSet keep it
-			if ts.Name == podTuning {
-				tuning = &ts
-				return
-			}
+// appendUnique appends new namespace pointers to a slice
+func appendUnique(allNS []*v1.Namespace, newNS *v1.Namespace) []*v1.Namespace {
+	for _, NS := range allNS {
+		if NS.Name == newNS.Name {
+			return allNS
 		}
-		framework.Failf("No pod tuning found for: %s", podTuning)
 	}
-	return nil
-}
-
-// mkPath returns fully qualfied file location as a string
-func mkPath(file string) string {
-	// Handle an empty filename.
-	if file == "" {
-		framework.Failf("No template file defined!")
-	}
-	// TODO: We should enable passing this as a flag instead of hardcoding.
-	return filepath.Join(os.Getenv("GOPATH"), "src/k8s.io/perf-tests/clusterloader/content/", file)
+	return append(allNS, newNS)
 }
 
 // createTemplate does regex substitution against the template file, then creates the template
-func createTemplate(baseName string, ns *v1.Namespace, configPath string, numObjects int, tuning *clusterloaderframework.TuningSetType) {
+func createTemplate(baseName string, ns *v1.Namespace, configPath string, numObjects int, tuning *clusterloaderframework.TuningSet) error {
 	// Try to read the file
 	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		framework.Failf("Error reading file: %s", err)
+		return err
 	}
 
 	// ${IDENTIFER} is what we're replacing in the file
-	regex, err := regexp.Compile("\\${IDENTIFIER}")
-	if err != nil {
-		framework.Failf("Error compiling regex: %v", err)
-	}
+	regex := regexp.MustCompile("\\${IDENTIFIER}")
 
 	for i := 0; i < numObjects; i++ {
 		result := regex.ReplaceAll(content, []byte(strconv.Itoa(i)))
 
 		tmpfile, err := ioutil.TempFile("", "cl")
 		if err != nil {
-			framework.Failf("Error creating new tempfile: %v", err)
+			return err
 		}
 		defer os.Remove(tmpfile.Name())
 
 		if _, err := tmpfile.Write(result); err != nil {
-			framework.Failf("Error writing to tempfile: %v", err)
+			return err
 		}
 		if err := tmpfile.Close(); err != nil {
-			framework.Failf("Error closing tempfile: %v", err)
+			return err
 		}
 
 		framework.RunKubectlOrDie("create", "-f", tmpfile.Name(), getNsCmdFlag(ns))
@@ -154,32 +164,18 @@ func createTemplate(baseName string, ns *v1.Namespace, configPath string, numObj
 
 		// If there is a tuning set defined for this template
 		if tuning != nil {
-			if tuning.Templates.RateLimit.Delay != 0 {
-				framework.Logf("Sleeping %d ms between template creation.", tuning.Templates.RateLimit.Delay)
-				time.Sleep(time.Duration(tuning.Templates.RateLimit.Delay) * time.Millisecond)
+			if err := tuning.Templates.Delay(); err != nil {
+				return err
 			}
 			if tuning.Templates.Stepping.StepSize != 0 && (i+1)%tuning.Templates.Stepping.StepSize == 0 {
-				framework.Logf("We have created %d templates and are now sleeping for %d seconds", i+1, tuning.Templates.Stepping.Pause)
-				time.Sleep(time.Duration(tuning.Templates.Stepping.Pause) * time.Second)
+				framework.Logf("We have created %d templates; sleep for %v", i+1, tuning.Templates.Stepping.Pause)
+				if err := tuning.Templates.Pause(); err != nil {
+					return err
+				}
 			}
 		}
 	}
-}
-
-// parsePods unmarshalls the json file defined in the CL config into a struct
-func parsePods(jsonFile string) (configStruct v1.Pod) {
-	configFile, err := ioutil.ReadFile(jsonFile)
-	if err != nil {
-		framework.Failf("Cant read config file. Error: %v", err)
-	}
-
-	err = json.Unmarshal(configFile, &configStruct)
-	if err != nil {
-		framework.Failf("Unable to unmarshal pod config. Error: %v", err)
-	}
-
-	framework.Logf("The loaded config file is: %+v", configStruct.Spec.Containers)
-	return
+	return nil
 }
 
 func getNsCmdFlag(ns *v1.Namespace) string {

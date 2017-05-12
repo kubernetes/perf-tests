@@ -18,8 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
 
-cd ${KUBE_ROOT}/e2e/ && go test -c -o e2e.test
+cd ${CLUSTERLOADER_ROOT}/e2e/ && go test -c -o e2e.test
 ./e2e.test --host="${KUBE_MASTER_URL}" --ginkgo.v=true --ginkgo.focus="Cluster Loader" --kubeconfig="${HOME}/.kube/config" --viper-config=../config/test
 

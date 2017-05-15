@@ -115,7 +115,8 @@ func mkPath(file string) string {
 	if file == "" {
 		framework.Failf("No template file defined!")
 	}
-	return filepath.Join("content/", file)
+	// TODO: We should enable passing this as a flag instead of hardcoding.
+	return filepath.Join(os.Getenv("GOPATH"), "src/k8s.io/perf-tests/clusterloader/content/", file)
 }
 
 // createTemplate does regex substitution against the template file, then creates the template

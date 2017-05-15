@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/viper"
 	"k8s.io/kubernetes/test/e2e/framework"
+	_ "k8s.io/perf-tests/clusterloader"
 	clframe "k8s.io/perf-tests/clusterloader/framework"
 )
 

@@ -21,5 +21,5 @@ set -o pipefail
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
 
 cd ${CLUSTERLOADER_ROOT}/e2e/ && go test -c -o e2e.test
-./e2e.test --host="${KUBE_MASTER_URL}" --ginkgo.v=true --ginkgo.focus="Cluster Loader" --kubeconfig="${HOME}/.kube/config" --viper-config=../config/test
+./e2e.test --ginkgo.v=true --ginkgo.focus="Cluster\sLoader" --kubeconfig="${HOME}/.kube/config" --viper-config=../config/test
 

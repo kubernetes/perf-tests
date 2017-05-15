@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -74,7 +75,7 @@ var ConfigContext ContextType
 func ParseConfig(config string) {
 	// This must be done after common flags are registered, since Viper is a flag option.
 	viper.SetConfigName(config)
-	viper.AddConfigPath(".")
+	viper.AddConfigPath(os.Getenv("GOPATH") + "/src/k8s.io/perf-tests/clusterloader")
 	viper.ReadInConfig()
 	viper.Unmarshal(&ConfigContext)
 }

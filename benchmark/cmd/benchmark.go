@@ -89,19 +89,19 @@ func getMetrics(leftJobRuns, rightJobRuns []int) *util.JobComparisonData {
 	}
 
 	glog.Infof("Fetching metrics for the chosen runs of job %v", leftJobName)
-	leftJobApiCallLatencies, leftJobPodStartupLatencies, err := scraper.GetMetricsForRuns(leftJobName, leftJobRuns, utils)
-	if err != nil || len(leftJobApiCallLatencies) == 0 || len(leftJobPodStartupLatencies) == 0 {
-		glog.Fatalf("Could not collect metrics even for a single run of the job: %v", err)
+	leftJobLatencyMetrics := scraper.GetMetricsForRuns(leftJobName, leftJobRuns, utils)
+	if leftJobLatencyMetrics == nil {
+		glog.Fatalf("Could not collect metrics even for a single run of the job")
 	}
 
 	glog.Infof("Fetching metrics for the chosen runs of job %v", rightJobName)
-	rightJobApiCallLatencies, rightJobPodStartupLatencies, err := scraper.GetMetricsForRuns(rightJobName, rightJobRuns, utils)
-	if err != nil || len(rightJobApiCallLatencies) == 0 || len(rightJobPodStartupLatencies) == 0 {
-		glog.Fatalf("Could not collect metrics even for a single run of the job: %v", err)
+	rightJobLatencyMetrics := scraper.GetMetricsForRuns(rightJobName, rightJobRuns, utils)
+	if rightJobLatencyMetrics == nil {
+		glog.Fatalf("Could not collect metrics even for a single run of the job")
 	}
 
 	glog.Infof("Flattening the metrics maps into per-metric structs")
-	jobComparisonData := util.GetFlattennedComparisonData(leftJobApiCallLatencies, rightJobApiCallLatencies, leftJobPodStartupLatencies, rightJobPodStartupLatencies, minAllowedAPIRequestCount)
+	jobComparisonData := util.GetFlattennedComparisonData(leftJobLatencyMetrics, rightJobLatencyMetrics, minAllowedAPIRequestCount)
 	return jobComparisonData
 }
 

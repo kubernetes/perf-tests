@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "dataItems": [
+    {
+      "data": {
+        "Perc100": 2079.704676,
+        "Perc50": 1086.056005,
+        "Perc90": 1881.996031,
+        "Perc99": 2029.913438
+      },
+      "unit": "ms",
+      "labels": {
+        "Metric": "pod_startup"
+      }
+    }
+  ]
+}

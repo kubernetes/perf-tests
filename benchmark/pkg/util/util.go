@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"strconv"
 	"text/tabwriter"
 
-	e2e "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/perftype"
 
 	"github.com/golang/glog"
 )
@@ -92,62 +93,42 @@ func (j *JobComparisonData) addSampleValue(sample float64, testName, verb, resou
 	}
 }
 
-func (j *JobComparisonData) addAPICallLatencyValues(apiCall *e2e.APICall, minAllowedRequestCount int, testName string, fromLeftJob bool) {
-	if apiCall.Count < minAllowedRequestCount {
-		return
+func (j *JobComparisonData) addLatencyValue(latency *perftype.DataItem, minAllowedRequestCount int, testName string, fromLeftJob bool) {
+	if latency.Labels["Count"] != "" {
+		if count, err := strconv.Atoi(latency.Labels["Count"]); err != nil || count < minAllowedRequestCount {
+			return
+		}
 	}
-	perc50 := float64(apiCall.Latency.Perc50)
-	perc90 := float64(apiCall.Latency.Perc90)
-	perc99 := float64(apiCall.Latency.Perc99)
-	j.addSampleValue(perc50, testName, apiCall.Verb, apiCall.Resource, "Perc50", fromLeftJob)
-	j.addSampleValue(perc90, testName, apiCall.Verb, apiCall.Resource, "Perc90", fromLeftJob)
-	j.addSampleValue(perc99, testName, apiCall.Verb, apiCall.Resource, "Perc99", fromLeftJob)
+	verb := latency.Labels["Verb"]
+	resource := latency.Labels["Resource"]
+	if latency.Labels["Metric"] == "pod_startup" {
+		verb = "Pod-Startup"
+	}
+	for percentile, value := range latency.Data {
+		j.addSampleValue(value, testName, verb, resource, percentile, fromLeftJob)
+	}
 }
 
-func (j *JobComparisonData) addPodStartupLatencyValues(podStartupLatency *e2e.PodStartupLatency, testName string, fromLeftJob bool) {
-	perc50 := float64(podStartupLatency.Latency.Perc50)
-	perc90 := float64(podStartupLatency.Latency.Perc90)
-	perc99 := float64(podStartupLatency.Latency.Perc99)
-	perc100 := float64(podStartupLatency.Latency.Perc100)
-	j.addSampleValue(perc50, testName, "POD_STARTUP", "", "Perc50", fromLeftJob)
-	j.addSampleValue(perc90, testName, "POD_STARTUP", "", "Perc90", fromLeftJob)
-	j.addSampleValue(perc99, testName, "POD_STARTUP", "", "Perc99", fromLeftJob)
-	j.addSampleValue(perc100, testName, "POD_STARTUP", "", "Perc100", fromLeftJob)
-}
-
-// GetFlattennedComparisonData flattens arrays of API and pod latencies of left & right jobs into JobComparisonData.
+// GetFlattennedComparisonData flattens latencies from various runs of left & right jobs into JobComparisonData.
 // In the process, it also discards those metric samples with request count less than minAllowedAPIRequestCount.
-func GetFlattennedComparisonData(
-	leftApiLatencies, rightApiLatencies []map[string]*e2e.APIResponsiveness,
-	leftPodLatencies, rightPodLatencies []map[string]*e2e.PodStartupLatency,
-	minAllowedAPIRequestCount int) *JobComparisonData {
+func GetFlattennedComparisonData(leftJobMetrics, rightJobMetrics []map[string][]perftype.PerfData, minAllowedAPIRequestCount int) *JobComparisonData {
 	j := NewJobComparisonData()
-	// Add API call latencies of left job.
-	for _, runApiLatencies := range leftApiLatencies {
-		for testName, apiCallLatencies := range runApiLatencies {
-			for _, apiCallLatency := range apiCallLatencies.APICalls {
-				j.addAPICallLatencyValues(&apiCallLatency, minAllowedAPIRequestCount, testName, true)
+	for _, singleRunMetrics := range leftJobMetrics {
+		for testName, latenciesArray := range singleRunMetrics {
+			for _, latencies := range latenciesArray {
+				for _, latency := range latencies.DataItems {
+					j.addLatencyValue(&latency, minAllowedAPIRequestCount, testName, true)
+				}
 			}
 		}
 	}
-	// Add API call latencies of right job.
-	for _, runApiLatencies := range rightApiLatencies {
-		for testName, apiCallLatencies := range runApiLatencies {
-			for _, apiCallLatency := range apiCallLatencies.APICalls {
-				j.addAPICallLatencyValues(&apiCallLatency, minAllowedAPIRequestCount, testName, false)
+	for _, singleRunMetrics := range rightJobMetrics {
+		for testName, latenciesArray := range singleRunMetrics {
+			for _, latencies := range latenciesArray {
+				for _, latency := range latencies.DataItems {
+					j.addLatencyValue(&latency, minAllowedAPIRequestCount, testName, false)
+				}
 			}
-		}
-	}
-	// Add Pod startup latencies of left job.
-	for _, runPodLatencies := range leftPodLatencies {
-		for testName, podStartupLatency := range runPodLatencies {
-			j.addPodStartupLatencyValues(podStartupLatency, testName, true)
-		}
-	}
-	// Add Pod startup latencies of right job.
-	for _, runPodLatencies := range rightPodLatencies {
-		for testName, podStartupLatency := range runPodLatencies {
-			j.addPodStartupLatencyValues(podStartupLatency, testName, false)
 		}
 	}
 	return j

@@ -17,87 +17,89 @@ limitations under the License.
 package scraper
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"strings"
 
-	e2e "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/perftype"
 	"k8s.io/perf-tests/benchmark/pkg/metricsfetcher/util"
 
 	"github.com/golang/glog"
 )
 
+// Path prefixes for the metrics files we want to scrape.
 const (
-	readingJunk              = iota
-	readingAPICallLatencies  = iota
-	readingPodStartupLatency = iota
-	testNameIdentifierTag    = "[BeforeEach] [k8s.io]"
-	apiLatencyResultTag      = "API calls latencies: "
-	podLatencyResultTag      = "Pod startup latency: "
+	ApiCallLatencyFilePrefix    = "artifacts/APIResponsiveness_"
+	PodStartupLatencyFilePrefix = "artifacts/PodStartupLatency_"
 )
 
-// GetMetricsFromBuildLog takes the contents of a build log file, reads
-// and parses JSON summaries of API call and Pod startup latencies.
-func GetMetricsFromBuildLog(buildLog []byte) (map[string]*e2e.APIResponsiveness, map[string]*e2e.PodStartupLatency) {
-	// Parse using a finite state automaton.
-	state := readingJunk
-	buff := &bytes.Buffer{}
-	testName := ""
-	scanner := bufio.NewScanner(bytes.NewReader(buildLog))
-	apiCallLatencies := make(map[string]*e2e.APIResponsiveness)
-	podStartupLatency := make(map[string]*e2e.PodStartupLatency)
-	for scanner.Scan() {
-		line := scanner.Text()
-		switch state {
-		case readingJunk:
-			if strings.Contains(line, testNameIdentifierTag) {
-				testName = strings.Trim(strings.Split(line, testNameIdentifierTag)[1], " ")
-				buff.Reset()
-			} else if strings.Contains(line, apiLatencyResultTag) {
-				state = readingAPICallLatencies
-				buff.WriteString("{ ")
-			} else if strings.Contains(line, podLatencyResultTag) {
-				state = readingPodStartupLatency
-				buff.WriteString("{ ")
+// GetMetricsFilePathsForRun for a given run of a job, returns a map of testname ("load", "density", etc) to
+// a list of paths to its latency files (API responsiveness, pod startup) relative to the run's root dir.
+func GetMetricsFilePathsForRun(job string, run int, utils util.JobLogUtils) map[string][]string {
+	latencyFiles := make([]string, 0)
+	latencyFilesForTest := make(map[string][]string)
+
+	if apiCallLatencyFiles, err := utils.ListJobRunFilesWithPrefix(job, run, ApiCallLatencyFilePrefix); err == nil {
+		latencyFiles = append(latencyFiles, apiCallLatencyFiles...)
+	} else {
+		glog.V(0).Infof("Failed to list API call latency files for run %v:%v (skipping them): %v", job, run, err)
+	}
+	if podStartupLatencyFiles, err := utils.ListJobRunFilesWithPrefix(job, run, PodStartupLatencyFilePrefix); err == nil {
+		latencyFiles = append(latencyFiles, podStartupLatencyFiles...)
+	} else {
+		glog.V(0).Infof("Failed to list pod startup latency files for run %v:%v (skipping them): %v", job, run, err)
+	}
+
+	// Group the list of latency files into a map of list of files key'ed by testname.
+	for _, latencyFile := range latencyFiles {
+		filenameParts := strings.Split(latencyFile, "_")
+		if len(filenameParts) < 3 {
+			glog.V(0).Infof("Could not get testname from filename '%v' (skipping it)", latencyFile)
+			continue
+		}
+		// TODO(shyamjvs): Handle the case of multiple tests with same name, if needed.
+		testName := filenameParts[len(filenameParts)-2]
+		relPathStartIndex := strings.LastIndex(latencyFile, "artifacts/")
+		latencyFilesForTest[testName] = append(latencyFilesForTest[testName], latencyFile[relPathStartIndex:])
+	}
+	return latencyFilesForTest
+}
+
+// GetMetricsForRun for a given run of a job, returns a map of testname ("load", "density", etc) to a
+// list of its latency metrics (API responsiveness, pod startup) in perfType.PerfData format.
+func GetMetricsForRun(job string, run int, utils util.JobLogUtils) map[string][]perftype.PerfData {
+	metricsForRun := make(map[string][]perftype.PerfData)
+	latencyFilesForTest := GetMetricsFilePathsForRun(job, run, utils)
+
+	for testName, latencyFiles := range latencyFilesForTest {
+		for _, latencyFile := range latencyFiles {
+			latencyFileContents, err := utils.GetJobRunFileContents(job, run, latencyFile)
+			if err != nil {
+				glog.V(0).Infof("Error reading latency metrics file for run %v:%v (skipping it): %v", job, run, err)
+				continue
 			}
-		case readingAPICallLatencies, readingPodStartupLatency:
-			dataStartIndex := strings.Index(line, "]")
-			buff.WriteString(line[dataStartIndex+2:] + " ")
-			if line[dataStartIndex+2] == '}' { // Reached the end of json
-				if state == readingAPICallLatencies {
-					apiCallLatencies[testName] = &e2e.APIResponsiveness{}
-					if err := json.Unmarshal(buff.Bytes(), apiCallLatencies[testName]); err != nil {
-						glog.V(0).Infof("Error parsing APIResponsiveness JSON: %v", err)
-					}
-				} else {
-					podStartupLatency[testName] = &e2e.PodStartupLatency{}
-					if err := json.Unmarshal(buff.Bytes(), podStartupLatency[testName]); err != nil {
-						glog.V(0).Infof("Error parsing PodStartupLatency JSON: %v", err)
-					}
-				}
-				buff.Reset()
-				state = readingJunk
+			perfData := perftype.PerfData{}
+			if err := json.Unmarshal(latencyFileContents, &perfData); err != nil {
+				glog.V(0).Infof("Error parsing latency metrics file %v for run %v:%v (skipping it): %v", latencyFile, job, run, err)
+				continue
 			}
+			metricsForRun[testName] = append(metricsForRun[testName], perfData)
 		}
 	}
-	return apiCallLatencies, podStartupLatency
+	return metricsForRun
 }
 
 // GetMetricsForRuns is a wrapper for calling GetMetricsForRun on multiple runs returning
 // an array of the obtained results. Neglects runs whose metrics could not be fetched.
-func GetMetricsForRuns(job string, runs []int, utils util.JobLogUtils) ([]map[string]*e2e.APIResponsiveness, []map[string]*e2e.PodStartupLatency, error) {
-	var apiCallLatenciesArray []map[string]*e2e.APIResponsiveness
-	var podStartupLatencyArray []map[string]*e2e.PodStartupLatency
+// Note: This does best-effort scraping, returning as much as could be scraped, without any error.
+func GetMetricsForRuns(job string, runs []int, utils util.JobLogUtils) []map[string][]perftype.PerfData {
+	var metricsForRuns []map[string][]perftype.PerfData
 	for _, run := range runs {
-		buildLog, err := utils.GetJobRunBuildLogContents(job, run)
-		if err != nil {
-			glog.V(0).Infof("Failed to get build log contents for run %v-%v (skipping it): %v", job, run, err)
+		metricsForRun := GetMetricsForRun(job, run, utils)
+		if len(metricsForRun) == 0 {
+			glog.V(0).Infof("No metrics obtained at all for run %v:%v (skipping it)", job, run)
 			continue
 		}
-		apiCallLatencies, podStartupLatency := GetMetricsFromBuildLog(buildLog)
-		apiCallLatenciesArray = append(apiCallLatenciesArray, apiCallLatencies)
-		podStartupLatencyArray = append(podStartupLatencyArray, podStartupLatency)
+		metricsForRuns = append(metricsForRuns, metricsForRun)
 	}
-	return apiCallLatenciesArray, podStartupLatencyArray, nil
+	return metricsForRuns
 }

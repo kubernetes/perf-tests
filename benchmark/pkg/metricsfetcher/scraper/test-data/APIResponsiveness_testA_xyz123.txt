@@ -1,0 +1,18 @@
+{
+  "version": "v1",
+  "dataItems": [
+    {
+      "data": {
+        "Perc50": 4.598,
+        "Perc90": 8.63,
+        "Perc99": 21.707
+      },
+      "unit": "ms",
+      "labels": {
+        "Count": "6200",
+        "Resource": "pods",
+        "Verb": "DELETE"
+      }
+    }
+  ]
+}

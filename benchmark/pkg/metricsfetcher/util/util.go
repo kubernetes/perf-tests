@@ -35,7 +35,8 @@ type JobLogUtils interface {
 	GetLatestBuildNumberForJob(string) (int, error)
 	GetJobRunStartTimestamp(string, int) (uint64, error)
 	GetJobRunFinishedStatus(string, int) (bool, error)
-	GetJobRunBuildLogContents(string, int) ([]byte, error)
+	GetJobRunFileContents(string, int, string) ([]byte, error)
+	ListJobRunFilesWithPrefix(string, int, string) ([]string, error)
 }
 
 // GCSLogUtils defines JobLogUtils interface for the case when source of logs is GCS.
@@ -70,14 +71,19 @@ func (utils GCSLogUtils) GetJobRunFinishedStatus(job string, run int) (bool, err
 	return utils.googleGCSBucketUtils.CheckFinishedStatus(job, run)
 }
 
-// GetJobRunBuildLogContents returns the contents of the build log file for the job run.
-func (utils GCSLogUtils) GetJobRunBuildLogContents(job string, run int) ([]byte, error) {
-	response, err := utils.googleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, run, "build-log.txt")
+// GetJobRunFileContents returns the contents of the file given by filepath (relative to run's root dir).
+func (utils GCSLogUtils) GetJobRunFileContents(job string, run int, filepath string) ([]byte, error) {
+	response, err := utils.googleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, run, filepath)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't read build log file from GCS: %v", err)
+		return nil, fmt.Errorf("Couldn't read file from GCS: %v", err)
 	}
 	defer response.Body.Close()
 	return ioutil.ReadAll(response.Body)
+}
+
+// ListJobRunFilesWithPrefix returns the list of files with a given path prefix in the job run's root dir.
+func (utils GCSLogUtils) ListJobRunFilesWithPrefix(job string, run int, prefix string) ([]string, error) {
+	return utils.googleGCSBucketUtils.ListFilesInBuild(job, run, prefix)
 }
 
 // GetJobLogUtilsForMode gives the right utils object based on the source mode.

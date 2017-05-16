@@ -21,217 +21,319 @@ import (
 	"reflect"
 	"testing"
 
-	e2e "k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
 func TestGetFlattennedComparisonData(t *testing.T) {
-	leftAPILatencies := []map[string]*e2e.APIResponsiveness{
+	leftJobLatencyMetrics := []map[string][]perftype.PerfData{
 		{
 			// Metrics from 1st run.
-			"Load": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "node",
-						Verb:     "GET",
-						Latency: e2e.LatencyMetric{
-							Perc50: 434506,
-							Perc90: 17499,
-							Perc99: 360726,
+			"Load": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 434506,
+								"Perc90": 17499,
+								"Perc99": 360726,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "node",
+								"Verb":     "GET",
+							},
 						},
-						Count: 10,
+						{
+							Data: map[string]float64{
+								"Perc50": 708401,
+								"Perc90": 99265,
+								"Perc99": 889297,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "pod",
+								"Verb":     "POST",
+							},
+						},
 					},
-					{
-						Resource: "pod",
-						Verb:     "POST",
-						Latency: e2e.LatencyMetric{
-							Perc50: 708401,
-							Perc90: 99265,
-							Perc99: 889297,
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  110369,
+								"Perc90":  918387,
+								"Perc99":  602585,
+								"Perc100": 843511,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
 						},
-						Count: 10,
 					},
 				},
 			},
-			"Density": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "service",
-						Verb:     "DELETE",
-						Latency: e2e.LatencyMetric{
-							Perc50: 560427,
-							Perc90: 735918,
-							Perc99: 725196,
+			"Density": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 560427,
+								"Perc90": 735918,
+								"Perc99": 725196,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "service",
+								"Verb":     "DELETE",
+							},
 						},
-						Count: 10,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  110369,
+								"Perc90":  918387,
+								"Perc99":  602585,
+								"Perc100": 843511,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
 		},
 		{
 			// Metrics from 2nd run.
-			"Load": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "node",
-						Verb:     "GET",
-						Latency: e2e.LatencyMetric{
-							Perc50: 385699,
-							Perc90: 181956,
-							Perc99: 564837,
+			"Load": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 385699,
+								"Perc90": 181956,
+								"Perc99": 564837,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "node",
+								"Verb":     "GET",
+							},
 						},
-						Count: 10,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  692132,
+								"Perc90":  697577,
+								"Perc99":  944434,
+								"Perc100": 32134,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
+					},
+				},
+			},
+			"Density": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  855293,
+								"Perc90":  647678,
+								"Perc99":  886836,
+								"Perc100": 668049,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
 		},
 	}
 
-	rightAPILatencies := []map[string]*e2e.APIResponsiveness{
+	rightJobLatencyMetrics := []map[string][]perftype.PerfData{
 		{
 			// Metrics from 1st run.
-			"Load": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "node",
-						Verb:     "GET",
-						Latency: e2e.LatencyMetric{
-							Perc50: 540908,
-							Perc90: 130667,
-							Perc99: 898554,
+			"Load": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 540908,
+								"Perc90": 130667,
+								"Perc99": 898554,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "node",
+								"Verb":     "GET",
+							},
 						},
-						Count: 10,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  975403,
+								"Perc90":  286765,
+								"Perc99":  137867,
+								"Perc100": 905950,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
-			"Density": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "service",
-						Verb:     "DELETE",
-						Latency: e2e.LatencyMetric{
-							Perc50: 781639,
-							Perc90: 741522,
-							Perc99: 284668,
+			"Density": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 781639,
+								"Perc90": 741522,
+								"Perc99": 284668,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "9",
+								"Resource": "service",
+								"Verb":     "DELETE",
+							},
 						},
-						Count: 9,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  247128,
+								"Perc90":  463653,
+								"Perc99":  180198,
+								"Perc100": 164989,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
 		},
 		{
 			// Metrics from 2nd run.
-			"Load": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "node",
-						Verb:     "GET",
-						Latency: e2e.LatencyMetric{
-							Perc50: 587656,
-							Perc90: 899073,
-							Perc99: 29665,
+			"Load": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 587656,
+								"Perc90": 899073,
+								"Perc99": 29665,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "node",
+								"Verb":     "GET",
+							},
 						},
-						Count: 10,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  270962,
+								"Perc90":  588448,
+								"Perc99":  549149,
+								"Perc100": 811366,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
-			"Density": &e2e.APIResponsiveness{
-				APICalls: []e2e.APICall{
-					{
-						Resource: "service",
-						Verb:     "DELETE",
-						Latency: e2e.LatencyMetric{
-							Perc50: 370847,
-							Perc90: 843692,
-							Perc99: 763390,
+			"Density": []perftype.PerfData{
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50": 370847,
+								"Perc90": 843692,
+								"Perc99": 763390,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Count":    "10",
+								"Resource": "service",
+								"Verb":     "DELETE",
+							},
 						},
-						Count: 10,
+					},
+				},
+				{
+					Version: "v1",
+					DataItems: []perftype.DataItem{
+						{
+							Data: map[string]float64{
+								"Perc50":  774048,
+								"Perc90":  810676,
+								"Perc99":  532709,
+								"Perc100": 200269,
+							},
+							Unit: "ms",
+							Labels: map[string]string{
+								"Metric": "pod_startup",
+							},
+						},
 					},
 				},
 			},
 		},
 	}
-
-	leftPodLatencies := []map[string]*e2e.PodStartupLatency{
-		{
-			// Metrics from 1st run.
-			"Load": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  110369,
-					Perc90:  918387,
-					Perc99:  602585,
-					Perc100: 843511,
-				},
-			},
-			"Density": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  110369,
-					Perc90:  918387,
-					Perc99:  602585,
-					Perc100: 843511,
-				},
-			},
-		},
-		{
-			// Metrics from 2nd run.
-			"Load": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  692132,
-					Perc90:  697577,
-					Perc99:  944434,
-					Perc100: 32134,
-				},
-			},
-			"Density": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  855293,
-					Perc90:  647678,
-					Perc99:  886836,
-					Perc100: 668049,
-				},
-			},
-		},
-	}
-
-	rightPodLatencies := []map[string]*e2e.PodStartupLatency{
-		{
-			// Metrics from 1st run.
-			"Load": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  975403,
-					Perc90:  286765,
-					Perc99:  137867,
-					Perc100: 905950,
-				},
-			},
-			"Density": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  247128,
-					Perc90:  463653,
-					Perc99:  180198,
-					Perc100: 164989,
-				},
-			},
-		},
-		{
-			// Metrics from 2nd run.
-			"Load": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  270962,
-					Perc90:  588448,
-					Perc99:  549149,
-					Perc100: 811366,
-				},
-			},
-			"Density": &e2e.PodStartupLatency{
-				Latency: e2e.LatencyMetric{
-					Perc50:  774048,
-					Perc90:  810676,
-					Perc99:  532709,
-					Perc100: 200269,
-				},
-			},
-		},
-	}
+	jobComparisonData := GetFlattennedComparisonData(leftJobLatencyMetrics, rightJobLatencyMetrics, 10)
 
 	expectedJobComparisonData := &JobComparisonData{
 		Data: map[MetricKey]*MetricComparisonData{
@@ -318,7 +420,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Load",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc50",
 			}: {
@@ -327,7 +429,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Load",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc90",
 			}: {
@@ -336,7 +438,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Load",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc99",
 			}: {
@@ -345,7 +447,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Load",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc100",
 			}: {
@@ -354,7 +456,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Density",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc50",
 			}: {
@@ -363,7 +465,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Density",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc90",
 			}: {
@@ -372,7 +474,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Density",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc99",
 			}: {
@@ -381,7 +483,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 			},
 			{
 				TestName:   "Density",
-				Verb:       "POD_STARTUP",
+				Verb:       "Pod-Startup",
 				Resource:   "",
 				Percentile: "Perc100",
 			}: {
@@ -391,9 +493,8 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 		},
 	}
 
-	jobComparisonData := GetFlattennedComparisonData(leftAPILatencies, rightAPILatencies, leftPodLatencies, rightPodLatencies, 10)
 	if !reflect.DeepEqual(*jobComparisonData, *expectedJobComparisonData) {
-		t.Errorf("Flattenned comparison data mismatched from what was expected")
+		t.Errorf("Flattenned comparison data mismatched from what was expected:\nReal: %v\nExpected: %v", *jobComparisonData, *expectedJobComparisonData)
 	}
 }
 

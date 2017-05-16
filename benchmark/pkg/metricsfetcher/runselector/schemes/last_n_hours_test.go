@@ -47,7 +47,6 @@ func TestGetJobRunsFromLastNHours(t *testing.T) {
 			7: false,
 			9: true,
 		},
-		MockBuildLogContents: nil,
 	}
 	expected := []int{9, 7, 3}
 

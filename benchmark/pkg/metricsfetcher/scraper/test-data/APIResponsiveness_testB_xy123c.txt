@@ -1,0 +1,31 @@
+{
+  "version": "v1",
+  "dataItems": [
+    {
+      "data": {
+        "Perc50": 16.068,
+        "Perc90": 20.138,
+        "Perc99": 45.424
+      },
+      "unit": "ms",
+      "labels": {
+        "Count": "328",
+        "Resource": "services",
+        "Verb": "DELETE"
+      }
+    },
+    {
+      "data": {
+        "Perc50": 2.633,
+        "Perc90": 4.682,
+        "Perc99": 14.187
+      },
+      "unit": "ms",
+      "labels": {
+        "Count": "9765",
+        "Resource": "nodes",
+        "Verb": "PATCH"
+      }
+    }
+  ]
+}

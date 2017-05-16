@@ -27,7 +27,8 @@ type MockJobLogUtils struct {
 	MockBuildNumbers     []int
 	MockStartTimestamps  map[int]uint64
 	MockFinishedStatuses map[int]bool
-	MockBuildLogContents map[int][]byte
+	MockFileContents     map[int]map[string][]byte
+	MockFilesWithPrefix  map[int]map[string][]string
 }
 
 // GetLatestBuildNumberForJob returns latest build number for the job.
@@ -57,11 +58,25 @@ func (utils MockJobLogUtils) GetJobRunFinishedStatus(job string, run int) (bool,
 	return value, nil
 }
 
-// GetJobRunBuildLogContents returns the contents of the build log file for the job run.
-func (utils MockJobLogUtils) GetJobRunBuildLogContents(job string, run int) ([]byte, error) {
-	value, ok := utils.MockBuildLogContents[run]
+// GetJobRunFileContents returns the contents of the file given by filepath (relative to run's root dir).
+func (utils MockJobLogUtils) GetJobRunFileContents(job string, run int, filepath string) ([]byte, error) {
+	files, ok := utils.MockFileContents[run]
 	if !ok {
-		return nil, fmt.Errorf("Run number %v not a key in the mock buildlog contents map", run)
+		return nil, fmt.Errorf("Run number %v not a 1st key in the mock file contents map", run)
 	}
-	return value, nil
+	file, ok := files[filepath]
+	if !ok {
+		return nil, fmt.Errorf("Filepath %v not a 2nd key in the mock file contents map for 1st key %v", filepath, run)
+	}
+	return file, nil
+}
+
+// ListJobRunFilesWithPrefix returns the list of files with a given path prefix in the job run's root dir.
+func (utils MockJobLogUtils) ListJobRunFilesWithPrefix(job string, run int, prefix string) ([]string, error) {
+	filesWithPrefixes, ok := utils.MockFilesWithPrefix[run]
+	if !ok {
+		return nil, fmt.Errorf("Run number %v not a 1st key in the mock files with prefix map", run)
+	}
+	filesWithPrefix, ok := filesWithPrefixes[prefix]
+	return filesWithPrefix, nil
 }

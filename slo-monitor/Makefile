@@ -13,7 +13,7 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.9.1
+TAG = 0.9.2
 REPOSITORY = google-containers
 
 all: build

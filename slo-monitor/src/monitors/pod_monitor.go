@@ -279,7 +279,12 @@ func (pm *PodStartupLatencyDataMonitor) updateMetric(key string, data *PodStartu
 		glog.V(4).Infof("Observed Pod %v creation: created %v, pulling: %v, pulled: %v, running: %v",
 			key, data.created, data.startedPulling, data.finishedPulling, data.observedRunning)
 		data.accountedFor = true
-		PodE2EStartupLatency.Observe(float64((data.observedRunning.Sub(data.created) - data.finishedPulling.Sub(data.startedPulling)) / time.Second))
+		startupTime := data.observedRunning.Sub(data.created) - data.finishedPulling.Sub(data.startedPulling)
+		if startupTime < 0 {
+			glog.Warningf("Saw negative startup time for %v: %v", key, data)
+			startupTime = 0
+		}
+		PodE2EStartupLatency.Observe(float64(startupTime / time.Second))
 	}
 }
 

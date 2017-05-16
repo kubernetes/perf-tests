@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Copyright 2017 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.5
-MAINTAINER "Shyam JVS <shyamjvs@google.com>"
+# Runner script for the benchmark tool that works when called from any path.
 
-RUN apk --no-cache add ca-certificates
+set -o errexit
+set -o nounset
+set -o pipefail
 
-ADD ["build/benchmark", "/workspace/"]
-WORKDIR "/workspace"
+BENCHMARK_ARGS=${BENCHMARK_ARGS:-} # Parameters to configure the benchmark tool.
+BENCHMARK_DIR="${GOPATH}/src/k8s.io/perf-tests/benchmark"
 
-ENTRYPOINT ["/workspace/benchmark", "--alsologtostderr"]
+# Compile the tool.
+cd ${BENCHMARK_DIR}
+make benchmark
+cd -
+
+# Run the tool with args passed to this runner.
+${BENCHMARK_DIR}/build/benchmark --alsologtostderr ${BENCHMARK_ARGS}

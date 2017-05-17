@@ -16,11 +16,7 @@ BINARY := build/benchmark
 SOURCES := $(shell find pkg -name '*.go' | grep -v "_test.go")
 TESTS := $(shell find pkg -name '*_test.go')
 
-REGISTRY := gcr.io/k8s-testimages
-IMAGE := $(REGISTRY)/benchmark
-VERSION := 0.1.0
-
-all: image
+all: benchmark
 
 godep:
 	go get -u github.com/tools/godep
@@ -34,10 +30,4 @@ test: godep $(TESTS)
 clean:
 	rm -f $(BINARY)
 
-image: benchmark
-	docker build --pull -t $(IMAGE):$(VERSION) .
-
-push:
-	gcloud docker -- push $(IMAGE):$(VERSION)
-
-.PHONY: all godep benchmark test clean image push
+.PHONY: all godep benchmark test clean

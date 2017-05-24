@@ -15,6 +15,6 @@ ClusterLoader:
       pods:
         stepping:
           stepsize: 10
-          pause: 60 
+          pause: 60s
         ratelimit:
-          delay: 100
+          delay: 100ms

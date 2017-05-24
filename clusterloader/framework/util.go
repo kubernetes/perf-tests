@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,66 +17,94 @@ limitations under the License.
 package framework
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"time"
+	"io/ioutil"
+	"path/filepath"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
-const maxRetries = 5
-
-// CreatePods creates pods in user defined namspaces with user configurable tuning sets
-func CreatePods(f *framework.Framework, appName string, ns string, labels map[string]string, spec v1.PodSpec, maxCount int, tuning *TuningSetType) {
-	for i := 0; i < maxCount; i++ {
-		framework.Logf("%v/%v : Creating pod", i+1, maxCount)
-		// Retry on pod creation failure
-		for retryCount := 0; retryCount < maxRetries; retryCount++ {
-			_, err := f.ClientSet.Core().Pods(ns).Create(&v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf(appName+"-pod-%v", i),
-					Namespace: ns,
-					Labels:    labels,
-				},
-				Spec: spec,
-			})
-			if err == nil {
-				break
-			}
-			framework.ExpectNoError(err)
+// CreateNSIfNotExists creates a namespace if it is new, otherwise it will return the existing namespace pointer
+func CreateNSIfNotExists(f *framework.Framework, namespaceName string) (*v1.Namespace, error) {
+	var ns *v1.Namespace
+	var err error
+	fullNamespace := getNamespace(f, namespaceName)
+	if fullNamespace == "" {
+		ns, err = f.CreateNamespace(namespaceName, nil)
+		if err != nil {
+			return nil, err
 		}
-		if tuning != nil {
-			// If a rate limit has been defined we wait for N ms between creation
-			if tuning.Pods.RateLimit.Delay != 0 {
-				framework.Logf("Sleeping %d ms between podcreation.", tuning.Pods.RateLimit.Delay)
-				time.Sleep(tuning.Pods.RateLimit.Delay * time.Millisecond)
-			}
-			// If a stepping tuningset has been defined in the config, we wait for the step of pods to be created, and pause
-			if tuning.Pods.Stepping.StepSize != 0 && (i+1)%tuning.Pods.Stepping.StepSize == 0 {
-				verifyRunning := f.NewClusterVerification(
-					&v1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: ns,
-						},
-						Status: v1.NamespaceStatus{},
-					},
-					framework.PodStateVerification{
-						Selectors:   labels,
-						ValidPhases: []v1.PodPhase{v1.PodRunning},
-					},
-				)
+		framework.Logf("Created new namespace: %s", namespaceName)
+	} else {
+		ns, err = f.ClientSet.CoreV1().Namespaces().Get(fullNamespace, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		framework.Logf("Namespace exists %s ", namespaceName)
+	}
+	return ns, err
+}
 
-				pods, err := verifyRunning.WaitFor(i+1, tuning.Pods.Stepping.Timeout*time.Second)
-				if err != nil {
-					framework.Failf("Error in wait... %v", err)
-				} else if len(pods) < i+1 {
-					framework.Failf("Only got %v out of %v", len(pods), i+1)
-				}
-
-				framework.Logf("We have created %d pods and are now sleeping for %d seconds", i+1, tuning.Pods.Stepping.Pause)
-				time.Sleep(tuning.Pods.Stepping.Pause * time.Second)
-			}
+// getNamespace takes the basename from the config and returns the full generated namespace name
+func getNamespace(f *framework.Framework, baseName string) string {
+	existingNamespaces, _ := f.ClientSet.Core().Namespaces().List(metav1.ListOptions{})
+	for _, value := range existingNamespaces.Items {
+		if value.GenerateName == fmt.Sprintf("e2e-tests-%v-", baseName) {
+			return value.Name
 		}
 	}
+	return ""
+}
+
+// ParseConfig unmarshalls the json file defined in the CL config into a struct
+func (cl *ClusterLoaderObject) ParseConfig() (*v1.Pod, error) {
+	pod := &v1.Pod{}
+	// If the file is defined used that as the config
+	if cl.File != "" {
+		configFile, err := ioutil.ReadFile(MakePath(cl.File))
+		if err != nil {
+			return pod, err
+		}
+
+		if err = json.Unmarshal(configFile, &pod); err != nil {
+			return pod, err
+		}
+	} else if cl.Image != "" && cl.Basename != "" {
+		// Otherwise if we have the image name use that instead
+		zero := int64(0)
+		pod.Spec = v1.PodSpec{TerminationGracePeriodSeconds: &zero, Containers: []v1.Container{
+			{
+				Name:  cl.Basename,
+				Image: cl.Image,
+			},
+		},
+		}
+	} else {
+		return pod, errors.New("Missing both config file and imagename")
+	}
+
+	return pod, nil
+}
+
+// MakePath returns fully qualfied file location as a string
+func MakePath(file string) string {
+	// Handle an empty filename.
+	if file == "" {
+		framework.Failf("No template file defined!")
+	}
+	return filepath.Join("content/", file)
+}
+
+// ConvertToLabelSet will convert the string label to a set, while also setting a default value
+func (cl *ClusterLoaderObject) ConvertToLabelSet() (labels.Set, error) {
+	if cl.Label == "" {
+		cl.Label = "purpose=test"
+	}
+	label, err := labels.ConvertSelectorToLabelsMap(cl.Label)
+	return label, err
 }

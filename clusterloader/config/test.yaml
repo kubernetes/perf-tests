@@ -1,4 +1,3 @@
-provider: local
 ClusterLoader:
   delete: true
   projects:
@@ -15,6 +14,6 @@ ClusterLoader:
       pods:
         stepping:
           stepsize: 10
-          pause: 30 
+          pause: 30s
         ratelimit:
-          delay: 100
+          delay: 100ms

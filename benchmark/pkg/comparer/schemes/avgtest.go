@@ -34,15 +34,14 @@ func CompareJobsUsingAvgTest(jobComparisonData *util.JobComparisonData, allowedR
 		leftSampleCount := len(metricData.LeftJobSample)
 		rightSampleCount := len(metricData.RightJobSample)
 		metricData.Matched = false
-		var leftRightAvgRatio float64
 		if leftSampleCount == 0 || rightSampleCount == 0 {
-			leftRightAvgRatio = math.NaN()
+			metricData.AvgRatio = math.NaN()
 		} else {
-			leftRightAvgRatio = metricData.AvgL / metricData.AvgR
-			if allowedRatioLowerBound <= leftRightAvgRatio && leftRightAvgRatio <= 1/allowedRatioLowerBound {
+			metricData.AvgRatio = metricData.AvgL / metricData.AvgR
+			if allowedRatioLowerBound <= metricData.AvgRatio && metricData.AvgRatio <= 1/allowedRatioLowerBound {
 				metricData.Matched = true
 			}
 		}
-		metricData.Comments = fmt.Sprintf("AvgRatio=%.4f\t\tN1=%v\tN2=%v", leftRightAvgRatio, leftSampleCount, rightSampleCount)
+		metricData.Comments = fmt.Sprintf("AvgRatio=%.4f\t\tN1=%v\tN2=%v", metricData.AvgRatio, leftSampleCount, rightSampleCount)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"text/tabwriter"
 
@@ -46,9 +47,9 @@ type MetricComparisonData struct {
 
 	// Below are some common statistical measures, that we would compute for the left
 	// and right job samples. They are used by some comparison schemes.
-	AvgL, AvgR     float64 // Average
-	StDevL, StDevR float64 // Standard deviation
-	MaxL, MaxR     float64 // Max value
+	AvgL, AvgR, AvgRatio float64 // Average
+	StDevL, StDevR       float64 // Standard deviation
+	MaxL, MaxR           float64 // Max value
 }
 
 // JobComparisonData is a struct holding a map with keys as the metrics' keys and
@@ -57,6 +58,9 @@ type JobComparisonData struct {
 	Data map[MetricKey]*MetricComparisonData
 }
 
+// MetricFilterFunc tells if a given MetricKey is to be filtered out.
+type MetricFilterFunc func(MetricKey, MetricComparisonData) bool
+
 // NewJobComparisonData is a constructor for JobComparisonData struct.
 func NewJobComparisonData() *JobComparisonData {
 	return &JobComparisonData{
@@ -64,16 +68,62 @@ func NewJobComparisonData() *JobComparisonData {
 	}
 }
 
-// PrettyPrint prints the job comparison data in a table form with columns aligned.
-func (j *JobComparisonData) PrettyPrint() {
+type metricKeyDataPair struct {
+	metricKey  MetricKey
+	metricData *MetricComparisonData
+}
+
+type metricKeyDataPairList []metricKeyDataPair
+
+// We define these functions to implement sort interface on metricKeyDataPairList.
+func (metricsList metricKeyDataPairList) Len() int {
+	return len(metricsList)
+}
+func (metricsList metricKeyDataPairList) Less(i, j int) bool {
+	if math.IsNaN(metricsList[i].metricData.AvgRatio) {
+		return true
+	}
+	if math.IsNaN(metricsList[j].metricData.AvgRatio) {
+		return false
+	}
+	return metricsList[i].metricData.AvgRatio <= metricsList[j].metricData.AvgRatio
+}
+func (metricsList metricKeyDataPairList) Swap(i, j int) {
+	metricsList[i], metricsList[j] = metricsList[j], metricsList[i]
+}
+
+func getMetricsSortedByAvgRatio(j *JobComparisonData) metricKeyDataPairList {
+	metricsList := make(metricKeyDataPairList, len(j.Data))
+	i := 0
+	for metricKey, metricData := range j.Data {
+		metricsList[i] = metricKeyDataPair{metricKey, metricData}
+		i++
+	}
+	sort.Sort(sort.Reverse(metricsList))
+	return metricsList
+}
+
+// PrettyPrintWithFilter prints the job comparison data in a table with columns aligned,
+// after sorting the metrics by their avg ratio and removing entries based on filter.
+func (j *JobComparisonData) PrettyPrintWithFilter(filter MetricFilterFunc) {
+	metricsList := getMetricsSortedByAvgRatio(j)
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "E2E TEST\tVERB\tRESOURCE\tSUBRESOURCE\tPERCENTILE\tMATCHED?\tCOMMENTS\n")
-	for key, data := range j.Data {
+	for _, metricPair := range metricsList {
+		key, data := metricPair.metricKey, metricPair.metricData
+		if filter(key, *data) {
+			continue
+		}
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", key.TestName, key.Verb, key.Resource, key.Subresource, key.Percentile, data.Matched, data.Comments)
 	}
 	w.Flush()
 	glog.Infof("\n%v", buf.String())
+}
+
+// PrettyPrint prints the job comparison data in a table without any filtering.
+func (j *JobComparisonData) PrettyPrint() {
+	j.PrettyPrintWithFilter(func(k MetricKey, d MetricComparisonData) bool { return false })
 }
 
 // Adds a sample value (if not NaN) to a given metric's MetricComparisonData.

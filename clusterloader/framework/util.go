@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +98,8 @@ func MakePath(file string) string {
 	if file == "" {
 		framework.Failf("No template file defined!")
 	}
-	return filepath.Join("content/", file)
+	// TODO: We should enable passing this as a flag instead of hardcoding.
+	return filepath.Join(os.Getenv("GOPATH"), "src/k8s.io/perf-tests/clusterloader/content/", file)
 }
 
 // ConvertToLabelSet will convert the string label to a set, while also setting a default value

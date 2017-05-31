@@ -114,6 +114,24 @@ func compare(jobComparisonData *util.JobComparisonData) {
 	}
 }
 
+// Pretty print results of the comparison.
+func printResults(jobComparisonData *util.JobComparisonData) {
+	glog.Infof("Metric-wise results of comparison for 99th percentile:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc99"
+	})
+	glog.Infof("")
+	glog.Infof("Metric-wise results of comparison for 90th percentile:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc90"
+	})
+	glog.Infof("")
+	glog.Infof("Metric-wise results of comparison for 50th percentile:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc50"
+	})
+}
+
 func main() {
 	// Set the tool's flags.
 	registerFlags(pflag.CommandLine)
@@ -124,8 +142,5 @@ func main() {
 	leftJobRuns, rightJobRuns := selectRuns()
 	jobComparisonData := getMetrics(leftJobRuns, rightJobRuns)
 	compare(jobComparisonData)
-
-	// Pretty print results.
-	glog.Infof("Metric-wise results of comparison:")
-	jobComparisonData.PrettyPrint()
+	printResults(jobComparisonData)
 }

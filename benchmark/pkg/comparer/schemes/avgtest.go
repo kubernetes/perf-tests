@@ -28,7 +28,7 @@ import (
 // results in the metric's object after checking ratio of the averages
 // of its left and right samples is within the allowed ratio lower bound
 // and upper bound (which is the inverse of lower bound).
-func CompareJobsUsingAvgTest(jobComparisonData *util.JobComparisonData, allowedRatioLowerBound float64) {
+func CompareJobsUsingAvgTest(jobComparisonData *util.JobComparisonData, allowedRatioLowerBound, minMetricAvgForCompare float64) {
 	jobComparisonData.ComputeStatsForMetricSamples()
 	for _, metricData := range jobComparisonData.Data {
 		leftSampleCount := len(metricData.LeftJobSample)
@@ -40,6 +40,9 @@ func CompareJobsUsingAvgTest(jobComparisonData *util.JobComparisonData, allowedR
 		} else {
 			metricData.AvgRatio = metricData.AvgL / metricData.AvgR
 			if allowedRatioLowerBound <= metricData.AvgRatio && metricData.AvgRatio <= 1/allowedRatioLowerBound {
+				metricData.Matched = true
+			}
+			if metricData.AvgL < minMetricAvgForCompare && metricData.AvgR < minMetricAvgForCompare {
 				metricData.Matched = true
 			}
 		}

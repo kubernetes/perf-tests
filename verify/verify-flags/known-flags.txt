@@ -7,6 +7,7 @@ listen-url
 log-source-mode
 match-threshold
 min-allowed-api-request-count
+min-metric-avg-for-compare
 n-hours-count
 n-runs-count
 purge-after-seconds

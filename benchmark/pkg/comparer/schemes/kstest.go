@@ -28,7 +28,8 @@ import (
 // CompareJobsUsingKSTest takes a JobComparisonData object, compares left and
 // right job samples of each metric inside it and fills in the comparison
 // results in the metric's object after running a KS test on the two samples.
-func CompareJobsUsingKSTest(jobComparisonData *util.JobComparisonData, significanceLevel float64) {
+func CompareJobsUsingKSTest(jobComparisonData *util.JobComparisonData, significanceLevel, minMetricAvgForCompare float64) {
+	jobComparisonData.ComputeStatsForMetricSamples()
 	for _, metricData := range jobComparisonData.Data {
 		leftSampleCount := len(metricData.LeftJobSample)
 		rightSampleCount := len(metricData.RightJobSample)
@@ -36,9 +37,13 @@ func CompareJobsUsingKSTest(jobComparisonData *util.JobComparisonData, significa
 		var pValue float64
 		if leftSampleCount == 0 || rightSampleCount == 0 {
 			pValue = math.NaN()
+			metricData.Matched = true
 		} else {
 			pValue = onlinestats.KS(metricData.LeftJobSample, metricData.RightJobSample)
 			if pValue >= significanceLevel {
+				metricData.Matched = true
+			}
+			if metricData.AvgL < minMetricAvgForCompare && metricData.AvgR < minMetricAvgForCompare {
 				metricData.Matched = true
 			}
 		}

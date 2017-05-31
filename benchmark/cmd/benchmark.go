@@ -39,6 +39,7 @@ var (
 	minAllowedAPIRequestCount int
 	comparisonScheme          string
 	matchThreshold            float64
+	minMetricAvgForCompare    float64
 )
 
 func registerFlags(fs *pflag.FlagSet) {
@@ -51,6 +52,7 @@ func registerFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&minAllowedAPIRequestCount, "min-allowed-api-request-count", 10, "The minimum requests count for an API call (within a particular test of a particular run) to be included for comparison")
 	fs.StringVar(&comparisonScheme, "comparison-scheme", comparer.AvgTest, fmt.Sprintf("Statistical test to be used as the algorithm for comparison. Allowed options: %v, %v", comparer.AvgTest, comparer.KSTest))
 	fs.Float64Var(&matchThreshold, "match-threshold", 0.8, "The threshold for metric comparison, interpretation depends on test used (significance level for KSTest, bound for ratio of avgs in AvgTest)")
+	fs.Float64Var(&minMetricAvgForCompare, "min-metric-avg-for-compare", 20.0, "The minimum value for a metric's avg to consider it for comparison. If in both left & right job the avg is less than this, it's directly marked as matched.")
 }
 
 // Select the runs of the left and right jobs to be used for comparison using the given run-selection scheme.
@@ -107,8 +109,8 @@ func getMetrics(leftJobRuns, rightJobRuns []int) *util.JobComparisonData {
 
 // Compare jobs using the metrics data given with the chosen comparison scheme.
 func compare(jobComparisonData *util.JobComparisonData) {
-	glog.Infof("Comparing metrics for the jobs using scheme '%v' at a threshold value of %v", comparisonScheme, matchThreshold)
-	err := comparer.CompareJobsUsingScheme(jobComparisonData, comparisonScheme, matchThreshold)
+	glog.Infof("Comparing metrics for the jobs using scheme '%v' at a threshold value of %v (with min-metric-avg-for-compare=%v)", comparisonScheme, matchThreshold, minMetricAvgForCompare)
+	err := comparer.CompareJobsUsingScheme(jobComparisonData, comparisonScheme, matchThreshold, minMetricAvgForCompare)
 	if err != nil {
 		glog.Fatalf("Failed to compare the jobs: %v", err)
 	}
@@ -116,19 +118,37 @@ func compare(jobComparisonData *util.JobComparisonData) {
 
 // Pretty print results of the comparison.
 func printResults(jobComparisonData *util.JobComparisonData) {
-	glog.Infof("Metric-wise results of comparison for 99th percentile:")
+	glog.Infof("Comparison results for 99th percentile of latency metrics:")
+	glog.Infof("Mismatched metrics:")
 	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
-		return k.Percentile != "Perc99"
+		return k.Percentile != "Perc99" || d.Matched
 	})
 	glog.Infof("")
-	glog.Infof("Metric-wise results of comparison for 90th percentile:")
+	glog.Infof("Matched metrics:")
 	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
-		return k.Percentile != "Perc90"
+		return k.Percentile != "Perc99" || !d.Matched
 	})
 	glog.Infof("")
-	glog.Infof("Metric-wise results of comparison for 50th percentile:")
+	glog.Infof("Comparison results for 90th percentile of latency metrics:")
+	glog.Infof("Mismatched metrics:")
 	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
-		return k.Percentile != "Perc50"
+		return k.Percentile != "Perc90" || d.Matched
+	})
+	glog.Infof("")
+	glog.Infof("Matched metrics:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc90" || !d.Matched
+	})
+	glog.Infof("")
+	glog.Infof("Comparison results for 50th percentile of latency metrics:")
+	glog.Infof("Mismatched metrics:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc50" || d.Matched
+	})
+	glog.Infof("")
+	glog.Infof("Matched metrics:")
+	jobComparisonData.PrettyPrintWithFilter(func(k util.MetricKey, d util.MetricComparisonData) bool {
+		return k.Percentile != "Perc50" || !d.Matched
 	})
 }
 

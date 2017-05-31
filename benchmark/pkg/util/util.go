@@ -109,13 +109,13 @@ func (j *JobComparisonData) PrettyPrintWithFilter(filter MetricFilterFunc) {
 	metricsList := getMetricsSortedByAvgRatio(j)
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "E2E TEST\tVERB\tRESOURCE\tSUBRESOURCE\tPERCENTILE\tMATCHED?\tCOMMENTS\n")
+	fmt.Fprintf(w, "E2E TEST\tVERB\tRESOURCE\tSUBRESOURCE\tPERCENTILE\tCOMMENTS\n")
 	for _, metricPair := range metricsList {
 		key, data := metricPair.metricKey, metricPair.metricData
 		if filter(key, *data) {
 			continue
 		}
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", key.TestName, key.Verb, key.Resource, key.Subresource, key.Percentile, data.Matched, data.Comments)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", key.TestName, key.Verb, key.Resource, key.Subresource, key.Percentile, data.Comments)
 	}
 	w.Flush()
 	glog.Infof("\n%v", buf.String())

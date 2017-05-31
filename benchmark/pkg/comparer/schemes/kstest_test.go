@@ -48,26 +48,32 @@ func TestCompareJobsUsingKSTest(t *testing.T) {
 				// Should never match as one side of the data is missing.
 				LeftJobSample:  []float64{1.00, 10.00, 100.00},
 				RightJobSample: []float64{},
-				Matched:        true, // Should change to false later.
+				Matched:        false, // Should change to true later.
 			},
 		},
 	}
 
 	// Check that both first and second metric match at a very low significance level.
-	CompareJobsUsingKSTest(jobComparisonData, lowSignificanceLevel)
-	if !jobComparisonData.Data[metricKey1].Matched || !jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	CompareJobsUsingKSTest(jobComparisonData, lowSignificanceLevel, 0)
+	if !jobComparisonData.Data[metricKey1].Matched || !jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for KS test at a significance level of %v", lowSignificanceLevel)
 	}
 
 	// Check that the second metric mismatches at a high significance level, while the first still matches.
-	CompareJobsUsingKSTest(jobComparisonData, highSignificanceLevel)
-	if !jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	CompareJobsUsingKSTest(jobComparisonData, highSignificanceLevel, 0)
+	if !jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for KS test at a significance level of %v", highSignificanceLevel)
 	}
 
 	// Checking validity of the statistical test, it should fail always if significance level is > 1.0 (as p-value is always <= 1.0).
-	CompareJobsUsingKSTest(jobComparisonData, extremeSignificanceLevel)
-	if jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	CompareJobsUsingKSTest(jobComparisonData, extremeSignificanceLevel, 0)
+	if jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for KS test at a significance level of %v", extremeSignificanceLevel)
+	}
+
+	// Checking validity of the test, it should fail as significance level is > 1.0, but it passes due to high enough value of min-metric-avg-for-compare.
+	CompareJobsUsingKSTest(jobComparisonData, extremeSignificanceLevel, 1.5)
+	if !jobComparisonData.Data[metricKey1].Matched || !jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
+		t.Errorf("Wrong comparison result for KS test at a significance level of %v with min-metric-avg-for-compare=1.5", extremeSignificanceLevel)
 	}
 }

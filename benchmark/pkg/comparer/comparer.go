@@ -30,15 +30,15 @@ const (
 )
 
 // CompareJobsUsingScheme is a wrapper function for various comparison schemes.
-func CompareJobsUsingScheme(jobComparisonData *util.JobComparisonData, scheme string, matchThreshold float64) error {
+func CompareJobsUsingScheme(jobComparisonData *util.JobComparisonData, scheme string, matchThreshold, minMetricAvgForCompare float64) error {
 	switch scheme {
 	case AvgTest:
 		// matchThreshold is interpreted as the bound for ratio of left and right sample avgs for this test.
-		schemes.CompareJobsUsingAvgTest(jobComparisonData, matchThreshold)
+		schemes.CompareJobsUsingAvgTest(jobComparisonData, matchThreshold, minMetricAvgForCompare)
 		return nil
 	case KSTest:
 		// matchThreshold is interpreted as the allowed significance value for this test.
-		schemes.CompareJobsUsingKSTest(jobComparisonData, matchThreshold)
+		schemes.CompareJobsUsingKSTest(jobComparisonData, matchThreshold, minMetricAvgForCompare)
 		return nil
 	default:
 		return fmt.Errorf("Unknown comparison scheme '%v'", scheme)

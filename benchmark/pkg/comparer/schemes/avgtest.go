@@ -36,12 +36,13 @@ func CompareJobsUsingAvgTest(jobComparisonData *util.JobComparisonData, allowedR
 		metricData.Matched = false
 		if leftSampleCount == 0 || rightSampleCount == 0 {
 			metricData.AvgRatio = math.NaN()
+			metricData.Matched = true
 		} else {
 			metricData.AvgRatio = metricData.AvgL / metricData.AvgR
 			if allowedRatioLowerBound <= metricData.AvgRatio && metricData.AvgRatio <= 1/allowedRatioLowerBound {
 				metricData.Matched = true
 			}
 		}
-		metricData.Comments = fmt.Sprintf("AvgRatio=%.4f\t\tN1=%v\tN2=%v", metricData.AvgRatio, leftSampleCount, rightSampleCount)
+		metricData.Comments = fmt.Sprintf("AvgL/R=%.2f\tAvgL(ms)=%.2f\tAvgR(ms)=%.2f\tN1=%v\tN2=%v", metricData.AvgRatio, metricData.AvgL, metricData.AvgR, leftSampleCount, rightSampleCount)
 	}
 }

@@ -36,6 +36,7 @@ func CompareJobsUsingKSTest(jobComparisonData *util.JobComparisonData, significa
 		var pValue float64
 		if leftSampleCount == 0 || rightSampleCount == 0 {
 			pValue = math.NaN()
+			metricData.Matched = true
 		} else {
 			pValue = onlinestats.KS(metricData.LeftJobSample, metricData.RightJobSample)
 			if pValue >= significanceLevel {

@@ -45,23 +45,23 @@ func TestCompareJobsUsingAvgTest(t *testing.T) {
 			metricKey3: {
 				LeftJobSample:  []float64{1.00, 10.00, 100.00},
 				RightJobSample: []float64{},
-				Matched:        true, // Should change to false later.
+				Matched:        false, // Should change to true later.
 			},
 		},
 	}
 
 	CompareJobsUsingAvgTest(jobComparisonData, lowAvgRatioThreshold)
-	if !jobComparisonData.Data[metricKey1].Matched || !jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	if !jobComparisonData.Data[metricKey1].Matched || !jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for Avg-based test at an allowed ratio of %v", lowAvgRatioThreshold)
 	}
 
 	CompareJobsUsingAvgTest(jobComparisonData, mediumAvgRatioThreshold)
-	if !jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	if !jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for Avg-based test at an allowed ratio of %v", mediumAvgRatioThreshold)
 	}
 
 	CompareJobsUsingAvgTest(jobComparisonData, highAvgRatioThreshold)
-	if jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || jobComparisonData.Data[metricKey3].Matched {
+	if jobComparisonData.Data[metricKey1].Matched || jobComparisonData.Data[metricKey2].Matched || !jobComparisonData.Data[metricKey3].Matched {
 		t.Errorf("Wrong comparison result for Avg-based test at an allowed ratio of %v", highAvgRatioThreshold)
 	}
 }

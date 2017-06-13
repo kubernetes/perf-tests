@@ -58,7 +58,7 @@ class Runner(object):
 
     if self.args.use_cluster_dns:
       _log.info('Using cluster DNS for tests')
-      self.args.dns_ip = '10.0.0.10'
+      self.args.dns_ip = self._get_dns_ip()
       self.attributes.add(ATTRIBUTE_CLUSTER_DNS)
 
     _log.info('DNS service IP is %s', args.dns_ip)
@@ -228,6 +228,17 @@ class Runner(object):
       self.server_node = nodes[0]
 
     _log.info('Server node is %s', self.server_node)
+  
+  def _get_dns_ip(self):
+    code, out, _ = self._kubectl(None, 'get', 'svc', '-o', 'yaml',
+                                'kube-dns', '-nkube-system')
+    if code != 0:
+      raise Exception('error gettings cluster dns ip: %d', code)
+ 
+    try:
+      return yaml.load(out)['spec']['clusterIP']
+    except:
+      raise Exception('error parsing kube dns service, could not get dns ip') 
 
   def _teardown(self):
     _log.info('Starting server teardown')

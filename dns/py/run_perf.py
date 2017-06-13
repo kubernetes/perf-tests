@@ -67,7 +67,7 @@ def parse_args():
   parser.add_argument(
       '--dns-ip', type=str, default='10.0.0.20',
       help='IP to use for the DNS service. Note: --use-cluster-dns '
-        'implicitly sets this to 10.0.0.10')
+        'implicitly sets the service-ip of kube-dns service')
   parser.add_argument(
       '-v', '--verbose', action='store_true',
       help='show verbose logging')

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.9.2
+TAG = 0.9.3
 REPOSITORY = google-containers
 
 all: build
@@ -25,7 +25,7 @@ build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go sr
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 godep go build -a -o build/slo-monitor src/main/slo-monitor.go
 
 push:
-	sudo docker build . -t gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
+	sudo docker build --pull . -t gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
 	gcloud docker -- push gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
 
 test: src

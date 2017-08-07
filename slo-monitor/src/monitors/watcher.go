@@ -29,7 +29,7 @@ const (
 	resyncPeriod = time.Duration(0)
 )
 
-// NewWatcherWithHandler creates a simple watcher that will call `h` for all comming objects
+// NewWatcherWithHandler creates a simple watcher that will call `h` for all coming objects
 func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHandler, deleteHandler func(obj interface{}) error) cache.Controller {
 	fifo := NewNoStoreQueue()
 

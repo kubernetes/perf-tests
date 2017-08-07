@@ -41,7 +41,7 @@ func podRunningReady(p *v1.Pod) (bool, error) {
 }
 
 // PodRunningReadyOrSucceeded checks whether pod p's phase is running and it has a ready
-// condition of status true or wheather the Pod already succeded.
+// condition of status true or wheather the Pod already succeeded.
 func PodRunningReadyOrSucceeded(p *v1.Pod) (bool, error) {
 	// Check if the phase is succeeded.
 	if p.Status.Phase == v1.PodSucceeded {

@@ -45,7 +45,7 @@ const (
 	testNamespace    = "netperf"
 	csvDataMarker    = "GENERATING CSV OUTPUT"
 	csvEndDataMarker = "END CSV DATA"
-	netperfImage     = "girishkalele/netperf-latest"
+	netperfImage     = "namely/netperf:latest"
 
 	runUUID          = "latest"
 	orchestratorPort = 5202

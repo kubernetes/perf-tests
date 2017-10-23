@@ -43,6 +43,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "node",
 								"Verb":     "GET",
+								"Scope":    "cluster",
 							},
 						},
 						{
@@ -57,6 +58,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Resource":    "pod",
 								"Subresource": "status",
 								"Verb":        "POST",
+								"Scope":       "namespace",
 							},
 						},
 					},
@@ -94,6 +96,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "service",
 								"Verb":     "DELETE",
+								"Scope":    "namespace",
 							},
 						},
 					},
@@ -134,6 +137,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "node",
 								"Verb":     "GET",
+								"Scope":    "cluster",
 							},
 						},
 					},
@@ -196,6 +200,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "node",
 								"Verb":     "GET",
+								"Scope":    "cluster",
 							},
 						},
 					},
@@ -233,6 +238,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "9",
 								"Resource": "service",
 								"Verb":     "DELETE",
+								"Scope":    "namespace",
 							},
 						},
 					},
@@ -273,6 +279,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "node",
 								"Verb":     "GET",
+								"Scope":    "cluster",
 							},
 						},
 					},
@@ -310,6 +317,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 								"Count":    "10",
 								"Resource": "service",
 								"Verb":     "DELETE",
+								"Scope":    "namespace",
 							},
 						},
 					},
@@ -342,6 +350,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Load",
 				Verb:       "GET",
 				Resource:   "node",
+				Scope:      "cluster",
 				Percentile: "Perc50",
 			}: {
 				LeftJobSample:  []float64{434506, 385699},
@@ -351,6 +360,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Load",
 				Verb:       "GET",
 				Resource:   "node",
+				Scope:      "cluster",
 				Percentile: "Perc90",
 			}: {
 				LeftJobSample:  []float64{17499, 181956},
@@ -360,6 +370,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Load",
 				Verb:       "GET",
 				Resource:   "node",
+				Scope:      "cluster",
 				Percentile: "Perc99",
 			}: {
 				LeftJobSample:  []float64{360726, 564837},
@@ -370,6 +381,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Verb:        "POST",
 				Resource:    "pod",
 				Subresource: "status",
+				Scope:       "namespace",
 				Percentile:  "Perc50",
 			}: {
 				LeftJobSample:  []float64{708401},
@@ -380,6 +392,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Verb:        "POST",
 				Resource:    "pod",
 				Subresource: "status",
+				Scope:       "namespace",
 				Percentile:  "Perc90",
 			}: {
 				LeftJobSample:  []float64{99265},
@@ -390,6 +403,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				Verb:        "POST",
 				Resource:    "pod",
 				Subresource: "status",
+				Scope:       "namespace",
 				Percentile:  "Perc99",
 			}: {
 				LeftJobSample:  []float64{889297},
@@ -399,6 +413,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Density",
 				Verb:       "DELETE",
 				Resource:   "service",
+				Scope:      "namespace",
 				Percentile: "Perc50",
 			}: {
 				LeftJobSample:  []float64{560427},
@@ -408,6 +423,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Density",
 				Verb:       "DELETE",
 				Resource:   "service",
+				Scope:      "namespace",
 				Percentile: "Perc90",
 			}: {
 				LeftJobSample:  []float64{735918},
@@ -417,6 +433,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 				TestName:   "Density",
 				Verb:       "DELETE",
 				Resource:   "service",
+				Scope:      "namespace",
 				Percentile: "Perc99",
 			}: {
 				LeftJobSample:  []float64{725196},
@@ -503,7 +520,7 @@ func TestGetFlattennedComparisonData(t *testing.T) {
 }
 
 func TestComputeStatsForMetricSamples(t *testing.T) {
-	metricKey := MetricKey{TestName: "xyz", Verb: "foo", Resource: "bar", Percentile: "foobar"}
+	metricKey := MetricKey{TestName: "xyz", Verb: "foo", Resource: "bar", Scope: "waw", Percentile: "foobar"}
 	jobComparisonData := &JobComparisonData{
 		Data: map[MetricKey]*MetricComparisonData{
 			metricKey: {

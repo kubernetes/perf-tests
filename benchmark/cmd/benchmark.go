@@ -43,7 +43,7 @@ var (
 )
 
 func registerFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&leftJobName, "left-job-name", "ci-kubernetes-e2e-gce-scalability", "Name of the job to be used as left hand side of comparison")
+	fs.StringVar(&leftJobName, "left-job-name", "ci-kubernetes-e2e-gci-gce-scalability", "Name of the job to be used as left hand side of comparison")
 	fs.StringVar(&rightJobName, "right-job-name", "ci-kubernetes-kubemark-100-gce", "Name of the job to be used as right hand side of comparison")
 	fs.StringVar(&logSourceMode, "log-source-mode", "gcs", fmt.Sprintf("Source mode for getting the logs. Allowed options: %v", mfutil.GCS))
 	fs.StringVar(&runSelectionScheme, "run-selection-scheme", runselector.LastNHours, fmt.Sprintf("Scheme for selecting the runs to be compared. Allowed options: %v, %v", runselector.LastNHours, runselector.LastNRuns))

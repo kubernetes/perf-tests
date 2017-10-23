@@ -1,6 +1,6 @@
 {
 	"ImportPath": "k8s.io/perf-tests/benchmark",
-	"GoVersion": "go1.7",
+	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -29,8 +29,8 @@
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/test/e2e/perftype",
-			"Comment": "v1.7.0-alpha.2-737-gca520e34a3",
-			"Rev": "ca520e34a3d73bc1b776da54826fcafacd7b82d5"
+			"Comment": "v1.9.0-alpha.1-1525-g3ae0b84e0b",
+			"Rev": "3ae0b84e0b114692dc666d9486fb032d8a33bb58"
 		}
 	]
 }

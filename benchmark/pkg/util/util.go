@@ -35,6 +35,7 @@ type MetricKey struct {
 	Verb        string // "GET","LIST",etc for API calls and "POD STARTUP" for pod startup
 	Resource    string // "nodes","pods",etc for API calls and empty value for pod startup
 	Subresource string // "status","binding",etc. Empty for pod startup and most API calls
+	Scope       string // Used for API calls: "resource" (for GETs), "namespace"/"cluster" (for LISTs).
 	Percentile  string // The percentile string ("Perc50", "Perc90", etc)
 }
 
@@ -109,13 +110,13 @@ func (j *JobComparisonData) PrettyPrintWithFilter(filter MetricFilterFunc) {
 	metricsList := getMetricsSortedByAvgRatio(j)
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "E2E TEST\tVERB\tRESOURCE\tSUBRESOURCE\tPERCENTILE\tCOMMENTS\n")
+	fmt.Fprintf(w, "E2E TEST\tVERB\tRESOURCE\tSUBRESOURCE\tSCOPE\tPERCENTILE\tCOMMENTS\n")
 	for _, metricPair := range metricsList {
 		key, data := metricPair.metricKey, metricPair.metricData
 		if filter(key, *data) {
 			continue
 		}
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", key.TestName, key.Verb, key.Resource, key.Subresource, key.Percentile, data.Comments)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", key.TestName, key.Verb, key.Resource, key.Subresource, key.Scope, key.Percentile, data.Comments)
 	}
 	w.Flush()
 	glog.Infof("\n%v", buf.String())
@@ -127,12 +128,12 @@ func (j *JobComparisonData) PrettyPrint() {
 }
 
 // Adds a sample value (if not NaN) to a given metric's MetricComparisonData.
-func (j *JobComparisonData) addSampleValue(sample float64, testName, verb, resource, subresource, percentile string, fromLeftJob bool) {
+func (j *JobComparisonData) addSampleValue(sample float64, testName, verb, resource, subresource, scope, percentile string, fromLeftJob bool) {
 	if math.IsNaN(sample) {
 		return
 	}
 	// Check if the metric exists in the map already, and add it if necessary.
-	metricKey := MetricKey{testName, verb, resource, subresource, percentile}
+	metricKey := MetricKey{testName, verb, resource, subresource, scope, percentile}
 	if _, ok := j.Data[metricKey]; !ok {
 		j.Data[metricKey] = &MetricComparisonData{}
 	}
@@ -153,11 +154,12 @@ func (j *JobComparisonData) addLatencyValue(latency *perftype.DataItem, minAllow
 	verb := latency.Labels["Verb"]
 	resource := latency.Labels["Resource"]
 	subresource := latency.Labels["Subresource"]
+	scope := latency.Labels["Scope"]
 	if latency.Labels["Metric"] == "pod_startup" {
 		verb = "Pod-Startup"
 	}
 	for percentile, value := range latency.Data {
-		j.addSampleValue(value, testName, verb, resource, subresource, percentile, fromLeftJob)
+		j.addSampleValue(value, testName, verb, resource, subresource, scope, percentile, fromLeftJob)
 	}
 }
 

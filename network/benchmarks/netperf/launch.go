@@ -45,8 +45,6 @@ const (
 	testNamespace    = "netperf"
 	csvDataMarker    = "GENERATING CSV OUTPUT"
 	csvEndDataMarker = "END CSV DATA"
-	netperfImage     = "girishkalele/netperf-latest"
-
 	runUUID          = "latest"
 	orchestratorPort = 5202
 	iperf3Port       = 5201
@@ -58,6 +56,7 @@ var (
 	hostnetworking bool
 	tag            string
 	kubeConfig     string
+	netperfImage   string
 
 	everythingSelector api.ListOptions = api.ListOptions{}
 
@@ -71,6 +70,7 @@ func init() {
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
+	flag.StringVar(&netperfImage, "image", "girishkalele/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 }
@@ -393,6 +393,7 @@ func main() {
 	fmt.Println("Parameters :")
 	fmt.Println("Iterations      : ", iterations)
 	fmt.Println("Host Networking : ", hostnetworking)
+	fmt.Println("Docker image    : ", netperfImage)
 	fmt.Println("------------------------------------------------------------")
 
 	var c *kubernetes.Clientset

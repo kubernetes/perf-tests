@@ -5,7 +5,7 @@ A standardized benchmark to measure Kubernetes networking performance on multipl
 
 ## Implementation and Test Methodology
 
-The benchmark can be executed via a single Go binary invocation that triggers all the automated testing located in the orchestrator and worker pods as seen below. The test uses a custom docker container that has the go binary and iperf3 and other tools built into it. 
+The benchmark can be executed via a single Go binary invocation that triggers all the automated testing located in the orchestrator and worker pods as seen below. The test uses a custom docker container that has the go binary and iperf3 and other tools built into it.
 The orchestrator pod coordinates the worker pods to run tests in serial order for the 4 scenarios described below, at MTUs (MSS tuning for TCP and direct packet size tuning for UDP).
 Using node labels, the Worker Pods 1 and 2 are placed on the same Kubernetes node, and Worker Pod 3 is placed on a different node. The nodes all communicate with the orchestrator pod service using simple golang rpcs and request work items. A minimum of two Kubernetes worker nodes are necessary for this test.
 
@@ -75,12 +75,12 @@ We generate a graph SVG file using matplotlib from the csv data (and also PNG an
 
 ![](images/netperf.svg)
 
-* Bar Charts 
+* Bar Charts
 
 Ignoring MSS, and using the Maximum bandwidth numbers, Bar Charts might be a better tool to compare performance:
 
 ![](images/netperf.bar.svg)
- 
+
 Importing the CSV data into Google sheets and graphing it also works.
 
 ## Optional: Data upload to GCS storage buckets
@@ -94,9 +94,9 @@ Command line parameters to the launch.go can switch the test mode to incorporate
 * host networking
 
  The command line option * --hostnetworking * will inject the *hostNetwork: true* specifier into all the podSpec templates.
- 
+
  ```bash
- 
+
  $ go run ./launch.go -h
  Usage of launch.go:
 
@@ -104,9 +104,11 @@ Command line parameters to the launch.go can switch the test mode to incorporate
         (boolean) Enable Host Networking Mode for PODs
   -iterations int
         Number of iterations to run (default 1)
+  -image string
+        Docker image used to run the network tests (default "girishkalele/netperf-latest")
 
  $ go run ./launch.go --hostnetworking --iterations 1
- 
+
  ```
 
 

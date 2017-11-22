@@ -211,8 +211,7 @@ func (pm *PodStartupLatencyDataMonitor) handlePodDelete(p *v1.Pod) {
 	defer pm.Unlock()
 
 	key := getPodKey(p)
-	data, ok := pm.PodStartupData[key]
-	if !ok {
+	data, ok := pm.PodStartupData[key]; !ok {
 		data = PodStartupMilestones{}
 		data.startedPulling = time.Unix(0, 0)
 	}
@@ -245,7 +244,7 @@ func (pm *PodStartupLatencyDataMonitor) handlePulledImageEvent(key string, e *v1
 
 	ok := false
 	data := PodStartupMilestones{}
-	if data, ok = pm.PodStartupData[key]; ok {
+	if data, ok = pm.PodStartupData[key]; !ok {
 		data.startedPulling = time.Unix(0, 0)
 		data.needPulled = -1
 	}

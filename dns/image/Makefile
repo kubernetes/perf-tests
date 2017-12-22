@@ -14,7 +14,7 @@
 
 ARCH ?= amd64
 TAG ?= 1.0
-REGISTRY ?= gcr.io/google_containers
+REGISTRY ?= k8s.gcr.io
 DOCKER ?= docker
 
 BUILD_IMAGE := kube-dns-perf-client-build

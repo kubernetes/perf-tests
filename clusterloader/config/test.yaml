@@ -6,7 +6,7 @@ ClusterLoader:
       tuning: default
       pods:
         - num: 50
-          image: gcr.io/google_containers/pause-amd64:3.0
+          image: k8s.gcr.io/pause-amd64:3.0
           basename: pausepods
           file: pod-pause.json
   tuningsets:

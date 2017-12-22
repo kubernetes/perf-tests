@@ -29,7 +29,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
       - name: kubedns
-        image: gcr.io/google_containers/kubedns-amd64:1.9
+        image: k8s.gcr.io/kubedns-amd64:1.9
         imagePullPolicy: Always
         resources:
           requests:
@@ -68,7 +68,7 @@ spec:
           name: metrics
           protocol: TCP
       - name: dnsmasq
-        image: gcr.io/google_containers/kube-dnsmasq-amd64:1.4
+        image: k8s.gcr.io/kube-dnsmasq-amd64:1.4
         livenessProbe:
           httpGet:
             path: /healthz-dnsmasq
@@ -94,7 +94,7 @@ spec:
           requests:
             cpu: 100m
       - name: dnsmasq-metrics
-        image: gcr.io/google_containers/dnsmasq-metrics-amd64:1.0
+        image: k8s.gcr.io/dnsmasq-metrics-amd64:1.0
         livenessProbe:
           httpGet:
             path: /metrics
@@ -115,7 +115,7 @@ spec:
           requests:
             memory: 10Mi
       - name: healthz
-        image: gcr.io/google_containers/exechealthz-amd64:1.2
+        image: k8s.gcr.io/exechealthz-amd64:1.2
         resources:
           limits:
             memory: 50Mi

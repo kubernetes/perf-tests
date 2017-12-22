@@ -12,7 +12,7 @@
         "containers": [
             {
                 "name": "pause-amd64",
-                "image": "gcr.io/google_containers/pause-amd64:3.0",
+                "image": "k8s.gcr.io/pause-amd64:3.0",
                 "ports": [
                     {
                         "containerPort": 8080,

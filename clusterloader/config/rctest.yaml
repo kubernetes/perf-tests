@@ -6,7 +6,7 @@ ClusterLoader:
       tuning: default
       RCs:
         - num: 5
-          image: gcr.io/google_containers/pause-amd64:3.0
+          image: k8s.gcr.io/pause-amd64:3.0
           basename: pausepods
           label: purpose=test
     - num: 2
@@ -14,14 +14,14 @@ ClusterLoader:
       tuning: default
       RCs:
         - num: 5
-          image: gcr.io/google_containers/pause-amd64:3.0
+          image: k8s.gcr.io/pause-amd64:3.0
           basename: pausepods
     - num: 2
       basename: zip
       tuning: default
       RCs:
         - num: 1
-          image: gcr.io/google_containers/pause-amd64:3.0
+          image: k8s.gcr.io/pause-amd64:3.0
           basename: grumble
           label: app=grumble
   tuningsets:

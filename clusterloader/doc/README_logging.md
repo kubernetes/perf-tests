@@ -22,7 +22,7 @@ ClusterLoader:
       tuning: default
       pods:
         - num: 20
-          image: gcr.io/google_containers/busybox:1.24
+          image: k8s.gcr.io/busybox:1.24
           basename: busybox
           file: pod-logger.json
   tuningsets:
@@ -54,7 +54,7 @@ map[string]string{}
 Key/Value Store:
 map[string]interface {}{}
 Config:
-map[string]interface {}{"provider":"local", "clusterloader":map[interface {}]interface {}{"delete":false, "projects":[]interface {}{map[interface {}]interface {}{"num":1, "basename":"clusterproject", "tuning":"default", "pods":[]interface {}{map[interface {}]interface {}{"num":15, "image":"gcr.io/google_containers/busybox:1.24", "basename":"busybox", "file":"pod-logger.json"}}}}, "tuningsets":[]interface {}{map[interface {}]interface {}{"name":"default", "pods":map[interface {}]interface {}{"stepping":map[interface {}]interface {}{"stepsize":10, "pause":60}, "ratelimit":map[interface {}]interface {}{"delay":100}}}}}}
+map[string]interface {}{"provider":"local", "clusterloader":map[interface {}]interface {}{"delete":false, "projects":[]interface {}{map[interface {}]interface {}{"num":1, "basename":"clusterproject", "tuning":"default", "pods":[]interface {}{map[interface {}]interface {}{"num":15, "image":"k8s.gcr.io/busybox:1.24", "basename":"busybox", "file":"pod-logger.json"}}}}, "tuningsets":[]interface {}{map[interface {}]interface {}{"name":"default", "pods":map[interface {}]interface {}{"stepping":map[interface {}]interface {}{"stepsize":10, "pause":60}, "ratelimit":map[interface {}]interface {}{"delay":100}}}}}}
 Defaults:
 map[string]interface {}{}
 I0206 16:19:45.676020   28369 e2e.go:187] Starting e2e run "b109c1db-ec7f-11e6-81c1-68f728fb771d" on Ginkgo node 1
@@ -89,7 +89,7 @@ STEP: Waiting for a default service account to be provisioned in namespace
   /home/rlourenc/workspace/go/src/github.com/kubernetes/perf-tests/clusterloader/cluster_loader.go:93
 Feb  6 16:19:45.750: INFO: Our tuning set is: &{default {{10 60ns 0s} {100ns}} {{0 0s 0s} {0s}}}
 Feb  6 16:19:45.767: INFO: 1/1 : Created new namespace: clusterproject0
-Feb  6 16:19:45.767: INFO: The loaded config file is: [{Name:logger-busybox Image:gcr.io/google_containers/busybox:1.24 Command:[/bin/sh -c while true; do logger -s LOGGER_POD; sleep 1; done] Args:[] WorkingDir: Ports:[{Name: HostPort:0 ContainerPort:8080 Protocol:TCP HostIP:}] Env:[] Resources:{Limits:map[] Requests:map[]} VolumeMounts:[{Name:dev-log ReadOnly:false MountPath:/dev/log SubPath:}] LivenessProbe:nil ReadinessProbe:nil Lifecycle:nil TerminationMessagePath:/dev/termination-log ImagePullPolicy:IfNotPresent SecurityContext:&SecurityContext{Capabilities:&Capabilities{Add:[],Drop:[],},Privileged:*true,SELinuxOptions:nil,RunAsUser:nil,RunAsNonRoot:nil,ReadOnlyRootFilesystem:nil,} Stdin:false StdinOnce:false TTY:false}]
+Feb  6 16:19:45.767: INFO: The loaded config file is: [{Name:logger-busybox Image:k8s.gcr.io/busybox:1.24 Command:[/bin/sh -c while true; do logger -s LOGGER_POD; sleep 1; done] Args:[] WorkingDir: Ports:[{Name: HostPort:0 ContainerPort:8080 Protocol:TCP HostIP:}] Env:[] Resources:{Limits:map[] Requests:map[]} VolumeMounts:[{Name:dev-log ReadOnly:false MountPath:/dev/log SubPath:}] LivenessProbe:nil ReadinessProbe:nil Lifecycle:nil TerminationMessagePath:/dev/termination-log ImagePullPolicy:IfNotPresent SecurityContext:&SecurityContext{Capabilities:&Capabilities{Add:[],Drop:[],},Privileged:*true,SELinuxOptions:nil,RunAsUser:nil,RunAsNonRoot:nil,ReadOnlyRootFilesystem:nil,} Stdin:false StdinOnce:false TTY:false}]
 Feb  6 16:19:45.767: INFO: 1/15 : Creating pod
 Feb  6 16:19:45.771: INFO: Sleeping 100 ms between podcreation.
 Feb  6 16:19:45.871: INFO: 2/15 : Creating pod

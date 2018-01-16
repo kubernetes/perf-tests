@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: slo-monitor
-        image: gcr.io/google-containers/slo-monitor:0.9
+        image: gcr.io/google-containers/slo-monitor:0.10.0
         command:
           - /slo-monitor
           -  --alsologtostderr=true
@@ -34,3 +34,4 @@ spec:
             cpu: 300m
             memory: 100Mi
       restartPolicy: Always
+      serviceAccountName: slo-monitor

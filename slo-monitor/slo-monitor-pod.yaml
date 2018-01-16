@@ -11,7 +11,7 @@ spec:
   hostNetwork: true
   containers:
   - name: slo-monitor
-    image: gcr.io/google-containers/slo-monitor:0.9.1
+    image: gcr.io/google-containers/slo-monitor:0.10.0
     command:
       - /slo-monitor
       -  --alsologtostderr=true

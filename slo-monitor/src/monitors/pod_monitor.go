@@ -40,6 +40,8 @@ import (
 const (
 	// PodE2EStartupLatencyKey is a key for pod startup latency monitoring metric.
 	PodE2EStartupLatencyKey = "slomonitor_pod_e2e_startup_latency_seconds"
+	// PodFullStartupLatencyKey is a key for pod startup latency monitoring metric including pull times.
+	PodFullStartupLatencyKey = "slomonitor_pod_full_startup_latency_seconds"
 )
 
 var (
@@ -51,6 +53,15 @@ var (
 			Buckets: prometheus.LinearBuckets(0.5, 0.25, 50),
 		},
 	)
+
+	// PodFullStartupLatency is a prometheus metric for monitoring pod startup latency including image pull times.
+	PodFullStartupLatency = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    PodFullStartupLatencyKey,
+			Help:    "Pod e2e startup latencies in milliseconds, with image pull times",
+			Buckets: prometheus.LinearBuckets(0.5, 0.5, 100),
+		},
+	)
 )
 
 var registerMetrics sync.Once
@@ -59,6 +70,7 @@ var registerMetrics sync.Once
 func Register() {
 	registerMetrics.Do(func() {
 		prometheus.MustRegister(PodE2EStartupLatency)
+		prometheus.MustRegister(PodFullStartupLatency)
 	})
 }
 
@@ -104,7 +116,7 @@ func NewPodStartupLatencyDataMonitor(c clientset.Interface, purgeAfter time.Dura
 }
 
 // Run starts a PodStartupLatencyDataMonitor: it creates all watches, populates PodStartupData and updates
-// PodE2EStartupLatency metric
+// PodE2EStartupLatency and PodFullStartupLatency metrics
 func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
@@ -279,12 +291,14 @@ func (pm *PodStartupLatencyDataMonitor) updateMetric(key string, data *PodStartu
 		glog.V(4).Infof("Observed Pod %v creation: created %v, pulling: %v, pulled: %v, running: %v",
 			key, data.created, data.startedPulling, data.finishedPulling, data.observedRunning)
 		data.accountedFor = true
-		startupTime := data.observedRunning.Sub(data.created) - data.finishedPulling.Sub(data.startedPulling)
+		fullStartupTime := data.observedRunning.Sub(data.created)
+		startupTime := fullStartupTime - data.finishedPulling.Sub(data.startedPulling)
 		if startupTime < 0 {
 			glog.Warningf("Saw negative startup time for %v: %v", key, data)
 			startupTime = 0
 		}
 		PodE2EStartupLatency.Observe(float64(startupTime / time.Second))
+		PodFullStartupLatency.Observe(float64(fullStartupTime / time.Second))
 	}
 }
 

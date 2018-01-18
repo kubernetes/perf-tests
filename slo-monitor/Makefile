@@ -13,15 +13,12 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.9.3
+TAG = 0.10.0
 REPOSITORY = google-containers
 
 all: build
 
-deps:
-	go get -u github.com/tools/godep
-
-build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go src/monitors/watcher.go src/main/slo-monitor.go deps
+build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go src/monitors/watcher.go src/main/slo-monitor.go
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 godep go build -a -o build/slo-monitor src/main/slo-monitor.go
 
 push:

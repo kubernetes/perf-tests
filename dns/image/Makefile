@@ -14,7 +14,7 @@
 
 ARCH ?= amd64
 TAG ?= 1.0
-REGISTRY ?= k8s.gcr.io
+REGISTRY ?= staging-k8s.gcr.io
 DOCKER ?= docker
 
 BUILD_IMAGE := kube-dns-perf-client-build

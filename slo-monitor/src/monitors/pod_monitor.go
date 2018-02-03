@@ -49,7 +49,7 @@ var (
 	PodE2EStartupLatency = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    PodE2EStartupLatencyKey,
-			Help:    "Pod e2e startup latencies in milliseconds, without image pull times",
+			Help:    "Pod e2e startup latencies in seconds, without image pull times",
 			Buckets: prometheus.LinearBuckets(0.5, 0.25, 50),
 		},
 	)
@@ -58,7 +58,7 @@ var (
 	PodFullStartupLatency = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    PodFullStartupLatencyKey,
-			Help:    "Pod e2e startup latencies in milliseconds, with image pull times",
+			Help:    "Pod e2e startup latencies in seconds, with image pull times",
 			Buckets: prometheus.LinearBuckets(0.5, 0.5, 100),
 		},
 	)
@@ -223,8 +223,9 @@ func (pm *PodStartupLatencyDataMonitor) handlePodDelete(p *v1.Pod) {
 	defer pm.Unlock()
 
 	key := getPodKey(p)
-	data, ok := pm.PodStartupData[key]
-	if !ok {
+	ok := false
+	data := PodStartupMilestones{}
+	if data, ok = pm.PodStartupData[key]; !ok {
 		data = PodStartupMilestones{}
 		data.startedPulling = time.Unix(0, 0)
 	}
@@ -297,8 +298,8 @@ func (pm *PodStartupLatencyDataMonitor) updateMetric(key string, data *PodStartu
 			glog.Warningf("Saw negative startup time for %v: %v", key, data)
 			startupTime = 0
 		}
-		PodE2EStartupLatency.Observe(float64(startupTime / time.Second))
-		PodFullStartupLatency.Observe(float64(fullStartupTime / time.Second))
+		PodE2EStartupLatency.Observe(startupTime.Seconds())
+		PodFullStartupLatency.Observe(fullStartupTime.Seconds())
 	}
 }
 

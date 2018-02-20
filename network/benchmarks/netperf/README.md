@@ -6,7 +6,7 @@ A standardized benchmark to measure Kubernetes networking performance on multipl
 ## Implementation and Test Methodology
 
 The benchmark can be executed via a single Go binary invocation that triggers all the automated testing located in the orchestrator and worker pods as seen below. The test uses a custom docker container that has the go binary and iperf3 and other tools built into it.
-The orchestrator pod coordinates the worker pods to run tests in serial order for the 4 scenarios described below, at MTUs (MSS tuning for TCP and direct packet size tuning for UDP).
+The orchestrator pod coordinates the worker pods to run tests in serial order for the 5 scenarios described below, at MTUs (MSS tuning for TCP and direct packet size tuning for UDP).
 Using node labels, the Worker Pods 1 and 2 are placed on the same Kubernetes node, and Worker Pod 3 is placed on a different node. The nodes all communicate with the orchestrator pod service using simple golang rpcs and request work items. A minimum of two Kubernetes worker nodes are necessary for this test.
 
 ![](images/BenchmarkingKubernetesNetworkingPerformance.svg)
@@ -32,7 +32,7 @@ Worker 3 to Worker 2 traffic tests using Worker 2 Cluster/Virtual IP.
 * Same VM Pod Hairpin to itself using Cluster IP
 
 The orchestrator and worker pods run independently of the initiator script, with the orchestrator pod sending work items to workers till the testcase schedule is complete.
-The iperf output (both TPC and UDP modes) and the netperf TCP output from all worker nodes is uploaded to the orchestrator pod where it is filtered and the results are written to netperf.csv.
+The iperf output (both TCP and UDP modes) and the netperf TCP output from all worker nodes is uploaded to the orchestrator pod where it is filtered and the results are written to netperf.csv.
 The launch script then extracts the netperf.csv file and writes it to local disk. All units in the csv file are in Gbits/second.
 All Kubernetes entities are created under the “netperf” namespace.
 

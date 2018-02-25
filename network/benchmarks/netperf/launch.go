@@ -52,11 +52,13 @@ const (
 )
 
 var (
-	iterations     int
-	hostnetworking bool
-	tag            string
-	kubeConfig     string
-	netperfImage   string
+	iterations       int
+	hostnetworking   bool
+	tag              string
+	kubeConfig       string
+	netperfImage     string
+	nodelabel        string
+	nodelabelMatcher string
 
 	everythingSelector api.ListOptions = api.ListOptions{}
 
@@ -71,6 +73,8 @@ func init() {
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "girishkalele/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&nodelabel, "nodelabel", "", "Nodelabel to distribute the pods used for the network tests")
+	flag.StringVar(&nodelabelMatcher, "diff", "", "Matcher for the Nodelabel e.g. \"equal\" or \"diff\". This will only be evaluated if Nodelabel is set")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 }
@@ -387,13 +391,65 @@ func executeTests(c *kubernetes.Clientset) bool {
 	return false
 }
 
+func selectNodes(nodes *api.NodeList) (api.Node, api.Node, error) {
+	if nodes == nil {
+		return api.Node{}, api.Node{}, fmt.Errorf("Error fetching nodes")
+	}
+
+	if len(nodes.Items) < 2 {
+		return api.Node{}, api.Node{}, fmt.Errorf("Insufficient number of nodes for test (need minimum 2 nodes)")
+	}
+
+	if nodelabel == "" {
+		return nodes.Items[0], nodes.Items[1], nil
+	}
+
+	if nodelabelMatcher != "equal" && nodelabelMatcher != "diff" {
+		return api.Node{}, api.Node{}, fmt.Errorf("%s unkown nodelabelMatcher choose \"equal\" or \"diff\"\n", nodelabelMatcher)
+	}
+
+	primaryNode := api.Node{}
+	secondaryNode := api.Node{}
+	primaryNodelabelValue := ""
+
+	for _, node := range nodes.Items {
+		labelValue, ok := node.ObjectMeta.Labels[nodelabel]
+
+		if !ok {
+			continue
+		}
+
+		if primaryNodelabelValue == "" {
+			primaryNode = node
+			primaryNodelabelValue = labelValue
+			continue
+		}
+
+		if nodelabelMatcher == "equal" && primaryNodelabelValue == labelValue {
+			secondaryNode = node
+			break
+		} else if nodelabelMatcher == "diff" && primaryNodelabelValue != labelValue {
+			secondaryNode = node
+			break
+		}
+	}
+
+	if primaryNode.GetName() == "" || secondaryNode.GetName() == "" {
+		return api.Node{}, api.Node{}, fmt.Errorf("Insufficient number of nodes for test (need minimum 2 nodes) for label %s and matcher %s\n", nodelabel, nodelabelMatcher)
+	}
+
+	return primaryNode, secondaryNode, nil
+}
+
 func main() {
 	flag.Parse()
 	fmt.Println("Network Performance Test")
 	fmt.Println("Parameters :")
-	fmt.Println("Iterations      : ", iterations)
-	fmt.Println("Host Networking : ", hostnetworking)
-	fmt.Println("Docker image    : ", netperfImage)
+	fmt.Println("Iterations                         : ", iterations)
+	fmt.Println("Host Networking                    : ", hostnetworking)
+	fmt.Println("Docker image                       : ", netperfImage)
+	fmt.Println("Nodelabel to distribute pods       : ", nodelabel)
+	fmt.Println("NodelabelMatcher to distribute pods: ", nodelabelMatcher)
 	fmt.Println("------------------------------------------------------------")
 
 	var c *kubernetes.Clientset
@@ -401,16 +457,11 @@ func main() {
 		fmt.Println("Failed to setup REST client to Kubernetes cluster")
 		return
 	}
-	nodes := getMinionNodes(c)
-	if nodes == nil {
+
+	primaryNode, secondaryNode, err := selectNodes(getMinionNodes(c))
+	if err != nil {
 		return
 	}
-	if len(nodes.Items) < 2 {
-		fmt.Println("Insufficient number of nodes for test (need minimum 2 nodes)")
-		return
-	}
-	primaryNode = nodes.Items[0]
-	secondaryNode = nodes.Items[1]
 	fmt.Printf("Selected primary,secondary nodes = (%s, %s)\n", primaryNode.GetName(), secondaryNode.GetName())
 	executeTests(c)
 	cleanup(c)

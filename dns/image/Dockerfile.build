@@ -1,7 +1,6 @@
 FROM alpine
 
-RUN apk update && \
-    apk add \
+RUN apk add --update \
 	bind \
 	bind-dev \
 	bind-libs \
@@ -9,4 +8,5 @@ RUN apk update && \
 	libcap-dev \
 	make \
 	musl-dev \
-	openssl-dev
+	openssl-dev \
+    libxml2-dev

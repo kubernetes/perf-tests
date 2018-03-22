@@ -70,7 +70,7 @@ func init() {
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
-	flag.StringVar(&netperfImage, "image", "girishkalele/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 }

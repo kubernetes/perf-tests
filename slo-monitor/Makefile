@@ -21,8 +21,10 @@ all: build
 build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go src/monitors/watcher.go src/main/slo-monitor.go
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 godep go build -a -o build/slo-monitor src/main/slo-monitor.go
 
+container: build
+	docker build --pull . -t gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
+
 push:
-	sudo docker build --pull . -t gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
 	gcloud docker -- push gcr.io/$(REPOSITORY)/slo-monitor:$(TAG)
 
 test: src

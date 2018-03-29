@@ -28,8 +28,8 @@ from data import Parser, ResultDb
 from params import ATTRIBUTE_CLUSTER_DNS, Inputs, TestCases
 
 _log = logging.getLogger(__name__)
-_app_label = 'app=kube-dns-perf-server'
-_client_podname = 'kube-dns-perf-client'
+_app_label = 'app=dns-perf-server'
+_client_podname = 'dns-perf-client'
 
 def add_prefix(prefix, text):
   return '\n'.join([prefix + l for l in text.split('\n')])
@@ -45,9 +45,12 @@ class Runner(object):
     """
     self.args = args
     self.deployment_yaml = yaml.load(open(self.args.deployment_yaml, 'r'))
+    self.configmap_yaml = yaml.load(open(self.args.configmap_yaml, 'r')) if \
+      self.args.configmap_yaml else None
     self.service_yaml = yaml.load(open(self.args.service_yaml, 'r'))
     self.dnsperf_yaml = yaml.load(open(self.args.dnsperf_yaml, 'r'))
     self.test_params = TestCases.load_from_file(args.params)
+
 
     self.server_node = None
     self.client_node = None
@@ -79,27 +82,36 @@ class Runner(object):
       self._reset_client()
 
       last_deploy_yaml = None
+      last_config_yaml = None
       for test_case in test_cases:
         try:
-          inputs = Inputs(self.deployment_yaml,
+          inputs = Inputs(self.deployment_yaml, self.configmap_yaml,
                           ['/dnsperf', '-s', self.args.dns_ip])
           test_case.configure(inputs)
           # pin server to a specific node
           inputs.deployment_yaml['spec']['template']['spec']['nodeName'] = \
               self.server_node
 
-          if not self.args.use_cluster_dns and \
-               yaml.dump(inputs.deployment_yaml) != yaml.dump(last_deploy_yaml):
+          if not self.args.use_cluster_dns and (
+              yaml.dump(inputs.deployment_yaml) !=
+              yaml.dump(last_deploy_yaml) or
+              yaml.dump(inputs.configmap_yaml) !=
+              yaml.dump(last_config_yaml)):
             _log.info('Creating server with new parameters')
             self._teardown()
             self._create(inputs.deployment_yaml)
             self._create(self.service_yaml)
+            if self.configmap_yaml is not None:
+              self._create(inputs.configmap_yaml)
             self._wait_for_status(True)
 
           self._run_perf(test_case, inputs)
           last_deploy_yaml = inputs.deployment_yaml
+          last_config_yaml = inputs.configmap_yaml
+
         except Exception:
-          _log.info('Exception caught during run, cleaning up')
+          _log.info('Exception caught during run, cleaning up. %s',
+                    traceback.format_exc())
           self._teardown()
           self._teardown_client()
           raise
@@ -132,6 +144,7 @@ class Runner(object):
     return proc.wait(), out, err
 
   def _create(self, yaml_obj):
+    _log.debug('applying yaml: %s', yaml.dump(yaml_obj))
     ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')
     if ret != 0:
       _log.error('Could not create dns: %d\nstdout:\n%s\nstderr:%s\n',
@@ -203,7 +216,7 @@ class Runner(object):
     nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
              if not ('unschedulable' in n['spec'] \
                  and n['spec']['unschedulable'])]
-    if len(nodes) < 2:
+    if len(nodes) < 2 and not self.args.single_node:
       raise Exception('you need 2 or more worker nodes to run the perf test')
 
     if self.args.client_node:
@@ -211,6 +224,8 @@ class Runner(object):
         raise Exception('%s is not a valid node' % self.args.client_node)
       _log.info('Manually selected client_node')
       self.client_node = self.args.client_node
+    elif self.args.single_node:
+      self.client_node = nodes[0]
     else:
       self.client_node = nodes[1]
 
@@ -245,6 +260,7 @@ class Runner(object):
 
     self._kubectl(None, 'delete', 'deployments', '-l', _app_label)
     self._kubectl(None, 'delete', 'services', '-l', _app_label)
+    self._kubectl(None, 'delete', 'configmap', '-l', _app_label)
 
     self._wait_for_status(False)
 
@@ -276,7 +292,7 @@ class Runner(object):
   def _copy_query_files(self):
     _log.info('Copying query files to client')
     tarfile_contents = subprocess.check_output(
-        ['/bin/tar', '-czf', '-', self.args.query_dir])
+        ['tar', '-czf', '-', self.args.query_dir])
     code, _, _ = self._kubectl(
         tarfile_contents,
         'exec', '-i', _client_podname, '--', 'tar', '-xzf', '-')
@@ -286,7 +302,7 @@ class Runner(object):
 
   def _teardown_client(self):
     _log.info('Starting client teardown')
-    self._kubectl(None, 'delete', 'pod/kube-dns-perf-client')
+    self._kubectl(None, 'delete', 'pod/dns-perf-client')
 
     while True:
       code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)

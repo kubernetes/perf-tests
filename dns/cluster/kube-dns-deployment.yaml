@@ -15,16 +15,16 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: kube-dns-perf-server
+  name: dns-perf-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kube-dns-perf-server
+      app: dns-perf-server
   template:
     metadata:
       labels:
-        app: kube-dns-perf-server
+        app: dns-perf-server
     spec:
       terminationGracePeriodSeconds: 1
       containers:

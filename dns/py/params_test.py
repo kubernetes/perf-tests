@@ -42,6 +42,40 @@ spec:
   """)
 
 
+def make_mock_coredns_configmap_yaml():
+  return yaml.load("""
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          upstream
+          fallthrough in-addr.arpa ip6.arpa
+        }
+        prometheus :9153
+        proxy . /etc/resolv.conf
+        cache 30 {
+          success 1000
+          denial 1000
+        }
+    }
+  """)
+
+def make_mock_coredns_deployment_yaml():
+  return yaml.load("""
+spec:
+  template:
+    spec:
+      containers:
+      - name: coredns
+        args: []
+        resources:
+          limits:
+            cpu: 0m
+  """)
+
 class ParamsTest(unittest.TestCase):
   def test_params(self):
     values = {
@@ -53,8 +87,10 @@ class ParamsTest(unittest.TestCase):
         'run_length_seconds': 120,
     }
 
-    inputs = Inputs(make_mock_yaml(), [])
+    inputs = Inputs(make_mock_yaml(), None, [])
     for param in PARAMETERS:
+      if param.name not in values:
+        continue
       param.set(inputs, values[param.name])
 
     self.assertEquals(
@@ -73,6 +109,32 @@ class ParamsTest(unittest.TestCase):
         '-l,120,-Q,400,-d,/queries/abc',
         ','.join(inputs.dnsperf_cmdline))
 
+  def test_coredns_params(self):
+    values = {
+        'coredns_cpu': 100,
+        'coredns_cache': 200,
+    }
+
+    inputs = Inputs(make_mock_coredns_deployment_yaml(),
+                    make_mock_coredns_configmap_yaml(), [])
+
+    for param in PARAMETERS:
+      if param.name not in values:
+        continue
+      param.set(inputs, values[param.name])
+
+      self.assertEquals(
+          '100m',
+          inputs.deployment_yaml['spec']['template']['spec']['containers']
+          [0]['resources']['limits']['cpu'])
+      self.assertTrue(
+          """
+    cache 30 {
+      success 200
+      denial 200
+    }"""
+          in inputs.configmap_yaml['data']['Corefile'])
+
   def test_null_params(self):
     # These should result in no limits.
     values = {
@@ -84,8 +146,10 @@ class ParamsTest(unittest.TestCase):
         'run_length_seconds': 120,
     }
 
-    inputs = Inputs(make_mock_yaml(), [])
+    inputs = Inputs(make_mock_yaml(), None, [])
     for param in PARAMETERS:
+      if param.name not in values:
+        continue
       param.set(inputs, values[param.name])
 
     self.assertTrue(

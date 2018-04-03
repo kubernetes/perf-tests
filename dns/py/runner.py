@@ -22,28 +22,29 @@ import time
 import traceback
 import yaml
 
-
 from data import Parser, ResultDb
 from params import ATTRIBUTE_CLUSTER_DNS, Inputs, TestCases
+
 
 _log = logging.getLogger(__name__)
 _app_label = 'app=kube-dns-perf-server'
 _client_podname = 'kube-dns-perf-client'
 
-
 def add_prefix(prefix, text):
-    return '\n'.join([prefix + l for l in text.split('\n')])
+    if isinstance(text, bytes):
+        text = text.decode("utf8")
 
+    return '\n'.join([prefix + l for l in text.split('\n')])
 
 class Runner(object):
     """
-  Runs the performance experiments.
-  """
+    Runs the performance experiments.
+    """
 
     def __init__(self, args):
         """
-    |args| parsed command line args.
-    """
+        |args| parsed command line args.
+        """
         self.args = args
         self.deployment_yaml = yaml.load(open(self.args.deployment_yaml, 'r'))
         self.service_yaml = yaml.load(open(self.args.service_yaml, 'r'))
@@ -66,8 +67,8 @@ class Runner(object):
 
     def go(self):
         """
-    Run the performance tests.
-    """
+        Run the performance tests.
+        """
         self._select_nodes()
 
         test_cases = self.test_params.generate(self.attributes)
@@ -116,12 +117,16 @@ class Runner(object):
 
     def _kubectl(self, stdin, *args):
         """
-    |return| (return_code, stdout, stderr)
-    """
+        |return| (return_code, stdout, stderr)
+        """
         cmdline = [self.args.kubectl_exec] + list(args)
         _log.debug('kubectl %s', cmdline)
+
         if stdin:
-            _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
+            try:
+                _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
+            except UnicodeDecodeError:
+                pass
 
         proc = subprocess.Popen(
             cmdline,
@@ -129,6 +134,10 @@ class Runner(object):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+
+        if isinstance(stdin, str):
+            stdin = stdin.encode("utf-8")
+
         out, err = proc.communicate(stdin)
         ret = proc.wait()
 
@@ -136,7 +145,7 @@ class Runner(object):
         _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
         _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
 
-        return proc.wait(), out, err
+        return proc.wait(), out.decode("utf-8"), err.decode("utf-8")
 
     def _create(self, yaml_obj):
         ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')

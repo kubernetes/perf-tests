@@ -26,10 +26,14 @@ _log = logging.getLogger('main')
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="""
-      Run a DNS performance test on a kubernetes cluster. Assumes a
-      working `kubectl` executable.
-      """)
+    parser = argparse.ArgumentParser(
+        description="""
+        Run a DNS performance test on a kubernetes cluster.
+        Assumes a working `kubectl` executable.
+        """,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
     parser.add_argument(
         '--kubectl-exec',
         type=str,
@@ -56,14 +60,17 @@ def parse_args():
         default='queries/',
         help='location of query files')
     parser.add_argument(
-        '--params', type=str, required=True, help='perf test parameters')
+        '--params',
+        type=str,
+        default="params/default.yaml",
+        help='yaml file with perf test parameters')
     parser.add_argument(
         '--out-dir', type=str, default='out', help='output directory')
     parser.add_argument(
         '--db',
         type=str,
         required=False,
-        help='if set, put results in db for analysis')
+        help='if set, put results in db for analysis on the given path')
     parser.add_argument(
         '--client-node',
         type=str,

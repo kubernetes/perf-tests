@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS histograms (
             qs = ','.join(['?'] * len(data))
             stmt = 'INSERT INTO histograms (' + columns + ')VALUES(' + qs + ')'
             _log.debug('histogram sql -- %s', stmt)
-            self.c.execute(stmt, data.values())
+            self.c.execute(stmt, [v for v in data.values()])
 
     def get_results(self, run_id, run_subid):
         sql = ('SELECT ' + ','.join([r.name for r in RESULTS]) +

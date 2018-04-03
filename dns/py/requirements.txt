@@ -3,3 +3,4 @@ yapf
 pylint
 PyYAML
 nose
+terminaltables

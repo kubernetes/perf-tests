@@ -160,7 +160,7 @@ def main():
         if not file_passes(filename, refs, regexs):
             passed = False
 
-    return passed
+    return 0 if passed else 1
 
 if __name__ == "__main__":
     sys.exit(main())

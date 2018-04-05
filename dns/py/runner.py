@@ -22,7 +22,6 @@ import time
 import traceback
 import yaml
 
-from subprocess import PIPE
 
 from data import Parser, ResultDb
 from params import ATTRIBUTE_CLUSTER_DNS, Inputs, TestCases
@@ -32,10 +31,10 @@ _app_label = 'app=kube-dns-perf-server'
 _client_podname = 'kube-dns-perf-client'
 
 def add_prefix(prefix, text):
-    if isinstance(text, bytes):
-        text = text.decode("utf8")
+  if isinstance(text, bytes):
+    text = text.decode("utf8")
 
-    return '\n'.join([prefix + l for l in text.split('\n')])
+  return '\n'.join([prefix + l for l in text.split('\n')])
 
 class Runner(object):
   """
@@ -72,7 +71,7 @@ class Runner(object):
     self._select_nodes()
 
     test_cases = self.test_params.generate(self.attributes)
-    if len(test_cases) == 0:
+    if not test_cases:
       _log.warning('No test cases')
       return 0
 
@@ -127,7 +126,12 @@ class Runner(object):
       except UnicodeDecodeError:
         pass
 
-    proc = subprocess.Popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    proc = subprocess.Popen(
+        cmdline,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
 
     if isinstance(stdin, str):
       stdin = stdin.encode("utf-8")
@@ -208,7 +212,7 @@ class Runner(object):
   def _select_nodes(self):
     code, out, _ = self._kubectl(None, 'get', 'nodes', '-o', 'yaml')
     if code != 0:
-      raise Exception('error gettings nodes: %d', code)
+      raise Exception('error gettings nodes: {}'.format(code))
 
     nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
              if not ('unschedulable' in n['spec'] \
@@ -238,17 +242,20 @@ class Runner(object):
       self.server_node = nodes[0]
 
     _log.info('Server node is %s', self.server_node)
-  
+
   def _get_dns_ip(self):
-    code, out, _ = self._kubectl(None, 'get', 'svc', '-o', 'yaml',
-                                'kube-dns', '-nkube-system')
+    code, out, _ = self._kubectl(
+        None, 'get', 'svc', '-o', 'yaml',
+        'kube-dns', '-nkube-system'
+    )
+
     if code != 0:
-      raise Exception('error gettings cluster dns ip: %d', code)
- 
+      raise Exception('error gettings cluster dns ip: {}'.format(code))
+
     try:
       return yaml.load(out)['spec']['clusterIP']
     except:
-      raise Exception('error parsing kube dns service, could not get dns ip') 
+      raise Exception('error parsing kube dns service, could not get dns ip')
 
   def _teardown(self):
     _log.info('Starting server teardown')
@@ -301,22 +308,23 @@ class Runner(object):
     """
 
     _log.info('Generating dynamic service query file')
-    code, json_str, err = self._kubectl(
-      None,
-      *["get", "services", "--all-namespaces", "-o", "json"]
+    _, json_str, _ = self._kubectl(
+        None,
+        *["get", "services", "--all-namespaces", "-o", "json"]
     )
 
-    query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" else self.args.query_dir + "/"
+    query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" \
+                else self.args.query_dir + "/"
     service_query_file = query_dir + "service.txt"
 
     with open(service_query_file, "a") as f:
-      f.seek(0,0)
+      f.seek(0, 0)
       for svc in json.loads(json_str)["items"]:
         f.write(
-          svc["metadata"]["name"] + \
-          "." + svc["metadata"]["namespace"] \
-          + " A" + \
-          "\n"
+            svc["metadata"]["name"] + \
+            "." + svc["metadata"]["namespace"] \
+            + " A" + \
+            "\n"
         )
 
   def _teardown_client(self):
@@ -338,15 +346,15 @@ class Runner(object):
           None, 'get', '-o', 'yaml', 'pods', '-l', _app_label)
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
-        raise Exception('error getting pod information: %d', code)
+        raise Exception('error getting pod information: {}'.format(code))
       pods = yaml.load(out)
 
       _log.info('Waiting for server to be %s (%d pods active)',
                 'up' if active else 'deleted',
                 len(pods['items']))
 
-      if (active and len(pods['items']) > 0) or \
-         (not active and len(pods['items']) == 0):
+      if (active and pods['items']) or \
+         (not active and not pods['items']):
         break
 
       time.sleep(1)

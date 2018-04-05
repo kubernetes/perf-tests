@@ -17,63 +17,50 @@
 from __future__ import print_function
 
 import argparse
-import logging
 import sys
-import yaml
 import sqlite3
 from glob import iglob
 from terminaltables import AsciiTable
 
 
-_log = logging.getLogger('main')
-
-
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="""
-        Ingest the output of *.out file(s) and insert it into the database.
-        """,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+  parser = argparse.ArgumentParser(
+      description="""
+      Ingest the output of *.out file(s) and insert it into the database.
+      """,
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter
+  )
 
-    parser.add_argument(
-        '--db',
-        type=str,
-        required=True,
-        help='Result database for analysis'
-    )
+  parser.add_argument(
+      '--db',
+      type=str,
+      required=True,
+      help='Result database for analysis'
+  )
 
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        action='store_true'
-    )
+  parser.add_argument(
+      '-v',
+      '--verbose',
+      action='store_true'
+  )
 
-    return parser.parse_args()
-
+  return parser.parse_args()
 
 def go(args):
-    db = sqlite3.connect(args.db, detect_types=sqlite3.PARSE_COLNAMES)
+  db = sqlite3.connect(args.db, detect_types=sqlite3.PARSE_COLNAMES)
 
-    for sqlfile in iglob("report_queries/*.sql"):
-        cursor = db.execute(open(sqlfile, "r").read())
-        data = cursor.fetchall()
+  for sqlfile in iglob("report_queries/*.sql"):
+    cursor = db.execute(open(sqlfile, "r").read())
+    data = cursor.fetchall()
 
-        table_data = []
-        table_data.append([c[0] for c in cursor.description if c])
-        table_data = table_data + data
+    table_data = []
+    table_data.append([c[0] for c in cursor.description if c])
+    table_data = table_data + data
 
-        table = AsciiTable(table_data)
-        print("File: ", sqlfile)
-        print(table.table)
-        print("\n")
+    table = AsciiTable(table_data)
+    print("File: ", sqlfile)
+    print(table.table)
+    print("\n")
 
 if __name__ == '__main__':
-    the_args = parse_args()
-
-    logging.basicConfig(
-        level=logging.DEBUG if the_args.verbose else logging.INFO,
-        format='%(levelname)s %(asctime)s %(filename)s:%(lineno)d] %(message)s',
-        datefmt="%m-%d %H:%M:%S")
-
-    sys.exit(go(the_args))
+  sys.exit(go(parse_args()))

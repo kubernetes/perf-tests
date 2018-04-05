@@ -172,10 +172,12 @@ CREATE TABLE IF NOT EXISTS histograms (
            + ','.join(['?'] * (2 + len(RESULTS)))
            + ')')
     _log.debug('results sql -- %s', sql)
-    self.c.execute(sql, key +
-                   [results['data'][r.name]
-                       if r.name in results['data'] else None
-                    for r in RESULTS])
+
+    self.c.execute(
+        sql,
+        key + [results['data'][r.name] if r.name in results['data'] \
+               else None for r in RESULTS]
+    )
 
     for rtt_ms, count in results['data']['histogram']:
       data = {

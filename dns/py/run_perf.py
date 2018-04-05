@@ -26,13 +26,13 @@ _log = logging.getLogger('main')
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="""
-        Run a DNS performance test on a kubernetes cluster.
-        Assumes a working `kubectl` executable.
-        """,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+  parser = argparse.ArgumentParser(
+      description="""
+      Run a DNS performance test on a kubernetes cluster.
+      Assumes a working `kubectl` executable.
+      """,
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter
+  )
 
   parser.add_argument(
       '--kubectl-exec', type=str, default='kubectl',
@@ -69,15 +69,16 @@ def parse_args():
       help='if set, use cluster DNS instead of creating one')
   parser.add_argument(
       '--dns-ip', type=str, default='10.0.0.20',
-      help='IP to use for the DNS service. Note: --use-cluster-dns '
-        'implicitly sets the service-ip of kube-dns service')
+      help='IP to use for the DNS service. Note: --use-cluster-dns  \
+        implicitly sets the service-ip of kube-dns service')
   parser.add_argument(
       '-v', '--verbose', action='store_true',
       help='show verbose logging')
-    parser.add_argument(
-        '--generate-dynamic-service-query-file',
-        action='store_true',
-        help='Wether to dynamically generate DNS entries for services in the services.txt')
+  parser.add_argument(
+      '--generate-dynamic-service-query-file',
+      action='store_true',
+      help='Wether to dynamically generate DNS entries for services in \
+        the services.txt')
 
   return parser.parse_args()
 

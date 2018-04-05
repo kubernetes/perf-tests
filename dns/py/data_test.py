@@ -29,7 +29,7 @@ class DataTest(unittest.TestCase):
     parser = Parser(raw)
     parser.parse()
     # Check a subset of fields
-    self.assertEquals(1000, parser.results['queries_sent'])
+    self.assertEqual(1000, parser.results['queries_sent'])
 
   def test_result_db(self):
     results = yaml.load(open('fixtures/results.yaml'))

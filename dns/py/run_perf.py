@@ -34,78 +34,61 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    parser.add_argument(
-        '--kubectl-exec',
-        type=str,
-        default='kubectl',
-        help='location of the kubectl executable')
-    parser.add_argument(
-        '--deployment-yaml',
-        type=str,
-        default='cluster/kube-dns-deployment.yaml',
-        help='yaml for the kube-dns server')
-    parser.add_argument(
-        '--service-yaml',
-        type=str,
-        default='cluster/kube-dns-service.yaml',
-        help='yaml for the dns service')
-    parser.add_argument(
-        '--dnsperf-yaml',
-        type=str,
-        default='cluster/dnsperf.yaml',
-        help='yaml for the dnsperf client')
-    parser.add_argument(
-        '--query-dir',
-        type=str,
-        default='queries/',
-        help='location of query files')
-    parser.add_argument(
-        '--params',
-        type=str,
-        default="params/default.yaml",
-        help='yaml file with perf test parameters')
-    parser.add_argument(
-        '--out-dir', type=str, default='out', help='output directory')
-    parser.add_argument(
-        '--db',
-        type=str,
-        required=False,
-        help='if set, put results in db for analysis on the given path')
-    parser.add_argument(
-        '--client-node',
-        type=str,
-        help='if set, force the client pod to be created on the given node')
-    parser.add_argument(
-        '--server-node',
-        type=str,
-        help='if set, force the server pod to be created on the given node')
-    parser.add_argument(
-        '--use-cluster-dns',
-        action='store_true',
-        help='if set, use cluster DNS instead of creating one')
-    parser.add_argument(
-        '--dns-ip',
-        type=str,
-        default='10.0.0.20',
-        help='IP to use for the DNS service. Note: --use-cluster-dns '
+  parser.add_argument(
+      '--kubectl-exec', type=str, default='kubectl',
+      help='location of the kubectl executable')
+  parser.add_argument(
+      '--deployment-yaml', type=str, default='cluster/kube-dns-deployment.yaml',
+      help='yaml for the kube-dns server')
+  parser.add_argument(
+      '--service-yaml', type=str, default='cluster/kube-dns-service.yaml',
+      help='yaml for the dns service')
+  parser.add_argument(
+      '--dnsperf-yaml', type=str, default='cluster/dnsperf.yaml',
+      help='yaml for the dnsperf client')
+  parser.add_argument(
+      '--query-dir', type=str, default='queries/',
+      help='location of query files')
+  parser.add_argument(
+      '--params', type=str, default="params/default.yaml",
+      help='yaml file with perf test parameters')
+  parser.add_argument(
+      '--out-dir', type=str, default='out',
+      help='output directory')
+  parser.add_argument(
+      '--db', type=str, required=False,
+      help='if set, put results in db for analysis on the given path')
+  parser.add_argument(
+      '--client-node', type=str,
+      help='if set, force the client pod to be created on the given node')
+  parser.add_argument(
+      '--server-node', type=str,
+      help='if set, force the server pod to be created on the given node')
+  parser.add_argument(
+      '--use-cluster-dns', action='store_true',
+      help='if set, use cluster DNS instead of creating one')
+  parser.add_argument(
+      '--dns-ip', type=str, default='10.0.0.20',
+      help='IP to use for the DNS service. Note: --use-cluster-dns '
         'implicitly sets the service-ip of kube-dns service')
+  parser.add_argument(
+      '-v', '--verbose', action='store_true',
+      help='show verbose logging')
     parser.add_argument(
         '--generate-dynamic-service-query-file',
         action='store_true',
         help='Wether to dynamically generate DNS entries for services in the services.txt')
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='show verbose logging')
 
-    return parser.parse_args()
+  return parser.parse_args()
 
 
 if __name__ == '__main__':
-    args = parse_args()
+  args = parse_args()
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format='%(levelname)s %(asctime)s %(filename)s:%(lineno)d] %(message)s',
-        datefmt="%m-%d %H:%M:%S")
+  logging.basicConfig(
+      level=logging.DEBUG if args.verbose else logging.INFO,
+      format='%(levelname)s %(asctime)s %(filename)s:%(lineno)d] %(message)s',
+      datefmt="%m-%d %H:%M:%S")
 
-    runner = Runner(args)
-    sys.exit(runner.go())
+  runner = Runner(args)
+  sys.exit(runner.go())

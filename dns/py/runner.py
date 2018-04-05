@@ -22,9 +22,10 @@ import time
 import traceback
 import yaml
 
+from subprocess import PIPE
+
 from data import Parser, ResultDb
 from params import ATTRIBUTE_CLUSTER_DNS, Inputs, TestCases
-
 
 _log = logging.getLogger(__name__)
 _app_label = 'app=kube-dns-perf-server'
@@ -37,133 +38,130 @@ def add_prefix(prefix, text):
     return '\n'.join([prefix + l for l in text.split('\n')])
 
 class Runner(object):
+  """
+  Runs the performance experiments.
+  """
+  def __init__(self, args):
     """
-    Runs the performance experiments.
+    |args| parsed command line args.
     """
+    self.args = args
+    self.deployment_yaml = yaml.load(open(self.args.deployment_yaml, 'r'))
+    self.service_yaml = yaml.load(open(self.args.service_yaml, 'r'))
+    self.dnsperf_yaml = yaml.load(open(self.args.dnsperf_yaml, 'r'))
+    self.test_params = TestCases.load_from_file(args.params)
 
-    def __init__(self, args):
-        """
-        |args| parsed command line args.
-        """
-        self.args = args
-        self.deployment_yaml = yaml.load(open(self.args.deployment_yaml, 'r'))
-        self.service_yaml = yaml.load(open(self.args.service_yaml, 'r'))
-        self.dnsperf_yaml = yaml.load(open(self.args.dnsperf_yaml, 'r'))
-        self.test_params = TestCases.load_from_file(args.params)
+    self.server_node = None
+    self.client_node = None
 
-        self.server_node = None
-        self.client_node = None
+    self.db = ResultDb(self.args.db) if self.args.db else None
 
-        self.db = ResultDb(self.args.db) if self.args.db else None
+    self.attributes = set()
 
-        self.attributes = set()
+    if self.args.use_cluster_dns:
+      _log.info('Using cluster DNS for tests')
+      self.args.dns_ip = self._get_dns_ip()
+      self.attributes.add(ATTRIBUTE_CLUSTER_DNS)
 
-        if self.args.use_cluster_dns:
-            _log.info('Using cluster DNS for tests')
-            self.args.dns_ip = self._get_dns_ip()
-            self.attributes.add(ATTRIBUTE_CLUSTER_DNS)
+    _log.info('DNS service IP is %s', args.dns_ip)
 
-        _log.info('DNS service IP is %s', args.dns_ip)
+  def go(self):
+    """
+    Run the performance tests.
+    """
+    self._select_nodes()
 
-    def go(self):
-        """
-        Run the performance tests.
-        """
-        self._select_nodes()
+    test_cases = self.test_params.generate(self.attributes)
+    if len(test_cases) == 0:
+      _log.warning('No test cases')
+      return 0
 
-        test_cases = self.test_params.generate(self.attributes)
-        if len(test_cases) == 0:
-            _log.warning('No test cases')
-            return 0
+    try:
+      self._ensure_out_dir(test_cases[0].run_id)
+      self._reset_client()
 
+      last_deploy_yaml = None
+      for test_case in test_cases:
         try:
-            self._ensure_out_dir(test_cases[0].run_id)
-            self._reset_client()
+          inputs = Inputs(self.deployment_yaml,
+                          ['/dnsperf', '-s', self.args.dns_ip])
+          test_case.configure(inputs)
+          # pin server to a specific node
+          inputs.deployment_yaml['spec']['template']['spec']['nodeName'] = \
+              self.server_node
 
-            last_deploy_yaml = None
-            for test_case in test_cases:
-                try:
-                    inputs = Inputs(self.deployment_yaml,
-                                    ['/dnsperf', '-s', self.args.dns_ip])
-                    test_case.configure(inputs)
-                    # pin server to a specific node
-                    inputs.deployment_yaml['spec'] \
-                        ['template']['spec']['nodeName'] = self.server_node
-
-                    if not self.args.use_cluster_dns and \
-                        (yaml.dump(inputs.deployment_yaml) != yaml.dump(last_deploy_yaml)):
-                        _log.info('Creating server with new parameters')
-                        self._teardown()
-                        self._create(inputs.deployment_yaml)
-                        self._create(self.service_yaml)
-                        self._wait_for_status(True)
-
-                    self._run_perf(test_case, inputs)
-                    last_deploy_yaml = inputs.deployment_yaml
-                except Exception:
-                    _log.info('Exception caught during run, cleaning up')
-                    self._teardown()
-                    self._teardown_client()
-                    raise
-
-        finally:
+          if not self.args.use_cluster_dns and \
+               yaml.dump(inputs.deployment_yaml) != yaml.dump(last_deploy_yaml):
+            _log.info('Creating server with new parameters')
             self._teardown()
-            self._teardown_client()
+            self._create(inputs.deployment_yaml)
+            self._create(self.service_yaml)
+            self._wait_for_status(True)
 
-            if self.db is not None:
-                self.db.commit()
+          self._run_perf(test_case, inputs)
+          last_deploy_yaml = inputs.deployment_yaml
+        except Exception:
+          _log.info('Exception caught during run, cleaning up')
+          self._teardown()
+          self._teardown_client()
+          raise
 
-        return 0
+    finally:
+      self._teardown()
+      self._teardown_client()
 
-    def _kubectl(self, stdin, *args):
-        """
-        |return| (return_code, stdout, stderr)
-        """
-        cmdline = [self.args.kubectl_exec] + list(args)
-        _log.debug('kubectl %s', cmdline)
+      if self.db is not None:
+        self.db.commit()
 
-        if stdin:
-            try:
-                _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
-            except UnicodeDecodeError:
-                pass
+    return 0
 
-        proc = subprocess.Popen(
-            cmdline,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+  def _kubectl(self, stdin, *args):
+    """
+    |return| (return_code, stdout, stderr)
+    """
+    cmdline = [self.args.kubectl_exec] + list(args)
+    _log.debug('kubectl %s', cmdline)
+    if stdin:
+      try:
+        _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
+      except UnicodeDecodeError:
+        pass
 
-        if isinstance(stdin, str):
-            stdin = stdin.encode("utf-8")
+    proc = subprocess.Popen(
+      cmdline,
+      stdin=subprocess.PIPE,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE
+    )
 
-        out, err = proc.communicate(stdin)
-        ret = proc.wait()
+    if isinstance(stdin, str):
+      stdin = stdin.encode("utf-8")
 
-        _log.debug('kubectl ret=%d', ret)
-        _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
-        _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
+      out, err = proc.communicate(stdin)
+      ret = proc.wait()
 
-        return proc.wait(), out.decode("utf-8"), err.decode("utf-8")
+      _log.debug('kubectl ret=%d', ret)
+      _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
+      _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
 
-    def _create(self, yaml_obj):
-        ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')
-        if ret != 0:
-            _log.error('Could not create dns: %d\nstdout:\n%s\nstderr:%s\n',
-                       ret, out, err)
-            raise Exception('create failed')
-        _log.info('Create %s/%s ok', yaml_obj['kind'],
-                  yaml_obj['metadata']['name'])
+    return proc.wait(), out.decode("utf-8"), err.decode("utf-8")
 
-    def _run_perf(self, test_case, inputs):
-        _log.info('Running test case: %s', test_case)
+  def _create(self, yaml_obj):
+    ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')
+    if ret != 0:
+      _log.error('Could not create dns: %d\nstdout:\n%s\nstderr:%s\n',
+                 ret, out, err)
+      raise Exception('create failed')
+    _log.info('Create %s/%s ok', yaml_obj['kind'], yaml_obj['metadata']['name'])
 
-        output_file = '%s/run-%s/result-%s.out' % \
-          (self.args.out_dir, test_case.run_id, test_case.run_subid)
-        _log.info('Writing to output file %s', output_file)
+  def _run_perf(self, test_case, inputs):
+    _log.info('Running test case: %s', test_case)
 
-        header = '''### run_id {run_id}:{run_subid}
+    output_file = '%s/run-%s/result-%s.out' % \
+      (self.args.out_dir, test_case.run_id, test_case.run_subid)
+    _log.info('Writing to output file %s', output_file)
+
+    header = '''### run_id {run_id}:{run_subid}
 ### date {now}
 ### settings {test_case}
 '''.format(run_id=test_case.run_id,
@@ -171,229 +169,220 @@ class Runner(object):
            now=time.ctime(),
            test_case=json.dumps(test_case.to_yaml()))
 
-        with open(output_file + '.raw', 'w') as fh:
-            fh.write(header)
-            cmdline = inputs.dnsperf_cmdline
-            code, out, err = self._kubectl(*(
-                [None, 'exec', _client_podname, '--'] +
-                [str(x) for x in cmdline]))
-            fh.write('%s\n' % add_prefix('out | ', out))
-            fh.write('%s\n' % add_prefix('err | ', err))
+    with open(output_file + '.raw', 'w') as fh:
+      fh.write(header)
+      cmdline = inputs.dnsperf_cmdline
+      code, out, err = self._kubectl(
+          *([None, 'exec', _client_podname, '--'] + [str(x) for x in cmdline]))
+      fh.write('%s\n' % add_prefix('out | ', out))
+      fh.write('%s\n' % add_prefix('err | ', err))
 
-            if code != 0:
-                raise Exception('error running dnsperf')
+      if code != 0:
+        raise Exception('error running dnsperf')
 
-        with open(output_file, 'w') as fh:
-            results = {}
-            results['params'] = test_case.to_yaml()
-            results['code'] = code
-            results['stdout'] = out.split('\n')
-            results['stderr'] = err.split('\n')
-            results['data'] = {}
+    with open(output_file, 'w') as fh:
+      results = {}
+      results['params'] = test_case.to_yaml()
+      results['code'] = code
+      results['stdout'] = out.split('\n')
+      results['stderr'] = err.split('\n')
+      results['data'] = {}
 
-            try:
-                parser = Parser(out)
-                parser.parse()
+      try:
+        parser = Parser(out)
+        parser.parse()
 
-                _log.info('Test results parsed')
+        _log.info('Test results parsed')
 
-                results['data']['ok'] = True
-                results['data']['msg'] = None
+        results['data']['ok'] = True
+        results['data']['msg'] = None
 
-                for key, value in parser.results.items():
-                    results['data'][key] = value
-                results['data']['histogram'] = parser.histogram
-            except Exception as exc:
-                _log.error('Error parsing results: %s', exc)
-                results['data']['ok'] = False
-                results['data']['msg'] = 'parsing error:\n%s' % traceback.format_exc()
+        for key, value in parser.results.items():
+          results['data'][key] = value
+        results['data']['histogram'] = parser.histogram
+      except Exception as exc:
+        _log.error('Error parsing results: %s', exc)
+        results['data']['ok'] = False
+        results['data']['msg'] = 'parsing error:\n%s' % traceback.format_exc()
 
-            fh.write(yaml.dump(results))
+      fh.write(yaml.dump(results))
 
-            if self.db is not None and results['data']['ok']:
-                self.db.put(results)
+      if self.db is not None and results['data']['ok']:
+        self.db.put(results)
 
-    def _select_nodes(self):
-        code, out, _ = self._kubectl(None, 'get', 'nodes', '-o', 'yaml')
-        if code != 0:
-            raise Exception('error gettings nodes: %d', code)
+  def _select_nodes(self):
+    code, out, _ = self._kubectl(None, 'get', 'nodes', '-o', 'yaml')
+    if code != 0:
+      raise Exception('error gettings nodes: %d', code)
 
-        nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
-                 if not ('unschedulable' in n['spec'] \
-                     and n['spec']['unschedulable'])]
-        if len(nodes) < 2:
-            raise Exception(
-                'you need 2 or more worker nodes to run the perf test')
+    nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
+             if not ('unschedulable' in n['spec'] \
+                 and n['spec']['unschedulable'])]
+    if len(nodes) < 2:
+      raise Exception('you need 2 or more worker nodes to run the perf test')
 
-        if self.args.client_node:
-            if self.args.client_node not in nodes:
-                raise Exception(
-                    '%s is not a valid node' % self.args.client_node)
-            _log.info('Manually selected client_node')
-            self.client_node = self.args.client_node
-        else:
-            self.client_node = nodes[1]
+    if self.args.client_node:
+      if self.args.client_node not in nodes:
+        raise Exception('%s is not a valid node' % self.args.client_node)
+      _log.info('Manually selected client_node')
+      self.client_node = self.args.client_node
+    else:
+      self.client_node = nodes[1]
 
-        _log.info('Client node is %s', self.client_node)
+    _log.info('Client node is %s', self.client_node)
 
-        if self.args.use_cluster_dns:
-            return
+    if self.args.use_cluster_dns:
+      return
 
-        if self.args.server_node:
-            if self.args.server_node not in nodes:
-                raise Exception(
-                    '%s is not a valid node' % self.args.server_node)
-            _log.info('Manually selected server_node')
-            self.server_node = self.args.server_node
-        else:
-            self.server_node = nodes[0]
+    if self.args.server_node:
+      if self.args.server_node not in nodes:
+        raise Exception('%s is not a valid node' % self.args.server_node)
+      _log.info('Manually selected server_node')
+      self.server_node = self.args.server_node
+    else:
+      self.server_node = nodes[0]
 
-        _log.info('Server node is %s', self.server_node)
+    _log.info('Server node is %s', self.server_node)
+  
+  def _get_dns_ip(self):
+    code, out, _ = self._kubectl(None, 'get', 'svc', '-o', 'yaml',
+                                'kube-dns', '-nkube-system')
+    if code != 0:
+      raise Exception('error gettings cluster dns ip: %d', code)
+ 
+    try:
+      return yaml.load(out)['spec']['clusterIP']
+    except:
+      raise Exception('error parsing kube dns service, could not get dns ip') 
 
-    def _get_dns_ip(self):
-        code, out, _ = self._kubectl(None, 'get', 'svc', '-o', 'yaml',
-                                     'kube-dns', '-nkube-system')
-        if code != 0:
-            raise Exception('error gettings cluster dns ip: %d', code)
+  def _teardown(self):
+    _log.info('Starting server teardown')
 
-        try:
-            return yaml.load(out)['spec']['clusterIP']
-        except:
-            raise Exception(
-                'error parsing kube dns service, could not get dns ip')
+    self._kubectl(None, 'delete', 'deployments', '-l', _app_label)
+    self._kubectl(None, 'delete', 'services', '-l', _app_label)
 
-    def _teardown(self):
-        _log.info('Starting server teardown')
+    self._wait_for_status(False)
 
-        self._kubectl(None, 'delete', 'deployments', '-l', _app_label)
-        self._kubectl(None, 'delete', 'services', '-l', _app_label)
+    _log.info('Server teardown ok')
 
-        self._wait_for_status(False)
+  def _reset_client(self):
+    self._teardown_client()
 
-        _log.info('Server teardown ok')
+    self.dnsperf_yaml['spec']['nodeName'] = self.client_node
 
-    def _reset_client(self):
-        self._teardown_client()
+    self._create(self.dnsperf_yaml)
+    while True:
+      code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
+      if code == 0:
+        break
+      _log.info('Waiting for client pod to start on %s', self.client_node)
+      time.sleep(1)
+    _log.info('Client pod to started on %s', self.client_node)
 
-        self.dnsperf_yaml['spec']['nodeName'] = self.client_node
+    while True:
+      code, _, _ = self._kubectl(
+          None, 'exec', '-i', _client_podname, '--', 'echo')
+      if code == 0:
+        break
+      time.sleep(1)
+    _log.info('Client pod ready for execution')
+    self._copy_query_files()
 
-        self._create(self.dnsperf_yaml)
-        while True:
-            code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
-            if code == 0:
-                break
-            _log.info('Waiting for client pod to start on %s',
-                      self.client_node)
-            time.sleep(1)
-        _log.info('Client pod to started on %s', self.client_node)
+  def _copy_query_files(self):
+    _log.info('Copying query files to client')
+    tarfile_contents = subprocess.check_output(
+        ['/bin/tar', '-czf', '-', self.args.query_dir])
+    code, _, _ = self._kubectl(
+        tarfile_contents,
+        'exec', '-i', _client_podname, '--', 'tar', '-xzf', '-')
+    if code != 0:
+      raise Exception('error copying query files to client: %d' % code)
+    _log.info('Query files copied')
 
-        while True:
-            code, _, _ = self._kubectl(None, 'exec', '-i', _client_podname,
-                                       '--', 'echo')
-            if code == 0:
-                break
-            time.sleep(1)
-        _log.info('Client pod ready for execution')
+  def _generate_dynamic_service_query_file(self):
+    """
+    This method fetches dynamically all the services o the cluster and
+    populates the service.txt query file with the encountered values.
+    """
 
-        if self.args.generate_dynamic_service_query_file:
-            self._generate_dynamic_service_query_file()
+    _log.info('Generating dynamic service query file')
+    code, json_str, err = self._kubectl(
+      None,
+      *["get", "services", "--all-namespaces", "-o", "json"]
+    )
 
-        self._copy_query_files()
+    query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" else self.args.query_dir + "/"
+    service_query_file = query_dir + "service.txt"
 
-    def _generate_dynamic_service_query_file(self):
-        """
-        This method fetches dynamically all the services o the cluster and
-        populates the service.txt query file with the encountered values.
-        """
-
-        _log.info('Generating dynamic service query file')
-        code, json_str, err = self._kubectl(
-            None,
-            *[
-                "get", "services", "--all-namespaces", "-o", "json"
-            ]
+    with open(service_query_file, "a") as f:
+      f.seek(0,0)
+      for svc in json.loads(json_str)["items"]:
+        f.write(
+          svc["metadata"]["name"] + \
+          "." + svc["metadata"]["namespace"] \
+          + " A" + \
+          "\n"
         )
 
-        query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" else self.args.query_dir + "/"
-        service_query_file = query_dir + "service.txt"
+  def _teardown_client(self):
+    _log.info('Starting client teardown')
+    self._kubectl(None, 'delete', 'pod/kube-dns-perf-client')
 
-        with open(service_query_file, "a") as f:
-            f.seek(0,0)
-            for svc in json.loads(json_str)["items"]:
-                f.write(
-                    svc["metadata"]["name"] + \
-                    "." + svc["metadata"]["namespace"] \
-                    + " A" + \
-                    "\n"
-                )
+    while True:
+      code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
+      if code != 0:
+        break
+      time.sleep(1)
+      _log.info('Waiting for client pod to terminate')
 
-    def _copy_query_files(self):
-        _log.info('Copying query files to client')
-        tarfile_contents = subprocess.check_output(
-            ['/bin/tar', '-czf', '-', self.args.query_dir])
-        code, _, _ = self._kubectl(tarfile_contents, 'exec', '-i',
-                                   _client_podname, '--', 'tar', '-xzf', '-')
-        if code != 0:
-            raise Exception('error copying query files to client: %d' % code)
-        _log.info('Query files copied')
+    _log.info('Client teardown complete')
 
-    def _teardown_client(self):
-        _log.info('Starting client teardown')
-        self._kubectl(None, 'delete', 'pod/kube-dns-perf-client')
+  def _wait_for_status(self, active):
+    while True:
+      code, out, err = self._kubectl(
+          None, 'get', '-o', 'yaml', 'pods', '-l', _app_label)
+      if code != 0:
+        _log.error('Error: stderr\n%s', add_prefix('err | ', err))
+        raise Exception('error getting pod information: %d', code)
+      pods = yaml.load(out)
 
-        while True:
-            code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
-            if code != 0:
-                break
-            time.sleep(1)
-            _log.info('Waiting for client pod to terminate')
+      _log.info('Waiting for server to be %s (%d pods active)',
+                'up' if active else 'deleted',
+                len(pods['items']))
 
-        _log.info('Client teardown complete')
+      if (active and len(pods['items']) > 0) or \
+         (not active and len(pods['items']) == 0):
+        break
 
-    def _wait_for_status(self, active):
-        while True:
-            code, out, err = self._kubectl(None, 'get', '-o', 'yaml', 'pods',
-                                           '-l', _app_label)
-            if code != 0:
-                _log.error('Error: stderr\n%s', add_prefix('err | ', err))
-                raise Exception('error getting pod information: %d', code)
-            pods = yaml.load(out)
+      time.sleep(1)
 
-            _log.info('Waiting for server to be %s (%d pods active)', 'up'
-                      if active else 'deleted', len(pods['items']))
+    if active:
+      while True:
+        code, out, err = self._kubectl(
+            None,
+            'exec', _client_podname, '--',
+            'dig', '@' + self.args.dns_ip,
+            'kubernetes.default.svc.cluster.local.')
+        if code == 0:
+          break
 
-            if (active and len(pods['items']) > 0) or \
-               (not active and len(pods['items']) == 0):
-                break
+        _log.info('Waiting for DNS service to start')
 
-            time.sleep(1)
+        time.sleep(1)
 
-        if active:
-            while True:
-                code, out, err = self._kubectl(
-                    None, 'exec', _client_podname, '--', 'dig',
-                    '@' + self.args.dns_ip,
-                    'kubernetes.default.svc.cluster.local.')
-                if code == 0:
-                    break
+      _log.info('DNS is up')
 
-                _log.info('Waiting for DNS service to start')
+  def _ensure_out_dir(self, run_id):
+    rundir_name = 'run-%s' % run_id
+    rundir = os.path.join(self.args.out_dir, rundir_name)
+    latest = os.path.join(self.args.out_dir, 'latest')
 
-                time.sleep(1)
+    if not os.path.exists(rundir):
+      os.makedirs(rundir)
+      _log.info('Created rundir %s', rundir)
 
-            _log.info('DNS is up')
+    if os.path.exists(latest):
+      os.unlink(latest)
+    os.symlink(rundir_name, latest)
 
-    def _ensure_out_dir(self, run_id):
-        rundir_name = 'run-%s' % run_id
-        rundir = os.path.join(self.args.out_dir, rundir_name)
-        latest = os.path.join(self.args.out_dir, 'latest')
-
-        if not os.path.exists(rundir):
-            os.makedirs(rundir)
-            _log.info('Created rundir %s', rundir)
-
-        if os.path.exists(latest):
-            os.unlink(latest)
-        os.symlink(rundir_name, latest)
-
-        _log.info('Updated symlink %s', latest)
+    _log.info('Updated symlink %s', latest)

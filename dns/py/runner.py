@@ -127,12 +127,7 @@ class Runner(object):
       except UnicodeDecodeError:
         pass
 
-    proc = subprocess.Popen(
-      cmdline,
-      stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE
-    )
+    proc = subprocess.Popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
     if isinstance(stdin, str):
       stdin = stdin.encode("utf-8")

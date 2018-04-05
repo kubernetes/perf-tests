@@ -1,0 +1,96 @@
+[
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "1 iperf TCP. Same VM using Pod IP",
+      "Type": 0,
+      "ClusterIP": false,
+      "MSS": 96
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "2 iperf TCP. Same VM using Virtual IP",
+      "Type": 0,
+      "ClusterIP": true,
+      "MSS": 96
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w3",
+      "Label": "3 iperf TCP. Remote VM using Pod IP",
+      "Type": 0,
+      "ClusterIP": false,
+      "MSS": 96
+    },
+    {
+      "SourceNode": "netperf-w3",
+      "DestinationNode": "netperf-w2",
+      "Label": "4 iperf TCP. Remote VM using Virtual IP",
+      "Type": 0,
+      "ClusterIP": true,
+      "MSS": 96
+    },
+    {
+      "SourceNode": "netperf-w2",
+      "DestinationNode": "netperf-w2",
+      "Label": "5 iperf TCP. Hairpin Pod to own Virtual IP",
+      "Type": 0,
+      "ClusterIP": true,
+      "MSS": 96
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "6 iperf UDP. Same VM using Pod IP",
+      "Type": 1,
+      "ClusterIP": false,
+      "MSS": 1460
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "7 iperf UDP. Same VM using Virtual IP",
+      "Type": 1,
+      "ClusterIP": true,
+      "MSS": 1460
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w3",
+      "Label": "8 iperf UDP. Remote VM using Pod IP",
+      "Type": 1,
+      "ClusterIP": false,
+      "MSS": 1460
+    },
+    {
+    
+      "SourceNode": "netperf-w3",
+      "DestinationNode": "netperf-w2",
+      "Label": "9 iperf UDP. Remote VM using Virtual IP",
+      "Type": 1,
+      "ClusterIP": true,
+      "MSS": 1460
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "10 netperf. Same VM using Pod IP",
+      "Type": 2,
+      "ClusterIP": false
+    },
+    {
+      "SourceNode": "netperf-w1",
+      "DestinationNode": "netperf-w2",
+      "Label": "11 netperf. Same VM using Virtual IP",
+      "Type": 2,
+      "ClusterIP": true
+    },
+    {
+      "SourceNode": "netperf-w3",
+      "DestinationNode": "netperf-w2",
+      "Label": "13 netperf. Remote VM using Virtual IP",
+      "Type": 2,
+      "ClusterIP": true
+    }
+]

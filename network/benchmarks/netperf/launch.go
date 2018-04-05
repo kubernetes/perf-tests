@@ -29,6 +29,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -103,6 +104,19 @@ func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
 
 func cleanup(c *kubernetes.Clientset) {
 	// Cleanup existing rcs, pods and services in our namespace
+	cfgm, err := c.ConfigMaps(testNamespace).List(everythingSelector)
+	if err != nil {
+		fmt.Println("Failed to get config maps", err)
+		return
+	}
+	for _, cm := range cfgm.Items {
+		fmt.Println("Deleting configMap", cm.GetName())
+		if err := c.ConfigMaps(testNamespace).Delete(
+			cm.GetName(), &api.DeleteOptions{}); err != nil {
+			fmt.Println("Failed to delete configmap", cm.GetName(), err)
+		}
+	}
+
 	rcs, err := c.ReplicationControllers(testNamespace).List(everythingSelector)
 	if err != nil {
 		fmt.Println("Failed to get replication controllers", err)
@@ -207,6 +221,26 @@ func createServices(c *kubernetes.Clientset) bool {
 	return true
 }
 
+func createConfigMap(c *kubernetes.Clientset) bool {
+	fmt.Println("Creating configMap for scenario tests")
+	scenarioConfig := "configmap/scenarios.json"
+	data, err := ioutil.ReadFile(scenarioConfig)
+	if err != nil {
+		fmt.Println("Error opening config file", err)
+		return false
+	}
+
+	_, err = c.ConfigMaps(testNamespace).Create(&api.ConfigMap{
+		ObjectMeta: api.ObjectMeta{Name: "scenario-config"},
+		Data:       map[string]string{"scenarios.json": string(data)},
+	})
+	if err != nil {
+		fmt.Println("Error creating configMap", err)
+		return false
+	}
+	return true
+}
+
 // createRCs - Create replication controllers for all workers and the orchestrator
 func createRCs(c *kubernetes.Clientset) bool {
 	// Create the orchestrator RC
@@ -231,6 +265,23 @@ func createRCs(c *kubernetes.Clientset) bool {
 							Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
 							Args:            []string{"--mode=orchestrator"},
 							ImagePullPolicy: "Always",
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "config",
+									ReadOnly:  true,
+									MountPath: "/config",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "config",
+							VolumeSource: api.VolumeSource{
+								ConfigMap: &api.ConfigMapVolumeSource{LocalObjectReference: api.LocalObjectReference{Name: "scenario-config"},
+									Items: []api.KeyToPath{{Key: "scenarios.json", Path: "scenarios.json"}},
+								},
+							},
 						},
 					},
 					TerminationGracePeriodSeconds: new(int64),
@@ -349,6 +400,10 @@ func executeTests(c *kubernetes.Clientset) bool {
 			return false
 		}
 		time.Sleep(3 * time.Second)
+		if !createConfigMap(c) {
+			fmt.Println("Failed to create configMap for orchestrator")
+			return false
+		}
 		if !createRCs(c) {
 			fmt.Println("Failed to create replication controllers - aborting test")
 			return false

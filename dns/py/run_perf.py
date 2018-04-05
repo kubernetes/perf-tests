@@ -90,6 +90,10 @@ def parse_args():
         help='IP to use for the DNS service. Note: --use-cluster-dns '
         'implicitly sets the service-ip of kube-dns service')
     parser.add_argument(
+        '--generate-dynamic-service-query-file',
+        action='store_true',
+        help='Wether to dynamically generate DNS entries for services in the services.txt')
+    parser.add_argument(
         '-v', '--verbose', action='store_true', help='show verbose logging')
 
     return parser.parse_args()

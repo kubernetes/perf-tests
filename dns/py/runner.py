@@ -294,7 +294,38 @@ class Runner(object):
                 break
             time.sleep(1)
         _log.info('Client pod ready for execution')
+
+        if self.args.generate_dynamic_service_query_file:
+            self._generate_dynamic_service_query_file()
+
         self._copy_query_files()
+
+    def _generate_dynamic_service_query_file(self):
+        """
+        This method fetches dynamically all the services o the cluster and
+        populates the service.txt query file with the encountered values.
+        """
+
+        _log.info('Generating dynamic service query file')
+        code, json_str, err = self._kubectl(
+            None,
+            *[
+                "get", "services", "--all-namespaces", "-o", "json"
+            ]
+        )
+
+        query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" else self.args.query_dir + "/"
+        service_query_file = query_dir + "service.txt"
+
+        with open(service_query_file, "a") as f:
+            f.seek(0,0)
+            for svc in json.loads(json_str)["items"]:
+                f.write(
+                    svc["metadata"]["name"] + \
+                    "." + svc["metadata"]["namespace"] \
+                    + " A" + \
+                    "\n"
+                )
 
     def _copy_query_files(self):
         _log.info('Copying query files to client')

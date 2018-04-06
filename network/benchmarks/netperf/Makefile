@@ -26,7 +26,7 @@ push: docker
 	gcloud docker push $(DOCKERREPO)
 
 nptests: nptest/nptest.go
-	cd nptest; make nptests
+	cd nptest; GOOS=linux GOARCH=amd64 make nptests
 
 clean:
 	@rm -f Dockerbuild/*

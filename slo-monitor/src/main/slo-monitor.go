@@ -48,12 +48,12 @@ func registerFlags(fs *pflag.FlagSet) {
 func createKubeClient() clientset.Interface {
 	url, err := url.Parse(kubernetesURL)
 	if err != nil {
-		glog.Fatalf("Failed to parse Kuberentes url: %v", err)
+		glog.Fatalf("Failed to parse Kubernetes url: %v", err)
 	}
 
 	kubeConfig, err := config.GetKubeClientConfig(url)
 	if err != nil {
-		glog.Fatalf("Failed to build Kuberentes client configuration: %v", err)
+		glog.Fatalf("Failed to build Kubernetes client configuration: %v", err)
 	}
 	kubeConfig.ContentType = "application/vnd.kubernetes.protobuf"
 

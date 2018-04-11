@@ -15,10 +15,10 @@
 			"revisionTime": "2016-01-25T20:49:56Z"
 		},
 		{
-			"checksumSHA1": "sF5bu/v3YnR6loYe+R7bAVNKSBc=",
+			"checksumSHA1": "3qx1s/G7sJ0wjWpW3bhLWuCFwTw=",
 			"path": "gopkg.in/yaml.v2",
-			"revision": "53feefa2559fb8dfa8d81baad31be332c97d6c77",
-			"revisionTime": "2015-09-24T14:23:14Z"
+			"revision": "5420a8b6744d3b0345ab293f6fcba19c978f1183",
+			"revisionTime": "2018-03-28T19:50:20Z"
 		},
 		{
 			"checksumSHA1": "jo9G97/M5Lrliu78SXseLX+jnFw=",
@@ -33,5 +33,5 @@
 			"revisionTime": "2018-04-06T10:26:28Z"
 		}
 	],
-	"rootPath": "k8s.io/contrib/perfdash"
+	"rootPath": "k8s.io/perf-tests/perfdash"
 }

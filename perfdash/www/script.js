@@ -157,6 +157,6 @@ app.controller('AppCtrl', ['$scope', '$http', '$interval', function($scope, $htt
     $scope.controller = new PerfDashApp($http, $scope);
     $scope.controller.refresh();
 
-    // Refresh every 5 min.  The data only refreshes every 10 minutes on the server
-    $interval($scope.controller.refresh.bind($scope.controller), 300000)
+    // Refresh every 10 min.  The data only refreshes every 10 minutes on the server
+    $interval($scope.controller.refresh.bind($scope.controller), 600000)
 }]);

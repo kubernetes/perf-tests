@@ -29,9 +29,4 @@ data:
           fallthrough in-addr.arpa ip6.arpa
         }
         prometheus :9153
-        proxy . /etc/resolv.conf
-        cache 30 {
-          success 1000
-          denial 1000
-        }
     }

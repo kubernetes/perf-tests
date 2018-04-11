@@ -123,17 +123,14 @@ class ParamsTest(unittest.TestCase):
         continue
       param.set(inputs, values[param.name])
 
-      self.assertEquals(
-          '100m',
-          inputs.deployment_yaml['spec']['template']['spec']['containers']
-          [0]['resources']['limits']['cpu'])
-      self.assertTrue(
-          """
-    cache 30 {
-      success 200
-      denial 200
-    }"""
-          in inputs.configmap_yaml['data']['Corefile'])
+    self.assertTrue("success 200"
+                    in inputs.configmap_yaml['data']['Corefile'])
+    self.assertTrue("denial 200"
+                    in inputs.configmap_yaml['data']['Corefile'])
+    self.assertEquals(
+        '100m',
+        inputs.deployment_yaml['spec']['template']['spec']['containers']
+        [0]['resources']['limits']['cpu'])
 
   def test_null_params(self):
     # These should result in no limits.

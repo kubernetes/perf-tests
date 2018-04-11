@@ -158,11 +158,14 @@ class CorednsCache(Param):
     return 'cluster-dns' not in attributes
 
   def set(self, inputs, value):
-    config = inputs.configmap_yaml['data']
-    config['Corefile'] = re.sub(r'success \d+', 'success ' + repr(value),
-                                config['Corefile'])
-    config['Corefile'] = re.sub(r'denial \d+', 'denial ' + repr(value),
-                                config['Corefile'])
+    if value > 0:
+      cf = inputs.configmap_yaml['data']['Corefile']
+      cf = re.sub(r'\n', "\n"
+                  "  cache {\n"
+                  "    success " + repr(value) + "\n"
+                  "    denial " + repr(value) + "\n"
+                  "  }\n", cf, 1)
+      inputs.configmap_yaml['data']['Corefile'] = cf
 
 class DnsperfCmdlineParam(Param):
   """

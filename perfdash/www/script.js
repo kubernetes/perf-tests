@@ -44,7 +44,10 @@ PerfDashApp.prototype.refresh = function() {
     this.http.get("api")
             .success(function(data) {
                 this.testNames = Object.keys(data);
-                this.testName = this.testNames[0];
+                //init testName only if needed
+                if (this.testName == undefined || this.testNames.indexOf(this.testName) == -1) {
+                    this.testName = this.testNames[0];
+                }
                 this.allData = data;
                 this.testNameChanged();
             }.bind(this))

@@ -58,6 +58,7 @@ var (
 	tag            string
 	kubeConfig     string
 	netperfImage   string
+	configFile     string
 
 	everythingSelector api.ListOptions = api.ListOptions{}
 
@@ -74,6 +75,8 @@ func init() {
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
+	flag.StringVar(&configFile, "config", "",
+		"Location of the scenario configuration file")
 }
 
 func setupClient() *kubernetes.Clientset {
@@ -223,8 +226,7 @@ func createServices(c *kubernetes.Clientset) bool {
 
 func createConfigMap(c *kubernetes.Clientset) bool {
 	fmt.Println("Creating configMap for scenario tests")
-	scenarioConfig := "configmap/scenarios.json"
-	data, err := ioutil.ReadFile(scenarioConfig)
+	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		fmt.Println("Error opening config file", err)
 		return false
@@ -247,7 +249,51 @@ func createRCs(c *kubernetes.Clientset) bool {
 	name := "netperf-orch"
 	fmt.Println("Creating replication controller", name)
 	replicas := int32(1)
-
+	var spec api.PodSpec
+	if configFile != "" {
+		spec = api.PodSpec{
+			Containers: []api.Container{
+				{
+					Name:            name,
+					Image:           netperfImage,
+					Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
+					Args:            []string{"--mode=orchestrator"},
+					ImagePullPolicy: "Always",
+					VolumeMounts: []api.VolumeMount{
+						{
+							Name:      "config",
+							ReadOnly:  true,
+							MountPath: "/config",
+						},
+					},
+				},
+			},
+			Volumes: []api.Volume{
+				{
+					Name: "config",
+					VolumeSource: api.VolumeSource{
+						ConfigMap: &api.ConfigMapVolumeSource{LocalObjectReference: api.LocalObjectReference{Name: "scenario-config"},
+							Items: []api.KeyToPath{{Key: "scenarios.json", Path: "scenarios.json"}},
+						},
+					},
+				},
+			},
+			TerminationGracePeriodSeconds: new(int64),
+		}
+	} else {
+		spec = api.PodSpec{
+			Containers: []api.Container{
+				{
+					Name:            name,
+					Image:           netperfImage,
+					Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
+					Args:            []string{"--mode=orchestrator"},
+					ImagePullPolicy: "Always",
+				},
+			},
+			TerminationGracePeriodSeconds: new(int64),
+		}
+	}
 	_, err := c.ReplicationControllers(testNamespace).Create(&api.ReplicationController{
 		ObjectMeta: api.ObjectMeta{Name: name},
 		Spec: api.ReplicationControllerSpec{
@@ -257,35 +303,7 @@ func createRCs(c *kubernetes.Clientset) bool {
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{"app": name},
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:            name,
-							Image:           netperfImage,
-							Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
-							Args:            []string{"--mode=orchestrator"},
-							ImagePullPolicy: "Always",
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      "config",
-									ReadOnly:  true,
-									MountPath: "/config",
-								},
-							},
-						},
-					},
-					Volumes: []api.Volume{
-						{
-							Name: "config",
-							VolumeSource: api.VolumeSource{
-								ConfigMap: &api.ConfigMapVolumeSource{LocalObjectReference: api.LocalObjectReference{Name: "scenario-config"},
-									Items: []api.KeyToPath{{Key: "scenarios.json", Path: "scenarios.json"}},
-								},
-							},
-						},
-					},
-					TerminationGracePeriodSeconds: new(int64),
-				},
+				Spec: spec,
 			},
 		},
 	})
@@ -400,9 +418,11 @@ func executeTests(c *kubernetes.Clientset) bool {
 			return false
 		}
 		time.Sleep(3 * time.Second)
-		if !createConfigMap(c) {
-			fmt.Println("Failed to create configMap for orchestrator")
-			return false
+		if configFile != "" {
+			if !createConfigMap(c) {
+				fmt.Println("Failed to create configMap for orchestrator")
+				return false
+			}
 		}
 		if !createRCs(c) {
 			fmt.Println("Failed to create replication controllers - aborting test")

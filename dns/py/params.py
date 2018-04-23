@@ -160,12 +160,13 @@ class CorednsCache(Param):
   def set(self, inputs, value):
     if value > 0:
       cf = inputs.configmap_yaml['data']['Corefile']
-      cf = re.sub(r'\n', "\n"
-                  "  cache {\n"
-                  "    success " + repr(value) + "\n"
-                  "    denial " + repr(value) + "\n"
-                  "  }\n", cf, 1)
-      inputs.configmap_yaml['data']['Corefile'] = cf
+      cfList = cf.split("\n")
+      cfList.insert(1,
+                    "  cache {\n"
+                    "    success " + repr(value) + "\n"
+                    "    denial " + repr(value) + "\n"
+                    "  }")
+      inputs.configmap_yaml['data']['Corefile'] = "\n".join(cfList)
 
 class DnsperfCmdlineParam(Param):
   """

@@ -148,8 +148,13 @@ PerfDashApp.prototype.getStream = function(data, stream) {
     var result = [];
     angular.forEach(data, function(value) {
         var x = value.data[stream];
+        //This is a handling for undefined values which cause chart.js to not display plots
+        //TODO(krzysied): Check whether new version of chart.js has support for this case
+        if (x == undefined) {
+            x = 0;
+        }
         if (this.cap != 0 && x > this.cap) {
-          x = this.cap;
+            x = this.cap;
         }
         result.push(x);
     }, this);

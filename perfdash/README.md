@@ -16,7 +16,7 @@ Perfdash is available at http://perf-dash.k8s.io/
 Metrics above are available for all kinds of tests divided into load and density subtypes.
 
 ## Application server
-Application server runs as a deployment on kuberntes cluster. It is hosted on *mungegithub* cluster in *k8s-mungegithub* project.
+Application server runs as a deployment on kubernetes cluster. It is hosted on *mungegithub* cluster in *k8s-mungegithub* project.
 
 ## Application images
 Images are stored in *gcr.io/k8s-testimages* project container registry.

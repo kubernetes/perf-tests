@@ -46,7 +46,8 @@ def get_refs():
 def file_passes(filename, refs, regexs):
     try:
         f = open(filename, 'r')
-    except:
+    except Exception as exp:
+        print("File {} failed due to missing file: ".format(filename), str(exp))
         return False
 
     data = f.read()
@@ -69,6 +70,7 @@ def file_passes(filename, refs, regexs):
 
     # if our test file is smaller than the reference it surely fails!
     if len(ref) > len(data):
+        print("File {} failed due to file size.".format(filename))
         return False
 
     # trim our file to the same number of lines as the reference file
@@ -77,6 +79,7 @@ def file_passes(filename, refs, regexs):
     p = regexs["year"]
     for d in data:
         if p.search(d):
+            print("File {} failed due to year.".format(filename))
             return False
 
     # Replace all occurrences of the regex "2016|2015|2014" with "YEAR"
@@ -88,6 +91,7 @@ def file_passes(filename, refs, regexs):
 
     # if we don't match the reference at this point, fail
     if ref != data:
+        print("File {} failed due to wrong ref.".format(filename))
         return False
 
     return True
@@ -150,9 +154,13 @@ def main():
     refs = get_refs()
     filenames = get_files(refs.keys())
 
+    passed = True
+
     for filename in filenames:
         if not file_passes(filename, refs, regexs):
-            print(filename, file=sys.stdout)
+            passed = False
+
+    return 0 if passed else 1
 
 if __name__ == "__main__":
-  sys.exit(main())
+    sys.exit(main())

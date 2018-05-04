@@ -1,0 +1,6 @@
+numpy
+yapf
+pylint
+PyYAML
+nose
+terminaltables

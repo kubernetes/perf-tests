@@ -38,7 +38,7 @@ load-plugins=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=broad-except,invalid-name,missing-docstring,too-few-public-methods,too-many-instance-attributes,too-many-locals,too-many-public-methods 
+disable=broad-except,invalid-name,missing-docstring,too-few-public-methods,too-many-instance-attributes,too-many-locals,too-many-public-methods
 
 [REPORTS]
 
@@ -140,7 +140,7 @@ max-module-lines=1000
 
 # String used as indentation unit. This is usually " " (4 spaces) or "\t" (1
 # tab).
-indent-string='  '
+indent-string='    '
 
 
 [MISCELLANEOUS]

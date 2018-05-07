@@ -57,7 +57,7 @@ class ParamsTest(unittest.TestCase):
     for param in PARAMETERS:
       param.set(inputs, values[param.name])
 
-    self.assertEquals(
+    self.assertEqual(
         '100m',
         inputs.deployment_yaml['spec']['template']['spec']['containers']\
             [1]['resources']['limits']['cpu'])
@@ -65,11 +65,11 @@ class ParamsTest(unittest.TestCase):
         '--cache-size=200' in
         inputs.deployment_yaml['spec']['template']['spec']['containers']\
             [1]['args'])
-    self.assertEquals(
+    self.assertEqual(
         '300m',
         inputs.deployment_yaml['spec']['template']['spec']['containers']\
             [0]['resources']['limits']['cpu'])
-    self.assertEquals(
+    self.assertEqual(
         '-l,120,-Q,400,-d,/queries/abc',
         ','.join(inputs.dnsperf_cmdline))
 
@@ -94,7 +94,7 @@ class ParamsTest(unittest.TestCase):
     self.assertTrue(
         'cpu' not in inputs.deployment_yaml\
         ['spec']['template']['spec']['containers'][1]['resources']['limits'])
-    self.assertEquals(
+    self.assertEqual(
         '-l,120,-d,/queries/abc',
         ','.join(inputs.dnsperf_cmdline))
 
@@ -105,24 +105,24 @@ class ParamsTest(unittest.TestCase):
         'query_file': ['a', 'b'],
         })
     tc = tp.generate(set())
-    self.assertEquals(4, len(tc))
+    self.assertEqual(4, len(tc))
 
-    self.assertEquals(0, tc[0].run_subid)
-    self.assertEquals(
+    self.assertEqual(0, tc[0].run_subid)
+    self.assertEqual(
         "[(<dnsmasq_cpu>, 200), (<kubedns_cpu>, 100), (<query_file>, 'a')]",
         str(tc[0].pv))
-    self.assertEquals(
+    self.assertEqual(
         "[(<dnsmasq_cpu>, 200), (<kubedns_cpu>, 100), (<query_file>, 'b')]",
         str(tc[1].pv))
-    self.assertEquals(1, tc[1].run_subid)
-    self.assertEquals(
+    self.assertEqual(1, tc[1].run_subid)
+    self.assertEqual(
         "[(<dnsmasq_cpu>, 300), (<kubedns_cpu>, 100), (<query_file>, 'a')]",
         str(tc[2].pv))
-    self.assertEquals(2, tc[2].run_subid)
-    self.assertEquals(
+    self.assertEqual(2, tc[2].run_subid)
+    self.assertEqual(
         "[(<dnsmasq_cpu>, 300), (<kubedns_cpu>, 100), (<query_file>, 'b')]",
         str(tc[3].pv))
-    self.assertEquals(3, tc[3].run_subid)
+    self.assertEqual(3, tc[3].run_subid)
 
   def test_TestCases_attributes(self):
     tp = TestCases({
@@ -131,13 +131,13 @@ class ParamsTest(unittest.TestCase):
         'query_file': ['a', 'b'],
         })
     tc = tp.generate(set([ATTRIBUTE_CLUSTER_DNS]))
-    self.assertEquals(2, len(tc))
+    self.assertEqual(2, len(tc))
 
-    self.assertEquals(0, tc[0].run_subid)
-    self.assertEquals(
+    self.assertEqual(0, tc[0].run_subid)
+    self.assertEqual(
         "[(<query_file>, 'a')]",
         str(tc[0].pv))
-    self.assertEquals(
+    self.assertEqual(
         "[(<query_file>, 'b')]",
         str(tc[1].pv))
-    self.assertEquals(1, tc[1].run_subid)
+    self.assertEqual(1, tc[1].run_subid)

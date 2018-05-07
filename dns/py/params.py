@@ -229,9 +229,10 @@ class TestCases(object):
     run_id = int(time.time())
 
     def iterate(remaining, pv):
-      if len(remaining) == 0:
+      if not remaining:
         run_subid = len(cases)
-        return cases.append(TestCase(run_id, run_subid, pv))
+        cases.append(TestCase(run_id, run_subid, pv))
+        return
 
       param = remaining[0]
       if param.name not in self.values or \

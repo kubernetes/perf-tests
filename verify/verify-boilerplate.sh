@@ -24,9 +24,7 @@ boiler="${KUBE_ROOT}/verify/boilerplate/boilerplate.py"
 files_need_boilerplate=($(${boiler} "$@"))
 
 if [[ ${#files_need_boilerplate[@]} -gt 0 ]]; then
-  for file in "${files_need_boilerplate[@]}"; do
-    echo "Boilerplate header is wrong for: ${file}"
-  done
+  echo ${files_need_boilerplate[@]}
 
   exit 1
 fi

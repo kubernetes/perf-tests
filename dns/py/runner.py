@@ -22,7 +22,6 @@ import time
 import traceback
 import yaml
 
-from subprocess import PIPE
 
 from data import Parser, ResultDb
 from params import ATTRIBUTE_CLUSTER_DNS, Inputs, TestCases
@@ -32,8 +31,10 @@ _app_label = 'app=kube-dns-perf-server'
 _client_podname = 'kube-dns-perf-client'
 
 def add_prefix(prefix, text):
-  return '\n'.join([prefix + l for l in text.split('\n')])
+  if isinstance(text, bytes):
+    text = text.decode("utf8")
 
+  return '\n'.join([prefix + l for l in text.split('\n')])
 
 class Runner(object):
   """
@@ -70,7 +71,7 @@ class Runner(object):
     self._select_nodes()
 
     test_cases = self.test_params.generate(self.attributes)
-    if len(test_cases) == 0:
+    if not test_cases:
       _log.warning('No test cases')
       return 0
 
@@ -120,16 +121,29 @@ class Runner(object):
     cmdline = [self.args.kubectl_exec] + list(args)
     _log.debug('kubectl %s', cmdline)
     if stdin:
-      _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
-    proc = subprocess.Popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    out, err = proc.communicate(stdin)
-    ret = proc.wait()
+      try:
+        _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
+      except UnicodeDecodeError:
+        pass
 
-    _log.debug('kubectl ret=%d', ret)
-    _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
-    _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
+    proc = subprocess.Popen(
+        cmdline,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
 
-    return proc.wait(), out, err
+    if isinstance(stdin, str):
+      stdin = stdin.encode("utf-8")
+
+      out, err = proc.communicate(stdin)
+      ret = proc.wait()
+
+      _log.debug('kubectl ret=%d', ret)
+      _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
+      _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
+
+    return proc.wait(), out.decode("utf-8"), err.decode("utf-8")
 
   def _create(self, yaml_obj):
     ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')
@@ -185,7 +199,7 @@ class Runner(object):
         for key, value in parser.results.items():
           results['data'][key] = value
         results['data']['histogram'] = parser.histogram
-      except Exception, exc:
+      except Exception as exc:
         _log.error('Error parsing results: %s', exc)
         results['data']['ok'] = False
         results['data']['msg'] = 'parsing error:\n%s' % traceback.format_exc()
@@ -198,7 +212,7 @@ class Runner(object):
   def _select_nodes(self):
     code, out, _ = self._kubectl(None, 'get', 'nodes', '-o', 'yaml')
     if code != 0:
-      raise Exception('error gettings nodes: %d', code)
+      raise Exception('error gettings nodes: {}'.format(code))
 
     nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
              if not ('unschedulable' in n['spec'] \
@@ -228,17 +242,20 @@ class Runner(object):
       self.server_node = nodes[0]
 
     _log.info('Server node is %s', self.server_node)
-  
+
   def _get_dns_ip(self):
-    code, out, _ = self._kubectl(None, 'get', 'svc', '-o', 'yaml',
-                                'kube-dns', '-nkube-system')
+    code, out, _ = self._kubectl(
+        None, 'get', 'svc', '-o', 'yaml',
+        'kube-dns', '-nkube-system'
+    )
+
     if code != 0:
-      raise Exception('error gettings cluster dns ip: %d', code)
- 
+      raise Exception('error gettings cluster dns ip: {}'.format(code))
+
     try:
       return yaml.load(out)['spec']['clusterIP']
     except:
-      raise Exception('error parsing kube dns service, could not get dns ip') 
+      raise Exception('error parsing kube dns service, could not get dns ip')
 
   def _teardown(self):
     _log.info('Starting server teardown')
@@ -284,6 +301,32 @@ class Runner(object):
       raise Exception('error copying query files to client: %d' % code)
     _log.info('Query files copied')
 
+  def _generate_dynamic_service_query_file(self):
+    """
+    This method fetches dynamically all the services o the cluster and
+    populates the service.txt query file with the encountered values.
+    """
+
+    _log.info('Generating dynamic service query file')
+    _, json_str, _ = self._kubectl(
+        None,
+        *["get", "services", "--all-namespaces", "-o", "json"]
+    )
+
+    query_dir = self.args.query_dir if self.args.query_dir[-1] == "/" \
+                else self.args.query_dir + "/"
+    service_query_file = query_dir + "service.txt"
+
+    with open(service_query_file, "a") as f:
+      f.seek(0, 0)
+      for svc in json.loads(json_str)["items"]:
+        f.write(
+            svc["metadata"]["name"] + \
+            "." + svc["metadata"]["namespace"] \
+            + " A" + \
+            "\n"
+        )
+
   def _teardown_client(self):
     _log.info('Starting client teardown')
     self._kubectl(None, 'delete', 'pod/kube-dns-perf-client')
@@ -303,15 +346,15 @@ class Runner(object):
           None, 'get', '-o', 'yaml', 'pods', '-l', _app_label)
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
-        raise Exception('error getting pod information: %d', code)
+        raise Exception('error getting pod information: {}'.format(code))
       pods = yaml.load(out)
 
       _log.info('Waiting for server to be %s (%d pods active)',
                 'up' if active else 'deleted',
                 len(pods['items']))
 
-      if (active and len(pods['items']) > 0) or \
-         (not active and len(pods['items']) == 0):
+      if (active and pods['items']) or \
+         (not active and not pods['items']):
         break
 
       time.sleep(1)

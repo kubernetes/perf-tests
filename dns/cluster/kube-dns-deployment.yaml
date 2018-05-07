@@ -131,5 +131,4 @@ spec:
         ports:
         - containerPort: 8080
           protocol: TCP
-      nodeName: e2e-test-bowei-minion-group-2js1
       dnsPolicy: Default  # Don't use cluster DNS.

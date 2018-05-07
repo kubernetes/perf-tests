@@ -1,0 +1,11 @@
+FROM python:3.6-alpine
+
+WORKDIR /runner
+
+COPY py/ .
+
+RUN apk --update add gcc gfortran python python-dev build-base wget freetype-dev libpng-dev \
+    && pip install -r requirements.txt \
+    && apk del gcc gfortran python python-dev build-base wget freetype-dev libpng-dev
+
+ENTRYPOINT ["run_perf.py"]

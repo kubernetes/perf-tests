@@ -28,9 +28,12 @@ _log = logging.getLogger('main')
 def parse_args():
   parser = argparse.ArgumentParser(
       description="""
-      Run a DNS performance test on a kubernetes cluster. Assumes a
-      working `kubectl` executable.
-      """)
+      Run a DNS performance test on a kubernetes cluster.
+      Assumes a working `kubectl` executable.
+      """,
+      formatter_class=argparse.ArgumentDefaultsHelpFormatter
+  )
+
   parser.add_argument(
       '--kubectl-exec', type=str, default='kubectl',
       help='location of the kubectl executable')
@@ -47,14 +50,14 @@ def parse_args():
       '--query-dir', type=str, default='queries/',
       help='location of query files')
   parser.add_argument(
-      '--params', type=str, required=True,
-      help='perf test parameters')
+      '--params', type=str, default="params/default.yaml",
+      help='yaml file with perf test parameters')
   parser.add_argument(
       '--out-dir', type=str, default='out',
       help='output directory')
   parser.add_argument(
       '--db', type=str, required=False,
-      help='if set, put results in db for analysis')
+      help='if set, put results in db for analysis on the given path')
   parser.add_argument(
       '--client-node', type=str,
       help='if set, force the client pod to be created on the given node')
@@ -66,11 +69,16 @@ def parse_args():
       help='if set, use cluster DNS instead of creating one')
   parser.add_argument(
       '--dns-ip', type=str, default='10.0.0.20',
-      help='IP to use for the DNS service. Note: --use-cluster-dns '
-        'implicitly sets the service-ip of kube-dns service')
+      help='IP to use for the DNS service. Note: --use-cluster-dns  \
+        implicitly sets the service-ip of kube-dns service')
   parser.add_argument(
       '-v', '--verbose', action='store_true',
       help='show verbose logging')
+  parser.add_argument(
+      '--generate-dynamic-service-query-file',
+      action='store_true',
+      help='Wether to dynamically generate DNS entries for services in \
+        the services.txt')
 
   return parser.parse_args()
 

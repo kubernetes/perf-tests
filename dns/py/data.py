@@ -15,9 +15,10 @@
 # limitations under the License.
 
 import logging
-import numpy
-import re
 import sqlite3
+import re
+from functools import reduce
+import numpy
 
 from params import PARAMETERS
 
@@ -171,10 +172,12 @@ CREATE TABLE IF NOT EXISTS histograms (
            + ','.join(['?'] * (2 + len(RESULTS)))
            + ')')
     _log.debug('results sql -- %s', sql)
-    self.c.execute(sql, key +
-                   [results['data'][r.name]
-                       if r.name in results['data'] else None
-                    for r in RESULTS])
+
+    self.c.execute(
+        sql,
+        key + [results['data'][r.name] if r.name in results['data'] \
+               else None for r in RESULTS]
+    )
 
     for rtt_ms, count in results['data']['histogram']:
       data = {
@@ -188,7 +191,7 @@ CREATE TABLE IF NOT EXISTS histograms (
       qs = ','.join(['?'] * len(data))
       stmt = 'INSERT INTO histograms (' + columns + ') VALUES (' + qs + ')'
       _log.debug('histogram sql -- %s', stmt)
-      self.c.execute(stmt, data.values())
+      self.c.execute(stmt, [v for v in data.values()])
 
   def get_results(self, run_id, run_subid):
     sql = ('SELECT ' + ','.join([r.name for r in RESULTS])

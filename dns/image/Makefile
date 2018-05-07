@@ -21,6 +21,8 @@ BUILD_IMAGE := kube-dns-perf-client-build
 IMAGE := $(REGISTRY)/kube-dns-perf-client-$(ARCH):$(TAG)
 DNSPERF_URL := ftp://ftp.nominum.com/pub/nominum/dnsperf/2.1.0.0/dnsperf-src-2.1.0.0-1.tar.gz
 
+RUNNER_IMAGE := kube-dns-perf-runner
+
 all: image
 
 build/src.stamp:
@@ -41,10 +43,16 @@ build/image.stamp: Dockerfile.image build/src/dnsperf
 	docker build -t $(IMAGE) -f Dockerfile.image .
 	touch $@
 
+build/image_runner.stamp:
+	cd .. && docker build -t $(RUNNER_IMAGE) -f `pwd`/image/Dockerfile.runner .
+	touch $@
+
 image: build/image.stamp
+image_runner: build/image_runner.stamp
 
 push:
 	$(DOCKER) push $(IMAGE)
+	$(DOCKER) push $(RUNNER_IMAGE)
 
 clean:
 	rm -rf build/*

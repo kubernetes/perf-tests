@@ -62,17 +62,25 @@ PerfDashApp.prototype.labelChanged = function() {
     this.seriesData = [];
     this.series = [];
     result = this.getData(this.selectedLabels);
-    if (result.length <= 0) {
-        return;
+    this.options = null;
+    var seriesLabels = null;
+    var a = 0;
+    for (; a < result.length; a++) {
+        if ("unit" in result[a] && "data" in result[a] && result[a].data != {}) {
+            // All the unit should be the same
+            this.options = {scaleLabel: "<%=value%> "+result[a].unit};
+            // Start with higher percentiles, since their values are usually strictly higher
+            // than lower percentiles, which avoids obscuring graph data. It also orders data
+            // in the onHover labels more naturally.
+            seriesLabels = Object.keys(result[a].data);
+            seriesLabels.sort();
+            seriesLabels.reverse();
+            break;
+        }
     }
-    // All the unit should be the same
-    this.options = {scaleLabel: "<%=value%> "+result[0].unit};
-    // Start with higher percentiles, since their values are usually strictly higher
-    // than lower percentiles, which avoids obscuring graph data. It also orders data
-    // in the onHover labels more naturally.
-    var seriesLabels = Object.keys(result[0].data);
-    seriesLabels.sort();
-    seriesLabels.reverse();
+    if(this.options = null) {
+	return;
+    }
     angular.forEach(seriesLabels, function(name) {
         this.seriesData.push(this.getStream(result, name));
         this.series.push(name);
@@ -126,6 +134,7 @@ PerfDashApp.prototype.getLabels = function() {
 PerfDashApp.prototype.getData = function(labels) {
     var result = [];
     angular.forEach(this.data, function(items, build) {
+        var hasAnyResult = false;
         angular.forEach(items, function(item) {
             var match = true;
             angular.forEach(labels, function(label, name) {
@@ -135,8 +144,13 @@ PerfDashApp.prototype.getData = function(labels) {
             });
             if (match) {
                 result.push(item);
+                hasAnyResult = true;
             }
         });
+        if (!hasAnyResult) {
+            // We need to add empty object so result series will still correspond to build series
+            result.push({});
+        }
     });
     return result;
 };
@@ -147,7 +161,10 @@ PerfDashApp.prototype.getData = function(labels) {
 PerfDashApp.prototype.getStream = function(data, stream) {
     var result = [];
     angular.forEach(data, function(value) {
-        var x = value.data[stream];
+        var x = undefined
+        if ("data" in value) {
+            x = value.data[stream];
+        }
         //This is a handling for undefined values which cause chart.js to not display plots
         //TODO(krzysied): Check whether new version of chart.js has support for this case
         if (x == undefined) {

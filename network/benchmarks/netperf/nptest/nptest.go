@@ -86,8 +86,7 @@ const (
 	netperfTest  = iota
 )
 
-// NetPerfRpc stores something
-// TODO: someone who knows what this all this does should update comments.
+// NetPerfRpc service that exposes RegisterClient and ReceiveOutput for clients
 type NetPerfRpc int
 
 // ClientRegistrationData stores a data about a single client

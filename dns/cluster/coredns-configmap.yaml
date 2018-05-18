@@ -13,19 +13,20 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
   name: dns-perf-server
   labels:
     app: dns-perf-server
-spec:
-  selector:
-    app: dns-perf-server
-  clusterIP: 10.0.0.20
-  ports:
-  - name: dns
-    port: 53
-    protocol: UDP
-  - name: dns-tcp
-    port: 53
-    protocol: TCP
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          upstream
+          fallthrough in-addr.arpa ip6.arpa
+        }
+        prometheus :9153
+    }

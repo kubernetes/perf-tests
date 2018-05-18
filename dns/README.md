@@ -14,10 +14,20 @@ on Debian-based systems or with `pip install`.
 
 ## Running a performance test
 
+For CoreDNS:
+
 ``` sh
 $ mkdir out/                                        # output directory
-$ ./run --params params/default.yaml --out-dir out  # run the perf test
+$ ./run --dns-server coredns --params params/coredns/default.yaml --out-dir out  # run the perf test
 ```
+
+For kube-dns:
+
+``` sh
+$ mkdir out/                                        # output directory
+$ ./run --params params/kubedns/default.yaml --out-dir out  # run the perf test
+```
+
 
 `run` will run a performance benchmark ranging over the parameters given in
 `--params`. The included `default.yaml` run will take several hours to run
@@ -85,8 +95,8 @@ Additional sql queries can be found in `sql/`.
 
 # Monitoring
 
-Kubernetes kube-dns v1.5+ (image `k8s.gcr.io/kubedns-amd64:1.9`)
-now exports [Prometheus](http://prometheus.io) metrics by default. A sample
+CoreDNS and kube-dns v1.5+ (image `k8s.gcr.io/kubedns-amd64:1.9`)
+ can export [Prometheus](http://prometheus.io) metrics. A sample
 prometheus pod that scrapes kube-dns metrics is defined in
 `cluster/prometheus.yaml` and can be created using kubectl:
 
@@ -191,12 +201,12 @@ CREATE TABLE histograms (
 
 ## Using the cluster DNS server configuration
 
-`kube-dns` is installed by default using
+In Kubernetes 1.10 and earlier, `kube-dns` is installed by default using
 [addon-manager](https://github.com/kubernetes/kubernetes/tree/master/cluster/addons).
 The deployment configuration is located in `/etc/kubernetes/addons/dns`. You can
 use the deployment yaml from this directory as the argument to
 `--deployment-yaml` above, however, you will need to replace the `k8s-app:
-kube-dns` label and replace it with `app: kube-dns-perf-server` to avoid
+kube-dns` label and replace it with `app: dns-perf-server` to avoid
 clashing with the system DNS.
 
 ## Using a different DNS server

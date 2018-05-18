@@ -1,0 +1,6 @@
+# Single shot test parameters
+run_length_seconds: [5]
+coredns_cpu: [null]
+coredns_cache: [0]
+max_qps: [null]
+query_file: ["service.txt"]

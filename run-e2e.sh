@@ -27,4 +27,4 @@ cd ${PERFTEST_ROOT}/clusterloader/e2e/ && go test -c -o e2e.test
 cd ${PERFTEST_ROOT}/network/benchmarks/netperf/ && go run ./launch.go  --kubeConfig="${HOME}/.kube/config" --hostnetworking --iterations 1
 #DNS
 cd ${PERFTEST_ROOT}/dns
- ./run --params params/default.yaml --out-dir out --use-cluster-dns
+ ./run --params params/kubedns/default.yaml --out-dir out --use-cluster-dns

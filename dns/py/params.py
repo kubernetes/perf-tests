@@ -26,6 +26,7 @@ from __future__ import print_function
 
 import copy
 import logging
+import re
 import time
 import yaml
 
@@ -37,8 +38,9 @@ class Inputs(object):
   """
   Inputs to the dns performance test.
   """
-  def __init__(self, deployment_yaml, dnsperf_cmdline):
+  def __init__(self, deployment_yaml, configmap_yaml, dnsperf_cmdline):
     self.deployment_yaml = copy.deepcopy(deployment_yaml)
+    self.configmap_yaml = copy.deepcopy(configmap_yaml)
     self.dnsperf_cmdline = dnsperf_cmdline
 
 
@@ -105,6 +107,14 @@ class KubednsCPU(DeploymentContainerSpecParam):
     super(KubednsCPU, self).set(
         inputs, None if value is None else '%dm' % value)
 
+class CorednsCPU(DeploymentContainerSpecParam):
+  def __init__(self):
+    super(CorednsCPU, self).__init__(
+        'coredns_cpu', int, 'coredns', ['resources', 'limits', 'cpu'])
+
+  def set(self, inputs, value):
+    super(CorednsCPU, self).set(
+        inputs, None if value is None else '%dm' % value)
 
 class DnsmasqCPU(DeploymentContainerSpecParam):
   def __init__(self):
@@ -137,6 +147,26 @@ class DnsmasqCache(Param):
 
     spec['args'] = args
 
+class CorednsCache(Param):
+  """
+  Changes the cache setting in the CoreDNS configmap.
+  """
+  def __init__(self):
+    super(CorednsCache, self).__init__('coredns_cache', int)
+
+  def is_relevant(self, attributes):
+    return 'cluster-dns' not in attributes
+
+  def set(self, inputs, value):
+    if value > 0:
+      cf = inputs.configmap_yaml['data']['Corefile']
+      cfList = cf.split("\n")
+      cfList.insert(1,
+                    "  cache {\n"
+                    "    success " + repr(value) + "\n"
+                    "    denial " + repr(value) + "\n"
+                    "  }")
+      inputs.configmap_yaml['data']['Corefile'] = "\n".join(cfList)
 
 class DnsperfCmdlineParam(Param):
   """
@@ -289,7 +319,9 @@ PARAMETERS = [
     RunLengthSeconds(),
     DnsmasqCPU(),
     DnsmasqCache(),
+    CorednsCache(),
     KubednsCPU(),
+    CorednsCPU(),
     MaxQPS(),
     QueryFile(),
 ]

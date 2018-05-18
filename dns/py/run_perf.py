@@ -35,11 +35,17 @@ def parse_args():
       '--kubectl-exec', type=str, default='kubectl',
       help='location of the kubectl executable')
   parser.add_argument(
-      '--deployment-yaml', type=str, default='cluster/kube-dns-deployment.yaml',
-      help='yaml for the kube-dns server')
+      '--dns-server', type=str, default='kube-dns',
+      help='the type of dns server (kube-dns or coredns)')
   parser.add_argument(
-      '--service-yaml', type=str, default='cluster/kube-dns-service.yaml',
-      help='yaml for the dns service')
+      '--deployment-yaml', type=str, default='',
+      help='yaml for the dns server deployment')
+  parser.add_argument(
+      '--service-yaml', type=str, default='',
+      help='yaml for the dns server service')
+  parser.add_argument(
+      '--configmap-yaml', type=str, default='',
+      help='yaml for the dns server configmap')
   parser.add_argument(
       '--dnsperf-yaml', type=str, default='cluster/dnsperf.yaml',
       help='yaml for the dnsperf client')
@@ -71,12 +77,29 @@ def parse_args():
   parser.add_argument(
       '-v', '--verbose', action='store_true',
       help='show verbose logging')
+  parser.add_argument(
+      '--single-node', action='store_true',
+      help='allow test to run on a single node (for local development only)')
 
   return parser.parse_args()
 
 
 if __name__ == '__main__':
   args = parse_args()
+
+  if args.dns_server == "kube-dns":
+    if not args.deployment_yaml:
+      args.deployment_yaml = 'cluster/kube-dns-deployment.yaml'
+    if not args.service_yaml:
+      args.service_yaml = 'cluster/kube-dns-service.yaml'
+
+  if args.dns_server == "coredns":
+    if not args.deployment_yaml:
+      args.deployment_yaml = 'cluster/coredns-deployment.yaml'
+    if not args.service_yaml:
+      args.service_yaml = 'cluster/coredns-service.yaml'
+    if not args.configmap_yaml:
+      args.configmap_yaml = 'cluster/coredns-configmap.yaml'
 
   logging.basicConfig(
       level=logging.DEBUG if args.verbose else logging.INFO,

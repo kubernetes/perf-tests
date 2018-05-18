@@ -33,7 +33,7 @@ Worker 3 to Worker 2 traffic tests using Worker 2 Cluster/Virtual IP.
 
 The orchestrator and worker pods run independently of the initiator script, with the orchestrator pod sending work items to workers till the testcase schedule is complete.
 The iperf output (both TCP and UDP modes) and the netperf TCP output from all worker nodes is uploaded to the orchestrator pod where it is filtered and the results are written to netperf.csv.
-The launch script then extracts the netperf.csv file and writes it to local disk. All units in the csv file are in Gbits/second.
+The launch script then extracts the netperf.csv file and writes it to local disk. All units in the csv file are in Mbits/second.
 All Kubernetes entities are created under the “netperf” namespace.
 
 Testcases can be added by extending the TestCase list in nptest/nptest.go
@@ -61,7 +61,7 @@ MSS                                          , Maximum, 96, 352, 608, 864, 1120,
 ## Format of the benchmark results data
 
 Ideally, we want the benchmark results to be consumable by regression e2e scripts as well as importable into a database for GCP vs GKE vs AWS for different VM sizes etc.
-Currently, we have only iperf tests in the suite - the output for each MSS testpoint is a single value in Gbits/sec so the output is a simple CSV file with each column representing the transfer speed per MSS datapoint.
+Currently, we have only iperf tests in the suite - the output for each MSS testpoint is a single value in Mbits/sec so the output is a simple CSV file with each column representing the transfer speed per MSS datapoint.
 
 Q. Do we want to use CSV raw results format ? Alternative format suggestions ?
 

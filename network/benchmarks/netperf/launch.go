@@ -57,6 +57,7 @@ var (
 	tag            string
 	kubeConfig     string
 	netperfImage   string
+	cleanupOnly    bool
 
 	everythingSelector api.ListOptions = api.ListOptions{}
 
@@ -73,6 +74,8 @@ func init() {
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
+	flag.BoolVar(&cleanupOnly, "cleanup", false,
+		"(boolean) Run the cleanup resources phase only (use this flag to clean up orphaned resources from a test run)")
 }
 
 func setupClient() *kubernetes.Clientset {
@@ -399,6 +402,10 @@ func main() {
 	var c *kubernetes.Clientset
 	if c = setupClient(); c == nil {
 		fmt.Println("Failed to setup REST client to Kubernetes cluster")
+		return
+	}
+	if cleanupOnly {
+		cleanup(c)
 		return
 	}
 	nodes := getMinionNodes(c)

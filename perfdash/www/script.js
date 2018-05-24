@@ -102,6 +102,27 @@ PerfDashApp.prototype.getBuilds = function() {
     return Object.keys(this.data)
 };
 
+// Verify if selected labels are in label set 
+function verifySelectedLabels(selectedLabels, allLabels) {
+    if (selectedLabels == undefined || allLabels == undefined) {
+        return false;
+    }
+
+    if (Object.keys(selectedLabels).length != Object.keys(allLabels).length) {
+        return false;
+    }
+
+    var result = true;
+    angular.forEach(selectedLabels, function(value, key) {
+        if (!(key in allLabels) || !(value in allLabels[key])) {
+            result = false;
+        }
+    });
+
+   return result;
+}
+
+
 // Get the set of all labels (e.g. 'resources', 'verbs') in the data set
 PerfDashApp.prototype.getLabels = function() {
     var set = {};
@@ -116,7 +137,9 @@ PerfDashApp.prototype.getLabels = function() {
         });
     });
 
-    this.selectedLabels = {}
+    if (!verifySelectedLabels(this.selectedLabels, set)) {
+        this.selectedLabels = {}
+    }
     var labels = {};
     angular.forEach(set, function(items, name) {
         labels[name] = [];

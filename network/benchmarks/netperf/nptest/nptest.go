@@ -58,6 +58,7 @@ var workerStateMap map[string]*workerState
 var iperfTCPOutputRegexp *regexp.Regexp
 var iperfUDPOutputRegexp *regexp.Regexp
 var netperfOutputRegexp *regexp.Regexp
+var iperfCPUOutputRegexp *regexp.Regexp
 
 var dataPoints map[string][]point
 var dataPointKeys []string
@@ -176,6 +177,7 @@ func init() {
 	iperfTCPOutputRegexp = regexp.MustCompile("SUM.*\\s+(\\d+)\\sMbits/sec\\s+receiver")
 	iperfUDPOutputRegexp = regexp.MustCompile("\\s+(\\S+)\\sMbits/sec\\s+\\S+\\s+ms\\s+")
 	netperfOutputRegexp = regexp.MustCompile("\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+(\\S+)\\s+")
+	iperfCPUOutputRegexp = regexp.MustCompile(`local/sender\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\),\sremote/receiver\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\)`)
 
 	dataPoints = make(map[string][]point)
 }
@@ -411,6 +413,15 @@ func parseIperfUdpBandwidth(output string) string {
 	return "0"
 }
 
+func parseIperfCpuUsage(output string) (string, string) {
+	// Parses the output of iperf and grabs the CPU usage on sender and receiver side from the output
+	match := iperfCPUOutputRegexp.FindStringSubmatch(output)
+	if match != nil && len(match) > 1 {
+		return match[1], match[4]
+	}
+	return "0", "0"
+}
+
 func parseNetperfBandwidth(output string) string {
 	// Parses the output of netperf and grabs the Bbits/sec from the output
 	match := netperfOutputRegexp.FindStringSubmatch(output)
@@ -429,6 +440,8 @@ func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 
 	var outputLog string
 	var bw string
+	var cpuSender string
+	var cpuReceiver string
 
 	switch data.Type {
 	case iperfTcpTest:
@@ -437,6 +450,7 @@ func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MSS:", mss) + data.Output
 		writeOutputFile(outputCaptureFile, outputLog)
 		bw = parseIperfTcpBandwidth(data.Output)
+		cpuSender, cpuReceiver = parseIperfCpuUsage(data.Output)
 		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
 
 	case iperfUdpTest:
@@ -456,7 +470,14 @@ func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 		testcases[currentJobIndex].Finished = true
 
 	}
-	fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
+
+	switch data.Type {
+	case iperfTcpTest:
+		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec. CPU usage sender was", cpuSender, "%. CPU usage receiver was", cpuReceiver, "%.")
+	default:
+		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
+	}
+
 	return nil
 }
 
@@ -584,7 +605,7 @@ func netperfServer() {
 func iperfClient(serverHost, serverPort string, mss int, workItemType int) (rv string) {
 	switch {
 	case workItemType == iperfTcpTest:
-		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
+		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
 		if success {
 			rv = output
 		}

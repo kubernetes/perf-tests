@@ -67,7 +67,7 @@ func run() error {
 		}
 		prettyResult, err := json.MarshalIndent(result, "", " ")
 		if err != nil {
-			return fmt.Errorf("formating data failed: %v", err)
+			return fmt.Errorf("formatting data failed: %v", err)
 		}
 		fmt.Printf("Result: %v\n", string(prettyResult))
 		return nil

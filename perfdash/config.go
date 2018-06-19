@@ -109,6 +109,16 @@ var (
 			OutputFilePrefix: "MetricsForE2E",
 			Parser:           parseApiserverRequestCount,
 		},
+		"SchedulingLatency": {
+			Name:             "density",
+			OutputFilePrefix: "SchedulingMetrics",
+			Parser:           parseSchedulingLatency,
+		},
+		"SchedulingThroughput": {
+			Name:             "density",
+			OutputFilePrefix: "SchedulingMetrics",
+			Parser:           pareseSchedulingThroughput,
+		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf

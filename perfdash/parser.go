@@ -24,6 +24,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"time"
 )
 
 func stripCount(data *perftype.DataItem) {
@@ -165,4 +166,59 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		perfData.Data["RequestCount"] = float64(metric[i].Value)
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
+}
+
+// TODO(krzysied): Copy of structures from kuberentes repository.
+// At some point latencyMetric and schedulingMetrics should be moved to metric package.
+type latencyMetric struct {
+	Perc50 time.Duration `json:"Perc50"`
+	Perc90 time.Duration `json:"Perc90"`
+	Perc99 time.Duration `json:"Perc99"`
+}
+
+type schedulingMetrics struct {
+	SelectingNodeLatency latencyMetric `json:"selectingNodeLatency"`
+	BindingLatency       latencyMetric `json:"bindingLatency"`
+	ThroughputAverage    float64       `json:"throughputAverage"`
+	ThroughputPerc50     float64       `json:"throughputPerc50"`
+	ThroughputPerc90     float64       `json:"throughputPerc90"`
+	ThroughputPerc99     float64       `json:"throughputPerc99"`
+}
+
+func parseOperationLatency(latency latencyMetric, operationName string) perftype.DataItem {
+	perfData := perftype.DataItem{Unit: "ms", Labels: map[string]string{"Operation": operationName}, Data: make(map[string]float64)}
+	perfData.Data["Perc50"] = float64(latency.Perc50) / float64(time.Millisecond)
+	perfData.Data["Perc90"] = float64(latency.Perc90) / float64(time.Millisecond)
+	perfData.Data["Perc99"] = float64(latency.Perc99) / float64(time.Millisecond)
+	return perfData
+}
+
+func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData) {
+	testResult.Version = "v1"
+	build := fmt.Sprintf("%d", buildNumber)
+	var obj schedulingMetrics
+	if err := json.Unmarshal(data, &obj); err != nil {
+		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		return
+	}
+	selectingNode := parseOperationLatency(obj.SelectingNodeLatency, "selecting_node")
+	testResult.Builds[build] = append(testResult.Builds[build], selectingNode)
+	binding := parseOperationLatency(obj.BindingLatency, "binding")
+	testResult.Builds[build] = append(testResult.Builds[build], binding)
+}
+
+func pareseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildData) {
+	testResult.Version = "v1"
+	build := fmt.Sprintf("%d", buildNumber)
+	var obj schedulingMetrics
+	if err := json.Unmarshal(data, &obj); err != nil {
+		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		return
+	}
+	perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{}, Data: make(map[string]float64)}
+	perfData.Data["Perc50"] = obj.ThroughputPerc50
+	perfData.Data["Perc90"] = obj.ThroughputPerc90
+	perfData.Data["Perc99"] = obj.ThroughputPerc99
+	perfData.Data["Average"] = obj.ThroughputAverage
+	testResult.Builds[build] = append(testResult.Builds[build], perfData)
 }

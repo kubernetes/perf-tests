@@ -48,7 +48,7 @@ A single test scenario will be defined by a `Config`. Its schema will be as foll
 struct Config {
 	// TBD: Some config allowing to access cluster, e.g. path to kubeconfig file.
 
-	// Number of namespace in the test.
+	// Number of namespaces automanaged by ClusterLoader.
 	Namespaces int32
 	// Steps of the test.
 	Steps []Step
@@ -60,7 +60,7 @@ struct Config {
 With a test being defined by a single json/yaml file, it should be pretty simple
 to modify scenarios, and fork them to new ones.
 
-Note that before running any steps, ClusterLoader will create all the necessary
+Note that before running any steps, ClusterLoader will create all the requested
 namespaces and after running all of them will delete them (together with all
 objects that remained undeleted after running the test). Namespaces are described
 in more details in the later part of this document.
@@ -186,20 +186,27 @@ objects (or to be more specific: objects created from the same templates). Obvio
 we want the config for the test to be as small as possible.
 As a result, we will introduce the following rules:
 - In the top-level test definition, we will define the number of namespaces that will
-  be used by a test.
-- All the namespaces will have names of a form “namespace-<number>” for number
-  in range 1..N (where N is the number of namespaces in a test)
+  be automanaged by ClusterLoader.
+- The automanaged namespaces will have names of the form “namespace-<number>” for
+  number in range 1..N (where N is the number of namespaces in a test)
 
-To make it usable, we introduce the following type:
+However, users may want to create their own namespaces (as part of `Phases`) and
+create objects in them. That is perfectly valid usecase that will be supported.
+
+To make it possible to reference a set of namespaces (both automanaged and user-created),
+we introduce the following type:
 
 ```
 struct NamespaceRange {
 	Min int32
 	Max int32
+	Basename *string
 }
 ```
 
-Such object defines all namespaces "namespace-\<i\>" for `i` in the range [Min, Max].
+The `NamespaceRange` would select all namespace `\<Basename\>-\<i\>` for `i` in the
+range [Min, Max]. If `Basename` is unset, it will be default to the basename used for
+automanaged namespaces (i.e. `namespace`).
 
 #### Defining object type
 
@@ -271,7 +278,7 @@ be modifying that part of Cluster Loader codebase. Within the codebase, we will 
 to provide a relatively easy framework to achieve it though.
 
 At the high level, to implement gathering a given portion of data or measure a new
-SLO, you will need to implement a very simple interface, similar to:
+SLO, you will need to implement a very simple Go interface, similar to:
 
 ```
 type Measurement interface {
@@ -302,22 +309,32 @@ struct ResourceGatherer {
 func (r *ResourceGatherer) StartMeasurement(c MeasurementConfig) {
 	// Initialize gatherer and start gathering metrics.
 }
-funct (r *ResourceGatherer) StopMeasurement() {
+func (r *ResourceGatherer) StopMeasurement() {
 	// Stop gatherer.
 	// Validate and/or report results.
 }
 ```
 
-and the registering it in some config file, will let you automatically use:
+and registering this type in some factory, to enable use of:
 
 ```
 	ResourceGatherer_Start
 	ResourceGatherer_Stop
 ```
 
-as “phases” of your test.
+as `measurements` in your test. To be more specific, at the config level
+`Measurement` will be defined as:
 
-At the beginning, we will provide the following measurement types:
+```
+struct Measurement {
+	// A measurement Start/Stop method to be run.
+	// Such method has to be registered in ClusterLoader factory.
+	Method string
+	// TBD: Additional metadata necessary for measurement.
+}
+```
+
+At the beginning, we will provide the following measurement methods:
 
 ```
 	ResourceGatherer_Start/Stop

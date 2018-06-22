@@ -177,12 +177,14 @@ type latencyMetric struct {
 }
 
 type schedulingMetrics struct {
-	SelectingNodeLatency latencyMetric `json:"selectingNodeLatency"`
-	BindingLatency       latencyMetric `json:"bindingLatency"`
-	ThroughputAverage    float64       `json:"throughputAverage"`
-	ThroughputPerc50     float64       `json:"throughputPerc50"`
-	ThroughputPerc90     float64       `json:"throughputPerc90"`
-	ThroughputPerc99     float64       `json:"throughputPerc99"`
+	PredicateEvaluationLatency  latencyMetric `json:"predicateEvaluationLatency"`
+	PriorityEvaluationLatency   latencyMetric `json:"priorityEvaluationLatency"`
+	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
+	BindingLatency              latencyMetric `json:"bindingLatency"`
+	ThroughputAverage           float64       `json:"throughputAverage"`
+	ThroughputPerc50            float64       `json:"throughputPerc50"`
+	ThroughputPerc90            float64       `json:"throughputPerc90"`
+	ThroughputPerc99            float64       `json:"throughputPerc99"`
 }
 
 func parseOperationLatency(latency latencyMetric, operationName string) perftype.DataItem {
@@ -201,8 +203,12 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
 		return
 	}
-	selectingNode := parseOperationLatency(obj.SelectingNodeLatency, "selecting_node")
-	testResult.Builds[build] = append(testResult.Builds[build], selectingNode)
+	predicateEvaluation := parseOperationLatency(obj.PredicateEvaluationLatency, "predicate_evaluation")
+	testResult.Builds[build] = append(testResult.Builds[build], predicateEvaluation)
+	priorityEvaluation := parseOperationLatency(obj.PriorityEvaluationLatency, "priority_evaluation")
+	testResult.Builds[build] = append(testResult.Builds[build], priorityEvaluation)
+	preemptionEvaluation := parseOperationLatency(obj.PreemptionEvaluationLatency, "preemption_evaluation")
+	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
 	binding := parseOperationLatency(obj.BindingLatency, "binding")
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
 }

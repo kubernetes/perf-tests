@@ -57,7 +57,7 @@ func run() error {
 	// TODO(random-liu): Add a top layer downloader to download build log from different buckets when we support
 	// more buckets in the future.
 	downloader := NewGoogleGCSDownloader(*builds)
-	result := make(TestToBuildData)
+	result := make(JobToTestData)
 	var err error
 
 	if !*www {

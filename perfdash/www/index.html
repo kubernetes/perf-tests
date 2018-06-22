@@ -14,6 +14,15 @@
       <div id="content" class="md-whiteframe-z2" style="padding: 20px">
         <div style="width: 200px; display: inline-block;">
           <md-input-container>
+            <md-select placeholder="JobName" ng-model="controller.jobName"  ng-change="controller.jobNameChanged()">
+              <md-option ng-value="jobName" ng-repeat="jobName in controller.jobNames">
+                {{jobName}}
+              </md-option>
+            </md-select>
+          </md-input-container>
+        </div>
+	<div style="width: 200px; display: inline-block;">
+          <md-input-container>
             <md-select placeholder="TestName" ng-model="controller.testName"  ng-change="controller.testNameChanged()">
               <md-option ng-value="testName" ng-repeat="testName in controller.testNames">
                 {{testName}}

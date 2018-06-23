@@ -254,7 +254,7 @@ struct RandomizedLoad {
 }
 
 // SteppedLoad defines a load that generates a burst of
-// a given size every X secods.
+// a given size every X seconds.
 struct SteppedLoad {
 	BurstSize int32
 	StepDelay time.Duration

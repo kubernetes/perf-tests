@@ -17,6 +17,7 @@
 from __future__ import print_function
 
 import argparse
+import datetime
 import glob
 import json
 import mmap
@@ -133,12 +134,16 @@ def get_files(extensions):
             outfiles.append(pathname)
     return outfiles
 
+def get_dates():
+    years = datetime.datetime.now().year
+    return '(%s)' % '|'.join((str(year) for year in range(2014, years+1)))
+
 def get_regexs():
     regexs = {}
     # Search for "YEAR" which exists in the boilerplate, but shouldn't in the real thing
     regexs["year"] = re.compile( 'YEAR' )
-    # dates can be 2014 or 2015, company holder names can be anything
-    regexs["date"] = re.compile( '(2014|2015|2016|2017)' )
+    # dates can be 2014, 2015,... till current year, company holder names can be anything
+    regexs["date"] = re.compile(get_dates())
     # strip // +build \n\n build constraints
     regexs["go_build_constraints"] = re.compile(r"^(// \+build.*\n)+\n", re.MULTILINE)
     # strip #!.* from shell scripts

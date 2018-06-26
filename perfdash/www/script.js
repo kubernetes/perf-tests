@@ -78,8 +78,8 @@ PerfDashApp.prototype.labelChanged = function() {
             break;
         }
     }
-    if(this.options = null) {
-	return;
+    if(this.options == null) {
+        return;
     }
     angular.forEach(seriesLabels, function(name) {
         this.seriesData.push(this.getStream(result, name));

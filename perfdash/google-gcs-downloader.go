@@ -42,7 +42,7 @@ func NewGoogleGCSDownloader(builds int) *GoogleGCSDownloader {
 }
 
 // TODO(random-liu): Only download and update new data each time.
-func (g *GoogleGCSDownloader) getData() (TestToBuildData, error) {
+func (g *GoogleGCSDownloader) getData() (JobToTestData, error) {
 	newJobs, err := getProwConfig()
 	if err == nil {
 		TestConfig[utils.KubekinsBucket] = newJobs
@@ -50,7 +50,7 @@ func (g *GoogleGCSDownloader) getData() (TestToBuildData, error) {
 		fmt.Fprintf(os.Stderr, "Failed to refresh config: %v", err)
 	}
 	fmt.Print("Getting Data from GCS...\n")
-	result := make(TestToBuildData)
+	result := make(JobToTestData)
 	var resultLock sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(TestConfig[utils.KubekinsBucket]))
@@ -59,12 +59,14 @@ func (g *GoogleGCSDownloader) getData() (TestToBuildData, error) {
 			return result, fmt.Errorf("Invalid empty Prefix for job %s", job)
 		}
 		for testLabel := range tests.Descriptions {
-			testName := tests.Prefix + "-" + testLabel
 			resultLock.Lock()
-			if _, found := result[testName]; found {
-				return result, fmt.Errorf("Duplicate name %s", testName)
+			if _, found := result[tests.Prefix]; !found {
+				result[tests.Prefix] = make(TestToBuildData)
 			}
-			result[testName] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
+			if _, found := result[tests.Prefix][testLabel]; found {
+				return result, fmt.Errorf("Duplicate name %s for %s", testLabel, tests.Prefix)
+			}
+			result[tests.Prefix][testLabel] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
 			resultLock.Unlock()
 		}
 		go g.getJobData(&wg, result, &resultLock, job, tests)
@@ -73,7 +75,7 @@ func (g *GoogleGCSDownloader) getData() (TestToBuildData, error) {
 	return result, nil
 }
 
-func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result TestToBuildData, resultLock *sync.Mutex, job string, tests Tests) {
+func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToTestData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()
 	lastBuildNo, err := g.GoogleGCSBucketUtils.GetLastestBuildNumberFromJenkinsGoogleBucket(job)
 	if err != nil {
@@ -107,9 +109,8 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result TestToBuildD
 					fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
 					return
 				}
-				testName := tests.Prefix + "-" + testLabel
 				resultLock.Lock()
-				buildData := result[testName]
+				buildData := result[tests.Prefix][testLabel]
 				resultLock.Unlock()
 				testDescription.Parser(data, buildNumber, buildData)
 			}()

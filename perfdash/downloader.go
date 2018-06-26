@@ -40,7 +40,10 @@ type BuildData struct {
 // TODO(random-liu): Use a more complex data structure if we need to support more test in the future.
 type TestToBuildData map[string]*BuildData
 
-func (b *TestToBuildData) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+// JobToTestData is a map from job name to TestToBuildData
+type JobToTestData map[string]TestToBuildData
+
+func (b *JobToTestData) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	data, err := json.Marshal(b)
 	if err != nil {
 		res.Header().Set("Content-type", "text/html")

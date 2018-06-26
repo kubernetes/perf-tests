@@ -43,13 +43,13 @@ PerfDashApp.prototype.onClickInternal_ = function(data, evt, chart) {
 PerfDashApp.prototype.refresh = function() {
     this.http.get("api")
             .success(function(data) {
-                this.testNames = Object.keys(data);
-                //init testName only if needed
-                if (this.testName == undefined || this.testNames.indexOf(this.testName) == -1) {
-                    this.testName = this.testNames[0];
+                this.jobNames = Object.keys(data);
+                //init jobName only if needed
+                if (this.jobName == undefined || this.jobNames.indexOf(this.jobName) == -1) {
+                    this.jobName = this.jobNames[0];
                 }
                 this.allData = data;
-                this.testNameChanged();
+                this.jobNameChanged();
             }.bind(this))
     .error(function(data) {
         console.log("error fetching result");
@@ -88,10 +88,19 @@ PerfDashApp.prototype.labelChanged = function() {
     this.cap = 0;
 };
 
+// Update the data to graph, using the selected jobName
+PerfDashApp.prototype.jobNameChanged = function() {
+    this.testNames = Object.keys(this.allData[this.jobName])
+    if (this.testName == undefined ||  this.testNames.indexOf(this.testName) == -1) {
+         this.testName = this.testNames[0]
+    }
+    this.testNameChanged();
+};
+
 // Update the data to graph, using the selected testName
 PerfDashApp.prototype.testNameChanged = function() {
-    this.data = this.allData[this.testName].builds;
-    this.job = this.allData[this.testName].job;
+    this.data = this.allData[this.jobName][this.testName].builds;
+    this.job = this.allData[this.jobName][this.testName].job;
     this.builds = this.getBuilds();
     this.labels = this.getLabels();
     this.labelChanged();

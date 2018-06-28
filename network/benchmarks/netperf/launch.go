@@ -332,9 +332,14 @@ func getCsvResultsFromPod(c *kubernetes.Clientset, podName string) *string {
 
 // processCsvData : Process the CSV datafile and generate line and bar graphs
 func processCsvData(csvData *string) bool {
-	outputFilePrefix := fmt.Sprintf("%s-%s.", testNamespace, tag)
-	fmt.Printf("Test concluded - CSV raw data written to %s.csv\n", outputFilePrefix)
-	fd, err := os.OpenFile(fmt.Sprintf("%scsv", outputFilePrefix), os.O_RDWR|os.O_CREATE, 0666)
+	t := time.Now().UTC()
+	outputFileDirectory := fmt.Sprintf("results_%s-%s", testNamespace, tag)
+	outputFilePrefix := fmt.Sprintf("%s-%s_%s.", testNamespace, tag, t.Format("20060102150405"))
+	fmt.Printf("Test concluded - CSV raw data written to %s/%scsv\n", outputFileDirectory, outputFilePrefix)
+	if _, err := os.Stat(outputFileDirectory); os.IsNotExist(err) {
+		os.Mkdir(outputFileDirectory, 0766)
+	}
+	fd, err := os.OpenFile(fmt.Sprintf("%s/%scsv", outputFileDirectory, outputFilePrefix), os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		fmt.Println("ERROR writing output CSV datafile", err)
 		return false

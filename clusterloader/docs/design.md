@@ -365,3 +365,13 @@ necessary at the early begining.
      - `+` operation will be supported
    - though, only simple expressions (like {{ N+i%5 }} or {{ RAND%3+5 }} will
      be supported (at least initially).
+
+2. Feedback loop from monitoring.
+   Assume that we defined some SLO (that Cluster Loader is able to measure) and
+   now we want to understand what conditions need to be satisfied to meet this
+   SLO (e.g. what throughput we can support to meet the latency SLO).
+   Providing a feedback loop from measurements to load generation tuning can
+   solve that problem automatically for us.
+   There are a number of details that needs to be figured out to do that, that's
+   not needed for the initial version (or for migration existing scalability
+   tests), but that should also happen once the framework is already usable.

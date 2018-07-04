@@ -88,7 +88,9 @@ func run() error {
 	}()
 
 	fmt.Println("Starting server")
-	http.Handle("/api", &result)
 	http.Handle("/", http.FileServer(http.Dir(*wwwDir)))
+	http.HandleFunc("/jobnames", result.ServeJobNames)
+	http.HandleFunc("/testnames", result.ServeTestNames)
+	http.HandleFunc("/buildsdata", result.ServeBuildsData)
 	return http.ListenAndServe(*addr, nil)
 }

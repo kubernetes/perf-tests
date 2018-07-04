@@ -41,15 +41,46 @@ PerfDashApp.prototype.onClickInternal_ = function(data, evt, chart) {
 
 // Fetch data from the server and update the data to display
 PerfDashApp.prototype.refresh = function() {
-    this.http.get("api")
+    this.http.get("jobnames")
             .success(function(data) {
-                this.jobNames = Object.keys(data);
+                this.jobNames = data;
                 //init jobName only if needed
                 if (this.jobName == undefined || this.jobNames.indexOf(this.jobName) == -1) {
                     this.jobName = this.jobNames[0];
                 }
-                this.allData = data;
                 this.jobNameChanged();
+            }.bind(this))
+    .error(function(data) {
+        console.log("error fetching result");
+        console.log(data);
+    });
+};
+
+// Update the data to graph, using the selected jobName
+PerfDashApp.prototype.jobNameChanged = function() {
+    this.http.get("testnames", {params: {jobname: this.jobName}})
+            .success(function(data) {
+                    this.testNames = data;
+                    if (this.testName == undefined ||  this.testNames.indexOf(this.testName) == -1) {
+                         this.testName = this.testNames[0]
+                    }
+                    this.testNameChanged();
+            }.bind(this))
+    .error(function(data) {
+        console.log("error fetching result");
+        console.log(data);
+    });
+};
+
+// Update the data to graph, using the selected testName
+PerfDashApp.prototype.testNameChanged = function() {
+    this.http.get("buildsdata", {params: {jobname: this.jobName, testname: this.testName}})
+            .success(function(data) {
+                    this.data = data.builds;
+                    this.job = data.job;
+                    this.builds = this.getBuilds();
+                    this.labels = this.getLabels();
+                    this.labelChanged();
             }.bind(this))
     .error(function(data) {
         console.log("error fetching result");
@@ -86,24 +117,6 @@ PerfDashApp.prototype.labelChanged = function() {
         this.series.push(name);
     }, this);
     this.cap = 0;
-};
-
-// Update the data to graph, using the selected jobName
-PerfDashApp.prototype.jobNameChanged = function() {
-    this.testNames = Object.keys(this.allData[this.jobName])
-    if (this.testName == undefined ||  this.testNames.indexOf(this.testName) == -1) {
-         this.testName = this.testNames[0]
-    }
-    this.testNameChanged();
-};
-
-// Update the data to graph, using the selected testName
-PerfDashApp.prototype.testNameChanged = function() {
-    this.data = this.allData[this.jobName][this.testName].builds;
-    this.job = this.allData[this.jobName][this.testName].job;
-    this.builds = this.getBuilds();
-    this.labels = this.getLabels();
-    this.labelChanged();
 };
 
 // Get all of the builds for the data set (e.g. build numbers)

@@ -63,10 +63,6 @@ type Phase struct {
 
 // Object is a structure that defines the object managed be the tests.
 type Object struct {
-	// TODO(krzysied): possibly ObjectType will be removed. All data can be
-	// acquired from the template.
-	// ObjectType is a type for a given object.
-	ObjectType ObjectType `json: objectType`
 	// Basename is a string from which names of objects will be created.
 	Basename string `json: basename`
 	// ObjectTemplatePath specifies the path to object definition.
@@ -84,16 +80,6 @@ type NamespaceRange struct {
 	// where <i> in [Min, Max], will be selected.
 	// If no Basename is specified, automanaged namespace is assumed.
 	Basename *string
-}
-
-// ObjectType contains a specification for api and kind of the object.
-type ObjectType struct {
-	// APIGroup defines the api group.
-	APIGroup string `json: apiGroup`
-	// APIVersion specifies the api version.
-	APIVersion string `json: apiVersion`
-	// Kind specifies the kubernetes kind of object.
-	Kind string `json: kind`
 }
 
 // TuningSet defines the specific parameterization for the simulated load limit.

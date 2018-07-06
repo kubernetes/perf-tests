@@ -18,10 +18,13 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
@@ -40,4 +43,18 @@ func ReadConfig(path string) (*api.Config, error) {
 		return nil, fmt.Errorf("unmarshaling failed: %v", err)
 	}
 	return &config, nil
+}
+
+// ReadTemplate creates object template from file specified by the given path.
+func ReadTemplate(path string) (*unstructured.Unstructured, error) {
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading template file: %v", err)
+	}
+	obj := &unstructured.Unstructured{}
+	_, _, err = scheme.Codecs.UniversalDeserializer().Decode(raw, nil, obj)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshaling error: %v", err)
+	}
+	return obj, nil
 }

@@ -63,6 +63,8 @@ type Phase struct {
 
 // Object is a structure that defines the object managed be the tests.
 type Object struct {
+	// TODO(krzysied): possibly ObjectType will be removed. All data can be
+	// acquired from the template.
 	// ObjectType is a type for a given object.
 	ObjectType ObjectType `json: objectType`
 	// Basename is a string from which names of objects will be created.

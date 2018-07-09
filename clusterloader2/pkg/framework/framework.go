@@ -23,8 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/perf-tests/clusterloader2/framework/client"
-	"k8s.io/perf-tests/clusterloader2/framework/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/config"
+
+	// ensure auth plugins are loaded
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 const (

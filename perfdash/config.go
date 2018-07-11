@@ -23,6 +23,7 @@ import (
 	"k8s.io/contrib/test-utils/utils"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -42,6 +43,7 @@ type TestDescription struct {
 type Tests struct {
 	Prefix       string
 	Descriptions map[string]TestDescription
+	BuildsCount  int
 }
 
 // Jobs is a map from job name to all supported tests in the job.
@@ -186,6 +188,19 @@ func getProwConfig() (Jobs, error) {
 				split := strings.SplitN(tag, ":", 2)
 				jobType := strings.TrimSpace(split[1])
 				thisPeriodicConfig.Descriptions = jobTypeToDescriptions[jobType]
+				continue
+			}
+			if strings.HasPrefix(tag, "perfDashBuildsCount:") {
+				split := strings.SplitN(tag, ":", 2)
+				i, err := strconv.Atoi(strings.TrimSpace(split[1]))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: unparsable builds count - %v\n", split[1])
+				}
+				if i < 1 {
+					fmt.Fprintf(os.Stderr, "warning: non-positive builds count - %v\n", i)
+					continue
+				}
+				thisPeriodicConfig.BuildsCount = i
 				continue
 			}
 			if strings.HasPrefix(tag, "perfDash") {

@@ -29,14 +29,14 @@ import (
 
 // GoogleGCSDownloader that gets data about Google results from the GCS repository
 type GoogleGCSDownloader struct {
-	Builds               int
+	DefaultBuildsCount   int
 	GoogleGCSBucketUtils *utils.Utils
 }
 
 // NewGoogleGCSDownloader creates a new GoogleGCSDownloader
-func NewGoogleGCSDownloader(builds int) *GoogleGCSDownloader {
+func NewGoogleGCSDownloader(defaultBuildsCount int) *GoogleGCSDownloader {
 	return &GoogleGCSDownloader{
-		Builds:               builds,
+		DefaultBuildsCount:   defaultBuildsCount,
 		GoogleGCSBucketUtils: utils.NewUtils(utils.KubekinsBucket, utils.LogDir),
 	}
 }
@@ -82,8 +82,13 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToTestDat
 		panic(err)
 	}
 	fmt.Printf("Last build no for %v: %v\n", job, lastBuildNo)
+	buildsToFetch := tests.BuildsCount
+	if buildsToFetch < 1 {
+		buildsToFetch = g.DefaultBuildsCount
+	}
+	fmt.Printf("Builds to fetch for %v: %v\n", job, buildsToFetch)
 
-	for buildNumber := lastBuildNo; buildNumber > lastBuildNo-g.Builds && buildNumber > 0; buildNumber-- {
+	for buildNumber := lastBuildNo; buildNumber > lastBuildNo-buildsToFetch && buildNumber > 0; buildNumber-- {
 		fmt.Printf("Fetching %s build %v...\n", job, buildNumber)
 		for testLabel, testDescription := range tests.Descriptions {
 			fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)

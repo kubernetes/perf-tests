@@ -18,4 +18,3 @@ RUN apt-get update
 RUN apt-get install -y -qq ca-certificates
 ADD perfdash /perfdash
 ADD www /www
-

@@ -99,7 +99,7 @@ PerfDashApp.prototype.labelChanged = function() {
     for (; a < result.length; a++) {
         if ("unit" in result[a] && "data" in result[a] && result[a].data != {}) {
             // All the unit should be the same
-            this.options = {scaleLabel: "<%=value%> "+result[a].unit};
+            this.options = {scaleLabel: "<%=value%> "+result[a].unit, animation: false};
             // Start with higher percentiles, since their values are usually strictly higher
             // than lower percentiles, which avoids obscuring graph data. It also orders data
             // in the onHover labels more naturally.

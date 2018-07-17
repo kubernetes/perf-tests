@@ -228,3 +228,46 @@ func pareseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildD
 	perfData.Data["Average"] = obj.ThroughputAverage
 	testResult.Builds[build] = append(testResult.Builds[build], perfData)
 }
+
+// TODO(krzysied): This structure also should be moved to metric package.
+type histogram struct {
+	Labels  map[string]string `json:"labels"`
+	Buckets map[string]int    `json:"buckets"`
+}
+
+type histogramVec []histogram
+
+// HistogramMetrics is a generalization of histogram metrics structure from metric_util.go
+// Instead of explicit fields, we have a map.
+type histogramMetrics map[string]histogramVec
+
+func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, testResult *BuildData) {
+	return func(data []byte, buildNumber int, testResult *BuildData) {
+		testResult.Version = "v1"
+		build := fmt.Sprintf("%d", buildNumber)
+		var obj histogramMetrics
+		if err := json.Unmarshal(data, &obj); err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+			return
+		}
+		for k, v := range obj {
+			if k == metricName {
+				for i := range v {
+					perfData := perftype.DataItem{Unit: "%", Labels: v[i].Labels, Data: make(map[string]float64)}
+					delete(perfData.Labels, "__name__")
+					count, exists := v[i].Buckets["+Inf"]
+					if !exists {
+						fmt.Fprintf(os.Stderr, "err in build %d: no +Inf bucket: %s\n", buildNumber, string(data))
+						continue
+					}
+					for kBucket, vBucket := range v[i].Buckets {
+						if kBucket != "+Inf" {
+							perfData.Data["le "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
+						}
+					}
+					testResult.Builds[build] = append(testResult.Builds[build], perfData)
+				}
+			}
+		}
+	}
+}

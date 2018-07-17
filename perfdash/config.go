@@ -121,6 +121,26 @@ var (
 			OutputFilePrefix: "SchedulingMetrics",
 			Parser:           pareseSchedulingThroughput,
 		},
+		"BackendCommitDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("backendCommitDuration"),
+		},
+		"SnapshotSaveTotalDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
+		},
+		"PeerRoundTripTime": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("peerRoundTripTime"),
+		},
+		"WalFsyncDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("walFsyncDuration"),
+		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf

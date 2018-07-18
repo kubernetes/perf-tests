@@ -42,7 +42,7 @@ func NewGoogleGCSDownloader(defaultBuildsCount int) *GoogleGCSDownloader {
 }
 
 // TODO(random-liu): Only download and update new data each time.
-func (g *GoogleGCSDownloader) getData() (JobToTestData, error) {
+func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 	newJobs, err := getProwConfig()
 	if err == nil {
 		TestConfig[utils.KubekinsBucket] = newJobs
@@ -50,7 +50,7 @@ func (g *GoogleGCSDownloader) getData() (JobToTestData, error) {
 		fmt.Fprintf(os.Stderr, "Failed to refresh config: %v", err)
 	}
 	fmt.Print("Getting Data from GCS...\n")
-	result := make(JobToTestData)
+	result := make(JobToCategoryData)
 	var resultLock sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(TestConfig[utils.KubekinsBucket]))
@@ -58,16 +58,21 @@ func (g *GoogleGCSDownloader) getData() (JobToTestData, error) {
 		if tests.Prefix == "" {
 			return result, fmt.Errorf("Invalid empty Prefix for job %s", job)
 		}
-		for testLabel := range tests.Descriptions {
-			resultLock.Lock()
-			if _, found := result[tests.Prefix]; !found {
-				result[tests.Prefix] = make(TestToBuildData)
+		for categoryLabel, categoryMap := range tests.Descriptions {
+			for testLabel := range categoryMap {
+				resultLock.Lock()
+				if _, found := result[tests.Prefix]; !found {
+					result[tests.Prefix] = make(CategoryToMetricData)
+				}
+				if _, found := result[tests.Prefix][categoryLabel]; !found {
+					result[tests.Prefix][categoryLabel] = make(MetricToBuildData)
+				}
+				if _, found := result[tests.Prefix][categoryLabel][testLabel]; found {
+					return result, fmt.Errorf("Duplicate name %s for %s", testLabel, tests.Prefix)
+				}
+				result[tests.Prefix][categoryLabel][testLabel] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
+				resultLock.Unlock()
 			}
-			if _, found := result[tests.Prefix][testLabel]; found {
-				return result, fmt.Errorf("Duplicate name %s for %s", testLabel, tests.Prefix)
-			}
-			result[tests.Prefix][testLabel] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
-			resultLock.Unlock()
 		}
 		go g.getJobData(&wg, result, &resultLock, job, tests)
 	}
@@ -75,7 +80,7 @@ func (g *GoogleGCSDownloader) getData() (JobToTestData, error) {
 	return result, nil
 }
 
-func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToTestData, resultLock *sync.Mutex, job string, tests Tests) {
+func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()
 	lastBuildNo, err := g.GoogleGCSBucketUtils.GetLastestBuildNumberFromJenkinsGoogleBucket(job)
 	if err != nil {
@@ -90,35 +95,37 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToTestDat
 
 	for buildNumber := lastBuildNo; buildNumber > lastBuildNo-buildsToFetch && buildNumber > 0; buildNumber-- {
 		fmt.Printf("Fetching %s build %v...\n", job, buildNumber)
-		for testLabel, testDescription := range tests.Descriptions {
-			fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
-			artifacts, err := g.GoogleGCSBucketUtils.ListFilesInBuild(job, buildNumber, fileStem)
-			if err != nil || len(artifacts) == 0 {
-				fmt.Printf("Error while looking for %s* in %s build %v: %v\n", fileStem, job, buildNumber, err)
-				continue
-			}
-			metricsFilename := artifacts[0][strings.LastIndex(artifacts[0], "/")+1:]
-			if len(artifacts) > 1 {
-				fmt.Printf("WARNING: found multiple %s files with data, reading only one: %s\n", fileStem, metricsFilename)
-			}
-			testDataResponse, err := g.GoogleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, buildNumber, fmt.Sprintf("artifacts/%v", metricsFilename))
-			if err != nil {
-				panic(err)
-			}
-
-			func() {
-				testDataBody := testDataResponse.Body
-				defer testDataBody.Close()
-				data, err := ioutil.ReadAll(testDataBody)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
-					return
+		for categoryLabel, categoryMap := range tests.Descriptions {
+			for testLabel, testDescription := range categoryMap {
+				fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
+				artifacts, err := g.GoogleGCSBucketUtils.ListFilesInBuild(job, buildNumber, fileStem)
+				if err != nil || len(artifacts) == 0 {
+					fmt.Printf("Error while looking for %s* in %s build %v: %v\n", fileStem, job, buildNumber, err)
+					continue
 				}
-				resultLock.Lock()
-				buildData := result[tests.Prefix][testLabel]
-				resultLock.Unlock()
-				testDescription.Parser(data, buildNumber, buildData)
-			}()
+				metricsFilename := artifacts[0][strings.LastIndex(artifacts[0], "/")+1:]
+				if len(artifacts) > 1 {
+					fmt.Printf("WARNING: found multiple %s files with data, reading only one: %s\n", fileStem, metricsFilename)
+				}
+				testDataResponse, err := g.GoogleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, buildNumber, fmt.Sprintf("artifacts/%v", metricsFilename))
+				if err != nil {
+					panic(err)
+				}
+
+				func() {
+					testDataBody := testDataResponse.Body
+					defer testDataBody.Close()
+					data, err := ioutil.ReadAll(testDataBody)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
+						return
+					}
+					resultLock.Lock()
+					buildData := result[tests.Prefix][categoryLabel][testLabel]
+					resultLock.Unlock()
+					testDescription.Parser(data, buildNumber, buildData)
+				}()
+			}
 		}
 	}
 }

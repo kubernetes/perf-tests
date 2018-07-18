@@ -59,9 +59,8 @@ func main() {
 		glog.Fatalf("Config reading error: %v", err)
 	}
 
-	err = test.RunTest(f, c)
-	if err != nil {
-		glog.Fatalf("Test execution failed: %v", err)
+	if errList := test.RunTest(f, c); len(errList) > 0 {
+		glog.Fatalf("Test execution failed: %v", errors.NewAggregate(errList).Error())
 	}
 
 	glog.Info("Test ran successfully!")

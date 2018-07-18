@@ -35,18 +35,18 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, conf *api.Config) error {
+func RunTest(f *framework.Framework, conf *api.Config) []error {
 	if f == nil {
-		return fmt.Errorf("framework must be provided")
+		return []error{fmt.Errorf("framework must be provided")}
 	}
 	if conf == nil {
-		return fmt.Errorf("test config must be provided")
+		return []error{fmt.Errorf("test config must be provided")}
 	}
 	if CreateContext == nil {
-		return fmt.Errorf("no CreateContext function installed")
+		return []error{fmt.Errorf("no CreateContext function installed")}
 	}
 	if Test == nil {
-		return fmt.Errorf("no Test installed")
+		return []error{fmt.Errorf("no Test installed")}
 	}
 
 	ctx := CreateContext(f, state.NewNamespacesState())

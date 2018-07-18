@@ -27,11 +27,11 @@ import (
 var (
 	// CreateContext global function for creating context.
 	// This function should be set by Context implementation.
-	CreateContext CreatContextFunc
+	CreateContext = createSimpleContext
 
 	// Test is a singleton for test execution object.
 	// This object should be set by TestExecutor implementation.
-	Test TestExecutor
+	Test = createSimpleTestExecutor()
 )
 
 // RunTest runs test based on provided test configuration.

@@ -11,10 +11,10 @@
         <!-- TODO: Need a better logo here -->
         <a href="https://k8s.io"><img src="k8s_logo.png" style="width:84; height: 84" /></a>
       </md-toolbar>
-      <div id="content" class="md-whiteframe-z2" style="padding: 20px">
+      <div id="content" class="md-whiteframe-z2" style="padding: 20px;">
         <div style="width: 200px; display: inline-block;">
           <md-input-container>
-            <md-select placeholder="JobName" ng-model="controller.jobName"  ng-change="controller.jobNameChanged()">
+            <md-select ng-model="controller.jobName" ng-change="controller.jobNameChanged()">
               <md-option ng-value="jobName" ng-repeat="jobName in controller.jobNames">
                 {{jobName}}
               </md-option>
@@ -23,14 +23,23 @@
         </div>
 	<div style="width: 200px; display: inline-block;">
           <md-input-container>
-            <md-select placeholder="TestName" ng-model="controller.testName"  ng-change="controller.testNameChanged()">
-              <md-option ng-value="testName" ng-repeat="testName in controller.testNames">
-                {{testName}}
+            <md-select placeholder="MetricCategoryName" ng-model="controller.metricCategoryName"  ng-change="controller.metricCategoryNameChanged()">
+              <md-option ng-value="metricCategoryName" ng-repeat="metricCategoryName in controller.metricCategoryNames">
+                {{metricCategoryName}}
               </md-option>
             </md-select>
           </md-input-container>
         </div>
-        <div ng-repeat="(name, items) in controller.labels" ng-model="controller.testName" ng-change="controller.labelChanged()" style="width: 200px; display: inline-block;">
+	<div style="width: 250px; display: inline-block;">
+          <md-input-container>
+            <md-select placeholder="MetricName" ng-model="controller.metricName"  ng-change="controller.metricNameChanged()">
+              <md-option ng-value="metricName" ng-repeat="metricName in controller.metricNames">
+                {{metricName}}
+              </md-option>
+            </md-select>
+          </md-input-container>
+        </div>
+        <div ng-repeat="(name, items) in controller.labels" ng-model="controller.metricName" ng-change="controller.labelChanged()" style="width: 200px; display: inline-block;">
           <md-input-container>
             <md-select placeholder="name" ng-model="controller.selectedLabels[name]"  ng-change="controller.labelChanged()">
               <md-option ng-value="item" ng-repeat="item in items">

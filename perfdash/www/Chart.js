@@ -2547,7 +2547,7 @@
 		pointDotStrokeWidth : 1,
 
 		//Number - amount extra to add to the radius to cater for hit detection outside the drawn point
-		pointHitDetectionRadius : 20,
+		pointHitDetectionRadius : 5,
 
 		//Boolean - Whether to show a stroke for datasets
 		datasetStroke : true,

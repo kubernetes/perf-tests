@@ -37,6 +37,13 @@ type InstancesIdentifier struct {
 	ApiGroup   string
 }
 
+// InstanceTuple represents a single entry in the test state.
+type InstanceTuple struct {
+	Namespace  string
+	Identifier InstancesIdentifier
+	Instances  *InstancesState
+}
+
 // namespaceState represents state of a single namespace.
 type namespaceState map[InstancesIdentifier]*InstancesState
 
@@ -46,7 +53,7 @@ type NamespacesState struct {
 	namespacesState map[string]namespaceState
 }
 
-// NewNamespacesState creates new namsepaces state.
+// NewNamespacesState creates new namespaces state.
 func NewNamespacesState() *NamespacesState {
 	return &NamespacesState{
 		namespacesState: make(map[string]namespaceState),
@@ -94,4 +101,21 @@ func (ns *NamespacesState) Delete(namespace string, identifier InstancesIdentifi
 	}
 	delete(namespaceState, identifier)
 	return nil
+}
+
+// ListAll returns a list of all registered instances in namespaces.
+func (ns *NamespacesState) ListAll() []InstanceTuple {
+	var tupleList []InstanceTuple
+	ns.lock.RLock()
+	defer ns.lock.RUnlock()
+	for namespace, state := range ns.namespacesState {
+		for identifier, instances := range state {
+			tupleList = append(tupleList, InstanceTuple{
+				Namespace:  namespace,
+				Identifier: identifier,
+				Instances:  instances,
+			})
+		}
+	}
+	return tupleList
 }

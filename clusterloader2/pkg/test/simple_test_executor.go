@@ -45,7 +45,7 @@ func createSimpleTestExecutor() TestExecutor {
 
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
-	defer cleanupResources(ctx)
+	defer ste.cleanupResources(ctx)
 	ctx.GetTickerFactory().Init(conf.TuningSets)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
@@ -314,11 +314,29 @@ func isErrsCritical(*util.ErrorList) bool {
 	return false
 }
 
-func cleanupResources(ctx Context) {
-	cleanupStartTime := time.Now()
-	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
-		glog.Errorf("Resource cleanup error: %v", errList.String())
-		return
+func (ste *simpleTestExecutor) cleanupResources(ctx Context) {
+	var wg wait.Group
+	instancesList := ctx.GetState().ListAll()
+	// Removing objects.
+	for i := range instancesList {
+		instancesList[i].Instances.DesiredReplicaCount = 0
+		ctx.GetState().Set(instancesList[i].Namespace, instancesList[i].Identifier, instancesList[i].Instances)
+		for replicaCounter := int32(0); replicaCounter < instancesList[i].Instances.CurrentReplicaCount; replicaCounter++ {
+			instanceIndex := i
+			replicaIndex := replicaCounter
+			wg.Start(func() {
+				if objectErrList := ste.ExecuteObject(ctx, &instancesList[instanceIndex].Instances.Object, instancesList[instanceIndex].Namespace, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+					objectString := fmt.Sprintf("Namespace %v resource %v-%d", instancesList[instanceIndex].Namespace, instancesList[instanceIndex].Instances.Object.Basename, replicaIndex)
+					glog.Errorf("%v cleanup error: %v", objectString, objectErrList.String())
+				}
+			})
+		}
+		instancesList[i].Instances.CurrentReplicaCount = 0
+		ctx.GetState().Set(instancesList[i].Namespace, instancesList[i].Identifier, instancesList[i].Instances)
 	}
-	glog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
+	wg.Wait()
+	// Removing automanaged namespaces.
+	if err := ctx.GetFramework().DeleteAutomanagedNamespaces(); err != nil {
+		glog.Errorf("Namespace cleanup error: %v", err)
+	}
 }

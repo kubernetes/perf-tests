@@ -26,6 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -110,20 +113,19 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 
 // UpdateObject updates with given name, group, version and kind based on given object description.
 func UpdateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
-	// TODO(krzysied): This method should be more generic and robust.
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-	currentObj, err := GetObject(dynamicClient, gvk, namespace, name)
-	if err != nil {
-		return err
-	}
-	spec, exists := obj.UnstructuredContent()["spec"]
-	if !exists {
-		return fmt.Errorf("Object without a spec")
-	}
-	unstructured.SetNestedField(currentObj.UnstructuredContent(), spec, "spec")
+	obj.SetName(name)
 	updateFunc := func() error {
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Update(currentObj)
+		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		patch, err := createPatch(currentObj, obj)
+		if err != nil {
+			return fmt.Errorf("creating patch diff error: %v", err)
+		}
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
 		return err
 	}
 	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
@@ -153,4 +155,19 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 		return nil, err
 	}
 	return obj, nil
+}
+
+func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
+	currentJson, err := current.MarshalJSON()
+	if err != nil {
+		return []byte{}, err
+	}
+	modifiedJson, err := modified.MarshalJSON()
+	if err != nil {
+		return []byte{}, err
+	}
+	preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
+		mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
+	// TODO(krzysied): Figure out way to pass original object or figure out way to use CreateTwoWayMergePatch.
+	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil, modifiedJson, currentJson, preconditions...)
 }

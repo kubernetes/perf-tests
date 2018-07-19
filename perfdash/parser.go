@@ -262,7 +262,7 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 					}
 					for kBucket, vBucket := range v[i].Buckets {
 						if kBucket != "+Inf" {
-							perfData.Data["le "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
+							perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
 						}
 					}
 					testResult.Builds[build] = append(testResult.Builds[build], perfData)

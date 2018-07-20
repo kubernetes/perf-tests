@@ -105,7 +105,7 @@ We classify each metric as matched/mismatched based on the above test. We could 
 
 **NOTES FOR INTERESTED CONTRIBUTORS**
 
-This tool has been implemented and the code for it lies [here](https://github.com/kubernetes/perf-tests/tree/master/benchmark). Further, we have setup an [automated CI job](https://k8s-testgrid.appspot.com/perf-tests#kubemark-100-benchmark) that runs this benchmark periodically and compares the metrics across our 100-node kubemark and 100-node real-cluster runs from the last 24 hrs.
+This tool has been implemented and the code for it lies [here](https://github.com/kubernetes/perf-tests/tree/master/benchmark). Further, we have setup an [automated CI job](https://k8s-testgrid.appspot.com/sig-scalability-perf-tests#kubemark-100-benchmark) that runs this benchmark periodically and compares the metrics across our 100-node kubemark and 100-node real-cluster runs from the last 24 hrs.
 
 If you want to contribute to this tool, file bugs or help with understanding/resolving differences we’re currently observing across kubemark and real-cluster (e.g [#44701](https://github.com/kubernetes/kubernetes/issues/44701)), ping us on “sig-scale” kubernetes slack channel and/or write an email to `kubernetes-sig-scale@googlegroups.com`.
 

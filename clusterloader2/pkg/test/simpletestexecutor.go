@@ -23,7 +23,6 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 )
@@ -87,7 +86,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		instancesStates := make([]*state.InstancesState, 0)
 		// Updating state (DesiredReplicaCount) of every object in object bundle.
 		for j := range phase.ObjectBundle {
-			id, err := getIdentifier(&phase.ObjectBundle[j])
+			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
 			if err != nil {
 				errList = append(errList, err)
 				return errList
@@ -152,7 +151,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		}
 		// Updating state (CurrentReplicaCount) of every object in object bundle.
 		for j := range phase.ObjectBundle {
-			id, _ := getIdentifier(&phase.ObjectBundle[j])
+			id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
 			instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
 			ctx.GetState().Set(nsName, id, instancesStates[j])
 		}
@@ -163,7 +162,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 // ExecuteObject executes single test object operation based on provided object configuration.
 func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error {
 	var errList []error
-	template, err := config.ReadTemplate(object.ObjectTemplatePath)
+	template, err := ctx.GetTemplateProvider().GetTemplate(object.ObjectTemplatePath)
 	if err != nil {
 		return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
 	}
@@ -191,8 +190,8 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	return errList
 }
 
-func getIdentifier(object *api.Object) (state.InstancesIdentifier, error) {
-	obj, err := config.ReadTemplate(object.ObjectTemplatePath)
+func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
+	obj, err := ctx.GetTemplateProvider().GetTemplate(object.ObjectTemplatePath)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("%v: reading template error: %v", err)
 	}

@@ -18,6 +18,7 @@ package test
 
 import (
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 )
@@ -42,6 +43,7 @@ const (
 type Context interface {
 	GetFramework() *framework.Framework
 	GetState() *state.NamespacesState
+	GetTemplateProvider() *config.TemplateProvider
 }
 
 // TestExecutor is an interface for test executing object.

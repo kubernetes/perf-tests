@@ -17,19 +17,22 @@ limitations under the License.
 package test
 
 import (
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 )
 
 type simpleContext struct {
-	framework *framework.Framework
-	state     *state.NamespacesState
+	framework        *framework.Framework
+	state            *state.NamespacesState
+	templateProvider *config.TemplateProvider
 }
 
 func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Context {
 	return &simpleContext{
-		framework: f,
-		state:     s,
+		framework:        f,
+		state:            s,
+		templateProvider: config.NewTemplateProvider(),
 	}
 }
 
@@ -41,4 +44,9 @@ func (sc *simpleContext) GetFramework() *framework.Framework {
 // GetState returns current test state.
 func (sc *simpleContext) GetState() *state.NamespacesState {
 	return sc.state
+}
+
+// GetTemplateProvider returns template provider.
+func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
+	return sc.templateProvider
 }

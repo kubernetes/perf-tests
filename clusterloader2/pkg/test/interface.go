@@ -34,8 +34,8 @@ type Context interface {
 
 // TestExecutor is an interface for test executing object.
 type TestExecutor interface {
-	ExecuteTest(ctx Context, conf *api.Config) error
-	ExecuteStep(ctx Context, step *api.Step) error
-	ExecutePhase(ctx Context, phase *api.Phase) error
-	ExecuteObject(ctx Context, object *api.Object) error
+	ExecuteTest(ctx Context, conf *api.Config) []error
+	ExecuteStep(ctx Context, step *api.Step) []error
+	ExecutePhase(ctx Context, phase *api.Phase) []error
+	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32) []error
 }

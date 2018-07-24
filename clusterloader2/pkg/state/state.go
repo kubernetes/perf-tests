@@ -25,8 +25,9 @@ import (
 
 // InstancesState represents state of object replicas.
 type InstancesState struct {
-	ReplicaCount int32
-	Object       api.Object
+	DesiredReplicaCount int32
+	CurrentReplicaCount int32
+	Object              api.Object
 }
 
 // InstancesIdentifier is a unique identifier for object replicas group

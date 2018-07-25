@@ -80,6 +80,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 
 // ExecutePhase executes single test phase based on provided phase configuration.
 func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []error {
+	// TODO: add tuning set
 	var errList []error
 	nsList := createNamespacesList(phase.NamespaceRange)
 	for _, nsName := range nsList {
@@ -116,7 +117,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		for replicaIndex := phase.ReplicasPerNamespace; replicaIndex < maxCurrentReplicaCount; replicaIndex++ {
 			for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 				if replicaIndex < instancesStates[j].CurrentReplicaCount {
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex); len(objectErrList) > 0 {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {
 							return errList
@@ -128,8 +129,17 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		// Handling for update/create objects.
 		for replicaIndex := int32(0); replicaIndex < phase.ReplicasPerNamespace; replicaIndex++ {
 			for j := range phase.ObjectBundle {
-				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace || replicaIndex >= instancesStates[j].CurrentReplicaCount {
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex); len(objectErrList) > 0 {
+				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, UPDATE_OBJECT); len(objectErrList) > 0 {
+						errList = append(errList, objectErrList...)
+						if isErrsCritical(objectErrList) {
+							return errList
+						}
+						// If error then skip this bundle
+						break
+					}
+				} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {
 							return errList
@@ -151,13 +161,34 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
-func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32) []error {
+func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error {
+	var errList []error
+	template, err := config.ReadTemplate(object.ObjectTemplatePath)
+	if err != nil {
+		return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
+	}
+	gvk := template.GroupVersionKind()
+
 	if namespace == "" {
 		// TODO: handle cluster level object
 	} else {
-		// TODO: handle namespaces level object
+		objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
+		switch operation {
+		case CREATE_OBJECT:
+			if err := ctx.GetFramework().CreateObject(namespace, objName, template); err != nil {
+				errList = append(errList, fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+			}
+		case UPDATE_OBJECT:
+			// TODO: add handling for update operation
+		case DELETE_OBJECT:
+			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
+				errList = append(errList, fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+			}
+		default:
+			errList = append(errList, fmt.Errorf("Unsupported operation %v for namespace %v object %v", operation, namespace, objName))
+		}
 	}
-	return []error{}
+	return errList
 }
 
 func getIdentifier(object *api.Object) (state.InstancesIdentifier, error) {

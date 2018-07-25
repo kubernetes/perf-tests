@@ -25,6 +25,18 @@ import (
 // CreatContextFunc a type for function that creates Context based on given framework client and state.
 type CreatContextFunc func(f *framework.Framework, s *state.NamespacesState) Context
 
+// OperationType is a type of operation to be performed on an object.
+type OperationType int
+
+const (
+	// CREATE_OBJECT is create object operation.
+	CREATE_OBJECT = OperationType(0)
+	// UPDATE_OBJECT is update object operation.
+	UPDATE_OBJECT = OperationType(1)
+	// DELETE_OBJECT is delete object operation.
+	DELETE_OBJECT = OperationType(2)
+)
+
 // Context is an interface for test context.
 // Test context provides framework client and cluster state.
 type Context interface {
@@ -37,5 +49,5 @@ type TestExecutor interface {
 	ExecuteTest(ctx Context, conf *api.Config) []error
 	ExecuteStep(ctx Context, step *api.Step) []error
 	ExecutePhase(ctx Context, phase *api.Phase) []error
-	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32) []error
+	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error
 }

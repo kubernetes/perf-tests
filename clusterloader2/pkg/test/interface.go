@@ -21,6 +21,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
+	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
 )
 
 // CreatContextFunc a type for function that creates Context based on given framework client and state.
@@ -44,6 +45,7 @@ type Context interface {
 	GetFramework() *framework.Framework
 	GetState() *state.NamespacesState
 	GetTemplateProvider() *config.TemplateProvider
+	GetTickerFactory() ticker.TickerFactory
 }
 
 // TestExecutor is an interface for test executing object.

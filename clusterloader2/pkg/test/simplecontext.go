@@ -20,12 +20,14 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
+	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
 )
 
 type simpleContext struct {
 	framework        *framework.Framework
 	state            *state.NamespacesState
 	templateProvider *config.TemplateProvider
+	tickerFactory    ticker.TickerFactory
 }
 
 func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Context {
@@ -33,6 +35,7 @@ func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Conte
 		framework:        f,
 		state:            s,
 		templateProvider: config.NewTemplateProvider(),
+		tickerFactory:    ticker.NewTickerFactory(),
 	}
 }
 
@@ -49,4 +52,9 @@ func (sc *simpleContext) GetState() *state.NamespacesState {
 // GetTemplateProvider returns template provider.
 func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
 	return sc.templateProvider
+}
+
+// GetTickerFactory returns ticker factory.
+func (sc *simpleContext) GetTickerFactory() ticker.TickerFactory {
+	return sc.tickerFactory
 }

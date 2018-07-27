@@ -37,6 +37,7 @@ func createSimpleTestExecutor() TestExecutor {
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []error {
 	defer cleanupResources(ctx)
 	var errList []error
+	ctx.GetTickerFactory().Init(conf.TuningSets)
 	err := ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
 		errList = append(errList, fmt.Errorf("automanaged namespaces creation failed: %v", err))
@@ -82,6 +83,11 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 	// TODO: add tuning set
 	var errList []error
 	nsList := createNamespacesList(phase.NamespaceRange)
+	ticker, err := ctx.GetTickerFactory().CreateTicker(phase.TuningSet)
+	if err != nil {
+		return []error{fmt.Errorf("ticker creation error: %v", err)}
+	}
+	defer ticker.Stop()
 	for _, nsName := range nsList {
 		instancesStates := make([]*state.InstancesState, 0)
 		// Updating state (DesiredReplicaCount) of every object in object bundle.
@@ -116,6 +122,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		for replicaIndex := phase.ReplicasPerNamespace; replicaIndex < maxCurrentReplicaCount; replicaIndex++ {
 			for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 				if replicaIndex < instancesStates[j].CurrentReplicaCount {
+					<-ticker.C
 					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {
@@ -129,6 +136,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		for replicaIndex := int32(0); replicaIndex < phase.ReplicasPerNamespace; replicaIndex++ {
 			for j := range phase.ObjectBundle {
 				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+					<-ticker.C
 					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, UPDATE_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {
@@ -138,6 +146,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 						break
 					}
 				} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
+					<-ticker.C
 					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {

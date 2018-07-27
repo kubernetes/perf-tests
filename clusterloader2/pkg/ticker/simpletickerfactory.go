@@ -47,5 +47,5 @@ func (tf *simpleTickerFactory) CreateTicker(name string) (*ticker, error) {
 	if !exists {
 		return nil, fmt.Errorf("tuningset %s not found", name)
 	}
-	return newTicker(tuningSet), nil
+	return newTicker(tuningSet)
 }

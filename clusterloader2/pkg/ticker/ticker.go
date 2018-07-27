@@ -27,12 +27,16 @@ type ticker struct {
 	timer *time.Timer
 }
 
-func newTicker(ts *api.TuningSet) *ticker {
+func newTicker(ts *api.TuningSet) (*ticker, error) {
 	ch := make(chan struct{})
+	timer, err := newTimer(ch, ts)
+	if err != nil {
+		return nil, err
+	}
 	return &ticker{
 		C:     ch,
-		timer: newTimer(ch, ts),
-	}
+		timer: timer,
+	}, nil
 }
 
 // Stop stops the ticker.

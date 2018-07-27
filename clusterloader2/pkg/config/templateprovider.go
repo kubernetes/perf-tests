@@ -17,7 +17,11 @@ limitations under the License.
 package config
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"sync"
+	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -26,35 +30,52 @@ import (
 // are served by reading file from given path or by using cache if available.
 type TemplateProvider struct {
 	lock          sync.RWMutex
-	templateCache map[string]*unstructured.Unstructured
+	templateCache map[string]*template.Template
 }
 
 // NewTemplateProvider creates new template provider.
 func NewTemplateProvider() *TemplateProvider {
 	return &TemplateProvider{
-		templateCache: make(map[string]*unstructured.Unstructured),
+		templateCache: make(map[string]*template.Template),
 	}
 }
 
-// GetTemplate creates object template from file specified by the given path
-// or uses cached object if available.
-func (ts *TemplateProvider) GetTemplate(path string) (*unstructured.Unstructured, error) {
+func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
 	var err error
-	ts.lock.RLock()
-	obj, exists := ts.templateCache[path]
-	ts.lock.RUnlock()
+	tp.lock.RLock()
+	raw, exists := tp.templateCache[path]
+	tp.lock.RUnlock()
 	if !exists {
-		ts.lock.Lock()
-		defer ts.lock.Unlock()
+		tp.lock.Lock()
+		defer tp.lock.Unlock()
 		// Recheck condition.
-		obj, exists = ts.templateCache[path]
+		raw, exists = tp.templateCache[path]
 		if !exists {
-			obj, err = ReadTemplate(path)
+			raw, err = template.ParseFiles(path)
 			if err != nil {
 				return nil, err
 			}
-			ts.templateCache[path] = obj
+			tp.templateCache[path] = raw
 		}
 	}
-	return obj.DeepCopy(), nil
+	return raw, nil
+}
+
+// TemplateToObject creates object from file specified by the given path
+// or uses cached object if available. Template's placeholders are replaced based
+// on provided mapping.
+func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]interface{}) (*unstructured.Unstructured, error) {
+	raw, err := tp.getRawTemplate(path)
+	if err != nil {
+		return nil, err
+	}
+	var b bytes.Buffer
+	writer := bufio.NewWriter(&b)
+	if err := raw.Execute(writer, mapping); err != nil {
+		return nil, fmt.Errorf("replacing placeholders error: %v", err)
+	}
+	if err := writer.Flush(); err != nil {
+		return nil, fmt.Errorf("flush error: %v", err)
+	}
+	return ConvertToObject(b.Bytes())
 }

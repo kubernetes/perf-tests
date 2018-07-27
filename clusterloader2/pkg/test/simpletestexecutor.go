@@ -27,6 +27,11 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 )
 
+const (
+	basenamePlaceholder = "Basename"
+	indexPlaceholder    = "Index"
+)
+
 type simpleTestExecutor struct{}
 
 func createSimpleTestExecutor() TestExecutor {
@@ -171,23 +176,31 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 // ExecuteObject executes single test object operation based on provided object configuration.
 func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error {
 	var errList []error
-	template, err := ctx.GetTemplateProvider().GetTemplate(object.ObjectTemplatePath)
+	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
+	var mapping map[string]interface{}
+	if object.TemplateFillMap == nil {
+		mapping = make(map[string]interface{})
+	} else {
+		mapping = object.TemplateFillMap
+	}
+	mapping[basenamePlaceholder] = objName
+	mapping[indexPlaceholder] = replicaIndex
+	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 	if err != nil {
 		return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
 	}
-	gvk := template.GroupVersionKind()
+	gvk := obj.GroupVersionKind()
 
 	if namespace == "" {
 		// TODO: handle cluster level object
 	} else {
-		objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 		switch operation {
 		case CREATE_OBJECT:
-			if err := ctx.GetFramework().CreateObject(namespace, objName, template); err != nil {
+			if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 			}
 		case UPDATE_OBJECT:
-			if err := ctx.GetFramework().UpdateObject(namespace, objName, template); err != nil {
+			if err := ctx.GetFramework().UpdateObject(namespace, objName, obj); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
 			}
 		case DELETE_OBJECT:
@@ -202,9 +215,9 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
-	obj, err := ctx.GetTemplateProvider().GetTemplate(object.ObjectTemplatePath)
+	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, nil)
 	if err != nil {
-		return state.InstancesIdentifier{}, fmt.Errorf("%v: reading template error: %v", err)
+		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)
 	}
 	gvk := obj.GroupVersionKind()
 	return state.InstancesIdentifier{

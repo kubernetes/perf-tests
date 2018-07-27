@@ -45,10 +45,22 @@
 			"revisionTime": "2018-06-28T21:22:21Z"
 		},
 		{
+			"checksumSHA1": "CSPbwbyzqA6sfORicn4HFtIhF/c=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",
+			"revisionTime": "2018-02-21T22:46:20Z"
+		},
+		{
 			"checksumSHA1": "4772zXrOaPVeDeSgdiV7Vp4KEjk=",
 			"path": "github.com/dgrijalva/jwt-go",
 			"revision": "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e",
 			"revisionTime": "2018-03-08T23:13:08Z"
+		},
+		{
+			"checksumSHA1": "h2T3NVaMkthkuTHRReixRhUE210=",
+			"path": "github.com/evanphx/json-patch",
+			"revision": "f195058310bd062ea7c754a834f0ff43b4b63afb",
+			"revisionTime": "2018-07-20T18:16:44Z"
 		},
 		{
 			"checksumSHA1": "7NP1qUMF8Kx1y0zANxx0e+oq9Oo=",
@@ -853,6 +865,18 @@
 			"path": "k8s.io/apimachinery/pkg/util/json",
 			"revision": "bce280dade67588308614434551c0b865433e44d",
 			"revisionTime": "2018-07-07T23:25:08Z"
+		},
+		{
+			"checksumSHA1": "b74ZzJoXoYO7/nOHiSqZ5i8Cbfo=",
+			"path": "k8s.io/apimachinery/pkg/util/jsonmergepatch",
+			"revision": "cbafd24d5796966031ae904aa88e2436a619ae8a",
+			"revisionTime": "2018-07-24T07:49:04Z"
+		},
+		{
+			"checksumSHA1": "FtwPk5t7BMJDqe8LMCG2pZAwvBY=",
+			"path": "k8s.io/apimachinery/pkg/util/mergepatch",
+			"revision": "cbafd24d5796966031ae904aa88e2436a619ae8a",
+			"revisionTime": "2018-07-24T07:49:04Z"
 		},
 		{
 			"checksumSHA1": "y1dxj1ipJgt2PRXXSXDmXrSka6A=",

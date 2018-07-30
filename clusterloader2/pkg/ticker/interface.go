@@ -17,25 +17,11 @@ limitations under the License.
 package ticker
 
 import (
-	"time"
-
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-type ticker struct {
-	C     <-chan struct{}
-	timer *time.Timer
-}
-
-func newTicker(ts *api.TuningSet) *ticker {
-	ch := make(chan struct{})
-	return &ticker{
-		C:     ch,
-		timer: newTimer(ch, ts),
-	}
-}
-
-// Stop stops the ticker.
-func (t *ticker) Stop() {
-	t.timer.Stop()
+// TickerFactory is a factory that creates tickers.
+type TickerFactory interface {
+	Init(tuningSets []api.TuningSet)
+	CreateTicker(name string) (*ticker, error)
 }

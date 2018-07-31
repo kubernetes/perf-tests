@@ -165,7 +165,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 			ctx.GetState().Set(nsName, id, instancesStates[j])
 		}
 	}
-	return nil
+	return errList
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
@@ -187,7 +187,9 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 				errList = append(errList, fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 			}
 		case UPDATE_OBJECT:
-			// TODO: add handling for update operation
+			if err := ctx.GetFramework().UpdateObject(namespace, objName, template); err != nil {
+				errList = append(errList, fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+			}
 		case DELETE_OBJECT:
 			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))

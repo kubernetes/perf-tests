@@ -62,12 +62,23 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []erro
 
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error {
+	var wg wait.Group
+	// TODO(krzysied): Consider moving lock and errList to separate structure.
+	var lock sync.Mutex
 	var errList []error
 	if len(step.Measurements) > 0 {
-		// TODO: handle measurements
+		for i := range step.Measurements {
+			// index is created to make i value unchangeable during thread execution.
+			index := i
+			wg.Start(func() {
+				if err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params); err != nil {
+					lock.Lock()
+					defer lock.Unlock()
+					errList = append(errList, fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
+				}
+			})
+		}
 	} else {
-		var wg wait.Group
-		var lock sync.Mutex
 		for i := range step.Phases {
 			phase := &step.Phases[i]
 			wg.Start(func() {
@@ -78,8 +89,8 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 				}
 			})
 		}
-		wg.Wait()
 	}
+	wg.Wait()
 	return errList
 }
 

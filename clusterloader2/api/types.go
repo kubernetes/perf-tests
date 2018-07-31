@@ -67,6 +67,8 @@ type Object struct {
 	Basename string `json: basename`
 	// ObjectTemplatePath specifies the path to object definition.
 	ObjectTemplatePath string `json: objectTemplatePath`
+	// TemplateFillMap specifies for each placeholder what value should it be replaced with.
+	TemplateFillMap map[string]interface{} `json: templateFillMap`
 }
 
 // NamespaceRange specifies the range of namespaces [Min, Max].

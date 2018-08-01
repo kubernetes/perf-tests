@@ -2,7 +2,7 @@
 
 Author: wojtek-t
 
-Last update time: 9th May 2018
+Last update time: 1st Aug 2018
 
 ## Background
 
@@ -46,8 +46,6 @@ A single test scenario will be defined by a `Config`. Its schema will be as foll
 
 ```
 struct Config {
-	// TBD: Some config allowing to access cluster, e.g. path to kubeconfig file.
-
 	// Number of namespaces automanaged by ClusterLoader.
 	Namespaces int32
 	// Steps of the test.
@@ -278,70 +276,78 @@ be modifying that part of Cluster Loader codebase. Within the codebase, we will 
 to provide a relatively easy framework to achieve it though.
 
 At the high level, to implement gathering a given portion of data or measure a new
-SLO, you will need to implement a very simple Go interface, similar to:
+SLO, you will need to implement a very simple Go interface:
 
 ```
 type Measurement interface {
-	StartMeasurement(config MeasurementConfig)
-	StopMeasurement()
+	Execute(config MeasurementConfig) error
 }
 
+// An instance of below struct would be constructed by clusterloader during runtime
+// and passed to the Execute method.
 struct MeasurementConfig {
-	// Client to access a cluster
-	Clientset k8sclient.ClientSet
-	// More needed parameters to be determined.
-	// TBD: Exact method of passing them. One possibility is having
-	// per-type config and a string field here with json-serialized
-	// config that will be understood only by a given measurement
-	// type.
+	// Client to access the k8s api.
+	Clientset *k8sclient.ClientSet
+	// Interface to access the cloud-provider api (can be skipped for initial version).
+	CloudProvider *cloudprovider.Interface
+	// Params is a map {name: value} pairs enabling for injection of arbitrary config
+	// into the Execute method. This is copied over from the Params field in the
+	// the Measurement config (explained later) as it is.
+	Params map[string]interface{}
 }
 ```
 
-Providing an implementation of such interface and registering it in the correct
-place will allow you to use those as phases in your config,
+Once you implement such an interface, registering it in the correct
+place will allow you to use those as phases in your config.
 As an example, consider gathering resource usage from system components.
-It will be enough to implement the following methods:
+It will be enough to implement something like the following:
 
 ```
 struct ResourceGatherer {
 	// Some fields that you need.
 }
-func (r *ResourceGatherer) StartMeasurement(c MeasurementConfig) {
-	// Initialize gatherer and start gathering metrics.
+
+func (r *ResourceGatherer) Execute(c MeasurementConfig) error {
+	if c.Params["start"] {
+		// Initialize gatherer.
+		// Start the gathering goroutines.
+		return nil
+	}
+	if c.Params["stop"] {
+		// Stop the gatherer goroutines.
+		// Validate and/or save the results.
+		return nil
+	}
+	// Handling of any other potential cases.
 }
-func (r *ResourceGatherer) StopMeasurement() {
-	// Stop gatherer.
-	// Validate and/or report results.
-}
 ```
 
-and registering this type in some factory, to enable use of:
-
-```
-	ResourceGatherer_Start
-	ResourceGatherer_Stop
-```
-
-as `measurements` in your test. To be more specific, at the config level
-`Measurement` will be defined as:
+and registering this type in some factory, to enable use of `ResourceGatherer`
+as a measurement 'Method' in your test. And finally, at the config level,
+each `Measurement` is defined as:
 
 ```
 struct Measurement {
-	// A measurement Start/Stop method to be run.
+	// A measurement method to be .
 	// Such method has to be registered in ClusterLoader factory.
 	Method string
-	// TBD: Additional metadata necessary for measurement.
+	// Identifier is a string for differentiating this measurement instance
+	// from other instances of the same method.
+	Identifier string
+	// Params is a map of {name: value} pairs which will be passed to the
+	// measurement method - allowing for injection of arbitrary parameters to it.
+	Params map[string]interface{}
 }
 ```
 
-At the beginning, we will provide the following measurement methods:
+To begin with, we will provide few built-in measurement methods like:
 
 ```
-	ResourceGatherer_Start/Stop
-	Profiler_Start/Stop
-	MetricsGatherer_Start/Stop
-	APICallLatencyValidator_Start/Stop
-	PodStartupLatencyValidator_Start/Stop
+	ResourceGatherer
+	ProfileGatherer
+	MetricsGatherer
+	APICallLatencyValidator
+	PodStartupLatencyValidator
 ```
 
 

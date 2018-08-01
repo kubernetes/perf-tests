@@ -280,7 +280,7 @@ SLO, you will need to implement a very simple Go interface:
 
 ```
 type Measurement interface {
-	Execute(config MeasurementConfig) error
+	Execute(config *MeasurementConfig) error
 }
 
 // An instance of below struct would be constructed by clusterloader during runtime
@@ -290,9 +290,9 @@ struct MeasurementConfig {
 	Clientset *k8sclient.ClientSet
 	// Interface to access the cloud-provider api (can be skipped for initial version).
 	CloudProvider *cloudprovider.Interface
-	// Params is a map {name: value} pairs enabling for injection of arbitrary config
-	// into the Execute method. This is copied over from the Params field in the
-	// the Measurement config (explained later) as it is.
+	// Params is a map of {name: value} pairs enabling for injection of arbitrary
+	// config into the Execute method. This is copied over from the Params field
+	// in the Measurement config (explained later) as it is.
 	Params map[string]interface{}
 }
 ```
@@ -328,7 +328,7 @@ each `Measurement` is defined as:
 
 ```
 struct Measurement {
-	// A measurement method to be .
+	// The measurement method to be run.
 	// Such method has to be registered in ClusterLoader factory.
 	Method string
 	// Identifier is a string for differentiating this measurement instance

@@ -60,6 +60,11 @@ func NewFramework(path string) (*Framework, error) {
 	return &Framework{0, clientSet, dynamicClient}, nil
 }
 
+// GetClientSet returns clientSet client.
+func (f *Framework) GetClientSet() clientset.Interface {
+	return f.clientSet
+}
+
 // CreateAutomanagedNamespaces creates automanged namespaces.
 func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 	if f.automanagedNamespaceCount != 0 {

@@ -19,23 +19,26 @@ package test
 import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
 )
 
 type simpleContext struct {
-	framework        *framework.Framework
-	state            *state.NamespacesState
-	templateProvider *config.TemplateProvider
-	tickerFactory    ticker.TickerFactory
+	framework          *framework.Framework
+	state              *state.NamespacesState
+	templateProvider   *config.TemplateProvider
+	tickerFactory      ticker.TickerFactory
+	measurementManager *measurement.MeasurementManager
 }
 
 func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Context {
 	return &simpleContext{
-		framework:        f,
-		state:            s,
-		templateProvider: config.NewTemplateProvider(),
-		tickerFactory:    ticker.NewTickerFactory(),
+		framework:          f,
+		state:              s,
+		templateProvider:   config.NewTemplateProvider(),
+		tickerFactory:      ticker.NewTickerFactory(),
+		measurementManager: measurement.CreateMeasurementManager(f.GetClientSet()),
 	}
 }
 
@@ -57,4 +60,9 @@ func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
 // GetTickerFactory returns ticker factory.
 func (sc *simpleContext) GetTickerFactory() ticker.TickerFactory {
 	return sc.tickerFactory
+}
+
+// GetMeasurementManager returns measurment manager.
+func (sc *simpleContext) GetMeasurementManager() *measurement.MeasurementManager {
+	return sc.measurementManager
 }

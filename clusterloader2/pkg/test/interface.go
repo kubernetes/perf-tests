@@ -20,6 +20,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
 )
@@ -46,6 +47,7 @@ type Context interface {
 	GetState() *state.NamespacesState
 	GetTemplateProvider() *config.TemplateProvider
 	GetTickerFactory() ticker.TickerFactory
+	GetMeasurementManager() *measurement.MeasurementManager
 }
 
 // TestExecutor is an interface for test executing object.

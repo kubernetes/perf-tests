@@ -102,6 +102,10 @@ type TuningSet struct {
 type Measurement struct {
 	// Method is a name of a method registered in the ClusterLoader factory.
 	Method string
+	// Identifier is a string that differentiates measurement instances of the same method.
+	Identifier string
+	// Params is a map of {name: value} pairs which will be passed to the measurement method - allowing for injection of arbitrary parameters to it.
+	Params map[string]interface{}
 }
 
 // QpsLoad defines a uniform load with a given QPS.

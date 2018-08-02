@@ -103,11 +103,11 @@ type TuningSet struct {
 // This method call will either start or stop process of collecting specific data samples.
 type Measurement struct {
 	// Method is a name of a method registered in the ClusterLoader factory.
-	Method string
+	Method string `json: method`
 	// Identifier is a string that differentiates measurement instances of the same method.
-	Identifier string
+	Identifier string `json: identifier`
 	// Params is a map of {name: value} pairs which will be passed to the measurement method - allowing for injection of arbitrary parameters to it.
-	Params map[string]interface{}
+	Params map[string]interface{} `json: params`
 }
 
 // QpsLoad defines a uniform load with a given QPS.

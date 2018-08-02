@@ -51,8 +51,13 @@ func ReadTemplate(path string) (*unstructured.Unstructured, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading template file: %v", err)
 	}
+	return ConvertToObject(raw)
+}
+
+// ConvertToObject converts array of bytes into unstructured object.
+func ConvertToObject(raw []byte) (*unstructured.Unstructured, error) {
 	obj := &unstructured.Unstructured{}
-	_, _, err = scheme.Codecs.UniversalDeserializer().Decode(raw, nil, obj)
+	_, _, err := scheme.Codecs.UniversalDeserializer().Decode(raw, nil, obj)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshaling error: %v", err)
 	}

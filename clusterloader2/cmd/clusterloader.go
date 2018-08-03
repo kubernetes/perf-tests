@@ -25,6 +25,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
+
+	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 )
 
 var (

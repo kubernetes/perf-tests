@@ -20,8 +20,7 @@ set -o nounset
 set -o pipefail
 
 PERFTEST_ROOT=$(dirname "${BASH_SOURCE}")
-while [ ! $# -eq 0 ]
-do
+
        case "$1" in
                #CLUSTERLOADER
                --cluster-loader )
@@ -57,4 +56,3 @@ do
                        ;;
 
        esac
-done

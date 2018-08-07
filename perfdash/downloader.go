@@ -27,7 +27,7 @@ import (
 
 // Downloader is the interface that gets a data from a predefined source.
 type Downloader interface {
-	getData() (MetricToBuildData, error)
+	getData() (TestToBuildData, error)
 }
 
 // BuildData contains job name and a map from build number to perf data.
@@ -37,15 +37,12 @@ type BuildData struct {
 	Version string                         `json:"version"`
 }
 
-// MetricToBuildData is a map from metric name to BuildData pointer.
+// TestToBuildData is a map from test name to BuildData pointer.
 // TODO(random-liu): Use a more complex data structure if we need to support more test in the future.
-type MetricToBuildData map[string]*BuildData
+type TestToBuildData map[string]*BuildData
 
-// CategoryToMetricData is a map from category name to MetricToBuildData.
-type CategoryToMetricData map[string]MetricToBuildData
-
-// JobToCategoryData is a map from job name to CategoryToMetricData.
-type JobToCategoryData map[string]CategoryToMetricData
+// JobToTestData is a map from job name to TestToBuildData.
+type JobToTestData map[string]TestToBuildData
 
 func serveHTTPObject(res http.ResponseWriter, req *http.Request, obj interface{}) {
 	data, err := json.Marshal(obj)
@@ -69,7 +66,7 @@ func getURLParam(req *http.Request, name string) (string, bool) {
 }
 
 // ServeJobNames serves all available job names.
-func (j *JobToCategoryData) ServeJobNames(res http.ResponseWriter, req *http.Request) {
+func (j *JobToTestData) ServeJobNames(res http.ResponseWriter, req *http.Request) {
 	jobNames := make([]string, 0)
 	if j != nil {
 		for k := range *j {
@@ -80,8 +77,8 @@ func (j *JobToCategoryData) ServeJobNames(res http.ResponseWriter, req *http.Req
 	serveHTTPObject(res, req, &jobNames)
 }
 
-// ServeCategoryNames serves all available category names for given job.
-func (j *JobToCategoryData) ServeCategoryNames(res http.ResponseWriter, req *http.Request) {
+// ServeTestNames serves all available test name for given job.
+func (j *JobToTestData) ServeTestNames(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
 		fmt.Printf("Url Param 'jobname' is missing\n")
@@ -94,77 +91,35 @@ func (j *JobToCategoryData) ServeCategoryNames(res http.ResponseWriter, req *htt
 		return
 	}
 
-	categorynames := make([]string, 0)
+	testNames := make([]string, 0)
 	for k := range tests {
-		categorynames = append(categorynames, k)
+		testNames = append(testNames, k)
 	}
-	sort.Strings(categorynames)
-	serveHTTPObject(res, req, &categorynames)
+	sort.Strings(testNames)
+	serveHTTPObject(res, req, &testNames)
 }
 
-// ServeMetricNames serves all available metric names for given job and category.
-func (j *JobToCategoryData) ServeMetricNames(res http.ResponseWriter, req *http.Request) {
+// ServeBuildsData serves builds data for given job name and test name.
+func (j *JobToTestData) ServeBuildsData(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
 		fmt.Printf("Url Param 'jobname' is missing\n")
 		return
 	}
-	categoryname, ok := getURLParam(req, "metriccategoryname")
+	testname, ok := getURLParam(req, "testname")
 	if !ok {
-		fmt.Printf("Url Param 'metriccategoryname' is missing\n")
+		fmt.Printf("Url Param 'testname' is missing\n")
 		return
 	}
 
-	categories, ok := (*j)[jobname]
+	tests, ok := (*j)[jobname]
 	if !ok {
 		fmt.Printf("unknown jobname - %v\n", jobname)
 		return
 	}
-	tests, ok := categories[categoryname]
+	builds, ok := tests[testname]
 	if !ok {
-		fmt.Printf("unknown metriccategoryname - %v\n", categoryname)
-		return
-	}
-
-	metricnames := make([]string, 0)
-	for k := range tests {
-		metricnames = append(metricnames, k)
-	}
-	sort.Strings(metricnames)
-	serveHTTPObject(res, req, &metricnames)
-}
-
-// ServeBuildsData serves builds data for given job name, category name and test name.
-func (j *JobToCategoryData) ServeBuildsData(res http.ResponseWriter, req *http.Request) {
-	jobname, ok := getURLParam(req, "jobname")
-	if !ok {
-		fmt.Printf("Url Param 'jobname' is missing\n")
-		return
-	}
-	categoryname, ok := getURLParam(req, "metriccategoryname")
-	if !ok {
-		fmt.Printf("Url Param 'metriccategoryname' is missing\n")
-		return
-	}
-	metricname, ok := getURLParam(req, "metricname")
-	if !ok {
-		fmt.Printf("Url Param 'metricname' is missing\n")
-		return
-	}
-
-	categories, ok := (*j)[jobname]
-	if !ok {
-		fmt.Printf("unknown jobname - %v\n", jobname)
-		return
-	}
-	tests, ok := categories[categoryname]
-	if !ok {
-		fmt.Printf("unknown metriccategoryname - %v\n", categoryname)
-		return
-	}
-	builds, ok := tests[metricname]
-	if !ok {
-		fmt.Printf("unknown metricname - %v\n", metricname)
+		fmt.Printf("unknown testname - %v\n", testname)
 		return
 	}
 

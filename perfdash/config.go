@@ -39,13 +39,10 @@ type TestDescription struct {
 	Parser           func(data []byte, buildNumber int, testResult *BuildData)
 }
 
-// TestDescriptions is a map job->component->description.
-type TestDescriptions map[string]map[string]TestDescription
-
 // Tests is a map from test label to test description.
 type Tests struct {
 	Prefix       string
-	Descriptions TestDescriptions
+	Descriptions map[string]TestDescription
 	BuildsCount  int
 }
 
@@ -58,114 +55,104 @@ type Buckets map[string]Jobs
 var (
 	// performanceDescriptions contains metrics exported by a --ginko.focus=[Feature:Performance]
 	// e2e test
-	performanceDescriptions = TestDescriptions{
-		"E2E": {
-			"DensityResources": {
-				Name:             "density",
-				OutputFilePrefix: "ResourceUsageSummary",
-				Parser:           parseResourceUsageData,
-			},
-			"DensityPodStartup": {
-				Name:             "density",
-				OutputFilePrefix: "PodStartupLatency",
-				Parser:           parseResponsivenessData,
-			},
-			"DensityTestPhaseTimer": {
-				Name:             "density",
-				OutputFilePrefix: "TestPhaseTimer",
-				Parser:           parseResponsivenessData,
-			},
-			"LoadResources": {
-				Name:             "load",
-				OutputFilePrefix: "ResourceUsageSummary",
-				Parser:           parseResourceUsageData,
-			},
-			"LoadTestPhaseTimer": {
-				Name:             "load",
-				OutputFilePrefix: "TestPhaseTimer",
-				Parser:           parseResponsivenessData,
-			},
+	performanceDescriptions = map[string]TestDescription{
+		"DensityResponsiveness": {
+			Name:             "density",
+			OutputFilePrefix: "APIResponsiveness",
+			Parser:           parseResponsivenessData,
 		},
-		"APIServer": {
-			"DensityResponsiveness": {
-				Name:             "density",
-				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseResponsivenessData,
-			},
-			"DensityRequestCount": {
-				Name:             "density",
-				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseRequestCountData,
-			},
-			"DensityRequestCountByClient": {
-				Name:             "density",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverRequestCount,
-			},
-			"LoadResponsiveness": {
-				Name:             "load",
-				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseResponsivenessData,
-			},
-			"LoadRequestCount": {
-				Name:             "load",
-				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseRequestCountData,
-			},
-			"LoadRequestCountByClient": {
-				Name:             "load",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverRequestCount,
-			},
+		"DensityResources": {
+			Name:             "density",
+			OutputFilePrefix: "ResourceUsageSummary",
+			Parser:           parseResourceUsageData,
 		},
-		"Scheduler": {
-			"SchedulingLatency": {
-				Name:             "density",
-				OutputFilePrefix: "SchedulingMetrics",
-				Parser:           parseSchedulingLatency,
-			},
-			"SchedulingThroughput": {
-				Name:             "density",
-				OutputFilePrefix: "SchedulingMetrics",
-				Parser:           pareseSchedulingThroughput,
-			},
+		"DensityPodStartup": {
+			Name:             "density",
+			OutputFilePrefix: "PodStartupLatency",
+			Parser:           parseResponsivenessData,
 		},
-		"Etcd": {
-			"BackendCommitDuration": {
-				Name:             "density",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("backendCommitDuration"),
-			},
-			"SnapshotSaveTotalDuration": {
-				Name:             "density",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
-			},
-			"PeerRoundTripTime": {
-				Name:             "density",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("peerRoundTripTime"),
-			},
-			"WalFsyncDuration": {
-				Name:             "density",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("walFsyncDuration"),
-			},
+		"DensityTestPhaseTimer": {
+			Name:             "density",
+			OutputFilePrefix: "TestPhaseTimer",
+			Parser:           parseResponsivenessData,
+		},
+		"DensityRequestCount": {
+			Name:             "density",
+			OutputFilePrefix: "APIResponsiveness",
+			Parser:           parseRequestCountData,
+		},
+		"DensityRequestCountByClient": {
+			Name:             "density",
+			OutputFilePrefix: "MetricsForE2E",
+			Parser:           parseApiserverRequestCount,
+		},
+		"LoadResponsiveness": {
+			Name:             "load",
+			OutputFilePrefix: "APIResponsiveness",
+			Parser:           parseResponsivenessData,
+		},
+		"LoadResources": {
+			Name:             "load",
+			OutputFilePrefix: "ResourceUsageSummary",
+			Parser:           parseResourceUsageData,
+		},
+		"LoadTestPhaseTimer": {
+			Name:             "load",
+			OutputFilePrefix: "TestPhaseTimer",
+			Parser:           parseResponsivenessData,
+		},
+		"LoadRequestCount": {
+			Name:             "load",
+			OutputFilePrefix: "APIResponsiveness",
+			Parser:           parseRequestCountData,
+		},
+		"LoadRequestCountByClient": {
+			Name:             "load",
+			OutputFilePrefix: "MetricsForE2E",
+			Parser:           parseApiserverRequestCount,
+		},
+		"SchedulingLatency": {
+			Name:             "density",
+			OutputFilePrefix: "SchedulingMetrics",
+			Parser:           parseSchedulingLatency,
+		},
+		"SchedulingThroughput": {
+			Name:             "density",
+			OutputFilePrefix: "SchedulingMetrics",
+			Parser:           pareseSchedulingThroughput,
+		},
+		"BackendCommitDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("backendCommitDuration"),
+		},
+		"SnapshotSaveTotalDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
+		},
+		"PeerRoundTripTime": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("peerRoundTripTime"),
+		},
+		"WalFsyncDuration": {
+			Name:             "density",
+			OutputFilePrefix: "EtcdMetrics",
+			Parser:           parseHistogramMetric("walFsyncDuration"),
 		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf
-	benchmarkDescriptions = TestDescriptions{
-		"Scheduler": {
-			"BenchmarkResults": {
-				Name:             "benchmark",
-				OutputFilePrefix: "BenchmarkResults",
-				Parser:           parseResponsivenessData,
-			},
+	benchmarkDescriptions = map[string]TestDescription{
+		"BenchmarkResults": {
+			Name:             "benchmark",
+			OutputFilePrefix: "BenchmarkResults",
+			Parser:           parseResponsivenessData,
 		},
 	}
 
-	jobTypeToDescriptions = map[string]TestDescriptions{
+	jobTypeToDescriptions = map[string]map[string]TestDescription{
 		"performance": performanceDescriptions,
 		"benchmark":   benchmarkDescriptions,
 	}

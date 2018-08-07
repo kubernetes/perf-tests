@@ -57,7 +57,7 @@ func run() error {
 	// TODO(random-liu): Add a top layer downloader to download build log from different buckets when we support
 	// more buckets in the future.
 	downloader := NewGoogleGCSDownloader(*builds)
-	result := make(JobToCategoryData)
+	result := make(JobToTestData)
 	var err error
 
 	if !*www {
@@ -90,8 +90,7 @@ func run() error {
 	fmt.Println("Starting server")
 	http.Handle("/", http.FileServer(http.Dir(*wwwDir)))
 	http.HandleFunc("/jobnames", result.ServeJobNames)
-	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
-	http.HandleFunc("/metricnames", result.ServeMetricNames)
+	http.HandleFunc("/testnames", result.ServeTestNames)
 	http.HandleFunc("/buildsdata", result.ServeBuildsData)
 	return http.ListenAndServe(*addr, nil)
 }

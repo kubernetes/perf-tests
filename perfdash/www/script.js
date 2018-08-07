@@ -19,7 +19,7 @@ var app = angular.module('PerfDashApp', ['ngMaterial', 'chart.js']);
 var PerfDashApp = function(http, scope) {
     this.http = http;
     this.scope = scope;
-    this.metricNames = [];
+    this.testNames = [];
     this.onClick = this.onClickInternal_.bind(this);
     this.cap = 0;
 };
@@ -58,13 +58,13 @@ PerfDashApp.prototype.refresh = function() {
 
 // Update the data to graph, using the selected jobName
 PerfDashApp.prototype.jobNameChanged = function() {
-    this.http.get("metriccategorynames", {params: {jobname: this.jobName}})
+    this.http.get("testnames", {params: {jobname: this.jobName}})
             .success(function(data) {
-                    this.metricCategoryNames = data;
-                    if (this.metricCategoryNames == undefined ||  this.metricCategoryNames.indexOf(this.metricCategoryName) == -1) {
-                         this.metricCategoryName = this.metricCategoryNames[0]
+                    this.testNames = data;
+                    if (this.testName == undefined ||  this.testNames.indexOf(this.testName) == -1) {
+                         this.testName = this.testNames[0]
                     }
-                    this.metricCategoryNameChanged();
+                    this.testNameChanged();
             }.bind(this))
     .error(function(data) {
         console.log("error fetching result");
@@ -72,25 +72,9 @@ PerfDashApp.prototype.jobNameChanged = function() {
     });
 };
 
-// Update the data to graph, using the selected jobName
-PerfDashApp.prototype.metricCategoryNameChanged = function() {
-    this.http.get("metricnames", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName}})
-            .success(function(data) {
-                    this.metricNames = data;
-                    if (this.metricName == undefined ||  this.metricNames.indexOf(this.metricName) == -1) {
-                         this.metricName = this.metricNames[0]
-                    }
-                    this.metricNameChanged();
-            }.bind(this))
-    .error(function(data) {
-        console.log("error fetching result");
-        console.log(data);
-    });
-};
-
-// Update the data to graph, using the selected metricName
-PerfDashApp.prototype.metricNameChanged = function() {
-    this.http.get("buildsdata", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName, metricname: this.metricName}})
+// Update the data to graph, using the selected testName
+PerfDashApp.prototype.testNameChanged = function() {
+    this.http.get("buildsdata", {params: {jobname: this.jobName, testname: this.testName}})
             .success(function(data) {
                     this.data = data.builds;
                     this.job = data.job;

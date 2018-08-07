@@ -53,5 +53,4 @@ case "$1" in
     echo  " --core-dns                      Run Core-DNS test"
     exit
     ;;
-
 esac

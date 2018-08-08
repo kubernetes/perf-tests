@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"time"
 )
 
 // GetString tries to return value from map cast to string type. If value doesn't exist, error is returned.
@@ -35,6 +36,11 @@ func GetFloat64(dict map[string]interface{}, key string) (float64, error) {
 	return getFloat64(dict, key, 0, fmt.Errorf("key %s not found", key))
 }
 
+// GetDuration tries to return value from map cast to duration type. If value doesn't exist, error is returned.
+func GetDuration(dict map[string]interface{}, key string) (time.Duration, error) {
+	return getDuration(dict, key, 0, fmt.Errorf("key %s not found", key))
+}
+
 // GetStringOrDefault tries to return value from map cast to string type. If value doesn't exist default value is used.
 func GetStringOrDefault(dict map[string]interface{}, key string, defaultValue string) (string, error) {
 	return getString(dict, key, defaultValue, nil)
@@ -48,6 +54,11 @@ func GetIntOrDefault(dict map[string]interface{}, key string, defaultValue int) 
 // GetFloat64OrDefault tries to return value from map cast to float64 type. If value doesn't exist default value is used.
 func GetFloat64OrDefault(dict map[string]interface{}, key string, defaultValue float64) (float64, error) {
 	return getFloat64(dict, key, defaultValue, nil)
+}
+
+// GetDurationOrDefault tries to return value from map cast to duration type. If value doesn't exist default value is used.
+func GetDurationOrDefault(dict map[string]interface{}, key string, defaultValue time.Duration) (time.Duration, error) {
+	return getDuration(dict, key, defaultValue, nil)
 }
 
 func getString(dict map[string]interface{}, key string, defaultValue string, defaultError error) (string, error) {
@@ -88,4 +99,21 @@ func getFloat64(dict map[string]interface{}, key string, defaultValue float64, d
 		return 0, fmt.Errorf("type assertion error: %v of is not an int", value)
 	}
 	return floatValue, nil
+}
+
+func getDuration(dict map[string]interface{}, key string, defaultValue time.Duration, defaultError error) (time.Duration, error) {
+	defaultErr := fmt.Errorf("key %s not found", key)
+	durationString, err := getString(dict, key, "", defaultErr)
+	if err != nil {
+		if err == defaultErr {
+			return defaultValue, defaultError
+		}
+		return 0, err
+	}
+
+	duration, err := time.ParseDuration(durationString)
+	if err != nil {
+		return 0, fmt.Errorf("parsing duration error: %v", err)
+	}
+	return duration, nil
 }

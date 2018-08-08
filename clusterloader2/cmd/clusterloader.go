@@ -21,7 +21,9 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
+	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/errors"
+	k8sframework "k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
@@ -30,13 +32,12 @@ import (
 )
 
 var (
-	kubeConfigPath = flag.String("kubeconfig", "", "path to the kubeconfig file")
 	testConfigPath = flag.String("testconfig", "", "path to the test config file")
 )
 
 func validateFlags() []error {
 	errList := make([]error, 0)
-	if *kubeConfigPath == "" {
+	if k8sframework.TestContext.KubeConfig == "" {
 		errList = append(errList, fmt.Errorf("no kubeconfig path specified"))
 	}
 	if *testConfigPath == "" {
@@ -47,12 +48,18 @@ func validateFlags() []error {
 
 func main() {
 	defer glog.Flush()
+	gomega.RegisterFailHandler(failHandler)
+	k8sframework.RegisterCommonFlags()
+	k8sframework.RegisterClusterFlags()
+	k8sframework.RegisterStorageFlags()
 	flag.Parse()
+	k8sframework.AfterReadingAllFlags(&k8sframework.TestContext)
+
 	if errList := validateFlags(); len(errList) > 0 {
 		glog.Fatalf("Parsing flags error: %v", errors.NewAggregate(errList).Error())
 	}
 
-	f, err := framework.NewFramework(*kubeConfigPath)
+	f, err := framework.NewFramework(k8sframework.TestContext.KubeConfig)
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)
 	}
@@ -66,4 +73,8 @@ func main() {
 	}
 
 	glog.Info("Test ran successfully!")
+}
+
+func failHandler(message string, callerSkip ...int) {
+	glog.Errorf("panic: %v", message)
 }

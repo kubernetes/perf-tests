@@ -9,7 +9,7 @@ In order to vendor in e2e/framework & deps we have used [glide](https://github.c
 After installing glide just run:
 ```
 cd perf-tests/clusterloader/
-glide install -v
+godep get
 go test -c -o e2e.test
 ```
 

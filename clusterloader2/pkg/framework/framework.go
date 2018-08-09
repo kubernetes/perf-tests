@@ -102,6 +102,11 @@ func (f *Framework) PatchObject(namespace string, name string, obj *unstructured
 	return client.PatchObject(f.dynamicClient, namespace, name, obj)
 }
 
+// UpdateObject updates object with given name using given object description.
+func (f *Framework) UpdateObject(namespace string, name string, obj *unstructured.Unstructured) error {
+	return client.UpdateObject(f.dynamicClient, namespace, name, obj)
+}
+
 // DeleteObject deletes object with given name and group-version-kind.
 func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string) error {
 	return client.DeleteObject(f.dynamicClient, gvk, namespace, name)

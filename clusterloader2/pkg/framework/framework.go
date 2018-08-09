@@ -97,9 +97,9 @@ func (f *Framework) CreateObject(namespace string, name string, obj *unstructure
 	return client.CreateObject(f.dynamicClient, namespace, name, obj)
 }
 
-// UpdateObject updates object with given name using given object description.
-func (f *Framework) UpdateObject(namespace string, name string, obj *unstructured.Unstructured) error {
-	return client.UpdateObject(f.dynamicClient, namespace, name, obj)
+// PatchObject updates object (using patch) with given name using given object description.
+func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured) error {
+	return client.PatchObject(f.dynamicClient, namespace, name, obj)
 }
 
 // DeleteObject deletes object with given name and group-version-kind.

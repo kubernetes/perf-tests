@@ -153,7 +153,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 			for j := range phase.ObjectBundle {
 				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
 					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, UPDATE_OBJECT); len(objectErrList) > 0 {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); len(objectErrList) > 0 {
 						errList = append(errList, objectErrList...)
 						if isErrsCritical(objectErrList) {
 							return errList
@@ -210,8 +210,8 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 			if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 			}
-		case UPDATE_OBJECT:
-			if err := ctx.GetFramework().UpdateObject(namespace, objName, obj); err != nil {
+		case PATCH_OBJECT:
+			if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
 			}
 		case DELETE_OBJECT:

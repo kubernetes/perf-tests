@@ -34,8 +34,9 @@ type OperationType int
 const (
 	// CREATE_OBJECT is create object operation.
 	CREATE_OBJECT = OperationType(0)
-	// UPDATE_OBJECT is update object operation.
-	UPDATE_OBJECT = OperationType(1)
+	// PATCH_OBJECT is update object (using patch) operation.
+	// TODO(krzysied): Figure out how to implement UPDATE_OBJECT operation.
+	PATCH_OBJECT = OperationType(1)
 	// DELETE_OBJECT is delete object operation.
 	DELETE_OBJECT = OperationType(2)
 )

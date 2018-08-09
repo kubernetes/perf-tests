@@ -111,8 +111,8 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
 }
 
-// UpdateObject updates with given name, group, version and kind based on given object description.
-func UpdateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+// PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
+func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)

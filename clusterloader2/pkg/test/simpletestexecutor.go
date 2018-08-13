@@ -71,6 +71,13 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
+				defer func() {
+					if r := recover(); r != nil {
+						lock.Lock()
+						defer lock.Unlock()
+						errList = append(errList, fmt.Errorf("measurement call %s - %s panic: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, r))
+					}
+				}()
 				if err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params); err != nil {
 					lock.Lock()
 					defer lock.Unlock()

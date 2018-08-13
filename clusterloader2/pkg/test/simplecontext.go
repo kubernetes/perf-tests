@@ -25,6 +25,7 @@ import (
 )
 
 type simpleContext struct {
+	clusterConfig      *config.ClusterConfig
 	framework          *framework.Framework
 	state              *state.NamespacesState
 	templateProvider   *config.TemplateProvider
@@ -32,14 +33,20 @@ type simpleContext struct {
 	measurementManager *measurement.MeasurementManager
 }
 
-func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Context {
+func createSimpleContext(c *config.ClusterConfig, f *framework.Framework, s *state.NamespacesState) Context {
 	return &simpleContext{
+		clusterConfig:      c,
 		framework:          f,
 		state:              s,
 		templateProvider:   config.NewTemplateProvider(f.GetTestBasepath()),
 		tickerFactory:      ticker.NewTickerFactory(),
 		measurementManager: measurement.CreateMeasurementManager(f.GetClientSet()),
 	}
+}
+
+// GetClusterConfig return cluster config.
+func (sc *simpleContext) GetClusterConfig() *config.ClusterConfig {
+	return sc.clusterConfig
 }
 
 // GetFramework returns framework.

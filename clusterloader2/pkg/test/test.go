@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 )
@@ -35,11 +36,14 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, conf *api.Config) []error {
+func RunTest(f *framework.Framework, clusterConfig *config.ClusterConfig, testConfig *api.Config) []error {
 	if f == nil {
 		return []error{fmt.Errorf("framework must be provided")}
 	}
-	if conf == nil {
+	if clusterConfig == nil {
+		return []error{fmt.Errorf("cluster config must be provided")}
+	}
+	if testConfig == nil {
 		return []error{fmt.Errorf("test config must be provided")}
 	}
 	if CreateContext == nil {
@@ -49,6 +53,6 @@ func RunTest(f *framework.Framework, conf *api.Config) []error {
 		return []error{fmt.Errorf("no Test installed")}
 	}
 
-	ctx := CreateContext(f, state.NewNamespacesState())
-	return Test.ExecuteTest(ctx, conf)
+	ctx := CreateContext(clusterConfig, f, state.NewNamespacesState())
+	return Test.ExecuteTest(ctx, testConfig)
 }

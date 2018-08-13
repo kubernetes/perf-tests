@@ -20,11 +20,5 @@ set -o pipefail
 
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
 
-if [ $# -lt 1 ]
-then
-	echo 'Test path not provided!'
-	exit 1
-fi
-
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
-./clusterloader --kubeconfig="${HOME}/.kube/config" --testconfig=$1  --alsologtostderr
+./clusterloader --kubeconfig="${HOME}/.kube/config" --alsologtostderr "$@"

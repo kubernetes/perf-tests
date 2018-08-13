@@ -28,7 +28,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-// ReadConfig creates config from file specified by the given path.
+// ReadConfig creates test config from file specified by the given path.
 func ReadConfig(path string) (*api.Config, error) {
 	// This must be done after common flags are registered, since Viper is a flag option.
 	base := filepath.Base(path)

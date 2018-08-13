@@ -36,7 +36,7 @@ func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Conte
 	return &simpleContext{
 		framework:          f,
 		state:              s,
-		templateProvider:   config.NewTemplateProvider(),
+		templateProvider:   config.NewTemplateProvider(f.GetTestBasepath()),
 		tickerFactory:      ticker.NewTickerFactory(),
 		measurementManager: measurement.CreateMeasurementManager(f.GetClientSet()),
 	}

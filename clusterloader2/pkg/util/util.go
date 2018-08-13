@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -116,4 +118,17 @@ func getDuration(dict map[string]interface{}, key string, defaultValue time.Dura
 		return 0, fmt.Errorf("parsing duration error: %v", err)
 	}
 	return duration, nil
+}
+
+// PrettyPrintJSON converts given data into formatted json.
+func PrettyPrintJSON(data interface{}) (string, error) {
+	output := &bytes.Buffer{}
+	if err := json.NewEncoder(output).Encode(data); err != nil {
+		return "", fmt.Errorf("building encoder error: %v", err)
+	}
+	formatted := &bytes.Buffer{}
+	if err := json.Indent(formatted, output.Bytes(), "", "  "); err != nil {
+		return "", fmt.Errorf("indenting error: %v", err)
+	}
+	return string(formatted.Bytes()), nil
 }

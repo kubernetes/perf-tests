@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -82,12 +83,22 @@ func getInt(dict map[string]interface{}, key string, defaultValue int, defaultEr
 		return defaultValue, defaultError
 	}
 
+	intValue, ok := value.(int)
+	if ok {
+		return intValue, nil
+	}
 	// Types from interface{} create from json cannot be cast directly to int.
 	floatValue, ok := value.(float64)
-	if !ok {
-		return 0, fmt.Errorf("type assertion error: %v of is not an int", value)
+	if ok {
+		return int(floatValue), nil
 	}
-	return int(floatValue), nil
+	stringValue, ok := value.(string)
+	if ok {
+		if i, err := strconv.Atoi(stringValue); err != nil {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("type assertion error: %v of is not an int", value)
 }
 
 func getFloat64(dict map[string]interface{}, key string, defaultValue float64, defaultError error) (float64, error) {
@@ -97,10 +108,16 @@ func getFloat64(dict map[string]interface{}, key string, defaultValue float64, d
 	}
 
 	floatValue, ok := value.(float64)
-	if !ok {
-		return 0, fmt.Errorf("type assertion error: %v of is not an int", value)
+	if ok {
+		return floatValue, nil
 	}
-	return floatValue, nil
+	stringValue, ok := value.(string)
+	if ok {
+		if f, err := strconv.ParseFloat(stringValue, 64); err != nil {
+			return f, nil
+		}
+	}
+	return 0, fmt.Errorf("type assertion error: %v of is not a float", value)
 }
 
 func getDuration(dict map[string]interface{}, key string, defaultValue time.Duration, defaultError error) (time.Duration, error) {

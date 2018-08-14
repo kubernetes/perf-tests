@@ -195,7 +195,7 @@ type periodic struct {
 
 func getProwConfig() (Jobs, error) {
 	fmt.Fprintf(os.Stderr, "Fetching prow config from GitHub...\n")
-	resp, err := http.Get("https://raw.githubusercontent.com/kubernetes/test-infra/master/prow/config.yaml")
+	resp, err := http.Get("https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-config.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching prow config from GitHub: %v", err)
 	}

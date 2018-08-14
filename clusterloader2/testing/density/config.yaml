@@ -1,0 +1,116 @@
+automanagedNamespaces: 3
+tuningSets:
+- name: Uniform100qps
+  qpsLoad:
+    qps: 100
+- name: Uniform5qps
+  qpsLoad:
+    qps: 5
+steps:
+- measurements:
+  - Identifier: GlobalTimer
+    Method: Timer
+    Params:
+      action: start
+  - Identifier: CreateSaturationPodsTimer
+    Method: Timer
+    Params:
+      action: start
+  - Identifier: APICallLatency
+    Method: APICallLatency
+    Params:
+      action: reset
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 3
+    replicasPerNamespace: 1
+    tuningSet: Uniform100qps
+    objectBundle:
+    - basename: saturation-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 30
+        PodKind: saturationPod
+- measurements:
+  - Identifier: WaitForSaturationRunning
+    Method: WaitForRunningPods
+    Params:
+      desiredPodCount: 90
+      labelSelector: kind = saturationPod
+      timeout: 2m
+- measurements:
+  - Identifier: CreateSaturationPodsTimer
+    Method: Timer
+    Params:
+      action: stop
+      label: Saturation pods creation
+  - Identifier: CreateLatencyPodsTimer
+    Method: Timer
+    Params:
+      action: start
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 3
+    replicasPerNamespace: 1
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        PodKind: latencyPod
+- measurements:
+  - Identifier: WaitForLatencyPodRunning
+    Method: WaitForRunningPods
+    Params:
+      desiredPodCount: 3
+      labelSelector: kind = latencyPod
+- measurements:
+  - Identifier: CreateLatencyPodsTimer
+    Method: Timer
+    Params:
+      action: stop
+      label: Latency pods creation
+  - Identifier: DeleteAllPodsTimer
+    Method: Timer
+    Params:
+      action: start
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 3
+    replicasPerNamespace: 0
+    tuningSet: Uniform100qps
+    objectBundle:
+    - basename: saturation-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 30
+  - namespaceRange:
+      min: 1
+      max: 3
+    replicasPerNamespace: 0
+    tuningSet: Uniform100qps
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+- measurements:
+  - Identifier: APICallLatency
+    Method: APICallLatency
+    Params:
+      action: gather
+      nodeCount: 3
+  - Identifier: DeleteAllPodsTimer
+    Method: Timer
+    Params:
+      action: stop
+      label: All pods deletion
+  - Identifier: GlobalTimer
+    Method: Timer
+    Params:
+      action: stop
+      label: Global execution

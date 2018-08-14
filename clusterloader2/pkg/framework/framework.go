@@ -81,7 +81,7 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 	if f.automanagedNamespaceCount != 0 {
 		return fmt.Errorf("automanaged namespaces already created")
 	}
-	for i := 0; i < namespaceCount; i++ {
+	for i := 1; i <= namespaceCount; i++ {
 		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
 		if err := client.CreateNamespace(f.clientSet, name); err != nil {
 			return err
@@ -93,7 +93,7 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
 func (f *Framework) DeleteAutomanagedNamespaces() error {
-	for i := 0; i < f.automanagedNamespaceCount; i++ {
+	for i := 1; i <= f.automanagedNamespaceCount; i++ {
 		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
 		if err := client.DeleteNamespace(f.clientSet, name); err != nil {
 			return err

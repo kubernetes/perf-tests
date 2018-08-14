@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"text/template"
 
@@ -29,13 +30,16 @@ import (
 // TemplateProvider provides object templates. Templates in unstructured form
 // are served by reading file from given path or by using cache if available.
 type TemplateProvider struct {
+	basepath string
+
 	lock          sync.RWMutex
 	templateCache map[string]*template.Template
 }
 
 // NewTemplateProvider creates new template provider.
-func NewTemplateProvider() *TemplateProvider {
+func NewTemplateProvider(basepath string) *TemplateProvider {
 	return &TemplateProvider{
+		basepath:      basepath,
 		templateCache: make(map[string]*template.Template),
 	}
 }
@@ -51,7 +55,7 @@ func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, err
 		// Recheck condition.
 		raw, exists = tp.templateCache[path]
 		if !exists {
-			raw, err = template.ParseFiles(path)
+			raw, err = template.ParseFiles(filepath.Join(tp.basepath, path))
 			if err != nil {
 				return nil, err
 			}

@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -52,7 +53,7 @@ func main() {
 		glog.Fatalf("Parsing flags error: %v", errors.NewAggregate(errList).Error())
 	}
 
-	f, err := framework.NewFramework(*kubeConfigPath)
+	f, err := framework.NewFramework(*kubeConfigPath, filepath.Dir(*testConfigPath))
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)
 	}

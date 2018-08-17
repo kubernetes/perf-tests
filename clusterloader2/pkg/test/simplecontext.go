@@ -19,6 +19,7 @@ package test
 import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/logger"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
@@ -30,6 +31,7 @@ type simpleContext struct {
 	templateProvider   *config.TemplateProvider
 	tickerFactory      ticker.TickerFactory
 	measurementManager *measurement.MeasurementManager
+	logger             logger.Interface
 }
 
 func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Context {
@@ -39,6 +41,7 @@ func createSimpleContext(f *framework.Framework, s *state.NamespacesState) Conte
 		templateProvider:   config.NewTemplateProvider(f.GetTestBasepath()),
 		tickerFactory:      ticker.NewTickerFactory(),
 		measurementManager: measurement.CreateMeasurementManager(f.GetClientSet()),
+		logger:             logger.CreateLogger("."),
 	}
 }
 
@@ -65,4 +68,9 @@ func (sc *simpleContext) GetTickerFactory() ticker.TickerFactory {
 // GetMeasurementManager returns measurment manager.
 func (sc *simpleContext) GetMeasurementManager() *measurement.MeasurementManager {
 	return sc.measurementManager
+}
+
+// GetLogger returns logger.
+func (sc *simpleContext) GetLogger() logger.Interface {
+	return sc.logger
 }

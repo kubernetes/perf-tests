@@ -64,26 +64,31 @@ type apiCallLatencyMeasurement struct{}
 // Execute supports two actions:
 // - reset - Resets latency data on api server side.
 // - gather - Gathers and prints current api server latency data.
-func (*apiCallLatencyMeasurement) Execute(config *measurement.MeasurementConfig) error {
+func (*apiCallLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return err
+		return summaries, err
 	}
 
 	switch action {
 	case "reset":
 		glog.Infof("Resetting latency metrics in apiserver...")
-		return apiserverMetricsReset(config.ClientSet)
+		return summaries, apiserverMetricsReset(config.ClientSet)
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
 		// New method is defined here: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/slos.md#steady-state-slisslos.
 		nodeCount, err := util.GetInt(config.Params, "nodeCount")
 		if err != nil {
-			return err
+			return summaries, err
 		}
-		return apiserverMetricsGather(config.ClientSet, nodeCount)
+		summary, err := apiserverMetricsGather(config.ClientSet, nodeCount)
+		if err == nil {
+			summaries = append(summaries, summary)
+		}
+		return summaries, err
 	default:
-		return fmt.Errorf("unknown action %v", action)
+		return summaries, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -98,11 +103,11 @@ func apiserverMetricsReset(c clientset.Interface) error {
 	return nil
 }
 
-func apiserverMetricsGather(c clientset.Interface, nodeCount int) error {
+func apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.Summary, error) {
 	isBigCluster := (nodeCount > bigClusterNodeCountThreshold)
 	metrics, err := readLatencyMetrics(c)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sort.Sort(sort.Reverse(metrics))
 	badMetrics := 0
@@ -132,12 +137,7 @@ func apiserverMetricsGather(c clientset.Interface, nodeCount int) error {
 			glog.Infof("%vTop latency metric: %+v", prefix, metrics.ApiCalls[i])
 		}
 	}
-	prettyMetrics, err := metrics.PrintHumanReadable()
-	if err != nil {
-		return err
-	}
-	glog.Infof("%v: %v", metricName, prettyMetrics)
-	return nil
+	return metrics, nil
 }
 
 func readLatencyMetrics(c clientset.Interface) (*apiResponsiveness, error) {
@@ -213,7 +213,13 @@ type apiResponsiveness struct {
 	ApiCalls []apiCall `json:"apicalls"`
 }
 
-func (a *apiResponsiveness) PrintHumanReadable() (string, error) {
+// SummaryName returns name of the summary.
+func (a *apiResponsiveness) SummaryName() string {
+	return metricName
+}
+
+// PrintSummary returns summary as a string.
+func (a *apiResponsiveness) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(a)
 }
 

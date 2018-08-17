@@ -40,31 +40,32 @@ type waitForRunningPodsMeasurement struct{}
 // Execute waits until desired number of pods are running or until timeout happens.
 // Pods can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
-func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementConfig) error {
+func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
 	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
 	if err != nil {
-		return err
+		return summaries, err
 	}
 	namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 	if err != nil {
-		return err
+		return summaries, err
 	}
 	labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
 	if err != nil {
-		return err
+		return summaries, err
 	}
 	fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
 	if err != nil {
-		return err
+		return summaries, err
 	}
 	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", 60*time.Second)
 	if err != nil {
-		return err
+		return summaries, err
 	}
 
 	ps, err := util.NewPodStore(config.ClientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
-		return err
+		return summaries, err
 	}
 	defer ps.Stop()
 
@@ -86,9 +87,9 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 			glog.Infof("WaitForPods: %s: running %d / %d", namespace, runningPodsCount, desiredPodCount)
 		}
 		if runningPodsCount >= desiredPodCount {
-			return nil
+			return summaries, nil
 		}
 	}
 
-	return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
+	return summaries, fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
 }

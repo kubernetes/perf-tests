@@ -40,10 +40,10 @@ func CreateMeasurementManager(clientSet clientset.Interface) *MeasurementManager
 }
 
 // Execute executes measurement based on provided identifier, methodName and params.
-func (mm *MeasurementManager) Execute(methodName string, identifier string, params map[string]interface{}) error {
+func (mm *MeasurementManager) Execute(methodName string, identifier string, params map[string]interface{}) ([]Summary, error) {
 	measurementInstance, err := mm.getMeasurementInstance(methodName, identifier)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	config := &MeasurementConfig{
 		ClientSet: mm.clientSet,

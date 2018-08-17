@@ -34,7 +34,13 @@ type MeasurementConfig struct {
 // allow his/her measurement method to be registered in the measurement factory.
 // See https://github.com/kubernetes/perf-tests/blob/master/clusterloader/docs/design.md for reference.
 type Measurement interface {
-	Execute(config *MeasurementConfig) error
+	Execute(config *MeasurementConfig) ([]Summary, error)
 }
 
 type createMeasurementFunc func() Measurement
+
+// Summary represenst result of specific measurement.
+type Summary interface {
+	SummaryName() string
+	PrintSummary() (string, error)
+}

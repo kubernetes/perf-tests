@@ -40,10 +40,11 @@ type timer struct {
 // Execute supports two actions. start - which start timer. stop - which stops timer
 // and prints to log time duration between start and stop.
 // Stop action requires label parameter to be provided.
-func (t *timer) Execute(config *measurement.MeasurementConfig) error {
+func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return err
+		return summaries, err
 	}
 
 	switch action {
@@ -52,15 +53,15 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) error {
 	case "stop":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return err
+			return summaries, err
 		}
 		if t.startTime.IsZero() {
-			return fmt.Errorf("uninitialized timer")
+			return summaries, fmt.Errorf("uninitialized timer")
 		}
 		glog.Infof("%s: %v", label, time.Since(t.startTime))
 		t.startTime = time.Time{}
 	default:
-		return fmt.Errorf("unknown action %s", action)
+		return summaries, fmt.Errorf("unknown action %s", action)
 	}
-	return nil
+	return summaries, nil
 }

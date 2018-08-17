@@ -71,10 +71,22 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				if err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params); err != nil {
+				summaries, err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
+				if err != nil {
 					lock.Lock()
 					defer lock.Unlock()
 					errList = append(errList, fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
+				}
+				for _, summary := range summaries {
+					// TODO(krzysied): Collect summaries and print them at the end of test.
+					summaryText, err := summary.PrintSummary()
+					if err != nil {
+						lock.Lock()
+						defer lock.Unlock()
+						errList = append(errList, fmt.Errorf("measurement call %s - %s printing error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
+						return
+					}
+					glog.Infof("%v: %v", summary.SummaryName(), summaryText)
 				}
 			})
 		}

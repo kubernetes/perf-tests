@@ -22,24 +22,29 @@ set -o pipefail
 PERFTEST_ROOT=$(dirname "${BASH_SOURCE}")
 case "$1" in
     #CLUSTERLOADER
-  --cluster-loader )
+  cluster-loader )
     cd ${PERFTEST_ROOT}/clusterloader/e2e/ && go test -c -o e2e.test
     ./e2e.test --ginkgo.v=true --ginkgo.focus="Cluster\sLoader" --kubeconfig="${HOME}/.kube/config" --viper-config=../config/test
     exit
     ;;
-  --network-performance )
+  cluster-loader2 )
+    #CLUSTERLOADER2
+    cd ${PERFTEST_ROOT}/clusterloader2 && ./run-e2e.sh ${@:2}
+    exit
+    ;;
+  network-performance )
     #NETPERF
     cd ${PERFTEST_ROOT}/network/benchmarks/netperf/ && go run ./launch.go  --kubeConfig="${HOME}/.kube/config" --hostnetworking --iterations 1
     exit
     ;;
-  --kube-dns )
+  kube-dns )
     #KUBE-DNS
     cd ${PERFTEST_ROOT}/dns
     mkdir out
     ./run --params params/kubedns/default.yaml --out-dir out --use-cluster-dns
     exit
     ;;
-  --core-dns )
+  core-dns )
     #CORE-DNS
     cd ${PERFTEST_ROOT}/dns
     mkdir out

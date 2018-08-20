@@ -31,38 +31,55 @@ import (
 )
 
 var (
-	kubeConfigPath = flag.String("kubeconfig", "", "path to the kubeconfig file")
-	testConfigPath = flag.String("testconfig", "", "path to the test config file")
+	clusterConfig  config.ClusterConfig
+	testConfigPath string
 )
+
+func initClusterFlags() {
+	flag.StringVar(&clusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
+	flag.IntVar(&clusterConfig.NodeCount, "nodes", -1, "Number of nodes in the cluster")
+}
+
+func validateClusterFlags() []error {
+	errList := make([]error, 0)
+	if clusterConfig.KubeConfigPath == "" {
+		errList = append(errList, fmt.Errorf("no kubeconfig path specified"))
+	}
+	return errList
+}
+
+func initFlags() {
+	flag.StringVar(&testConfigPath, "testconfig", "", "Path to the test config file")
+	initClusterFlags()
+}
 
 func validateFlags() []error {
 	errList := make([]error, 0)
-	if *kubeConfigPath == "" {
-		errList = append(errList, fmt.Errorf("no kubeconfig path specified"))
-	}
-	if *testConfigPath == "" {
+	if testConfigPath == "" {
 		errList = append(errList, fmt.Errorf("no test config path specified"))
 	}
+	errList = append(errList, validateClusterFlags()...)
 	return errList
 }
 
 func main() {
 	defer glog.Flush()
+	initFlags()
 	flag.Parse()
 	if errList := validateFlags(); len(errList) > 0 {
 		glog.Fatalf("Parsing flags error: %v", errors.NewAggregate(errList).Error())
 	}
 
-	f, err := framework.NewFramework(*kubeConfigPath, filepath.Dir(*testConfigPath))
+	f, err := framework.NewFramework(clusterConfig.KubeConfigPath, filepath.Dir(testConfigPath))
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)
 	}
-	c, err := config.ReadConfig(*testConfigPath)
+	testConfig, err := config.ReadConfig(testConfigPath)
 	if err != nil {
 		glog.Fatalf("Config reading error: %v", err)
 	}
 
-	if errList := test.RunTest(f, c); len(errList) > 0 {
+	if errList := test.RunTest(f, &clusterConfig, testConfig); len(errList) > 0 {
 		glog.Fatalf("Test execution failed: %v", errors.NewAggregate(errList).Error())
 	}
 

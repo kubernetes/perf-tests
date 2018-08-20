@@ -26,7 +26,7 @@ import (
 )
 
 // CreatContextFunc a type for function that creates Context based on given framework client and state.
-type CreatContextFunc func(f *framework.Framework, s *state.NamespacesState) Context
+type CreatContextFunc func(c *config.ClusterConfig, f *framework.Framework, s *state.NamespacesState) Context
 
 // OperationType is a type of operation to be performed on an object.
 type OperationType int

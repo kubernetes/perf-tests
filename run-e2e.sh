@@ -20,6 +20,8 @@ set -o nounset
 set -o pipefail
 
 PERFTEST_ROOT=$(dirname "${BASH_SOURCE}")
+echo "TOOL_NAME: $1"
+
 case "$1" in
     #CLUSTERLOADER
   cluster-loader )
@@ -29,6 +31,7 @@ case "$1" in
     ;;
   cluster-loader2 )
     #CLUSTERLOADER2
+    echo "COMMAND: ${PERFTEST_ROOT}/clusterloader2 && ./run-e2e.sh ${@:2}"
     cd ${PERFTEST_ROOT}/clusterloader2 && ./run-e2e.sh ${@:2}
     exit
     ;;

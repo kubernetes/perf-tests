@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -45,9 +46,20 @@ func createSimpleTestExecutor() TestExecutor {
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []error {
 	defer cleanupResources(ctx)
+	// TODO(krzysied): add custom implementation for the errList.
+	// This will implementation will support multithreading.
 	var errList []error
 	ctx.GetTickerFactory().Init(conf.TuningSets)
-	err := ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
+	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
+	if err != nil {
+		errList = append(errList, fmt.Errorf("automanaged namespaces listing failed: %v", err))
+		return errList
+	}
+	if len(automanagedNamespacesList) > 0 {
+		errList = append(errList, fmt.Errorf("pre-existing automanaged namespaces found"))
+		return errList
+	}
+	err = ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
 		errList = append(errList, fmt.Errorf("automanaged namespaces creation failed: %v", err))
 		return errList
@@ -303,7 +315,10 @@ func isErrsCritical(errList []error) bool {
 }
 
 func cleanupResources(ctx Context) {
-	if err := ctx.GetFramework().DeleteAutomanagedNamespaces(); err != nil {
-		glog.Errorf("Resource cleanup error: %v", err)
+	cleanupStartTime := time.Now()
+	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); len(errList) > 0 {
+		glog.Errorf("Resource cleanup error: %v", errors.NewAggregate(errList).Error())
+		return
 	}
+	glog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
 }

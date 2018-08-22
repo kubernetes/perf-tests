@@ -18,9 +18,12 @@ package framework
 
 import (
 	"fmt"
+	"regexp"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
@@ -84,16 +87,48 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 	return nil
 }
 
-// DeleteAutomanagedNamespaces deletes all automanged namespaces.
-func (f *Framework) DeleteAutomanagedNamespaces() error {
-	for i := 1; i <= f.automanagedNamespaceCount; i++ {
-		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
-		if err := client.DeleteNamespace(f.clientSet, name); err != nil {
-			return err
+// ListAutomanagedNamespaces returns all existing automanged namespace names.
+func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
+	var automanagedNamespacesList []string
+	namespacesList, err := client.ListNamespaces(f.clientSet)
+	if err != nil {
+		return automanagedNamespacesList, err
+	}
+	for _, namespace := range namespacesList {
+		matched, err := isAutomanagedNamespace(namespace.Name)
+		if err != nil {
+			return automanagedNamespacesList, err
+		}
+		if matched {
+			automanagedNamespacesList = append(automanagedNamespacesList, namespace.Name)
 		}
 	}
-	f.automanagedNamespaceCount = 0
-	return nil
+	return automanagedNamespacesList, nil
+}
+
+// DeleteAutomanagedNamespaces deletes all automanged namespaces.
+func (f *Framework) DeleteAutomanagedNamespaces() []error {
+	var wg wait.Group
+	var lock sync.Mutex
+	var errList []error
+	for i := 1; i <= f.automanagedNamespaceCount; i++ {
+		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
+		wg.Start(func() {
+			if err := client.DeleteNamespace(f.clientSet, name); err != nil {
+				lock.Lock()
+				defer lock.Unlock()
+				errList = append(errList, err)
+				return
+			}
+			if err := client.WaitForDeleteNamespace(f.clientSet, name); err != nil {
+				lock.Lock()
+				defer lock.Unlock()
+				errList = append(errList, err)
+			}
+		})
+	}
+	wg.Wait()
+	return errList
 }
 
 // CreateObject creates object base on given object description.
@@ -114,4 +149,8 @@ func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, 
 // GetObject retrieves object with given name and group-version-kind.
 func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string) (*unstructured.Unstructured, error) {
 	return client.GetObject(f.dynamicClient, gvk, namespace, name)
+}
+
+func isAutomanagedNamespace(name string) (bool, error) {
+	return regexp.MatchString(AutomanagedNamespaceName+"-[1-9][0-9]*", name)
 }

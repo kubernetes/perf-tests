@@ -30,16 +30,16 @@ import (
 
 // ReadConfig creates test config from file specified by the given path.
 func ReadConfig(path string) (*api.Config, error) {
-	// This must be done after common flags are registered, since Viper is a flag option.
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)
-	viper.SetConfigName(strings.TrimSuffix(base, ext))
-	viper.AddConfigPath(filepath.Dir(path))
-	if err := viper.ReadInConfig(); err != nil {
+	v := viper.New()
+	v.SetConfigName(strings.TrimSuffix(base, ext))
+	v.AddConfigPath(filepath.Dir(path))
+	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("read config failed: %v", err)
 	}
 	var config api.Config
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unmarshaling failed: %v", err)
 	}
 	return &config, nil

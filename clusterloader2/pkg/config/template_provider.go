@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"text/template"
 
@@ -33,7 +34,10 @@ import (
 type TemplateProvider struct {
 	basepath string
 
-	lock          sync.RWMutex
+	binLock  sync.RWMutex
+	binCache map[string][]byte
+
+	templateLock  sync.RWMutex
 	templateCache map[string]*template.Template
 }
 
@@ -41,23 +45,62 @@ type TemplateProvider struct {
 func NewTemplateProvider(basepath string) *TemplateProvider {
 	return &TemplateProvider{
 		basepath:      basepath,
+		binCache:      make(map[string][]byte),
 		templateCache: make(map[string]*template.Template),
 	}
 }
 
-func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
-	tp.lock.RLock()
-	raw, exists := tp.templateCache[path]
-	tp.lock.RUnlock()
+func (tp *TemplateProvider) getRaw(path string) ([]byte, error) {
+	tp.binLock.RLock()
+	bin, exists := tp.binCache[path]
+	tp.binLock.RUnlock()
 	if !exists {
-		tp.lock.Lock()
-		defer tp.lock.Unlock()
+		tp.binLock.Lock()
+		defer tp.binLock.Unlock()
+		// Recheck condition.
+		bin, exists = tp.binCache[path]
+		if !exists {
+			var err error
+			bin, err = ioutil.ReadFile(filepath.Join(tp.basepath, path))
+			if err != nil {
+				return []byte{}, fmt.Errorf("reading error: %v", err)
+			}
+			tp.binCache[path] = bin
+		}
+	}
+	return bin, nil
+}
+
+// RawToObject creates object from file specified by the given path
+// or uses cached object if available.
+func (tp *TemplateProvider) RawToObject(path string) (*unstructured.Unstructured, error) {
+	bin, err := tp.getRaw(path)
+	if err != nil {
+		return nil, err
+	}
+	// Removing all placeholder from template.
+	// This needs to be done due to placeholders not being valid yaml.
+	r, err := regexp.Compile("\\{\\{.*\\}\\}")
+	if err != nil {
+		return nil, fmt.Errorf("regexp creation error: %v", err)
+	}
+	bin = r.ReplaceAll(bin, []byte{})
+	return ConvertToObject(bin)
+}
+
+func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
+	tp.templateLock.RLock()
+	raw, exists := tp.templateCache[path]
+	tp.templateLock.RUnlock()
+	if !exists {
+		tp.templateLock.Lock()
+		defer tp.templateLock.Unlock()
 		// Recheck condition.
 		raw, exists = tp.templateCache[path]
 		if !exists {
-			bin, err := ioutil.ReadFile(filepath.Join(tp.basepath, path))
+			bin, err := tp.getRaw(path)
 			if err != nil {
-				return nil, fmt.Errorf("reading error: %v", err)
+				return nil, err
 			}
 			raw = template.New("").Funcs(GetFuncs())
 			raw, err = raw.Parse(string(bin))

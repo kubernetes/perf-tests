@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -210,17 +211,29 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error {
 	var errList []error
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
-	var mapping map[string]interface{}
-	if object.TemplateFillMap == nil {
-		mapping = make(map[string]interface{})
-	} else {
-		mapping = object.TemplateFillMap
-	}
-	mapping[namePlaceholder] = objName
-	mapping[indexPlaceholder] = replicaIndex
-	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
-	if err != nil {
-		return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
+	var err error
+	var obj *unstructured.Unstructured
+	switch operation {
+	case CREATE_OBJECT, PATCH_OBJECT:
+		var mapping map[string]interface{}
+		if object.TemplateFillMap == nil {
+			mapping = make(map[string]interface{})
+		} else {
+			mapping = object.TemplateFillMap
+		}
+		mapping[namePlaceholder] = objName
+		mapping[indexPlaceholder] = replicaIndex
+		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
+		if err != nil {
+			return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
+		}
+	case DELETE_OBJECT:
+		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
+		if err != nil {
+			return []error{fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err)}
+		}
+	default:
+		return []error{fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName)}
 	}
 	gvk := obj.GroupVersionKind()
 
@@ -240,8 +253,6 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
 				errList = append(errList, fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
 			}
-		default:
-			errList = append(errList, fmt.Errorf("Unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 		}
 	}
 	return errList
@@ -257,9 +268,9 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	}
 	mapping[namePlaceholder] = objName
 	mapping[indexPlaceholder] = 0
-	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
+	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 	if err != nil {
-		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)
+		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) for identifier error: %v", object.ObjectTemplatePath, err)
 	}
 	gvk := obj.GroupVersionKind()
 	return state.InstancesIdentifier{

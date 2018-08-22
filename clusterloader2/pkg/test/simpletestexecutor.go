@@ -238,7 +238,16 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
-	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, nil)
+	objName := fmt.Sprintf("%v-%d", object.Basename, 0)
+	var mapping map[string]interface{}
+	if object.TemplateFillMap == nil {
+		mapping = make(map[string]interface{})
+	} else {
+		mapping = object.TemplateFillMap
+	}
+	mapping[basenamePlaceholder] = objName
+	mapping[indexPlaceholder] = 0
+	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)
 	}

@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"sync"
 	"text/template"
@@ -45,7 +46,6 @@ func NewTemplateProvider(basepath string) *TemplateProvider {
 }
 
 func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
-	var err error
 	tp.lock.RLock()
 	raw, exists := tp.templateCache[path]
 	tp.lock.RUnlock()
@@ -55,9 +55,14 @@ func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, err
 		// Recheck condition.
 		raw, exists = tp.templateCache[path]
 		if !exists {
-			raw, err = template.ParseFiles(filepath.Join(tp.basepath, path))
+			bin, err := ioutil.ReadFile(filepath.Join(tp.basepath, path))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("reading error: %v", err)
+			}
+			raw = template.New("").Funcs(GetFuncs())
+			raw, err = raw.Parse(string(bin))
+			if err != nil {
+				return nil, fmt.Errorf("parsing error: %v", err)
 			}
 			tp.templateCache[path] = raw
 		}

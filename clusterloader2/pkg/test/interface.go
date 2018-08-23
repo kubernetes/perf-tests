@@ -37,8 +37,10 @@ const (
 	// PATCH_OBJECT is update object (using patch) operation.
 	// TODO(krzysied): Figure out how to implement UPDATE_OBJECT operation.
 	PATCH_OBJECT = OperationType(1)
+	// UPDATE_OBJECT is update object operation.
+	UPDATE_OBJECT = OperationType(2)
 	// DELETE_OBJECT is delete object operation.
-	DELETE_OBJECT = OperationType(2)
+	DELETE_OBJECT = OperationType(3)
 )
 
 // Context is an interface for test context.

@@ -131,6 +131,25 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
 }
 
+// UpdateObject updates object with given name, group, version and kind based on given object description.
+func UpdateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	obj.SetName(name)
+	updateFunc := func() error {
+		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if err := applyValuesMap(obj.UnstructuredContent(), currentObj.UnstructuredContent()); err != nil {
+			return fmt.Errorf("apply changes error: %v", err)
+		}
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Update(currentObj)
+		return err
+	}
+	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
+}
+
 // DeleteObject deletes object with given name, group, version and kind.
 func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) error {
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
@@ -170,4 +189,61 @@ func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
 		mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
 	// TODO(krzysied): Figure out way to pass original object or figure out way to use CreateTwoWayMergePatch.
 	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil, modifiedJson, currentJson, preconditions...)
+}
+
+func applyValuesMap(src, dest map[string]interface{}) error {
+	for k, v := range src {
+		_, exists := dest[k]
+		if !exists {
+			unstructured.SetNestedField(dest, v, k)
+			continue
+		}
+
+		mapScr, okSrc := v.(map[string]interface{})
+		mapDest, okDest := dest[k].(map[string]interface{})
+		if okSrc && okDest {
+			if err := applyValuesMap(mapScr, mapDest); err != nil {
+				return err
+			}
+			continue
+		}
+
+		listSrc, okSrc := v.([]interface{})
+		listDest, okDest := dest[k].([]interface{})
+		if okSrc && okDest {
+			if err := applyValuesList(listSrc, listDest); err != nil {
+				return err
+			}
+			continue
+		}
+		unstructured.SetNestedField(dest, v, k)
+	}
+	return nil
+}
+
+func applyValuesList(src, dest []interface{}) error {
+	if len(src) != len(dest) {
+		return fmt.Errorf("different unstructured list sizes")
+	}
+	for i := 0; i < len(src); i++ {
+		mapSrc, okSrc := src[i].(map[string]interface{})
+		mapDest, okDest := dest[i].(map[string]interface{})
+		if okSrc && okDest {
+			if err := applyValuesMap(mapSrc, mapDest); err != nil {
+				return err
+			}
+			continue
+		}
+
+		listSrc, okSrc := src[i].([]interface{})
+		listDest, okDest := dest[i].([]interface{})
+		if okSrc && okDest {
+			if err := applyValuesList(listSrc, listDest); err != nil {
+				return err
+			}
+			continue
+		}
+		dest[i] = src[i]
+	}
+	return nil
 }

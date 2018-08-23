@@ -39,13 +39,12 @@ const (
 // official Kubernetes client.
 type Framework struct {
 	automanagedNamespaceCount int
-	testBasepath              string
 	clientSet                 clientset.Interface
 	dynamicClient             dynamic.Interface
 }
 
 // NewFramework creates new framework based on given kubeconfig.
-func NewFramework(kubeconfigPath, testBasepath string) (*Framework, error) {
+func NewFramework(kubeconfigPath string) (*Framework, error) {
 	conf, err := config.PrepareConfig(kubeconfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("config prepare failed: %v", err)
@@ -60,7 +59,6 @@ func NewFramework(kubeconfigPath, testBasepath string) (*Framework, error) {
 	}
 	return &Framework{
 		automanagedNamespaceCount: 0,
-		testBasepath:              testBasepath,
 		clientSet:                 clientSet,
 		dynamicClient:             dynamicClient,
 	}, nil
@@ -69,11 +67,6 @@ func NewFramework(kubeconfigPath, testBasepath string) (*Framework, error) {
 // GetClientSet returns clientSet client.
 func (f *Framework) GetClientSet() clientset.Interface {
 	return f.clientSet
-}
-
-// GetTestBasepath returns basepath for test directory.
-func (f *Framework) GetTestBasepath() string {
-	return f.testBasepath
 }
 
 // CreateAutomanagedNamespaces creates automanged namespaces.

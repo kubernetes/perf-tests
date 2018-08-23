@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	basenamePlaceholder = "Basename"
-	indexPlaceholder    = "Index"
+	namePlaceholder  = "Name"
+	indexPlaceholder = "Index"
 )
 
 type simpleTestExecutor struct{}
@@ -206,7 +206,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	} else {
 		mapping = object.TemplateFillMap
 	}
-	mapping[basenamePlaceholder] = objName
+	mapping[namePlaceholder] = objName
 	mapping[indexPlaceholder] = replicaIndex
 	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 	if err != nil {
@@ -245,7 +245,7 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	} else {
 		mapping = object.TemplateFillMap
 	}
-	mapping[basenamePlaceholder] = objName
+	mapping[namePlaceholder] = objName
 	mapping[indexPlaceholder] = 0
 	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 	if err != nil {

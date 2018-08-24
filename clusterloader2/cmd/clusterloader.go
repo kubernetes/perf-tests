@@ -79,6 +79,7 @@ func main() {
 		glog.Fatalf("Config reading error: %v", err)
 	}
 
+	glog.Infof("Running %v test - %v", testConfig.Name, testConfigPath)
 	if errList := test.RunTest(f, &clusterConfig, testConfig); len(errList) > 0 {
 		glog.Fatalf("Test execution failed: %v", errors.NewAggregate(errList).Error())
 	}

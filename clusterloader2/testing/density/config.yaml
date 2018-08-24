@@ -1,3 +1,4 @@
+name: Density
 automanagedNamespaces: 3
 tuningSets:
 - name: Uniform100qps

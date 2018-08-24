@@ -23,6 +23,8 @@ import (
 // Config is a structure that represents configuration
 // for a single test scenario.
 type Config struct {
+	// Name of the test case.
+	Name string `json: name`
 	// AutomanagedNamespaces is a number of automanaged namespaces.
 	AutomanagedNamespaces int32 `json: automanagedNamespaces`
 	// Steps is a sequence of test steps executed in serial.

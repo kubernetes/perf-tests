@@ -18,7 +18,10 @@ package test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -57,6 +60,24 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []erro
 			}
 		}
 	}
+
+	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
+		summaryText, err := summary.PrintSummary()
+		if err != nil {
+			errList = append(errList, fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
+			continue
+		}
+		if ctx.GetClusterLoaderConfig().ReportDir == "" {
+			glog.Infof("%v: %v", summary.SummaryName(), summaryText)
+		} else {
+			// TODO(krzysied): Remeber to keep original filename style for backward compatibility.
+			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+time.Now().Format(time.RFC3339)+".txt")
+			if err := ioutil.WriteFile(filePath, []byte(summaryText), 0644); err != nil {
+				errList = append(errList, fmt.Errorf("writing to file %v error: %v", filePath, err))
+				continue
+			}
+		}
+	}
 	return errList
 }
 
@@ -71,22 +92,11 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				summaries, err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
+				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
 				if err != nil {
 					lock.Lock()
 					defer lock.Unlock()
 					errList = append(errList, fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
-				}
-				for _, summary := range summaries {
-					// TODO(krzysied): Collect summaries and print them at the end of test.
-					summaryText, err := summary.PrintSummary()
-					if err != nil {
-						lock.Lock()
-						defer lock.Unlock()
-						errList = append(errList, fmt.Errorf("measurement call %s - %s printing error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
-						return
-					}
-					glog.Infof("%v: %v", summary.SummaryName(), summaryText)
 				}
 			})
 		}

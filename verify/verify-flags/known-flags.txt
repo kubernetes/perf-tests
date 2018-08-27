@@ -14,3 +14,4 @@ purge-after-seconds
 right-build-number
 right-job-name
 run-selection-scheme
+report-dir

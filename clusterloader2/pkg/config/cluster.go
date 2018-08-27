@@ -16,8 +16,14 @@ limitations under the License.
 
 package config
 
+// ClusterLoaderConfig represents all flags used by CLusterLoader
+type ClusterLoaderConfig struct {
+	ClusterConfig  ClusterConfig `json: clusterConfig`
+	ReportDir      string        `json: reportDir`
+	TestConfigPath string        `json: testConfigPath`
+}
+
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
 	KubeConfigPath string `json: kubeConfigPath`
-	NodeCount      int    `json: nodeCount`
 }

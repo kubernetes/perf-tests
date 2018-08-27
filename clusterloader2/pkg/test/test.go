@@ -18,6 +18,7 @@ package test
 
 import (
 	"fmt"
+	"os"
 
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -36,12 +37,12 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, clusterConfig *config.ClusterConfig, testConfig *api.Config) []error {
+func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig, testConfig *api.Config) []error {
 	if f == nil {
 		return []error{fmt.Errorf("framework must be provided")}
 	}
-	if clusterConfig == nil {
-		return []error{fmt.Errorf("cluster config must be provided")}
+	if clusterLoaderConfig == nil {
+		return []error{fmt.Errorf("cluster loader config must be provided")}
 	}
 	if testConfig == nil {
 		return []error{fmt.Errorf("test config must be provided")}
@@ -53,6 +54,16 @@ func RunTest(f *framework.Framework, clusterConfig *config.ClusterConfig, testCo
 		return []error{fmt.Errorf("no Test installed")}
 	}
 
-	ctx := CreateContext(clusterConfig, f, state.NewNamespacesState())
+	if clusterLoaderConfig.ReportDir != "" {
+		if _, err := os.Stat(clusterLoaderConfig.ReportDir); err != nil {
+			if !os.IsNotExist(err) {
+				return []error{err}
+			}
+			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
+				return []error{fmt.Errorf("report directory creation error: %v", err)}
+			}
+		}
+	}
+	ctx := CreateContext(clusterLoaderConfig, f, state.NewNamespacesState())
 	return Test.ExecuteTest(ctx, testConfig)
 }

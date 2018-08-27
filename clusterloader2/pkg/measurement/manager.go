@@ -29,6 +29,7 @@ type MeasurementManager struct {
 	lock sync.Mutex
 	// map from method type and identifier to measurement instance.
 	measurements map[string]map[string]Measurement
+	summaries    []Summary
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
@@ -36,20 +37,28 @@ func CreateMeasurementManager(clientSet clientset.Interface) *MeasurementManager
 	return &MeasurementManager{
 		clientSet:    clientSet,
 		measurements: make(map[string]map[string]Measurement),
+		summaries:    make([]Summary, 0),
 	}
 }
 
 // Execute executes measurement based on provided identifier, methodName and params.
-func (mm *MeasurementManager) Execute(methodName string, identifier string, params map[string]interface{}) ([]Summary, error) {
+func (mm *MeasurementManager) Execute(methodName string, identifier string, params map[string]interface{}) error {
 	measurementInstance, err := mm.getMeasurementInstance(methodName, identifier)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	config := &MeasurementConfig{
 		ClientSet: mm.clientSet,
 		Params:    params,
 	}
-	return measurementInstance.Execute(config)
+	summaries, err := measurementInstance.Execute(config)
+	mm.summaries = append(mm.summaries, summaries...)
+	return err
+}
+
+// GetSummaries returns collected summaries.
+func (mm *MeasurementManager) GetSummaries() []Summary {
+	return mm.summaries
 }
 
 func (mm *MeasurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {

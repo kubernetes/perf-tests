@@ -48,23 +48,23 @@ const (
 
 	currentApiCallMetricsVersion = "v1"
 
-	metricName = "APICallLatency"
+	metricName = "APIResponsiveness"
 )
 
 func init() {
-	measurement.Register(metricName, createAPICallLatencyMeasurement)
+	measurement.Register(metricName, createAPIResponsivenessMeasurement)
 }
 
-func createAPICallLatencyMeasurement() measurement.Measurement {
-	return &apiCallLatencyMeasurement{}
+func createAPIResponsivenessMeasurement() measurement.Measurement {
+	return &apiResponsivenessMeasurement{}
 }
 
-type apiCallLatencyMeasurement struct{}
+type apiResponsivenessMeasurement struct{}
 
 // Execute supports two actions:
 // - reset - Resets latency data on api server side.
 // - gather - Gathers and prints current api server latency data.
-func (*apiCallLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
@@ -220,7 +220,7 @@ func (a *apiResponsiveness) SummaryName() string {
 
 // PrintSummary returns summary as a string.
 func (a *apiResponsiveness) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(a)
+	return util.PrettyPrintJSON(apiCallToPerfData(a))
 }
 
 func (a *apiResponsiveness) Len() int { return len(a.ApiCalls) }

@@ -1,4 +1,4 @@
-name: Density
+name: density
 automanagedNamespaces: 3
 tuningSets:
 - name: Uniform100qps
@@ -17,8 +17,8 @@ steps:
     Method: Timer
     Params:
       action: start
-  - Identifier: APICallLatency
-    Method: APICallLatency
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
     Params:
       action: reset
 # Create saturation pods
@@ -99,8 +99,8 @@ steps:
     - basename: latency-pod-rc
       objectTemplatePath: rc.yaml
 - measurements:
-  - Identifier: APICallLatency
-    Method: APICallLatency
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
     Params:
       action: gather
       nodeCount: 3

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Name}}
+spec:
+  selector:
+    name: {{.RCBasename}}-{{.Index}}
+  ports:
+  - port: 80
+    targetPort: 80

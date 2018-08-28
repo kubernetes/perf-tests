@@ -1,19 +1,19 @@
-name: Density
+name: Load
 automanagedNamespaces: 3
 tuningSets:
-- name: Uniform100qps
-  qpsLoad:
-    qps: 100
-- name: Uniform5qps
-  qpsLoad:
-    qps: 5
+- name: Average0.33qps
+  randomizedLoad:
+    averageQps: 0.33
+- name: Average1.4qps
+  randomizedLoad:
+    averageQps: 1.4
 steps:
 - measurements:
   - Identifier: GlobalTimer
     Method: Timer
     Params:
       action: start
-  - Identifier: CreateSaturationPodsTimer
+  - Identifier: CreatePodsTimer
     Method: Timer
     Params:
       action: start
@@ -21,82 +21,85 @@ steps:
     Method: APICallLatency
     Params:
       action: reset
-# Create saturation pods
+# Create RCs
 - phases:
   - namespaceRange:
       min: 1
       max: 3
     replicasPerNamespace: 1
-    tuningSet: Uniform100qps
+    tuningSet: Average0.33qps
     objectBundle:
-    - basename: saturation-rc
+    - basename: service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        RCBasename: rc
+    - basename: rc
       objectTemplatePath: rc.yaml
       templateFillMap:
-        Replicas: 30
-        PodKind: saturationPod
+        ReplicasMin: 30
+        ReplicasMax: 30
 - measurements:
-  - Identifier: WaitForSaturationRunning
-    Method: WaitForRunningPods
+  - Identifier: WaitForRunningRCs
+    Method: WaitForControlledPodsRunning
     Params:
-      desiredPodCount: 90
-      labelSelector: kind = saturationPod
+      kind: ReplicationController
+      labelSelector: kind = loadRC
       timeout: 2m
 - measurements:
-  - Identifier: CreateSaturationPodsTimer
+  - Identifier: CreatePodsTimer
     Method: Timer
     Params:
       action: stop
-      label: Saturation pods creation
-  - Identifier: CreateLatencyPodsTimer
+      label: Pods creation
+  - Identifier: ScaleRCsTimer
     Method: Timer
     Params:
       action: start
-# Create latency pods
+# Scale RCs
 - phases:
   - namespaceRange:
       min: 1
       max: 3
     replicasPerNamespace: 1
-    tuningSet: Uniform5qps
+    tuningSet: Average1.4qps
     objectBundle:
-    - basename: latency-pod-rc
+    - basename: service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        RCBasename: rc
+    - basename: rc
       objectTemplatePath: rc.yaml
       templateFillMap:
-        Replicas: 1
-        PodKind: latencyPod
+        ReplicasMin: 15
+        ReplicasMax: 45
 - measurements:
-  - Identifier: WaitForLatencyPodRunning
-    Method: WaitForRunningPods
+  - Identifier: WaitForScaledRCsRunning
+    Method: WaitForControlledPodsRunning
     Params:
-      desiredPodCount: 3
-      labelSelector: kind = latencyPod
+      kind: ReplicationController
+      labelSelector: kind = loadRC
+      timeout: 2m
 - measurements:
-  - Identifier: CreateLatencyPodsTimer
+  - Identifier: ScaleRCsTimer
     Method: Timer
     Params:
       action: stop
-      label: Latency pods creation
+      label: Scaling RCs
   - Identifier: DeleteAllPodsTimer
     Method: Timer
     Params:
       action: start
-# Delete pods
+# Delete RCs
 - phases:
   - namespaceRange:
       min: 1
       max: 3
     replicasPerNamespace: 0
-    tuningSet: Uniform100qps
+    tuningSet: Average0.33qps
     objectBundle:
-    - basename: saturation-rc
-      objectTemplatePath: rc.yaml
-  - namespaceRange:
-      min: 1
-      max: 3
-    replicasPerNamespace: 0
-    tuningSet: Uniform100qps
-    objectBundle:
-    - basename: latency-pod-rc
+    - basename: service
+      objectTemplatePath: service.yaml
+    - basename: rc
       objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: APICallLatency
@@ -108,7 +111,7 @@ steps:
     Method: Timer
     Params:
       action: stop
-      label: All pods deletion
+      label: Pods deletion
 - measurements:
   - Identifier: GlobalTimer
     Method: Timer

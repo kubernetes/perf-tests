@@ -23,8 +23,14 @@ import (
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
+)
+
+const (
+	defaultWaitForPodsTimeout  = 60 * time.Second
+	defaultWaitForPodsInterval = 5 * time.Second
 )
 
 func init() {
@@ -58,19 +64,23 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	if err != nil {
 		return summaries, err
 	}
-	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", 60*time.Second)
+	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultWaitForPodsTimeout)
 	if err != nil {
 		return summaries, err
 	}
 
-	ps, err := util.NewPodStore(config.ClientSet, namespace, labelSelector, fieldSelector)
+	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, timeout)
+}
+
+func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, timeout time.Duration) error {
+	ps, err := util.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
-		return summaries, err
+		return err
 	}
 	defer ps.Stop()
 
 	var runningPodsCount int
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(5 * time.Second) {
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(defaultWaitForPodsInterval) {
 		pods := ps.List()
 		if len(pods) == 0 {
 			continue
@@ -82,14 +92,13 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 			}
 		}
 		if namespace == metav1.NamespaceAll {
-			glog.Infof("WaitForPods: running %d / %d", runningPodsCount, desiredPodCount)
+			glog.Infof("WaitForRunningPods: running %d / %d", runningPodsCount, desiredPodCount)
 		} else {
-			glog.Infof("WaitForPods: %s: running %d / %d", namespace, runningPodsCount, desiredPodCount)
+			glog.Infof("WaitForRunningPods: %s: running %d / %d", namespace, runningPodsCount, desiredPodCount)
 		}
-		if runningPodsCount >= desiredPodCount {
-			return summaries, nil
+		if runningPodsCount == desiredPodCount {
+			return nil
 		}
 	}
-
-	return summaries, fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
+	return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
 }

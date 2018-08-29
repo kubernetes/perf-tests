@@ -19,7 +19,6 @@ package framework
 import (
 	"fmt"
 	"regexp"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,6 +27,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -107,23 +107,18 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
-func (f *Framework) DeleteAutomanagedNamespaces() []error {
+func (f *Framework) DeleteAutomanagedNamespaces() *util.ErrorList {
 	var wg wait.Group
-	var lock sync.Mutex
-	var errList []error
+	errList := util.NewErrorList()
 	for i := 1; i <= f.automanagedNamespaceCount; i++ {
 		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
 		wg.Start(func() {
 			if err := client.DeleteNamespace(f.clientSet, name); err != nil {
-				lock.Lock()
-				defer lock.Unlock()
-				errList = append(errList, err)
+				errList.Append(err)
 				return
 			}
 			if err := client.WaitForDeleteNamespace(f.clientSet, name); err != nil {
-				lock.Lock()
-				defer lock.Unlock()
-				errList = append(errList, err)
+				errList.Append(err)
 			}
 		})
 	}

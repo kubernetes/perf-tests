@@ -20,16 +20,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
@@ -44,30 +43,25 @@ func createSimpleTestExecutor() TestExecutor {
 }
 
 // ExecuteTest executes test based on provided configuration.
-func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []error {
+func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
 	defer cleanupResources(ctx)
-	// TODO(krzysied): add custom implementation for the errList.
-	// This will implementation will support multithreading.
-	var errList []error
 	ctx.GetTickerFactory().Init(conf.TuningSets)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
-		errList = append(errList, fmt.Errorf("automanaged namespaces listing failed: %v", err))
-		return errList
+		return util.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
 	}
 	if len(automanagedNamespacesList) > 0 {
-		errList = append(errList, fmt.Errorf("pre-existing automanaged namespaces found"))
-		return errList
+		return util.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
 	err = ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
-		errList = append(errList, fmt.Errorf("automanaged namespaces creation failed: %v", err))
-		return errList
+		return util.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
 	}
 
+	errList := util.NewErrorList()
 	for i := range conf.Steps {
-		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); len(stepErrList) > 0 {
-			errList = append(errList, stepErrList...)
+		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); !stepErrList.IsEmpty() {
+			errList.Concat(stepErrList)
 			if isErrsCritical(stepErrList) {
 				return errList
 			}
@@ -77,7 +71,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []erro
 	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
 		summaryText, err := summary.PrintSummary()
 		if err != nil {
-			errList = append(errList, fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
+			errList.Append(fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
 			continue
 		}
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
@@ -86,7 +80,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []erro
 			// TODO(krzysied): Remeber to keep original filename style for backward compatibility.
 			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+time.Now().Format(time.RFC3339)+".txt")
 			if err := ioutil.WriteFile(filePath, []byte(summaryText), 0644); err != nil {
-				errList = append(errList, fmt.Errorf("writing to file %v error: %v", filePath, err))
+				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
 				continue
 			}
 		}
@@ -95,11 +89,10 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) []erro
 }
 
 // ExecuteStep executes single test step based on provided step configuration.
-func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error {
+func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.ErrorList {
 	var wg wait.Group
 	// TODO(krzysied): Consider moving lock and errList to separate structure.
-	var lock sync.Mutex
-	var errList []error
+	errList := util.NewErrorList()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
@@ -107,9 +100,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 			wg.Start(func() {
 				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
 				if err != nil {
-					lock.Lock()
-					defer lock.Unlock()
-					errList = append(errList, fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
+					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}
 			})
 		}
@@ -117,10 +108,8 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 		for i := range step.Phases {
 			phase := &step.Phases[i]
 			wg.Start(func() {
-				if phaseErrList := ste.ExecutePhase(ctx, phase); len(phaseErrList) > 0 {
-					lock.Lock()
-					defer lock.Unlock()
-					errList = append(errList, phaseErrList...)
+				if phaseErrList := ste.ExecutePhase(ctx, phase); !phaseErrList.IsEmpty() {
+					errList.Concat(phaseErrList)
 				}
 			})
 		}
@@ -130,13 +119,13 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) []error 
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.
-func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []error {
+func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList {
 	// TODO: add tuning set
-	var errList []error
+	errList := util.NewErrorList()
 	nsList := createNamespacesList(phase.NamespaceRange)
 	ticker, err := ctx.GetTickerFactory().CreateTicker(phase.TuningSet)
 	if err != nil {
-		return []error{fmt.Errorf("ticker creation error: %v", err)}
+		return util.NewErrorList(fmt.Errorf("ticker creation error: %v", err))
 	}
 	defer ticker.Stop()
 	for _, nsName := range nsList {
@@ -145,7 +134,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 		for j := range phase.ObjectBundle {
 			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
 			if err != nil {
-				errList = append(errList, err)
+				errList.Append(err)
 				return errList
 			}
 			instances, exists := ctx.GetState().Get(nsName, id)
@@ -174,8 +163,8 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 			for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 				if replicaIndex < instancesStates[j].CurrentReplicaCount {
 					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); len(objectErrList) > 0 {
-						errList = append(errList, objectErrList...)
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+						errList.Concat(objectErrList)
 						if isErrsCritical(objectErrList) {
 							return errList
 						}
@@ -188,8 +177,8 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 			for j := range phase.ObjectBundle {
 				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
 					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); len(objectErrList) > 0 {
-						errList = append(errList, objectErrList...)
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
+						errList.Concat(objectErrList)
 						if isErrsCritical(objectErrList) {
 							return errList
 						}
@@ -198,8 +187,8 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 					}
 				} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
 					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); len(objectErrList) > 0 {
-						errList = append(errList, objectErrList...)
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+						errList.Concat(objectErrList)
 						if isErrsCritical(objectErrList) {
 							return errList
 						}
@@ -220,8 +209,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) []err
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
-func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error {
-	var errList []error
+func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *util.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 	var err error
 	var obj *unstructured.Unstructured
@@ -237,33 +225,34 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 		if err != nil {
-			return []error{fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err)}
+			return util.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case DELETE_OBJECT:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 		if err != nil {
-			return []error{fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err)}
+			return util.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
 	default:
-		return []error{fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName)}
+		return util.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 	}
 	gvk := obj.GroupVersionKind()
 
+	errList := util.NewErrorList()
 	if namespace == "" {
 		// TODO: handle cluster level object
 	} else {
 		switch operation {
 		case CREATE_OBJECT:
 			if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
-				errList = append(errList, fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+				errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 			}
 		case PATCH_OBJECT:
 			if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
-				errList = append(errList, fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+				errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
 			}
 		case DELETE_OBJECT:
 			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
-				errList = append(errList, fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+				errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
 			}
 		}
 	}
@@ -309,15 +298,15 @@ func createNamespacesList(namespaceRange *api.NamespaceRange) []string {
 	return nsList
 }
 
-func isErrsCritical(errList []error) bool {
+func isErrsCritical(*util.ErrorList) bool {
 	// TODO: define critical errors
 	return false
 }
 
 func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
-	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); len(errList) > 0 {
-		glog.Errorf("Resource cleanup error: %v", errors.NewAggregate(errList).Error())
+	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
+		glog.Errorf("Resource cleanup error: %v", errList.String())
 		return
 	}
 	glog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))

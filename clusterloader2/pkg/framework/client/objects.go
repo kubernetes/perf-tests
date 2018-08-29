@@ -41,6 +41,10 @@ const (
 	retryBackoffFactor          = 3
 	retryBackoffJitter          = 0
 	retryBackoffSteps           = 6
+
+	// Parameters for namespace deletion operations.
+	defaultNamespaceDeletionTimeout  = 10 * time.Minute
+	defaultNamespaceDeletionInterval = 5 * time.Second
 )
 
 // RetryWithExponentialBackOff a utility for retrying the given function with exponential backoff.
@@ -88,7 +92,6 @@ func CreateNamespace(c clientset.Interface, namespace string) error {
 		return err
 	}
 	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
-
 }
 
 // DeleteNamespace deletes namespace with given name.
@@ -97,6 +100,40 @@ func DeleteNamespace(c clientset.Interface, namespace string) error {
 		return c.CoreV1().Namespaces().Delete(namespace, nil)
 	}
 	return RetryWithExponentialBackOff(retryFunction(deleteFunc, apierrs.IsNotFound))
+}
+
+// ListNamespaces returns list of existing namespace names.
+func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
+	var namespaces []apiv1.Namespace
+	listFunc := func() error {
+		namespacesList, err := c.CoreV1().Namespaces().List(metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		namespaces = namespacesList.Items
+		return nil
+	}
+	if err := RetryWithExponentialBackOff(retryFunction(listFunc, nil)); err != nil {
+		return namespaces, err
+	}
+	return namespaces, nil
+}
+
+// WaitForDeleteNamespace waits untils namespace is terminated.
+func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
+	retryWaitFunc := func() (bool, error) {
+		_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				return true, nil
+			}
+			if !IsRetryableAPIError(err) {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	return wait.PollImmediate(defaultNamespaceDeletionInterval, defaultNamespaceDeletionTimeout, retryWaitFunc)
 }
 
 // CreateObject creates object based on given object description.

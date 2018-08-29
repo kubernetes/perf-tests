@@ -128,6 +128,7 @@ func (f *Framework) DeleteAutomanagedNamespaces() []error {
 		})
 	}
 	wg.Wait()
+	f.automanagedNamespaceCount = 0
 	return errList
 }
 

@@ -24,6 +24,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 var (
@@ -37,30 +38,30 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig, testConfig *api.Config) []error {
+func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig, testConfig *api.Config) *util.ErrorList {
 	if f == nil {
-		return []error{fmt.Errorf("framework must be provided")}
+		return util.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
-		return []error{fmt.Errorf("cluster loader config must be provided")}
+		return util.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
 	}
 	if testConfig == nil {
-		return []error{fmt.Errorf("test config must be provided")}
+		return util.NewErrorList(fmt.Errorf("test config must be provided"))
 	}
 	if CreateContext == nil {
-		return []error{fmt.Errorf("no CreateContext function installed")}
+		return util.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 	if Test == nil {
-		return []error{fmt.Errorf("no Test installed")}
+		return util.NewErrorList(fmt.Errorf("no Test installed"))
 	}
 
 	if clusterLoaderConfig.ReportDir != "" {
 		if _, err := os.Stat(clusterLoaderConfig.ReportDir); err != nil {
 			if !os.IsNotExist(err) {
-				return []error{err}
+				return util.NewErrorList(err)
 			}
 			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
-				return []error{fmt.Errorf("report directory creation error: %v", err)}
+				return util.NewErrorList(fmt.Errorf("report directory creation error: %v", err))
 			}
 		}
 	}

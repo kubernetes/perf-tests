@@ -23,6 +23,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // CreatContextFunc a type for function that creates Context based on given framework client and state.
@@ -54,8 +55,8 @@ type Context interface {
 
 // TestExecutor is an interface for test executing object.
 type TestExecutor interface {
-	ExecuteTest(ctx Context, conf *api.Config) []error
-	ExecuteStep(ctx Context, step *api.Step) []error
-	ExecutePhase(ctx Context, phase *api.Phase) []error
-	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) []error
+	ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList
+	ExecuteStep(ctx Context, step *api.Step) *util.ErrorList
+	ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList
+	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *util.ErrorList
 }

@@ -23,10 +23,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 )
@@ -40,10 +40,10 @@ func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
 }
 
-func validateClusterFlags() []error {
-	errList := make([]error, 0)
+func validateClusterFlags() *util.ErrorList {
+	errList := util.NewErrorList()
 	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
-		errList = append(errList, fmt.Errorf("no kubeconfig path specified"))
+		errList.Append(fmt.Errorf("no kubeconfig path specified"))
 	}
 	return errList
 }
@@ -56,12 +56,12 @@ func initFlags() {
 	initClusterFlags()
 }
 
-func validateFlags() []error {
-	errList := make([]error, 0)
+func validateFlags() *util.ErrorList {
+	errList := util.NewErrorList()
 	if len(testConfigPaths) < 1 {
-		errList = append(errList, fmt.Errorf("no test config path specified"))
+		errList.Append(fmt.Errorf("no test config path specified"))
 	}
-	errList = append(errList, validateClusterFlags()...)
+	errList.Concat(validateClusterFlags())
 	return errList
 }
 
@@ -71,8 +71,8 @@ func main() {
 	if err := pflag.CommandLine.Parse(os.Args[1:]); err != nil {
 		glog.Fatalf("Flag parse failed: %v", err)
 	}
-	if errList := validateFlags(); len(errList) > 0 {
-		glog.Fatalf("Parsing flags error: %v", errors.NewAggregate(errList).Error())
+	if errList := validateFlags(); !errList.IsEmpty() {
+		glog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
 	f, err := framework.NewFramework(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
@@ -86,8 +86,8 @@ func main() {
 		}
 
 		glog.Infof("Running %v test - %v", testConfig.Name, clusterLoaderConfig.TestConfigPath)
-		if errList := test.RunTest(f, &clusterLoaderConfig, testConfig); len(errList) > 0 {
-			glog.Fatalf("Test execution failed: %v", errors.NewAggregate(errList).Error())
+		if errList := test.RunTest(f, &clusterLoaderConfig, testConfig); !errList.IsEmpty() {
+			glog.Fatalf("Test execution failed: %v", errList.String())
 		}
 		glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
 	}

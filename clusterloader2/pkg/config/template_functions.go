@@ -88,26 +88,28 @@ func randIntRange(i, j interface{}) int {
 	return typedI + rand.Intn(typedJ-typedI+1)
 }
 
-func addInt(i, j interface{}) int {
-	return int(addFloat(i, j))
+func addInt(numbers ...interface{}) int {
+	return int(addFloat(numbers...))
 }
 
 func subtractInt(i, j interface{}) int {
 	return int(subtractFloat(i, j))
 }
 
-func multiplyInt(i, j interface{}) int {
-	return int(multiplyFloat(i, j))
+func multiplyInt(numbers ...interface{}) int {
+	return int(multiplyFloat(numbers...))
 }
 
 func divideInt(i, j interface{}) int {
 	return int(divideFloat(i, j))
 }
 
-func addFloat(i, j interface{}) float64 {
-	typedI := toFloat64(i)
-	typedJ := toFloat64(j)
-	return typedI + typedJ
+func addFloat(numbers ...interface{}) float64 {
+	sum := 0.0
+	for _, number := range numbers {
+		sum += toFloat64(number)
+	}
+	return sum
 }
 
 func subtractFloat(i, j interface{}) float64 {
@@ -116,10 +118,12 @@ func subtractFloat(i, j interface{}) float64 {
 	return typedI - typedJ
 }
 
-func multiplyFloat(i, j interface{}) float64 {
-	typedI := toFloat64(i)
-	typedJ := toFloat64(j)
-	return typedI * typedJ
+func multiplyFloat(numbers ...interface{}) float64 {
+	product := 1.0
+	for _, number := range numbers {
+		product *= toFloat64(number)
+	}
+	return product
 }
 
 func divideFloat(i, j interface{}) float64 {

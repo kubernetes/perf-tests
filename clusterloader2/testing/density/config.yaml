@@ -1,5 +1,14 @@
+#Constants
+{{$NODES_PER_NAMESPACE := 100}}
+{{$PODS_PER_NODE := 30}}
+#Variables
+{{$totalPods := MultiplyInt $PODS_PER_NODE .Nodes}}
+{{$namespaces := DivideInt (SubtractInt .Nodes 1) $NODES_PER_NAMESPACE | AddInt 1}}
+{{$replicas := DivideInt $totalPods $namespaces}}
+{{$totalPodsRounded := MultiplyInt $namespaces $replicas}}
+#Test
 name: density
-automanagedNamespaces: 3
+automanagedNamespaces: {{$namespaces}}
 tuningSets:
 - name: Uniform100qps
   qpsLoad:
@@ -25,22 +34,23 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: 3
+      max: {{$namespaces}}
     replicasPerNamespace: 1
     tuningSet: Uniform100qps
     objectBundle:
     - basename: saturation-rc
       objectTemplatePath: rc.yaml
       templateFillMap:
-        Replicas: 30
+        Replicas: {{$replicas}}
         PodKind: saturationPod
 - measurements:
   - Identifier: WaitForSaturationRunning
     Method: WaitForRunningPods
     Params:
-      desiredPodCount: 90
+      desiredPodCount: {{$totalPodsRounded}}
       labelSelector: kind = saturationPod
-      timeout: 2m
+      # timeout = (totalPodsRounded /20)s + 3m
+      timeout: {{DivideInt $totalPodsRounded 20 | AddInt 180}}s
 - measurements:
   - Identifier: CreateSaturationPodsTimer
     Method: Timer
@@ -55,8 +65,8 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: 3
-    replicasPerNamespace: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{DivideInt .Nodes $namespaces}}
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-pod-rc
@@ -68,8 +78,9 @@ steps:
   - Identifier: WaitForLatencyPodRunning
     Method: WaitForRunningPods
     Params:
-      desiredPodCount: 3
+      desiredPodCount: {{.Nodes}}
       labelSelector: kind = latencyPod
+      timeout: 10m
 - measurements:
   - Identifier: CreateLatencyPodsTimer
     Method: Timer
@@ -84,7 +95,7 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: 3
+      max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: Uniform100qps
     objectBundle:
@@ -92,7 +103,7 @@ steps:
       objectTemplatePath: rc.yaml
   - namespaceRange:
       min: 1
-      max: 3
+      max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: Uniform100qps
     objectBundle:
@@ -103,7 +114,7 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-      nodeCount: 3
+      nodeCount: {{.Nodes}}
   - Identifier: DeleteAllPodsTimer
     Method: Timer
     Params:

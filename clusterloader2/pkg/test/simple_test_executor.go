@@ -128,83 +128,88 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 		return util.NewErrorList(fmt.Errorf("ticker creation error: %v", err))
 	}
 	defer ticker.Stop()
-	for _, nsName := range nsList {
-		instancesStates := make([]*state.InstancesState, 0)
-		// Updating state (DesiredReplicaCount) of every object in object bundle.
-		for j := range phase.ObjectBundle {
-			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
-			if err != nil {
-				errList.Append(err)
-				return errList
-			}
-			instances, exists := ctx.GetState().Get(nsName, id)
-			if !exists {
-				instances = &state.InstancesState{
-					DesiredReplicaCount: 0,
-					CurrentReplicaCount: 0,
-					Object:              phase.ObjectBundle[j],
-				}
-			}
-			instances.DesiredReplicaCount = phase.ReplicasPerNamespace
-			ctx.GetState().Set(nsName, id, instances)
-			instancesStates = append(instancesStates, instances)
-		}
-
-		// Calculating maximal replica count of objects from object bundle.
-		var maxCurrentReplicaCount int32
-		for j := range instancesStates {
-			if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
-				maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
-			}
-		}
-		// Deleting objects with index greater or equal requested replicas per namespace number.
-		// Objects will be deleted in reversed order.
-		for replicaIndex := phase.ReplicasPerNamespace; replicaIndex < maxCurrentReplicaCount; replicaIndex++ {
-			for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
-				if replicaIndex < instancesStates[j].CurrentReplicaCount {
-					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
-						errList.Concat(objectErrList)
-						if isErrsCritical(objectErrList) {
-							return errList
-						}
-					}
-				}
-			}
-		}
-		// Handling for update/create objects.
-		for replicaIndex := int32(0); replicaIndex < phase.ReplicasPerNamespace; replicaIndex++ {
+	var wg wait.Group
+	for namespaceIndex := range nsList {
+		nsName := nsList[namespaceIndex]
+		wg.Start(func() {
+			instancesStates := make([]*state.InstancesState, 0)
+			// Updating state (DesiredReplicaCount) of every object in object bundle.
 			for j := range phase.ObjectBundle {
-				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
-					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
-						errList.Concat(objectErrList)
-						if isErrsCritical(objectErrList) {
-							return errList
-						}
-						// If error then skip this bundle
-						break
-					}
-				} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
-					<-ticker.C
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
-						errList.Concat(objectErrList)
-						if isErrsCritical(objectErrList) {
-							return errList
-						}
-						// If error then skip this bundle
-						break
+				id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
+				if err != nil {
+					errList.Append(err)
+					return
+				}
+				instances, exists := ctx.GetState().Get(nsName, id)
+				if !exists {
+					instances = &state.InstancesState{
+						DesiredReplicaCount: 0,
+						CurrentReplicaCount: 0,
+						Object:              phase.ObjectBundle[j],
 					}
 				}
+				instances.DesiredReplicaCount = phase.ReplicasPerNamespace
+				ctx.GetState().Set(nsName, id, instances)
+				instancesStates = append(instancesStates, instances)
 			}
-		}
-		// Updating state (CurrentReplicaCount) of every object in object bundle.
-		for j := range phase.ObjectBundle {
-			id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
-			instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
-			ctx.GetState().Set(nsName, id, instancesStates[j])
-		}
+
+			// Calculating maximal replica count of objects from object bundle.
+			var maxCurrentReplicaCount int32
+			for j := range instancesStates {
+				if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
+					maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+				}
+			}
+
+			var namespaceWG wait.Group
+			// Deleting objects with index greater or equal requested replicas per namespace number.
+			// Objects will be deleted in reversed order.
+			for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
+				replicaIndex := replicaCounter
+				namespaceWG.Start(func() {
+					for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
+						if replicaIndex < instancesStates[j].CurrentReplicaCount {
+							<-ticker.C
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+							}
+						}
+					}
+				})
+			}
+			// Handling for update/create objects.
+			for replicaCounter := int32(0); replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+				replicaIndex := replicaCounter
+				namespaceWG.Start(func() {
+					for j := range phase.ObjectBundle {
+						if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+							<-ticker.C
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+								// If error then skip this bundle
+								break
+							}
+						} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
+							<-ticker.C
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+								// If error then skip this bundle
+								break
+							}
+						}
+					}
+				})
+			}
+			namespaceWG.Wait()
+			// Updating state (CurrentReplicaCount) of every object in object bundle.
+			for j := range phase.ObjectBundle {
+				id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
+				instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
+				ctx.GetState().Set(nsName, id, instancesStates[j])
+			}
+		})
 	}
+	wg.Wait()
 	return errList
 }
 

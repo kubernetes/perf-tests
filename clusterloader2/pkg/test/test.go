@@ -19,8 +19,8 @@ package test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
-	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
@@ -38,15 +38,12 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig, testConfig *api.Config) *util.ErrorList {
+func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *util.ErrorList {
 	if f == nil {
 		return util.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
 		return util.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
-	}
-	if testConfig == nil {
-		return util.NewErrorList(fmt.Errorf("test config must be provided"))
 	}
 	if CreateContext == nil {
 		return util.NewErrorList(fmt.Errorf("no CreateContext function installed"))
@@ -65,6 +62,13 @@ func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderCo
 			}
 		}
 	}
+
 	ctx := CreateContext(clusterLoaderConfig, f, state.NewNamespacesState())
+	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
+	mapping := map[string]interface{}{"Nodes": clusterLoaderConfig.ClusterConfig.Nodes}
+	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
+	if err != nil {
+		return util.NewErrorList(fmt.Errorf("config reading error: %v", err))
+	}
 	return Test.ExecuteTest(ctx, testConfig)
 }

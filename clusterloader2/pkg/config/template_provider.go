@@ -27,6 +27,7 @@ import (
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/perf-tests/clusterloader2/api"
 )
 
 // TemplateProvider provides object templates. Templates in unstructured form
@@ -85,7 +86,7 @@ func (tp *TemplateProvider) RawToObject(path string) (*unstructured.Unstructured
 		return nil, fmt.Errorf("regexp creation error: %v", err)
 	}
 	bin = r.ReplaceAll(bin, []byte{})
-	return ConvertToObject(bin)
+	return convertToObject(bin)
 }
 
 func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
@@ -113,21 +114,39 @@ func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, err
 	return raw, nil
 }
 
-// TemplateToObject creates object from file specified by the given path
-// or uses cached object if available. Template's placeholders are replaced based
-// on provided mapping.
-func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]interface{}) (*unstructured.Unstructured, error) {
+func (tp *TemplateProvider) getMappedTemplate(path string, mapping map[string]interface{}) ([]byte, error) {
 	raw, err := tp.getRawTemplate(path)
 	if err != nil {
-		return nil, err
+		return []byte{}, err
 	}
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 	if err := raw.Execute(writer, mapping); err != nil {
-		return nil, fmt.Errorf("replacing placeholders error: %v", err)
+		return []byte{}, fmt.Errorf("replacing placeholders error: %v", err)
 	}
 	if err := writer.Flush(); err != nil {
-		return nil, fmt.Errorf("flush error: %v", err)
+		return []byte{}, fmt.Errorf("flush error: %v", err)
 	}
-	return ConvertToObject(b.Bytes())
+	return b.Bytes(), nil
+}
+
+// TemplateToObject creates object from file specified by the given path
+// or uses cached object if available. Template's placeholders are replaced based
+// on provided mapping.
+func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]interface{}) (*unstructured.Unstructured, error) {
+	b, err := tp.getMappedTemplate(path, mapping)
+	if err != nil {
+		return nil, err
+	}
+	return convertToObject(b)
+}
+
+// TemplateToConfig creates test config from file specified by the given path.
+// Template's placeholders are replaced based on provided mapping.
+func (tp *TemplateProvider) TemplateToConfig(path string, mapping map[string]interface{}) (*api.Config, error) {
+	b, err := tp.getMappedTemplate(path, mapping)
+	if err != nil {
+		return nil, err
+	}
+	return convertToConfig(b)
 }

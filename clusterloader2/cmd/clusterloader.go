@@ -38,12 +38,17 @@ var (
 
 func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
+	// TODO(krzysied): query actual number of nodes with client (if not set).
+	pflag.IntVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", 0, "number of nodes")
 }
 
 func validateClusterFlags() *util.ErrorList {
 	errList := util.NewErrorList()
 	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
 		errList.Append(fmt.Errorf("no kubeconfig path specified"))
+	}
+	if clusterLoaderConfig.ClusterConfig.Nodes < 1 {
+		errList.Append(fmt.Errorf("number of nodes not specified"))
 	}
 	return errList
 }
@@ -80,13 +85,8 @@ func main() {
 		glog.Fatalf("Framework creation error: %v", err)
 	}
 	for _, clusterLoaderConfig.TestConfigPath = range testConfigPaths {
-		testConfig, err := config.ReadConfig(clusterLoaderConfig.TestConfigPath)
-		if err != nil {
-			glog.Fatalf("Config reading error: %v", err)
-		}
-
-		glog.Infof("Running %v test - %v", testConfig.Name, clusterLoaderConfig.TestConfigPath)
-		if errList := test.RunTest(f, &clusterLoaderConfig, testConfig); !errList.IsEmpty() {
+		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
+		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
 			glog.Fatalf("Test execution failed: %v", errList.String())
 		}
 		glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)

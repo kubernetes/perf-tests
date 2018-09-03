@@ -17,45 +17,26 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"strings"
 
-	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-// ReadConfig creates test config from file specified by the given path.
-func ReadConfig(path string) (*api.Config, error) {
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	v := viper.New()
-	v.SetConfigName(strings.TrimSuffix(base, ext))
-	v.AddConfigPath(filepath.Dir(path))
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config failed: %v", err)
-	}
+// convertToConfig converts array of bytes into test config.
+func convertToConfig(raw []byte) (*api.Config, error) {
 	var config api.Config
-	if err := v.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("unmarshaling failed: %v", err)
+	if err := yaml.NewYAMLOrJSONDecoder(bytes.NewBuffer(raw), 4096).Decode(&config); err != nil {
+		return nil, fmt.Errorf("decoding failed: %v", err)
 	}
 	return &config, nil
 }
 
-// ReadTemplate creates object template from file specified by the given path.
-func ReadTemplate(path string) (*unstructured.Unstructured, error) {
-	raw, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("error reading template file: %v", err)
-	}
-	return ConvertToObject(raw)
-}
-
-// ConvertToObject converts array of bytes into unstructured object.
-func ConvertToObject(raw []byte) (*unstructured.Unstructured, error) {
+// convertToObject converts array of bytes into unstructured object.
+func convertToObject(raw []byte) (*unstructured.Unstructured, error) {
 	obj := &unstructured.Unstructured{}
 	_, _, err := scheme.Codecs.UniversalDeserializer().Decode(raw, nil, obj)
 	if err != nil {

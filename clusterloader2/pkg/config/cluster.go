@@ -26,4 +26,5 @@ type ClusterLoaderConfig struct {
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
 	KubeConfigPath string `json: kubeConfigPath`
+	Nodes          int    `json: nodes`
 }

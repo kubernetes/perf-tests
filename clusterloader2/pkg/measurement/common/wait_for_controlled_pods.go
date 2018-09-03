@@ -23,6 +23,7 @@ package common
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/glog"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -83,24 +85,39 @@ func (*waitForControlledPodsRunningMeasurement) Execute(config *measurement.Meas
 	if err != nil {
 		return summaries, err
 	}
-	runningRuntimeObjects := 0
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(defaultWaitForRCPodsInterval) {
-		if runningRuntimeObjects >= len(runtimeObjectsList) {
-			return summaries, nil
-		}
+	var wg wait.Group
+	errList := util.NewErrorList()
+	var runningRuntimeObjects int32
+	for objectCounter := 0; objectCounter < len(runtimeObjectsList); objectCounter++ {
+		objectIndex := objectCounter
+		wg.Start(func() {
+			if err := waitForRuntimeObject(config.ClientSet, runtimeObjectsList[objectIndex], timeout); err != nil {
+				errList.Append(fmt.Errorf("waiting for %v error: %v", kind, err))
+				return
+			}
 
-		if err := waitForRuntimeObject(config.ClientSet, runtimeObjectsList[runningRuntimeObjects], timeout-time.Since(start)); err != nil {
-			return summaries, fmt.Errorf("waiting for %v error: %v", kind, err)
-		}
-		runningRuntimeObjects++
-		if namespace == metav1.NamespaceAll {
-			glog.Infof("%s: %d / %d %ss with all pods running", waitForControlledPodsRunningName, runningRuntimeObjects, len(runtimeObjectsList), kind)
-		} else {
-			glog.Infof("%s: %v: %d / %d %ss with all pods running", waitForControlledPodsRunningName, namespace, runningRuntimeObjects, len(runtimeObjectsList), kind)
-		}
+			atomic.AddInt32(&runningRuntimeObjects, 1)
+			objName, err := getNameFromRuntimeObject(runtimeObjectsList[objectIndex])
+			if err != nil {
+				errList.Append(fmt.Errorf("reading object name error: %v", err))
+				return
+			}
+			objNamespace, err := getNamespaceFromRuntimeObject(runtimeObjectsList[objectIndex])
+			if err != nil {
+				errList.Append(fmt.Errorf("reading object namespace error: %v", err))
+				return
+			}
+			glog.Infof("%s: %s (%s) has all pods running", waitForControlledPodsRunningName, objName, objNamespace)
+		})
 	}
+	wg.Wait()
 
-	return summaries, fmt.Errorf("timeout while waiting for %ss to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running with all pods", kind, namespace, labelSelector, fieldSelector, runningRuntimeObjects)
+	if int(runningRuntimeObjects) == len(runtimeObjectsList) {
+		glog.Infof("%s: %d / %d %ss are running with all pods", waitForControlledPodsRunningName, runningRuntimeObjects, len(runtimeObjectsList), kind)
+		return summaries, nil
+	}
+	return summaries, fmt.Errorf("error while waiting for %ss to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running with all pods: %v",
+		kind, namespace, labelSelector, fieldSelector, runningRuntimeObjects, errList.String())
 }
 
 func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout time.Duration) error {
@@ -117,7 +134,7 @@ func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout tim
 		return err
 	}
 
-	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), timeout)
+	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), timeout, false)
 	if err != nil {
 		return fmt.Errorf("waiting pods error: %v", err)
 	}
@@ -179,6 +196,14 @@ func getRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelec
 	default:
 		return runtimeObjectsList, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
 	}
+}
+
+func getNameFromRuntimeObject(obj runtime.Object) (string, error) {
+	metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		return "", fmt.Errorf("unsupported kind when getting name: %v", obj)
+	}
+	return metaObjectAccessor.GetObjectMeta().GetName(), nil
 }
 
 func getNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {

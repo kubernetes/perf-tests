@@ -72,17 +72,20 @@ func toFloat64(val interface{}) float64 {
 }
 
 // randInt returns pseudo-random int in [0, i].
-func randInt(i int) int {
-	return rand.Intn(i + 1)
+func randInt(i interface{}) int {
+	typedI := int(toFloat64(i))
+	return rand.Intn(typedI + 1)
 }
 
 // randIntRange returns pseudo-random int in [i, j].
 // If i >= j then i is returned.
-func randIntRange(i, j int) int {
-	if i >= j {
-		return i
+func randIntRange(i, j interface{}) int {
+	typedI := int(toFloat64(i))
+	typedJ := int(toFloat64(j))
+	if typedI >= typedJ {
+		return typedI
 	}
-	return i + rand.Intn(j-i+1)
+	return typedI + rand.Intn(typedJ-typedI+1)
 }
 
 func addInt(i, j interface{}) int {

@@ -57,6 +57,12 @@
 			"revisionTime": "2018-07-26T22:48:03Z"
 		},
 		{
+			"checksumSHA1": "0rido7hYHQtfq3UJzVT5LClLAWc=",
+			"path": "github.com/beorn7/perks/quantile",
+			"revision": "3a771d992973f24aa725d07868b467d1ddfceafb",
+			"revisionTime": "2018-03-21T16:47:47Z"
+		},
+		{
 			"checksumSHA1": "CSPbwbyzqA6sfORicn4HFtIhF/c=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "8991bc29aa16c548c550c7ff78260e27b9ab7c73",
@@ -345,6 +351,12 @@
 			"revisionTime": "2018-03-12T05:41:25Z"
 		},
 		{
+			"checksumSHA1": "vuxZYORrJkB2dB6OXtqVCfT7+0I=",
+			"path": "github.com/prometheus/client_golang/prometheus",
+			"revision": "5b23715facdef1452016bae512489c3cdf82458c",
+			"revisionTime": "2018-08-08T08:05:07Z"
+		},
+		{
 			"checksumSHA1": "V8xkqgmP66sq2ZW4QO5wi9a4oZE=",
 			"path": "github.com/prometheus/client_model/go",
 			"revision": "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f",
@@ -367,6 +379,30 @@
 			"path": "github.com/prometheus/common/model",
 			"revision": "c7de2306084e37d54b8be01f3541a8464345e9a5",
 			"revisionTime": "2018-08-01T06:44:54Z"
+		},
+		{
+			"checksumSHA1": "jo/zxF+Pfj5yZjReTKGOACq9IBs=",
+			"path": "github.com/prometheus/procfs",
+			"revision": "05ee40e3a273f7245e8777337fc7b46e533a9a92",
+			"revisionTime": "2018-07-25T12:39:19Z"
+		},
+		{
+			"checksumSHA1": "lv9rIcjbVEGo8AT1UCUZXhXrfQc=",
+			"path": "github.com/prometheus/procfs/internal/util",
+			"revision": "05ee40e3a273f7245e8777337fc7b46e533a9a92",
+			"revisionTime": "2018-07-25T12:39:19Z"
+		},
+		{
+			"checksumSHA1": "HSP5hVT0CNMRa8+Xtz4z2Ic5U0E=",
+			"path": "github.com/prometheus/procfs/nfs",
+			"revision": "05ee40e3a273f7245e8777337fc7b46e533a9a92",
+			"revisionTime": "2018-07-25T12:39:19Z"
+		},
+		{
+			"checksumSHA1": "yItvTQLUVqm/ArLEbvEhqG0T5a0=",
+			"path": "github.com/prometheus/procfs/xfs",
+			"revision": "05ee40e3a273f7245e8777337fc7b46e533a9a92",
+			"revisionTime": "2018-07-25T12:39:19Z"
 		},
 		{
 			"checksumSHA1": "wsfbX7YxbkeBp+xm9M9nBFzrCnA=",
@@ -403,6 +439,48 @@
 			"path": "github.com/spf13/viper",
 			"revision": "d493c32b69b8c6f2377bf30bc4d70267ffbc0793",
 			"revisionTime": "2018-07-10T12:30:20Z"
+		},
+		{
+			"checksumSHA1": "IQkUIOnvlf0tYloFx9mLaXSvXWQ=",
+			"path": "golang.org/x/crypto/curve25519",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "2LpxYGSf068307b7bhAuVjvzLLc=",
+			"path": "golang.org/x/crypto/ed25519",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "0JTAFXPkankmWcZGQJGScLDiaN8=",
+			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "fhxj9uzosD3dQefNF5JuGJzGZwg=",
+			"path": "golang.org/x/crypto/internal/chacha20",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "/U7f2gaH6DnEmLguVLDbipU6kXU=",
+			"path": "golang.org/x/crypto/internal/subtle",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "vKbPb9fpjCdzuoOvajOJnYfHG2g=",
+			"path": "golang.org/x/crypto/poly1305",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "zVyAf4OPyjBraXqRN2fwIBL4WvI=",
+			"path": "golang.org/x/crypto/ssh",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
 		},
 		{
 			"checksumSHA1": "BGm8lKZmvJbf/YOJLeL1rw2WVjA=",
@@ -1405,6 +1483,30 @@
 			"path": "k8s.io/client-go/util/retry",
 			"revision": "0b97d57a869d33ee2fe3cc567d0f8553c70357b0",
 			"revisionTime": "2018-07-26T17:47:05Z"
+		},
+		{
+			"checksumSHA1": "NYJWcL1EQwYl2CPeuwSokiT2s0c=",
+			"path": "k8s.io/kubernetes/pkg/master/ports",
+			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",
+			"revisionTime": "2018-08-09T15:39:41Z"
+		},
+		{
+			"checksumSHA1": "tOt2XAmH/7W4W7x15L/C1TtgMVY=",
+			"path": "k8s.io/kubernetes/pkg/scheduler/metrics",
+			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",
+			"revisionTime": "2018-08-09T15:39:41Z"
+		},
+		{
+			"checksumSHA1": "7KlpKDMOE3c/HMY8LKMQ1/wipyo=",
+			"path": "k8s.io/kubernetes/pkg/ssh",
+			"revision": "4492337dbfc918924a11c5638749658aeafe8dcb",
+			"revisionTime": "2018-08-13T07:28:43Z"
+		},
+		{
+			"checksumSHA1": "ApuK5FT9JxQCOaCNrhYwyNPUBo4=",
+			"path": "k8s.io/kubernetes/pkg/util/system",
+			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",
+			"revisionTime": "2018-08-09T15:39:41Z"
 		}
 	],
 	"rootPath": "k8s.io/perf-tests/clusterloader2"

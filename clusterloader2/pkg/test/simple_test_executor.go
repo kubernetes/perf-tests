@@ -19,6 +19,7 @@ package test
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"path"
 	"time"
 
@@ -77,7 +78,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
 			glog.Infof("%v: %v", summary.SummaryName(), summaryText)
 		} else {
-			// TODO(krzysied): Remeber to keep original filename style for backward compatibility.
+			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
 			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+time.Now().Format(time.RFC3339)+".txt")
 			if err := ioutil.WriteFile(filePath, []byte(summaryText), 0644); err != nil {
 				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
@@ -167,9 +168,9 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 			for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
 				replicaIndex := replicaCounter
 				namespaceWG.Start(func() {
+					<-ticker.C
 					for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 						if replicaIndex < instancesStates[j].CurrentReplicaCount {
-							<-ticker.C
 							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
 								errList.Concat(objectErrList)
 							}
@@ -177,20 +178,32 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 					}
 				})
 			}
+
+			// Calculating minimal replica count of objects from object bundle.
+			// If there is update operation to be executed, minimal replica count is set to zero.
+			minCurrentReplicaCount := int32(math.MaxInt32)
+			for j := range instancesStates {
+				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+					minCurrentReplicaCount = 0
+					break
+				}
+				if instancesStates[j].CurrentReplicaCount < minCurrentReplicaCount {
+					minCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+				}
+			}
 			// Handling for update/create objects.
-			for replicaCounter := int32(0); replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+			for replicaCounter := minCurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
 				replicaIndex := replicaCounter
 				namespaceWG.Start(func() {
+					<-ticker.C
 					for j := range phase.ObjectBundle {
 						if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
-							<-ticker.C
 							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
 								errList.Concat(objectErrList)
 								// If error then skip this bundle
 								break
 							}
 						} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
-							<-ticker.C
 							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
 								errList.Concat(objectErrList)
 								// If error then skip this bundle

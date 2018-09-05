@@ -215,11 +215,9 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	var obj *unstructured.Unstructured
 	switch operation {
 	case CREATE_OBJECT, PATCH_OBJECT:
-		var mapping map[string]interface{}
-		if object.TemplateFillMap == nil {
-			mapping = make(map[string]interface{})
-		} else {
-			mapping = object.TemplateFillMap
+		mapping := make(map[string]interface{})
+		if object.TemplateFillMap != nil {
+			util.CopyMap(object.TemplateFillMap, mapping)
 		}
 		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
@@ -261,11 +259,9 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
 	objName := fmt.Sprintf("%v-%d", object.Basename, 0)
-	var mapping map[string]interface{}
-	if object.TemplateFillMap == nil {
-		mapping = make(map[string]interface{})
-	} else {
-		mapping = object.TemplateFillMap
+	mapping := make(map[string]interface{})
+	if object.TemplateFillMap != nil {
+		util.CopyMap(object.TemplateFillMap, mapping)
 	}
 	mapping[namePlaceholder] = objName
 	mapping[indexPlaceholder] = 0

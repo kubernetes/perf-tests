@@ -149,3 +149,10 @@ func PrettyPrintJSON(data interface{}) (string, error) {
 	}
 	return string(formatted.Bytes()), nil
 }
+
+// CopyMap copies values from one map to the other.
+func CopyMap(src, dest map[string]interface{}) {
+	for k, v := range src {
+		dest[k] = v
+	}
+}

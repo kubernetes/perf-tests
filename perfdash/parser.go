@@ -237,36 +237,53 @@ type histogram struct {
 
 type histogramVec []histogram
 
-// HistogramMetrics is a generalization of histogram metrics structure from metric_util.go
-// Instead of explicit fields, we have a map.
-type histogramMetrics map[string]histogramVec
+type etcdMetrics struct {
+	BackendCommitDuration     histogramVec `json:"backendCommitDuration"`
+	SnapshotSaveTotalDuration histogramVec `json:"snapshotSaveTotalDuration"`
+	PeerRoundTripTime         histogramVec `json:"peerRoundTripTime"`
+	WalFsyncDuration          histogramVec `json:"walFsyncDuration"`
+	MaxDatabaseSize           float64      `json:"maxDatabaseSize"`
+}
 
 func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, testResult *BuildData) {
 	return func(data []byte, buildNumber int, testResult *BuildData) {
+		fmt.Fprintf(os.Stderr, "parsing metric: %s\n", metricName)
 		testResult.Version = "v1"
 		build := fmt.Sprintf("%d", buildNumber)
-		var obj histogramMetrics
+		var obj etcdMetrics
 		if err := json.Unmarshal(data, &obj); err != nil {
 			fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
 			return
 		}
-		for k, v := range obj {
-			if k == metricName {
-				for i := range v {
-					perfData := perftype.DataItem{Unit: "%", Labels: v[i].Labels, Data: make(map[string]float64)}
-					delete(perfData.Labels, "__name__")
-					count, exists := v[i].Buckets["+Inf"]
-					if !exists {
-						fmt.Fprintf(os.Stderr, "err in build %d: no +Inf bucket: %s\n", buildNumber, string(data))
-						continue
-					}
-					for kBucket, vBucket := range v[i].Buckets {
-						if kBucket != "+Inf" {
-							perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
-						}
-					}
-					testResult.Builds[build] = append(testResult.Builds[build], perfData)
+
+		var histogramVecMetric histogramVec
+		switch metricName {
+		case "backendCommitDuration":
+			histogramVecMetric = obj.BackendCommitDuration
+		case "snapshotSaveTotalDuration":
+			histogramVecMetric = obj.SnapshotSaveTotalDuration
+		case "peerRoundTripTime":
+			histogramVecMetric = obj.PeerRoundTripTime
+		case "walFsyncDuration":
+			histogramVecMetric = obj.WalFsyncDuration
+		default:
+			fmt.Fprintf(os.Stderr, "unknown metric name: %s\n", metricName)
+		}
+		if histogramVecMetric != nil {
+			for i := range histogramVecMetric {
+				perfData := perftype.DataItem{Unit: "%", Labels: histogramVecMetric[i].Labels, Data: make(map[string]float64)}
+				delete(perfData.Labels, "__name__")
+				count, exists := histogramVecMetric[i].Buckets["+Inf"]
+				if !exists {
+					fmt.Fprintf(os.Stderr, "err in build %d: no +Inf bucket: %s\n", buildNumber, string(data))
+					continue
 				}
+				for kBucket, vBucket := range histogramVecMetric[i].Buckets {
+					if kBucket != "+Inf" {
+						perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
+					}
+				}
+				testResult.Builds[build] = append(testResult.Builds[build], perfData)
 			}
 		}
 	}

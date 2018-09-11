@@ -1,7 +1,7 @@
 all: push
 
 # See pod.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 1.8
+TAG = 1.9
 
 REPO = gcr.io/k8s-testimages
 

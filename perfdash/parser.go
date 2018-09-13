@@ -23,6 +23,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -139,6 +140,8 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 	}
 }
 
+var versionMatcher = regexp.MustCompile("kubernetes/.{7}")
+
 func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
 	build := fmt.Sprintf("%d", buildNumber)
@@ -163,6 +166,14 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		}
 		delete(perfData.Labels, "__name__")
 		delete(perfData.Labels, "contentType")
+		if client, ok := perfData.Labels["client"]; ok {
+			// Client label contains kubernetes version, which is different
+			// in every build. This causes unnecessary creation on multiple different label sets
+			// for one metric.
+			// This fix removes kubernetes version from client label.
+			newClient := versionMatcher.ReplaceAllString(client, "kubernetes")
+			perfData.Labels["client"] = newClient
+		}
 		perfData.Data["RequestCount"] = float64(metric[i].Value)
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
@@ -247,7 +258,6 @@ type etcdMetrics struct {
 
 func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, testResult *BuildData) {
 	return func(data []byte, buildNumber int, testResult *BuildData) {
-		fmt.Fprintf(os.Stderr, "parsing metric: %s\n", metricName)
 		testResult.Version = "v1"
 		build := fmt.Sprintf("%d", buildNumber)
 		var obj etcdMetrics

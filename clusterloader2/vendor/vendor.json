@@ -1491,6 +1491,12 @@
 			"revisionTime": "2018-09-05T06:19:37Z"
 		},
 		{
+			"checksumSHA1": "r91yXN3Y6gwLKuFw04aULnolPpI=",
+			"path": "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1",
+			"revision": "e763a3c56da5c8c059afdbaf232b34e060498936",
+			"revisionTime": "2018-09-16T15:40:39Z"
+		},
+		{
 			"checksumSHA1": "NYJWcL1EQwYl2CPeuwSokiT2s0c=",
 			"path": "k8s.io/kubernetes/pkg/master/ports",
 			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",

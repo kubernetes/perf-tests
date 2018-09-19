@@ -99,7 +99,9 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.Er
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
+				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method,
+					step.Measurements[index].Identifier,
+					step.Measurements[index].Params)
 				if err != nil {
 					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}

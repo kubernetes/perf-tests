@@ -20,6 +20,13 @@ import (
 	"sync"
 
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
+)
+
+var (
+	// ClusterConfig represents cluster configuration.
+	// TODO(issue 249): Move this global variable to MeasurementManager structure.
+	ClusterConfig *config.ClusterConfig
 )
 
 // MeasurementManager manages all measurement executions.

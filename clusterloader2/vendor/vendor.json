@@ -1485,6 +1485,12 @@
 			"revisionTime": "2018-07-26T17:47:05Z"
 		},
 		{
+			"checksumSHA1": "dpMlvR66jr9Y9NyAtAJjHsIDFuQ=",
+			"path": "k8s.io/kubernetes/pkg/apis/core",
+			"revision": "2fdd328d057442ad9848d4798f955c11f8bf858e",
+			"revisionTime": "2018-09-05T06:19:37Z"
+		},
+		{
 			"checksumSHA1": "NYJWcL1EQwYl2CPeuwSokiT2s0c=",
 			"path": "k8s.io/kubernetes/pkg/master/ports",
 			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",
@@ -1507,6 +1513,12 @@
 			"path": "k8s.io/kubernetes/pkg/util/system",
 			"revision": "a224e53dab7953d9da428213851ff97a71e20ed7",
 			"revisionTime": "2018-08-09T15:39:41Z"
+		},
+		{
+			"checksumSHA1": "CYyEwlezsLaHo8OY8PszLEqD3KY=",
+			"path": "k8s.io/kubernetes/test/e2e/framework/metrics",
+			"revision": "2fdd328d057442ad9848d4798f955c11f8bf858e",
+			"revisionTime": "2018-09-05T06:19:37Z"
 		}
 	],
 	"rootPath": "k8s.io/perf-tests/clusterloader2"

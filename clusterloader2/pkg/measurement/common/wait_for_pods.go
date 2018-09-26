@@ -69,10 +69,10 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 		return summaries, err
 	}
 
-	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, timeout)
+	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, timeout, true)
 }
 
-func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, timeout time.Duration) error {
+func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, timeout time.Duration, log bool) error {
 	ps, err := util.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
 		return err
@@ -91,10 +91,8 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				runningPodsCount++
 			}
 		}
-		if namespace == metav1.NamespaceAll {
-			glog.Infof("WaitForRunningPods: running %d / %d", runningPodsCount, desiredPodCount)
-		} else {
-			glog.Infof("WaitForRunningPods: %s: running %d / %d", namespace, runningPodsCount, desiredPodCount)
+		if log {
+			glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s), fieldSelector(%s): running %d / %d", namespace, labelSelector, fieldSelector, runningPodsCount, desiredPodCount)
 		}
 		if runningPodsCount == desiredPodCount {
 			return nil

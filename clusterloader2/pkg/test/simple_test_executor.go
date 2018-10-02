@@ -254,22 +254,18 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	gvk := obj.GroupVersionKind()
 
 	errList := util.NewErrorList()
-	if namespace == "" {
-		// TODO: handle cluster level object
-	} else {
-		switch operation {
-		case CREATE_OBJECT:
-			if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
-				errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
-			}
-		case PATCH_OBJECT:
-			if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
-				errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
-			}
-		case DELETE_OBJECT:
-			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
-				errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
-			}
+	switch operation {
+	case CREATE_OBJECT:
+		if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
+			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+		}
+	case PATCH_OBJECT:
+		if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
+			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+		}
+	case DELETE_OBJECT:
+		if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
+			errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
 		}
 	}
 	return errList
@@ -297,6 +293,7 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 
 func createNamespacesList(namespaceRange *api.NamespaceRange) []string {
 	if namespaceRange == nil {
+		// Returns "" which represents cluster level.
 		return []string{""}
 	}
 

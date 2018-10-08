@@ -127,7 +127,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-      nodeCount: {{.Nodes}}
   - Identifier: PhaseTimer
     Method: Timer
     Params:

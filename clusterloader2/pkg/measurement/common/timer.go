@@ -18,28 +18,40 @@ package common
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
+const (
+	timerMeasurementName = "Timer"
+)
+
 func init() {
-	measurement.Register("Timer", createTimerMeasurment)
+	measurement.Register(timerMeasurementName, createTimerMeasurment)
 }
 
 func createTimerMeasurment() measurement.Measurement {
-	return &timer{}
+	return &timer{
+		startTimes: make(map[string]time.Time),
+		durations:  make(map[string]time.Duration),
+	}
 }
 
 type timer struct {
-	startTime time.Time
+	lock       sync.Mutex
+	startTimes map[string]time.Time
+	durations  map[string]time.Duration
 }
 
 // Execute supports two actions. start - which start timer. stop - which stops timer
-// and prints to log time duration between start and stop.
-// Stop action requires label parameter to be provided.
+// and collects time duration between start and stop.
+// Both start and stop actions require label parameter to be provided.
+// Gather action logs a measurement for all collected phases durations.
 func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
@@ -47,21 +59,54 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 		return summaries, err
 	}
 
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	switch action {
 	case "start":
-		t.startTime = time.Now()
+		label, err := util.GetString(config.Params, "label")
+		if err != nil {
+			return summaries, err
+		}
+		t.startTimes[label] = time.Now()
 	case "stop":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
 			return summaries, err
 		}
-		if t.startTime.IsZero() {
-			return summaries, fmt.Errorf("uninitialized timer")
+		startTime, ok := t.startTimes[label]
+		if !ok {
+			return summaries, fmt.Errorf("uninitialized timer %s", label)
 		}
-		glog.Infof("%s: %v", label, time.Since(t.startTime))
-		t.startTime = time.Time{}
+		duration := time.Since(startTime)
+		glog.Infof("%s: %v", label, duration)
+		t.durations[label] = duration
+		delete(t.startTimes, label)
+	case "gather":
+		result := timerResult{
+			Version: "v1",
+			DataItems: []measurementutil.DataItem{{
+				Unit:   "s",
+				Labels: map[string]string{"test": "phases"},
+				Data:   make(map[string]float64)}}}
+
+		for label, duration := range t.durations {
+			result.DataItems[0].Data[label] = duration.Seconds()
+		}
+		summaries = append(summaries, &result)
 	default:
 		return summaries, fmt.Errorf("unknown action %s", action)
 	}
 	return summaries, nil
+}
+
+type timerResult measurementutil.PerfData
+
+// SummaryName returns name of the summary.
+func (t *timerResult) SummaryName() string {
+	return timerMeasurementName
+}
+
+// PrintSummary returns summary as a string.
+func (t *timerResult) PrintSummary() (string, error) {
+	return util.PrettyPrintJSON(t)
 }

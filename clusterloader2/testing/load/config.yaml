@@ -33,13 +33,15 @@ tuningSets:
     averageQps: {{MultiplyFloat $saturationQPS 4}}
 steps:
 - measurements:
-  - Identifier: GlobalTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: Global
       action: start
-  - Identifier: CreatePodsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: CreatePods
       action: start
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
@@ -101,14 +103,15 @@ steps:
       # timeout = (totalPodsRounded /20)s + 3m
       timeout: {{DivideInt $totalPodsRounded 20 | AddInt 180}}s
 - measurements:
-  - Identifier: CreatePodsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: CreatePods
       action: stop
-      label: Pods creation
-  - Identifier: ScaleRCsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: ScaleRCs
       action: start
 # Scale RCs
 - phases:
@@ -153,14 +156,15 @@ steps:
       labelSelector: kind = loadRC
       timeout: 10m
 - measurements:
-  - Identifier: ScaleRCsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: ScaleRCs
       action: stop
-      label: Scaling RCs
-  - Identifier: DeleteAllPodsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: DeleteAllPods
       action: start
 # Delete RCs
 - phases:
@@ -200,14 +204,19 @@ steps:
     Params:
       action: gather
       nodeCount: {{.Nodes}}
-  - Identifier: DeleteAllPodsTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: DeleteAllPods
       action: stop
-      label: Pods deletion
 - measurements:
-  - Identifier: GlobalTimer
+  - Identifier: PhaseTimer
     Method: Timer
     Params:
+      label: Global
       action: stop
-      label: Global execution
+- measurements:
+  - Identifier: PhaseTimer
+    Method: Timer
+    Params:
+      action: gather

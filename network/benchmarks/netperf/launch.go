@@ -34,9 +34,9 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
-	api "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/util/intstr"
+	api "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -59,7 +59,7 @@ var (
 	netperfImage   string
 	cleanupOnly    bool
 
-	everythingSelector api.ListOptions = api.ListOptions{}
+	everythingSelector metav1.ListOptions = metav1.ListOptions{}
 
 	primaryNode   api.Node
 	secondaryNode api.Node
@@ -93,8 +93,8 @@ func setupClient() *kubernetes.Clientset {
 
 // getMinions : Only return schedulable/worker nodes
 func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
-	nodes, err := c.Nodes().List(
-		api.ListOptions{
+	nodes, err := c.Core().Nodes().List(
+		metav1.ListOptions{
 			FieldSelector: "spec.unschedulable=false",
 		})
 	if err != nil {
@@ -106,52 +106,52 @@ func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
 
 func cleanup(c *kubernetes.Clientset) {
 	// Cleanup existing rcs, pods and services in our namespace
-	rcs, err := c.ReplicationControllers(testNamespace).List(everythingSelector)
+	rcs, err := c.Core().ReplicationControllers(testNamespace).List(everythingSelector)
 	if err != nil {
 		fmt.Println("Failed to get replication controllers", err)
 		return
 	}
 	for _, rc := range rcs.Items {
 		fmt.Println("Deleting rc", rc.GetName())
-		if err := c.ReplicationControllers(testNamespace).Delete(
-			rc.GetName(), &api.DeleteOptions{}); err != nil {
+		if err := c.Core().ReplicationControllers(testNamespace).Delete(
+			rc.GetName(), &metav1.DeleteOptions{}); err != nil {
 			fmt.Println("Failed to delete rc", rc.GetName(), err)
 		}
 	}
-	pods, err := c.Pods(testNamespace).List(everythingSelector)
+	pods, err := c.Core().Pods(testNamespace).List(everythingSelector)
 	if err != nil {
 		fmt.Println("Failed to get pods", err)
 		return
 	}
 	for _, pod := range pods.Items {
 		fmt.Println("Deleting pod", pod.GetName())
-		if err := c.Pods(testNamespace).Delete(pod.GetName(), &api.DeleteOptions{GracePeriodSeconds: new(int64)}); err != nil {
+		if err := c.Core().Pods(testNamespace).Delete(pod.GetName(), &metav1.DeleteOptions{GracePeriodSeconds: new(int64)}); err != nil {
 			fmt.Println("Failed to delete pod", pod.GetName(), err)
 		}
 	}
-	svcs, err := c.Services(testNamespace).List(everythingSelector)
+	svcs, err := c.Core().Services(testNamespace).List(everythingSelector)
 	if err != nil {
 		fmt.Println("Failed to get services", err)
 		return
 	}
 	for _, svc := range svcs.Items {
 		fmt.Println("Deleting svc", svc.GetName())
-		c.Services(testNamespace).Delete(
-			svc.GetName(), &api.DeleteOptions{})
+		c.Core().Services(testNamespace).Delete(
+			svc.GetName(), &metav1.DeleteOptions{})
 	}
 }
 
 // createServices: Long-winded function to programmatically create our two services
 func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
-	if _, err := c.Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
-		c.Namespaces().Create(&api.Namespace{ObjectMeta: api.ObjectMeta{Name: testNamespace}})
+	if _, err := c.Core().Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
+		c.Core().Namespaces().Create(&api.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})
 	}
 
 	// Create the orchestrator service that points to the coordinator pod
 	orchLabels := map[string]string{"app": "netperf-orch"}
 	orchService := &api.Service{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "netperf-orch",
 		},
 		Spec: api.ServiceSpec{
@@ -165,7 +165,7 @@ func createServices(c *kubernetes.Clientset) bool {
 			Type: api.ServiceTypeClusterIP,
 		},
 	}
-	if _, err := c.Services(testNamespace).Create(orchService); err != nil {
+	if _, err := c.Core().Services(testNamespace).Create(orchService); err != nil {
 		fmt.Println("Failed to create orchestrator service", err)
 		return false
 	}
@@ -174,7 +174,7 @@ func createServices(c *kubernetes.Clientset) bool {
 	// Create the netperf-w2 service that points a clusterIP at the worker 2 pod
 	netperfW2Labels := map[string]string{"app": "netperf-w2"}
 	netperfW2Service := &api.Service{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "netperf-w2",
 		},
 		Spec: api.ServiceSpec{
@@ -202,7 +202,7 @@ func createServices(c *kubernetes.Clientset) bool {
 			Type: api.ServiceTypeClusterIP,
 		},
 	}
-	if _, err := c.Services(testNamespace).Create(netperfW2Service); err != nil {
+	if _, err := c.Core().Services(testNamespace).Create(netperfW2Service); err != nil {
 		fmt.Println("Failed to create netperf-w2 service", err)
 		return false
 	}
@@ -217,13 +217,13 @@ func createRCs(c *kubernetes.Clientset) bool {
 	fmt.Println("Creating replication controller", name)
 	replicas := int32(1)
 
-	_, err := c.ReplicationControllers(testNamespace).Create(&api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{Name: name},
+	_, err := c.Core().ReplicationControllers(testNamespace).Create(&api.ReplicationController{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: &replicas,
 			Selector: map[string]string{"app": name},
 			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app": name},
 				},
 				Spec: api.PodSpec{
@@ -269,13 +269,13 @@ func createRCs(c *kubernetes.Clientset) bool {
 
 		replicas := int32(1)
 
-		_, err := c.ReplicationControllers(testNamespace).Create(&api.ReplicationController{
-			ObjectMeta: api.ObjectMeta{Name: name},
+		_, err := c.Core().ReplicationControllers(testNamespace).Create(&api.ReplicationController{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: api.ReplicationControllerSpec{
 				Replicas: &replicas,
 				Selector: map[string]string{"app": name},
 				Template: &api.PodTemplateSpec{
-					ObjectMeta: api.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"app": name},
 					},
 					Spec: api.PodSpec{
@@ -315,7 +315,7 @@ func getOrchestratorPodName(pods *api.PodList) string {
 
 // Retrieve the logs for the pod/container and check if csv data has been generated
 func getCsvResultsFromPod(c *kubernetes.Clientset, podName string) *string {
-	body, err := c.Pods(testNamespace).GetLogs(podName, &api.PodLogOptions{Timestamps: false}).DoRaw()
+	body, err := c.Core().Pods(testNamespace).GetLogs(podName, &api.PodLogOptions{Timestamps: false}).DoRaw()
 	if err != nil {
 		fmt.Printf("Error (%s) reading logs from pod %s", err, podName)
 		return nil
@@ -369,7 +369,7 @@ func executeTests(c *kubernetes.Clientset) bool {
 			time.Sleep(60 * time.Second)
 			var pods *api.PodList
 			var err error
-			if pods, err = c.Pods(testNamespace).List(everythingSelector); err != nil {
+			if pods, err = c.Core().Pods(testNamespace).List(everythingSelector); err != nil {
 				fmt.Println("Failed to fetch pods - waiting for pod creation", err)
 				continue
 			}

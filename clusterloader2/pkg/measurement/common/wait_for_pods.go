@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -73,7 +74,7 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 }
 
 func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, timeout time.Duration, log bool) error {
-	ps, err := util.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
+	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
 		return err
 	}

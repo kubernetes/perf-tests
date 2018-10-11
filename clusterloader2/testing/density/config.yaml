@@ -64,6 +64,11 @@ steps:
     Params:
       label: CreateLatencyPods
       action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: kind = latencyPod
 # Create latency pods
 - phases:
   - namespaceRange:
@@ -90,6 +95,10 @@ steps:
     Params:
       label: CreateLatencyPods
       action: stop
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
   - Identifier: PhaseTimer
     Method: Timer
     Params:

@@ -32,6 +32,10 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
+  - Identifier: SchedulingMetrics
+    Method: SchedulingMetrics
+    Params:
+      action: reset
 # Create saturation pods
 - phases:
   - namespaceRange:
@@ -125,6 +129,10 @@ steps:
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: SchedulingMetrics
+    Method: SchedulingMetrics
     Params:
       action: gather
   - Identifier: PhaseTimer

@@ -72,10 +72,28 @@ func completeConfig(f *framework.Framework) error {
 	if clusterLoaderConfig.ClusterConfig.Nodes == 0 {
 		nodes, err := util.GetSchedulableUntainedNodesNumber(f.GetClientSet())
 		if err != nil {
-			return fmt.Errorf("Getting number of nodes error: %v", err)
+			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
 		clusterLoaderConfig.ClusterConfig.Nodes = nodes
 		glog.Infof("ClusterConfig.Nodes set to %v", nodes)
+	}
+	if clusterLoaderConfig.ClusterConfig.MasterName == "" {
+		masterName, err := util.GetMasterName(f.GetClientSet())
+		if err == nil {
+			clusterLoaderConfig.ClusterConfig.MasterName = masterName
+			glog.Infof("ClusterConfig.MasterName set to %v", masterName)
+		} else {
+			glog.Errorf("Getting master name error: %v", err)
+		}
+	}
+	if clusterLoaderConfig.ClusterConfig.MasterIP == "" {
+		masterIP, err := util.GetMasterExternalIP(f.GetClientSet())
+		if err == nil {
+			clusterLoaderConfig.ClusterConfig.MasterIP = masterIP
+			glog.Infof("ClusterConfig.MasterIP set to %v", masterIP)
+		} else {
+			glog.Errorf("Getting master ip error: %v", err)
+		}
 	}
 	return nil
 }
@@ -95,6 +113,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)
 	}
+
 	if err = completeConfig(f); err != nil {
 		glog.Fatalf("Config completing error: %v", err)
 	}

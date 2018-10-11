@@ -17,10 +17,13 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/kubernetes/pkg/util/system"
 )
 
 // GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
@@ -87,4 +90,37 @@ func isNodeConditionUnset(node *corev1.Node, conditionType corev1.NodeConditionT
 		}
 	}
 	return true
+}
+
+// GetMasterName returns master node name.
+func GetMasterName(c clientset.Interface) (string, error) {
+	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, node := range nodeList.Items {
+		if system.IsMasterNode(node.Name) {
+			return node.Name, nil
+		}
+	}
+	return "", fmt.Errorf("master node not found")
+}
+
+// GetMasterExternalIP returns master node external ip.
+func GetMasterExternalIP(c clientset.Interface) (string, error) {
+	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, node := range nodeList.Items {
+		if system.IsMasterNode(node.Name) {
+			for _, address := range node.Status.Addresses {
+				if address.Type == corev1.NodeExternalIP {
+					return address.Address, nil
+				}
+			}
+			return "", fmt.Errorf("extrnal IP of the master not found")
+		}
+	}
+	return "", fmt.Errorf("master node not found")
 }

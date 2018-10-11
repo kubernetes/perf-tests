@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
-	"k8s.io/client-go/pkg/util/flowcontrol"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/flowcontrol"
 )
 
 const (
@@ -45,7 +45,7 @@ type Interface interface {
 	Verb(verb string) *Request
 	Post() *Request
 	Put() *Request
-	Patch(pt api.PatchType) *Request
+	Patch(pt types.PatchType) *Request
 	Get() *Request
 	Delete() *Request
 	APIVersion() schema.GroupVersion
@@ -222,9 +222,9 @@ func (c *RESTClient) Verb(verb string) *Request {
 	backoff := c.createBackoffMgr()
 
 	if c.Client == nil {
-		return NewRequest(nil, verb, c.base, c.versionedAPIPath, c.contentConfig, c.serializers, backoff, c.Throttle)
+		return NewRequest(nil, verb, c.base, c.versionedAPIPath, c.contentConfig, c.serializers, backoff, c.Throttle, 0)
 	}
-	return NewRequest(c.Client, verb, c.base, c.versionedAPIPath, c.contentConfig, c.serializers, backoff, c.Throttle)
+	return NewRequest(c.Client, verb, c.base, c.versionedAPIPath, c.contentConfig, c.serializers, backoff, c.Throttle, c.Client.Timeout)
 }
 
 // Post begins a POST request. Short for c.Verb("POST").
@@ -238,7 +238,7 @@ func (c *RESTClient) Put() *Request {
 }
 
 // Patch begins a PATCH request. Short for c.Verb("Patch").
-func (c *RESTClient) Patch(pt api.PatchType) *Request {
+func (c *RESTClient) Patch(pt types.PatchType) *Request {
 	return c.Verb("PATCH").SetHeader("Content-Type", string(pt))
 }
 

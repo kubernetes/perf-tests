@@ -23,7 +23,7 @@ location within a Container's file tree for Containers that
 need access to the Kubernetes API.
 
 Having a defined format allows:
-  - clients to be implmented in multiple languages
+  - clients to be implemented in multiple languages
   - applications which link clients to be portable across
     clusters with different authentication styles (e.g.
     some may use SSL Client certs, others may not, etc)
@@ -68,7 +68,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"k8s.io/client-go/rest"
+	restclient "k8s.io/client-go/rest"
 )
 
 // Info holds Kubernetes API authorization config.  It is intended
@@ -104,8 +104,8 @@ func LoadFromFile(path string) (*Info, error) {
 // MergeWithConfig returns a copy of a client.Config with values from the Info.
 // The fields of client.Config with a corresponding field in the Info are set
 // with the value from the Info.
-func (info Info) MergeWithConfig(c rest.Config) (rest.Config, error) {
-	var config rest.Config = c
+func (info Info) MergeWithConfig(c restclient.Config) (restclient.Config, error) {
+	var config restclient.Config = c
 	config.Username = info.User
 	config.Password = info.Password
 	config.CAFile = info.CAFile

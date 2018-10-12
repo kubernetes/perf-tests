@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"text/template"
@@ -41,6 +42,10 @@ func GetFuncs() template.FuncMap {
 		"SubtractFloat": subtractFloat,
 		"MultiplyFloat": multiplyFloat,
 		"DivideFloat":   divideFloat,
+		"MaxInt":        maxInt,
+		"MinInt":        minInt,
+		"MaxFloat":      maxFloat,
+		"MinFloat":      minFloat,
 	}
 }
 
@@ -130,4 +135,34 @@ func divideFloat(i, j interface{}) float64 {
 	typedI := toFloat64(i)
 	typedJ := toFloat64(j)
 	return typedI / typedJ
+}
+
+func maxInt(numbers ...interface{}) int {
+	return int(maxFloat(numbers...))
+}
+
+func minInt(numbers ...interface{}) int {
+	return int(minFloat(numbers...))
+}
+
+func maxFloat(numbers ...interface{}) float64 {
+	if len(numbers) == 0 {
+		panic("maximum undefined")
+	}
+	max := toFloat64(numbers[0])
+	for _, number := range numbers {
+		max = math.Max(max, toFloat64(number))
+	}
+	return max
+}
+
+func minFloat(numbers ...interface{}) float64 {
+	if len(numbers) == 0 {
+		panic("minimum undefined")
+	}
+	min := toFloat64(numbers[0])
+	for _, number := range numbers {
+		min = math.Min(min, toFloat64(number))
+	}
+	return min
 }

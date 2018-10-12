@@ -83,9 +83,6 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 	var runningPodsCount int
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(defaultWaitForPodsInterval) {
 		pods := ps.List()
-		if len(pods) == 0 {
-			continue
-		}
 		runningPodsCount = 0
 		for i := range pods {
 			if pods[i].Status.Phase == corev1.PodRunning {

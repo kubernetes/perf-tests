@@ -2,6 +2,8 @@ apiVersion: v1
 kind: ReplicationController
 metadata:
   name: {{.Name}}
+  labels:
+    group: {{.Group}}
 spec:
   replicas: {{.Replicas}}
   selector:
@@ -10,7 +12,7 @@ spec:
     metadata:
       labels:
         name: {{.Name}}
-        kind: {{.PodKind}}
+        group: {{.Group}}
     spec:
       containers:
       - image: k8s.gcr.io/pause:3.1

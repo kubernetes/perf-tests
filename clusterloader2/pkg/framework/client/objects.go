@@ -172,6 +172,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) error {
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	deleteFunc := func() error {
+		// Delete operation removes object with all of the dependants.
 		falseVar := false
 		deleteOption := &metav1.DeleteOptions{OrphanDependents: &falseVar}
 		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, deleteOption)

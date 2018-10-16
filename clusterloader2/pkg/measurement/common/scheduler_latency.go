@@ -60,15 +60,15 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 	if err != nil {
 		return summaries, err
 	}
-	provider, err := util.GetString(config.Params, "provider")
+	provider, err := util.GetStringOrDefault(config.Params, "provider", measurement.ClusterConfig.Provider)
 	if err != nil {
 		return summaries, err
 	}
-	host, err := util.GetStringOrDefault(config.Params, "host", "")
+	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", measurement.ClusterConfig.MasterIP)
 	if err != nil {
 		return summaries, err
 	}
-	masterName, err := util.GetStringOrDefault(config.Params, "masterName", "")
+	masterName, err := util.GetStringOrDefault(config.Params, "masterName", measurement.ClusterConfig.MasterName)
 	if err != nil {
 		return summaries, err
 	}
@@ -76,9 +76,9 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 	switch action {
 	case "reset":
 		glog.Infof("Resetting latency metrics in scheduler...")
-		return summaries, resetSchedulerMetrics(config.ClientSet, provider, host, masterName)
+		return summaries, resetSchedulerMetrics(config.ClientSet, provider, masterIP, masterName)
 	case "gather":
-		return getSchedulingLatency(config.ClientSet, provider, host, masterName)
+		return getSchedulingLatency(config.ClientSet, provider, masterIP, masterName)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}

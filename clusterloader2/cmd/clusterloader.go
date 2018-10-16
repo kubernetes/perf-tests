@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
@@ -39,6 +40,7 @@ var (
 func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
 	pflag.IntVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", 0, "number of nodes")
+	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "", "Cluster provider")
 }
 
 func validateClusterFlags() *util.ErrorList {
@@ -88,6 +90,7 @@ func main() {
 		glog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
+	measurement.ClusterConfig = &clusterLoaderConfig.ClusterConfig
 	f, err := framework.NewFramework(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)

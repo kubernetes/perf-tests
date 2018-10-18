@@ -42,6 +42,9 @@ type Step struct {
 	Phases []Phase `json: phases`
 	// Measurements is a collection of parallel measurement calls.
 	Measurements []Measurement `json: measurements`
+	// Name is an optional name for given step. If name is set,
+	// timer will be run for the step execution.
+	Name string `json: name`
 }
 
 // Phase is a structure that declaratively defines state of objects.

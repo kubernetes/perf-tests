@@ -74,6 +74,7 @@ struct Step {
 	// Only one of these can be non-empty.
 	Phases       []Phase
 	Measurements []string
+	Name         string
 }
 ```
 
@@ -85,6 +86,9 @@ all actions are done.
 Also note that all `Phases` and `Measurements` within a single `Step` will be
 run in parallel - a `Step` ends when all its `Phases` or `Measurements` finish.
 That also means, that individual steps run in serial.
+
+Step has optional `Name`. If step is named, a timer will be fired
+for that step automatically.
 
 ### Phase
 

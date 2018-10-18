@@ -149,6 +149,11 @@ already exists for a given set of objects). That basically means that within a
 single `Phase` operations for a given `Object` may only be of a single type
 (create, update of delete).
 
+All of the objects are assumed to be units of workload.
+Therefore, if an object comes with dependents, all of it's dependents will be affected
+by the operation performed on this object. E.g. removing instance of a `ReplicationCotroller`
+will also result with removing depended `Pods`.
+
 To make it more explicit:
 - if `ReplicasPerNamespace` is different than it previously was, we will create
   or delete a number of objects to reach expected cluster state

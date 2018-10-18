@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -216,4 +217,14 @@ func CopyMap(src, dest map[string]interface{}) {
 	for k, v := range src {
 		dest[k] = v
 	}
+}
+
+// RandomDNS1123String generates random string of a given length.
+func RandomDNS1123String(length int) string {
+	characters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+	s := make([]rune, length)
+	for i := range s {
+		s[i] = characters[rand.Intn(len(characters))]
+	}
+	return string(s)
 }

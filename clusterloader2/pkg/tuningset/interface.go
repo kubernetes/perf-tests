@@ -14,14 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ticker
+package tuningset
 
 import (
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-// TickerFactory is a factory that creates tickers.
-type TickerFactory interface {
+// TuningSet executes action sets.
+type TuningSet interface {
+	Execute(actions []func())
+}
+
+// TuningSetFactory is a factory that creates tuning sets.
+type TuningSetFactory interface {
 	Init(tuningSets []api.TuningSet)
-	CreateTicker(name string) (*ticker, error)
+	CreateTuningSet(name string) (TuningSet, error)
 }

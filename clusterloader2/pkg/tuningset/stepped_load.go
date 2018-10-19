@@ -14,32 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ticker
+package tuningset
 
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-type ticker struct {
-	C     <-chan struct{}
-	timer *time.Timer
+type steppedLoad struct {
+	params *api.SteppedLoad
 }
 
-func newTicker(ts *api.TuningSet) (*ticker, error) {
-	ch := make(chan struct{})
-	timer, err := newTimer(ch, ts)
-	if err != nil {
-		return nil, err
+func newSteppedLoad(params *api.SteppedLoad) TuningSet {
+	return &steppedLoad{
+		params: params,
 	}
-	return &ticker{
-		C:     ch,
-		timer: timer,
-	}, nil
 }
 
-// Stop stops the ticker.
-func (t *ticker) Stop() {
-	t.timer.Stop()
+func (sl *steppedLoad) Execute(actions []func()) {
+	sleepDuration := sl.params.StepDelay
+	var wg wait.Group
+	for i := range actions {
+		wg.Start(actions[i])
+		if (i+1)%int(sl.params.BurstSize) == 0 {
+			time.Sleep(sleepDuration)
+		}
+	}
+	wg.Wait()
 }

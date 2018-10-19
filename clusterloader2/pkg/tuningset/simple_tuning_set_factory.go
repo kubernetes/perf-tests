@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ticker
+package tuningset
 
 import (
 	"fmt"
@@ -22,30 +22,39 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-type simpleTickerFactory struct {
+type simpleTuningSetFactory struct {
 	tuningSetMap map[string]*api.TuningSet
 }
 
-// NewTickerFactory creates new ticker factory.
-func NewTickerFactory() TickerFactory {
-	return &simpleTickerFactory{
+// NewTuningSetFactory creates new ticker factory.
+func NewTuningSetFactory() TuningSetFactory {
+	return &simpleTuningSetFactory{
 		tuningSetMap: make(map[string]*api.TuningSet),
 	}
 }
 
 // Init sets available tuning sets.
-func (tf *simpleTickerFactory) Init(tuningSets []api.TuningSet) {
+func (tf *simpleTuningSetFactory) Init(tuningSets []api.TuningSet) {
 	tf.tuningSetMap = make(map[string]*api.TuningSet)
 	for i := range tuningSets {
 		tf.tuningSetMap[tuningSets[i].Name] = &tuningSets[i]
 	}
 }
 
-// CreateTicker creates new ticker based on provided tuning set name.
-func (tf *simpleTickerFactory) CreateTicker(name string) (*ticker, error) {
+// CreateTuningSet creates new tuning set based on provided tuning set name.
+func (tf *simpleTuningSetFactory) CreateTuningSet(name string) (TuningSet, error) {
 	tuningSet, exists := tf.tuningSetMap[name]
 	if !exists {
 		return nil, fmt.Errorf("tuningset %s not found", name)
 	}
-	return newTicker(tuningSet)
+	switch {
+	case tuningSet.QpsLoad != nil:
+		return newQpsLoad(tuningSet.QpsLoad), nil
+	case tuningSet.RandomizedLoad != nil:
+		return newRandomizedLoad(tuningSet.RandomizedLoad), nil
+	case tuningSet.SteppedLoad != nil:
+		return newSteppedLoad(tuningSet.SteppedLoad), nil
+	default:
+		return nil, fmt.Errorf("incorrect tuning set: %v", tuningSet)
+	}
 }

@@ -102,6 +102,10 @@ type TuningSet struct {
 	RandomizedLoad *RandomizedLoad `json: randomizedLoad`
 	// SteppedLoad is a definition for SteppedLoad tuning set.
 	SteppedLoad *SteppedLoad `json: steppedLoad`
+	// TimeLimitedLoad is a definition for TimeLimitedLoad tuning set.
+	TimeLimitedLoad *TimeLimitedLoad `json: timeLimitedLoad`
+	// RandomizedTimeLimitedLoad is a definition for RandomizedTimeLimitedLoad tuning set.
+	RandomizedTimeLimitedLoad *RandomizedTimeLimitedLoad `json: randomizedTimeLimitedLoad`
 }
 
 // Measurement is a structure that defines the measurement method call.
@@ -135,4 +139,16 @@ type SteppedLoad struct {
 	BurstSize int32 `json: burstSize`
 	// StepDelay specifies the interval between peeks.
 	StepDelay time.Duration `json: stepDelay`
+}
+
+// TimeLimitedLoad defines a load that spreads operations over given time.
+type TimeLimitedLoad struct {
+	// TimeLimit specifies the limit of the time that operation will be spread over.
+	TimeLimit time.Duration `json: timeLimit`
+}
+
+// RandomizedTimeLimitedLoad defines a load that randomly spreads operations over given time.
+type RandomizedTimeLimitedLoad struct {
+	// TimeLimit specifies the limit of the time that operation will be spread over.
+	TimeLimit time.Duration `json: timeLimit`
 }

@@ -18,16 +18,6 @@ tuningSets:
     qps: 5
 steps:
 - measurements:
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: Global
-      action: start
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: CreateSaturationPods
-      action: start
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:
@@ -58,21 +48,12 @@ steps:
       # timeout = (totalPodsRounded /20)s + 3m
       timeout: {{DivideInt $totalPodsRounded 20 | AddInt 180}}s
 - measurements:
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: CreateSaturationPods
-      action: stop
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: CreateLatencyPods
-      action: start
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
       labelSelector: kind = latencyPod
+- name: Creating saturation pods
 # Create latency pods
 - phases:
   - namespaceRange:
@@ -94,21 +75,22 @@ steps:
       labelSelector: kind = latencyPod
       timeout: 10m
 - measurements:
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: CreateLatencyPods
-      action: stop
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: DeleteAllPods
-      action: start
+- name: Creating latency pods
 # Delete pods
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform100qps
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+- name: Deleting latancy pods
 - phases:
   - namespaceRange:
       min: 1
@@ -118,14 +100,7 @@ steps:
     objectBundle:
     - basename: saturation-rc
       objectTemplatePath: rc.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Uniform100qps
-    objectBundle:
-    - basename: latency-pod-rc
-      objectTemplatePath: rc.yaml
+- name: Deleting saturation pods
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
@@ -133,21 +108,5 @@ steps:
       action: gather
   - Identifier: SchedulingMetrics
     Method: SchedulingMetrics
-    Params:
-      action: gather
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: DeleteAllPods
-      action: stop
-- measurements:
-  - Identifier: PhaseTimer
-    Method: Timer
-    Params:
-      label: Global
-      action: stop
-- measurements:
-  - Identifier: PhaseTimer
-    Method: Timer
     Params:
       action: gather

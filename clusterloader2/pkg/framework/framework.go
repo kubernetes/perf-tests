@@ -33,17 +33,13 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-const (
-	// AutomanagedNamespaceName is a basename for automanaged namespaces.
-	AutomanagedNamespaceName = "namespace"
-)
-
 // Framework allows for interacting with Kubernetes cluster via
 // official Kubernetes client.
 type Framework struct {
-	automanagedNamespaceCount int
-	clientSet                 clientset.Interface
-	dynamicClient             dynamic.Interface
+	automanagedNamespacePrefix string
+	automanagedNamespaceCount  int
+	clientSet                  clientset.Interface
+	dynamicClient              dynamic.Interface
 }
 
 // NewFramework creates new framework based on given kubeconfig.
@@ -67,6 +63,16 @@ func NewFramework(kubeconfigPath string) (*Framework, error) {
 	}, nil
 }
 
+// GetAutomanagedNamespacePrefix returns automanaged namespace prefix.
+func (f *Framework) GetAutomanagedNamespacePrefix() string {
+	return f.automanagedNamespacePrefix
+}
+
+// SetAutomanagedNamespacePrefix sets automanaged namespace prefix.
+func (f *Framework) SetAutomanagedNamespacePrefix(nsName string) {
+	f.automanagedNamespacePrefix = nsName
+}
+
 // GetClientSet returns clientSet client.
 func (f *Framework) GetClientSet() clientset.Interface {
 	return f.clientSet
@@ -78,7 +84,7 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 		return fmt.Errorf("automanaged namespaces already created")
 	}
 	for i := 1; i <= namespaceCount; i++ {
-		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
+		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
 		if err := client.CreateNamespace(f.clientSet, name); err != nil {
 			return err
 		}
@@ -95,7 +101,7 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
 		return automanagedNamespacesList, err
 	}
 	for _, namespace := range namespacesList {
-		matched, err := isAutomanagedNamespace(namespace.Name)
+		matched, err := f.isAutomanagedNamespace(namespace.Name)
 		if err != nil {
 			return automanagedNamespacesList, err
 		}
@@ -111,7 +117,7 @@ func (f *Framework) DeleteAutomanagedNamespaces() *util.ErrorList {
 	var wg wait.Group
 	errList := util.NewErrorList()
 	for i := 1; i <= f.automanagedNamespaceCount; i++ {
-		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
+		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
 		wg.Start(func() {
 			if err := client.DeleteNamespace(f.clientSet, name); err != nil {
 				errList.Append(err)
@@ -147,6 +153,6 @@ func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, nam
 	return client.GetObject(f.dynamicClient, gvk, namespace, name)
 }
 
-func isAutomanagedNamespace(name string) (bool, error) {
-	return regexp.MatchString(AutomanagedNamespaceName+"-[1-9][0-9]*", name)
+func (f *Framework) isAutomanagedNamespace(name string) (bool, error) {
+	return regexp.MatchString(f.automanagedNamespacePrefix+"-[1-9][0-9]*", name)
 }

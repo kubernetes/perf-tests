@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -45,6 +44,8 @@ func createSimpleTestExecutor() TestExecutor {
 
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
+	ctx.GetFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
+	glog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTickerFactory().Init(conf.TuningSets)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
@@ -131,7 +132,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.Er
 func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList {
 	// TODO: add tuning set
 	errList := util.NewErrorList()
-	nsList := createNamespacesList(phase.NamespaceRange)
+	nsList := createNamespacesList(ctx, phase.NamespaceRange)
 	ticker, err := ctx.GetTickerFactory().CreateTicker(phase.TuningSet)
 	if err != nil {
 		return util.NewErrorList(fmt.Errorf("ticker creation error: %v", err))
@@ -299,14 +300,14 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	}, nil
 }
 
-func createNamespacesList(namespaceRange *api.NamespaceRange) []string {
+func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []string {
 	if namespaceRange == nil {
 		// Returns "" which represents cluster level.
 		return []string{""}
 	}
 
 	nsList := make([]string, 0)
-	nsBasename := framework.AutomanagedNamespaceName
+	nsBasename := ctx.GetFramework().GetAutomanagedNamespacePrefix()
 	if namespaceRange.Basename != nil {
 		nsBasename = *namespaceRange.Basename
 	}

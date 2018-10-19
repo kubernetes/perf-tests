@@ -22,7 +22,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
-	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
+	"k8s.io/perf-tests/clusterloader2/pkg/tuningset"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -49,7 +49,7 @@ type Context interface {
 	GetFramework() *framework.Framework
 	GetState() *state.NamespacesState
 	GetTemplateProvider() *config.TemplateProvider
-	GetTickerFactory() ticker.TickerFactory
+	GetTuningSetFactory() tuningset.TuningSetFactory
 	GetMeasurementManager() *measurement.MeasurementManager
 }
 

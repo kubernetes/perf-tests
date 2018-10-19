@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -45,8 +44,10 @@ func createSimpleTestExecutor() TestExecutor {
 
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
+	ctx.GetFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
+	glog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
-	ctx.GetTickerFactory().Init(conf.TuningSets)
+	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return util.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
@@ -92,14 +93,22 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.ErrorList {
 	var wg wait.Group
-	// TODO(krzysied): Consider moving lock and errList to separate structure.
+	if step.Name != "" {
+		startTime := time.Now()
+		glog.Infof("Step \"%s\": started", step.Name)
+		defer func() {
+			glog.Infof("Step \"%s\": ended - %v", step.Name, time.Since(startTime))
+		}()
+	}
 	errList := util.NewErrorList()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
+				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method,
+					step.Measurements[index].Identifier,
+					step.Measurements[index].Params)
 				if err != nil {
 					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}
@@ -123,106 +132,103 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.Er
 func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList {
 	// TODO: add tuning set
 	errList := util.NewErrorList()
-	nsList := createNamespacesList(phase.NamespaceRange)
-	ticker, err := ctx.GetTickerFactory().CreateTicker(phase.TuningSet)
+	nsList := createNamespacesList(ctx, phase.NamespaceRange)
+	tuningSet, err := ctx.GetTuningSetFactory().CreateTuningSet(phase.TuningSet)
 	if err != nil {
-		return util.NewErrorList(fmt.Errorf("ticker creation error: %v", err))
+		return util.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))
 	}
-	defer ticker.Stop()
-	var wg wait.Group
+
+	var actions []func()
 	for namespaceIndex := range nsList {
 		nsName := nsList[namespaceIndex]
-		wg.Start(func() {
-			instancesStates := make([]*state.InstancesState, 0)
-			// Updating state (DesiredReplicaCount) of every object in object bundle.
-			for j := range phase.ObjectBundle {
-				id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
-				if err != nil {
-					errList.Append(err)
-					return
-				}
-				instances, exists := ctx.GetState().Get(nsName, id)
-				if !exists {
-					instances = &state.InstancesState{
-						DesiredReplicaCount: 0,
-						CurrentReplicaCount: 0,
-						Object:              phase.ObjectBundle[j],
-					}
-				}
-				instances.DesiredReplicaCount = phase.ReplicasPerNamespace
-				ctx.GetState().Set(nsName, id, instances)
-				instancesStates = append(instancesStates, instances)
+		instancesStates := make([]*state.InstancesState, 0)
+		// Updating state (DesiredReplicaCount) of every object in object bundle.
+		for j := range phase.ObjectBundle {
+			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
+			if err != nil {
+				errList.Append(err)
+				return errList
 			}
-
-			// Calculating maximal replica count of objects from object bundle.
-			var maxCurrentReplicaCount int32
-			for j := range instancesStates {
-				if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
-					maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+			instances, exists := ctx.GetState().Get(nsName, id)
+			if !exists {
+				instances = &state.InstancesState{
+					DesiredReplicaCount: 0,
+					CurrentReplicaCount: 0,
+					Object:              phase.ObjectBundle[j],
 				}
 			}
+			instances.DesiredReplicaCount = phase.ReplicasPerNamespace
+			ctx.GetState().Set(nsName, id, instances)
+			instancesStates = append(instancesStates, instances)
+		}
 
-			var namespaceWG wait.Group
-			// Deleting objects with index greater or equal requested replicas per namespace number.
-			// Objects will be deleted in reversed order.
-			for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
-				replicaIndex := replicaCounter
-				namespaceWG.Start(func() {
-					<-ticker.C
-					for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
-						if replicaIndex < instancesStates[j].CurrentReplicaCount {
-							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
-								errList.Concat(objectErrList)
-							}
+		// Calculating maximal replica count of objects from object bundle.
+		var maxCurrentReplicaCount int32
+		for j := range instancesStates {
+			if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
+				maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+			}
+		}
+
+		// Deleting objects with index greater or equal requested replicas per namespace number.
+		// Objects will be deleted in reversed order.
+		for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
+			replicaIndex := replicaCounter
+			actions = append(actions, func() {
+				for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
+					if replicaIndex < instancesStates[j].CurrentReplicaCount {
+						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+							errList.Concat(objectErrList)
 						}
 					}
-				})
-			}
+				}
+			})
+		}
 
-			// Calculating minimal replica count of objects from object bundle.
-			// If there is update operation to be executed, minimal replica count is set to zero.
-			minCurrentReplicaCount := int32(math.MaxInt32)
-			for j := range instancesStates {
-				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
-					minCurrentReplicaCount = 0
-					break
-				}
-				if instancesStates[j].CurrentReplicaCount < minCurrentReplicaCount {
-					minCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
-				}
+		// Calculating minimal replica count of objects from object bundle.
+		// If there is update operation to be executed, minimal replica count is set to zero.
+		minCurrentReplicaCount := int32(math.MaxInt32)
+		for j := range instancesStates {
+			if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+				minCurrentReplicaCount = 0
+				break
 			}
-			// Handling for update/create objects.
-			for replicaCounter := minCurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
-				replicaIndex := replicaCounter
-				namespaceWG.Start(func() {
-					<-ticker.C
-					for j := range phase.ObjectBundle {
-						if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
-							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
-								errList.Concat(objectErrList)
-								// If error then skip this bundle
-								break
-							}
-						} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
-							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
-								errList.Concat(objectErrList)
-								// If error then skip this bundle
-								break
-							}
+			if instancesStates[j].CurrentReplicaCount < minCurrentReplicaCount {
+				minCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+			}
+		}
+		// Handling for update/create objects.
+		for replicaCounter := minCurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+			replicaIndex := replicaCounter
+			actions = append(actions, func() {
+				for j := range phase.ObjectBundle {
+					if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
+							errList.Concat(objectErrList)
+							// If error then skip this bundle
+							break
+						}
+					} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
+						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+							errList.Concat(objectErrList)
+							// If error then skip this bundle
+							break
 						}
 					}
-				})
-			}
-			namespaceWG.Wait()
-			// Updating state (CurrentReplicaCount) of every object in object bundle.
+				}
+			})
+		}
+		// Updating state (CurrentReplicaCount) of every object in object bundle.
+		defer func() {
 			for j := range phase.ObjectBundle {
 				id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
 				instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
 				ctx.GetState().Set(nsName, id, instancesStates[j])
 			}
-		})
+		}()
+
 	}
-	wg.Wait()
+	tuningSet.Execute(actions)
 	return errList
 }
 
@@ -291,14 +297,14 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	}, nil
 }
 
-func createNamespacesList(namespaceRange *api.NamespaceRange) []string {
+func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []string {
 	if namespaceRange == nil {
 		// Returns "" which represents cluster level.
 		return []string{""}
 	}
 
 	nsList := make([]string, 0)
-	nsBasename := framework.AutomanagedNamespaceName
+	nsBasename := ctx.GetFramework().GetAutomanagedNamespacePrefix()
 	if namespaceRange.Basename != nil {
 		nsBasename = *namespaceRange.Basename
 	}

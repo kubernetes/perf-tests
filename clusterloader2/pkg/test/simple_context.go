@@ -23,7 +23,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
-	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
+	"k8s.io/perf-tests/clusterloader2/pkg/tuningset"
 )
 
 type simpleContext struct {
@@ -31,7 +31,7 @@ type simpleContext struct {
 	framework           *framework.Framework
 	state               *state.NamespacesState
 	templateProvider    *config.TemplateProvider
-	tickerFactory       ticker.TickerFactory
+	tuningSetFactory    tuningset.TuningSetFactory
 	measurementManager  *measurement.MeasurementManager
 }
 
@@ -41,7 +41,7 @@ func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, 
 		framework:           f,
 		state:               s,
 		templateProvider:    config.NewTemplateProvider(filepath.Dir(c.TestConfigPath)),
-		tickerFactory:       ticker.NewTickerFactory(),
+		tuningSetFactory:    tuningset.NewTuningSetFactory(),
 		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet()),
 	}
 }
@@ -66,9 +66,9 @@ func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
 	return sc.templateProvider
 }
 
-// GetTickerFactory returns ticker factory.
-func (sc *simpleContext) GetTickerFactory() ticker.TickerFactory {
-	return sc.tickerFactory
+// GetTickerFactory returns tuning set factory.
+func (sc *simpleContext) GetTuningSetFactory() tuningset.TuningSetFactory {
+	return sc.tuningSetFactory
 }
 
 // GetMeasurementManager returns measurment manager.

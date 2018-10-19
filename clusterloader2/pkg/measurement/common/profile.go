@@ -63,11 +63,11 @@ func createMeasurement(config *measurement.MeasurementConfig, profileKind string
 	if err != nil {
 		return summaries, err
 	}
-	provider, err := util.GetString(config.Params, "provider")
+	provider, err := util.GetStringOrDefault(config.Params, "provider", measurement.ClusterConfig.Provider)
 	if err != nil {
 		return summaries, err
 	}
-	host, err := util.GetString(config.Params, "host")
+	host, err := util.GetStringOrDefault(config.Params, "host", measurement.ClusterConfig.MasterIP)
 	if err != nil {
 		return summaries, err
 	}

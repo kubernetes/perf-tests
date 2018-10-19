@@ -74,6 +74,7 @@ struct Step {
 	// Only one of these can be non-empty.
 	Phases       []Phase
 	Measurements []string
+	Name         string
 }
 ```
 
@@ -85,6 +86,9 @@ all actions are done.
 Also note that all `Phases` and `Measurements` within a single `Step` will be
 run in parallel - a `Step` ends when all its `Phases` or `Measurements` finish.
 That also means, that individual steps run in serial.
+
+Step has optional `Name`. If step is named, a timer will be fired
+for that step automatically.
 
 ### Phase
 
@@ -148,6 +152,11 @@ changes, any of `ObjectTemplatePath` cannot change at the same time (assuming it
 already exists for a given set of objects). That basically means that within a
 single `Phase` operations for a given `Object` may only be of a single type
 (create, update of delete).
+
+All of the objects are assumed to be units of workload.
+Therefore, if an object comes with dependents, all of it's dependents will be affected
+by the operation performed on this object. E.g. removing instance of a `ReplicationCotroller`
+will also result with removing depended `Pods`.
 
 To make it more explicit:
 - if `ReplicasPerNamespace` is different than it previously was, we will create

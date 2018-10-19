@@ -93,13 +93,6 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.ErrorList {
 	var wg wait.Group
-	if step.Name != "" {
-		startTime := time.Now()
-		glog.Infof("Step \"%s\": started", step.Name)
-		defer func() {
-			glog.Infof("Step \"%s\": ended - %v", step.Name, time.Since(startTime))
-		}()
-	}
 	errList := util.NewErrorList()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
@@ -125,6 +118,9 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.Er
 		}
 	}
 	wg.Wait()
+	if step.Name != "" {
+		glog.Infof("Step \"%s\" ended", step.Name)
+	}
 	return errList
 }
 

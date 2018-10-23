@@ -38,6 +38,14 @@ steps:
     Params:
       action: reset
 # Create RCs
+- measurements:
+  - Identifier: WaitForRunningRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      kind: ReplicationController
+      labelSelector: kind = loadRC
+      operationTimeout: 10m
 - phases:
   - namespaceRange:
       min: 1
@@ -88,10 +96,7 @@ steps:
   - Identifier: WaitForRunningRCs
     Method: WaitForControlledPodsRunning
     Params:
-      kind: ReplicationController
-      labelSelector: kind = loadRC
-      # timeout = (totalPodsRounded /20)s + 3m
-      timeout: {{DivideInt $totalPodsRounded 20 | AddInt 180}}s
+      action: gather
 - name: Creating RCs
 # Scale RCs
 - phases:
@@ -99,7 +104,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$bigRCsPerNamespace}}
-    tuningSet: AvgSaturationQPS
+    tuningSet: AvgScalingQPS
     objectBundle:
     - basename: big-rc
       objectTemplatePath: rc.yaml
@@ -110,7 +115,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$mediumRCsPerNamespace}}
-    tuningSet: AvgSaturationQPS
+    tuningSet: AvgScalingQPS
     objectBundle:
     - basename: medium-rc
       objectTemplatePath: rc.yaml
@@ -121,7 +126,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$smallRCsPerNamespace}}
-    tuningSet: AvgSaturationQPS
+    tuningSet: AvgScalingQPS
     objectBundle:
     - basename: small-rc
       objectTemplatePath: rc.yaml
@@ -129,12 +134,10 @@ steps:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
 - measurements:
-  - Identifier: WaitForScaledRCsRunning
+  - Identifier: WaitForRunningRCs
     Method: WaitForControlledPodsRunning
     Params:
-      kind: ReplicationController
-      labelSelector: kind = loadRC
-      timeout: 10m
+      action: gather
 - name: Scaling RCs
 # Delete RCs
 - phases:
@@ -169,6 +172,16 @@ steps:
     - basename: small-rc
       objectTemplatePath: rc.yaml
 - name: Deleting RCs
+- measurements:
+  - Identifier: WaitForRunningRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- measurements:
+  - Identifier: WaitForRunningRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: stop
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness

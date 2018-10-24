@@ -80,8 +80,8 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 
 		glog.Infof("%v: starting resource usage collecting...", resourceUsageMetricName)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSet, provider, host, gatherers.ResourceGathererOptions{
-			InKubemark: strings.ToLower(provider) == "kubemark",
-			Nodes:      nodesSet,
+			InKubemark:                  strings.ToLower(provider) == "kubemark",
+			Nodes:                       nodesSet,
 			ResourceDataGatheringPeriod: 60 * time.Second,
 			ProbeDuration:               15 * time.Second,
 			PrintVerboseLogs:            false,

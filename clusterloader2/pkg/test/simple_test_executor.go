@@ -258,12 +258,22 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	errList := util.NewErrorList()
 	switch operation {
 	case CREATE_OBJECT:
-		if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
+		if newObj, err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+		} else {
+			err = updateResourceVersion(ctx, newObj)
+			if err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v resource version paring error: %v", namespace, objName, err))
+			}
 		}
 	case PATCH_OBJECT:
-		if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
+		if newObj, err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+		} else {
+			err = updateResourceVersion(ctx, newObj)
+			if err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v resource version paring error: %v", namespace, objName, err))
+			}
 		}
 	case DELETE_OBJECT:
 		if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
@@ -309,6 +319,14 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 		nsList = append(nsList, fmt.Sprintf("%v-%d", nsBasename, i))
 	}
 	return nsList
+}
+
+func updateResourceVersion(ctx Context, obj *unstructured.Unstructured) error {
+	identifier := state.ResourceTypeIdentifier{
+		ObjectKind: obj.GetKind(),
+		ApiGroup:   obj.GetAPIVersion(),
+	}
+	return ctx.GetState().GetResourcesVersionState().Set(identifier, obj.GetResourceVersion())
 }
 
 func isErrsCritical(*util.ErrorList) bool {

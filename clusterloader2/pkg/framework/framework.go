@@ -134,12 +134,12 @@ func (f *Framework) DeleteAutomanagedNamespaces() *util.ErrorList {
 }
 
 // CreateObject creates object base on given object description.
-func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured) error {
+func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	return client.CreateObject(f.dynamicClient, namespace, name, obj)
 }
 
 // PatchObject updates object (using patch) with given name using given object description.
-func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured) error {
+func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	return client.PatchObject(f.dynamicClient, namespace, name, obj)
 }
 

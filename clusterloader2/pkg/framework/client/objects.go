@@ -137,19 +137,25 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 }
 
 // CreateObject creates object based on given object description.
-func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	var newObj *unstructured.Unstructured
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
 	createFunc := func() error {
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj)
+		var err error
+		newObj, err = dynamicClient.Resource(gvr).Namespace(namespace).Create(obj)
 		return err
 	}
-	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
+	if err := RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists)); err != nil {
+		return nil, err
+	}
+	return newObj, nil
 }
 
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
-func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	var newObj *unstructured.Unstructured
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -162,10 +168,13 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
+		newObj, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
 		return err
 	}
-	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
+	if err := RetryWithExponentialBackOff(retryFunction(updateFunc, nil)); err != nil {
+		return nil, err
+	}
+	return newObj, nil
 }
 
 // DeleteObject deletes object with given name, group, version and kind.

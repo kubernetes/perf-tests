@@ -145,7 +145,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 				errList.Append(err)
 				return errList
 			}
-			instances, exists := ctx.GetState().Get(nsName, id)
+			instances, exists := ctx.GetState().GetNamespacesState().Get(nsName, id)
 			if !exists {
 				instances = &state.InstancesState{
 					DesiredReplicaCount: 0,
@@ -154,7 +154,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 				}
 			}
 			instances.DesiredReplicaCount = phase.ReplicasPerNamespace
-			ctx.GetState().Set(nsName, id, instances)
+			ctx.GetState().GetNamespacesState().Set(nsName, id, instances)
 			instancesStates = append(instancesStates, instances)
 		}
 
@@ -219,7 +219,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 			for j := range phase.ObjectBundle {
 				id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
 				instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
-				ctx.GetState().Set(nsName, id, instancesStates[j])
+				ctx.GetState().GetNamespacesState().Set(nsName, id, instancesStates[j])
 			}
 		}()
 

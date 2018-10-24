@@ -27,7 +27,7 @@ import (
 )
 
 // CreatContextFunc a type for function that creates Context based on given framework client and state.
-type CreatContextFunc func(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.NamespacesState) Context
+type CreatContextFunc func(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.State) Context
 
 // OperationType is a type of operation to be performed on an object.
 type OperationType int
@@ -47,7 +47,7 @@ const (
 type Context interface {
 	GetClusterLoaderConfig() *config.ClusterLoaderConfig
 	GetFramework() *framework.Framework
-	GetState() *state.NamespacesState
+	GetState() *state.State
 	GetTemplateProvider() *config.TemplateProvider
 	GetTuningSetFactory() tuningset.TuningSetFactory
 	GetMeasurementManager() *measurement.MeasurementManager

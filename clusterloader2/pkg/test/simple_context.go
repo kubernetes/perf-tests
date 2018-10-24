@@ -29,13 +29,13 @@ import (
 type simpleContext struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	framework           *framework.Framework
-	state               *state.NamespacesState
+	state               *state.State
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.TuningSetFactory
 	measurementManager  *measurement.MeasurementManager
 }
 
-func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.NamespacesState) Context {
+func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.State) Context {
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		framework:           f,
@@ -57,7 +57,7 @@ func (sc *simpleContext) GetFramework() *framework.Framework {
 }
 
 // GetState returns current test state.
-func (sc *simpleContext) GetState() *state.NamespacesState {
+func (sc *simpleContext) GetState() *state.State {
 	return sc.state
 }
 

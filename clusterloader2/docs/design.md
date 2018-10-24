@@ -154,7 +154,7 @@ single `Phase` operations for a given `Object` may only be of a single type
 (create, update of delete).
 
 All of the objects are assumed to be units of workload.
-Therefore, if an object comes with dependents, all of it's dependents will be affected
+Therefore, if an object comes with dependents, all of its dependents will be affected
 by the operation performed on this object. E.g. removing instance of a `ReplicationCotroller`
 will also result with removing depended `Pods`.
 
@@ -217,7 +217,7 @@ automanaged namespaces (i.e. `namespace`).
 
 #### Defining object type
 
-In order to update or delete an object, user need to be able to define type of
+In order to update or delete an object, users need to be able to define type of
 object that this operation is about. Thus, we introduce  the following type for
 this purpose:
 
@@ -274,7 +274,7 @@ More policies can be introduced in the future.
 
 A critical part of Cluster Loader is an ability to check whether tests (defined by
 configs) are satisfying set of Kubernetes performance SLOs.
-Fortunately, for testing a specific functionality, we doesn’t really change the SLO.
+Fortunately, for testing a specific functionality, we don’t really change the SLO.
 We may want to, from time to time, tweak how do we measure existing SLOs or introduce
 a new one, but it is fine to require changes to the framework to achieve that.
 
@@ -363,7 +363,7 @@ To begin with, we will provide few built-in measurement methods like:
 ## Future enhancements
 
 This section contains future enhancements that will need to happen, but not
-necessary at the early begining.
+necessary at the early beginning.
 
 1. Simple templating in json files.
    This would be extremely useful (necessary) feature to enable referencing

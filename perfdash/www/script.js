@@ -22,6 +22,7 @@ var PerfDashApp = function(http, scope) {
     this.metricNames = [];
     this.onClick = this.onClickInternal_.bind(this);
     this.cap = 0;
+    this.currentCall = 0;
 };
 
 
@@ -90,8 +91,12 @@ PerfDashApp.prototype.metricCategoryNameChanged = function() {
 
 // Update the data to graph, using the selected metricName
 PerfDashApp.prototype.metricNameChanged = function() {
+    var callId = ++this.currentCall;
     this.http.get("buildsdata", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName, metricname: this.metricName}})
             .success(function(data) {
+                    if (this.currentCall != callId) {
+                            return;
+                    }
                     this.data = data.builds;
                     this.job = data.job;
                     this.builds = this.getBuilds();

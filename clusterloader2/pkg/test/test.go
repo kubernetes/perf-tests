@@ -63,7 +63,7 @@ func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderCo
 		}
 	}
 
-	ctx := CreateContext(clusterLoaderConfig, f, state.NewNamespacesState())
+	ctx := CreateContext(clusterLoaderConfig, f, state.NewState())
 	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
 	mapping := map[string]interface{}{"Nodes": clusterLoaderConfig.ClusterConfig.Nodes}
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)

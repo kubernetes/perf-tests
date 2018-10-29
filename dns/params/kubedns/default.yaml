@@ -12,4 +12,4 @@ dnsmasq_cache: [0, 10000]
 # until requests are dropped. null means no limit.
 max_qps: [500, 1000, 2000, 3000, null]
 # File to take queries from. This is in dnsperf format.
-query_file: ["nx-domain.txt", "outside.txt", "pod-ip.txt", "service.txt"]
+query_file: ["nx-domain.txt", "outside.txt", "pod-ip.txt", "service.txt", "multiple-svc.txt"]

@@ -2,10 +2,6 @@
 
 # Number of seconds to run with a particular setting.
 run_length_seconds: [60]
-# cpu limit for coredns, null means unlimited.
-coredns_cpu: [200, 250, 300, null]
-# size of coredns cache. Note: 10000 is the maximum. 0 to disable caching.
-coredns_cache: [0, 10000]
 # Maximum QPS for dnsperf. dnsperf is self-pacing and will ramp request rate
 # until requests are dropped. null means no limit.
 max_qps: [500, 1000, 2000, 3000, null]

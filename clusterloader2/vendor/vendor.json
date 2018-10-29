@@ -849,6 +849,12 @@
 			"revisionTime": "2018-07-11T01:45:32Z"
 		},
 		{
+			"checksumSHA1": "ehAUZgg3BT4gz3WA5B9l2o4NOHw=",
+			"path": "k8s.io/apimachinery/pkg/api/equality",
+			"revision": "b7f9f1fa80aef2c4d97c27d38bba371e6caccb47",
+			"revisionTime": "2018-10-25T16:40:41Z"
+		},
+		{
 			"checksumSHA1": "eD3XRvVzKmBUr4mFMD9hAMMuLSE=",
 			"path": "k8s.io/apimachinery/pkg/api/errors",
 			"revision": "cbafd24d5796966031ae904aa88e2436a619ae8a",
@@ -1483,6 +1489,12 @@
 			"path": "k8s.io/client-go/util/retry",
 			"revision": "0b97d57a869d33ee2fe3cc567d0f8553c70357b0",
 			"revisionTime": "2018-07-26T17:47:05Z"
+		},
+		{
+			"checksumSHA1": "yAFl0y5QMYGZXnhDNQ3ltTQ7ucM=",
+			"path": "k8s.io/client-go/util/workqueue",
+			"revision": "585e98112a2f5f80d5b9d421f67028aa905b880e",
+			"revisionTime": "2018-10-25T18:47:00Z"
 		},
 		{
 			"checksumSHA1": "dpMlvR66jr9Y9NyAtAJjHsIDFuQ=",

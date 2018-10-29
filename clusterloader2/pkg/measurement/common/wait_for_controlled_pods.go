@@ -27,15 +27,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	batch "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -81,7 +78,7 @@ func (*waitForControlledPodsRunningMeasurement) Execute(config *measurement.Meas
 		return summaries, err
 	}
 
-	runtimeObjectsList, err := getRuntimeObjectsForKind(config.ClientSet, kind, namespace, labelSelector, fieldSelector)
+	runtimeObjectsList, err := runtimeobjects.ListRuntimeObjectsForKind(config.ClientSet, kind, namespace, labelSelector, fieldSelector)
 	if err != nil {
 		return summaries, err
 	}
@@ -97,12 +94,12 @@ func (*waitForControlledPodsRunningMeasurement) Execute(config *measurement.Meas
 			}
 
 			atomic.AddInt32(&runningRuntimeObjects, 1)
-			objName, err := getNameFromRuntimeObject(runtimeObjectsList[objectIndex])
+			objName, err := runtimeobjects.GetNameFromRuntimeObject(runtimeObjectsList[objectIndex])
 			if err != nil {
 				errList.Append(fmt.Errorf("reading object name error: %v", err))
 				return
 			}
-			objNamespace, err := getNamespaceFromRuntimeObject(runtimeObjectsList[objectIndex])
+			objNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(runtimeObjectsList[objectIndex])
 			if err != nil {
 				errList.Append(fmt.Errorf("reading object namespace error: %v", err))
 				return
@@ -121,15 +118,15 @@ func (*waitForControlledPodsRunningMeasurement) Execute(config *measurement.Meas
 }
 
 func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout time.Duration) error {
-	runtimeObjectNamespace, err := getNamespaceFromRuntimeObject(obj)
+	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
 	if err != nil {
 		return err
 	}
-	runtimeObjectSelector, err := getSelectorFromRuntimeObject(obj)
+	runtimeObjectSelector, err := runtimeobjects.GetSelectorFromRuntimeObject(obj)
 	if err != nil {
 		return err
 	}
-	runtimeObjectReplicas, err := getReplicasFromRuntimeObject(obj)
+	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(obj)
 	if err != nil {
 		return err
 	}
@@ -139,123 +136,4 @@ func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout tim
 		return fmt.Errorf("waiting pods error: %v", err)
 	}
 	return nil
-}
-
-func getRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
-	listOpts := metav1.ListOptions{
-		LabelSelector: labelSelector,
-		FieldSelector: fieldSelector,
-	}
-	runtimeObjectsList := make([]runtime.Object, 0)
-	switch kind {
-	case "ReplicationController":
-		list, err := c.CoreV1().ReplicationControllers(namespace).List(listOpts)
-		if err != nil {
-			return runtimeObjectsList, err
-		}
-		for i := range list.Items {
-			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
-		}
-		return runtimeObjectsList, nil
-	case "ReplicaSet":
-		list, err := c.ExtensionsV1beta1().ReplicaSets(namespace).List(listOpts)
-		if err != nil {
-			return runtimeObjectsList, err
-		}
-		for i := range list.Items {
-			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
-		}
-		return runtimeObjectsList, nil
-	case "Deployment":
-		list, err := c.ExtensionsV1beta1().Deployments(namespace).List(listOpts)
-		if err != nil {
-			return runtimeObjectsList, err
-		}
-		for i := range list.Items {
-			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
-		}
-		return runtimeObjectsList, nil
-	case "DaemonSet":
-		list, err := c.ExtensionsV1beta1().DaemonSets(namespace).List(listOpts)
-		if err != nil {
-			return runtimeObjectsList, err
-		}
-		for i := range list.Items {
-			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
-		}
-		return runtimeObjectsList, nil
-	case "Job":
-		list, err := c.BatchV1().Jobs(namespace).List(listOpts)
-		if err != nil {
-			return runtimeObjectsList, err
-		}
-		for i := range list.Items {
-			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
-		}
-		return runtimeObjectsList, nil
-	default:
-		return runtimeObjectsList, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
-	}
-}
-
-func getNameFromRuntimeObject(obj runtime.Object) (string, error) {
-	metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		return "", fmt.Errorf("unsupported kind when getting name: %v", obj)
-	}
-	return metaObjectAccessor.GetObjectMeta().GetName(), nil
-}
-
-func getNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {
-	metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		return "", fmt.Errorf("unsupported kind when getting namespace: %v", obj)
-	}
-	return metaObjectAccessor.GetObjectMeta().GetNamespace(), nil
-}
-
-func getSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
-	switch typed := obj.(type) {
-	case *v1.ReplicationController:
-		return labels.SelectorFromSet(typed.Spec.Selector), nil
-	case *extensions.ReplicaSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *extensions.Deployment:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *extensions.DaemonSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *batch.Job:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	default:
-		return nil, fmt.Errorf("unsupported kind when getting selector: %v", obj)
-	}
-}
-
-func getReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
-	switch typed := obj.(type) {
-	case *v1.ReplicationController:
-		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
-		}
-		return 0, nil
-	case *extensions.ReplicaSet:
-		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
-		}
-		return 0, nil
-	case *extensions.Deployment:
-		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
-		}
-		return 0, nil
-	case *extensions.DaemonSet:
-		return 0, nil
-	case *batch.Job:
-		if typed.Spec.Parallelism != nil {
-			return *typed.Spec.Parallelism, nil
-		}
-		return 0, nil
-	default:
-		return -1, fmt.Errorf("unsupported kind when getting number of replicas: %v", obj)
-	}
 }

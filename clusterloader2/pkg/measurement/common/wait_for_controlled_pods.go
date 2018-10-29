@@ -23,6 +23,7 @@ package common
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -131,9 +132,42 @@ func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout tim
 		return err
 	}
 
-	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), timeout, false)
+	stopCh := make(chan struct{})
+	time.AfterFunc(timeout, func() {
+		close(stopCh)
+	})
+	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), stopCh, false)
 	if err != nil {
 		return fmt.Errorf("waiting pods error: %v", err)
 	}
 	return nil
+}
+
+type objectChecker struct {
+	lock      sync.Mutex
+	isRunning bool
+	stopCh    chan struct{}
+	status    bool
+}
+
+func newObjectCheker() *objectChecker {
+	return &objectChecker{
+		stopCh:    make(chan struct{}),
+		isRunning: true,
+	}
+}
+
+func (o *objectChecker) getStatus() bool {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	return o.status
+}
+
+func (o *objectChecker) terminate() {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	if o.isRunning {
+		close(o.stopCh)
+		o.isRunning = false
+	}
 }

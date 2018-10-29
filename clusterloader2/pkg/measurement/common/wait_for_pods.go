@@ -23,7 +23,7 @@ import (
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
+	//clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -45,7 +45,7 @@ func createWaitForRunningPodsMeasurement() measurement.Measurement {
 type waitForRunningPodsMeasurement struct{}
 
 // Execute waits until desired number of pods are running or until timeout happens.
-// Pods can be specified by field and/or label selectors.
+// Pods can be specified by namespace and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
@@ -61,10 +61,6 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	if err != nil {
 		return summaries, err
 	}
-	fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
-	if err != nil {
-		return summaries, err
-	}
 	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultWaitForPodsTimeout)
 	if err != nil {
 		return summaries, err
@@ -74,24 +70,25 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
 	})
-	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true)
-}
-
-func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool) error {
-	// TODO(#269): Change to shared podStore.
-	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
+	ps, err := measurementutil.NewPodStore(config.ClientSet, namespace, labelSelector)
 	if err != nil {
-		return fmt.Errorf("pod store creation error: %v", err)
+		return summaries, fmt.Errorf("pod store creation error: %v", err)
 	}
 	defer ps.Stop()
+	return summaries, waitForPods(ps, namespace, labelSelector, desiredPodCount, stopCh, true)
+}
 
+func waitForPods(ps *measurementutil.PodStore, namespace, labelSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool) error {
 	var runningPodsCount int
 	for {
 		select {
 		case <-stopCh:
-			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
+			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' - only %d found running", desiredPodCount, namespace, labelSelector, runningPodsCount)
 		case <-time.After(defaultWaitForPodsInterval):
-			pods := ps.List()
+			pods, err := ps.FilteredList(namespace, labelSelector)
+			if err != nil {
+				return fmt.Errorf("filtering list error: %v", err)
+			}
 			runningPodsCount = 0
 			for i := range pods {
 				if pods[i].Status.Phase == corev1.PodRunning {
@@ -99,7 +96,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				}
 			}
 			if log {
-				glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s), fieldSelector(%s): running %d / %d", namespace, labelSelector, fieldSelector, runningPodsCount, desiredPodCount)
+				glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s): running %d / %d", namespace, labelSelector, runningPodsCount, desiredPodCount)
 			}
 			if runningPodsCount == desiredPodCount {
 				return nil

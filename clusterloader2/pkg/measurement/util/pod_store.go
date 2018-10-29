@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -40,18 +41,16 @@ type PodStore struct {
 	Reflector *cache.Reflector
 }
 
-// NewPodStore creates PodStore based on given namespace, label selector and field selector.
-func NewPodStore(c clientset.Interface, namespace string, labelSelector string, fieldSelector string) (*PodStore, error) {
+// NewPodStore creates PodStore based on given namespace and label selector.
+func NewPodStore(c clientset.Interface, namespace string, labelSelector string) (*PodStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = labelSelector
-			options.FieldSelector = fieldSelector
 			obj, err := c.CoreV1().Pods(namespace).List(options)
 			return runtime.Object(obj), err
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = labelSelector
-			options.FieldSelector = fieldSelector
 			return c.CoreV1().Pods(namespace).Watch(options)
 		},
 	}
@@ -78,6 +77,27 @@ func (s *PodStore) List() []*v1.Pod {
 		pods = append(pods, o.(*v1.Pod))
 	}
 	return pods
+}
+
+// FilteredList returns list of pods that satisfy namespace and label Selector requirements.
+func (s *PodStore) FilteredList(namespace string, labelSelector string) ([]*v1.Pod, error) {
+	objects := s.Store.List()
+	lSelector, err := labels.Parse(labelSelector)
+	if err != nil {
+		return nil, err
+	}
+	pods := make([]*v1.Pod, 0)
+	for _, o := range objects {
+		pod := o.(*v1.Pod)
+		if namespace != metav1.NamespaceAll && pod.Namespace != namespace {
+			continue
+		}
+		if !lSelector.Matches(labels.Set(pod.Labels)) {
+			continue
+		}
+		pods = append(pods, o.(*v1.Pod))
+	}
+	return pods, nil
 }
 
 // Stop stops podstore watch.

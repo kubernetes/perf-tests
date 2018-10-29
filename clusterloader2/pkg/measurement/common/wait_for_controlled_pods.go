@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -62,8 +63,8 @@ type waitForControlledPodsRunningMeasurement struct {
 	kind              string
 	namespace         string
 	labelSelector     string
-	fieldSelector     string
 	operationTimeout  time.Duration
+	podStore          *measurementutil.PodStore
 	stopCh            chan struct{}
 	isRunning         bool
 	queue             workqueue.Interface
@@ -75,7 +76,7 @@ type waitForControlledPodsRunningMeasurement struct {
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
-// Controlling objects can be specified by field and/or label selectors.
+// Controlling objects can be specified by namespace and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 // "Start" action starts observation of the controlling objects, while "gather" waits for until
 // specified number of controlling objects have all pods running.
@@ -97,10 +98,6 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 			return summaries, err
 		}
 		w.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
-		if err != nil {
-			return summaries, err
-		}
-		w.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
 			return summaries, err
 		}
@@ -129,16 +126,20 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 }
 
 func (w *waitForControlledPodsRunningMeasurement) start(c clientset.Interface) error {
+	var err error
 	if w.informer != nil {
 		glog.Infof("%v: wait for controlled pods measurement already running", w)
 		return nil
 	}
 	glog.Infof("%v: starting wait for controlled pods measurement...", w)
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
 	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	w.podStore, err = measurementutil.NewPodStore(c, w.namespace, "")
+	if err != nil {
+		return fmt.Errorf("pod store creation error: %v", err)
+	}
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
 	w.informer = cache.NewSharedInformer(listerWatcher, nil, 0)
@@ -227,6 +228,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 
 func (w *waitForControlledPodsRunningMeasurement) stop() {
 	close(w.stopCh)
+	w.podStore.Stop()
 	w.queue.ShutDown()
 	w.workerGroup.Wait()
 	w.lock.Lock()
@@ -350,7 +352,7 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c clientset.Interface) (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(c, w.kind, w.namespace, w.labelSelector, w.fieldSelector)
+	objects, err := runtimeobjects.ListRuntimeObjectsForKind(c, w.kind, w.namespace, w.labelSelector, "")
 	if err != nil {
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}
@@ -396,7 +398,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
-		err = waitForPods(clientSet, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, false)
+		err = waitForPods(w.podStore, runtimeObjectNamespace, runtimeObjectSelector.String(), int(runtimeObjectReplicas), o.stopCh, false)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

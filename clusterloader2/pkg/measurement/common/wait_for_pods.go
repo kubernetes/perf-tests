@@ -70,31 +70,40 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 		return summaries, err
 	}
 
-	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, timeout, true)
+	stopCh := make(chan struct{})
+	time.AfterFunc(timeout, func() {
+		close(stopCh)
+	})
+	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true)
 }
 
-func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, timeout time.Duration, log bool) error {
+func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool) error {
+	// TODO(#269): Change to shared podStore.
 	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
-		return err
+		return fmt.Errorf("pod store creation error: %v", err)
 	}
 	defer ps.Stop()
 
 	var runningPodsCount int
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(defaultWaitForPodsInterval) {
-		pods := ps.List()
-		runningPodsCount = 0
-		for i := range pods {
-			if pods[i].Status.Phase == corev1.PodRunning {
-				runningPodsCount++
+	for {
+		select {
+		case <-stopCh:
+			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
+		case <-time.After(defaultWaitForPodsInterval):
+			pods := ps.List()
+			runningPodsCount = 0
+			for i := range pods {
+				if pods[i].Status.Phase == corev1.PodRunning {
+					runningPodsCount++
+				}
+			}
+			if log {
+				glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s), fieldSelector(%s): running %d / %d", namespace, labelSelector, fieldSelector, runningPodsCount, desiredPodCount)
+			}
+			if runningPodsCount == desiredPodCount {
+				return nil
 			}
 		}
-		if log {
-			glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s), fieldSelector(%s): running %d / %d", namespace, labelSelector, fieldSelector, runningPodsCount, desiredPodCount)
-		}
-		if runningPodsCount == desiredPodCount {
-			return nil
-		}
 	}
-	return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
 }

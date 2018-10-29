@@ -131,7 +131,11 @@ func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout tim
 		return err
 	}
 
-	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), timeout, false)
+	stopCh := make(chan struct{})
+	time.AfterFunc(timeout, func() {
+		close(stopCh)
+	})
+	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), stopCh, false)
 	if err != nil {
 		return fmt.Errorf("waiting pods error: %v", err)
 	}

@@ -32,24 +32,6 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
-// GetObjectForKind returns object instance of given kind.
-func GetObjectForKind(kind string) (runtime.Object, error) {
-	switch kind {
-	case "ReplicationController":
-		return &corev1.ReplicationController{}, nil
-	case "ReplicaSet":
-		return &extensions.ReplicaSet{}, nil
-	case "Deployment":
-		return &extensions.Deployment{}, nil
-	case "DaemonSet":
-		return &extensions.DaemonSet{}, nil
-	case "Job":
-		return &batch.Job{}, nil
-	default:
-		return nil, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
-	}
-}
-
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
 func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
 	var runtimeObjectsList []runtime.Object
@@ -180,6 +162,9 @@ func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
 
 // GetSpecFromRuntimeObject returns spec of given runtime object.
 func GetSpecFromRuntimeObject(obj runtime.Object) (interface{}, error) {
+	if obj == nil {
+		return nil, nil
+	}
 	switch typed := obj.(type) {
 	case *corev1.ReplicationController:
 		return typed.Spec, nil
@@ -237,4 +222,17 @@ func IsEqualRuntimeObjectsSpec(runtimeObj1, runtimeObj2 runtime.Object) (bool, e
 		return false, err
 	}
 	return equality.Semantic.DeepEqual(runtimeObj1Spec, runtimeObj2Spec), nil
+}
+
+// CreateMetaNamespaceKey returns meta key (namespace/name) for given runtime object.
+func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
+	namespace, err := GetNamespaceFromRuntimeObject(obj)
+	if err != nil {
+		return "", fmt.Errorf("retrieving namespace error: %v", err)
+	}
+	name, err := GetNameFromRuntimeObject(obj)
+	if err != nil {
+		return "", fmt.Errorf("retrieving name error: %v", err)
+	}
+	return namespace + "/" + name, nil
 }

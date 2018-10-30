@@ -72,7 +72,8 @@ func IsRetryableAPIError(err error) bool {
 	return false
 }
 
-func retryFunction(f func() error, isAllowedError func(error) bool) wait.ConditionFunc {
+// RetryFunction opaques given function into retryable function.
+func RetryFunction(f func() error, isAllowedError func(error) bool) wait.ConditionFunc {
 	return func() (bool, error) {
 		err := f()
 		if err == nil || (isAllowedError != nil && isAllowedError(err)) {
@@ -91,7 +92,7 @@ func CreateNamespace(c clientset.Interface, namespace string) error {
 		_, err := c.CoreV1().Namespaces().Create(&apiv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
 		return err
 	}
-	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
+	return RetryWithExponentialBackOff(RetryFunction(createFunc, apierrs.IsAlreadyExists))
 }
 
 // DeleteNamespace deletes namespace with given name.
@@ -99,7 +100,7 @@ func DeleteNamespace(c clientset.Interface, namespace string) error {
 	deleteFunc := func() error {
 		return c.CoreV1().Namespaces().Delete(namespace, nil)
 	}
-	return RetryWithExponentialBackOff(retryFunction(deleteFunc, apierrs.IsNotFound))
+	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, apierrs.IsNotFound))
 }
 
 // ListNamespaces returns list of existing namespace names.
@@ -113,7 +114,7 @@ func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 		namespaces = namespacesList.Items
 		return nil
 	}
-	if err := RetryWithExponentialBackOff(retryFunction(listFunc, nil)); err != nil {
+	if err := RetryWithExponentialBackOff(RetryFunction(listFunc, nil)); err != nil {
 		return namespaces, err
 	}
 	return namespaces, nil
@@ -145,7 +146,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj)
 		return err
 	}
-	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
+	return RetryWithExponentialBackOff(RetryFunction(createFunc, apierrs.IsAlreadyExists))
 }
 
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
@@ -165,7 +166,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
 		return err
 	}
-	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
+	return RetryWithExponentialBackOff(RetryFunction(updateFunc, nil))
 }
 
 // DeleteObject deletes object with given name, group, version and kind.
@@ -177,7 +178,7 @@ func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, 
 		deleteOption := &metav1.DeleteOptions{OrphanDependents: &falseVar}
 		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, deleteOption)
 	}
-	return RetryWithExponentialBackOff(retryFunction(deleteFunc, apierrs.IsNotFound))
+	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, apierrs.IsNotFound))
 }
 
 // GetObject retrieves object with given name, group, version and kind.
@@ -191,7 +192,7 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 		obj, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
 		return err
 	}
-	if err := RetryWithExponentialBackOff(retryFunction(getFunc, nil)); err != nil {
+	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, nil)); err != nil {
 		return nil, err
 	}
 	return obj, nil

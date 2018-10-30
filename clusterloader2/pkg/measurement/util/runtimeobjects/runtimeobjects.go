@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
 // GetObjectForKind returns object instance of given kind.
@@ -51,64 +52,81 @@ func GetObjectForKind(kind string) (runtime.Object, error) {
 
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
 func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
+	var runtimeObjectsList []runtime.Object
+	var listFunc func() error
 	listOpts := metav1.ListOptions{
 		LabelSelector: labelSelector,
 		FieldSelector: fieldSelector,
 	}
 	switch kind {
 	case "ReplicationController":
-		list, err := c.CoreV1().ReplicationControllers(namespace).List(listOpts)
-		if err != nil {
-			return nil, err
+		listFunc = func() error {
+			list, err := c.CoreV1().ReplicationControllers(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
 		}
-		runtimeObjectsList := make([]runtime.Object, len(list.Items))
-		for i := range list.Items {
-			runtimeObjectsList[i] = &list.Items[i]
-		}
-		return runtimeObjectsList, nil
 	case "ReplicaSet":
-		list, err := c.ExtensionsV1beta1().ReplicaSets(namespace).List(listOpts)
-		if err != nil {
-			return nil, err
+		listFunc = func() error {
+			list, err := c.ExtensionsV1beta1().ReplicaSets(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
 		}
-		runtimeObjectsList := make([]runtime.Object, len(list.Items))
-		for i := range list.Items {
-			runtimeObjectsList[i] = &list.Items[i]
-		}
-		return runtimeObjectsList, nil
 	case "Deployment":
-		list, err := c.ExtensionsV1beta1().Deployments(namespace).List(listOpts)
-		if err != nil {
-			return nil, err
+		listFunc = func() error {
+			list, err := c.ExtensionsV1beta1().Deployments(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
 		}
-		runtimeObjectsList := make([]runtime.Object, len(list.Items))
-		for i := range list.Items {
-			runtimeObjectsList[i] = &list.Items[i]
-		}
-		return runtimeObjectsList, nil
 	case "DaemonSet":
-		list, err := c.ExtensionsV1beta1().DaemonSets(namespace).List(listOpts)
-		if err != nil {
-			return nil, err
+		listFunc = func() error {
+			list, err := c.ExtensionsV1beta1().DaemonSets(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
 		}
-		runtimeObjectsList := make([]runtime.Object, len(list.Items))
-		for i := range list.Items {
-			runtimeObjectsList[i] = &list.Items[i]
-		}
-		return runtimeObjectsList, nil
 	case "Job":
-		list, err := c.BatchV1().Jobs(namespace).List(listOpts)
-		if err != nil {
-			return nil, err
+		listFunc = func() error {
+			list, err := c.BatchV1().Jobs(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
 		}
-		runtimeObjectsList := make([]runtime.Object, len(list.Items))
-		for i := range list.Items {
-			runtimeObjectsList[i] = &list.Items[i]
-		}
-		return runtimeObjectsList, nil
 	default:
 		return nil, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
 	}
+
+	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc, nil)); err != nil {
+		return nil, err
+	}
+	return runtimeObjectsList, nil
 }
 
 // GetNameFromRuntimeObject returns name of given runtime object.

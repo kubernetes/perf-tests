@@ -34,7 +34,7 @@ func newSteppedLoad(params *api.SteppedLoad) TuningSet {
 }
 
 func (sl *steppedLoad) Execute(actions []func()) {
-	sleepDuration := sl.params.StepDelay
+	sleepDuration := sl.params.StepDelay.ToTimeDuration()
 	var wg wait.Group
 	for i := range actions {
 		wg.Start(actions[i])

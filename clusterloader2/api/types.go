@@ -95,7 +95,7 @@ type TuningSet struct {
 	// Name by which the TuningSet will be referenced.
 	Name string `json: name`
 	// InitialDelay specifies the waiting time before starting phase execution.
-	InitialDelay time.Duration `json: initialDelay`
+	InitialDelay Duration `json: initialDelay`
 	// QpsLoad is a definition for QpsLoad tuning set.
 	QpsLoad *QpsLoad `json: qpsLoad`
 	// RandomizedLoad is a definition for RandomizedLoad tuning set.
@@ -138,17 +138,20 @@ type SteppedLoad struct {
 	// BurstSize specifies the qps peek.
 	BurstSize int32 `json: burstSize`
 	// StepDelay specifies the interval between peeks.
-	StepDelay time.Duration `json: stepDelay`
+	StepDelay Duration `json: stepDelay`
 }
 
 // TimeLimitedLoad defines a load that spreads operations over given time.
 type TimeLimitedLoad struct {
 	// TimeLimit specifies the limit of the time that operation will be spread over.
-	TimeLimit time.Duration `json: timeLimit`
+	TimeLimit Duration `json: timeLimit`
 }
 
 // RandomizedTimeLimitedLoad defines a load that randomly spreads operations over given time.
 type RandomizedTimeLimitedLoad struct {
 	// TimeLimit specifies the limit of the time that operation will be spread over.
-	TimeLimit time.Duration `json: timeLimit`
+	TimeLimit Duration `json: timeLimit`
 }
+
+// Duration is time.Duration that uses string format (e.g. 1h2m3s) for marshaling.
+type Duration time.Duration

@@ -34,7 +34,7 @@ func newTimeLimitedLoad(params *api.TimeLimitedLoad) TuningSet {
 }
 
 func (t *timeLimitedLoad) Execute(actions []func()) {
-	sleepDuration := time.Duration(t.params.TimeLimit.Nanoseconds() / int64(len(actions)))
+	sleepDuration := time.Duration(t.params.TimeLimit.ToTimeDuration().Nanoseconds() / int64(len(actions)))
 	var wg wait.Group
 	for i := range actions {
 		wg.Start(actions[i])

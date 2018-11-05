@@ -99,6 +99,9 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 	return summaries, nil
 }
 
+// Dispose cleans up after the measurement.
+func (t *timer) Dispose() {}
+
 type timerResult measurementutil.PerfData
 
 // SummaryName returns name of the summary.

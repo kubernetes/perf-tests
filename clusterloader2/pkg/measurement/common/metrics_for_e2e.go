@@ -110,6 +110,9 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	return summaries, nil
 }
 
+// Dispose cleans up after the measurement.
+func (m *metricsForE2EMeasurement) Dispose() {}
+
 type metricsForE2E metrics.MetricsCollection
 
 func (m *metricsForE2E) filterMetrics() {

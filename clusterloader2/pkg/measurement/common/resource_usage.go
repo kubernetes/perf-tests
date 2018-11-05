@@ -108,6 +108,13 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 	}
 }
 
+// Dispose cleans up after the measurement.
+func (e *resourceUsageMetricMeasurement) Dispose() {
+	if e.gatherer != nil {
+		e.gatherer.Dispose()
+	}
+}
+
 type resourceUsageSummary gatherers.ResourceUsageSummary
 
 // SummaryName returns name of the summary.

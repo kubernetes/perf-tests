@@ -115,11 +115,21 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 			return summaries, err
 		}
 		return summaries, w.gather(config.ClientSet, syncTimeout)
-	case "stop":
-		w.stop()
-		return summaries, nil
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
+	}
+}
+
+// Dispose cleans up after the measurement.
+func (w *waitForControlledPodsRunningMeasurement) Dispose() {
+	close(w.stopCh)
+	w.queue.ShutDown()
+	w.workerGroup.Wait()
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	w.isRunning = false
+	for _, checker := range w.checkerMap {
+		checker.terminate()
 	}
 }
 
@@ -223,18 +233,6 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 
 	glog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 	return nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) stop() {
-	close(w.stopCh)
-	w.queue.ShutDown()
-	w.workerGroup.Wait()
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	w.isRunning = false
-	for _, checker := range w.checkerMap {
-		checker.terminate()
-	}
 }
 
 func (w *waitForControlledPodsRunningMeasurement) handleObject(c clientset.Interface, oldObj, newObj interface{}) {

@@ -92,6 +92,9 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 	}
 }
 
+// Dispose cleans up after the measurement.
+func (*apiResponsivenessMeasurement) Dispose() {}
+
 func apiserverMetricsReset(c clientset.Interface) error {
 	body, err := c.CoreV1().RESTClient().Delete().AbsPath("/metrics").DoRaw()
 	if err != nil {

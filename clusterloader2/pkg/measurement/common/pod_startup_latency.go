@@ -58,6 +58,7 @@ type podStartupLatencyMeasurement struct {
 	labelSelector string
 	fieldSelector string
 	informer      cache.SharedInformer
+	isRunning     bool
 	stopCh        chan struct{}
 	mutex         sync.Mutex
 	createTimes   map[string]metav1.Time
@@ -101,12 +102,18 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementCo
 
 }
 
+// Dispose cleans up after the measurement.
+func (p *podStartupLatencyMeasurement) Dispose() {
+	p.stop()
+}
+
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
-	if p.informer != nil {
+	if p.isRunning {
 		glog.Infof("%v: pod startup latancy measurement already running", podStartupLatencyMetricName)
 		return nil
 	}
 	glog.Infof("%v: starting pod startup latency measurement...", podStartupLatencyMetricName)
+	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = p.fieldSelector
@@ -135,9 +142,16 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	return nil
 }
 
+func (p *podStartupLatencyMeasurement) stop() {
+	if p.isRunning {
+		p.isRunning = false
+		close(p.stopCh)
+	}
+}
+
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurement.Summary, error) {
 	glog.Infof("%v: gathering pod startup latency measurement...", podStartupLatencyMetricName)
-	if p.informer == nil {
+	if !p.isRunning {
 		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMetricName)
 	}
 
@@ -147,7 +161,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	schedToWatchLag := make([]time.Duration, 0)
 	e2eLag := make([]time.Duration, 0)
 
-	close(p.stopCh)
+	p.stop()
 
 	if err := p.gatherScheduleTimes(c); err != nil {
 		return []measurement.Summary{}, err

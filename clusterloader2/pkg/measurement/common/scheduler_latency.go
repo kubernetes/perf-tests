@@ -84,6 +84,9 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 	}
 }
 
+// Dispose cleans up after the measurement.
+func (*schedulerLatencyMeasurement) Dispose() {}
+
 func resetSchedulerMetrics(c clientset.Interface, provider, host, masterName string) error {
 	_, err := sendRequestToScheduler(c, "DELETE", provider, host, masterName)
 	if err != nil {

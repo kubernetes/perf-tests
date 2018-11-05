@@ -46,9 +46,10 @@ func createEtcdMetricsMeasurement() measurement.Measurement {
 }
 
 type etcdMetricsMeasurement struct {
-	stopCh  chan struct{}
-	wg      *sync.WaitGroup
-	metrics *etcdMetrics
+	isRunning bool
+	stopCh    chan struct{}
+	wg        *sync.WaitGroup
+	metrics   *etcdMetrics
 }
 
 // Execute supports two actions:
@@ -90,6 +91,58 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	}
 }
 
+// Dispose cleans up after the measurement.
+func (e *etcdMetricsMeasurement) Dispose() {
+	if e.isRunning {
+		e.isRunning = false
+		close(e.stopCh)
+		e.wg.Wait()
+	}
+}
+
+func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval time.Duration) {
+	e.isRunning = true
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		for {
+			select {
+			case <-time.After(interval):
+				dbSize, err := getEtcdDatabaseSize(provider, host)
+				if err != nil {
+					glog.Infof("Failed to collect etcd database size")
+					continue
+				}
+				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
+			case <-e.stopCh:
+				return
+			}
+		}
+	}()
+}
+
+func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
+	defer e.Dispose()
+	// Do some one-off collection of metrics.
+	samples, err := getEtcdMetrics(provider, host)
+	if err != nil {
+		return err
+	}
+	for _, sample := range samples {
+		switch sample.Metric[model.MetricNameLabel] {
+		case "etcd_disk_backend_commit_duration_seconds_bucket":
+			measurementutil.ConvertSampleToBucket(sample, &e.metrics.BackendCommitDuration)
+		case "etcd_debugging_snap_save_total_duration_seconds_bucket":
+			measurementutil.ConvertSampleToBucket(sample, &e.metrics.SnapshotSaveTotalDuration)
+		case "etcd_disk_wal_fsync_duration_seconds_bucket":
+			measurementutil.ConvertSampleToBucket(sample, &e.metrics.WalFsyncDuration)
+		case "etcd_network_peer_round_trip_time_seconds_bucket":
+			measurementutil.ConvertSampleToBucket(sample, &e.metrics.PeerRoundTripTime)
+		}
+	}
+	return nil
+}
+
 func getEtcdMetrics(provider, host string) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
@@ -118,50 +171,6 @@ func getEtcdDatabaseSize(provider, host string) (float64, error) {
 		}
 	}
 	return 0, fmt.Errorf("Couldn't find etcd database size metric")
-}
-
-func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval time.Duration) {
-	e.wg.Add(1)
-	go func() {
-		defer e.wg.Done()
-		for {
-			select {
-			case <-time.After(interval):
-				dbSize, err := getEtcdDatabaseSize(provider, host)
-				if err != nil {
-					glog.Infof("Failed to collect etcd database size")
-					continue
-				}
-				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
-			case <-e.stopCh:
-				return
-			}
-		}
-	}()
-}
-
-func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
-	close(e.stopCh)
-	e.wg.Wait()
-
-	// Do some one-off collection of metrics.
-	samples, err := getEtcdMetrics(provider, host)
-	if err != nil {
-		return err
-	}
-	for _, sample := range samples {
-		switch sample.Metric[model.MetricNameLabel] {
-		case "etcd_disk_backend_commit_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.BackendCommitDuration)
-		case "etcd_debugging_snap_save_total_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.SnapshotSaveTotalDuration)
-		case "etcd_disk_wal_fsync_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.WalFsyncDuration)
-		case "etcd_network_peer_round_trip_time_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.PeerRoundTripTime)
-		}
-	}
-	return nil
 }
 
 type etcdMetrics struct {

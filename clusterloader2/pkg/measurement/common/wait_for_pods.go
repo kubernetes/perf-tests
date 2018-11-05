@@ -77,6 +77,9 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true)
 }
 
+// Dispose cleans up after the measurement.
+func (*waitForRunningPodsMeasurement) Dispose() {}
+
 func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool) error {
 	// TODO(#269): Change to shared podStore.
 	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)

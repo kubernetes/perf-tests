@@ -50,6 +50,7 @@ type ResourceUsageSummary map[string][]util.SingleContainerSummary
 // ContainerResourceGatherer gathers resource metrics from containers.
 type ContainerResourceGatherer struct {
 	client       clientset.Interface
+	isRunning    bool
 	stopCh       chan struct{}
 	workers      []resourceGatherWorker
 	workerWg     sync.WaitGroup
@@ -70,6 +71,7 @@ type ResourceGathererOptions struct {
 func NewResourceUsageGatherer(c clientset.Interface, host, provider string, options ResourceGathererOptions, pods *corev1.PodList) (*ContainerResourceGatherer, error) {
 	g := ContainerResourceGatherer{
 		client:       c,
+		isRunning:    true,
 		stopCh:       make(chan struct{}),
 		containerIDs: make([]string, 0),
 		options:      options,
@@ -164,7 +166,7 @@ func (g *ContainerResourceGatherer) StartGatheringData() {
 // It returns an error if the resource usage at any percentile is beyond the
 // specified resource constraints.
 func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int, constraints map[string]util.ResourceConstraint) (*ResourceUsageSummary, error) {
-	close(g.stopCh)
+	g.stop()
 	glog.Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
 	finished := make(chan struct{})
 	go func() {
@@ -245,4 +247,16 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int, constrai
 		return &summary, fmt.Errorf(strings.Join(violatedConstraints, "\n"))
 	}
 	return &summary, nil
+}
+
+// Dispose disposes container resource gatherer.
+func (g *ContainerResourceGatherer) Dispose() {
+	g.stop()
+}
+
+func (g *ContainerResourceGatherer) stop() {
+	if g.isRunning {
+		g.isRunning = false
+		close(g.stopCh)
+	}
 }

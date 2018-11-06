@@ -3,23 +3,23 @@
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+{{$TEST_THROUGHPUT := DefaultParam .TEST_THROUGHPUT 10}}
 {{$BIG_GROUP_SIZE := 250}}
 {{$MEDIUM_GROUP_SIZE := 30}}
 {{$SMALL_GROUP_SIZE := 5}}
-{{$NODES_PER_NAMESPACE := 100}}
-{{$PODS_PER_NODE := 30}}
-{{$TEST_THROUGHPUT := 10}}
-# bigRCs - 1/4 of all pods should be in big RCs.
-{{$BIG_RCS_PER_NAMESPACE := 3}}
-# mediumRCs - 1/4 of all pods should be in medium RCs.
-{{$MEDIUM_RCS_PER_NAMESPACE := 25}}
-# smallRCs - 1/2 of all pods should be in small RCs.
-{{$SMALL_RCS_PER_NAMESPACE := 300}}
 
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$saturationTime := DivideInt $totalPods $TEST_THROUGHPUT}}
+# bigRCs - 1/4 of namespace pods should be in big RCs.
+{{$bigRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $BIG_GROUP_SIZE)}}
+# mediumRCs - 1/4 of namespace pods should be in medium RCs.
+{{$mediumRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
+# smallRCs - 1/2 of namespace pods should be in small RCs.
+{{$smallRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
 
 
 name: load
@@ -53,7 +53,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$BIG_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$bigRcsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: big-service
@@ -68,7 +68,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$MEDIUM_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$mediumRcsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: medium-service
@@ -83,7 +83,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$SMALL_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$smallRcsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: small-service
@@ -106,7 +106,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$BIG_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$bigRcsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: big-rc
@@ -117,7 +117,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$MEDIUM_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$mediumRcsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: medium-rc
@@ -128,7 +128,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$SMALL_RCS_PER_NAMESPACE}}
+    replicasPerNamespace: {{$smallRcsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: small-rc

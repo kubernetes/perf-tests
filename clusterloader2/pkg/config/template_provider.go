@@ -150,3 +150,20 @@ func (tp *TemplateProvider) TemplateToConfig(path string, mapping map[string]int
 	}
 	return convertToConfig(b)
 }
+
+// GetOverridesMapping returns mapping from file specified by the given path.
+func GetOverridesMapping(path string) (map[string]interface{}, error) {
+	var mapping map[string]interface{}
+	if path == "" {
+		mapping = make(map[string]interface{})
+	} else {
+		bin, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("test overrides reading error: %v", err)
+		}
+		if err = decodeInto(bin, &mapping); err != nil {
+			return nil, fmt.Errorf("test overrides unmarshalling error: %v", err)
+		}
+	}
+	return mapping, nil
+}

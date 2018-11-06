@@ -56,6 +56,7 @@ func initFlags() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
 	pflag.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
+	pflag.StringVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", "", "Path to the config overrides file")
 	initClusterFlags()
 }
 

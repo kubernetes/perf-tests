@@ -318,6 +318,7 @@ func isErrsCritical(*util.ErrorList) bool {
 
 func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
+	ctx.GetMeasurementManager().Dispose()
 	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
 		glog.Errorf("Resource cleanup error: %v", errList.String())
 		return

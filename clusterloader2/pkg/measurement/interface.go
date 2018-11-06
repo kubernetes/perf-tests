@@ -35,6 +35,7 @@ type MeasurementConfig struct {
 // See https://github.com/kubernetes/perf-tests/blob/master/clusterloader/docs/design.md for reference.
 type Measurement interface {
 	Execute(config *MeasurementConfig) ([]Summary, error)
+	Dispose()
 }
 
 type createMeasurementFunc func() Measurement

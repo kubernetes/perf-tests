@@ -68,6 +68,15 @@ func (mm *MeasurementManager) GetSummaries() []Summary {
 	return mm.summaries
 }
 
+// Dispose disposes measurement instances.
+func (mm *MeasurementManager) Dispose() {
+	for _, instances := range mm.measurements {
+		for _, measurement := range instances {
+			measurement.Dispose()
+		}
+	}
+}
+
 func (mm *MeasurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()

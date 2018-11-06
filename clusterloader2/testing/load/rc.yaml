@@ -3,7 +3,7 @@ kind: ReplicationController
 metadata:
   name: {{.Name}}
   labels:
-    kind: loadRC
+    group: load
 spec:
   replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
   selector:

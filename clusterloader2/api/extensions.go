@@ -37,7 +37,6 @@ func (d *Duration) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("parsing duration error: %v", err)
 	}
-	fmt.Printf("duration: %v\n", duration)
 	(*d) = Duration(duration)
 	return nil
 }

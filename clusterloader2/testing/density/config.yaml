@@ -4,14 +4,15 @@
 
 #Constants
 {{$NODES_PER_NAMESPACE := 100}}
-{{$PODS_PER_NAMESPACE := 3000}}
+{{$PODS_PER_NODE := 30}}
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
 {{$TEST_THROUGHPUT := 20}}
 
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
-{{$totalPods := MultiplyInt $PODS_PER_NAMESPACE $namespaces}}
+{{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
+{{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
 {{$saturationRCTimeout := DivideFloat $totalPods $TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
@@ -52,7 +53,7 @@ steps:
     - basename: saturation-rc
       objectTemplatePath: rc.yaml
       templateFillMap:
-        Replicas: {{$PODS_PER_NAMESPACE}}
+        Replicas: {{$podsPerNamespace}}
         Group: saturation
 - measurements:
   - Identifier: WaitForRunningSaturationRCs

@@ -181,11 +181,6 @@ steps:
     Params:
       action: gather
 - measurements:
-  - Identifier: WaitForRunningRCs
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: stop
-- measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:

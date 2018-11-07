@@ -73,3 +73,8 @@ func (e *ErrorList) String() string {
 	b.WriteString("]")
 	return b.String()
 }
+
+// Error returns string representation of ErrorList.
+func (e *ErrorList) Error() string {
+	return e.String()
+}

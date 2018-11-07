@@ -56,11 +56,11 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 
 	switch action {
 	case "start":
-		provider, err := util.GetString(config.Params, "provider")
+		provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
 		if err != nil {
 			return summaries, err
 		}
-		host, err := util.GetStringOrDefault(config.Params, "host", "")
+		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterConfig.MasterIP)
 		if err != nil {
 			return summaries, err
 		}
@@ -92,6 +92,10 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		go e.gatherer.StartGatheringData()
 		return summaries, nil
 	case "gather":
+		if e.gatherer == nil {
+			glog.Infof("%s: gatherer not initialized", resourceUsageMetricName)
+			return summaries, nil
+		}
 		// TODO(krzysied): Add suppport for resource constraints.
 		glog.Infof("%v, gathering resource usage...", resourceUsageMetricName)
 		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100}, make(map[string]measurementutil.ResourceConstraint))

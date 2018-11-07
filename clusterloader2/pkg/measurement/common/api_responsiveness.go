@@ -78,7 +78,7 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
 		// New method is defined here: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/slos.md#steady-state-slisslos.
-		nodeCount, err := util.GetIntOrDefault(config.Params, "nodeCount", measurement.ClusterConfig.Nodes)
+		nodeCount, err := util.GetIntOrDefault(config.Params, "nodeCount", config.ClusterConfig.Nodes)
 		if err != nil {
 			return summaries, err
 		}

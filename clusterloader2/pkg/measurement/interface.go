@@ -18,12 +18,15 @@ package measurement
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 )
 
 // MeasurementConfig provides client and parameters required for the measurement execution.
 type MeasurementConfig struct {
 	// Clientset is a kubernetes client.
 	ClientSet clientset.Interface
+	// ClusterConfig represents configuration of the cluster.
+	ClusterConfig *config.ClusterConfig
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config
 	// into the Execute method.
 	Params map[string]interface{}

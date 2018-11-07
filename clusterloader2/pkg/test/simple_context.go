@@ -42,7 +42,7 @@ func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, 
 		state:               s,
 		templateProvider:    config.NewTemplateProvider(filepath.Dir(c.TestConfigPath)),
 		tuningSetFactory:    tuningset.NewTuningSetFactory(),
-		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet()),
+		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet(), &c.ClusterConfig),
 	}
 }
 

@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
@@ -109,7 +108,6 @@ func main() {
 		glog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
-	measurement.ClusterConfig = &clusterLoaderConfig.ClusterConfig
 	f, err := framework.NewFramework(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)

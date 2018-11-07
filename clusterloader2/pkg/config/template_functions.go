@@ -46,6 +46,7 @@ func GetFuncs() template.FuncMap {
 		"MinInt":        minInt,
 		"MaxFloat":      maxFloat,
 		"MinFloat":      minFloat,
+		"DefaultParam":  defaultParam,
 	}
 }
 
@@ -165,4 +166,11 @@ func minFloat(numbers ...interface{}) float64 {
 		min = math.Min(min, toFloat64(number))
 	}
 	return min
+}
+
+func defaultParam(param, defaultValue interface{}) interface{} {
+	if param == nil {
+		return defaultValue
+	}
+	return param
 }

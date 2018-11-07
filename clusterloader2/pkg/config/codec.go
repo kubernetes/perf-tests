@@ -44,3 +44,10 @@ func convertToObject(raw []byte) (*unstructured.Unstructured, error) {
 	}
 	return obj, nil
 }
+
+func decodeInto(raw []byte, v interface{}) error {
+	if err := yaml.NewYAMLOrJSONDecoder(bytes.NewBuffer(raw), 4096).Decode(v); err != nil {
+		return fmt.Errorf("decoding failed: %v", err)
+	}
+	return nil
+}

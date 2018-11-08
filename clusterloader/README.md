@@ -5,18 +5,16 @@ Cluster Loader is a tool we use to deploy large numbers of various Kubernetes ob
 Currently, Cluster Loader has only been tested against local clusters.
 
 ## Building
-In order to vendor in e2e/framework & deps we have used [glide](https://github.com/Masterminds/glide).
-After installing glide just run:
+In order to vendor in e2e/framework & deps we have used [godep](https://github.com/tools/godep).
 ```
 cd perf-tests/clusterloader/
-glide install -v
 go test -c -o e2e.test
 ```
 
 ## Running
 Cluster Loader uses e2e/framework as a library so the execution may be familiar. This command is used to test against a local cluster:
 ```
-./e2e.test --ginkgo.v=true --ginkgo.focus="Cluster\sLoader" --kubeconifg=<path to your kubeconfig> --viper-config=config/test
+./e2e.test --ginkgo.v=true --ginkgo.focus="Cluster\sLoader" --kubeconfig=<path to your kubeconfig> --viper-config=config/test
 ```
 `viper-config` does not need the extension of the config file, viper will automatically detect it.
 

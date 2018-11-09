@@ -83,7 +83,7 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 			return summaries, err
 		}
 		summary, err := apiserverMetricsGather(config.ClientSet, nodeCount)
-		if err == nil {
+		if err == nil || measurement.IsMetricViolationError(err) {
 			summaries = append(summaries, summary)
 		}
 		return summaries, err
@@ -139,6 +139,9 @@ func apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.S
 			}
 			glog.Infof("%vTop latency metric: %+v", prefix, metrics.ApiCalls[i])
 		}
+	}
+	if badMetrics > 0 {
+		return metrics, measurement.NewMetricViolationError("top latency metric", "there should be no high-latency requests")
 	}
 	return metrics, nil
 }

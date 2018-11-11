@@ -310,7 +310,7 @@ func (pm *PodStartupLatencyDataMonitor) insertPodRunningTime(podKey string, crea
 	var data PodStartupMilestones
 	var ok bool
 	if data, ok = pm.PodStartupData[podKey]; !ok {
-		// Necessary to work anywere except UTC time zone...
+		// Necessary to work anywhere except UTC time zone...
 		data.startedPulling = time.Unix(0, 0)
 		data.finishedPulling = time.Unix(0, 0)
 	}

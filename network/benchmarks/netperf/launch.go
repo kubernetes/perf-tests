@@ -152,7 +152,12 @@ func cleanup(c *kubernetes.Clientset) {
 func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
 	if _, err := c.Core().Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
-		c.Core().Namespaces().Create(&api.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})
+		c.Core().Namespaces().Create(&api.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: testNamespace,
+							Labels:  map[string]string{"app": "netperf"},
+						},
+		})
 	}
 
 	// Create the orchestrator service that points to the coordinator pod
@@ -368,7 +373,20 @@ for i:= 1; i <= ingressNPs; i++ {
 					return false
 			}
 	}
-return true
+	if ingressNPs != 0 || egressNPs != 0 {
+		networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+							   NamespaceSelector: &metav1.LabelSelector{
+											   MatchLabels: map[string]string{"app": "netperf",},
+									   },
+								}}
+		if !createIngressNetworkPolicy(c, "default-netperf-ingress-np", networkPolicyPeer) {
+				return false
+		}
+		if !createEgressNetworkPolicy(c, "default-netperf-egress-np", networkPolicyPeer) {
+				return false
+		}
+	}
+	return true
 }
 
 func getOrchestratorPodName(pods *api.PodList) string {

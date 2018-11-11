@@ -55,6 +55,11 @@ MSS                                          , Maximum, 96, 352, 608, 864, 1120,
 11 netperf. Same VM using Virtual IP         ,0.000000,0.00,
 12 netperf. Remote VM using Pod IP           ,6646.820000,6646.82,
 13 netperf. Remote VM using Virtual IP       ,0.000000,0.00,
+14 netperf HTTP. Same Node using Pod IP      ,4198.880000,4198.88,
+15 netperf HTTP. Same Node using Virtual IP  ,0.000000,0.00,
+16 netperf HTTP. Remote Node using Pod IP    ,766.490000,766.49,
+17 netperf HTTP. Remote Node using Virtual IP,0.000000,0.00,
+18 netperf HTTP. Hairpin Pod to own Virtual IP,0.000000,0.00,
 
 ```
 
@@ -95,6 +100,14 @@ Command line parameters to the launch.go can switch the test mode to incorporate
 
  The command line option * --hostnetworking * will inject the *hostNetwork: true* specifier into all the podSpec templates.
 
+ * Network policies (The point of this module, is to see if a bigger number of network policies slows the performance)
+
+ The command line option * -ingress * will create ingress network policies with IP block CIDR 10.0.x.1. The maximum is 255, default is 0.
+ 
+ The command line option * -egress * will create egress network policies with IP block CIDR 10.0.x.1. The maximum is 255, default is 0.
+
+ If the ingress or egress flag is used, then a default ingress and egress network policy is added, that matches the namespace of the netperf Pods, and allows traffic across them.
+
  ```bash
 
  $ go run ./launch.go -h
@@ -106,8 +119,12 @@ Command line parameters to the launch.go can switch the test mode to incorporate
         Number of iterations to run (default 1)
   -image string
         Docker image used to run the network tests (default "girishkalele/netperf-latest")
+  -igress int
+        Number of igress network policies to create.
+  -egress int
+        Number of igress network policies to create.
 
- $ go run ./launch.go --hostnetworking --iterations 1
+ $ go run ./launch.go --hostnetworking --iterations 1 -igress 1 -egress 1
 
  ```
 

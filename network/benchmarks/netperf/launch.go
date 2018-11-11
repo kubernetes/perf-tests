@@ -34,6 +34,7 @@ import (
 	"time"
 
 	api "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -310,6 +311,66 @@ func createRCs(c *kubernetes.Clientset) bool {
 	return true
 }
 
+func createIngressNetworkPolicy(c *kubernetes.Clientset, name string, networkPolicyPeer  []networking.NetworkPolicyPeer) bool {
+	fmt.Println("Creating network policy", name)
+	 _, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: networking.NetworkPolicySpec{
+					Ingress: []networking.NetworkPolicyIngressRule{{
+									From: networkPolicyPeer,
+					 }},
+			},
+	})
+	if err != nil {
+			fmt.Println("Error creating network policy", err)
+			return false
+	}
+	return true
+}
+
+func createEgressNetworkPolicy(c *kubernetes.Clientset, name string, networkPolicyPeer []networking.NetworkPolicyPeer) bool {
+	fmt.Println("Creating network policy", name)
+	 _, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: networking.NetworkPolicySpec{
+					Egress:  []networking.NetworkPolicyEgressRule{{
+									To: networkPolicyPeer,
+					 }},
+			},
+	})
+	if err != nil {
+			fmt.Println("Error creating network policy", err)
+			return false
+	}
+	return true
+}
+
+
+func createNPs(c *kubernetes.Clientset) bool {
+	// Create network policies
+for i:= 1; i <= ingressNPs; i++ {
+	name := fmt.Sprintf("ingress-np-%d", i)
+	ipblock := fmt.Sprintf("10.0.%d.1/24", i)
+	networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+											IPBlock: &networking.IPBlock{CIDR: ipblock},
+									}}
+	if !createIngressNetworkPolicy(c, name, networkPolicyPeer) {
+				return false
+		}
+}
+	for i:= 1; i <= egressNPs; i++ {
+			name := fmt.Sprintf("egress-np-%d", i)
+			ipblock := fmt.Sprintf("10.0.%d.1/24", i)
+			networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+											IPBlock: &networking.IPBlock{CIDR: ipblock},
+									}}
+			if !createEgressNetworkPolicy(c, name, networkPolicyPeer) {
+					return false
+			}
+	}
+return true
+}
+
 func getOrchestratorPodName(pods *api.PodList) string {
 	for _, pod := range pods.Items {
 		if strings.Contains(pod.GetName(), "netperf-orch-") {
@@ -368,7 +429,13 @@ func executeTests(c *kubernetes.Clientset) bool {
 			return false
 		}
 		fmt.Println("Waiting for netperf pods to start up")
-
+		if ingressNPs > 255 || egressNPs > 255 {	
+			fmt.Println("Failed to create network policies. Network policy flags maximum value is 255")
+			return false
+		} else if !createNPs(c) {
+			fmt.Println("Failed to create network policies")
+			return false
+		}
 		var orchestratorPodName string
 		for len(orchestratorPodName) == 0 {
 			fmt.Println("Waiting for orchestrator pod creation")

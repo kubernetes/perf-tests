@@ -53,6 +53,8 @@ const (
 
 var (
 	iterations     int
+	ingressNPs     int
+	egressNPs      int
 	hostnetworking bool
 	tag            string
 	kubeConfig     string
@@ -70,6 +72,10 @@ func init() {
 		"(boolean) Enable Host Networking Mode for PODs")
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
+    flag.IntVar(&ingressNPs, "ingressNPs", 0,
+                "Number of ingress policies to run")
+    flag.IntVar(&egressNPs, "egressNPs", 0,
+                "Number of egress policies to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
@@ -400,6 +406,8 @@ func main() {
 	fmt.Println("Network Performance Test")
 	fmt.Println("Parameters :")
 	fmt.Println("Iterations      : ", iterations)
+	fmt.Println("Ingress policies      : ", ingressNPs)
+	fmt.Println("Ehress policies      : ", egressNPs)
 	fmt.Println("Host Networking : ", hostnetworking)
 	fmt.Println("Docker image    : ", netperfImage)
 	fmt.Println("------------------------------------------------------------")

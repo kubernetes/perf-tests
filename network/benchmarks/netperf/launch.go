@@ -146,6 +146,16 @@ func cleanup(c *kubernetes.Clientset) {
 		c.Core().Services(testNamespace).Delete(
 			svc.GetName(), &metav1.DeleteOptions{})
 	}
+	nps, err := c.Networking().NetworkPolicies(testNamespace).List(everythingSelector)
+	if err != nil {
+			fmt.Println("Failed to get network policies", err)
+			return
+	}
+	for _, np := range nps.Items {
+			fmt.Println("Deleting np", np.GetName())
+			c.Networking().NetworkPolicies(testNamespace).Delete(
+					np.GetName(), &metav1.DeleteOptions{})
+	}
 }
 
 // createServices: Long-winded function to programmatically create our two services

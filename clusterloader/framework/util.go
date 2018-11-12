@@ -92,7 +92,7 @@ func (cl *ClusterLoaderObject) ParseConfig() (*v1.Pod, error) {
 	return pod, nil
 }
 
-// MakePath returns fully qualfied file location as a string
+// MakePath returns fully qualified file location as a string
 func MakePath(file string) string {
 	// Handle an empty filename.
 	if file == "" {

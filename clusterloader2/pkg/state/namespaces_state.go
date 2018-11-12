@@ -46,7 +46,7 @@ type namespacesState struct {
 	namespaceStates map[string]namespaceState
 }
 
-// newNamespacesState creates new namsepaces state.
+// newNamespacesState creates new namespaces state.
 func newNamespacesState() *namespacesState {
 	return &namespacesState{
 		namespaceStates: make(map[string]namespaceState),

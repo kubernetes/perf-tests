@@ -23,15 +23,10 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 )
 
-var (
-	// ClusterConfig represents cluster configuration.
-	// TODO(issue 249): Move this global variable to MeasurementManager structure.
-	ClusterConfig *config.ClusterConfig
-)
-
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
-	clientSet clientset.Interface
+	clientSet     clientset.Interface
+	clusterConfig *config.ClusterConfig
 
 	lock sync.Mutex
 	// map from method type and identifier to measurement instance.
@@ -40,11 +35,12 @@ type MeasurementManager struct {
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(clientSet clientset.Interface) *MeasurementManager {
+func CreateMeasurementManager(clientSet clientset.Interface, clusterConfig *config.ClusterConfig) *MeasurementManager {
 	return &MeasurementManager{
-		clientSet:    clientSet,
-		measurements: make(map[string]map[string]Measurement),
-		summaries:    make([]Summary, 0),
+		clientSet:     clientSet,
+		clusterConfig: clusterConfig,
+		measurements:  make(map[string]map[string]Measurement),
+		summaries:     make([]Summary, 0),
 	}
 }
 
@@ -55,8 +51,9 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		return err
 	}
 	config := &MeasurementConfig{
-		ClientSet: mm.clientSet,
-		Params:    params,
+		ClientSet:     mm.clientSet,
+		ClusterConfig: mm.clusterConfig,
+		Params:        params,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)

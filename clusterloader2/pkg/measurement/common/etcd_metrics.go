@@ -61,11 +61,11 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	if err != nil {
 		return summaries, err
 	}
-	provider, err := util.GetStringOrDefault(config.Params, "provider", measurement.ClusterConfig.Provider)
+	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
 	if err != nil {
 		return summaries, err
 	}
-	host, err := util.GetStringOrDefault(config.Params, "host", measurement.ClusterConfig.MasterIP)
+	host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterConfig.MasterIP)
 	if err != nil {
 		return summaries, err
 	}

@@ -86,7 +86,7 @@ type metricsForE2EMeasurement struct{}
 func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 
-	provider, err := util.GetStringOrDefault(config.Params, "provider", measurement.ClusterConfig.Provider)
+	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
 	if err != nil {
 		return summaries, err
 	}

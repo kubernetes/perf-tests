@@ -60,15 +60,15 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 	if err != nil {
 		return summaries, err
 	}
-	provider, err := util.GetStringOrDefault(config.Params, "provider", measurement.ClusterConfig.Provider)
+	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
 	if err != nil {
 		return summaries, err
 	}
-	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", measurement.ClusterConfig.MasterIP)
+	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterConfig.MasterIP)
 	if err != nil {
 		return summaries, err
 	}
-	masterName, err := util.GetStringOrDefault(config.Params, "masterName", measurement.ClusterConfig.MasterName)
+	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterConfig.MasterName)
 	if err != nil {
 		return summaries, err
 	}

@@ -55,10 +55,11 @@ case "$1" in
     exit
     ;;
   --help | -h )
-    echo  " --cluster-loader                Run Cluster Loader Test"
-    echo  " --network-performance           Run Network Performance Test"
-    echo  " --kube-dns                      Run Kube-DNS test"
-    echo  " --core-dns                      Run Core-DNS test"
+    echo  " cluster-loader                Run Cluster Loader Test"
+    echo  " cluster-loader2               Run Cluster Loader 2 Test"
+    echo  " network-performance           Run Network Performance Test"
+    echo  " kube-dns                      Run Kube-DNS test"
+    echo  " core-dns                      Run Core-DNS test"
     exit
     ;;
 esac

@@ -3,11 +3,11 @@
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
-{{$NODES_PER_NAMESPACE := 100}}
-{{$PODS_PER_NODE := 30}}
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+{{$TEST_THROUGHPUT := DefaultParam .TEST_THROUGHPUT 20}}
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
-{{$TEST_THROUGHPUT := 20}}
 
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}

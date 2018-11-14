@@ -28,7 +28,9 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
-	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
+	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/bundle"
+	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/simple"
+	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/slos"
 )
 
 var (

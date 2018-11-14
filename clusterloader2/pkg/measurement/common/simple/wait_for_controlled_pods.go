@@ -19,7 +19,7 @@ TODO(krzysied): Replace ClientSet interface with dynamic client.
 This will allow more generic approach.
 */
 
-package common
+package simple
 
 import (
 	"fmt"
@@ -42,6 +42,7 @@ const (
 	defaultSyncTimeout               = 60 * time.Second
 	defaultOperationTimeout          = 10 * time.Minute
 	checkControlledPodsInterval      = 5 * time.Second
+	informerSyncTimeout              = time.Minute
 	waitForControlledPodsRunningName = "WaitForControlledPodsRunning"
 	waitForControlledPodsWorkers     = 10
 )

@@ -30,10 +30,10 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
-  - Identifier: SchedulingMetrics
-    Method: SchedulingMetrics
+  - Identifier: TestMetrics
+    Method: TestMetrics
     Params:
-      action: reset
+      action: start
 # Create saturation pods
 - measurements:
   - Identifier: WaitForRunningSaturationRCs
@@ -137,7 +137,7 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-  - Identifier: SchedulingMetrics
-    Method: SchedulingMetrics
+  - Identifier: TestMetrics
+    Method: TestMetrics
     Params:
       action: gather

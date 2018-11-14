@@ -40,6 +40,10 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: start
 # Create RCs
 - measurements:
   - Identifier: WaitForRunningRCs
@@ -180,8 +184,13 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+# Collect measurements
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: TestMetrics
+    Method: TestMetrics
     Params:
       action: gather

@@ -395,7 +395,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
-		err = waitForPods(clientSet, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, false)
+		err = waitForPods(clientSet, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

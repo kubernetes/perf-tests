@@ -18,11 +18,13 @@ package simple
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -30,12 +32,13 @@ import (
 )
 
 const (
-	defaultWaitForPodsTimeout  = 60 * time.Second
-	defaultWaitForPodsInterval = 5 * time.Second
+	defaultWaitForPodsTimeout         = 60 * time.Second
+	defaultWaitForPodsInterval        = 5 * time.Second
+	waitForRunningPodsMeasurementName = "WaitForRunningPods"
 )
 
 func init() {
-	measurement.Register("WaitForRunningPods", createWaitForRunningPodsMeasurement)
+	measurement.Register(waitForRunningPodsMeasurementName, createWaitForRunningPodsMeasurement)
 }
 
 func createWaitForRunningPodsMeasurement() measurement.Measurement {
@@ -74,13 +77,20 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
 	})
-	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true)
+	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true, waitForRunningPodsMeasurementName)
 }
 
 // Dispose cleans up after the measurement.
 func (*waitForRunningPodsMeasurement) Dispose() {}
 
-func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool) error {
+const (
+	uninitialized = iota
+	up
+	down
+	none
+)
+
+func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string, desiredPodCount int, stopCh <-chan struct{}, log bool, callerName string) error {
 	// TODO(#269): Change to shared podStore.
 	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
 	if err != nil {
@@ -88,25 +98,45 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 	}
 	defer ps.Stop()
 
-	var runningPodsCount int
+	var podsStatus measurementutil.PodsStartupStatus
+	scaling := uninitialized
+	var oldPods []*corev1.Pod
 	for {
 		select {
 		case <-stopCh:
-			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, runningPodsCount)
+			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running", desiredPodCount, namespace, labelSelector, fieldSelector, podsStatus.Running)
 		case <-time.After(defaultWaitForPodsInterval):
 			pods := ps.List()
-			runningPodsCount = 0
-			for i := range pods {
-				if pods[i].Status.Phase == corev1.PodRunning {
-					runningPodsCount++
+			podsStatus = measurementutil.ComputePodsStartupStatus(pods, desiredPodCount)
+			if scaling != uninitialized {
+				diff := measurementutil.DiffPods(oldPods, pods)
+				deletedPods := diff.DeletedPods()
+				if scaling != down && len(deletedPods) > 0 {
+					glog.Errorf("%s: %d pods disappeared for namespace(%s), labelSelector(%s), fieldSelector(%s): %v", callerName, len(deletedPods), namespace, labelSelector, fieldSelector, strings.Join(deletedPods, ", "))
+					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
+				}
+				addedPods := diff.AddedPods()
+				if scaling != up && len(addedPods) > 0 {
+					glog.Errorf("%s: %d pods appeared for namespace(%s), labelSelector(%s), fieldSelector(%s): %v", callerName, len(deletedPods), namespace, labelSelector, fieldSelector, strings.Join(deletedPods, ", "))
+					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
+				}
+			} else {
+				switch {
+				case len(pods) == desiredPodCount:
+					scaling = none
+				case len(pods) < desiredPodCount:
+					scaling = up
+				case len(pods) > desiredPodCount:
+					scaling = down
 				}
 			}
 			if log {
-				glog.Infof("WaitForRunningPods: namespace(%s), labelSelector(%s), fieldSelector(%s): running %d / %d", namespace, labelSelector, fieldSelector, runningPodsCount, desiredPodCount)
+				glog.Infof("%s: namespace(%s), labelSelector(%s), fieldSelector(%s): %s", callerName, namespace, labelSelector, fieldSelector, podsStatus)
 			}
-			if runningPodsCount == desiredPodCount {
+			if podsStatus.Running == desiredPodCount {
 				return nil
 			}
+			oldPods = pods
 		}
 	}
 }

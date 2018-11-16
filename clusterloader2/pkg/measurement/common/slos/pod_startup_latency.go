@@ -231,7 +231,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	}
 
 	if slosErr := podStartupLatency.E2ELatency.VerifyThreshod(podStartupLatencyThreshold); slosErr != nil {
-		err = measurement.NewMetricViolationError("pod startup", "there should be no high-latency requests")
+		err = measurement.NewMetricViolationError("pod startup", slosErr.Error())
 		glog.Error(err)
 	}
 	return []measurement.Summary{podStartupLatency}, err

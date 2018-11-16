@@ -45,12 +45,20 @@ const (
 )
 
 var (
+	// StartupLatencyBuckets represents the histogram bucket boundaries for pod
+	// startup latency metrics, measured in seconds. These are hand-picked so
+	// as to be roughly exponential but still round numbers in everyday units.
+	// This is to minimise the number of buckets while allowing accurate
+	// measurement of thresholds which might be used in SLOs e.g. x% of pods
+	// start up within 30 seconds, or 15 minutes, etc.
+	StartupLatencyBuckets = []float64{0.5, 1, 2, 3, 4, 5, 6, 8, 10, 20, 30, 45, 60, 120, 180, 240, 300, 360, 480, 600, 900, 1200, 1800, 2700, 3600}
+
 	// PodE2EStartupLatency is a prometheus metric for monitoring pod startup latency.
 	PodE2EStartupLatency = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    PodE2EStartupLatencyKey,
 			Help:    "Pod e2e startup latencies in seconds, without image pull times",
-			Buckets: prometheus.LinearBuckets(0.5, 0.25, 50),
+			Buckets: StartupLatencyBuckets,
 		},
 	)
 
@@ -59,7 +67,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    PodFullStartupLatencyKey,
 			Help:    "Pod e2e startup latencies in seconds, with image pull times",
-			Buckets: prometheus.LinearBuckets(0.5, 0.5, 100),
+			Buckets: StartupLatencyBuckets,
 		},
 	)
 )

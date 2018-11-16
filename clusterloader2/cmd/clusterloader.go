@@ -119,6 +119,10 @@ func main() {
 		glog.Fatalf("Config completing error: %v", err)
 	}
 
+	if err = util.LogClusterNodes(f.GetClientSet()); err != nil {
+		glog.Errorf("Nodes info logging error: %v", err)
+	}
+
 	for _, clusterLoaderConfig.TestConfigPath = range testConfigPaths {
 		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
 		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {

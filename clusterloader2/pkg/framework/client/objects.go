@@ -86,6 +86,23 @@ func RetryFunction(f func() error, isAllowedError func(error) bool) wait.Conditi
 	}
 }
 
+// ListNodes returns list of cluster nodes.
+func ListNodes(c clientset.Interface) ([]apiv1.Node, error) {
+	var nodes []apiv1.Node
+	listFunc := func() error {
+		nodesList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		nodes = nodesList.Items
+		return nil
+	}
+	if err := RetryWithExponentialBackOff(RetryFunction(listFunc, nil)); err != nil {
+		return nodes, err
+	}
+	return nodes, nil
+}
+
 // CreateNamespace creates a single namespace with given name.
 func CreateNamespace(c clientset.Interface, namespace string) error {
 	createFunc := func() error {

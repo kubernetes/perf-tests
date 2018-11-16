@@ -21,24 +21,47 @@ import (
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/util/system"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
 // GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
 func GetSchedulableUntainedNodesNumber(c clientset.Interface) (int, error) {
-	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.ListNodes(c)
 	if err != nil {
 		return 0, err
 	}
 	numNodes := 0
-	for i := range nodeList.Items {
-		if isNodeSchedulable(&nodeList.Items[i]) && isNodeUntainted(&nodeList.Items[i]) {
+	for i := range nodeList {
+		if isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i]) {
 			numNodes++
 		}
 	}
 	return numNodes, err
+}
+
+// LogClusterNodes prints nodes information (name, internal ip, external ip) to log.
+func LogClusterNodes(c clientset.Interface) error {
+	nodeList, err := client.ListNodes(c)
+	if err != nil {
+		return err
+	}
+	glog.Infof("Listing cluster nodes:")
+	for i := range nodeList {
+		var internalIP, externalIP string
+		isSchedulable := isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i])
+		for _, address := range nodeList[i].Status.Addresses {
+			if address.Type == corev1.NodeInternalIP {
+				internalIP = address.Address
+			}
+			if address.Type == corev1.NodeExternalIP {
+				externalIP = address.Address
+			}
+		}
+		glog.Infof("Name: %v, clusterIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
+	}
+	return nil
 }
 
 // Node is schedulable if:
@@ -94,13 +117,13 @@ func isNodeConditionUnset(node *corev1.Node, conditionType corev1.NodeConditionT
 
 // GetMasterName returns master node name.
 func GetMasterName(c clientset.Interface) (string, error) {
-	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.ListNodes(c)
 	if err != nil {
 		return "", err
 	}
-	for _, node := range nodeList.Items {
-		if system.IsMasterNode(node.Name) {
-			return node.Name, nil
+	for i := range nodeList {
+		if system.IsMasterNode(nodeList[i].Name) {
+			return nodeList[i].Name, nil
 		}
 	}
 	return "", fmt.Errorf("master node not found")
@@ -108,13 +131,13 @@ func GetMasterName(c clientset.Interface) (string, error) {
 
 // GetMasterExternalIP returns master node external ip.
 func GetMasterExternalIP(c clientset.Interface) (string, error) {
-	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.ListNodes(c)
 	if err != nil {
 		return "", err
 	}
-	for _, node := range nodeList.Items {
-		if system.IsMasterNode(node.Name) {
-			for _, address := range node.Status.Addresses {
+	for i := range nodeList {
+		if system.IsMasterNode(nodeList[i].Name) {
+			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == corev1.NodeExternalIP {
 					return address.Address, nil
 				}

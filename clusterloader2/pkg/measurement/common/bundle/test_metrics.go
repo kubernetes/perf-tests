@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -73,7 +74,7 @@ type testMetrics struct {
 // stop - which stops all metrics and collects all measurements.
 func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return summaries, err
@@ -162,7 +163,7 @@ func execute(m measurement.Measurement, config *measurement.MeasurementConfig) (
 	return m.Execute(config)
 }
 
-func appendResults(summaries *[]measurement.Summary, errList *util.ErrorList, summaryResults []measurement.Summary, errResult error) {
+func appendResults(summaries *[]measurement.Summary, errList *errors.ErrorList, summaryResults []measurement.Summary, errResult error) {
 	if errResult != nil {
 		errList.Append(errResult)
 		return

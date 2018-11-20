@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -231,7 +232,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	}
 
 	if slosErr := podStartupLatency.E2ELatency.VerifyThreshod(podStartupLatencyThreshold); slosErr != nil {
-		err = measurement.NewMetricViolationError("pod startup", slosErr.Error())
+		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 		glog.Error(err)
 	}
 	return []measurement.Summary{podStartupLatency}, err

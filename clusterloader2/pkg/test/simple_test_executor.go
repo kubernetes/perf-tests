@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -43,24 +44,24 @@ func createSimpleTestExecutor() TestExecutor {
 }
 
 // ExecuteTest executes test based on provided configuration.
-func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
+func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
 	ctx.GetFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
 	glog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
-		return util.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
+		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
 	}
 	if len(automanagedNamespacesList) > 0 {
-		return util.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
+		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
 	err = ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
-		return util.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
+		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
 	}
 
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	for i := range conf.Steps {
 		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); !stepErrList.IsEmpty() {
 			errList.Concat(stepErrList)
@@ -91,9 +92,9 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.
 }
 
 // ExecuteStep executes single test step based on provided step configuration.
-func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.ErrorList {
+func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
 	var wg wait.Group
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
@@ -125,13 +126,13 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.Er
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.
-func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList {
+func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
 	// TODO: add tuning set
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	nsList := createNamespacesList(ctx, phase.NamespaceRange)
 	tuningSet, err := ctx.GetTuningSetFactory().CreateTuningSet(phase.TuningSet)
 	if err != nil {
-		return util.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))
+		return errors.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))
 	}
 
 	var actions []func()
@@ -229,7 +230,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
-func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *util.ErrorList {
+func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 	var err error
 	var obj *unstructured.Unstructured
@@ -243,19 +244,19 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 		if err != nil {
-			return util.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
+			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case DELETE_OBJECT:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 		if err != nil {
-			return util.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
+			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
 	default:
-		return util.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
+		return errors.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 	}
 	gvk := obj.GroupVersionKind()
 
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	switch operation {
 	case CREATE_OBJECT:
 		if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
@@ -311,7 +312,7 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 	return nsList
 }
 
-func isErrsCritical(*util.ErrorList) bool {
+func isErrsCritical(*errors.ErrorList) bool {
 	// TODO: define critical errors
 	return false
 }

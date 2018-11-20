@@ -24,6 +24,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -44,8 +45,8 @@ func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "", "Cluster provider")
 }
 
-func validateClusterFlags() *util.ErrorList {
-	errList := util.NewErrorList()
+func validateClusterFlags() *errors.ErrorList {
+	errList := errors.NewErrorList()
 	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
 		errList.Append(fmt.Errorf("no kubeconfig path specified"))
 	}
@@ -61,8 +62,8 @@ func initFlags() {
 	initClusterFlags()
 }
 
-func validateFlags() *util.ErrorList {
-	errList := util.NewErrorList()
+func validateFlags() *errors.ErrorList {
+	errList := errors.NewErrorList()
 	if len(testConfigPaths) < 1 {
 		errList.Append(fmt.Errorf("no test config path specified"))
 	}

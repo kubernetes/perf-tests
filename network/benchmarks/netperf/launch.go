@@ -73,10 +73,10 @@ func init() {
 		"(boolean) Enable Host Networking Mode for PODs")
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
-	flag.IntVar(&ingressNPs, "ingressNPs", 0,
-		"Number of ingress policies to run")
-	flag.IntVar(&egressNPs, "egressNPs", 0,
-		"Number of egress policies to run")
+    flag.IntVar(&ingressNPs, "ingressNPs", 0,
+                "Number of ingress policies to run")
+    flag.IntVar(&egressNPs, "egressNPs", 0,
+                "Number of egress policies to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
@@ -148,13 +148,13 @@ func cleanup(c *kubernetes.Clientset) {
 	}
 	nps, err := c.Networking().NetworkPolicies(testNamespace).List(everythingSelector)
 	if err != nil {
-		fmt.Println("Failed to get network policies", err)
-		return
+			fmt.Println("Failed to get network policies", err)
+			return
 	}
 	for _, np := range nps.Items {
-		fmt.Println("Deleting np", np.GetName())
-		c.Networking().NetworkPolicies(testNamespace).Delete(
-			np.GetName(), &metav1.DeleteOptions{})
+			fmt.Println("Deleting np", np.GetName())
+			c.Networking().NetworkPolicies(testNamespace).Delete(
+					np.GetName(), &metav1.DeleteOptions{})
 	}
 }
 
@@ -163,10 +163,10 @@ func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
 	if _, err := c.Core().Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
 		c.Core().Namespaces().Create(&api.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   testNamespace,
-				Labels: map[string]string{"app": "netperf"},
-			},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: testNamespace,
+							Labels:  map[string]string{"app": "netperf"},
+						},
 		})
 	}
 
@@ -326,73 +326,74 @@ func createRCs(c *kubernetes.Clientset) bool {
 	return true
 }
 
-func createIngressNetworkPolicy(c *kubernetes.Clientset, name string, networkPolicyPeer []networking.NetworkPolicyPeer) bool {
+func createIngressNetworkPolicy(c *kubernetes.Clientset, name string, networkPolicyPeer  []networking.NetworkPolicyPeer) bool {
 	fmt.Println("Creating network policy", name)
-	_, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: networking.NetworkPolicySpec{
-			Ingress: []networking.NetworkPolicyIngressRule{{
-				From: networkPolicyPeer,
-			}},
-		},
+	 _, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: networking.NetworkPolicySpec{
+					Ingress: []networking.NetworkPolicyIngressRule{{
+									From: networkPolicyPeer,
+					 }},
+			},
 	})
 	if err != nil {
-		fmt.Println("Error creating network policy", err)
-		return false
+			fmt.Println("Error creating network policy", err)
+			return false
 	}
 	return true
 }
 
 func createEgressNetworkPolicy(c *kubernetes.Clientset, name string, networkPolicyPeer []networking.NetworkPolicyPeer) bool {
 	fmt.Println("Creating network policy", name)
-	_, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: networking.NetworkPolicySpec{
-			Egress: []networking.NetworkPolicyEgressRule{{
-				To: networkPolicyPeer,
-			}},
-		},
+	 _, err := c.Networking().NetworkPolicies(testNamespace).Create(&networking.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: networking.NetworkPolicySpec{
+					Egress:  []networking.NetworkPolicyEgressRule{{
+									To: networkPolicyPeer,
+					 }},
+			},
 	})
 	if err != nil {
-		fmt.Println("Error creating network policy", err)
-		return false
+			fmt.Println("Error creating network policy", err)
+			return false
 	}
 	return true
 }
 
+
 func createNPs(c *kubernetes.Clientset) bool {
 	// Create network policies
-	for i := 1; i <= ingressNPs; i++ {
-		name := fmt.Sprintf("ingress-np-%d", i)
-		ipblock := fmt.Sprintf("10.0.%d.1/24", i)
-		networkPolicyPeer := []networking.NetworkPolicyPeer{{
-			IPBlock: &networking.IPBlock{CIDR: ipblock},
-		}}
-		if !createIngressNetworkPolicy(c, name, networkPolicyPeer) {
-			return false
+for i:= 1; i <= ingressNPs; i++ {
+	name := fmt.Sprintf("ingress-np-%d", i)
+	ipblock := fmt.Sprintf("10.0.%d.1/24", i)
+	networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+											IPBlock: &networking.IPBlock{CIDR: ipblock},
+									}}
+	if !createIngressNetworkPolicy(c, name, networkPolicyPeer) {
+				return false
 		}
-	}
-	for i := 1; i <= egressNPs; i++ {
-		name := fmt.Sprintf("egress-np-%d", i)
-		ipblock := fmt.Sprintf("10.0.%d.1/24", i)
-		networkPolicyPeer := []networking.NetworkPolicyPeer{{
-			IPBlock: &networking.IPBlock{CIDR: ipblock},
-		}}
-		if !createEgressNetworkPolicy(c, name, networkPolicyPeer) {
-			return false
-		}
+}
+	for i:= 1; i <= egressNPs; i++ {
+			name := fmt.Sprintf("egress-np-%d", i)
+			ipblock := fmt.Sprintf("10.0.%d.1/24", i)
+			networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+											IPBlock: &networking.IPBlock{CIDR: ipblock},
+									}}
+			if !createEgressNetworkPolicy(c, name, networkPolicyPeer) {
+					return false
+			}
 	}
 	if ingressNPs != 0 || egressNPs != 0 {
-		networkPolicyPeer := []networking.NetworkPolicyPeer{{
-			NamespaceSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "netperf"},
-			},
-		}}
+		networkPolicyPeer :=   []networking.NetworkPolicyPeer{{
+							   NamespaceSelector: &metav1.LabelSelector{
+											   MatchLabels: map[string]string{"app": "netperf",},
+									   },
+								}}
 		if !createIngressNetworkPolicy(c, "default-netperf-ingress-np", networkPolicyPeer) {
-			return false
+				return false
 		}
 		if !createEgressNetworkPolicy(c, "default-netperf-egress-np", networkPolicyPeer) {
-			return false
+				return false
 		}
 	}
 	return true
@@ -456,7 +457,7 @@ func executeTests(c *kubernetes.Clientset) bool {
 			return false
 		}
 		fmt.Println("Waiting for netperf pods to start up")
-		if ingressNPs > 255 || egressNPs > 255 {
+		if ingressNPs > 255 || egressNPs > 255 {	
 			fmt.Println("Failed to create network policies. Network policy flags maximum value is 255")
 			return false
 		} else if !createNPs(c) {

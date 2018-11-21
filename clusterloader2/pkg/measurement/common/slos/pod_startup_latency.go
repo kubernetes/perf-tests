@@ -36,14 +36,14 @@ import (
 )
 
 const (
-	podStartupLatencyThreshold     = 5 * time.Second
-	podStartupLatencyMetricName    = "PodStartupLatency"
-	informerSyncTimeout            = time.Minute
-	successfulStartupRatioTreshold = 0.99
+	podStartupLatencyThreshold       = 5 * time.Second
+	podStartupLatencyMeasurementName = "PodStartupLatency"
+	informerSyncTimeout              = time.Minute
+	successfulStartupRatioTreshold   = 0.99
 )
 
 func init() {
-	measurement.Register(podStartupLatencyMetricName, createPodStartupLatencyMeasurement)
+	measurement.Register(podStartupLatencyMeasurementName, createPodStartupLatencyMeasurement)
 }
 
 func createPodStartupLatencyMeasurement() measurement.Measurement {
@@ -111,12 +111,17 @@ func (p *podStartupLatencyMeasurement) Dispose() {
 	p.stop()
 }
 
+// String returns string representation of this measurement.
+func (*podStartupLatencyMeasurement) String() string {
+	return podStartupLatencyMeasurementName
+}
+
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	if p.isRunning {
-		glog.Infof("%v: pod startup latancy measurement already running", podStartupLatencyMetricName)
+		glog.Infof("%s: pod startup latancy measurement already running", p)
 		return nil
 	}
-	glog.Infof("%v: starting pod startup latency measurement...", podStartupLatencyMetricName)
+	glog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	optionsModifier := func(options *metav1.ListOptions) {
@@ -154,9 +159,9 @@ func (p *podStartupLatencyMeasurement) stop() {
 }
 
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurement.Summary, error) {
-	glog.Infof("%v: gathering pod startup latency measurement...", podStartupLatencyMetricName)
+	glog.Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
-		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMetricName)
+		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
 
 	scheduleLag := make([]podLatencyData, 0)
@@ -173,22 +178,22 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	for key, create := range p.createTimes {
 		sched, ok := p.scheduleTimes[key]
 		if !ok {
-			glog.Infof("%v: failed to find schedule time for %v", podStartupLatencyMetricName, key)
+			glog.Infof("%s: failed to find schedule time for %v", p, key)
 			continue
 		}
 		run, ok := p.runTimes[key]
 		if !ok {
-			glog.Infof("%v: failed to find run time for %v", podStartupLatencyMetricName, key)
+			glog.Infof("%s: failed to find run time for %v", p, key)
 			continue
 		}
 		watch, ok := p.watchTimes[key]
 		if !ok {
-			glog.Infof("%v: failed to find watch time for %v", podStartupLatencyMetricName, key)
+			glog.Infof("%s: failed to find watch time for %v", p, key)
 			continue
 		}
 		node, ok := p.nodeNames[key]
 		if !ok {
-			glog.Infof("%v: failed to find node for %v", podStartupLatencyMetricName, key)
+			glog.Infof("%s: failed to find node for %v", p, key)
 			continue
 		}
 
@@ -205,11 +210,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	sort.Sort(podLatencySlice(schedToWatchLag))
 	sort.Sort(podLatencySlice(e2eLag))
 
-	printLatencies(scheduleLag, "worst create-to-schedule latencies")
-	printLatencies(startupLag, "worst schedule-to-run latencies")
-	printLatencies(watchLag, "worst run-to-watch latencies")
-	printLatencies(schedToWatchLag, "worst schedule-to-watch latencies")
-	printLatencies(e2eLag, "worst e2e latencies")
+	p.printLatencies(scheduleLag, "worst create-to-schedule latencies")
+	p.printLatencies(startupLag, "worst schedule-to-run latencies")
+	p.printLatencies(watchLag, "worst run-to-watch latencies")
+	p.printLatencies(schedToWatchLag, "worst schedule-to-watch latencies")
+	p.printLatencies(e2eLag, "worst e2e latencies")
 
 	podStartupLatency := &podStartupLatency{
 		CreateToScheduleLatency: extractLatencyMetrics(scheduleLag),
@@ -222,7 +227,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 	var err error
 	if successRatio := float32(len(startupLag)) / float32(len(p.createTimes)); successRatio < successfulStartupRatioTreshold {
 		err = fmt.Errorf("only %v%% of all pods were scheduled successfully", successRatio*100)
-		glog.Error(err)
+		glog.Errorf("%s: %v", p, err)
 	}
 
 	podStartupLatencyThreshold := &measurementutil.LatencyMetric{
@@ -233,7 +238,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface) ([]measurem
 
 	if slosErr := podStartupLatency.E2ELatency.VerifyThreshod(podStartupLatencyThreshold); slosErr != nil {
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
-		glog.Error(err)
+		glog.Errorf("%s: %v", p, err)
 	}
 	return []measurement.Summary{podStartupLatency}, err
 }
@@ -281,10 +286,16 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 			if startTime != metav1.NewTime(time.Time{}) {
 				p.runTimes[key] = startTime
 			} else {
-				glog.Errorf("Pod %v (%v) is reported to be running, but none of its containers is", pod.Name, pod.Namespace)
+				glog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
 			}
 		}
 	}
+}
+
+func (p *podStartupLatencyMeasurement) printLatencies(latencies []podLatencyData, header string) {
+	metrics := extractLatencyMetrics(latencies)
+	glog.Infof("%s: 10%% %s: %v", p, header, latencies[(len(latencies)*9)/10:])
+	glog.Infof("%s: perc50: %v, perc90: %v, perc99: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99)
 }
 
 type podLatencyData struct {
@@ -309,7 +320,7 @@ type podStartupLatency struct {
 
 // SummaryName returns name of the summary.
 func (p *podStartupLatency) SummaryName() string {
-	return podStartupLatencyMetricName
+	return podStartupLatencyMeasurementName
 }
 
 // PrintSummary returns summary as a string.
@@ -323,12 +334,6 @@ func extractLatencyMetrics(latencies []podLatencyData) measurementutil.LatencyMe
 	perc90 := latencies[int(math.Ceil(float64(length*90)/100))-1].Latency
 	perc99 := latencies[int(math.Ceil(float64(length*99)/100))-1].Latency
 	return measurementutil.LatencyMetric{Perc50: perc50, Perc90: perc90, Perc99: perc99}
-}
-
-func printLatencies(latencies []podLatencyData, header string) {
-	metrics := extractLatencyMetrics(latencies)
-	glog.Infof("10%% %s: %v", header, latencies[(len(latencies)*9)/10:])
-	glog.Infof("perc50: %v, perc90: %v, perc99: %v", metrics.Perc50, metrics.Perc90, metrics.Perc99)
 }
 
 func latencyToPerfData(l measurementutil.LatencyMetric, name string) measurementutil.DataItem {

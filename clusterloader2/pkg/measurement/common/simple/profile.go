@@ -49,6 +49,11 @@ func (*memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig) 
 // Dispose cleans up after the measurement.
 func (*memoryProfileMeasurement) Dispose() {}
 
+// String returns string representation of this measurement.
+func (*memoryProfileMeasurement) String() string {
+	return memoryProfileName
+}
+
 func createCPUProfileMeasurement() measurement.Measurement {
 	return &cpuProfileMeasurement{}
 }
@@ -60,7 +65,13 @@ func (*cpuProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]
 	return createMeasurement(config, "profile")
 }
 
+// Dispose cleans up after the measurement.
 func (*cpuProfileMeasurement) Dispose() {}
+
+// String returns string representation of this measurement.
+func (*cpuProfileMeasurement) String() string {
+	return cpuProfileName
+}
 
 func createMeasurement(config *measurement.MeasurementConfig, profileKind string) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary

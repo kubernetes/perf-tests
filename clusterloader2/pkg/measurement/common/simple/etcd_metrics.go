@@ -72,7 +72,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 
 	switch action {
 	case "start":
-		glog.Infof("Starting etcd metrics collecting...")
+		glog.Infof("%s: starting etcd metrics collecting...", e)
 		waitTime, err := util.GetDurationOrDefault(config.Params, "waitTime", time.Minute)
 		if err != nil {
 			return summaries, err
@@ -100,6 +100,10 @@ func (e *etcdMetricsMeasurement) Dispose() {
 	}
 }
 
+func (e *etcdMetricsMeasurement) String() string {
+	return etcdMetricsMetricName
+}
+
 func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval time.Duration) {
 	e.isRunning = true
 	e.wg.Add(1)
@@ -108,9 +112,9 @@ func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval
 		for {
 			select {
 			case <-time.After(interval):
-				dbSize, err := getEtcdDatabaseSize(provider, host)
+				dbSize, err := e.getEtcdDatabaseSize(provider, host)
 				if err != nil {
-					glog.Infof("Failed to collect etcd database size")
+					glog.Infof("%s: failed to collect etcd database size", e)
 					continue
 				}
 				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
@@ -124,7 +128,7 @@ func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval
 func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := getEtcdMetrics(provider, host)
+	samples, err := e.getEtcdMetrics(provider, host)
 	if err != nil {
 		return err
 	}
@@ -143,10 +147,10 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
 	return nil
 }
 
-func getEtcdMetrics(provider, host string) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(provider, host string) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
-		glog.Infof("Not grabbing scheduler metrics through master SSH: unsupported for gke")
+		glog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", e)
 		return nil, nil
 	}
 
@@ -160,8 +164,8 @@ func getEtcdMetrics(provider, host string) ([]*model.Sample, error) {
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func getEtcdDatabaseSize(provider, host string) (float64, error) {
-	samples, err := getEtcdMetrics(provider, host)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(provider, host string) (float64, error) {
+	samples, err := e.getEtcdMetrics(provider, host)
 	if err != nil {
 		return 0, err
 	}
@@ -170,7 +174,7 @@ func getEtcdDatabaseSize(provider, host string) (float64, error) {
 			return float64(sample.Value), nil
 		}
 	}
-	return 0, fmt.Errorf("Couldn't find etcd database size metric")
+	return 0, fmt.Errorf("couldn't find etcd database size metric")
 }
 
 type etcdMetrics struct {

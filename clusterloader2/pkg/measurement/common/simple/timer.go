@@ -78,7 +78,7 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 			return summaries, fmt.Errorf("uninitialized timer %s", label)
 		}
 		duration := time.Since(startTime)
-		glog.Infof("%s: %v", label, duration)
+		glog.Infof("%s: %s - %v", t, label, duration)
 		t.durations[label] = duration
 		delete(t.startTimes, label)
 	case "gather":
@@ -101,6 +101,11 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 
 // Dispose cleans up after the measurement.
 func (t *timer) Dispose() {}
+
+// String returns string representation of this measurement.
+func (*timer) String() string {
+	return timerMeasurementName
+}
 
 type timerResult measurementutil.PerfData
 

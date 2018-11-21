@@ -49,11 +49,11 @@ const (
 
 	currentApiCallMetricsVersion = "v1"
 
-	metricName = "APIResponsiveness"
+	apiResponsivenessMeasurementName = "APIResponsiveness"
 )
 
 func init() {
-	measurement.Register(metricName, createAPIResponsivenessMeasurement)
+	measurement.Register(apiResponsivenessMeasurementName, createAPIResponsivenessMeasurement)
 }
 
 func createAPIResponsivenessMeasurement() measurement.Measurement {
@@ -65,7 +65,7 @@ type apiResponsivenessMeasurement struct{}
 // Execute supports two actions:
 // - reset - Resets latency data on api server side.
 // - gather - Gathers and prints current api server latency data.
-func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
@@ -74,7 +74,7 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 
 	switch action {
 	case "reset":
-		glog.Infof("Resetting latency metrics in apiserver...")
+		glog.Infof("%s: resetting latency metrics in apiserver...", a)
 		return summaries, apiserverMetricsReset(config.ClientSet)
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
@@ -83,7 +83,7 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 		if err != nil {
 			return summaries, err
 		}
-		summary, err := apiserverMetricsGather(config.ClientSet, nodeCount)
+		summary, err := a.apiserverMetricsGather(config.ClientSet, nodeCount)
 		if err == nil || errors.IsMetricViolationError(err) {
 			summaries = append(summaries, summary)
 		}
@@ -96,18 +96,12 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 // Dispose cleans up after the measurement.
 func (*apiResponsivenessMeasurement) Dispose() {}
 
-func apiserverMetricsReset(c clientset.Interface) error {
-	body, err := c.CoreV1().RESTClient().Delete().AbsPath("/metrics").DoRaw()
-	if err != nil {
-		return err
-	}
-	if string(body) != "metrics reset\n" {
-		return fmt.Errorf("unexpected response: %q", string(body))
-	}
-	return nil
+// String returns string representation of this measurement.
+func (*apiResponsivenessMeasurement) String() string {
+	return apiResponsivenessMeasurementName
 }
 
-func apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.Summary, error) {
+func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.Summary, error) {
 	isBigCluster := (nodeCount > bigClusterNodeCountThreshold)
 	metrics, err := readLatencyMetrics(c)
 	if err != nil {
@@ -138,13 +132,24 @@ func apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.S
 			if isBad {
 				prefix = "WARNING "
 			}
-			glog.Infof("%vTop latency metric: %+v", prefix, metrics.ApiCalls[i])
+			glog.Infof("%s: %vTop latency metric: %+v", a, prefix, metrics.ApiCalls[i])
 		}
 	}
 	if badMetrics > 0 {
 		return metrics, errors.NewMetricViolationError("top latency metric", "there should be no high-latency requests")
 	}
 	return metrics, nil
+}
+
+func apiserverMetricsReset(c clientset.Interface) error {
+	body, err := c.CoreV1().RESTClient().Delete().AbsPath("/metrics").DoRaw()
+	if err != nil {
+		return err
+	}
+	if string(body) != "metrics reset\n" {
+		return fmt.Errorf("unexpected response: %q", string(body))
+	}
+	return nil
 }
 
 func readLatencyMetrics(c clientset.Interface) (*apiResponsiveness, error) {
@@ -222,7 +227,7 @@ type apiResponsiveness struct {
 
 // SummaryName returns name of the summary.
 func (a *apiResponsiveness) SummaryName() string {
-	return metricName
+	return apiResponsivenessMeasurementName
 }
 
 // PrintSummary returns summary as a string.

@@ -83,6 +83,11 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 // Dispose cleans up after the measurement.
 func (*waitForRunningPodsMeasurement) Dispose() {}
 
+// String returns a string representation of the measurement.
+func (*waitForRunningPodsMeasurement) String() string {
+	return waitForRunningPodsMeasurementName
+}
+
 const (
 	uninitialized = iota
 	up
@@ -99,6 +104,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 	defer ps.Stop()
 
 	var podsStatus measurementutil.PodsStartupStatus
+	selectorsString := createSelectorsString(namespace, labelSelector, fieldSelector)
 	scaling := uninitialized
 	var oldPods []*corev1.Pod
 	for {
@@ -112,12 +118,12 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				diff := measurementutil.DiffPods(oldPods, pods)
 				deletedPods := diff.DeletedPods()
 				if scaling != down && len(deletedPods) > 0 {
-					glog.Errorf("%s: %d pods disappeared for namespace(%s), labelSelector(%s), fieldSelector(%s): %v", callerName, len(deletedPods), namespace, labelSelector, fieldSelector, strings.Join(deletedPods, ", "))
+					glog.Errorf("%s: %s: %d pods disappeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
 					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
 				}
 				addedPods := diff.AddedPods()
 				if scaling != up && len(addedPods) > 0 {
-					glog.Errorf("%s: %d pods appeared for namespace(%s), labelSelector(%s), fieldSelector(%s): %v", callerName, len(deletedPods), namespace, labelSelector, fieldSelector, strings.Join(deletedPods, ", "))
+					glog.Errorf("%s: %s: %d pods appeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
 					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
 				}
 			} else {
@@ -131,7 +137,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				}
 			}
 			if log {
-				glog.Infof("%s: namespace(%s), labelSelector(%s), fieldSelector(%s): %s", callerName, namespace, labelSelector, fieldSelector, podsStatus.String())
+				glog.Infof("%s: %s: %s", callerName, selectorsString, podsStatus.String())
 			}
 			if podsStatus.Running == desiredPodCount {
 				return nil
@@ -139,4 +145,21 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 			oldPods = pods
 		}
 	}
+}
+
+func createSelectorsString(namespace, labelSelector, fieldSelector string) string {
+	var selectorsStrings []string
+	if namespace != metav1.NamespaceAll {
+		selectorsStrings = append(selectorsStrings, fmt.Sprintf("namespace(%s)", namespace))
+	}
+	if labelSelector != "" {
+		selectorsStrings = append(selectorsStrings, fmt.Sprintf("labelSelector(%s)", labelSelector))
+	}
+	if fieldSelector != "" {
+		selectorsStrings = append(selectorsStrings, fmt.Sprintf("fieldSelector(%s)", fieldSelector))
+	}
+	if len(selectorsStrings) == 0 {
+		return "everything"
+	}
+	return fmt.Sprint(strings.Join(selectorsStrings, ", "))
 }

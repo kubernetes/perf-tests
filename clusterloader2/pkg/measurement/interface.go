@@ -30,6 +30,8 @@ type MeasurementConfig struct {
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config
 	// into the Execute method.
 	Params map[string]interface{}
+	// TemplateProvider provides templated objects.
+	TemplateProvider *config.TemplateProvider
 	// TODO(krzysied): add CloudProvider.
 }
 

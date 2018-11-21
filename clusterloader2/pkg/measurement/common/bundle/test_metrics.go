@@ -155,9 +155,10 @@ func createConfig(config *measurement.MeasurementConfig, overrides map[string]in
 		params[k] = v
 	}
 	return &measurement.MeasurementConfig{
-		ClientSet:     config.ClientSet,
-		ClusterConfig: config.ClusterConfig,
-		Params:        params,
+		ClientSet:        config.ClientSet,
+		ClusterConfig:    config.ClusterConfig,
+		Params:           params,
+		TemplateProvider: config.TemplateProvider,
 	}
 }
 

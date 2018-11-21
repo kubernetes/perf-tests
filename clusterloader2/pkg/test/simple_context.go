@@ -36,13 +36,14 @@ type simpleContext struct {
 }
 
 func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.State) Context {
+	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestConfigPath))
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		framework:           f,
 		state:               s,
-		templateProvider:    config.NewTemplateProvider(filepath.Dir(c.TestConfigPath)),
+		templateProvider:    templateProvider,
 		tuningSetFactory:    tuningset.NewTuningSetFactory(),
-		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet(), &c.ClusterConfig),
+		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet(), &c.ClusterConfig, templateProvider),
 	}
 }
 

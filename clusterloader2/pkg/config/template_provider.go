@@ -151,6 +151,15 @@ func (tp *TemplateProvider) TemplateToConfig(path string, mapping map[string]int
 	return convertToConfig(b)
 }
 
+// TemplateInto decodes template specified by the given path into given structure.
+func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interface{}, obj interface{}) error {
+	b, err := tp.getMappedTemplate(path, mapping)
+	if err != nil {
+		return err
+	}
+	return decodeInto(b, obj)
+}
+
 // GetOverridesMapping returns mapping from file specified by the given path.
 func GetOverridesMapping(path string) (map[string]interface{}, error) {
 	var mapping map[string]interface{}

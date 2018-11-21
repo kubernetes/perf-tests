@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +45,11 @@ const (
 
 // ResourceUsageSummary represents summary of resource usage per container.
 type ResourceUsageSummary map[string][]util.SingleContainerSummary
+
+// Get returns collection of SingleContainerSummaries for given percentile.
+func (r *ResourceUsageSummary) Get(perc string) []util.SingleContainerSummary {
+	return (*r)[perc]
+}
 
 // ContainerResourceGatherer gathers resource metrics from containers.
 type ContainerResourceGatherer struct {
@@ -163,9 +167,7 @@ func (g *ContainerResourceGatherer) StartGatheringData() {
 
 // StopAndSummarize stops stat gathering workers, processes the collected stats,
 // generates resource summary for the passed-in percentiles, and returns the summary.
-// It returns an error if the resource usage at any percentile is beyond the
-// specified resource constraints.
-func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int, constraints map[string]util.ResourceConstraint) (*ResourceUsageSummary, error) {
+func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*ResourceUsageSummary, error) {
 	g.stop()
 	glog.Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
 	finished := make(chan struct{})
@@ -204,7 +206,6 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int, constrai
 		sortedKeys = append(sortedKeys, name)
 	}
 	sort.Strings(sortedKeys)
-	violatedConstraints := make([]string, 0)
 	summary := make(ResourceUsageSummary)
 	for _, perc := range percentiles {
 		for _, name := range sortedKeys {
@@ -214,37 +215,7 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int, constrai
 				Cpu:  usage.CPUUsageInCores,
 				Mem:  usage.MemoryWorkingSetInBytes,
 			})
-			// Verifying 99th percentile of resource usage
-			if perc == 99 {
-				// Name has a form: <pod_name>/<container_name>
-				containerName := strings.Split(name, "/")[1]
-				if constraint, ok := constraints[containerName]; ok {
-					if usage.CPUUsageInCores > constraint.CPUConstraint {
-						violatedConstraints = append(
-							violatedConstraints,
-							fmt.Sprintf("Container %v is using %v/%v CPU",
-								name,
-								usage.CPUUsageInCores,
-								constraint.CPUConstraint,
-							),
-						)
-					}
-					if usage.MemoryWorkingSetInBytes > constraint.MemoryConstraint {
-						violatedConstraints = append(
-							violatedConstraints,
-							fmt.Sprintf("Container %v is using %v/%v MB of memory",
-								name,
-								float64(usage.MemoryWorkingSetInBytes)/(1024*1024),
-								float64(constraint.MemoryConstraint)/(1024*1024),
-							),
-						)
-					}
-				}
-			}
 		}
-	}
-	if len(violatedConstraints) > 0 {
-		return &summary, fmt.Errorf(strings.Join(violatedConstraints, "\n"))
 	}
 	return &summary, nil
 }

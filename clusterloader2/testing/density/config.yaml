@@ -3,6 +3,7 @@
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
+{{$DENSITY_RESOURCE_CONSTRAINTS_FILE := DefaultParam .DENSITY_RESOURCE_CONSTRAINTS_FILE ""}}
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$TEST_THROUGHPUT := DefaultParam .TEST_THROUGHPUT 20}}
@@ -40,6 +41,7 @@ steps:
     Method: TestMetrics
     Params:
       action: start
+      resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
 # Create saturation pods
 - measurements:
   - Identifier: WaitForRunningSaturationRCs

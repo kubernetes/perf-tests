@@ -39,6 +39,7 @@ type MeasurementConfig struct {
 type Measurement interface {
 	Execute(config *MeasurementConfig) ([]Summary, error)
 	Dispose()
+	String() string
 }
 
 type createMeasurementFunc func() Measurement

@@ -37,25 +37,25 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	var metrics testMetrics
 	var err error
 	if metrics.etcdMetrics, err = measurement.CreateMeasurement("EtcdMetrics"); err != nil {
-		glog.Errorf("TestMetrics: etcdMetrics creation error: %v", err)
+		glog.Errorf("%s: etcdMetrics creation error: %v", metrics, err)
 	}
 	if metrics.schedulingMetrics, err = measurement.CreateMeasurement("SchedulingMetrics"); err != nil {
-		glog.Errorf("TestMetrics: schedulingMetrics creation error: %v", err)
+		glog.Errorf("%s: schedulingMetrics creation error: %v", metrics, err)
 	}
 	if metrics.metricsForE2E, err = measurement.CreateMeasurement("MetricsForE2E"); err != nil {
-		glog.Errorf("TestMetrics: metricsForE2E creation error: %v", err)
+		glog.Errorf("%s: metricsForE2E creation error: %v", metrics, err)
 	}
 	if metrics.resourceUsageSummary, err = measurement.CreateMeasurement("ResourceUsageSummary"); err != nil {
-		glog.Errorf("TestMetrics: resourceUsageSummary creation error: %v", err)
+		glog.Errorf("%s: resourceUsageSummary creation error: %v", metrics, err)
 	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		glog.Errorf("TestMetrics: apiserverCPUProfile creation error: %v", err)
+		glog.Errorf("%s: apiserverCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.apiserverMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		glog.Errorf("TestMetrics: apiserverMemoryProfile creation error: %v", err)
+		glog.Errorf("%s: apiserverMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.schedulerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		glog.Errorf("TestMetrics: schedulerMemoryProfile creation error: %v", err)
+		glog.Errorf("%s: schedulerMemoryProfile creation error: %v", metrics, err)
 	}
 	return &metrics
 }
@@ -124,7 +124,7 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	}
 
 	if !errList.IsEmpty() {
-		glog.Errorf("%s: %v", testMetricsMeasurementName, errList.String())
+		glog.Errorf("%s: %v", t, errList.String())
 		return summaries, errList
 	}
 	return summaries, nil
@@ -139,6 +139,11 @@ func (t *testMetrics) Dispose() {
 	t.apiserverCPUProfile.Dispose()
 	t.apiserverMemoryProfile.Dispose()
 	t.schedulerMemoryProfile.Dispose()
+}
+
+// String returns a string representation of the measurement.
+func (*testMetrics) String() string {
+	return testMetricsMeasurementName
 }
 
 func createConfig(config *measurement.MeasurementConfig, overrides map[string]interface{}) *measurement.MeasurementConfig {

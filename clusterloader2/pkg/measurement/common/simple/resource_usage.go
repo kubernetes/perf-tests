@@ -78,7 +78,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 			nodesSet = gatherers.AllNodes
 		}
 
-		glog.Infof("%v: starting resource usage collecting...", resourceUsageMetricName)
+		glog.Infof("%s: starting resource usage collecting...", e)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSet, provider, host, gatherers.ResourceGathererOptions{
 			InKubemark:                  strings.ToLower(provider) == "kubemark",
 			Nodes:                       nodesSet,
@@ -93,11 +93,11 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		return summaries, nil
 	case "gather":
 		if e.gatherer == nil {
-			glog.Infof("%s: gatherer not initialized", resourceUsageMetricName)
+			glog.Infof("%s: gatherer not initialized", e)
 			return summaries, nil
 		}
 		// TODO(krzysied): Add suppport for resource constraints.
-		glog.Infof("%v, gathering resource usage...", resourceUsageMetricName)
+		glog.Infof("%s: gathering resource usage...", e)
 		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100}, make(map[string]measurementutil.ResourceConstraint))
 		if err != nil {
 			return summaries, err
@@ -117,6 +117,11 @@ func (e *resourceUsageMetricMeasurement) Dispose() {
 	if e.gatherer != nil {
 		e.gatherer.Dispose()
 	}
+}
+
+// String returns string representation of this measurement.
+func (*resourceUsageMetricMeasurement) String() string {
+	return resourceUsageMetricName
 }
 
 type resourceUsageSummary gatherers.ResourceUsageSummary

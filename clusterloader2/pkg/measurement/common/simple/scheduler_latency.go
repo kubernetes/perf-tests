@@ -54,7 +54,7 @@ type schedulerLatencyMeasurement struct{}
 // Execute supports two actions:
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
-func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
@@ -75,10 +75,10 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 
 	switch action {
 	case "reset":
-		glog.Infof("Resetting latency metrics in scheduler...")
-		return summaries, resetSchedulerMetrics(config.ClientSet, provider, masterIP, masterName)
+		glog.Infof("%s: resetting latency metrics in scheduler...", s)
+		return summaries, s.resetSchedulerMetrics(config.ClientSet, provider, masterIP, masterName)
 	case "gather":
-		return getSchedulingLatency(config.ClientSet, provider, masterIP, masterName)
+		return s.getSchedulingLatency(config.ClientSet, provider, masterIP, masterName)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}
@@ -87,8 +87,13 @@ func (*schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfi
 // Dispose cleans up after the measurement.
 func (*schedulerLatencyMeasurement) Dispose() {}
 
-func resetSchedulerMetrics(c clientset.Interface, provider, host, masterName string) error {
-	_, err := sendRequestToScheduler(c, "DELETE", provider, host, masterName)
+// String returns string representation of this measurement.
+func (*schedulerLatencyMeasurement) String() string {
+	return schedulerLatencyMetricName
+}
+
+func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, provider, host, masterName string) error {
+	_, err := s.sendRequestToScheduler(c, "DELETE", provider, host, masterName)
 	if err != nil {
 		return err
 	}
@@ -96,10 +101,10 @@ func resetSchedulerMetrics(c clientset.Interface, provider, host, masterName str
 }
 
 // Retrieves scheduler latency metrics.
-func getSchedulingLatency(c clientset.Interface, provider, host, masterName string) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, provider, host, masterName string) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	result := schedulingMetrics{}
-	data, err := sendRequestToScheduler(c, "GET", provider, host, masterName)
+	data, err := s.sendRequestToScheduler(c, "GET", provider, host, masterName)
 	if err != nil {
 		return summaries, err
 	}
@@ -141,7 +146,7 @@ func getSchedulingLatency(c clientset.Interface, provider, host, masterName stri
 }
 
 // Sends request to kube scheduler metrics
-func sendRequestToScheduler(c clientset.Interface, op, provider, host, masterName string) (string, error) {
+func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, provider, host, masterName string) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")
@@ -180,7 +185,7 @@ func sendRequestToScheduler(c clientset.Interface, op, provider, host, masterNam
 	} else {
 		// If master is not registered fall back to old method of using SSH.
 		if provider == "gke" {
-			glog.Infof("Not grabbing scheduler metrics through master SSH: unsupported for gke")
+			glog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
 			return "", nil
 		}
 

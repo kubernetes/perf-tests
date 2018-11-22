@@ -104,7 +104,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	// Grab apiserver, scheduler, controller-manager metrics and (optionally) nodes' kubelet metrics.
 	received, err := grabber.Grab()
 	if err != nil {
-		glog.Infof("MetricsGrabber failed to grab some of the metrics: %v", err)
+		glog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
 	}
 	summaries = append(summaries, (*metricsForE2E)(&received))
 	return summaries, nil
@@ -112,6 +112,11 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 
 // Dispose cleans up after the measurement.
 func (m *metricsForE2EMeasurement) Dispose() {}
+
+// String returns string representation of this measurement.
+func (*metricsForE2EMeasurement) String() string {
+	return metricsForE2EName
+}
 
 type metricsForE2E metrics.MetricsCollection
 

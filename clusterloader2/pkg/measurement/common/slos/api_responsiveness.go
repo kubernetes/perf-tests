@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/common/model"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -83,7 +84,7 @@ func (*apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConf
 			return summaries, err
 		}
 		summary, err := apiserverMetricsGather(config.ClientSet, nodeCount)
-		if err == nil || measurement.IsMetricViolationError(err) {
+		if err == nil || errors.IsMetricViolationError(err) {
 			summaries = append(summaries, summary)
 		}
 		return summaries, err
@@ -141,7 +142,7 @@ func apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.S
 		}
 	}
 	if badMetrics > 0 {
-		return metrics, measurement.NewMetricViolationError("top latency metric", "there should be no high-latency requests")
+		return metrics, errors.NewMetricViolationError("top latency metric", "there should be no high-latency requests")
 	}
 	return metrics, nil
 }

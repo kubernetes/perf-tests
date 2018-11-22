@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -113,9 +113,9 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
-func (f *Framework) DeleteAutomanagedNamespaces() *util.ErrorList {
+func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 	var wg wait.Group
-	errList := util.NewErrorList()
+	errList := errors.NewErrorList()
 	for i := 1; i <= f.automanagedNamespaceCount; i++ {
 		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
 		wg.Start(func() {

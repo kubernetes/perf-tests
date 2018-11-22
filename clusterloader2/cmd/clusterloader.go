@@ -127,7 +127,8 @@ func main() {
 	for _, clusterLoaderConfig.TestConfigPath = range testConfigPaths {
 		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
 		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
-			glog.Fatalf("Test execution failed: %v", errList.String())
+			glog.Errorf("Test execution failed: %v", errList.String())
+			continue
 		}
 		glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
 	}

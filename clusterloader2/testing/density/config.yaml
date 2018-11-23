@@ -13,7 +13,7 @@
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
-{{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
+{{$latencyReplicas := .Nodes}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
 {{$saturationRCTimeout := DivideFloat $totalPods $TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
 
@@ -61,7 +61,8 @@ steps:
     Params:
       action: gather
 - name: Creating saturation pods
-# Create latency pods
+# TODO: Change this explicite iterations when pod startup problem is fixed!
+# Create latency pods 1
 - measurements:
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
@@ -83,7 +84,7 @@ steps:
     replicasPerNamespace: {{$latencyReplicas}}
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-pod-rc
+    - basename: latency-pod-rc-1
       objectTemplatePath: rc.yaml
       templateFillMap:
         Replicas: 1
@@ -94,7 +95,7 @@ steps:
     Params:
       action: gather
 - name: Creating latency pods
-# Remove latency pods
+# Remove latency pods 1
 - phases:
   - namespaceRange:
       min: 1
@@ -102,7 +103,143 @@ steps:
     replicasPerNamespace: 0
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-pod-rc
+    - basename: latency-pod-rc-1
+      objectTemplatePath: rc.yaml
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Create latency pods 2
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$latencyReplicas}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-2
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Creating latency pods
+# Remove latency pods 2
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-2
+      objectTemplatePath: rc.yaml
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Create latency pods 3
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$latencyReplicas}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-3
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Creating latency pods
+# Remove latency pods 3
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-3
+      objectTemplatePath: rc.yaml
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Create latency pods 4
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$latencyReplicas}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-4
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Creating latency pods
+# Remove latency pods 4
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-4
+      objectTemplatePath: rc.yaml
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Create latency pods 5
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$latencyReplicas}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-5
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Creating latency pods
+# Remove latency pods 5
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-pod-rc-5
       objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: WaitForRunningLatencyRCs

@@ -18,10 +18,12 @@ package simple
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/gatherers"
@@ -37,11 +39,14 @@ func init() {
 }
 
 func createResourceUsageMetricMeasurement() measurement.Measurement {
-	return &resourceUsageMetricMeasurement{}
+	return &resourceUsageMetricMeasurement{
+		resourceConstraints: make(map[string]*measurementutil.ResourceConstraint),
+	}
 }
 
 type resourceUsageMetricMeasurement struct {
-	gatherer *gatherers.ContainerResourceGatherer
+	gatherer            *gatherers.ContainerResourceGatherer
+	resourceConstraints map[string]*measurementutil.ResourceConstraint
 }
 
 // Execute supports two actions:
@@ -68,6 +73,23 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if err != nil {
 			return summaries, err
 		}
+		constraintsPath, err := util.GetStringOrDefault(config.Params, "resourceConstraints", "")
+		if err != nil {
+			return summaries, err
+		}
+		if constraintsPath != "" {
+			mapping := make(map[string]interface{})
+			mapping["Nodes"] = config.ClusterConfig.Nodes
+			config.TemplateProvider.TemplateInto(constraintsPath, mapping, &e.resourceConstraints)
+			for _, constraint := range e.resourceConstraints {
+				if constraint.CPUConstraint == 0 {
+					constraint.CPUConstraint = math.MaxFloat64
+				}
+				if constraint.MemoryConstraint == 0 {
+					constraint.MemoryConstraint = math.MaxUint64
+				}
+			}
+		}
 		var nodesSet gatherers.NodesSet
 		switch nodeMode {
 		case "master":
@@ -93,19 +115,18 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		return summaries, nil
 	case "gather":
 		if e.gatherer == nil {
-			glog.Infof("%s: gatherer not initialized", e)
+			glog.Errorf("%s: gatherer not initialized", e)
 			return summaries, nil
 		}
-		// TODO(krzysied): Add suppport for resource constraints.
 		glog.Infof("%s: gathering resource usage...", e)
-		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100}, make(map[string]measurementutil.ResourceConstraint))
+		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100})
 		if err != nil {
 			return summaries, err
 		}
-
+		err = e.verifySummary(summary)
 		resourceSummary := resourceUsageSummary(*summary)
 		summaries := append(summaries, &resourceSummary)
-		return summaries, nil
+		return summaries, err
 
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
@@ -122,6 +143,42 @@ func (e *resourceUsageMetricMeasurement) Dispose() {
 // String returns string representation of this measurement.
 func (*resourceUsageMetricMeasurement) String() string {
 	return resourceUsageMetricName
+}
+
+func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.ResourceUsageSummary) error {
+	violatedConstraints := make([]string, 0)
+	for _, containerSummary := range summary.Get("99") {
+		containerName := strings.Split(containerSummary.Name, "/")[1]
+		if constraint, ok := e.resourceConstraints[containerName]; ok {
+			if containerSummary.Cpu > constraint.CPUConstraint {
+				violatedConstraints = append(
+					violatedConstraints,
+					fmt.Sprintf("container %v is using %v/%v CPU",
+						containerSummary.Name,
+						containerSummary.Cpu,
+						constraint.CPUConstraint,
+					),
+				)
+			}
+			if containerSummary.Mem > constraint.MemoryConstraint {
+				violatedConstraints = append(
+					violatedConstraints,
+					fmt.Sprintf("container %v is using %v/%v MB of memory",
+						containerSummary.Name,
+						float64(containerSummary.Mem)/(1024*1024),
+						float64(constraint.MemoryConstraint)/(1024*1024),
+					),
+				)
+			}
+		}
+	}
+	if len(violatedConstraints) > 0 {
+		for i := range violatedConstraints {
+			glog.Errorf("%s: violation: %s", e, violatedConstraints[i])
+		}
+		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated", len(violatedConstraints)))
+	}
+	return nil
 }
 
 type resourceUsageSummary gatherers.ResourceUsageSummary

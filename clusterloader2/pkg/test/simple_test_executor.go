@@ -19,7 +19,6 @@ package test
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path"
 	"time"
 
@@ -159,17 +158,14 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			instancesStates = append(instancesStates, instances)
 		}
 
-		// Calculating maximal replica count of objects from object bundle.
-		var maxCurrentReplicaCount int32
-		for j := range instancesStates {
-			if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
-				maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
-			}
+		if err := verifyBundleCorrectness(instancesStates); err != nil {
+			glog.Errorf("Skipping phase. Incorrect bundle in phase: %+v", *phase)
+			return errors.NewErrorList(err)
 		}
 
 		// Deleting objects with index greater or equal requested replicas per namespace number.
 		// Objects will be deleted in reversed order.
-		for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
+		for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < instancesStates[0].CurrentReplicaCount; replicaCounter++ {
 			replicaIndex := replicaCounter
 			actions = append(actions, func() {
 				for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
@@ -182,39 +178,36 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			})
 		}
 
-		// Calculating minimal replica count of objects from object bundle.
-		// If there is update operation to be executed, minimal replica count is set to zero.
-		minCurrentReplicaCount := int32(math.MaxInt32)
-		for j := range instancesStates {
-			if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
-				minCurrentReplicaCount = 0
-				break
-			}
-			if instancesStates[j].CurrentReplicaCount < minCurrentReplicaCount {
-				minCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
-			}
-		}
-		// Handling for update/create objects.
-		for replicaCounter := minCurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
-			replicaIndex := replicaCounter
-			actions = append(actions, func() {
-				for j := range phase.ObjectBundle {
-					if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+		// Updating objects when desired replicas per namespace equals current replica count.
+		if instancesStates[0].CurrentReplicaCount == phase.ReplicasPerNamespace {
+			for replicaCounter := int32(0); replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+				replicaIndex := replicaCounter
+				actions = append(actions, func() {
+					for j := range phase.ObjectBundle {
 						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
 							errList.Concat(objectErrList)
 							// If error then skip this bundle
 							break
 						}
-					} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
-							errList.Concat(objectErrList)
-							// If error then skip this bundle
-							break
-						}
+					}
+				})
+			}
+		}
+
+		// Adding objects with index greater than current replica count and lesser than desired replicas per namespace.
+		for replicaCounter := instancesStates[0].CurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+			replicaIndex := replicaCounter
+			actions = append(actions, func() {
+				for j := range phase.ObjectBundle {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+						errList.Concat(objectErrList)
+						// If error then skip this bundle
+						break
 					}
 				}
 			})
 		}
+
 		// Updating state (CurrentReplicaCount) of every object in object bundle.
 		defer func() {
 			for j := range phase.ObjectBundle {
@@ -272,6 +265,23 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		}
 	}
 	return errList
+}
+
+// verifyBundleCorrectness checks if all bundle objects have the same replica count.
+func verifyBundleCorrectness(instancesStates []*state.InstancesState) error {
+	const uninitialized int32 = -1
+	expectedReplicaCount := uninitialized
+	for j := range instancesStates {
+		if expectedReplicaCount != uninitialized && instancesStates[j].CurrentReplicaCount != expectedReplicaCount {
+			return fmt.Errorf("bundle error: %s has %d replicas while %s has %d",
+				instancesStates[j].Object.Basename,
+				instancesStates[j].CurrentReplicaCount,
+				instancesStates[j-1].Object.Basename,
+				instancesStates[j-1].CurrentReplicaCount)
+		}
+		expectedReplicaCount = instancesStates[j].CurrentReplicaCount
+	}
+	return nil
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {

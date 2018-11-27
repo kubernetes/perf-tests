@@ -124,12 +124,17 @@ func main() {
 		glog.Errorf("Nodes info logging error: %v", err)
 	}
 
+	failedTests := 0
 	for _, clusterLoaderConfig.TestConfigPath = range testConfigPaths {
 		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
 		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
+			failedTests++
 			glog.Errorf("Test execution failed: %v", errList.String())
 			continue
 		}
 		glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
+	}
+	if failedTests > 0 {
+		glog.Fatalf("%d tests failed", failedTests)
 	}
 }

@@ -18,7 +18,6 @@ package test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -50,17 +49,6 @@ func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderCo
 	}
 	if Test == nil {
 		return errors.NewErrorList(fmt.Errorf("no Test installed"))
-	}
-
-	if clusterLoaderConfig.ReportDir != "" {
-		if _, err := os.Stat(clusterLoaderConfig.ReportDir); err != nil {
-			if !os.IsNotExist(err) {
-				return errors.NewErrorList(err)
-			}
-			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
-				return errors.NewErrorList(fmt.Errorf("report directory creation error: %v", err))
-			}
-		}
 	}
 
 	ctx := CreateContext(clusterLoaderConfig, f, state.NewState())

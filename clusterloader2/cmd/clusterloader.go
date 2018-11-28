@@ -20,8 +20,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
+	"time"
 
 	"github.com/golang/glog"
+	ginkgoconfig "github.com/onsi/ginkgo/config"
+	ginkgoreporters "github.com/onsi/ginkgo/reporters"
+	ginkgotypes "github.com/onsi/ginkgo/types"
 	"github.com/spf13/pflag"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -101,6 +106,20 @@ func completeConfig(f *framework.Framework) error {
 	return nil
 }
 
+func createReportDir() error {
+	if clusterLoaderConfig.ReportDir != "" {
+		if _, err := os.Stat(clusterLoaderConfig.ReportDir); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
+				return fmt.Errorf("report directory creation error: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
 func main() {
 	defer glog.Flush()
 	initFlags()
@@ -120,16 +139,44 @@ func main() {
 		glog.Fatalf("Config completing error: %v", err)
 	}
 
+	if err = createReportDir(); err != nil {
+		glog.Fatalf("Cannot create report directory: %v", err)
+	}
+
 	if err = util.LogClusterNodes(f.GetClientSet()); err != nil {
 		glog.Errorf("Nodes info logging error: %v", err)
 	}
 
+	suiteSummary := &ginkgotypes.SuiteSummary{
+		SuiteDescription:           "ClusterLoaderV2",
+		NumberOfSpecsThatWillBeRun: len(testConfigPaths),
+	}
+	junitReporter := ginkgoreporters.NewJUnitReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"))
+	junitReporter.SpecSuiteWillBegin(ginkgoconfig.GinkgoConfig, suiteSummary)
+	testsStart := time.Now()
 	for _, clusterLoaderConfig.TestConfigPath = range testConfigPaths {
+		testStart := time.Now()
+		specSummary := &ginkgotypes.SpecSummary{
+			ComponentTexts: []string{suiteSummary.SuiteDescription, clusterLoaderConfig.TestConfigPath},
+		}
 		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
 		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
+			suiteSummary.NumberOfFailedSpecs++
+			specSummary.State = ginkgotypes.SpecStateFailed
+			specSummary.Failure = ginkgotypes.SpecFailure{
+				Message: errList.String(),
+			}
 			glog.Errorf("Test execution failed: %v", errList.String())
-			continue
+		} else {
+			specSummary.State = ginkgotypes.SpecStatePassed
+			glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
 		}
-		glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
+		specSummary.RunTime = time.Since(testStart)
+		junitReporter.SpecDidComplete(specSummary)
+	}
+	suiteSummary.RunTime = time.Since(testsStart)
+	junitReporter.SpecSuiteDidEnd(suiteSummary)
+	if suiteSummary.NumberOfFailedSpecs > 0 {
+		glog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
 	}
 }

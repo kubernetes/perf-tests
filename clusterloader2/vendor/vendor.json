@@ -339,6 +339,30 @@
 			"revisionTime": "2018-07-18T01:23:57Z"
 		},
 		{
+			"checksumSHA1": "U1qv6onr8N65kkac/cTKECbcgXc=",
+			"path": "github.com/onsi/ginkgo/config",
+			"revision": "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f",
+			"revisionTime": "2018-11-21T17:19:17Z"
+		},
+		{
+			"checksumSHA1": "cg8OQr1vTYcb6SAmUtl2jw04LXo=",
+			"path": "github.com/onsi/ginkgo/reporters",
+			"revision": "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f",
+			"revisionTime": "2018-11-21T17:19:17Z"
+		},
+		{
+			"checksumSHA1": "jB2ZheFRNbdaT8goyzoCmXs050I=",
+			"path": "github.com/onsi/ginkgo/reporters/stenographer",
+			"revision": "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f",
+			"revisionTime": "2018-11-21T17:19:17Z"
+		},
+		{
+			"checksumSHA1": "+79KLs2MAj530oYIk/LmBTs2ahE=",
+			"path": "github.com/onsi/ginkgo/types",
+			"revision": "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f",
+			"revisionTime": "2018-11-21T17:19:17Z"
+		},
+		{
 			"checksumSHA1": "amsJse38+uT7Z7UkvtMzVefgZOM=",
 			"path": "github.com/pelletier/go-toml",
 			"revision": "c2dbbc24a97911339e01bda0b8cabdbd8f13b602",

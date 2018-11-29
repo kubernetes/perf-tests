@@ -1,0 +1,25 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
+			"path": "github.com/golang/glog",
+			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+			"revisionTime": "2016-01-25T20:49:56Z"
+		},
+		{
+			"checksumSHA1": "ZSWoOPUNRr5+3dhkLK3C4cZAQPk=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "5420a8b6744d3b0345ab293f6fcba19c978f1183",
+			"revisionTime": "2018-03-28T19:50:20Z"
+		},
+		{
+			"checksumSHA1": "aqxUxqQlqKmA5rIq86AA2B47Oso=",
+			"path": "k8s.io/kubernetes/test/e2e/perftype",
+			"revision": "50e02fd0cc476dd28ed44784d23107b7050c6239",
+			"revisionTime": "2018-11-20T00:25:42Z"
+		}
+	],
+	"rootPath": "k8s.io/perf-tests/dns/jsonify"
+}

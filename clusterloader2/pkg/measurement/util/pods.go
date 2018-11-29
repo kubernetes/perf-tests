@@ -32,6 +32,7 @@ type PodsStartupStatus struct {
 	Expected           int
 	Terminating        int
 	Running            int
+	Scheduled          int
 	RunningButNotReady int
 	Waiting            int
 	Pending            int
@@ -81,6 +82,9 @@ func ComputePodsStartupStatus(pods []*corev1.Pod, expected int) PodsStartupStatu
 			startupStatus.Inactive++
 		} else if p.Status.Phase == corev1.PodUnknown {
 			startupStatus.Unknown++
+		}
+		if p.Spec.NodeName != "" {
+			startupStatus.Scheduled++
 		}
 	}
 	return startupStatus

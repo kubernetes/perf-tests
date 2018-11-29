@@ -64,8 +64,19 @@ steps:
         CpuRequest: 1m
         MemoryRequest: 10M
 - measurements:
+  - Identifier: ScheduleThroughput
+    Method: ScheduleThroughput
+    Params:
+      action: start
+      labelSelector: group = saturation
+- measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- measurements:
+  - Identifier: ScheduleThroughput
+    Method: ScheduleThroughput
     Params:
       action: gather
 - name: Creating saturation pods

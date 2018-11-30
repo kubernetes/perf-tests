@@ -107,7 +107,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 		glog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
 	}
 	summaries = append(summaries, (*metricsForE2E)(&received))
-	return summaries, nil
+	return summaries, err
 }
 
 // Dispose cleans up after the measurement.

@@ -236,6 +236,10 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	return nil
 }
 
+// handleObject manages checker for given controlling pod object.
+// This function does not return errors only logs them. All possible errors will be caught in gather function.
+// If this function does not executes correctly, verifying number of running pods will fail,
+// causing incorrect objects number error to be returned.
 func (w *waitForControlledPodsRunningMeasurement) handleObject(c clientset.Interface, oldObj, newObj interface{}) {
 	var oldRuntimeObj runtime.Object
 	var newRuntimeObj runtime.Object

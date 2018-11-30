@@ -17,15 +17,23 @@ on Debian-based systems or with `pip install`.
 For CoreDNS:
 
 ``` sh
+$ ./run core-dns out
+```
+or
+``` sh
 $ mkdir out/                                        # output directory
-$ ./run --dns-server coredns --params params/coredns/default.yaml --out-dir out  # run the perf test
+$ python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir out  # run the perf test
 ```
 
 For kube-dns:
 
 ``` sh
+$ ./run kube-dns out
+```
+or
+``` sh
 $ mkdir out/                                        # output directory
-$ ./run --params params/kubedns/default.yaml --out-dir out  # run the perf test
+$ python py/run_perf.py --params params/kubedns/default.yaml --out-dir out  # run the perf test
 ```
 
 

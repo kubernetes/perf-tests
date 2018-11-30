@@ -40,7 +40,7 @@ type TestDescription struct {
 }
 
 // TestDescriptions is a map job->component->description.
-type TestDescriptions map[string]map[string]TestDescription
+type TestDescriptions map[string]map[string][]TestDescription
 
 // Tests is a map from test label to test description.
 type Tests struct {
@@ -60,108 +60,108 @@ var (
 	// e2e test
 	performanceDescriptions = TestDescriptions{
 		"E2E": {
-			"DensityResources": {
+			"DensityResources": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
-			},
-			"DensityPodStartup": {
+			}},
+			"DensityPodStartup": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "PodStartupLatency",
 				Parser:           parseResponsivenessData,
-			},
-			"DensityTestPhaseTimer": {
+			}},
+			"DensityTestPhaseTimer": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "TestPhaseTimer",
 				Parser:           parseResponsivenessData,
-			},
-			"LoadResources": {
+			}},
+			"LoadResources": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
-			},
-			"LoadTestPhaseTimer": {
+			}},
+			"LoadTestPhaseTimer": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "TestPhaseTimer",
 				Parser:           parseResponsivenessData,
-			},
+			}},
 		},
 		"APIServer": {
-			"DensityResponsiveness": {
+			"DensityResponsiveness": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseResponsivenessData,
-			},
-			"DensityRequestCount": {
+			}},
+			"DensityRequestCount": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseRequestCountData,
-			},
-			"DensityRequestCountByClient": {
+			}},
+			"DensityRequestCountByClient": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
-			},
-			"LoadResponsiveness": {
+			}},
+			"LoadResponsiveness": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseResponsivenessData,
-			},
-			"LoadRequestCount": {
+			}},
+			"LoadRequestCount": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseRequestCountData,
-			},
-			"LoadRequestCountByClient": {
+			}},
+			"LoadRequestCountByClient": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
-			},
+			}},
 		},
 		"Scheduler": {
-			"SchedulingLatency": {
+			"SchedulingLatency": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "SchedulingMetrics",
 				Parser:           parseSchedulingLatency,
-			},
-			"SchedulingThroughput": {
+			}},
+			"SchedulingThroughput": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "SchedulingMetrics",
 				Parser:           pareseSchedulingThroughput,
-			},
+			}},
 		},
 		"Etcd": {
-			"BackendCommitDuration": {
+			"BackendCommitDuration": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("backendCommitDuration"),
-			},
-			"SnapshotSaveTotalDuration": {
+			}},
+			"SnapshotSaveTotalDuration": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
-			},
-			"PeerRoundTripTime": {
+			}},
+			"PeerRoundTripTime": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("peerRoundTripTime"),
-			},
-			"WalFsyncDuration": {
+			}},
+			"WalFsyncDuration": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("walFsyncDuration"),
-			},
+			}},
 		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf
 	benchmarkDescriptions = TestDescriptions{
 		"Scheduler": {
-			"BenchmarkResults": {
+			"BenchmarkResults": []TestDescription{{
 				Name:             "benchmark",
 				OutputFilePrefix: "BenchmarkResults",
 				Parser:           parseResponsivenessData,
-			},
+			}},
 		},
 	}
 

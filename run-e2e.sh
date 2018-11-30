@@ -40,18 +40,9 @@ case "$1" in
     cd ${PERFTEST_ROOT}/network/benchmarks/netperf/ && go run ./launch.go  --kubeConfig="${HOME}/.kube/config" --hostnetworking --iterations 1
     exit
     ;;
-  kube-dns )
-    #KUBE-DNS
-    cd ${PERFTEST_ROOT}/dns
-    mkdir out
-    ./run --params params/kubedns/default.yaml --out-dir out --use-cluster-dns
-    exit
-    ;;
-  core-dns )
-    #CORE-DNS
-    cd ${PERFTEST_ROOT}/dns
-    mkdir out
-    ./run --dns-server coredns --params params/coredns/default.yaml --out-dir out --use-cluster-dns
+  kube-dns|core-dns )
+    cd dns
+    ./run $@
     exit
     ;;
   --help | -h )

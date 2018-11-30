@@ -164,7 +164,7 @@ func createConfig(config *measurement.MeasurementConfig, overrides map[string]in
 
 func execute(m measurement.Measurement, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	if m == nil {
-		return nil, nil
+		return nil, fmt.Errorf("uninitialized metric")
 	}
 	return m.Execute(config)
 }

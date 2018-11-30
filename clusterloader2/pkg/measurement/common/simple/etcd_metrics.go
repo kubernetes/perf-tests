@@ -114,7 +114,7 @@ func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval
 			case <-time.After(interval):
 				dbSize, err := e.getEtcdDatabaseSize(provider, host)
 				if err != nil {
-					glog.Infof("%s: failed to collect etcd database size", e)
+					glog.Errorf("%s: failed to collect etcd database size", e)
 					continue
 				}
 				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)

@@ -39,6 +39,10 @@ import (
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/slos"
 )
 
+const (
+	dashLine = "--------------------------------------------------------------------------------"
+)
+
 var (
 	clusterLoaderConfig config.ClusterLoaderConfig
 	testConfigPaths     []string
@@ -120,6 +124,27 @@ func createReportDir() error {
 	return nil
 }
 
+func printTestStart(name string) {
+	glog.Infof(dashLine)
+	glog.Infof("Running %v", name)
+	glog.Infof(dashLine)
+}
+
+func printTestResult(name, status, errors string) {
+	logf := glog.Infof
+	if errors != "" {
+		logf = glog.Errorf
+	}
+	logf(dashLine)
+	logf("Test Finished")
+	logf("  Test: %v", name)
+	logf("  Status: %v", status)
+	if errors != "" {
+		logf("  Errors: %v", errors)
+	}
+	logf(dashLine)
+}
+
 func main() {
 	defer glog.Flush()
 	initFlags()
@@ -159,17 +184,17 @@ func main() {
 		specSummary := &ginkgotypes.SpecSummary{
 			ComponentTexts: []string{suiteSummary.SuiteDescription, clusterLoaderConfig.TestConfigPath},
 		}
-		glog.Infof("Running %v", clusterLoaderConfig.TestConfigPath)
+		printTestStart(clusterLoaderConfig.TestConfigPath)
 		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
 			suiteSummary.NumberOfFailedSpecs++
 			specSummary.State = ginkgotypes.SpecStateFailed
 			specSummary.Failure = ginkgotypes.SpecFailure{
 				Message: errList.String(),
 			}
-			glog.Errorf("Test execution failed: %v", errList.String())
+			printTestResult(clusterLoaderConfig.TestConfigPath, "Fail", errList.String())
 		} else {
 			specSummary.State = ginkgotypes.SpecStatePassed
-			glog.Infof("Test %v ran successfully!", clusterLoaderConfig.TestConfigPath)
+			printTestResult(clusterLoaderConfig.TestConfigPath, "Success", "")
 		}
 		specSummary.RunTime = time.Since(testStart)
 		junitReporter.SpecDidComplete(specSummary)

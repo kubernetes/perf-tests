@@ -80,7 +80,9 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if constraintsPath != "" {
 			mapping := make(map[string]interface{})
 			mapping["Nodes"] = config.ClusterConfig.Nodes
-			config.TemplateProvider.TemplateInto(constraintsPath, mapping, &e.resourceConstraints)
+			if err = config.TemplateProvider.TemplateInto(constraintsPath, mapping, &e.resourceConstraints); err != nil {
+				return summaries, fmt.Errorf("resource constraints reading error: %v", err)
+			}
 			for _, constraint := range e.resourceConstraints {
 				if constraint.CPUConstraint == 0 {
 					constraint.CPUConstraint = math.MaxFloat64

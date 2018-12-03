@@ -113,7 +113,7 @@ func GetBoolOrDefault(dict map[string]interface{}, key string, defaultValue bool
 
 func getString(dict map[string]interface{}, key string) (string, error) {
 	value, exists := dict[key]
-	if !exists {
+	if !exists || value == nil {
 		return "", &ErrKeyNotFound{key}
 	}
 

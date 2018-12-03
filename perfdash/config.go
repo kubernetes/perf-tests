@@ -124,11 +124,18 @@ var (
 				OutputFilePrefix: "SchedulingMetrics",
 				Parser:           parseSchedulingLatency,
 			}},
-			"SchedulingThroughput": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "SchedulingMetrics",
-				Parser:           pareseSchedulingThroughput,
-			}},
+			"SchedulingThroughput": []TestDescription{
+				{
+					Name:             "density",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL,
+				},
+				{
+					Name:             "density",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingThroughput,
+				},
+			},
 		},
 		"Etcd": {
 			"BackendCommitDuration": []TestDescription{{

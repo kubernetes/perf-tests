@@ -126,7 +126,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 						resultLock.Unlock()
 						testDescription.Parser(data, buildNumber, buildData)
 					}()
-                                        break
+					break
 				}
 			}
 		}

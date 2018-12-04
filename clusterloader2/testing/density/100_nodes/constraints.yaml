@@ -1,0 +1,24 @@
+coredns:
+  cpuConstraint: 0.05
+  memoryConstraint: 31457280 #30 * (1024 * 1024)
+fluentd-gcp:
+  cpuConstraint: 1
+  memoryConstraint: 241172480 #230 * (1024 * 1024)
+heapster:
+  cpuConstraint: 0.15
+  nemoryConstraint: 367001600 #350 * (1024 * 1024)
+kube-apiserver:
+  cpuConstraint: 1.7
+  memoryConstraint: 1048576000 #1000 * (1024 * 1024)
+kube-controller-manager:
+  cpuConstraint: 0.9
+  memoryConstraint: 262144000 #250 * (1024 * 1024)
+kube-proxy:
+  cpuConstraint: 0.05
+  memoryConstraint: 31457280 #30 * (1024 * 1024)
+kube-scheduler:
+  cpuConstraint: 0.25
+  memoryConstraint: 104857600 #100 * (1024 * 1024)
+l7-lb-controller:
+  cpuConstraint: 0.1
+  memoryConstraint: 83886080 #80 * (1024 * 1024)

@@ -23,6 +23,9 @@ if more than one test should be run.
 If not provided, test will assign the number of schedulable cluster nodes.
  - report-dir - path to directory, where summaries files should be stored.
 If not specified, summaries are printed to standard log.
+ - provider - Cluster provider, options are: gce, gke, kubemark, aws, local, vsphere, skeleton
+ - mastername - Name of the master node
+ - masterip - DNS Name / IP of the master node
 
 ## Tests
 

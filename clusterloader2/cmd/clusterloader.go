@@ -54,6 +54,7 @@ func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "", "Cluster provider")
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "", "Name of the masternode")
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.MasterIP, "masterip", "", "Hostname/IP of the masternode")
+	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.EtcdMetricsCmd, "etcd-metrics-cmd", "curl http://localhost:2379", "Command to get etcd prometheus metrics")
 }
 
 func validateClusterFlags() *errors.ErrorList {

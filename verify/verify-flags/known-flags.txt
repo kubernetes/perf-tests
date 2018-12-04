@@ -1,5 +1,6 @@
 comparison-scheme
 enable-output-coloring
+etcd-metrics-cmd
 kubernetes-url
 left-build-number
 left-job-name

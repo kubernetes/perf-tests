@@ -172,7 +172,6 @@ func execute(m measurement.Measurement, config *measurement.MeasurementConfig) (
 func appendResults(summaries *[]measurement.Summary, errList *errors.ErrorList, summaryResults []measurement.Summary, errResult error) {
 	if errResult != nil {
 		errList.Append(errResult)
-		return
 	}
 	*summaries = append(*summaries, summaryResults...)
 }

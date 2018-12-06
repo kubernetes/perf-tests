@@ -220,7 +220,10 @@ func getProwConfig() (Jobs, error) {
 			if strings.HasPrefix(tag, "perfDashJobType:") {
 				split := strings.SplitN(tag, ":", 2)
 				jobType := strings.TrimSpace(split[1])
-				thisPeriodicConfig.Descriptions = jobTypeToDescriptions[jobType]
+				var exists bool
+				if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
+					fmt.Fprintf(os.Stderr, "warning: unknown job type - %s\n", jobType)
+				}
 				continue
 			}
 			if strings.HasPrefix(tag, "perfDashBuildsCount:") {

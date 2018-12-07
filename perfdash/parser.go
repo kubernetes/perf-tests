@@ -224,7 +224,8 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
 }
 
-func pareseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildData) {
+// TODO(krzysied): remove this parsing when old density test is removed.
+func parseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj schedulingMetrics
@@ -237,6 +238,29 @@ func pareseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildD
 	perfData.Data["Perc90"] = obj.ThroughputPerc90
 	perfData.Data["Perc99"] = obj.ThroughputPerc99
 	perfData.Data["Average"] = obj.ThroughputAverage
+	testResult.Builds[build] = append(testResult.Builds[build], perfData)
+}
+
+type schedulingThroughputMetric struct {
+	Average float64 `json:"average"`
+	Perc50  float64 `json:"perc50"`
+	Perc90  float64 `json:"perc90"`
+	Perc99  float64 `json:"perc99"`
+}
+
+func parseSchedulingThroughputCL(data []byte, buildNumber int, testResult *BuildData) {
+	testResult.Version = "v1"
+	build := fmt.Sprintf("%d", buildNumber)
+	var obj schedulingThroughputMetric
+	if err := json.Unmarshal(data, &obj); err != nil {
+		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		return
+	}
+	perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{}, Data: make(map[string]float64)}
+	perfData.Data["Perc50"] = obj.Perc50
+	perfData.Data["Perc90"] = obj.Perc90
+	perfData.Data["Perc99"] = obj.Perc99
+	perfData.Data["Average"] = obj.Average
 	testResult.Builds[build] = append(testResult.Builds[build], perfData)
 }
 

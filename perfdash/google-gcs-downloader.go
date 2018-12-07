@@ -96,35 +96,38 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 	for buildNumber := lastBuildNo; buildNumber > lastBuildNo-buildsToFetch && buildNumber > 0; buildNumber-- {
 		fmt.Printf("Fetching %s build %v...\n", job, buildNumber)
 		for categoryLabel, categoryMap := range tests.Descriptions {
-			for testLabel, testDescription := range categoryMap {
-				fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
-				artifacts, err := g.GoogleGCSBucketUtils.ListFilesInBuild(job, buildNumber, fileStem)
-				if err != nil || len(artifacts) == 0 {
-					fmt.Printf("Error while looking for %s* in %s build %v: %v\n", fileStem, job, buildNumber, err)
-					continue
-				}
-				metricsFilename := artifacts[0][strings.LastIndex(artifacts[0], "/")+1:]
-				if len(artifacts) > 1 {
-					fmt.Printf("WARNING: found multiple %s files with data, reading only one: %s\n", fileStem, metricsFilename)
-				}
-				testDataResponse, err := g.GoogleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, buildNumber, fmt.Sprintf("artifacts/%v", metricsFilename))
-				if err != nil {
-					panic(err)
-				}
-
-				func() {
-					testDataBody := testDataResponse.Body
-					defer testDataBody.Close()
-					data, err := ioutil.ReadAll(testDataBody)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
-						return
+			for testLabel, testDescriptions := range categoryMap {
+				for _, testDescription := range testDescriptions {
+					fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
+					artifacts, err := g.GoogleGCSBucketUtils.ListFilesInBuild(job, buildNumber, fileStem)
+					if err != nil || len(artifacts) == 0 {
+						fmt.Printf("Error while looking for %s* in %s build %v: %v\n", fileStem, job, buildNumber, err)
+						continue
 					}
-					resultLock.Lock()
-					buildData := result[tests.Prefix][categoryLabel][testLabel]
-					resultLock.Unlock()
-					testDescription.Parser(data, buildNumber, buildData)
-				}()
+					metricsFilename := artifacts[0][strings.LastIndex(artifacts[0], "/")+1:]
+					if len(artifacts) > 1 {
+						fmt.Printf("WARNING: found multiple %s files with data, reading only one: %s\n", fileStem, metricsFilename)
+					}
+					testDataResponse, err := g.GoogleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, buildNumber, fmt.Sprintf("artifacts/%v", metricsFilename))
+					if err != nil {
+						panic(err)
+					}
+
+					func() {
+						testDataBody := testDataResponse.Body
+						defer testDataBody.Close()
+						data, err := ioutil.ReadAll(testDataBody)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
+							return
+						}
+						resultLock.Lock()
+						buildData := result[tests.Prefix][categoryLabel][testLabel]
+						resultLock.Unlock()
+						testDescription.Parser(data, buildNumber, buildData)
+					}()
+					break
+				}
 			}
 		}
 	}

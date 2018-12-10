@@ -172,9 +172,35 @@ var (
 		},
 	}
 
+	dnsBenchmarkDescriptions = TestDescriptions{
+		"kube-dns": {
+			"Latency": []TestDescription{{
+				Name:             "kube-dns",
+				OutputFilePrefix: "Latency",
+				Parser:           parseResponsivenessData,
+			}},
+			"LatencyPerc": []TestDescription{{
+				Name:             "kube-dns",
+				OutputFilePrefix: "LatencyPerc",
+				Parser:           parseResponsivenessData,
+			}},
+			"Queries": []TestDescription{{
+				Name:             "kube-dns",
+				OutputFilePrefix: "Queries",
+				Parser:           parseResponsivenessData,
+			}},
+			"Qps": []TestDescription{{
+				Name:             "kube-dns",
+				OutputFilePrefix: "Qps",
+				Parser:           parseResponsivenessData,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance": performanceDescriptions,
-		"benchmark":   benchmarkDescriptions,
+		"performance":  performanceDescriptions,
+		"benchmark":    benchmarkDescriptions,
+		"dnsBenchmark": dnsBenchmarkDescriptions,
 	}
 
 	// TestConfig contains all the test PerfDash supports now. Downloader will download and

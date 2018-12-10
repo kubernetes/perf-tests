@@ -41,7 +41,7 @@ case "$1" in
     exit
     ;;
   kube-dns|core-dns )
-    cd dns
+    cd ${PERFTEST_ROOT}/dns
     ./run $@
     exit
     ;;

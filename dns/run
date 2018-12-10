@@ -20,6 +20,8 @@
 outDir=${2:-"out"}
 mkdir -p ${outDir}
 
+pip install numpy
+
 case "$1" in
   kube-dns )
     python py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns

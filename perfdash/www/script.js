@@ -165,6 +165,23 @@ function verifySelectedLabels(selectedLabels, allLabels) {
    return result;
 }
 
+function isEmptySet(obj) {
+    var count = 0;
+    for (k in obj) {
+        if (obj.hasOwnProperty(k)) {
+            count++;
+        }
+    }
+    if (count == 0) {
+         return true
+    }
+    if (count == 1) {
+         if (obj.hasOwnProperty("")) {
+             return true
+         }
+    }
+    return false
+}
 
 // Get the set of all labels (e.g. 'resources', 'verbs') in the data set
 PerfDashApp.prototype.getLabels = function() {
@@ -180,6 +197,11 @@ PerfDashApp.prototype.getLabels = function() {
         });
     });
 
+    angular.forEach(set, function(labels, name) {
+        if (isEmptySet(labels)) {
+            delete set[name]
+        }
+    });
     if (!verifySelectedLabels(this.selectedLabels, set)) {
         this.selectedLabels = {}
     }

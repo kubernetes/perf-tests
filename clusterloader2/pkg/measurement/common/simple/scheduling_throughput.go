@@ -133,7 +133,7 @@ func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error
 		return summaries, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
-	glog.Infof("%s: gathering data")
+	glog.Infof("%s: gathering data", s)
 
 	summary := &schedulingThroughput{}
 	if length := len(s.schedulingThroughputs); length > 0 {

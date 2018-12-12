@@ -204,7 +204,7 @@ func appendLatencyPerc(items []perftype.DataItem, labels map[string]string, resu
 
 func appendQueries(items []perftype.DataItem, labels map[string]string, result *BenchmarkResult) []perftype.DataItem {
 	return append(items, perftype.DataItem{
-		Unit:   "ms",
+		Unit:   "",
 		Labels: labels,
 		Data: map[string]float64{
 			"queries_completed": result.Data.QueriesCompleted,
@@ -216,7 +216,7 @@ func appendQueries(items []perftype.DataItem, labels map[string]string, result *
 
 func appendQps(items []perftype.DataItem, labels map[string]string, result *BenchmarkResult) []perftype.DataItem {
 	return append(items, perftype.DataItem{
-		Unit:   "ms",
+		Unit:   "1/s",
 		Labels: labels,
 		Data: map[string]float64{
 			"qps": result.Data.Qps,

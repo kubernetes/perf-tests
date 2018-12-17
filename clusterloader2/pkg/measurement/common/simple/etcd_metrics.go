@@ -77,10 +77,10 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		if err != nil {
 			return summaries, err
 		}
-		e.startCollecting(provider, host, waitTime)
+		e.startCollecting(host, provider, waitTime)
 		return summaries, nil
 	case "gather":
-		if err = e.stopAndSummarize(provider, host); err != nil {
+		if err = e.stopAndSummarize(host, provider); err != nil {
 			return summaries, err
 		}
 		summaries := append(summaries, e.metrics)
@@ -104,7 +104,7 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval time.Duration) {
+func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration) {
 	e.isRunning = true
 	e.wg.Add(1)
 	go func() {
@@ -112,7 +112,7 @@ func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval
 		for {
 			select {
 			case <-time.After(interval):
-				dbSize, err := e.getEtcdDatabaseSize(provider, host)
+				dbSize, err := e.getEtcdDatabaseSize(host, provider)
 				if err != nil {
 					glog.Errorf("%s: failed to collect etcd database size", e)
 					continue
@@ -125,10 +125,10 @@ func (e *etcdMetricsMeasurement) startCollecting(provider, host string, interval
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(provider, host)
+	samples, err := e.getEtcdMetrics(host, provider)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(provider, host string) error {
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(provider, host string) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
 		glog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", e)
@@ -164,8 +164,8 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(provider, host string) ([]*model
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(provider, host string) (float64, error) {
-	samples, err := e.getEtcdMetrics(provider, host)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider)
 	if err != nil {
 		return 0, err
 	}

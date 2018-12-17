@@ -92,8 +92,8 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, provider, host, masterName string) error {
-	_, err := s.sendRequestToScheduler(c, "DELETE", provider, host, masterName)
+func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string) error {
+	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName)
 	if err != nil {
 		return err
 	}
@@ -101,10 +101,10 @@ func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interfac
 }
 
 // Retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, provider, host, masterName string) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	result := schedulingMetrics{}
-	data, err := s.sendRequestToScheduler(c, "GET", provider, host, masterName)
+	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName)
 	if err != nil {
 		return summaries, err
 	}
@@ -146,7 +146,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 }
 
 // Sends request to kube scheduler metrics
-func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, provider, host, masterName string) (string, error) {
+func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")
@@ -189,10 +189,6 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 			return "", nil
 		}
 
-		host, err := measurementutil.GetMasterHost(host)
-		if err != nil {
-			return "", err
-		}
 		cmd := "curl -X " + opUpper + " http://localhost:10251/metrics"
 		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 		if err != nil || sshResult.Code != 0 {

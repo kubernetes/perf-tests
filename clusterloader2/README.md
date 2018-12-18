@@ -13,12 +13,15 @@ Flags kubeconfig and testconfig are necessary.
 #### Required
 
 These flags are required for any test to be run.
- - kubeconfig - path to the kubeconfig file.
+ - kubeconfig - path to the kubeconfig file. This flag is not required
+if kubemarkconfig flag is provided
  - testconfig - path to the test config file. This flag can be used multiple times
 if more than one test should be run.
 
 #### Optional
 
+ - kubemarkconfig - path to the kubemark config file. If provided clusterloader will use
+kubemark cluster instead of real cluster (even if kubeconfig is provided).
  - nodes - number of nodes in the cluster.
 If not provided, test will assign the number of schedulable cluster nodes.
  - report-dir - path to directory, where summaries files should be stored.

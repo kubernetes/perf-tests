@@ -76,9 +76,9 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	switch action {
 	case "reset":
 		glog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return summaries, s.resetSchedulerMetrics(config.ClientSet, provider, masterIP, masterName)
+		return summaries, s.resetSchedulerMetrics(config.ClientSet, masterIP, provider, masterName)
 	case "gather":
-		return s.getSchedulingLatency(config.ClientSet, provider, masterIP, masterName)
+		return s.getSchedulingLatency(config.ClientSet, masterIP, provider, masterName)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}

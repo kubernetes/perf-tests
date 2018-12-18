@@ -50,6 +50,7 @@ var (
 
 func initClusterFlags() {
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
+	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubemarkConfigPath, "kubemarkconfig", "", "Path to the kubemark config file")
 	pflag.IntVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", 0, "number of nodes")
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "", "Cluster provider")
 	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "", "Name of the masternode")
@@ -58,7 +59,7 @@ func initClusterFlags() {
 
 func validateClusterFlags() *errors.ErrorList {
 	errList := errors.NewErrorList()
-	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
+	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" && clusterLoaderConfig.ClusterConfig.KubemarkConfigPath == "" {
 		errList.Append(fmt.Errorf("no kubeconfig path specified"))
 	}
 	return errList
@@ -157,7 +158,11 @@ func main() {
 		glog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
-	f, err := framework.NewFramework(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+	configPath := clusterLoaderConfig.ClusterConfig.KubeConfigPath
+	if clusterLoaderConfig.ClusterConfig.KubemarkConfigPath != "" {
+		configPath = clusterLoaderConfig.ClusterConfig.KubemarkConfigPath
+	}
+	f, err := framework.NewFramework(configPath)
 	if err != nil {
 		glog.Fatalf("Framework creation error: %v", err)
 	}

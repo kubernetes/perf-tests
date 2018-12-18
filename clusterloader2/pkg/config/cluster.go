@@ -26,9 +26,10 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath string `json: kubeConfigPath`
-	Nodes          int    `json: nodes`
-	Provider       string `json: provider`
+	KubeConfigPath     string `json: kubeConfigPath`
+	KubemarkConfigPath string `json: kubemarkConfigPath`
+	Nodes              int    `json: nodes`
+	Provider           string `json: provider`
 	// TODO(krzysied): Add support for HA cluster with more than one master.
 	MasterIP   string `json: masterIP`
 	MasterName string `json: masterName`

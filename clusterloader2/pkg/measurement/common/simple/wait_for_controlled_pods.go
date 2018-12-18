@@ -33,6 +33,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -221,15 +222,30 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	w.handlingGroup.Wait()
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	numberRunning := 0
+	var numberRunning, numberTerminated, numberUnknown int
+	unknowStatusErrList := errors.NewErrorList()
 	for _, checker := range w.checkerMap {
-		if status := checker.getStatus(); status {
+		status, err := checker.getStatus()
+		switch status {
+		case running:
 			numberRunning++
+		case terminated:
+			numberTerminated++
+		default:
+			numberUnknown++
+			if err != nil {
+				unknowStatusErrList.Append(err)
+			}
 		}
 	}
+	glog.Infof("%s: running %d, terminated %d, unknown: %d", w, numberRunning, numberTerminated, numberUnknown)
 	if desiredCount != numberRunning {
 		glog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 		return fmt.Errorf("incorrect objects number")
+	}
+	if numberUnknown > 0 {
+		glog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
+		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
 	}
 
 	glog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
@@ -282,19 +298,16 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(c clientset.Inter
 	if err := w.deleteObjectLocked(c, oldRuntimeObj); err != nil {
 		glog.Errorf("%s: delete checker error: %v", w, err)
 	} else if newRuntimeObj == nil {
-		key, err := runtimeobjects.CreateMetaNamespaceKey(oldRuntimeObj)
-		if err != nil {
-			glog.Errorf("%s: meta key creation error: %v", w, err)
-			return
+		if err := w.handleObjectLocked(c, oldRuntimeObj, true); err != nil {
+			glog.Errorf("%s: create checker error: %v", w, err)
 		}
-		glog.Infof("%s: %v has been deleted", w, key)
 	}
-	if err := w.createObjectLocked(c, newRuntimeObj); err != nil {
+	if err := w.handleObjectLocked(c, newRuntimeObj, false); err != nil {
 		glog.Errorf("%s: create checker error: %v", w, err)
 	}
 }
 
-func (w *waitForControlledPodsRunningMeasurement) createObjectLocked(c clientset.Interface, obj runtime.Object) error {
+func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset.Interface, obj runtime.Object, isDeleted bool) error {
 	if obj == nil {
 		return nil
 	}
@@ -302,7 +315,7 @@ func (w *waitForControlledPodsRunningMeasurement) createObjectLocked(c clientset
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-	checker, err := w.waitForRuntimeObject(c, obj)
+	checker, err := w.waitForRuntimeObject(c, obj, isDeleted)
 	if err != nil {
 		return fmt.Errorf("waiting for %v error: %v", key, err)
 	}
@@ -377,7 +390,7 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c 
 	return desiredCount, maxResourceVersion, nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet clientset.Interface, obj runtime.Object) (*objectChecker, error) {
+func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet clientset.Interface, obj runtime.Object, isDeleted bool) (*objectChecker, error) {
 	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
 	if err != nil {
 		return nil, err
@@ -389,6 +402,9 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(obj)
 	if err != nil {
 		return nil, err
+	}
+	if isDeleted {
+		runtimeObjectReplicas = 0
 	}
 	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
 	if err != nil {
@@ -406,33 +422,50 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 			if o.isRunning {
 				// Log error only if checker wasn't terminated.
 				glog.Errorf("%s: error for %v: %v", w, key, err)
+				o.err = fmt.Errorf("%s: %v", key, err)
 			}
 			return
 		}
+		if isDeleted {
+			glog.Infof("%s: %v has been deleted", w, key)
+			o.status = terminated
+			return
+		}
+
 		glog.Infof("%s: %v has all pods (%d) running", w, key, runtimeObjectReplicas)
-		o.status = true
+		o.status = running
 	})
 	return o, nil
 }
+
+type checkerStatus int
+
+const (
+	unknown checkerStatus = iota
+	running
+	terminated
+)
 
 type objectChecker struct {
 	lock      sync.Mutex
 	isRunning bool
 	stopCh    chan struct{}
-	status    bool
+	status    checkerStatus
+	err       error
 }
 
 func newObjectCheker() *objectChecker {
 	return &objectChecker{
 		stopCh:    make(chan struct{}),
 		isRunning: true,
+		status:    unknown,
 	}
 }
 
-func (o *objectChecker) getStatus() bool {
+func (o *objectChecker) getStatus() (checkerStatus, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
-	return o.status
+	return o.status, o.err
 }
 
 func (o *objectChecker) terminate() {

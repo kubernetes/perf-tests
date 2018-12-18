@@ -63,7 +63,7 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 		}
 	}
 	// Get etcd resource usage
-	sshResult, err = getMasterUsageByPrefix("bin/etcd", host, provider)
+	sshResult, err = getMasterUsageByPrefix(host, provider, "bin/etcd")
 	if err != nil {
 		glog.Errorf("error when trying to SSH to master machine. Skipping probe")
 		return nil

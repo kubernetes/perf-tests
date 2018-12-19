@@ -31,6 +31,8 @@ type Config struct {
 	Steps []Step `json: steps`
 	// TuningSets is a collection of tuning sets that can be used by steps.
 	TuningSets []TuningSet `json: tuningSets`
+	// ChaosMonkey is a config for simulated component failures.
+	ChaosMonkey ChaosMonkeyConfig `json: chaosMonkey`
 }
 
 // Step represents encapsulation of some actions. These actions could be
@@ -151,6 +153,25 @@ type TimeLimitedLoad struct {
 type RandomizedTimeLimitedLoad struct {
 	// TimeLimit specifies the limit of the time that operation will be spread over.
 	TimeLimit Duration `json: timeLimit`
+}
+
+// ChaosMonkeyConfig descibes simulated component failures.
+type ChaosMonkeyConfig struct {
+	// NodeFailure is a config for simulated node failures.
+	NodeFailure *NodeFailureConfig `json: nodeFailure`
+}
+
+// NodeFailureConfig describes simulated node failures.
+type NodeFailureConfig struct {
+	// FailureRate is a percentage of all nodes that could fail simultinously.
+	FailureRate float64 `json: failureRate`
+	// Interval is time between node failures.
+	Interval Duration `json: interval`
+	// JitterFactor is factor used to jitter node failures.
+	// Node will be killed between [Interval, Interval + (1.0 + JitterFactor)].
+	JitterFactor float64 `json: jitterFactor`
+	// SimulatedDowntime is a duration between node is killed and recreated.
+	SimulatedDowntime Duration `json: simulatedDowntime`
 }
 
 // Duration is time.Duration that uses string format (e.g. 1h2m3s) for marshaling.

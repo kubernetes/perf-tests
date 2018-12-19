@@ -139,7 +139,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 			if log {
 				glog.Infof("%s: %s: %s", callerName, selectorsString, podsStatus.String())
 			}
-			if podsStatus.Running == desiredPodCount {
+			if len(pods) == podsStatus.Running && podsStatus.Running == desiredPodCount {
 				return nil
 			}
 			oldPods = pods

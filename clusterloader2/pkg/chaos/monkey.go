@@ -42,7 +42,7 @@ func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) erro
 			return err
 		}
 		m.nodeKiller = nodeKiller
-		m.nodeKiller.Run(stopCh)
+		go m.nodeKiller.Run(stopCh)
 	}
 
 	return nil

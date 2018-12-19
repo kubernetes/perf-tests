@@ -50,7 +50,9 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh)
+	if err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh); err != nil {
+		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
+	}
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))

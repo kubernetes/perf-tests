@@ -427,12 +427,10 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 			return
 		}
 		if isDeleted {
-			glog.Infof("%s: %v has been deleted", w, key)
 			o.status = terminated
 			return
 		}
 
-		glog.Infof("%s: %v has all pods (%d) running", w, key, runtimeObjectReplicas)
 		o.status = running
 	})
 	return o, nil

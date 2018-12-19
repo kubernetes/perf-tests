@@ -18,6 +18,7 @@ package test
 
 import (
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -51,6 +52,7 @@ type Context interface {
 	GetTemplateProvider() *config.TemplateProvider
 	GetTuningSetFactory() tuningset.TuningSetFactory
 	GetMeasurementManager() *measurement.MeasurementManager
+	GetChaosMonkey() *chaos.Monkey
 }
 
 // TestExecutor is an interface for test executing object.

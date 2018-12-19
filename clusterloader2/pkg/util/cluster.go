@@ -28,17 +28,23 @@ import (
 
 // GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
 func GetSchedulableUntainedNodesNumber(c clientset.Interface) (int, error) {
+	nodes, err := GetSchedulableUntainedNodes(c)
+	return len(nodes), err
+}
+
+// GetSchedulableUntainedNodes returns nodes in the cluster.
+func GetSchedulableUntainedNodes(c clientset.Interface) ([]corev1.Node, error) {
 	nodeList, err := client.ListNodes(c)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	numNodes := 0
+	var filtered []corev1.Node
 	for i := range nodeList {
 		if isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i]) {
-			numNodes++
+			filtered = append(filtered, nodeList[i])
 		}
 	}
-	return numNodes, err
+	return filtered, err
 }
 
 // LogClusterNodes prints nodes information (name, internal ip, external ip) to log.

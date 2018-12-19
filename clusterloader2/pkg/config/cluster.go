@@ -21,7 +21,7 @@ type ClusterLoaderConfig struct {
 	ClusterConfig     ClusterConfig `json: clusterConfig`
 	ReportDir         string        `json: reportDir`
 	TestConfigPath    string        `json: testConfigPath`
-	TestOverridesPath string        `json: testOverrides`
+	TestOverridesPath []string      `json: testOverrides`
 }
 
 // ClusterConfig is a structure that represents cluster description.

@@ -160,18 +160,21 @@ func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interfa
 	return decodeInto(b, obj)
 }
 
-// GetOverridesMapping returns mapping from file specified by the given path.
-func GetOverridesMapping(path string) (map[string]interface{}, error) {
-	var mapping map[string]interface{}
-	if path == "" {
-		mapping = make(map[string]interface{})
-	} else {
+// GetOverridesMapping returns mapping from file specified by the given paths.
+func GetOverridesMapping(paths []string) (map[string]interface{}, error) {
+	mapping := make(map[string]interface{})
+	for _, path := range paths {
 		bin, err := ioutil.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("test overrides reading error: %v", err)
 		}
-		if err = decodeInto(bin, &mapping); err != nil {
+		tmpMapping := make(map[string]interface{})
+		if err = decodeInto(bin, &tmpMapping); err != nil {
 			return nil, fmt.Errorf("test overrides unmarshalling error: %v", err)
+		}
+		// Merge tmpMapping into mapping.
+		for k, v := range tmpMapping {
+			mapping[k] = v
 		}
 	}
 	return mapping, nil

@@ -48,6 +48,9 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	glog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh)
 	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))

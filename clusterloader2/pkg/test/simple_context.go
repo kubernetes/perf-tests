@@ -19,6 +19,7 @@ package test
 import (
 	"path/filepath"
 
+	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -33,6 +34,7 @@ type simpleContext struct {
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.TuningSetFactory
 	measurementManager  *measurement.MeasurementManager
+	chaosMonkey         *chaos.Monkey
 }
 
 func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.State) Context {
@@ -44,6 +46,7 @@ func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, 
 		templateProvider:    templateProvider,
 		tuningSetFactory:    tuningset.NewTuningSetFactory(),
 		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet(), &c.ClusterConfig, templateProvider),
+		chaosMonkey:         chaos.NewMonkey(f.GetClientSet(), c.ClusterConfig.Provider),
 	}
 }
 
@@ -72,7 +75,12 @@ func (sc *simpleContext) GetTuningSetFactory() tuningset.TuningSetFactory {
 	return sc.tuningSetFactory
 }
 
-// GetMeasurementManager returns measurment manager.
+// GetMeasurementManager returns measurement manager.
 func (sc *simpleContext) GetMeasurementManager() *measurement.MeasurementManager {
 	return sc.measurementManager
+}
+
+// GetChaosMonkey returns chaos monkey.
+func (sc *simpleContext) GetChaosMonkey() *chaos.Monkey {
+	return sc.chaosMonkey
 }

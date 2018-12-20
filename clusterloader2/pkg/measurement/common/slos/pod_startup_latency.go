@@ -181,10 +181,9 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		return []measurement.Summary{}, err
 	}
 	for key, create := range p.createTimes {
-		sched, ok := p.scheduleTimes[key]
-		if !ok {
+		sched, hasSched := p.scheduleTimes[key]
+		if !hasSched {
 			glog.Infof("%s: failed to find schedule time for %v", p, key)
-			continue
 		}
 		run, ok := p.runTimes[key]
 		if !ok {
@@ -202,10 +201,12 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 			continue
 		}
 
-		scheduleLag = append(scheduleLag, podLatencyData{Name: key, Node: node, Latency: sched.Time.Sub(create.Time)})
-		startupLag = append(startupLag, podLatencyData{Name: key, Node: node, Latency: run.Time.Sub(sched.Time)})
+		if hasSched {
+			scheduleLag = append(scheduleLag, podLatencyData{Name: key, Node: node, Latency: sched.Time.Sub(create.Time)})
+			startupLag = append(startupLag, podLatencyData{Name: key, Node: node, Latency: run.Time.Sub(sched.Time)})
+			schedToWatchLag = append(schedToWatchLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(sched.Time)})
+		}
 		watchLag = append(watchLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(run.Time)})
-		schedToWatchLag = append(schedToWatchLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(sched.Time)})
 		e2eLag = append(e2eLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(create.Time)})
 	}
 
@@ -231,7 +232,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	}
 
 	var err error
-	if successRatio := float32(len(startupLag)) / float32(len(p.createTimes)); successRatio < successfulStartupRatioThreshold {
+	if successRatio := float32(len(e2eLag)) / float32(len(p.createTimes)); successRatio < successfulStartupRatioThreshold {
 		err = fmt.Errorf("only %v%% of all pods were scheduled successfully", successRatio*100)
 		glog.Errorf("%s: %v", p, err)
 	}
@@ -337,6 +338,11 @@ func (p *podStartupLatency) PrintSummary() (string, error) {
 
 func extractLatencyMetrics(latencies []podLatencyData) measurementutil.LatencyMetric {
 	length := len(latencies)
+	if length == 0 {
+		// Ideally we can return LatencyMetric with some NaN/incorrect values,
+		// but 0 is the best we can get for time.Duration type.
+		return measurementutil.LatencyMetric{Perc50: 0, Perc90: 0, Perc99: 0}
+	}
 	perc50 := latencies[int(math.Ceil(float64(length*50)/100))-1].Latency
 	perc90 := latencies[int(math.Ceil(float64(length*90)/100))-1].Latency
 	perc99 := latencies[int(math.Ceil(float64(length*99)/100))-1].Latency

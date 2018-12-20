@@ -63,7 +63,7 @@ steps:
       action: start
       kind: ReplicationController
       labelSelector: group = load
-      operationTimeout: 10m
+      operationTimeout: 15m
 - phases:
   - namespaceRange:
       min: 1

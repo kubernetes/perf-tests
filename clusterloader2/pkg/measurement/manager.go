@@ -57,6 +57,7 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		ClusterConfig:    mm.clusterConfig,
 		Params:           params,
 		TemplateProvider: mm.templateProvider,
+		Identifier:       identifier,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)

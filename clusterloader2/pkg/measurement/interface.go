@@ -32,6 +32,8 @@ type MeasurementConfig struct {
 	Params map[string]interface{}
 	// TemplateProvider provides templated objects.
 	TemplateProvider *config.TemplateProvider
+	// Identifier identifies this instance of measurement.
+	Identifier string
 	// TODO(krzysied): add CloudProvider.
 }
 

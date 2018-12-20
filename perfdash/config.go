@@ -18,13 +18,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
 	"io/ioutil"
-	"k8s.io/contrib/test-utils/utils"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/ghodss/yaml"
+	"k8s.io/contrib/test-utils/utils"
 )
 
 // To add new e2e test support, you need to:
@@ -65,9 +66,21 @@ var (
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
 			}},
-			"DensityPodStartup": []TestDescription{{
+			"DensityPodStartup": []TestDescription{
+				{
+					Name:             "density",
+					OutputFilePrefix: "PodStartupLatency",
+					Parser:           parseResponsivenessData,
+				},
+				{
+					Name:             "density",
+					OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
+					Parser:           parseResponsivenessData,
+				},
+			},
+			"DensitySaturationPodStartup": []TestDescription{{
 				Name:             "density",
-				OutputFilePrefix: "PodStartupLatency",
+				OutputFilePrefix: "PodStartupLatency_SaturationPodStartupLatency",
 				Parser:           parseResponsivenessData,
 			}},
 			"DensityTestPhaseTimer": []TestDescription{{

@@ -24,7 +24,9 @@
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
 {{$saturationRCTimeout := DivideFloat $totalPods $TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
-
+# saturationRCHardTimeout must be at least 15m to make sure that 10m node
+# failure won't fail the test.
+{{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 900}}
 
 name: density
 automanagedNamespaces: {{$namespaces}}
@@ -54,13 +56,20 @@ steps:
       resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
 # Create saturation pods
 - measurements:
+  - Identifier: SaturationPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = saturation
+      threshold: {{$saturationRCTimeout}}s
+- measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: start
       kind: ReplicationController
       labelSelector: group = saturation
-      operationTimeout: {{$saturationRCTimeout}}s
+      operationTimeout: {{$saturationRCHardTimeout}}s
 - phases:
   - namespaceRange:
       min: 1
@@ -87,6 +96,11 @@ steps:
     Params:
       action: gather
 - measurements:
+  - Identifier: SaturationPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+- measurements:
   - Identifier: SchedulingThroughput
     Method: SchedulingThroughput
     Params:
@@ -106,7 +120,7 @@ steps:
       action: start
       kind: ReplicationController
       labelSelector: group = latency
-      operationTimeout: 10m
+      operationTimeout: 15m
 - phases:
   - namespaceRange:
       min: 1

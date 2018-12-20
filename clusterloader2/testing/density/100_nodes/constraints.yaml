@@ -20,5 +20,5 @@ kube-scheduler:
   cpuConstraint: 0.35
   memoryConstraint: 104857600 #100 * (1024 * 1024)
 l7-lb-controller:
-  cpuConstraint: 0.1
+  cpuConstraint: 0.15
   memoryConstraint: 83886080 #80 * (1024 * 1024)

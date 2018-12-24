@@ -186,24 +186,24 @@ var (
 	}
 
 	dnsBenchmarkDescriptions = TestDescriptions{
-		"kube-dns": {
+		"dns": {
 			"Latency": []TestDescription{{
-				Name:             "kube-dns",
+				Name:             "dns",
 				OutputFilePrefix: "Latency",
 				Parser:           parseResponsivenessData,
 			}},
 			"LatencyPerc": []TestDescription{{
-				Name:             "kube-dns",
+				Name:             "dns",
 				OutputFilePrefix: "LatencyPerc",
 				Parser:           parseResponsivenessData,
 			}},
 			"Queries": []TestDescription{{
-				Name:             "kube-dns",
+				Name:             "dns",
 				OutputFilePrefix: "Queries",
 				Parser:           parseResponsivenessData,
 			}},
 			"Qps": []TestDescription{{
-				Name:             "kube-dns",
+				Name:             "dns",
 				OutputFilePrefix: "Qps",
 				Parser:           parseResponsivenessData,
 			}},

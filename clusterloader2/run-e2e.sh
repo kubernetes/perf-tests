@@ -19,6 +19,7 @@ set -o nounset
 set -o pipefail
 
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
+export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
-./clusterloader --kubeconfig="${HOME}/.kube/config" --alsologtostderr "$@"
+./clusterloader --alsologtostderr "$@"

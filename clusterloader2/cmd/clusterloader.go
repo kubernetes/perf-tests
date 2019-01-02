@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -27,9 +26,9 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
 	ginkgotypes "github.com/onsi/ginkgo/types"
-	"github.com/spf13/pflag"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -49,11 +48,11 @@ var (
 )
 
 func initClusterFlags() {
-	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "", "Path to the kubeconfig file")
-	pflag.IntVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", 0, "number of nodes")
-	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "", "Cluster provider")
-	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "", "Name of the masternode")
-	pflag.StringVar(&clusterLoaderConfig.ClusterConfig.MasterIP, "masterip", "", "Hostname/IP of the masternode")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "KUBECONFIG", "", "Path to the kubeconfig file")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIP, "masterip", "MASTER_IP", "", "Hostname/IP of the masternode")
 }
 
 func validateClusterFlags() *errors.ErrorList {
@@ -65,11 +64,9 @@ func validateClusterFlags() *errors.ErrorList {
 }
 
 func initFlags() {
-	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
-	pflag.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
-	pflag.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
+	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
+	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
+	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	initClusterFlags()
 }
 
@@ -150,7 +147,7 @@ func printTestResult(name, status, errors string) {
 func main() {
 	defer glog.Flush()
 	initFlags()
-	if err := pflag.CommandLine.Parse(os.Args[1:]); err != nil {
+	if err := flags.Parse(); err != nil {
 		glog.Fatalf("Flag parse failed: %v", err)
 	}
 	if errList := validateFlags(); !errList.IsEmpty() {

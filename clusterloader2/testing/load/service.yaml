@@ -4,7 +4,7 @@ metadata:
   name: {{.Name}}
 spec:
   selector:
-    name: {{.RCBasename}}-{{.Index}}
+    svc: {{.Name}}
   ports:
   - port: 80
     targetPort: 80

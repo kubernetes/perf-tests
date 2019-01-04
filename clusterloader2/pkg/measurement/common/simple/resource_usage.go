@@ -103,7 +103,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		}
 
 		glog.Infof("%s: starting resource usage collecting...", e)
-		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSet, host, provider, gatherers.ResourceGathererOptions{
+		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSets.GetClient(), host, provider, gatherers.ResourceGathererOptions{
 			InKubemark:                  strings.ToLower(provider) == "kubemark",
 			Nodes:                       nodesSet,
 			ResourceDataGatheringPeriod: 60 * time.Second,

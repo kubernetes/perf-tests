@@ -102,9 +102,9 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementCo
 		if err != nil {
 			return summaries, err
 		}
-		return summaries, p.start(config.ClientSet)
+		return summaries, p.start(config.ClientSets.GetClient())
 	case "gather":
-		return p.gather(config.ClientSet, config.Identifier)
+		return p.gather(config.ClientSets.GetClient(), config.Identifier)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}

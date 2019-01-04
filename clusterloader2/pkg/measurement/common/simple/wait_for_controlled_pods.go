@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -110,13 +111,13 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 		if err != nil {
 			return summaries, err
 		}
-		return summaries, w.start(config.ClientSet)
+		return summaries, w.start(config.ClientSets)
 	case "gather":
 		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
 		if err != nil {
 			return summaries, err
 		}
-		return summaries, w.gather(config.ClientSet, syncTimeout)
+		return summaries, w.gather(config.ClientSets.GetClient(), syncTimeout)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}
@@ -140,7 +141,7 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 	return waitForControlledPodsRunningName
 }
 
-func (w *waitForControlledPodsRunningMeasurement) start(c clientset.Interface) error {
+func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.MultiClientSet) error {
 	if w.informer != nil {
 		glog.Infof("%v: wait for controlled pods measurement already running", w)
 		return nil
@@ -150,26 +151,26 @@ func (w *waitForControlledPodsRunningMeasurement) start(c clientset.Interface) e
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	listerWatcher := cache.NewFilteredListWatchFromClient(clients.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
 	w.informer = cache.NewSharedInformer(listerWatcher, nil, 0)
 	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			addF := func() {
-				w.handleObject(c, nil, obj)
+				w.handleObject(clients, nil, obj)
 			}
 			w.queue.Add(&addF)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			updateF := func() {
-				w.handleObject(c, oldObj, newObj)
+				w.handleObject(clients, oldObj, newObj)
 			}
 			w.queue.Add(&updateF)
 		},
 		DeleteFunc: func(obj interface{}) {
 			deleteF := func() {
-				w.handleObject(c, obj, nil)
+				w.handleObject(clients, obj, nil)
 			}
 			w.queue.Add(&deleteF)
 		},
@@ -256,7 +257,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 // This function does not return errors only logs them. All possible errors will be caught in gather function.
 // If this function does not executes correctly, verifying number of running pods will fail,
 // causing incorrect objects number error to be returned.
-func (w *waitForControlledPodsRunningMeasurement) handleObject(c clientset.Interface, oldObj, newObj interface{}) {
+func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framework.MultiClientSet, oldObj, newObj interface{}) {
 	var oldRuntimeObj runtime.Object
 	var newRuntimeObj runtime.Object
 	var ok bool
@@ -295,14 +296,14 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(c clientset.Inter
 		return
 	}
 
-	if err := w.deleteObjectLocked(c, oldRuntimeObj); err != nil {
+	if err := w.deleteObjectLocked(clients.GetClient(), oldRuntimeObj); err != nil {
 		glog.Errorf("%s: delete checker error: %v", w, err)
 	} else if newRuntimeObj == nil {
-		if err := w.handleObjectLocked(c, oldRuntimeObj, true); err != nil {
+		if err := w.handleObjectLocked(clients.GetClient(), oldRuntimeObj, true); err != nil {
 			glog.Errorf("%s: create checker error: %v", w, err)
 		}
 	}
-	if err := w.handleObjectLocked(c, newRuntimeObj, false); err != nil {
+	if err := w.handleObjectLocked(clients.GetClient(), newRuntimeObj, false); err != nil {
 		glog.Errorf("%s: create checker error: %v", w, err)
 	}
 }

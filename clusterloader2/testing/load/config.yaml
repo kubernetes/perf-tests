@@ -27,9 +27,9 @@
 name: load
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
-- name: Uniform100qps
-  qpsLoad:
-    qps: 100
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$saturationTime}}s
@@ -64,7 +64,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{DivideInt (AddInt $bigRcsPerNamespace 1) 2}}
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: big-service
       objectTemplatePath: service.yaml
@@ -72,7 +72,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{DivideInt (AddInt $mediumRcsPerNamespace 1) 2}}
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: medium-service
       objectTemplatePath: service.yaml
@@ -80,7 +80,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{DivideInt (AddInt $smallRcsPerNamespace 1) 2}}
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
@@ -219,7 +219,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: big-service
       objectTemplatePath: service.yaml
@@ -227,7 +227,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: medium-service
       objectTemplatePath: service.yaml
@@ -235,7 +235,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: Uniform100qps
+    tuningSet: Sequence
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml

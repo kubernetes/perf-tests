@@ -58,6 +58,8 @@ func (tf *simpleTuningSetFactory) CreateTuningSet(name string) (TuningSet, error
 		return newTimeLimitedLoad(tuningSet.TimeLimitedLoad), nil
 	case tuningSet.RandomizedTimeLimitedLoad != nil:
 		return newRandomizedTimeLimitedLoad(tuningSet.RandomizedTimeLimitedLoad), nil
+	case tuningSet.ParallelismLimitedLoad != nil:
+		return newParallelismLimitedLoad(tuningSet.ParallelismLimitedLoad), nil
 	default:
 		return nil, fmt.Errorf("incorrect tuning set: %v", tuningSet)
 	}

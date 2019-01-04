@@ -108,6 +108,8 @@ type TuningSet struct {
 	TimeLimitedLoad *TimeLimitedLoad `json: timeLimitedLoad`
 	// RandomizedTimeLimitedLoad is a definition for RandomizedTimeLimitedLoad tuning set.
 	RandomizedTimeLimitedLoad *RandomizedTimeLimitedLoad `json: randomizedTimeLimitedLoad`
+	// ParallelismLimitedLoad is a definition for ParallelismLimitedLoad tuning set.
+	ParallelismLimitedLoad *ParallelismLimitedLoad `json: parallelismLimitedLoad`
 }
 
 // Measurement is a structure that defines the measurement method call.
@@ -153,6 +155,12 @@ type TimeLimitedLoad struct {
 type RandomizedTimeLimitedLoad struct {
 	// TimeLimit specifies the limit of the time that operation will be spread over.
 	TimeLimit Duration `json: timeLimit`
+}
+
+// ParallelismLimitedLoad defines a load that executes actions with given parallelism.
+type ParallelismLimitedLoad struct {
+	// ParallelismLimit specifies the limit of the parallelism for the action executions.
+	ParallelismLimit int32 `json: parallelismLimit`
 }
 
 // ChaosMonkeyConfig descibes simulated component failures.

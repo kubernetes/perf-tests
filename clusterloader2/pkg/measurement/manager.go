@@ -19,13 +19,13 @@ package measurement
 import (
 	"sync"
 
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
 
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
-	clientSet        clientset.Interface
+	clientSets       *framework.MultiClientSet
 	clusterConfig    *config.ClusterConfig
 	templateProvider *config.TemplateProvider
 
@@ -36,9 +36,9 @@ type MeasurementManager struct {
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(clientSet clientset.Interface, clusterConfig *config.ClusterConfig, templateProvider *config.TemplateProvider) *MeasurementManager {
+func CreateMeasurementManager(clientSets *framework.MultiClientSet, clusterConfig *config.ClusterConfig, templateProvider *config.TemplateProvider) *MeasurementManager {
 	return &MeasurementManager{
-		clientSet:        clientSet,
+		clientSets:       clientSets,
 		clusterConfig:    clusterConfig,
 		templateProvider: templateProvider,
 		measurements:     make(map[string]map[string]Measurement),
@@ -53,7 +53,7 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		return err
 	}
 	config := &MeasurementConfig{
-		ClientSet:        mm.clientSet,
+		ClientSets:       mm.clientSets,
 		ClusterConfig:    mm.clusterConfig,
 		Params:           params,
 		TemplateProvider: mm.templateProvider,

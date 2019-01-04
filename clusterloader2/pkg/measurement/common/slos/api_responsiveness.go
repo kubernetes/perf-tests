@@ -75,7 +75,7 @@ func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementCo
 	switch action {
 	case "reset":
 		glog.Infof("%s: resetting latency metrics in apiserver...", a)
-		return summaries, apiserverMetricsReset(config.ClientSet)
+		return summaries, apiserverMetricsReset(config.ClientSets.GetClient())
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
 		// New method is defined here: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/slos.md#steady-state-slisslos.
@@ -83,7 +83,7 @@ func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementCo
 		if err != nil {
 			return summaries, err
 		}
-		summary, err := a.apiserverMetricsGather(config.ClientSet, nodeCount)
+		summary, err := a.apiserverMetricsGather(config.ClientSets.GetClient(), nodeCount)
 		if err == nil || errors.IsMetricViolationError(err) {
 			summaries = append(summaries, summary)
 		}

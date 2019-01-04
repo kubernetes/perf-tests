@@ -97,7 +97,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	}
 	grabMetricsFromKubelets = grabMetricsFromKubelets && strings.ToLower(provider) != "kubemark"
 
-	grabber, err := metrics.NewMetricsGrabber(config.ClientSet, nil, grabMetricsFromKubelets, true, true, true, false)
+	grabber, err := metrics.NewMetricsGrabber(config.ClientSets.GetClient(), nil, grabMetricsFromKubelets, true, true, true, false)
 	if err != nil {
 		return summaries, fmt.Errorf("failed to create MetricsGrabber: %v", err)
 	}

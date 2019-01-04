@@ -77,7 +77,7 @@ func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementCon
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
 	})
-	return summaries, waitForPods(config.ClientSet, namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true, waitForRunningPodsMeasurementName)
+	return summaries, waitForPods(config.ClientSets.GetClient(), namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true, waitForRunningPodsMeasurementName)
 }
 
 // Dispose cleans up after the measurement.

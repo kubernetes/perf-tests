@@ -17,14 +17,14 @@ limitations under the License.
 package measurement
 
 import (
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
 
 // MeasurementConfig provides client and parameters required for the measurement execution.
 type MeasurementConfig struct {
-	// Clientset is a kubernetes client.
-	ClientSet clientset.Interface
+	// Clientsets are kubernetes clients.
+	ClientSets *framework.MultiClientSet
 	// ClusterConfig represents configuration of the cluster.
 	ClusterConfig *config.ClusterConfig
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config

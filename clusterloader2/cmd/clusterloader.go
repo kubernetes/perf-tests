@@ -39,7 +39,8 @@ import (
 )
 
 const (
-	dashLine = "--------------------------------------------------------------------------------"
+	dashLine        = "--------------------------------------------------------------------------------"
+	nodesPerClients = 100
 )
 
 var (
@@ -79,9 +80,9 @@ func validateFlags() *errors.ErrorList {
 	return errList
 }
 
-func completeConfig(f *framework.Framework) error {
+func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.Nodes == 0 {
-		nodes, err := util.GetSchedulableUntainedNodesNumber(f.GetClientSet())
+		nodes, err := util.GetSchedulableUntainedNodesNumber(m.GetClient())
 		if err != nil {
 			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
@@ -89,7 +90,7 @@ func completeConfig(f *framework.Framework) error {
 		glog.Infof("ClusterConfig.Nodes set to %v", nodes)
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterName == "" {
-		masterName, err := util.GetMasterName(f.GetClientSet())
+		masterName, err := util.GetMasterName(m.GetClient())
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterName = masterName
 			glog.Infof("ClusterConfig.MasterName set to %v", masterName)
@@ -98,7 +99,7 @@ func completeConfig(f *framework.Framework) error {
 		}
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterIP == "" {
-		masterIP, err := util.GetMasterExternalIP(f.GetClientSet())
+		masterIP, err := util.GetMasterExternalIP(m.GetClient())
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIP = masterIP
 			glog.Infof("ClusterConfig.MasterIP set to %v", masterIP)
@@ -107,6 +108,10 @@ func completeConfig(f *framework.Framework) error {
 		}
 	}
 	return nil
+}
+
+func getClientsNumber(nodesNumber int) int {
+	return (nodesNumber + nodesPerClients - 1) / nodesPerClients
 }
 
 func createReportDir() error {
@@ -154,12 +159,12 @@ func main() {
 		glog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
-	f, err := framework.NewFramework(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)
 	if err != nil {
-		glog.Fatalf("Framework creation error: %v", err)
+		glog.Fatalf("Client creation error: %v", err)
 	}
 
-	if err = completeConfig(f); err != nil {
+	if err = completeConfig(mclient); err != nil {
 		glog.Fatalf("Config completing error: %v", err)
 	}
 
@@ -167,8 +172,16 @@ func main() {
 		glog.Fatalf("Cannot create report directory: %v", err)
 	}
 
-	if err = util.LogClusterNodes(f.GetClientSet()); err != nil {
+	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
 		glog.Errorf("Nodes info logging error: %v", err)
+	}
+
+	f, err := framework.NewFramework(
+		clusterLoaderConfig.ClusterConfig.KubeConfigPath,
+		getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes),
+	)
+	if err != nil {
+		glog.Fatalf("Framework creation error: %v", err)
 	}
 
 	suiteSummary := &ginkgotypes.SuiteSummary{

@@ -34,17 +34,17 @@ type MultiClientSet struct {
 
 // NewMultiClientSet creates new MultiClientSet for given kubeconfig and number.
 func NewMultiClientSet(kubeconfigPath string, number int) (*MultiClientSet, error) {
-	conf, err := config.PrepareConfig(kubeconfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("config prepare failed: %v", err)
-	}
-	if number < 1 {
-		return nil, fmt.Errorf("incorrect clients number")
-	}
 	m := MultiClientSet{
 		clients: make([]clientset.Interface, number),
 	}
 	for i := 0; i < number; i++ {
+		conf, err := config.PrepareConfig(kubeconfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("config prepare failed: %v", err)
+		}
+		if number < 1 {
+			return nil, fmt.Errorf("incorrect clients number")
+		}
 		m.clients[i], err = clientset.NewForConfig(conf)
 		if err != nil {
 			return nil, fmt.Errorf("creating clientset failed: %v", err)
@@ -70,17 +70,17 @@ type MultiDynamicClient struct {
 
 // NewMultiDynamicClient creates new MultiDynamicClient for given kubeconfig and number.
 func NewMultiDynamicClient(kubeconfigPath string, number int) (*MultiDynamicClient, error) {
-	conf, err := config.PrepareConfig(kubeconfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("config prepare failed: %v", err)
-	}
-	if number < 1 {
-		return nil, fmt.Errorf("incorrect clients number")
-	}
 	m := MultiDynamicClient{
 		clients: make([]dynamic.Interface, number),
 	}
 	for i := 0; i < number; i++ {
+		conf, err := config.PrepareConfig(kubeconfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("config prepare failed: %v", err)
+		}
+		if number < 1 {
+			return nil, fmt.Errorf("incorrect clients number")
+		}
 		m.clients[i], err = dynamic.NewForConfig(conf)
 		if err != nil {
 			return nil, fmt.Errorf("creating dynamic config failed: %v", err)

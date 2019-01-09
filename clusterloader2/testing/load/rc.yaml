@@ -4,6 +4,7 @@ metadata:
   name: {{.Name}}
   labels:
     group: load
+    svc: {{.SvcName}}-{{DivideInt .Index 2}}
 spec:
   replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
   selector:
@@ -21,6 +22,8 @@ spec:
           requests:
             cpu: 10m
             memory: "10M"
+      dnsPolicy: Default
+      terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:

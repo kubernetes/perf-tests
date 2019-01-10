@@ -241,62 +241,70 @@ type periodic struct {
 
 func getProwConfig() (Jobs, error) {
 	fmt.Fprintf(os.Stderr, "Fetching prow config from GitHub...\n")
-	resp, err := http.Get("https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("error fetching prow config from GitHub: %v", err)
-	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading prow config from GitHub: %v", err)
-	}
-	conf := &config{}
-	if err := yaml.Unmarshal(b, conf); err != nil {
-		return nil, fmt.Errorf("error unmarshaling prow config from GitHub: %v", err)
-	}
 	jobs := Jobs{}
-	for _, periodic := range conf.Periodics {
-		var thisPeriodicConfig Tests
-		for _, tag := range periodic.Tags {
-			if strings.HasPrefix(tag, "perfDashPrefix:") {
-				split := strings.SplitN(tag, ":", 2)
-				thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
-				continue
-			}
-			if strings.HasPrefix(tag, "perfDashJobType:") {
-				split := strings.SplitN(tag, ":", 2)
-				jobType := strings.TrimSpace(split[1])
-				var exists bool
-				if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
-					fmt.Fprintf(os.Stderr, "warning: unknown job type - %s\n", jobType)
-				}
-				continue
-			}
-			if strings.HasPrefix(tag, "perfDashBuildsCount:") {
-				split := strings.SplitN(tag, ":", 2)
-				i, err := strconv.Atoi(strings.TrimSpace(split[1]))
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "warning: unparsable builds count - %v\n", split[1])
-				}
-				if i < 1 {
-					fmt.Fprintf(os.Stderr, "warning: non-positive builds count - %v\n", i)
+	yamlLinks := []string{
+		"https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml",
+		"https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-release-blocking-jobs.yaml",
+	}
+
+	for _, yamlLink := range yamlLinks {
+		fmt.Fprintf(os.Stderr, "Fetching config %s\n", yamlLink)
+		resp, err := http.Get(yamlLink)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching prow config from GitHub: %v", err)
+		}
+		defer resp.Body.Close()
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error reading prow config from GitHub: %v", err)
+		}
+		conf := &config{}
+		if err := yaml.Unmarshal(b, conf); err != nil {
+			return nil, fmt.Errorf("error unmarshaling prow config from GitHub: %v", err)
+		}
+		for _, periodic := range conf.Periodics {
+			var thisPeriodicConfig Tests
+			for _, tag := range periodic.Tags {
+				if strings.HasPrefix(tag, "perfDashPrefix:") {
+					split := strings.SplitN(tag, ":", 2)
+					thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
 					continue
 				}
-				thisPeriodicConfig.BuildsCount = i
+				if strings.HasPrefix(tag, "perfDashJobType:") {
+					split := strings.SplitN(tag, ":", 2)
+					jobType := strings.TrimSpace(split[1])
+					var exists bool
+					if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
+						fmt.Fprintf(os.Stderr, "warning: unknown job type - %s\n", jobType)
+					}
+					continue
+				}
+				if strings.HasPrefix(tag, "perfDashBuildsCount:") {
+					split := strings.SplitN(tag, ":", 2)
+					i, err := strconv.Atoi(strings.TrimSpace(split[1]))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: unparsable builds count - %v\n", split[1])
+					}
+					if i < 1 {
+						fmt.Fprintf(os.Stderr, "warning: non-positive builds count - %v\n", i)
+						continue
+					}
+					thisPeriodicConfig.BuildsCount = i
+					continue
+				}
+				if strings.HasPrefix(tag, "perfDash") {
+					fmt.Fprintf(os.Stderr, "warning: unknown perfdash tag name: %q\n", tag)
+				}
+			}
+			if thisPeriodicConfig.Prefix == "" && thisPeriodicConfig.Descriptions == nil {
 				continue
 			}
-			if strings.HasPrefix(tag, "perfDash") {
-				fmt.Fprintf(os.Stderr, "warning: unknown perfdash tag name: %q\n", tag)
+			if thisPeriodicConfig.Prefix == "" || thisPeriodicConfig.Descriptions == nil {
+				return nil, fmt.Errorf("invalid perfdash config of periodic %q: none or both of prefix and job type must be specified", periodic.Name)
 			}
+			jobs[periodic.Name] = thisPeriodicConfig
 		}
-		if thisPeriodicConfig.Prefix == "" && thisPeriodicConfig.Descriptions == nil {
-			continue
-		}
-		if thisPeriodicConfig.Prefix == "" || thisPeriodicConfig.Descriptions == nil {
-			return nil, fmt.Errorf("invalid perfdash config of periodic %q: none or both of prefix and job type must be specified", periodic.Name)
-		}
-		jobs[periodic.Name] = thisPeriodicConfig
 	}
-	fmt.Printf("Read config with %d jobs\n", len(jobs))
+	fmt.Printf("Read configs with %d jobs\n", len(jobs))
 	return jobs, nil
 }

@@ -149,7 +149,7 @@ steps:
       objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
-        ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
+        ReplicasMax: {{SubtractInt (MultiplyInt $BIG_GROUP_SIZE 1.5) 1}}
         SvcName: big-service
   - namespaceRange:
       min: 1
@@ -161,7 +161,7 @@ steps:
       objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
-        ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+        ReplicasMax: {{SubtractInt (MultiplyInt $MEDIUM_GROUP_SIZE 1.5) 1}}
         SvcName: medium-service
   - namespaceRange:
       min: 1
@@ -173,7 +173,7 @@ steps:
       objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
-        ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
+        ReplicasMax: {{SubtractInt (MultiplyInt $SMALL_GROUP_SIZE 1.5) 1}}
         SvcName: small-service
 - measurements:
   - Identifier: WaitForRunningRCs

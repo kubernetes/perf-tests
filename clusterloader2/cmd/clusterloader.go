@@ -120,7 +120,7 @@ func createReportDir() error {
 			if !os.IsNotExist(err) {
 				return err
 			}
-			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
+			if err = os.MkdirAll(clusterLoaderConfig.ReportDir, 0755); err != nil {
 				return fmt.Errorf("report directory creation error: %v", err)
 			}
 		}

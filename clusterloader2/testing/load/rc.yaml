@@ -4,7 +4,7 @@ metadata:
   name: {{.Name}}
   labels:
     group: load
-    svc: {{.SvcName}}-{{DivideInt .Index 2}}
+    svc: {{.SvcName}}-{{.Index}}
 spec:
   replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
   selector:
@@ -13,7 +13,7 @@ spec:
     metadata:
       labels:
         name: {{.Name}}
-        svc: {{.SvcName}}-{{DivideInt .Index 2}}
+        svc: {{.SvcName}}-{{.Index}}
     spec:
       containers:
       - image: k8s.gcr.io/pause:3.1

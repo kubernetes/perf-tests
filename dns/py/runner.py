@@ -208,10 +208,10 @@ class Runner(object):
         if val > max_kubedns_mem:
           max_kubedns_mem = val
       time.sleep(2)
-      output_q.put(max_perfserver_cpu)
-      output_q.put(max_perfserver_mem)
-      output_q.put(max_kubedns_cpu)
-      output_q.put(max_kubedns_mem)
+    output_q.put(max_perfserver_cpu)
+    output_q.put(max_perfserver_mem)
+    output_q.put(max_kubedns_cpu)
+    output_q.put(max_kubedns_mem)
 
   def _run_perf(self, test_case, inputs):
     _log.info('Running test case: %s', test_case)

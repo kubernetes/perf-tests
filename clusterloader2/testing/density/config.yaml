@@ -7,7 +7,7 @@
 {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
-{{$TEST_THROUGHPUT := DefaultParam .TEST_THROUGHPUT 20}}
+{{$DENSITY_TEST_THROUGHPUT := DefaultParam .DENSITY_TEST_THROUGHPUT 20}}
 # LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
 # Increasing allocation of both memory and cpu by 10%
 # decreases the value of priority function in scheduler by one point.
@@ -23,7 +23,7 @@
 {{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
-{{$saturationRCTimeout := DivideFloat $totalPods $TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
+{{$saturationRCTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
 # saturationRCHardTimeout must be at least 15m to make sure that 10m node
 # failure won't fail the test.
 {{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 900}}

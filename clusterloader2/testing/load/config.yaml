@@ -1,6 +1,8 @@
 # ASSUMPTIONS:
 # - Underlying cluster should have 100+ nodes.
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
+# - The number of created SVCs is half the number of created RCs.
+# - Only half of RCs will be assigned 1-1 to existing SVCs.
 
 #Constants
 {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}

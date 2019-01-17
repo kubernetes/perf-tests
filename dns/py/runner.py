@@ -38,6 +38,7 @@ _dnsperf_qfile_path='ftp://ftp.nominum.com/pub/nominum/dnsperf/data/queryfile-ex
 # Remove dns queries to this host since it is associated with behavior pattern
 # of some malware
 _remove_query_pattern=["setting3[.]yeahost[.]com"]
+MAX_TEST_SVC = 20
 
 def add_prefix(prefix, text):
   return '\n'.join([prefix + l for l in text.split('\n')])
@@ -183,6 +184,9 @@ class Runner(object):
     while time.time() < t_end:
       code, perfout, err = self._kubectl(*([None, 'top', 'pod'] + perfserver_top_args))
       code, kubeout, err = self._kubectl(*([None, 'top', 'pod'] + kubedns_top_args))
+      # Output is of the form:
+      # NAME                        CPU(cores)   MEMORY(bytes)
+      # kube-dns-686548bc64-4q7wg   2m           31Mi
       pcpu = re.findall(' \d+m ', perfout)
       pmem = re.findall(' \d+Mi ', perfout)
       kcpu = re.findall(' \d+m ', kubeout)
@@ -284,7 +288,7 @@ class Runner(object):
     # delete existing services if any
     self._kubectl(None, 'delete', 'services', '-l', _test_svc_label)
 
-    for index in range(1,20):
+    for index in range(1,MAX_TEST_SVC + 1):
       self.args.testsvc_yaml['metadata']['name'] = "test-svc" + str(index)
       self._create(self.args.testsvc_yaml)
 

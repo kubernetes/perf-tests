@@ -12,7 +12,7 @@ kube-apiserver:
   memoryConstraint: 1258291200 #1200 * (1024 * 1024)
 kube-controller-manager:
   cpuConstraint: 1.1
-  memoryConstraint: 262144000 #250 * (1024 * 1024)
+  memoryConstraint: 314572800 #300 * (1024 * 1024)
 kube-proxy:
   cpuConstraint: 0.05
   memoryConstraint: 31457280 #30 * (1024 * 1024)

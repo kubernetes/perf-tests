@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -42,8 +43,8 @@ func createMemoryProfileMeasurement() measurement.Measurement {
 type memoryProfileMeasurement struct{}
 
 // Execute gathers memory profile of a given component.
-func (*memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	return createMeasurement(config, "heap")
+func (c *memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	return createMeasurement(c, config, "heap")
 }
 
 // Dispose cleans up after the measurement.
@@ -61,8 +62,8 @@ func createCPUProfileMeasurement() measurement.Measurement {
 type cpuProfileMeasurement struct{}
 
 // Execute gathers cpu profile of a given component.
-func (*cpuProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	return createMeasurement(config, "profile")
+func (c *cpuProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	return createMeasurement(c, config, "profile")
 }
 
 // Dispose cleans up after the measurement.
@@ -73,7 +74,7 @@ func (*cpuProfileMeasurement) String() string {
 	return cpuProfileName
 }
 
-func createMeasurement(config *measurement.MeasurementConfig, profileKind string) ([]measurement.Summary, error) {
+func createMeasurement(caller measurement.Measurement, config *measurement.MeasurementConfig, profileKind string) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	componentName, err := util.GetString(config.Params, "componentName")
 	if err != nil {
@@ -88,10 +89,10 @@ func createMeasurement(config *measurement.MeasurementConfig, profileKind string
 		return summaries, err
 	}
 
-	return gatherProfile(componentName, profileKind, host, provider)
+	return gatherProfile(caller, componentName, profileKind, host, provider)
 }
 
-func gatherProfile(componentName, profileKind, host, provider string) ([]measurement.Summary, error) {
+func gatherProfile(caller measurement.Measurement, componentName, profileKind, host, provider string) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	profilePort, err := getPortForComponent(componentName)
 	if err != nil {
@@ -102,6 +103,11 @@ func gatherProfile(componentName, profileKind, host, provider string) ([]measure
 	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, profileKind)
 	sshResult, err := measurementutil.SSH(getCommand, host+":22", provider)
 	if err != nil {
+		if provider == "gke" {
+			// Only logging error for gke. SSHing to gke master is not supported.
+			glog.Errorf("%s: failed to execute curl command on master through SSH: %v", caller, err)
+			return summaries, nil
+		}
 		return summaries, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
 	}
 

@@ -3,6 +3,7 @@ package gophercloud
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -126,11 +127,11 @@ func (client *ProviderClient) SetToken(t string) {
 	client.TokenID = t
 }
 
-//Reauthenticate calls client.ReauthFunc in a thread-safe way. If this is
-//called because of a 401 response, the caller may pass the previous token. In
-//this case, the reauthentication can be skipped if another thread has already
-//reauthenticated in the meantime. If no previous token is known, an empty
-//string should be passed instead to force unconditional reauthentication.
+// Reauthenticate calls client.ReauthFunc in a thread-safe way. If this is
+// called because of a 401 response, the caller may pass the previous token. In
+// this case, the reauthentication can be skipped if another thread has already
+// reauthenticated in the meantime. If no previous token is known, an empty
+// string should be passed instead to force unconditional reauthentication.
 func (client *ProviderClient) Reauthenticate(previousToken string) (err error) {
 	if client.ReauthFunc == nil {
 		return nil
@@ -192,7 +193,7 @@ func (client *ProviderClient) Request(method, url string, options *RequestOpts) 
 	// io.ReadSeeker as-is. Default the content-type to application/json.
 	if options.JSONBody != nil {
 		if options.RawBody != nil {
-			panic("Please provide only one of JSONBody or RawBody to gophercloud.Request().")
+			return nil, errors.New("please provide only one of JSONBody or RawBody to gophercloud.Request()")
 		}
 
 		rendered, err := json.Marshal(options.JSONBody)

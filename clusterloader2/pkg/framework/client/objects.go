@@ -160,7 +160,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
 	createFunc := func() error {
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj)
+		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj, metav1.CreateOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(createFunc, apierrs.IsAlreadyExists))
@@ -180,7 +180,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch, metav1.UpdateOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(updateFunc, nil))

@@ -14,6 +14,10 @@ const (
 	eAry
 )
 
+var SupportNegativeIndices bool = true
+var ArraySizeLimit int = 0
+var ArraySizeAdditionLimit int = 0
+
 type lazyNode struct {
 	raw   *json.RawMessage
 	doc   partialDoc
@@ -236,7 +240,7 @@ func (o operation) path() string {
 }
 
 func (o operation) from() string {
-	if obj, ok := o["from"]; ok && obj != nil{
+	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
 		err := json.Unmarshal(*obj, &op)
@@ -354,8 +358,17 @@ func (d *partialArray) set(key string, val *lazyNode) error {
 	}
 
 	sz := len(*d)
+
+	if diff := idx + 1 - sz; ArraySizeAdditionLimit > 0 && diff > ArraySizeAdditionLimit {
+		return fmt.Errorf("Unable to increase the array size by %d, the limit is %d", diff, ArraySizeAdditionLimit)
+	}
+
 	if idx+1 > sz {
 		sz = idx + 1
+	}
+
+	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
+		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
 	}
 
 	ary := make([]*lazyNode, sz)
@@ -385,21 +398,29 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 		return err
 	}
 
-	ary := make([]*lazyNode, len(*d)+1)
+	sz := len(*d) + 1
+	if ArraySizeLimit > 0 && sz > ArraySizeLimit {
+		return fmt.Errorf("Unable to create array of size %d, limit is %d", sz, ArraySizeLimit)
+	}
+
+	ary := make([]*lazyNode, sz)
 
 	cur := *d
 
-	if idx < 0 {
-		idx *= -1
-
-		if idx > len(ary) {
-			return fmt.Errorf("Unable to access invalid index: %d", idx)
-		}
-		idx = len(ary) - idx
-	}
-	if idx < 0 || idx >= len(ary) || idx > len(cur) {
+	if idx >= len(ary) {
 		return fmt.Errorf("Unable to access invalid index: %d", idx)
 	}
+
+	if SupportNegativeIndices {
+		if idx < -len(ary) {
+			return fmt.Errorf("Unable to access invalid index: %d", idx)
+		}
+
+		if idx < 0 {
+			idx += len(ary)
+		}
+	}
+
 	copy(ary[0:idx], cur[0:idx])
 	ary[idx] = val
 	copy(ary[idx+1:], cur[idx:])
@@ -431,7 +452,17 @@ func (d *partialArray) remove(key string) error {
 	cur := *d
 
 	if idx >= len(cur) {
-		return fmt.Errorf("Unable to remove invalid index: %d", idx)
+		return fmt.Errorf("Unable to access invalid index: %d", idx)
+	}
+
+	if SupportNegativeIndices {
+		if idx < -len(cur) {
+			return fmt.Errorf("Unable to access invalid index: %d", idx)
+		}
+
+		if idx < 0 {
+			idx += len(cur)
+		}
 	}
 
 	ary := make([]*lazyNode, len(cur)-1)
@@ -534,6 +565,8 @@ func (p Patch) test(doc *container, op operation) error {
 		if op.value().raw == nil {
 			return nil
 		}
+		return fmt.Errorf("Testing value %s failed", path)
+	} else if op.value() == nil {
 		return fmt.Errorf("Testing value %s failed", path)
 	}
 

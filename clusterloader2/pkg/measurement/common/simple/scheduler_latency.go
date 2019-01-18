@@ -173,7 +173,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 			Context(ctx).
 			Namespace(metav1.NamespaceSystem).
 			Resource("pods").
-			Name(fmt.Sprintf("kube-scheduler-%v:%v", masterName, ports.SchedulerPort)).
+			Name(fmt.Sprintf("kube-scheduler-%v:%v", masterName, ports.InsecureSchedulerPort)).
 			SubResource("proxy").
 			Suffix("metrics").
 			Do().Raw()

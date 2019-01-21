@@ -18,7 +18,7 @@ kube-proxy:
   memoryConstraint: 31457280 #30 * (1024 * 1024)
 kube-scheduler:
   cpuConstraint: 0.35
-  memoryConstraint: 115343360 #110 * (1024 * 1024)
+  memoryConstraint: 125829120 #120 * (1024 * 1024)
 l7-lb-controller:
   cpuConstraint: 0.15
   memoryConstraint: 83886080 #80 * (1024 * 1024)

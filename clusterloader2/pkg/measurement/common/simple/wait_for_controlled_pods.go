@@ -132,7 +132,7 @@ func (w *waitForControlledPodsRunningMeasurement) Dispose() {
 	defer w.lock.Unlock()
 	w.isRunning = false
 	for _, checker := range w.checkerMap {
-		checker.terminate()
+		checker.terminate(false)
 	}
 }
 
@@ -223,15 +223,17 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	w.handlingGroup.Wait()
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	var numberRunning, numberTerminated, numberUnknown int
+	var numberRunning, numberDeleted, numberTimeout, numberUnknown int
 	unknowStatusErrList := errors.NewErrorList()
 	for _, checker := range w.checkerMap {
 		status, err := checker.getStatus()
 		switch status {
 		case running:
 			numberRunning++
-		case terminated:
-			numberTerminated++
+		case deleted:
+			numberDeleted++
+		case timeout:
+			numberTimeout++
 		default:
 			numberUnknown++
 			if err != nil {
@@ -239,7 +241,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 			}
 		}
 	}
-	glog.Infof("%s: running %d, terminated %d, unknown: %d", w, numberRunning, numberTerminated, numberUnknown)
+	glog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
 	if desiredCount != numberRunning {
 		glog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 		return fmt.Errorf("incorrect objects number")
@@ -247,6 +249,9 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	if numberUnknown > 0 {
 		glog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
 		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
+	}
+	if numberTimeout > 0 {
+		return fmt.Errorf("%d objects timed out", numberTimeout)
 	}
 
 	glog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
@@ -321,7 +326,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset
 		return fmt.Errorf("waiting for %v error: %v", key, err)
 	}
 	time.AfterFunc(w.operationTimeout, func() {
-		checker.terminate()
+		checker.terminate(true)
 	})
 	w.checkerMap[key] = checker
 	return nil
@@ -336,7 +341,7 @@ func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(c clientset
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
 	if checker, exists := w.checkerMap[key]; exists {
-		checker.terminate()
+		checker.terminate(false)
 		delete(w.checkerMap, key)
 	}
 	return nil
@@ -375,7 +380,7 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c 
 	for i := range objects {
 		runtimeObj, ok := objects[i].(runtime.Object)
 		if !ok {
-			glog.Errorf("%s: cannot cast to runtime.Object: %v", objects[i])
+			glog.Errorf("%s: cannot cast to runtime.Object: %v", w, objects[i])
 			continue
 		}
 		version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
@@ -428,7 +433,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 			return
 		}
 		if isDeleted {
-			o.status = terminated
+			o.status = deleted
 			return
 		}
 
@@ -442,7 +447,8 @@ type checkerStatus int
 const (
 	unknown checkerStatus = iota
 	running
-	terminated
+	deleted
+	timeout
 )
 
 type objectChecker struct {
@@ -467,11 +473,14 @@ func (o *objectChecker) getStatus() (checkerStatus, error) {
 	return o.status, o.err
 }
 
-func (o *objectChecker) terminate() {
+func (o *objectChecker) terminate(hasTimedOut bool) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	if o.isRunning {
 		close(o.stopCh)
 		o.isRunning = false
+		if hasTimedOut {
+			o.status = timeout
+		}
 	}
 }

@@ -421,6 +421,8 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
+		// This function sets the status (and error message) for the object checker.
+		// The handling of bad statuses and errors is done by gather() function of the measurement.
 		err = waitForPods(clientSet, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
 		o.lock.Lock()
 		defer o.lock.Unlock()
@@ -430,8 +432,12 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 				glog.Errorf("%s: error for %v: %v", w, key, err)
 				o.err = fmt.Errorf("%s: %v", key, err)
 			}
+			if o.status == timeout {
+				glog.Errorf("%s: %s timed out", w, key)
+			}
 			return
 		}
+		o.isRunning = false
 		if isDeleted {
 			o.status = deleted
 			return
@@ -442,10 +448,10 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	return o, nil
 }
 
-type checkerStatus int
+type objectStatus int
 
 const (
-	unknown checkerStatus = iota
+	unknown objectStatus = iota
 	running
 	deleted
 	timeout
@@ -455,7 +461,7 @@ type objectChecker struct {
 	lock      sync.Mutex
 	isRunning bool
 	stopCh    chan struct{}
-	status    checkerStatus
+	status    objectStatus
 	err       error
 }
 
@@ -467,7 +473,7 @@ func newObjectCheker() *objectChecker {
 	}
 }
 
-func (o *objectChecker) getStatus() (checkerStatus, error) {
+func (o *objectChecker) getStatus() (objectStatus, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	return o.status, o.err

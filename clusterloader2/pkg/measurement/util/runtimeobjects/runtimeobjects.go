@@ -183,6 +183,9 @@ func GetSpecFromRuntimeObject(obj runtime.Object) (interface{}, error) {
 
 // GetReplicasFromRuntimeObject returns replicas number from given runtime object.
 func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
+	if obj == nil {
+		return 0, nil
+	}
 	switch typed := obj.(type) {
 	case *corev1.ReplicationController:
 		if typed.Spec.Replicas != nil {

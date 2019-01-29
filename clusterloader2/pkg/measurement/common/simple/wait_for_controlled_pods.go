@@ -307,29 +307,52 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framewor
 
 	if err := w.deleteObjectLocked(clients.GetClient(), oldRuntimeObj); err != nil {
 		glog.Errorf("%s: delete checker error: %v", w, err)
-	} else if newRuntimeObj == nil {
-		if err := w.handleObjectLocked(clients.GetClient(), oldRuntimeObj, true); err != nil {
-			glog.Errorf("%s: create checker error: %v", w, err)
-		}
 	}
-	if err := w.handleObjectLocked(clients.GetClient(), newRuntimeObj, false); err != nil {
+	if err := w.handleObjectLocked(clients.GetClient(), oldRuntimeObj, newRuntimeObj); err != nil {
 		glog.Errorf("%s: create checker error: %v", w, err)
 	}
 }
 
-func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset.Interface, obj runtime.Object, isDeleted bool) error {
-	if obj == nil {
-		return nil
+func checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
+	oldReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(oldObj)
+	if err != nil {
+		return false, err
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
+	newReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(newObj)
+	if err != nil {
+		return false, err
+	}
+
+	return newReplicas < oldReplicas, nil
+}
+
+func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset.Interface, oldObj, newObj runtime.Object) error {
+	isObjDeleted := newObj == nil
+	isScalingDown, err := checkScaledown(oldObj, newObj)
+	if err != nil {
+		return fmt.Errorf("checkScaledown error: %v", err)
+	}
+
+	handledObj := newObj
+	if isObjDeleted {
+		handledObj = oldObj
+	}
+	key, err := runtimeobjects.CreateMetaNamespaceKey(handledObj)
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-	checker, err := w.waitForRuntimeObject(c, obj, isDeleted)
+	checker, err := w.waitForRuntimeObject(c, handledObj, isObjDeleted)
 	if err != nil {
 		return fmt.Errorf("waiting for %v error: %v", key, err)
 	}
-	time.AfterFunc(w.operationTimeout, func() {
+
+	operationTimeout := w.operationTimeout
+	if isObjDeleted || isScalingDown {
+		// In case of deleting pods, twice as much time is required.
+		// The pod deletion throughput equals half of the pod creation throughput.
+		operationTimeout *= 2
+	}
+	time.AfterFunc(operationTimeout, func() {
 		checker.terminate(true)
 	})
 	w.checkerMap[key] = checker

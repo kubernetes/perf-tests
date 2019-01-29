@@ -23,6 +23,7 @@ package simple
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -225,6 +226,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	defer w.lock.Unlock()
 	var numberRunning, numberDeleted, numberTimeout, numberUnknown int
 	unknowStatusErrList := errors.NewErrorList()
+	timedOutObjects := []string{}
 	for _, checker := range w.checkerMap {
 		status, err := checker.getStatus()
 		switch status {
@@ -233,6 +235,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 		case deleted:
 			numberDeleted++
 		case timeout:
+			timedOutObjects = append(timedOutObjects, checker.key)
 			numberTimeout++
 		default:
 			numberUnknown++
@@ -242,6 +245,10 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 		}
 	}
 	glog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
+	if numberTimeout > 0 {
+		glog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
+		return fmt.Errorf("%d objects timed out", numberTimeout)
+	}
 	if desiredCount != numberRunning {
 		glog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 		return fmt.Errorf("incorrect objects number")
@@ -249,9 +256,6 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	if numberUnknown > 0 {
 		glog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
 		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
-	}
-	if numberTimeout > 0 {
-		return fmt.Errorf("%d objects timed out", numberTimeout)
 	}
 
 	glog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
@@ -417,7 +421,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 		return nil, fmt.Errorf("meta key creation error: %v", err)
 	}
 
-	o := newObjectCheker()
+	o := newObjectChecker(key)
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
@@ -463,13 +467,17 @@ type objectChecker struct {
 	stopCh    chan struct{}
 	status    objectStatus
 	err       error
+	// key of the object being checked. In the current implementation it's a namespaced name, but it
+	// may change in the future.
+	key string
 }
 
-func newObjectCheker() *objectChecker {
+func newObjectChecker(key string) *objectChecker {
 	return &objectChecker{
 		stopCh:    make(chan struct{}),
 		isRunning: true,
 		status:    unknown,
+		key:       key,
 	}
 }
 

@@ -85,6 +85,10 @@ type SpanData struct {
 	Annotations   []Annotation
 	MessageEvents []MessageEvent
 	Status
-	Links           []Link
-	HasRemoteParent bool
+	Links                    []Link
+	HasRemoteParent          bool
+	DroppedAttributeCount    int
+	DroppedAnnotationCount   int
+	DroppedMessageEventCount int
+	DroppedLinkCount         int
 }

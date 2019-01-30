@@ -76,3 +76,18 @@ func (rp reconnectionPeriod) withExporter(e *Exporter) {
 func WithReconnectionPeriod(rp time.Duration) ExporterOption {
 	return reconnectionPeriod(rp)
 }
+
+type compressorSetter string
+
+func (c compressorSetter) withExporter(e *Exporter) {
+	e.compressor = string(c)
+}
+
+// UseCompressor will set the compressor for the gRPC client to use when sending requests.
+// It is the responsibility of the caller to ensure that the compressor set has been registered
+// with google.golang.org/grpc/encoding. This can be done by encoding.RegisterCompressor. Some
+// compressors auto-register on import, such as gzip, which can be registered by calling
+// `import _ "google.golang.org/grpc/encoding/gzip"`
+func UseCompressor(compressorName string) ExporterOption {
+	return compressorSetter(compressorName)
+}

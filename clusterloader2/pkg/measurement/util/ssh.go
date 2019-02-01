@@ -17,10 +17,13 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 
 	"golang.org/x/crypto/ssh"
 	sshutil "k8s.io/kubernetes/pkg/ssh"
@@ -45,8 +48,42 @@ type SSHResult struct {
 	Code   int
 }
 
+func execLocal(cmd string) (SSHResult, error) {
+	result := SSHResult{Cmd: cmd}
+	result.User = "localhost"
+
+	c := exec.Command("sh", "-c", cmd)
+	var outBuf, errBuf bytes.Buffer
+	c.Stdout = &outBuf
+	c.Stderr = &errBuf
+
+	if err := c.Start(); err != nil {
+		return result, fmt.Errorf("command start error %s: '%v'", cmd, err)
+	}
+	var code int
+	if err := c.Wait(); err != nil {
+		exiterr, ok := err.(*exec.ExitError)
+		if !ok{
+			return result, fmt.Errorf("command wait error %s: '%v'", cmd, err)
+		}
+		// The command has exited with an exit code != 0
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			code = status.ExitStatus()
+		}
+	}
+	result.Stdout = outBuf.String()
+	result.Stderr = errBuf.String()
+	result.Code = code
+
+	return result, nil
+}
+
 // SSH runs command on given host using ssh.
 func SSH(cmd, host, provider string) (SSHResult, error) {
+	if host == "localhost:22" {
+		return execLocal(cmd)
+	}
+
 	result := SSHResult{Host: host, Cmd: cmd}
 
 	// Get a signer for the provider.

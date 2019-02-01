@@ -6,6 +6,10 @@ To run ClusterLoader type:
 ```
 go run cmd/clusterloader.go --kubeconfig=kubeConfig.yaml --testconfig=config.yaml
 ```
+OR
+```
+./run-e2e.sh --testconfig=config.yaml
+```
 Flags kubeconfig and testconfig are necessary.
 
 ### Flags
@@ -26,6 +30,7 @@ If not specified, summaries are printed to standard log.
  - provider - Cluster provider, options are: gce, gke, kubemark, aws, local, vsphere, skeleton
  - mastername - Name of the master node
  - masterip - DNS Name / IP of the master node
+ - testoverrides - path to file with overrides.
 
 ## Tests
 
@@ -48,12 +53,22 @@ Two always available parameters are ```{{.Name}}``` and ```{{.Index}}```
 which specifies object name and object replica index respectively. \
 Example of a template can be found here: [load rc template].
 
+### Overrides
+
+Overrides allow to inject new variables values to the template. \
+Many tests define input parameters. Input parameter is a variable
+that potentially will be provided by the test framework. Cause input parameters are optional,
+each reference has to be opaqued with ```DefaultParam``` function that will
+handle case if given variable doesn't exist. \
+Example of overrides can be found here: [overrides]
+
 ## Measurement
 
 Currently available measurements are:
 - **APIResponsiveness** \
 This measurement creates summary for latency and number for server api calls.
- Api calls are divided by resource, subresource, verb and scope.
+Api calls are divided by resource, subresource, verb and scope. \
+This measurement verifies if [API call latencies SLO] is satisfied.
 - **CPUProfile** \
 This measurement gathers the cpu usage profile provided by pprof for a given component.
 - **EtcdMetrics** \
@@ -63,8 +78,19 @@ This measurement gathers the memory profile provided by pprof for a given compon
 - **MetricsForE2E** \
 The measurement gathers metrics from kube-apiserver, controller manager,
 scheduler and optionally all kubelets.
+- **PodStartupLatency** \
+This measurement verifies if [pod startup SLO] is satisfied.
+- **ResourceUsageSummary** \
+This measurement collects the resource usage per component. During gather execution,
+the collected data will be converted into summary presenting 90th, 99th and 100th usage percentile
+for each observed component. \
+Optionally resource constraints file can be provided to the measurement.
+Resource constraints file specifies cpu and/or memory constraint for a given component.
+If any of the constraint is violated, an error will be returned, causing test to fail.
 - **SchedulingMetrics** \
 This measurement gathers a set of scheduler metrics.
+- **SchedulingThroughput** \
+This measurement gathers scheduling throughput.
 - **Timer** \
 Timer allows for measuring latencies of certain parts of the test
 (single timer allows for independent measurements of different actions).
@@ -83,7 +109,10 @@ In case of timeout test continues to run, with error (causing marking test as fa
 Vendor is created using [govendor].
 
 [api]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/api/types.go
+[API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [govendor]: https://github.com/kardianos/govendor
 [load rc template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/rc.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
+[overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml
+[pod startup SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md

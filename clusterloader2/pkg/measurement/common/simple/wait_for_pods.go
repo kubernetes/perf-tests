@@ -139,7 +139,9 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 			if log {
 				glog.Infof("%s: %s: %s", callerName, selectorsString, podsStatus.String())
 			}
-			if len(pods) == podsStatus.Running && podsStatus.Running == desiredPodCount {
+			// We allow inactive pods (e.g. eviction happened).
+			// We wait until there is a desired number of pods running and all other pods are inactive.
+			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == desiredPodCount {
 				return nil
 			}
 			oldPods = pods

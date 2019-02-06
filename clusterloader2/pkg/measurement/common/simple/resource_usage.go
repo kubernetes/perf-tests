@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -102,7 +102,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 			nodesSet = gatherers.AllNodes
 		}
 
-		glog.Infof("%s: starting resource usage collecting...", e)
+		klog.Infof("%s: starting resource usage collecting...", e)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSets.GetClient(), host, provider, gatherers.ResourceGathererOptions{
 			InKubemark:                  strings.ToLower(provider) == "kubemark",
 			Nodes:                       nodesSet,
@@ -117,10 +117,10 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		return summaries, nil
 	case "gather":
 		if e.gatherer == nil {
-			glog.Errorf("%s: gatherer not initialized", e)
+			klog.Errorf("%s: gatherer not initialized", e)
 			return summaries, nil
 		}
-		glog.Infof("%s: gathering resource usage...", e)
+		klog.Infof("%s: gathering resource usage...", e)
 		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100})
 		if err != nil {
 			return summaries, err
@@ -176,7 +176,7 @@ func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.Resour
 	}
 	if len(violatedConstraints) > 0 {
 		for i := range violatedConstraints {
-			glog.Errorf("%s: violation: %s", e, violatedConstraints[i])
+			klog.Errorf("%s: violation: %s", e, violatedConstraints[i])
 		}
 		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated: %v", len(violatedConstraints), violatedConstraints))
 	}

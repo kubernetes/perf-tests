@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -105,7 +105,7 @@ func gatherProfile(caller measurement.Measurement, componentName, profileKind, h
 	if err != nil {
 		if provider == "gke" {
 			// Only logging error for gke. SSHing to gke master is not supported.
-			glog.Errorf("%s: failed to execute curl command on master through SSH: %v", caller, err)
+			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", caller, err)
 			return summaries, nil
 		}
 		return summaries, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)

@@ -19,7 +19,7 @@ package bundle
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -37,25 +37,25 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	var metrics testMetrics
 	var err error
 	if metrics.etcdMetrics, err = measurement.CreateMeasurement("EtcdMetrics"); err != nil {
-		glog.Errorf("%s: etcdMetrics creation error: %v", metrics, err)
+		klog.Errorf("%s: etcdMetrics creation error: %v", metrics, err)
 	}
 	if metrics.schedulingMetrics, err = measurement.CreateMeasurement("SchedulingMetrics"); err != nil {
-		glog.Errorf("%s: schedulingMetrics creation error: %v", metrics, err)
+		klog.Errorf("%s: schedulingMetrics creation error: %v", metrics, err)
 	}
 	if metrics.metricsForE2E, err = measurement.CreateMeasurement("MetricsForE2E"); err != nil {
-		glog.Errorf("%s: metricsForE2E creation error: %v", metrics, err)
+		klog.Errorf("%s: metricsForE2E creation error: %v", metrics, err)
 	}
 	if metrics.resourceUsageSummary, err = measurement.CreateMeasurement("ResourceUsageSummary"); err != nil {
-		glog.Errorf("%s: resourceUsageSummary creation error: %v", metrics, err)
+		klog.Errorf("%s: resourceUsageSummary creation error: %v", metrics, err)
 	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		glog.Errorf("%s: apiserverCPUProfile creation error: %v", metrics, err)
+		klog.Errorf("%s: apiserverCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.apiserverMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		glog.Errorf("%s: apiserverMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%s: apiserverMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.schedulerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		glog.Errorf("%s: schedulerMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%s: schedulerMemoryProfile creation error: %v", metrics, err)
 	}
 	return &metrics
 }
@@ -124,7 +124,7 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	}
 
 	if !errList.IsEmpty() {
-		glog.Errorf("%s: %v", t, errList.String())
+		klog.Errorf("%s: %v", t, errList.String())
 		return summaries, errList
 	}
 	return summaries, nil

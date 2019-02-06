@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/master/ports"
 	schedulermetric "k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/kubernetes/pkg/util/system"
@@ -75,7 +75,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 
 	switch action {
 	case "reset":
-		glog.Infof("%s: resetting latency metrics in scheduler...", s)
+		klog.Infof("%s: resetting latency metrics in scheduler...", s)
 		return summaries, s.resetSchedulerMetrics(config.ClientSets.GetClient(), masterIP, provider, masterName)
 	case "gather":
 		return s.getSchedulingLatency(config.ClientSets.GetClient(), masterIP, provider, masterName)
@@ -185,7 +185,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 	} else {
 		// If master is not registered fall back to old method of using SSH.
 		if provider == "gke" {
-			glog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
+			klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
 			return "", nil
 		}
 

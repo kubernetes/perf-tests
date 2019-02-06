@@ -23,10 +23,12 @@ import (
 	"strconv"
 
 	"github.com/spf13/pflag"
+	"k8s.io/klog"
 )
 
 func init() {
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
+	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 }
 

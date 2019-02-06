@@ -22,9 +22,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -62,7 +62,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 	switch action {
 	case "start":
 		if s.isRunning {
-			glog.Infof("%s: measurement already running", s)
+			klog.Infof("%s: measurement already running", s)
 			return summaries, nil
 		}
 		namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
@@ -103,7 +103,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
 	s.isRunning = true
-	glog.Infof("%s: starting collecting throughput data", s)
+	klog.Infof("%s: starting collecting throughput data", s)
 
 	go func() {
 		defer ps.Stop()
@@ -119,7 +119,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(defaultWaitForPodsInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
 				lastScheduledCount = podsStatus.Scheduled
-				glog.Infof("%v: %s: %d pods scheduled", s, selectorsString, lastScheduledCount)
+				klog.Infof("%v: %s: %d pods scheduled", s, selectorsString, lastScheduledCount)
 			}
 		}
 	}()
@@ -129,11 +129,11 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	if !s.isRunning {
-		glog.Errorf("%s: measurementis nor running", s)
+		klog.Errorf("%s: measurementis nor running", s)
 		return summaries, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
-	glog.Infof("%s: gathering data", s)
+	klog.Infof("%s: gathering data", s)
 
 	summary := &schedulingThroughput{}
 	if length := len(s.schedulingThroughputs); length > 0 {

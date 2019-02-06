@@ -26,10 +26,10 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
-	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 // NodeKiller is a utility to simulate node failures.
@@ -54,7 +54,7 @@ func (k *NodeKiller) Run(stopCh <-chan struct{}) {
 	wait.JitterUntil(func() {
 		nodes, err := k.pickNodes()
 		if err != nil {
-			glog.Errorf("Unable to pick nodes to kill: %v", err)
+			klog.Errorf("Unable to pick nodes to kill: %v", err)
 			return
 		}
 		k.kill(nodes)
@@ -84,19 +84,19 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 		go func() {
 			defer wg.Done()
 
-			glog.Infof("Stopping docker and kubelet on %q to simulate failure", node.Name)
+			klog.Infof("Stopping docker and kubelet on %q to simulate failure", node.Name)
 			err := ssh("sudo systemctl stop docker kubelet", &node)
 			if err != nil {
-				glog.Errorf("ERROR while stopping node %q: %v", node.Name, err)
+				klog.Errorf("ERROR while stopping node %q: %v", node.Name, err)
 				return
 			}
 
 			time.Sleep(time.Duration(k.config.SimulatedDowntime))
 
-			glog.Infof("Rebooting %q to repair the node", node.Name)
+			klog.Infof("Rebooting %q to repair the node", node.Name)
 			err = ssh("sudo reboot", &node)
 			if err != nil {
-				glog.Errorf("Error while rebooting node %q: %v", node.Name, err)
+				klog.Errorf("Error while rebooting node %q: %v", node.Name, err)
 				return
 			}
 		}()
@@ -111,6 +111,6 @@ func ssh(command string, node *v1.Node) error {
 	}
 	cmd := exec.Command("gcloud", "compute", "ssh", "--zone", zone, "--command", command, node.Name)
 	output, err := cmd.CombinedOutput()
-	glog.Infof("ssh to %q finished with %q: %v", node.Name, string(output), err)
+	klog.Infof("ssh to %q finished with %q: %v", node.Name, string(output), err)
 	return err
 }

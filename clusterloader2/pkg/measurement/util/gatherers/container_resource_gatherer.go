@@ -23,10 +23,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
@@ -169,7 +169,7 @@ func (g *ContainerResourceGatherer) StartGatheringData() {
 // generates resource summary for the passed-in percentiles, and returns the summary.
 func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*ResourceUsageSummary, error) {
 	g.stop()
-	glog.Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
+	klog.Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
 	finished := make(chan struct{})
 	go func() {
 		g.workerWg.Wait()
@@ -177,7 +177,7 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*Resour
 	}()
 	select {
 	case <-finished:
-		glog.Infof("Waitgroup finished.")
+		klog.Infof("Waitgroup finished.")
 	case <-time.After(2 * time.Minute):
 		unfinished := make([]string, 0)
 		for i := range g.workers {
@@ -185,11 +185,11 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*Resour
 				unfinished = append(unfinished, g.workers[i].nodeName)
 			}
 		}
-		glog.Infof("Timed out while waiting for waitgroup, some workers failed to finish: %v", unfinished)
+		klog.Infof("Timed out while waiting for waitgroup, some workers failed to finish: %v", unfinished)
 	}
 
 	if len(percentiles) == 0 {
-		glog.Infof("Warning! Empty percentile list for stopAndPrintData.")
+		klog.Infof("Warning! Empty percentile list for stopAndPrintData.")
 		return &ResourceUsageSummary{}, fmt.Errorf("failed to get any resource usage data")
 	}
 	data := make(map[int]util.ResourceUsagePerContainer)

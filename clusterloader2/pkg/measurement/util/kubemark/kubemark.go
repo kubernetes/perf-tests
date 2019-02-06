@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -47,7 +47,7 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 	// Get kubernetes component resource usage
 	sshResult, err := getMasterUsageByPrefix(host, provider, "kube")
 	if err != nil {
-		glog.Errorf("error when trying to SSH to master machine. Skipping probe. %v", err)
+		klog.Errorf("error when trying to SSH to master machine. Skipping probe. %v", err)
 		return nil
 	}
 	scanner := bufio.NewScanner(strings.NewReader(sshResult))
@@ -65,7 +65,7 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 	// Get etcd resource usage
 	sshResult, err = getMasterUsageByPrefix(host, provider, "bin/etcd")
 	if err != nil {
-		glog.Errorf("error when trying to SSH to master machine. Skipping probe")
+		klog.Errorf("error when trying to SSH to master machine. Skipping probe")
 		return nil
 	}
 	scanner = bufio.NewScanner(strings.NewReader(sshResult))

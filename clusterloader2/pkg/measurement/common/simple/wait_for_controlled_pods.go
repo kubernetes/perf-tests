@@ -27,13 +27,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -144,10 +144,10 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 
 func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.MultiClientSet) error {
 	if w.informer != nil {
-		glog.Infof("%v: wait for controlled pods measurement already running", w)
+		klog.Infof("%v: wait for controlled pods measurement already running", w)
 		return nil
 	}
-	glog.Infof("%v: starting wait for controlled pods measurement...", w)
+	klog.Infof("%v: starting wait for controlled pods measurement...", w)
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
@@ -205,7 +205,7 @@ func (w *waitForControlledPodsRunningMeasurement) worker() {
 }
 
 func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, syncTimeout time.Duration) error {
-	glog.Infof("%v: waiting for controlled pods measurement...", w)
+	klog.Infof("%v: waiting for controlled pods measurement...", w)
 	if w.informer == nil {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
@@ -244,21 +244,21 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 			}
 		}
 	}
-	glog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
+	klog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
 	if numberTimeout > 0 {
-		glog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
+		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
 	}
 	if desiredCount != numberRunning {
-		glog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
+		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, desiredCount, w.kind)
 	}
 	if numberUnknown > 0 {
-		glog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
+		klog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
 		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
 	}
 
-	glog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
+	klog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
 	return nil
 }
 
@@ -272,26 +272,26 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framewor
 	var ok bool
 	oldRuntimeObj, ok = oldObj.(runtime.Object)
 	if oldObj != nil && !ok {
-		glog.Errorf("%s: uncastable old object: %v", w, oldObj)
+		klog.Errorf("%s: uncastable old object: %v", w, oldObj)
 		return
 	}
 	newRuntimeObj, ok = newObj.(runtime.Object)
 	if newObj != nil && !ok {
-		glog.Errorf("%s: uncastable new object: %v", w, newObj)
+		klog.Errorf("%s: uncastable new object: %v", w, newObj)
 		return
 	}
 	defer func() {
 		// We want to update version after (potentially) creating goroutine.
 		if err := w.updateOpResourceVersion(oldRuntimeObj); err != nil {
-			glog.Errorf("%s: updating resource version error: %v", w, err)
+			klog.Errorf("%s: updating resource version error: %v", w, err)
 		}
 		if err := w.updateOpResourceVersion(newRuntimeObj); err != nil {
-			glog.Errorf("%s: updating resource version error: %v", w, err)
+			klog.Errorf("%s: updating resource version error: %v", w, err)
 		}
 	}()
 	isEqual, err := runtimeobjects.IsEqualRuntimeObjectsSpec(oldRuntimeObj, newRuntimeObj)
 	if err != nil {
-		glog.Errorf("%s: comparing specs error: %v", w, err)
+		klog.Errorf("%s: comparing specs error: %v", w, err)
 		return
 	}
 	if isEqual {
@@ -306,10 +306,10 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framewor
 	}
 
 	if err := w.deleteObjectLocked(clients.GetClient(), oldRuntimeObj); err != nil {
-		glog.Errorf("%s: delete checker error: %v", w, err)
+		klog.Errorf("%s: delete checker error: %v", w, err)
 	}
 	if err := w.handleObjectLocked(clients.GetClient(), oldRuntimeObj, newRuntimeObj); err != nil {
-		glog.Errorf("%s: create checker error: %v", w, err)
+		klog.Errorf("%s: create checker error: %v", w, err)
 	}
 }
 
@@ -407,12 +407,12 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c 
 	for i := range objects {
 		runtimeObj, ok := objects[i].(runtime.Object)
 		if !ok {
-			glog.Errorf("%s: cannot cast to runtime.Object: %v", w, objects[i])
+			klog.Errorf("%s: cannot cast to runtime.Object: %v", w, objects[i])
 			continue
 		}
 		version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
 		if err != nil {
-			glog.Errorf("%s: retriving resource version error: %v", w, err)
+			klog.Errorf("%s: retriving resource version error: %v", w, err)
 			continue
 		}
 		desiredCount++
@@ -456,11 +456,11 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 		if err != nil {
 			if o.isRunning {
 				// Log error only if checker wasn't terminated.
-				glog.Errorf("%s: error for %v: %v", w, key, err)
+				klog.Errorf("%s: error for %v: %v", w, key, err)
 				o.err = fmt.Errorf("%s: %v", key, err)
 			}
 			if o.status == timeout {
-				glog.Errorf("%s: %s timed out", w, key)
+				klog.Errorf("%s: %s timed out", w, key)
 			}
 			return
 		}

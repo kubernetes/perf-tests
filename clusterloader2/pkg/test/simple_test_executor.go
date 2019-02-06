@@ -22,9 +22,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
@@ -45,7 +45,7 @@ func createSimpleTestExecutor() TestExecutor {
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
 	ctx.GetFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
-	glog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
+	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 	stopCh := make(chan struct{})
@@ -82,7 +82,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 			continue
 		}
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
-			glog.Infof("%v: %v", summary.SummaryName(), summaryText)
+			klog.Infof("%v: %v", summary.SummaryName(), summaryText)
 		} else {
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
 			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+time.Now().Format(time.RFC3339)+".txt")
@@ -124,7 +124,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 	}
 	wg.Wait()
 	if step.Name != "" {
-		glog.Infof("Step \"%s\" ended", step.Name)
+		klog.Infof("Step \"%s\" ended", step.Name)
 	}
 	return errList
 }
@@ -164,7 +164,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 		}
 
 		if err := verifyBundleCorrectness(instancesStates); err != nil {
-			glog.Errorf("Skipping phase. Incorrect bundle in phase: %+v", *phase)
+			klog.Errorf("Skipping phase. Incorrect bundle in phase: %+v", *phase)
 			return errors.NewErrorList(err)
 		}
 
@@ -336,8 +336,8 @@ func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
 	ctx.GetMeasurementManager().Dispose()
 	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
-		glog.Errorf("Resource cleanup error: %v", errList.String())
+		klog.Errorf("Resource cleanup error: %v", errList.String())
 		return
 	}
-	glog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
+	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
 }

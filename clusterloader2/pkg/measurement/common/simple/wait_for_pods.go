@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -118,13 +118,13 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				diff := measurementutil.DiffPods(oldPods, pods)
 				deletedPods := diff.DeletedPods()
 				if scaling != down && len(deletedPods) > 0 {
-					glog.Errorf("%s: %s: %d pods disappeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
-					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
+					klog.Errorf("%s: %s: %d pods disappeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
+					klog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
 				}
 				addedPods := diff.AddedPods()
 				if scaling != up && len(addedPods) > 0 {
-					glog.Errorf("%s: %s: %d pods appeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
-					glog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
+					klog.Errorf("%s: %s: %d pods appeared: %v", callerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
+					klog.Infof("%s: %v", callerName, diff.String(sets.NewString()))
 				}
 			} else {
 				switch {
@@ -137,7 +137,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 				}
 			}
 			if log {
-				glog.Infof("%s: %s: %s", callerName, selectorsString, podsStatus.String())
+				klog.Infof("%s: %s: %s", callerName, selectorsString, podsStatus.String())
 			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.

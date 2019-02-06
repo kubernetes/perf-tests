@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/common/model"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -74,7 +74,7 @@ func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementCo
 
 	switch action {
 	case "reset":
-		glog.Infof("%s: resetting latency metrics in apiserver...", a)
+		klog.Infof("%s: resetting latency metrics in apiserver...", a)
 		return summaries, apiserverMetricsReset(config.ClientSets.GetClient())
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
@@ -132,7 +132,7 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 			if isBad {
 				prefix = "WARNING "
 			}
-			glog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
 	if len(badMetrics) > 0 {

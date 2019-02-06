@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/common/model"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -72,7 +72,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 
 	switch action {
 	case "start":
-		glog.Infof("%s: starting etcd metrics collecting...", e)
+		klog.Infof("%s: starting etcd metrics collecting...", e)
 		waitTime, err := util.GetDurationOrDefault(config.Params, "waitTime", time.Minute)
 		if err != nil {
 			return summaries, err
@@ -114,7 +114,7 @@ func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval
 			case <-time.After(interval):
 				dbSize, err := e.getEtcdDatabaseSize(host, provider)
 				if err != nil {
-					glog.Errorf("%s: failed to collect etcd database size", e)
+					klog.Errorf("%s: failed to collect etcd database size", e)
 					continue
 				}
 				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
@@ -150,7 +150,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
 func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
-		glog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", e)
+		klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", e)
 		return nil, nil
 	}
 

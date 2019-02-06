@@ -23,12 +23,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -123,10 +123,10 @@ func (*podStartupLatencyMeasurement) String() string {
 
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	if p.isRunning {
-		glog.Infof("%s: pod startup latancy measurement already running", p)
+		klog.Infof("%s: pod startup latancy measurement already running", p)
 		return nil
 	}
-	glog.Infof("%s: starting pod startup latency measurement...", p)
+	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	optionsModifier := func(options *metav1.ListOptions) {
@@ -164,7 +164,7 @@ func (p *podStartupLatencyMeasurement) stop() {
 }
 
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
-	glog.Infof("%s: gathering pod startup latency measurement...", p)
+	klog.Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
 		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
@@ -183,21 +183,21 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	for key, create := range p.createTimes {
 		sched, hasSched := p.scheduleTimes[key]
 		if !hasSched {
-			glog.Infof("%s: failed to find schedule time for %v", p, key)
+			klog.Infof("%s: failed to find schedule time for %v", p, key)
 		}
 		run, ok := p.runTimes[key]
 		if !ok {
-			glog.Infof("%s: failed to find run time for %v", p, key)
+			klog.Infof("%s: failed to find run time for %v", p, key)
 			continue
 		}
 		watch, ok := p.watchTimes[key]
 		if !ok {
-			glog.Infof("%s: failed to find watch time for %v", p, key)
+			klog.Infof("%s: failed to find watch time for %v", p, key)
 			continue
 		}
 		node, ok := p.nodeNames[key]
 		if !ok {
-			glog.Infof("%s: failed to find node for %v", p, key)
+			klog.Infof("%s: failed to find node for %v", p, key)
 			continue
 		}
 
@@ -234,7 +234,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	var err error
 	if successRatio := float32(len(e2eLag)) / float32(len(p.createTimes)); successRatio < successfulStartupRatioThreshold {
 		err = fmt.Errorf("only %v%% of all pods were scheduled successfully", successRatio*100)
-		glog.Errorf("%s: %v", p, err)
+		klog.Errorf("%s: %v", p, err)
 	}
 
 	podStartupLatencyThreshold := &measurementutil.LatencyMetric{
@@ -245,7 +245,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 
 	if slosErr := podStartupLatency.E2ELatency.VerifyThreshold(podStartupLatencyThreshold); slosErr != nil {
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
-		glog.Errorf("%s: %v", p, err)
+		klog.Errorf("%s: %v", p, err)
 	}
 	return []measurement.Summary{podStartupLatency}, err
 }
@@ -293,7 +293,7 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 			if startTime != metav1.NewTime(time.Time{}) {
 				p.runTimes[key] = startTime
 			} else {
-				glog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
+				klog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
 			}
 		}
 	}
@@ -301,8 +301,8 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 
 func (p *podStartupLatencyMeasurement) printLatencies(latencies []podLatencyData, header string) {
 	metrics := extractLatencyMetrics(latencies)
-	glog.Infof("%s: 10%% %s: %v", p, header, latencies[(len(latencies)*9)/10:])
-	glog.Infof("%s: perc50: %v, perc90: %v, perc99: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99)
+	klog.Infof("%s: 10%% %s: %v", p, header, latencies[(len(latencies)*9)/10:])
+	klog.Infof("%s: perc50: %v, perc90: %v, perc99: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99)
 }
 
 type podLatencyData struct {

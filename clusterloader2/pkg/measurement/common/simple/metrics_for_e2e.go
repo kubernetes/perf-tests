@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -104,7 +104,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	// Grab apiserver, scheduler, controller-manager metrics and (optionally) nodes' kubelet metrics.
 	received, err := grabber.Grab()
 	if err != nil {
-		glog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
+		klog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
 	}
 	summaries = append(summaries, (*metricsForE2E)(&received))
 	return summaries, err

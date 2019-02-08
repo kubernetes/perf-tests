@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -78,7 +78,7 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 			return summaries, fmt.Errorf("uninitialized timer %s", label)
 		}
 		duration := time.Since(startTime)
-		glog.Infof("%s: %s - %v", t, label, duration)
+		klog.Infof("%s: %s - %v", t, label, duration)
 		t.durations[label] = duration
 		delete(t.startTimes, label)
 	case "gather":

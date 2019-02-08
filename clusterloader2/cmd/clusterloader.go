@@ -22,10 +22,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/golang/glog"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
 	ginkgotypes "github.com/onsi/ginkgo/types"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
@@ -87,24 +87,24 @@ func completeConfig(m *framework.MultiClientSet) error {
 			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
 		clusterLoaderConfig.ClusterConfig.Nodes = nodes
-		glog.Infof("ClusterConfig.Nodes set to %v", nodes)
+		klog.Infof("ClusterConfig.Nodes set to %v", nodes)
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterName == "" {
 		masterName, err := util.GetMasterName(m.GetClient())
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterName = masterName
-			glog.Infof("ClusterConfig.MasterName set to %v", masterName)
+			klog.Infof("ClusterConfig.MasterName set to %v", masterName)
 		} else {
-			glog.Errorf("Getting master name error: %v", err)
+			klog.Errorf("Getting master name error: %v", err)
 		}
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterIP == "" {
 		masterIP, err := util.GetMasterExternalIP(m.GetClient())
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIP = masterIP
-			glog.Infof("ClusterConfig.MasterIP set to %v", masterIP)
+			klog.Infof("ClusterConfig.MasterIP set to %v", masterIP)
 		} else {
-			glog.Errorf("Getting master ip error: %v", err)
+			klog.Errorf("Getting master ip error: %v", err)
 		}
 	}
 	return nil
@@ -129,15 +129,15 @@ func createReportDir() error {
 }
 
 func printTestStart(name string) {
-	glog.Infof(dashLine)
-	glog.Infof("Running %v", name)
-	glog.Infof(dashLine)
+	klog.Infof(dashLine)
+	klog.Infof("Running %v", name)
+	klog.Infof(dashLine)
 }
 
 func printTestResult(name, status, errors string) {
-	logf := glog.Infof
+	logf := klog.Infof
 	if errors != "" {
-		logf = glog.Errorf
+		logf = klog.Errorf
 	}
 	logf(dashLine)
 	logf("Test Finished")
@@ -150,30 +150,30 @@ func printTestResult(name, status, errors string) {
 }
 
 func main() {
-	defer glog.Flush()
+	defer klog.Flush()
 	initFlags()
 	if err := flags.Parse(); err != nil {
-		glog.Fatalf("Flag parse failed: %v", err)
+		klog.Fatalf("Flag parse failed: %v", err)
 	}
 	if errList := validateFlags(); !errList.IsEmpty() {
-		glog.Fatalf("Parsing flags error: %v", errList.String())
+		klog.Fatalf("Parsing flags error: %v", errList.String())
 	}
 
 	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)
 	if err != nil {
-		glog.Fatalf("Client creation error: %v", err)
+		klog.Fatalf("Client creation error: %v", err)
 	}
 
 	if err = completeConfig(mclient); err != nil {
-		glog.Fatalf("Config completing error: %v", err)
+		klog.Fatalf("Config completing error: %v", err)
 	}
 
 	if err = createReportDir(); err != nil {
-		glog.Fatalf("Cannot create report directory: %v", err)
+		klog.Fatalf("Cannot create report directory: %v", err)
 	}
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
-		glog.Errorf("Nodes info logging error: %v", err)
+		klog.Errorf("Nodes info logging error: %v", err)
 	}
 
 	f, err := framework.NewFramework(
@@ -181,7 +181,7 @@ func main() {
 		getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes),
 	)
 	if err != nil {
-		glog.Fatalf("Framework creation error: %v", err)
+		klog.Fatalf("Framework creation error: %v", err)
 	}
 
 	suiteSummary := &ginkgotypes.SuiteSummary{
@@ -214,6 +214,6 @@ func main() {
 	suiteSummary.RunTime = time.Since(testsStart)
 	junitReporter.SpecSuiteDidEnd(suiteSummary)
 	if suiteSummary.NumberOfFailedSpecs > 0 {
-		glog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
+		klog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
 	}
 }

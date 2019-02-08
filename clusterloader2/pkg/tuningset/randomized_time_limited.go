@@ -18,6 +18,7 @@ package tuningset
 
 import (
 	"math/rand"
+	"sort"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,15 +35,34 @@ func newRandomizedTimeLimitedLoad(params *api.RandomizedTimeLimitedLoad) TuningS
 	}
 }
 
+type scheduleEntry struct {
+	action    func()
+	startTime time.Time
+}
+
 func (r *randomizedTimeLimitedLoad) Execute(actions []func()) {
-	var wg wait.Group
+	var schedule []scheduleEntry
 	for i := range actions {
-		index := i
-		wg.Start(func() {
-			// Sleeps for random duration in [0, TimeLimit].
-			time.Sleep(time.Duration(rand.Int63n(r.params.TimeLimit.ToTimeDuration().Nanoseconds())))
-			actions[index]()
+		schedule = append(schedule, scheduleEntry{
+			action: actions[i],
+			// assign random time in [now, now+TimeLimit]
+			startTime: time.Now().Add(time.Duration(rand.Int63n(r.params.TimeLimit.ToTimeDuration().Nanoseconds()))),
 		})
+	}
+
+	sort.Slice(schedule, func(i, j int) bool {
+		return schedule[i].startTime.Before(schedule[j].startTime)
+	})
+
+	var wg wait.Group
+	for i := 0; i < len(schedule); {
+		now := time.Now()
+		if schedule[i].startTime.Before(now) {
+			wg.Start(schedule[i].action)
+			i++
+			continue
+		}
+		time.Sleep(schedule[i].startTime.Sub(now))
 	}
 	wg.Wait()
 }

@@ -108,7 +108,7 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 		return nil, err
 	}
 	sort.Sort(sort.Reverse(metrics))
-	badMetrics := 0
+	var badMetrics []string
 	top := 5
 	for i := range metrics.ApiCalls {
 		latency := metrics.ApiCalls[i].Latency.Perc99
@@ -124,7 +124,7 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 		}
 		if latency > latencyThreshold {
 			isBad = true
-			badMetrics++
+			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", metrics.ApiCalls[i], latencyThreshold))
 		}
 		if top > 0 || isBad {
 			top--
@@ -132,11 +132,11 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 			if isBad {
 				prefix = "WARNING "
 			}
-			glog.Infof("%s: %vTop latency metric: %+v", a, prefix, metrics.ApiCalls[i])
+			glog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
-	if badMetrics > 0 {
-		return metrics, errors.NewMetricViolationError("top latency metric", "there should be no high-latency requests")
+	if len(badMetrics) > 0 {
+		return metrics, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
 	return metrics, nil
 }

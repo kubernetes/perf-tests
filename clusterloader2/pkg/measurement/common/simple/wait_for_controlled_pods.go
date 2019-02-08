@@ -247,11 +247,11 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 	glog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
 	if numberTimeout > 0 {
 		glog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
-		return fmt.Errorf("%d objects timed out", numberTimeout)
+		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
 	}
 	if desiredCount != numberRunning {
 		glog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
-		return fmt.Errorf("incorrect objects number")
+		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, desiredCount, w.kind)
 	}
 	if numberUnknown > 0 {
 		glog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())

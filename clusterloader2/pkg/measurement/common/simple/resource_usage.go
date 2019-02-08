@@ -178,7 +178,7 @@ func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.Resour
 		for i := range violatedConstraints {
 			glog.Errorf("%s: violation: %s", e, violatedConstraints[i])
 		}
-		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated", len(violatedConstraints)))
+		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated: %v", len(violatedConstraints), violatedConstraints))
 	}
 	return nil
 }

@@ -26,7 +26,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -37,6 +38,8 @@ type NodeKiller struct {
 	config   api.NodeFailureConfig
 	client   clientset.Interface
 	provider string
+	// killedNodes stores names of the nodes that have been killed by NodeKiller.
+	killedNodes sets.String
 }
 
 // NewNodeKiller creates new NodeKiller.
@@ -44,7 +47,7 @@ func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, pro
 	if provider != "gce" && provider != "gke" {
 		return nil, fmt.Errorf("provider %q is not supported by NodeKiller")
 	}
-	return &NodeKiller{config, client, provider}, nil
+	return &NodeKiller{config, client, provider, sets.NewString()}, nil
 }
 
 // Run starts NodeKiller until stopCh is closed.
@@ -62,9 +65,15 @@ func (k *NodeKiller) Run(stopCh <-chan struct{}) {
 }
 
 func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
-	nodes, err := util.GetSchedulableUntainedNodes(k.client)
+	allNodes, err := util.GetSchedulableUntainedNodes(k.client)
 	if err != nil {
 		return nil, err
+	}
+	nodes := allNodes[:0]
+	for _, node := range allNodes {
+		if !k.killedNodes.Has(node.Name) {
+			nodes = append(nodes, node)
+		}
 	}
 	rand.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
@@ -80,6 +89,7 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(nodes))
 	for _, node := range nodes {
+		k.killedNodes.Insert(node.Name)
 		node := node
 		go func() {
 			defer wg.Done()

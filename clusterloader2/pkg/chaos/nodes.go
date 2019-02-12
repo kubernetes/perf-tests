@@ -57,7 +57,7 @@ func (k *NodeKiller) Run(stopCh <-chan struct{}) {
 	wait.JitterUntil(func() {
 		nodes, err := k.pickNodes()
 		if err != nil {
-			klog.Errorf("Unable to pick nodes to kill: %v", err)
+			klog.Errorf("%s: Unable to pick nodes to kill: %v", k, err)
 			return
 		}
 		k.kill(nodes)
@@ -94,19 +94,19 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 		go func() {
 			defer wg.Done()
 
-			klog.Infof("Stopping docker and kubelet on %q to simulate failure", node.Name)
-			err := ssh("sudo systemctl stop docker kubelet", &node)
+			klog.Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
+			err := k.ssh("sudo systemctl stop docker kubelet", &node)
 			if err != nil {
-				klog.Errorf("ERROR while stopping node %q: %v", node.Name, err)
+				klog.Errorf("%s: ERROR while stopping node %q: %v", k, node.Name, err)
 				return
 			}
 
 			time.Sleep(time.Duration(k.config.SimulatedDowntime))
 
-			klog.Infof("Rebooting %q to repair the node", node.Name)
-			err = ssh("sudo reboot", &node)
+			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
+			err = k.ssh("sudo reboot", &node)
 			if err != nil {
-				klog.Errorf("Error while rebooting node %q: %v", node.Name, err)
+				klog.Errorf("%s: Error while rebooting node %q: %v", k, node.Name, err)
 				return
 			}
 		}()
@@ -114,13 +114,17 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 	wg.Wait()
 }
 
-func ssh(command string, node *v1.Node) error {
+func (k *NodeKiller) String() string {
+	return "NodeKiller"
+}
+
+func (k *NodeKiller) ssh(command string, node *v1.Node) error {
 	zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
 	if !ok {
 		return fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)
 	}
 	cmd := exec.Command("gcloud", "compute", "ssh", "--zone", zone, "--command", command, node.Name)
 	output, err := cmd.CombinedOutput()
-	klog.Infof("ssh to %q finished with %q: %v", node.Name, string(output), err)
+	klog.Infof("%s: ssh to %q finished with %q: %v", k, node.Name, string(output), err)
 	return err
 }

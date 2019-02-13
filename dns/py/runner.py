@@ -61,7 +61,7 @@ class Runner(object):
     self.dnsperf_yaml = yaml.load(open(self.args.dnsperf_yaml, 'r'))
     self.test_params = TestCases.load_from_file(args.params)
     if self.args.run_large_queries:
-      self.test_params.add_param(QueryFile().name, _dnsperf_qfile_name)
+      self.test_params.set_param(QueryFile().name, _dnsperf_qfile_name)
     self.args.testsvc_yaml = yaml.load(open(self.args.testsvc_yaml, 'r')) if \
         self.args.testsvc_yaml else None
 

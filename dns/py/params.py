@@ -276,14 +276,14 @@ class TestCases(object):
 
     return cases
 
-  def add_param(self, param_name, values):
+  def set_param(self, param_name, values):
     if param_name not in self.values:
       return
     self.values[param_name].append(values)
 
   def get_param(self, param_name):
     if param_name not in self.values:
-      return
+      return None
     return self.values[param_name]
 
 def _item_by_predicate(list_obj, predicate):

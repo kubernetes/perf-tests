@@ -171,7 +171,11 @@ func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.Multi
 		},
 		DeleteFunc: func(obj interface{}) {
 			deleteF := func() {
-				w.handleObject(clients, obj, nil)
+				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					w.handleObject(clients, tombstone.Obj, nil)
+				} else {
+					w.handleObject(clients, obj, nil)
+				}
 			}
 			w.queue.Add(&deleteF)
 		},

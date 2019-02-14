@@ -1,7 +1,7 @@
 {
 	"ImportPath": "k8s.io/perf-tests/benchmark",
 	"GoVersion": "go1.8",
-	"GodepVersion": "v79",
+	"GodepVersion": "v80",
 	"Packages": [
 		"./..."
 	],
@@ -24,8 +24,8 @@
 		},
 		{
 			"ImportPath": "k8s.io/contrib/test-utils/utils",
-			"Comment": "cluster-autoscaler-0.4.0-438-gae370bbf",
-			"Rev": "ae370bbfc9d6788f7c897da83231b609d147b3a2"
+			"Comment": "cluster-autoscaler-0.5.1-461-g1fd5fb96",
+			"Rev": "1fd5fb966233a6285ef40ee1c8642105825ce626"
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/test/e2e/perftype",

@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 /*
-TODO(krzysied): Replace ClientSet interface with dynamic client.
+TODO(#414): Replace ClientSet interface with dynamic client.
 This will allow more generic approach.
 */
 
@@ -152,7 +152,17 @@ func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.Multi
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(clients.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	var listerWatcher *cache.ListWatch
+	switch w.kind {
+	case "ReplicationController":
+		listerWatcher = cache.NewFilteredListWatchFromClient(clients.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	case "ReplicaSet", "Deployment", "DaemonSet":
+		listerWatcher = cache.NewFilteredListWatchFromClient(clients.GetClient().ExtensionsV1beta1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	case "Job":
+		listerWatcher = cache.NewFilteredListWatchFromClient(clients.GetClient().BatchV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	default:
+		return fmt.Errorf("unsupported kind when creating a listwatch: %v", w.kind)
+	}
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
 	w.informer = cache.NewSharedInformer(listerWatcher, nil, 0)

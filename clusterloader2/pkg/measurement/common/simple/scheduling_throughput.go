@@ -107,7 +107,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 
 	go func() {
 		defer ps.Stop()
-		selectorsString := createSelectorsString(namespace, labelSelector, fieldSelector)
+		selectorsString := measurementutil.CreateSelectorsString(namespace, labelSelector, fieldSelector)
 		lastScheduledCount := 0
 		for {
 			select {

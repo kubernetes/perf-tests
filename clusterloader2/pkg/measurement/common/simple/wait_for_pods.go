@@ -104,7 +104,7 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 	defer ps.Stop()
 
 	var podsStatus measurementutil.PodsStartupStatus
-	selectorsString := createSelectorsString(namespace, labelSelector, fieldSelector)
+	selectorsString := measurementutil.CreateSelectorsString(namespace, labelSelector, fieldSelector)
 	scaling := uninitialized
 	var oldPods []*corev1.Pod
 	for {
@@ -147,21 +147,4 @@ func waitForPods(clientSet clientset.Interface, namespace, labelSelector, fieldS
 			oldPods = pods
 		}
 	}
-}
-
-func createSelectorsString(namespace, labelSelector, fieldSelector string) string {
-	var selectorsStrings []string
-	if namespace != metav1.NamespaceAll {
-		selectorsStrings = append(selectorsStrings, fmt.Sprintf("namespace(%s)", namespace))
-	}
-	if labelSelector != "" {
-		selectorsStrings = append(selectorsStrings, fmt.Sprintf("labelSelector(%s)", labelSelector))
-	}
-	if fieldSelector != "" {
-		selectorsStrings = append(selectorsStrings, fmt.Sprintf("fieldSelector(%s)", fieldSelector))
-	}
-	if len(selectorsStrings) == 0 {
-		return "everything"
-	}
-	return fmt.Sprint(strings.Join(selectorsStrings, ", "))
 }

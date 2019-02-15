@@ -57,19 +57,20 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 }
 
 type podStartupLatencyMeasurement struct {
-	namespace     string
-	labelSelector string
-	fieldSelector string
-	informer      cache.SharedInformer
-	isRunning     bool
-	stopCh        chan struct{}
-	mutex         sync.Mutex
-	createTimes   map[string]metav1.Time
-	scheduleTimes map[string]metav1.Time
-	runTimes      map[string]metav1.Time
-	watchTimes    map[string]metav1.Time
-	nodeNames     map[string]string
-	threshold     time.Duration
+	namespace       string
+	labelSelector   string
+	fieldSelector   string
+	informer        cache.SharedInformer
+	isRunning       bool
+	stopCh          chan struct{}
+	mutex           sync.Mutex
+	createTimes     map[string]metav1.Time
+	scheduleTimes   map[string]metav1.Time
+	runTimes        map[string]metav1.Time
+	watchTimes      map[string]metav1.Time
+	nodeNames       map[string]string
+	threshold       time.Duration
+	selectorsString string
 }
 
 // Execute supports two actions:
@@ -117,8 +118,8 @@ func (p *podStartupLatencyMeasurement) Dispose() {
 }
 
 // String returns string representation of this measurement.
-func (*podStartupLatencyMeasurement) String() string {
-	return podStartupLatencyMeasurementName
+func (p *podStartupLatencyMeasurement) String() string {
+	return podStartupLatencyMeasurementName + ": " + p.selectorsString
 }
 
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
@@ -126,6 +127,7 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 		klog.Infof("%s: pod startup latancy measurement already running", p)
 		return nil
 	}
+	p.selectorsString = measurementutil.CreateSelectorsString(p.namespace, p.labelSelector, p.fieldSelector)
 	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
@@ -302,7 +304,7 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 func (p *podStartupLatencyMeasurement) printLatencies(latencies []podLatencyData, header string) {
 	metrics := extractLatencyMetrics(latencies)
 	klog.Infof("%s: 10%% %s: %v", p, header, latencies[(len(latencies)*9)/10:])
-	klog.Infof("%s: perc50: %v, perc90: %v, perc99: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99)
+	klog.Infof("%s: perc50: %v, perc90: %v, perc99: %v; threshold: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99, p.threshold)
 }
 
 type podLatencyData struct {

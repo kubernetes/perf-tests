@@ -30,6 +30,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
@@ -66,6 +67,7 @@ func validateClusterFlags() *errors.ErrorList {
 
 func initFlags() {
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
+	flags.BoolVar(&clusterLoaderConfig.EnablePrometheusServer, "enable-prometheus-server", false, "Whether to set-up the prometheus server in the cluster.")
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	initClusterFlags()
@@ -182,6 +184,11 @@ func main() {
 	)
 	if err != nil {
 		klog.Fatalf("Framework creation error: %v", err)
+	}
+	if clusterLoaderConfig.EnablePrometheusServer {
+		if err := prometheus.SetUpPrometheusStack(f); err != nil {
+			klog.Errorf("Error while setting up prometheus stack: %v", err)
+		}
 	}
 
 	suiteSummary := &ginkgotypes.SuiteSummary{

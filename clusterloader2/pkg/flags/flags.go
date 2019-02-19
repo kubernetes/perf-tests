@@ -44,6 +44,11 @@ func IntVar(i *int, flagName string, defaultValue int, description string) {
 	pflag.IntVar(i, flagName, defaultValue, description)
 }
 
+// BoolVar creates a bool flag with given parameters.
+func BoolVar(b *bool, flagName string, defaultValue bool, description string) {
+	pflag.BoolVar(b, flagName, defaultValue, description)
+}
+
 // StringEnvVar creates string flag with given parameters.
 // If flag is not provided, it will try to get env variable.
 func StringEnvVar(s *string, flagName, envVariable, defaultValue, description string) {

@@ -3,13 +3,14 @@
 
 #Constants
 {{$POD_COUNT := 100}}
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 1}}
 
 name: node-throughput
 automanagedNamespaces: {{$POD_COUNT}}
 tuningSets:
-- name: Uniform1qps
+- name: UniformQPS
   qpsLoad:
-    qps: 1
+    qps: {{$POD_THROUGHPUT}}
 steps:
 - measurements:
   - Identifier: APIResponsiveness
@@ -34,7 +35,7 @@ steps:
       min: 1
       max: {{$POD_COUNT}}
     replicasPerNamespace: 1
-    tuningSet: Uniform1qps
+    tuningSet: UniformQPS
     objectBundle:
     - basename: latency-pod-rc
       objectTemplatePath: rc.yaml
@@ -51,7 +52,7 @@ steps:
       min: 1
       max: {{$POD_COUNT}}
     replicasPerNamespace: 0
-    tuningSet: Uniform1qps
+    tuningSet: UniformQPS
     objectBundle:
     - basename: latency-pod-rc
       objectTemplatePath: rc.yaml

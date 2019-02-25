@@ -303,7 +303,11 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 
 func (p *podStartupLatencyMeasurement) printLatencies(latencies []podLatencyData, header string) {
 	metrics := extractLatencyMetrics(latencies)
-	klog.Infof("%s: 10%% %s: %v", p, header, latencies[(len(latencies)*9)/10:])
+	index := len(latencies) - 100
+	if index < 0 {
+		index = 0
+	}
+	klog.Infof("%s: %d %s: %v", p, len(latencies)-index, header, latencies[index:])
 	klog.Infof("%s: perc50: %v, perc90: %v, perc99: %v; threshold: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99, p.threshold)
 }
 

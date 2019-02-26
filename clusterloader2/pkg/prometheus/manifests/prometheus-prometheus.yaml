@@ -14,10 +14,11 @@ spec:
   baseImage: quay.io/prometheus/prometheus
   nodeSelector:
     beta.kubernetes.io/os: linux
-  replicas: 2
+  replicas: 1
   resources:
     requests:
-      memory: 400Mi
+      # Start with 2Gi and add 2Gi for each 2K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
   ruleSelector:
     matchLabels:
       prometheus: k8s
@@ -30,3 +31,11 @@ spec:
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
   version: v2.5.0
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: ssd
+        resources:
+          requests:
+            # Start with 10Gi, add 10Gi for each 1K nodes.
+            storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi

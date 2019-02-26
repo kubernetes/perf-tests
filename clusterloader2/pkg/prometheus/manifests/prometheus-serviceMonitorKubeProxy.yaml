@@ -7,7 +7,14 @@ metadata:
   namespace: monitoring
 spec:
   endpoints:
-    - interval: 30s
+      # We modify interval depending on the cluster size to avoid collecting too many samples for
+      # large clusters. Also because the tests run longer in bigger clusters we don't need to
+      # collect them as often as in smaller clusters. For example if in 100 node cluster the test
+      # takes 10min it's useful to gather metrics every 30s. On the other hand if the test takes
+      # 10h collecting metrics every 5min is still good enough. The expression below should give us
+      # 30s interval for small clusters (up to 500 nodes), 2.5min interval for 2K node clusters and
+      # 5.5min interval for 5K node clusters.
+    - interval: {{MultiplyInt 30 (AddInt 1 (DivideInt .Nodes 500))}}s
       port: http-metrics
   jobLabel: k8s-app
   namespaceSelector:

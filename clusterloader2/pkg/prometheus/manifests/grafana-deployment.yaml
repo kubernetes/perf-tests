@@ -16,7 +16,7 @@ spec:
         app: grafana
     spec:
       containers:
-      - image: grafana/grafana:6.0.0-beta1
+      - image: grafana/grafana:6.0.0
         name: grafana
         ports:
         - containerPort: 3000
@@ -42,6 +42,11 @@ spec:
         - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-network-programming-latency
           name: grafana-dashboard-network-programming-latency
           readOnly: false
+        env:
+          - name: GF_AUTH_ANONYMOUS_ENABLED
+            value: "true"
+          - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+            value: "Admin"
       nodeSelector:
         beta.kubernetes.io/os: linux
       securityContext:

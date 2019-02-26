@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -76,6 +75,14 @@ type waitForControlledPodsRunningMeasurement struct {
 	lock              sync.Mutex
 	opResourceVersion uint64
 	checkerMap        map[string]*objectChecker
+	clients           *multiClients
+}
+
+type multiClients struct {
+	// Clientsets are kubernetes clients sets.
+	MultiClientSet *framework.MultiClientSet
+	// DynamicClients are kuberentes dynamic clients.
+	DynamicClients *framework.MultiDynamicClient
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -85,6 +92,11 @@ type waitForControlledPodsRunningMeasurement struct {
 // specified number of controlling objects have all pods running.
 func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
+
+	w.clients = &multiClients{
+		MultiClientSet: config.ClientSets,
+		DynamicClients: config.DynamicClients,
+	}
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return summaries, err
@@ -112,13 +124,13 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 		if err != nil {
 			return summaries, err
 		}
-		return summaries, w.start(config.ClientSets)
+		return summaries, w.start()
 	case "gather":
 		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
 		if err != nil {
 			return summaries, err
 		}
-		return summaries, w.gather(config.ClientSets.GetClient(), syncTimeout)
+		return summaries, w.gather(syncTimeout)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}
@@ -142,7 +154,7 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 	return waitForControlledPodsRunningName
 }
 
-func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.MultiClientSet) error {
+func (w *waitForControlledPodsRunningMeasurement) start() error {
 	if w.informer != nil {
 		klog.Infof("%v: wait for controlled pods measurement already running", w)
 		return nil
@@ -152,29 +164,29 @@ func (w *waitForControlledPodsRunningMeasurement) start(clients *framework.Multi
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(clients.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
+	listerWatcher := cache.NewFilteredListWatchFromClient(w.clients.MultiClientSet.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
 	w.informer = cache.NewSharedInformer(listerWatcher, nil, 0)
 	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			addF := func() {
-				w.handleObject(clients, nil, obj)
+				w.handleObject(nil, obj)
 			}
 			w.queue.Add(&addF)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			updateF := func() {
-				w.handleObject(clients, oldObj, newObj)
+				w.handleObject(oldObj, newObj)
 			}
 			w.queue.Add(&updateF)
 		},
 		DeleteFunc: func(obj interface{}) {
 			deleteF := func() {
 				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					w.handleObject(clients, tombstone.Obj, nil)
+					w.handleObject(tombstone.Obj, nil)
 				} else {
-					w.handleObject(clients, obj, nil)
+					w.handleObject(obj, nil)
 				}
 			}
 			w.queue.Add(&deleteF)
@@ -208,12 +220,12 @@ func (w *waitForControlledPodsRunningMeasurement) worker() {
 	}
 }
 
-func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, syncTimeout time.Duration) error {
+func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {
 	klog.Infof("%v: waiting for controlled pods measurement...", w)
 	if w.informer == nil {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
-	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion(c)
+	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion()
 	if err != nil {
 		return err
 	}
@@ -270,7 +282,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(c clientset.Interface, 
 // This function does not return errors only logs them. All possible errors will be caught in gather function.
 // If this function does not executes correctly, verifying number of running pods will fail,
 // causing incorrect objects number error to be returned.
-func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framework.MultiClientSet, oldObj, newObj interface{}) {
+func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj interface{}) {
 	var oldRuntimeObj runtime.Object
 	var newRuntimeObj runtime.Object
 	var ok bool
@@ -309,10 +321,10 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(clients *framewor
 		return
 	}
 
-	if err := w.deleteObjectLocked(clients.GetClient(), oldRuntimeObj); err != nil {
+	if err := w.deleteObjectLocked(oldRuntimeObj); err != nil {
 		klog.Errorf("%s: delete checker error: %v", w, err)
 	}
-	if err := w.handleObjectLocked(clients.GetClient(), oldRuntimeObj, newRuntimeObj); err != nil {
+	if err := w.handleObjectLocked(oldRuntimeObj, newRuntimeObj); err != nil {
 		klog.Errorf("%s: create checker error: %v", w, err)
 	}
 }
@@ -330,7 +342,7 @@ func checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
 	return newReplicas < oldReplicas, nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset.Interface, oldObj, newObj runtime.Object) error {
+func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, newObj runtime.Object) error {
 	isObjDeleted := newObj == nil
 	isScalingDown, err := checkScaledown(oldObj, newObj)
 	if err != nil {
@@ -345,7 +357,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-	checker, err := w.waitForRuntimeObject(c, handledObj, isObjDeleted)
+	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted)
 	if err != nil {
 		return fmt.Errorf("waiting for %v error: %v", key, err)
 	}
@@ -363,7 +375,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(c clientset
 	return nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(c clientset.Interface, obj runtime.Object) error {
+func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(obj runtime.Object) error {
 	if obj == nil {
 		return nil
 	}
@@ -400,10 +412,10 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 // - When create/delete operation are called we expect the exact number of objects.
 // - When objects is updated we expect to receive event referencing this specific version.
 //   Using maximum from objects resource versions assures that all updates will be processed.
-func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c clientset.Interface) (int, uint64, error) {
+func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(c, w.kind, w.namespace, w.labelSelector, w.fieldSelector)
+	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clients.MultiClientSet.GetClient(), w.kind, w.namespace, w.labelSelector, w.fieldSelector)
 	if err != nil {
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}
@@ -427,7 +439,7 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(c 
 	return desiredCount, maxResourceVersion, nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet clientset.Interface, obj runtime.Object, isDeleted bool) (*objectChecker, error) {
+func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
 	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
 	if err != nil {
 		return nil, err
@@ -454,7 +466,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(clientSet
 	w.handlingGroup.Start(func() {
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = waitForPods(clientSet, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
+		err = waitForPods(w.clients.MultiClientSet.GetClient(), runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

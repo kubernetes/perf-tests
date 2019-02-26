@@ -18,11 +18,12 @@ package config
 
 // ClusterLoaderConfig represents all flags used by CLusterLoader
 type ClusterLoaderConfig struct {
-	ClusterConfig          ClusterConfig `json: clusterConfig`
-	ReportDir              string        `json: reportDir`
-	EnablePrometheusServer bool          `json: enablePrometheusServer`
-	TestConfigPath         string        `json: testConfigPath`
-	TestOverridesPath      []string      `json: testOverrides`
+	ClusterConfig            ClusterConfig `json: clusterConfig`
+	ReportDir                string        `json: reportDir`
+	EnablePrometheusServer   bool          `json: enablePrometheusServer`
+	TearDownPrometheusServer bool          `json: tearDownPrometheusServer`
+	TestConfigPath           string        `json: testConfigPath`
+	TestOverridesPath        []string      `json: testOverrides`
 }
 
 // ClusterConfig is a structure that represents cluster description.

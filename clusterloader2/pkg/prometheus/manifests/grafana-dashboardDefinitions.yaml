@@ -25,22 +25,9 @@ items:
           "editable": true,
           "gnetId": null,
           "graphTooltip": 0,
-          "id": 10,
+          "id": 2,
           "links": [],
           "panels": [
-            {
-              "collapsed": false,
-              "gridPos": {
-                "h": 1,
-                "w": 24,
-                "x": 0,
-                "y": 0
-              },
-              "id": 4,
-              "panels": [],
-              "title": "Network Programming Latency",
-              "type": "row"
-            },
             {
               "aliasColors": {},
               "bars": false,
@@ -49,10 +36,10 @@ items:
               "datasource": "prometheus",
               "fill": 1,
               "gridPos": {
-                "h": 11,
-                "w": 13,
+                "h": 18,
+                "w": 12,
                 "x": 0,
-                "y": 1
+                "y": 0
               },
               "id": 2,
               "legend": {
@@ -77,32 +64,186 @@ items:
               "steppedLine": false,
               "targets": [
                 {
-                  "expr": "histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
+                  "expr": "kubeproxy:kubeproxy_network_programming_latency:histogram_quantile",
                   "format": "time_series",
                   "intervalFactor": 1,
-                  "legendFormat": "99pctl",
+                  "legendFormat": "",
                   "refId": "A"
-                },
-                {
-                  "expr": "histogram_quantile(0.95, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
-                  "format": "time_series",
-                  "intervalFactor": 1,
-                  "legendFormat": "90pctl",
-                  "refId": "B"
-                },
-                {
-                  "expr": "histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
-                  "format": "time_series",
-                  "intervalFactor": 1,
-                  "legendFormat": "50pctl",
-                  "refId": "C"
                 }
               ],
               "thresholds": [],
               "timeFrom": null,
               "timeRegions": [],
               "timeShift": null,
-              "title": "Network Programming Latency [s]",
+              "title": "Network Programming Latency",
+              "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+              },
+              "type": "graph",
+              "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+              },
+              "yaxes": [
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                },
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                }
+              ],
+              "yaxis": {
+                "align": false,
+                "alignLevel": null
+              }
+            },
+            {
+              "aliasColors": {},
+              "bars": false,
+              "dashLength": 10,
+              "dashes": false,
+              "datasource": "prometheus",
+              "fill": 1,
+              "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 12,
+                "y": 0
+              },
+              "id": 4,
+              "legend": {
+                "avg": false,
+                "current": false,
+                "max": false,
+                "min": false,
+                "show": true,
+                "total": false,
+                "values": false
+              },
+              "lines": true,
+              "linewidth": 1,
+              "nullPointMode": "null",
+              "paceLength": 10,
+              "percentage": false,
+              "pointradius": 2,
+              "points": false,
+              "renderer": "flot",
+              "seriesOverrides": [],
+              "stack": false,
+              "steppedLine": false,
+              "targets": [
+                {
+                  "expr": "kubeproxy:kubeproxy_network_programming_latency:histogram_quantile{quantile='0.99'}",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "",
+                  "refId": "A"
+                }
+              ],
+              "thresholds": [],
+              "timeFrom": null,
+              "timeRegions": [],
+              "timeShift": null,
+              "title": "Network Programming Latency SLI (99pctl)",
+              "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+              },
+              "type": "graph",
+              "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+              },
+              "yaxes": [
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                },
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                }
+              ],
+              "yaxis": {
+                "align": false,
+                "alignLevel": null
+              }
+            },
+            {
+              "aliasColors": {},
+              "bars": false,
+              "dashLength": 10,
+              "dashes": false,
+              "datasource": "prometheus",
+              "fill": 1,
+              "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 12,
+                "y": 9
+              },
+              "id": 3,
+              "legend": {
+                "avg": false,
+                "current": false,
+                "max": false,
+                "min": false,
+                "show": true,
+                "total": false,
+                "values": false
+              },
+              "lines": true,
+              "linewidth": 1,
+              "nullPointMode": "null",
+              "paceLength": 10,
+              "percentage": false,
+              "pointradius": 2,
+              "points": false,
+              "renderer": "flot",
+              "seriesOverrides": [],
+              "stack": false,
+              "steppedLine": false,
+              "targets": [
+                {
+                  "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_latency:histogram_quantile{quantile='0.99'}[1h])",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "99pctl of SLI over last 1h",
+                  "refId": "A"
+                }
+              ],
+              "thresholds": [],
+              "timeFrom": null,
+              "timeRegions": [],
+              "timeShift": null,
+              "title": "99pctl of SLI over last 1h",
               "tooltip": {
                 "shared": true,
                 "sort": 0,
@@ -148,7 +289,7 @@ items:
             "list": []
           },
           "time": {
-            "from": "now-1h",
+            "from": "now-3h",
             "to": "now"
           },
           "timepicker": {
@@ -178,6 +319,6 @@ items:
           },
           "timezone": "",
           "title": "Network Programming Latency",
-          "uid": "jYJO9Sriz",
-          "version": 3
+          "uid": "-9FDjs9mz",
+          "version": 10
         }

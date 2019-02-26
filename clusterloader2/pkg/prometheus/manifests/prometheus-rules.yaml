@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    prometheus: k8s
+    role: alert-rules
+  name: prometheus-k8s-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: kube-proxy.rules
+    rules:
+    - expr: |
+        histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_latency:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.90, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_latency:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_latency:histogram_quantile
+      labels:
+        quantile: "0.50"

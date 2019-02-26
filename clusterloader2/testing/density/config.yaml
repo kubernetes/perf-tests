@@ -67,6 +67,7 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
+      apiVersion: v1
       kind: ReplicationController
       labelSelector: group = saturation
       operationTimeout: {{$saturationRCHardTimeout}}s
@@ -118,6 +119,7 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
+      apiVersion: v1
       kind: ReplicationController
       labelSelector: group = latency
       operationTimeout: 15m

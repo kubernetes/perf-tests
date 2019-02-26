@@ -33,8 +33,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
-// TODO: using dynamic interface rather than clientset interface
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
+// TODO: using dynamic interface rather than clientset interface
 func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
 	var runtimeObjectsList []runtime.Object
 	var listFunc func() error

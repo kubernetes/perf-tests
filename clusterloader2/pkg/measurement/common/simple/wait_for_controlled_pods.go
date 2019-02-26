@@ -27,12 +27,17 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -62,6 +67,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 
 type waitForControlledPodsRunningMeasurement struct {
 	informer          cache.SharedInformer
+	apiVersion        string
 	kind              string
 	namespace         string
 	labelSelector     string
@@ -74,6 +80,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	handlingGroup     wait.Group
 	lock              sync.Mutex
 	opResourceVersion uint64
+	gvr               schema.GroupVersionResource
 	checkerMap        map[string]*objectChecker
 	clients           *multiClients
 }
@@ -104,6 +111,10 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 
 	switch action {
 	case "start":
+		w.apiVersion, err = util.GetStringOrDefault(config.Params, "apiVersion", "v1")
+		if err != nil {
+			return summaries, err
+		}
 		w.kind, err = util.GetString(config.Params, "kind")
 		if err != nil {
 			return summaries, err
@@ -154,21 +165,16 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 	return waitForControlledPodsRunningName
 }
 
-func (w *waitForControlledPodsRunningMeasurement) start() error {
-	if w.informer != nil {
-		klog.Infof("%v: wait for controlled pods measurement already running", w)
-		return nil
-	}
-	klog.Infof("%v: starting wait for controlled pods measurement...", w)
+func (w *waitForControlledPodsRunningMeasurement) newInformer(client dynamic.Interface) (cache.SharedInformer, error) {
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(w.clients.MultiClientSet.GetClient().CoreV1().RESTClient(), w.kind+"s", w.namespace, optionsModifier)
-	w.isRunning = true
-	w.stopCh = make(chan struct{})
-	w.informer = cache.NewSharedInformer(listerWatcher, nil, 0)
-	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	tweakListOptions := dynamicinformer.TweakListOptionsFunc(optionsModifier)
+	dInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(client, 5*time.Minute, w.namespace, tweakListOptions)
+
+	informer := dInformerFactory.ForResource(w.gvr).Informer()
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			addF := func() {
 				w.handleObject(nil, obj)
@@ -193,6 +199,31 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 		},
 	})
 
+	return informer, nil
+}
+func (w *waitForControlledPodsRunningMeasurement) start() error {
+	gv, err := schema.ParseGroupVersion(w.apiVersion)
+	if err != nil {
+		return err
+	}
+	gvk := gv.WithKind(w.kind)
+	w.gvr, _ = meta.UnsafeGuessKindToResource(gvk)
+
+	if w.informer != nil {
+		klog.Infof("%v: wait for controlled pods measurement already running", w)
+		return nil
+	}
+	klog.Infof("%v: starting wait for controlled pods measurement...", w)
+
+	w.isRunning = true
+	w.stopCh = make(chan struct{})
+
+	informer, err := w.newInformer(w.clients.DynamicClients.GetClient())
+	if err != nil {
+		klog.Infof("%v: create dynamic informer failed.", w)
+		return err
+	}
+	w.informer = informer
 	for i := 0; i < waitForControlledPodsWorkers; i++ {
 		w.workerGroup.Start(w.worker)
 	}

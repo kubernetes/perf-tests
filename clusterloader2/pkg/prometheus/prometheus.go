@@ -48,6 +48,19 @@ func SetUpPrometheusStack(
 	return nil
 }
 
+// TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
+func TearDownPrometheusStack(framework *framework.Framework) error {
+	klog.Info("Tearing down prometheus stack")
+	k8sClient := framework.GetClientSets().GetClient()
+	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
+		return err
+	}
+	if err := client.WaitForDeleteNamespace(k8sClient, namespace); err != nil {
+		return err
+	}
+	return nil
+}
+
 func applyManifests(
 	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".

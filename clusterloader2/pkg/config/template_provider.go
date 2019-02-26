@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
 // TemplateProvider provides object templates. Templates in unstructured form
@@ -177,5 +178,15 @@ func GetOverridesMapping(paths []string) (map[string]interface{}, error) {
 			mapping[k] = v
 		}
 	}
+	return mapping, nil
+}
+
+// GetMapping returns template variable mapping for the given ClusterLoaderConfig.
+func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
+	mapping, err := GetOverridesMapping(clusterLoaderConfig.TestOverridesPath)
+	if err != nil {
+		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
+	}
+	mapping["Nodes"] = clusterLoaderConfig.ClusterConfig.Nodes
 	return mapping, nil
 }

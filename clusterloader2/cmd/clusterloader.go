@@ -186,7 +186,7 @@ func main() {
 		klog.Fatalf("Framework creation error: %v", err)
 	}
 	if clusterLoaderConfig.EnablePrometheusServer {
-		if err := prometheus.SetUpPrometheusStack(f); err != nil {
+		if err := prometheus.SetUpPrometheusStack(f, &clusterLoaderConfig); err != nil {
 			klog.Errorf("Error while setting up prometheus stack: %v", err)
 		}
 	}

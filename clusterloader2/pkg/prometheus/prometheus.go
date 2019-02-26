@@ -33,32 +33,38 @@ const (
 // SetUpPrometheusStack sets up prometheus stack in the cluster.
 // This method is idempotent, if the prometheus stack is already set up applying the manifests
 // again will be no-op.
-func SetUpPrometheusStack(framework *framework.Framework) error {
-	k8sClient := framework.GetClientSets().GetClient()
+func SetUpPrometheusStack(
+	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
 
+	k8sClient := framework.GetClientSets().GetClient()
 	klog.Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
-	if err := applyManifests(framework); err != nil {
+	if err := applyManifests(framework, clusterLoaderConfig); err != nil {
 		return err
 	}
 	klog.Info("Prometheus stack set up successfully")
 	return nil
 }
 
-func applyManifests(framework *framework.Framework) error {
+func applyManifests(
+	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	manifestGlob := os.ExpandEnv(
 		"$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml")
 	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
+	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	if errList != nil && !errList.IsEmpty() {
+		return errList
+	}
 	manifests, err := filepath.Glob(manifestGlob)
 	if err != nil {
 		return err
 	}
 	for _, manifest := range manifests {
 		klog.Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.RawToObject(filepath.Base(manifest))
+		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), mapping)
 		if err != nil {
 			return err
 		}

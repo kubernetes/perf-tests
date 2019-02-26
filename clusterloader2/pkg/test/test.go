@@ -54,11 +54,10 @@ func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderCo
 	ctx := CreateContext(clusterLoaderConfig, f, state.NewState())
 	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
 
-	mapping, err := config.GetOverridesMapping(clusterLoaderConfig.TestOverridesPath)
-	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
+	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	if errList != nil {
+		return errList
 	}
-	mapping["Nodes"] = clusterLoaderConfig.ClusterConfig.Nodes
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))

@@ -69,6 +69,11 @@ func (f *Framework) GetClientSets() *MultiClientSet {
 	return f.clientSets
 }
 
+// GetDynamicClients returns dynamic clients.
+func (f *Framework) GetDynamicClients() *MultiDynamicClient {
+	return f.dynamicClients
+}
+
 // CreateAutomanagedNamespaces creates automanged namespaces.
 func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 	if f.automanagedNamespaceCount != 0 {

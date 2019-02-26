@@ -25,6 +25,8 @@ import (
 type MeasurementConfig struct {
 	// Clientsets are kubernetes clients.
 	ClientSets *framework.MultiClientSet
+	// DynamicClients are kuberentes dynamic clients.
+	DynamicClients *framework.MultiDynamicClient
 	// ClusterConfig represents configuration of the cluster.
 	ClusterConfig *config.ClusterConfig
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config

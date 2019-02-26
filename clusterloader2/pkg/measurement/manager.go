@@ -26,6 +26,7 @@ import (
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
 	clientSets       *framework.MultiClientSet
+	dynamicClients   *framework.MultiDynamicClient
 	clusterConfig    *config.ClusterConfig
 	templateProvider *config.TemplateProvider
 
@@ -36,9 +37,10 @@ type MeasurementManager struct {
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(clientSets *framework.MultiClientSet, clusterConfig *config.ClusterConfig, templateProvider *config.TemplateProvider) *MeasurementManager {
+func CreateMeasurementManager(f *framework.Framework, clusterConfig *config.ClusterConfig, templateProvider *config.TemplateProvider) *MeasurementManager {
 	return &MeasurementManager{
-		clientSets:       clientSets,
+		clientSets:       f.GetClientSets(),
+		dynamicClients:   f.GetDynamicClients(),
 		clusterConfig:    clusterConfig,
 		templateProvider: templateProvider,
 		measurements:     make(map[string]map[string]Measurement),
@@ -54,6 +56,7 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 	}
 	config := &MeasurementConfig{
 		ClientSets:       mm.clientSets,
+		DynamicClients:   mm.dynamicClients,
 		ClusterConfig:    mm.clusterConfig,
 		Params:           params,
 		TemplateProvider: mm.templateProvider,

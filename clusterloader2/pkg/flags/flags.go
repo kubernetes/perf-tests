@@ -76,6 +76,18 @@ func IntEnvVar(i *int, flagName, envVariable string, defaultValue int, descripti
 	flags = append(flags, intFlag)
 }
 
+// BoolEnvVar creates bool flag with given parameters.
+// If flag is not provided, it will try to get env variable.
+func BoolEnvVar(b *bool, flagName, envVariable string, defaultValue bool, description string) {
+	boolFlag := &boolFlagFunc{
+		valPtr:         b,
+		initializeFunc: func() error { return parseEnvBool(b, envVariable, defaultValue) },
+	}
+	// Set NoOptDefValue, to make --flag-name equivalent to --flag-name=true
+	pflag.CommandLine.VarPF(boolFlag, flagName, "", description).NoOptDefVal = "true"
+	flags = append(flags, boolFlag)
+}
+
 // Parse parses provided flags and env variables.
 func Parse() error {
 	for i := range flags {
@@ -109,6 +121,21 @@ func parseEnvInt(i *int, envVariable string, defaultValue int) error {
 				return fmt.Errorf("parsing env variable %s failed", envVariable)
 			}
 			*i = iVal
+			return nil
+		}
+	}
+	return nil
+}
+
+func parseEnvBool(b *bool, envVariable string, defaultValue bool) error {
+	*b = defaultValue
+	if envVariable != "" {
+		if val, ok := os.LookupEnv(envVariable); ok {
+			bVal, err := strconv.ParseBool(val)
+			if err != nil {
+				return fmt.Errorf("parsing env variable %s failed", envVariable)
+			}
+			*b = bVal
 			return nil
 		}
 	}

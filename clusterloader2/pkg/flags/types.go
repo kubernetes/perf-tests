@@ -86,3 +86,33 @@ func (i *intFlagFunc) Set(val string) error {
 func (i *intFlagFunc) Type() string {
 	return "int"
 }
+
+type boolFlagFunc struct {
+	valPtr         *bool
+	initializeFunc func() error
+}
+
+// initialize runs additional parsing function.
+func (b *boolFlagFunc) initialize() error {
+	return b.initializeFunc()
+}
+
+// String returns default string.
+func (*boolFlagFunc) String() string {
+	return "false"
+}
+
+// Set handles flag value setting.
+func (b *boolFlagFunc) Set(val string) error {
+	bVal, err := strconv.ParseBool(val)
+	if err != nil {
+		return err
+	}
+	*b.valPtr = bVal
+	return nil
+}
+
+// Type returns flag type.
+func (*boolFlagFunc) Type() string {
+	return "bool"
+}

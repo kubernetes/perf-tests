@@ -67,8 +67,8 @@ func validateClusterFlags() *errors.ErrorList {
 
 func initFlags() {
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
-	flags.BoolVar(&clusterLoaderConfig.EnablePrometheusServer, "enable-prometheus-server", false, "Whether to set-up the prometheus server in the cluster.")
-	flags.BoolVar(&clusterLoaderConfig.TearDownPrometheusServer, "tear-down-prometheus-server", true, "Whether to tear-down the prometheus server after tests (if set-up).")
+	flags.BoolEnvVar(&clusterLoaderConfig.EnablePrometheusServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
+	flags.BoolEnvVar(&clusterLoaderConfig.TearDownPrometheusServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	initClusterFlags()

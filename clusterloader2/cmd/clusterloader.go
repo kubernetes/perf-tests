@@ -221,13 +221,13 @@ func main() {
 	}
 	suiteSummary.RunTime = time.Since(testsStart)
 	junitReporter.SpecSuiteDidEnd(suiteSummary)
-	if suiteSummary.NumberOfFailedSpecs > 0 {
-		klog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
-	}
 
 	if clusterLoaderConfig.EnablePrometheusServer && clusterLoaderConfig.TearDownPrometheusServer {
 		if err := prometheus.TearDownPrometheusStack(f); err != nil {
 			klog.Errorf("Error while tearing down prometheus stack: %v", err)
 		}
+	}
+	if suiteSummary.NumberOfFailedSpecs > 0 {
+		klog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
 	}
 }

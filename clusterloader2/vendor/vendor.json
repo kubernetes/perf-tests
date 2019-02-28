@@ -1593,6 +1593,18 @@
 			"revisionTime": "2019-01-25T16:53:23Z"
 		},
 		{
+			"checksumSHA1": "f+ceByRAeMWUaJSXOyl6XU+sCZM=",
+			"path": "k8s.io/client-go/dynamic/dynamicinformer",
+			"revision": "bad694ec20e3ad1bf3ede898519b4948962639b7",
+			"revisionTime": "2019-02-27T19:13:30Z"
+		},
+		{
+			"checksumSHA1": "WfKRROXLQa2PlkzPSYkShi2PMt0=",
+			"path": "k8s.io/client-go/dynamic/dynamiclister",
+			"revision": "bad694ec20e3ad1bf3ede898519b4948962639b7",
+			"revisionTime": "2019-02-27T19:13:30Z"
+		},
+		{
 			"checksumSHA1": "5pTv/cMlAwArcD8Kyx2VjL63O+Y=",
 			"path": "k8s.io/client-go/informers",
 			"revision": "6134db91200ea474868bc6775e62cc294a74c6c6",

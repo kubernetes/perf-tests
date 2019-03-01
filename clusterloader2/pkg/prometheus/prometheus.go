@@ -127,7 +127,7 @@ func isPrometheusReady(client clientset.Interface, nodeCount int) (bool, error) 
 		DoRaw()
 	if err != nil {
 		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warning("error while calling prometheus api: %v", err)
+		klog.Warningf("error while calling prometheus api: %v", err)
 		return false, nil
 	}
 

@@ -17,17 +17,24 @@ limitations under the License.
 package prometheus
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
-	"os"
-	"path/filepath"
 )
 
 const (
-	namespace = "monitoring"
+	namespace                    = "monitoring"
+	checkPrometheusReadyInterval = 30 * time.Second
+	checkPrometheusReadyTimeout  = 10 * time.Minute
 )
 
 // SetUpPrometheusStack sets up prometheus stack in the cluster.
@@ -37,11 +44,16 @@ func SetUpPrometheusStack(
 	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
 
 	k8sClient := framework.GetClientSets().GetClient()
+	nodeCount := clusterLoaderConfig.ClusterConfig.Nodes
+
 	klog.Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
 	if err := applyManifests(framework, clusterLoaderConfig); err != nil {
+		return err
+	}
+	if err := waitForPrometheusToBeHealthy(k8sClient, nodeCount); err != nil {
 		return err
 	}
 	klog.Info("Prometheus stack set up successfully")
@@ -98,4 +110,61 @@ func applyManifests(
 		}
 	}
 	return nil
+}
+
+func waitForPrometheusToBeHealthy(client clientset.Interface, nodeCount int) error {
+	klog.Info("Waiting for Prometheus stack to become healthy...")
+	return wait.Poll(
+		checkPrometheusReadyInterval,
+		checkPrometheusReadyTimeout,
+		func() (bool, error) { return isPrometheusReady(client, nodeCount) })
+}
+
+func isPrometheusReady(client clientset.Interface, nodeCount int) (bool, error) {
+	raw, err := client.CoreV1().
+		Services(namespace).
+		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
+		DoRaw()
+	if err != nil {
+		// This might happen if prometheus server is temporary down, log error but don't return it.
+		klog.Warning("error while calling prometheus api: %v", err)
+		return false, nil
+	}
+
+	var response targetsResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		// This shouldn't happen, return error.
+		return false, err
+	}
+
+	if len(response.Data.ActiveTargets) < nodeCount {
+		// There should be at least as many targets as number of nodes (e.g. there is a kube-proxy
+		// instance on each node). This is a safeguard from a race condition where the prometheus
+		// server is started before targets are registered.
+		klog.Infof("Less active targets (%d) than nodes (%d), waiting for more to become active...",
+			len(response.Data.ActiveTargets), nodeCount)
+		return false, nil
+	}
+
+	for _, t := range response.Data.ActiveTargets {
+		if t.Health != "up" {
+			klog.Infof("Target {job=%s, pod=%s} not ready...", t.Labels["job"], t.Labels["pod"])
+			return false, nil
+		}
+	}
+	klog.Infof("All %d targets are ready", len(response.Data.ActiveTargets))
+	return true, nil
+}
+
+type targetsResponse struct {
+	Data targetsData `json:"data""`
+}
+
+type targetsData struct {
+	ActiveTargets []target `json:"activeTargets"`
+}
+
+type target struct {
+	Labels map[string]string `json:"labels"`
+	Health string            `json:"health"`
 }

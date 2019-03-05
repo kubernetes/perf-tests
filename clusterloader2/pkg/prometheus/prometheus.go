@@ -34,7 +34,7 @@ import (
 const (
 	namespace                    = "monitoring"
 	checkPrometheusReadyInterval = 30 * time.Second
-	checkPrometheusReadyTimeout  = 10 * time.Minute
+	checkPrometheusReadyTimeout  = 15 * time.Minute
 )
 
 // SetUpPrometheusStack sets up prometheus stack in the cluster.
@@ -146,11 +146,15 @@ func isPrometheusReady(client clientset.Interface, nodeCount int) (bool, error) 
 		return false, nil
 	}
 
+	nReady := 0
 	for _, t := range response.Data.ActiveTargets {
-		if t.Health != "up" {
-			klog.Infof("Target {job=%s, pod=%s} not ready...", t.Labels["job"], t.Labels["pod"])
-			return false, nil
+		if t.Health == "up" {
+			nReady++
 		}
+	}
+	if nReady < len(response.Data.ActiveTargets) {
+		klog.Infof("%d/%d targets are ready", nReady, len(response.Data.ActiveTargets))
+		return false, nil
 	}
 	klog.Infof("All %d targets are ready", len(response.Data.ActiveTargets))
 	return true, nil

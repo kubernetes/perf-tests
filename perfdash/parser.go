@@ -314,6 +314,10 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 				}
 				for kBucket, vBucket := range histogramVecMetric[i].Buckets {
 					if kBucket != "+Inf" {
+						if count == 0 {
+							perfData.Data["<= "+kBucket+"s"] = 0
+							continue
+						}
 						perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
 					}
 				}

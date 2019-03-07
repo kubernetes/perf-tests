@@ -151,12 +151,12 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		return
 	}
 	if obj.ApiServerMetrics == nil {
-		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d", buildNumber)
+		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
 		return
 	}
 	metric, ok := obj.ApiServerMetrics["apiserver_request_count"]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d", buildNumber)
+		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d\n", buildNumber)
 		return
 	}
 	for i := range metric {

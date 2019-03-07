@@ -21,10 +21,10 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 
 	"k8s.io/contrib/test-utils/utils"
 	"k8s.io/kubernetes/test/e2e/perftype"
-	"sync"
 )
 
 // GoogleGCSDownloader that gets data about Google results from the GCS repository
@@ -47,7 +47,7 @@ func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 	if err == nil {
 		TestConfig[utils.KubekinsBucket] = newJobs
 	} else {
-		fmt.Fprintf(os.Stderr, "Failed to refresh config: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to refresh config: %v\n", err)
 	}
 	fmt.Print("Getting Data from GCS...\n")
 	result := make(JobToCategoryData)

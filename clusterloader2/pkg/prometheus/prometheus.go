@@ -20,11 +20,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -33,27 +36,84 @@ import (
 
 const (
 	namespace                    = "monitoring"
+	coreManifests                = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml"
+	defaultServiceMonitors       = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/*.yaml"
+	kubemarkServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/kubemark/*.yaml"
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
+	numK8sClients                = 1
 )
+
+// PrometheusController is a util for managing (setting up / tearing down) the prometheus stack in
+// the cluster.
+type PrometheusController struct {
+	clusterLoaderConfig *config.ClusterLoaderConfig
+	// isKubemark determines whether prometheus stack is being set up in kubemark cluster or not.
+	isKubemark bool
+	// framework associated with the cluster where the prometheus stack should be set up.
+	// For kubemark it's the root cluster, otherwise it's the main (and only) cluster.
+	framework *framework.Framework
+	// templateMapping is a mapping defining placeholders used in manifest templates.
+	templateMapping map[string]interface{}
+}
+
+// NewPrometheusController creates a new instance of PrometheusController for the given config.
+func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *PrometheusController, err error) {
+	pc = &PrometheusController{
+		clusterLoaderConfig: clusterLoaderConfig,
+		isKubemark:          clusterLoaderConfig.ClusterConfig.Provider == "kubemark",
+	}
+
+	kubeConfigPath := clusterLoaderConfig.ClusterConfig.KubeConfigPath
+	if pc.isKubemark {
+		// For kubemark we will be setting up Prometheus stack in the root cluster.
+		kubeConfigPath = clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath
+	}
+	if pc.framework, err = framework.NewFramework(kubeConfigPath, numK8sClients); err != nil {
+		return nil, err
+	}
+
+	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	if errList != nil {
+		return nil, errList
+	}
+	if pc.isKubemark {
+		mapping["KubemarkMasterClusterIp"], err = getKubemarkMasterClusterIp()
+		if err != nil {
+			return nil, err
+		}
+	}
+	pc.templateMapping = mapping
+
+	return pc, nil
+}
 
 // SetUpPrometheusStack sets up prometheus stack in the cluster.
 // This method is idempotent, if the prometheus stack is already set up applying the manifests
 // again will be no-op.
-func SetUpPrometheusStack(
-	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
-
-	k8sClient := framework.GetClientSets().GetClient()
-	nodeCount := clusterLoaderConfig.ClusterConfig.Nodes
+func (pc *PrometheusController) SetUpPrometheusStack() error {
+	k8sClient := pc.framework.GetClientSets().GetClient()
 
 	klog.Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
-	if err := applyManifests(framework, clusterLoaderConfig); err != nil {
+	if err := pc.applyManifests(coreManifests); err != nil {
 		return err
 	}
-	if err := waitForPrometheusToBeHealthy(k8sClient, nodeCount); err != nil {
+	if pc.isKubemark {
+		if err := pc.exposeKubemarkApiServerMetrics(); err != nil {
+			return err
+		}
+		if err := pc.applyManifests(kubemarkServiceMonitors); err != nil {
+			return err
+		}
+	} else {
+		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
+			return err
+		}
+	}
+	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
 		return err
 	}
 	klog.Info("Prometheus stack set up successfully")
@@ -61,9 +121,9 @@ func SetUpPrometheusStack(
 }
 
 // TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
-func TearDownPrometheusStack(framework *framework.Framework) error {
+func (pc *PrometheusController) TearDownPrometheusStack() error {
 	klog.Info("Tearing down prometheus stack")
-	k8sClient := framework.GetClientSets().GetClient()
+	k8sClient := pc.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
@@ -73,23 +133,17 @@ func TearDownPrometheusStack(framework *framework.Framework) error {
 	return nil
 }
 
-func applyManifests(
-	framework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) error {
+func (pc *PrometheusController) applyManifests(manifestGlob string) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
-	manifestGlob := os.ExpandEnv(
-		"$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml")
+	manifestGlob = os.ExpandEnv(manifestGlob)
 	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
-	if errList != nil && !errList.IsEmpty() {
-		return errList
-	}
 	manifests, err := filepath.Glob(manifestGlob)
 	if err != nil {
 		return err
 	}
 	for _, manifest := range manifests {
 		klog.Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), mapping)
+		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), pc.templateMapping)
 		if err != nil {
 			return err
 		}
@@ -99,12 +153,12 @@ func applyManifests(
 				return err
 			}
 			for _, item := range objList.Items {
-				if err := framework.CreateObject(item.GetNamespace(), item.GetName(), &item); err != nil {
+				if err := pc.framework.CreateObject(item.GetNamespace(), item.GetName(), &item); err != nil {
 					return fmt.Errorf("error while applying (%s): %v", manifest, err)
 				}
 			}
 		} else {
-			if err := framework.CreateObject(obj.GetNamespace(), obj.GetName(), obj); err != nil {
+			if err := pc.framework.CreateObject(obj.GetNamespace(), obj.GetName(), obj); err != nil {
 				return fmt.Errorf("error while applying (%s): %v", manifest, err)
 			}
 		}
@@ -112,16 +166,54 @@ func applyManifests(
 	return nil
 }
 
-func waitForPrometheusToBeHealthy(client clientset.Interface, nodeCount int) error {
+// exposeKubemarkApiServerMetrics configures anonymous access to the apiserver metrics in the
+// kubemark cluster.
+func (pc *PrometheusController) exposeKubemarkApiServerMetrics() error {
+	klog.Info("Exposing kube-apiserver metrics in kubemark cluster")
+	// This has to be done in the kubemark cluster, thus we need to create a new client.
+	clientSet, err := framework.NewMultiClientSet(
+		pc.clusterLoaderConfig.ClusterConfig.KubeConfigPath, numK8sClients)
+	if err != nil {
+		return err
+	}
+	createClusterRole := func() error {
+		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
+			Rules: []rbacv1.PolicyRule{
+				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
+			},
+		})
+		return err
+	}
+	createClusterRoleBinding := func() error {
+		_, err := clientSet.GetClient().RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "system:anonymous"},
+			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
+			Subjects: []rbacv1.Subject{
+				{Kind: "User", Name: "system:anonymous"},
+			},
+		})
+		return err
+	}
+	if err := retryCreateFunction(createClusterRole); err != nil {
+		return err
+	}
+	if err := retryCreateFunction(createClusterRoleBinding); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
 	klog.Info("Waiting for Prometheus stack to become healthy...")
 	return wait.Poll(
 		checkPrometheusReadyInterval,
 		checkPrometheusReadyTimeout,
-		func() (bool, error) { return isPrometheusReady(client, nodeCount) })
+		pc.isPrometheusReady)
 }
 
-func isPrometheusReady(client clientset.Interface, nodeCount int) (bool, error) {
-	raw, err := client.CoreV1().
+func (pc *PrometheusController) isPrometheusReady() (bool, error) {
+	raw, err := pc.framework.GetClientSets().GetClient().CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
 		DoRaw()
@@ -137,12 +229,17 @@ func isPrometheusReady(client clientset.Interface, nodeCount int) (bool, error) 
 		return false, err
 	}
 
-	if len(response.Data.ActiveTargets) < nodeCount {
-		// There should be at least as many targets as number of nodes (e.g. there is a kube-proxy
-		// instance on each node). This is a safeguard from a race condition where the prometheus
-		// server is started before targets are registered.
-		klog.Infof("Less active targets (%d) than nodes (%d), waiting for more to become active...",
-			len(response.Data.ActiveTargets), nodeCount)
+	// There should be at least as many targets as number of nodes (e.g. there is a kube-proxy
+	// instance on each node). This is a safeguard from a race condition where the prometheus
+	// server is started before targets are registered.
+	expectedTargets := pc.clusterLoaderConfig.ClusterConfig.Nodes
+	// TODO(mm4tt): Start monitoring kube-proxy in kubemark and get rid of this if.
+	if pc.isKubemark {
+		expectedTargets = 3 // kube-apiserver, prometheus, grafana
+	}
+	if len(response.Data.ActiveTargets) < expectedTargets {
+		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
+			len(response.Data.ActiveTargets), expectedTargets)
 		return false, nil
 	}
 
@@ -171,4 +268,15 @@ type targetsData struct {
 type target struct {
 	Labels map[string]string `json:"labels"`
 	Health string            `json:"health"`
+}
+
+func getKubemarkMasterClusterIp() (string, error) {
+	cmd := exec.Command("gcloud", "compute", "instances", "list",
+		"--format", "value(networkInterfaces[0].networkIP)", "--filter", "name ~ kubemark-master")
+	output, err := cmd.Output()
+	return string(output), err
+}
+
+func retryCreateFunction(f func() error) error {
+	return client.RetryWithExponentialBackOff(client.RetryFunction(f, apierrs.IsAlreadyExists))
 }

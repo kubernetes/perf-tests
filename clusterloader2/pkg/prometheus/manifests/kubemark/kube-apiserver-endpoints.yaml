@@ -1,0 +1,14 @@
+# Endpoints object for the kubemark/kube-apiserver service. For details, see the service object yaml
+apiVersion: v1
+kind: Endpoints
+metadata:
+  namespace: kubemark
+  name: kube-apiserver
+  labels:
+    k8s-app: kube-apiserver
+subsets:
+  - addresses:
+      - ip: {{.KubemarkMasterClusterIp}}
+    ports:
+      - name: https
+        port: 443

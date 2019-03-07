@@ -17,3 +17,4 @@ run-selection-scheme
 report-dir
 enable-prometheus-server
 tear-down-prometheus-server
+kubemark-root-kubeconfig

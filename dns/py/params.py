@@ -89,7 +89,7 @@ class DeploymentContainerSpecParam(Param):
     self.container_name = container_name
 
   def is_relevant(self, attributes):
-    return 'cluster-dns' not in attributes
+    return 'cluster-dns' not in attributes and 'node-local-dns' not in attributes
 
   def set(self, inputs, value):
     spec = _item_by_predicate(
@@ -276,6 +276,15 @@ class TestCases(object):
 
     return cases
 
+  def set_param(self, param_name, values):
+    if param_name not in self.values:
+      return
+    self.values[param_name].append(values)
+
+  def get_param(self, param_name):
+    if param_name not in self.values:
+      return None
+    return self.values[param_name]
 
 def _item_by_predicate(list_obj, predicate):
   """
@@ -329,3 +338,5 @@ PARAMETERS = [
 # Given as an attribute to TestCases.generate, specifies that the test
 # case is run with cluster-dns.
 ATTRIBUTE_CLUSTER_DNS = 'cluster-dns'
+# specifies that the test uses node-cache
+ATTRIBUTE_NODELOCAL_DNS = 'node-local-dns'

@@ -188,7 +188,7 @@ func main() {
 	}
 	if clusterLoaderConfig.EnablePrometheusServer {
 		if err := prometheus.SetUpPrometheusStack(f, &clusterLoaderConfig); err != nil {
-			klog.Errorf("Error while setting up prometheus stack: %v", err)
+			klog.Fatalf("Error while setting up prometheus stack: %v", err)
 		}
 	}
 

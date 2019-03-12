@@ -18,6 +18,7 @@ package client
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -72,6 +73,14 @@ func IsRetryableAPIError(err error) bool {
 	return false
 }
 
+// IsRetryableNetError determines whether the error is a retryable net error.
+func IsRetryableNetError(err error) bool {
+	if netError, ok := err.(net.Error); ok {
+		return netError.Temporary() || netError.Timeout()
+	}
+	return false
+}
+
 // RetryFunction opaques given function into retryable function.
 func RetryFunction(f func() error, isAllowedError func(error) bool) wait.ConditionFunc {
 	return func() (bool, error) {
@@ -79,7 +88,7 @@ func RetryFunction(f func() error, isAllowedError func(error) bool) wait.Conditi
 		if err == nil || (isAllowedError != nil && isAllowedError(err)) {
 			return true, nil
 		}
-		if IsRetryableAPIError(err) {
+		if IsRetryableAPIError(err) || IsRetryableNetError(err) {
 			return false, nil
 		}
 		return false, err

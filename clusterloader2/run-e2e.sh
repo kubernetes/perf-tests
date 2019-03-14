@@ -20,6 +20,7 @@ set -o pipefail
 
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
+export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
 
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr "$@"

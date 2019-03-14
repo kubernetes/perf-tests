@@ -55,8 +55,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIP, "masterip", "MASTER_IP", "", "Hostname/IP of the masternode")
-	// TODO(mm4tt): Consider introducing new env variable with a better name that would replace the DEFAULT_KUBECONFIG.
-	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "DEFAULT_KUBECONFIG", "",
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 }
 

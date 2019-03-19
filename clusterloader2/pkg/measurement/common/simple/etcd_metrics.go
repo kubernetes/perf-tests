@@ -150,11 +150,22 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
 func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
-		klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", e)
+		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for gke", e)
 		return nil, nil
 	}
 
-	cmd := "curl http://localhost:2379/metrics"
+	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
+	// http://localhost:2382 is specified to bypass TLS credential requirement when checking
+	// etcd /metrics and /health.
+	if samples, err := e.sshEtcdMetrics("curl http://localhost:2382/metrics", host, provider); err == nil {
+		return samples, nil
+	}
+
+	// Use old endpoint if new one fails.
+	return e.sshEtcdMetrics("curl http://localhost:2379/metrics", host, provider)
+}
+
+func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*model.Sample, error) {
 	sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 	if err != nil || sshResult.Code != 0 {
 		return nil, fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)

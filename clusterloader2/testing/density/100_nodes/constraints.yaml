@@ -15,7 +15,7 @@ heapster:
   cpuConstraint: 0.15
   nemoryConstraint: 367001600 #350 * (1024 * 1024)
 kube-apiserver:
-  cpuConstraint: 2.2
+  cpuConstraint: 2.5
   memoryConstraint: 1258291200 #1200 * (1024 * 1024)
 kube-controller-manager:
   cpuConstraint: 1.1

@@ -22,6 +22,7 @@ with slight changes regarding labelSelector and flagSelector applied.
 package util
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -57,7 +58,8 @@ func NewPodStore(c clientset.Interface, namespace string, labelSelector string, 
 	}
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
-	reflector := cache.NewReflector(lw, &v1.Pod{}, store, 0)
+	name := fmt.Sprintf("PodStore: %s", CreateSelectorsString(namespace, labelSelector, fieldSelector))
+	reflector := cache.NewNamedReflector(name, lw, &v1.Pod{}, store, 0)
 	go reflector.Run(stopCh)
 	if err := wait.PollImmediate(50*time.Millisecond, 2*time.Minute, func() (bool, error) {
 		if len(reflector.LastSyncResourceVersion()) != 0 {

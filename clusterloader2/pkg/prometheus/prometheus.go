@@ -149,12 +149,12 @@ func (pc *PrometheusController) applyManifests(manifestGlob string) error {
 				return err
 			}
 			for _, item := range objList.Items {
-				if err := pc.framework.CreateObject(item.GetNamespace(), item.GetName(), &item); err != nil {
+				if err := pc.framework.CreateObject(item.GetNamespace(), item.GetName(), &item, client.Retry(apierrs.IsNotFound)); err != nil {
 					return fmt.Errorf("error while applying (%s): %v", manifest, err)
 				}
 			}
 		} else {
-			if err := pc.framework.CreateObject(obj.GetNamespace(), obj.GetName(), obj); err != nil {
+			if err := pc.framework.CreateObject(obj.GetNamespace(), obj.GetName(), obj, client.Retry(apierrs.IsNotFound)); err != nil {
 				return fmt.Errorf("error while applying (%s): %v", manifest, err)
 			}
 		}

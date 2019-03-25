@@ -8,7 +8,7 @@ metadata:
     k8s-app: kube-apiserver
 subsets:
   - addresses:
-      - ip: {{.KubemarkMasterClusterIp}}
+      - ip: {{.KubemarkMasterIp}}
     ports:
       - name: https
         port: 443

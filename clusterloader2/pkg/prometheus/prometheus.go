@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -78,10 +77,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		return nil, errList
 	}
 	if pc.isKubemark {
-		mapping["KubemarkMasterClusterIp"], err = getKubemarkMasterClusterIp()
-		if err != nil {
-			return nil, err
-		}
+		mapping["KubemarkMasterIp"] = clusterLoaderConfig.ClusterConfig.MasterIP
 	}
 	pc.templateMapping = mapping
 
@@ -268,13 +264,6 @@ type targetsData struct {
 type target struct {
 	Labels map[string]string `json:"labels"`
 	Health string            `json:"health"`
-}
-
-func getKubemarkMasterClusterIp() (string, error) {
-	cmd := exec.Command("gcloud", "compute", "instances", "list",
-		"--format", "value(networkInterfaces[0].networkIP)", "--filter", "name ~ kubemark-master")
-	output, err := cmd.Output()
-	return string(output), err
 }
 
 func retryCreateFunction(f func() error) error {

@@ -107,7 +107,7 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 		return nil, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
 	}
 
-	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc, nil)); err != nil {
+	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc)); err != nil {
 		return nil, err
 	}
 	return runtimeObjectsList, nil

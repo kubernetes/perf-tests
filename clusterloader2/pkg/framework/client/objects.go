@@ -142,7 +142,7 @@ func ListNodes(c clientset.Interface) ([]apiv1.Node, error) {
 		nodes = nodesList.Items
 		return nil
 	}
-	if err := RetryWithExponentialBackOff(RetryFunction(listFunc, nil)); err != nil {
+	if err := RetryWithExponentialBackOff(RetryFunction(listFunc)); err != nil {
 		return nodes, err
 	}
 	return nodes, nil
@@ -176,7 +176,7 @@ func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 		namespaces = namespacesList.Items
 		return nil
 	}
-	if err := RetryWithExponentialBackOff(RetryFunction(listFunc, nil)); err != nil {
+	if err := RetryWithExponentialBackOff(RetryFunction(listFunc)); err != nil {
 		return namespaces, err
 	}
 	return namespaces, nil

@@ -81,15 +81,51 @@ func IsRetryableNetError(err error) bool {
 	return false
 }
 
+// ApiCallOptions describes how api call errors should be treated, i.e. which errors should be
+// allowed (ignored) and which should be retried.
+type ApiCallOptions struct {
+	shouldAllowError func(error) bool
+	shouldRetryError func(error) bool
+}
+
+// Allow creates an ApiCallOptions that allows (ignores) errors matching the given predicate.
+func Allow(allowErrorPredicate func(error) bool) *ApiCallOptions {
+	return &ApiCallOptions{shouldAllowError: allowErrorPredicate}
+}
+
+// Retry creates an ApiCallOptions that retries errors matching the given predicate.
+func Retry(retryErrorPredicate func(error) bool) *ApiCallOptions {
+	return &ApiCallOptions{shouldRetryError: retryErrorPredicate}
+}
+
 // RetryFunction opaques given function into retryable function.
-func RetryFunction(f func() error, isAllowedError func(error) bool) wait.ConditionFunc {
+func RetryFunction(f func() error, options ...*ApiCallOptions) wait.ConditionFunc {
+	var shouldAllowErrorFuncs, shouldRetryErrorFuncs []func(error) bool
+	for _, option := range options {
+		if option.shouldAllowError != nil {
+			shouldAllowErrorFuncs = append(shouldAllowErrorFuncs, option.shouldAllowError)
+		}
+		if option.shouldRetryError != nil {
+			shouldRetryErrorFuncs = append(shouldRetryErrorFuncs, option.shouldRetryError)
+		}
+	}
 	return func() (bool, error) {
 		err := f()
-		if err == nil || (isAllowedError != nil && isAllowedError(err)) {
+		if err == nil {
 			return true, nil
 		}
 		if IsRetryableAPIError(err) || IsRetryableNetError(err) {
 			return false, nil
+		}
+		for _, shouldAllowError := range shouldAllowErrorFuncs {
+			if shouldAllowError(err) {
+				return true, nil
+			}
+		}
+		for _, shouldRetryError := range shouldRetryErrorFuncs {
+			if shouldRetryError(err) {
+				return false, nil
+			}
 		}
 		return false, err
 	}
@@ -118,7 +154,7 @@ func CreateNamespace(c clientset.Interface, namespace string) error {
 		_, err := c.CoreV1().Namespaces().Create(&apiv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
 		return err
 	}
-	return RetryWithExponentialBackOff(RetryFunction(createFunc, apierrs.IsAlreadyExists))
+	return RetryWithExponentialBackOff(RetryFunction(createFunc, Allow(apierrs.IsAlreadyExists)))
 }
 
 // DeleteNamespace deletes namespace with given name.
@@ -126,7 +162,7 @@ func DeleteNamespace(c clientset.Interface, namespace string) error {
 	deleteFunc := func() error {
 		return c.CoreV1().Namespaces().Delete(namespace, nil)
 	}
-	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, apierrs.IsNotFound))
+	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, Allow(apierrs.IsNotFound)))
 }
 
 // ListNamespaces returns list of existing namespace names.
@@ -164,7 +200,7 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 }
 
 // CreateObject creates object based on given object description.
-func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -172,11 +208,12 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj, metav1.CreateOptions{})
 		return err
 	}
-	return RetryWithExponentialBackOff(RetryFunction(createFunc, apierrs.IsAlreadyExists))
+	options = append(options, Allow(apierrs.IsAlreadyExists))
+	return RetryWithExponentialBackOff(RetryFunction(createFunc, options...))
 }
 
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
-func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
+func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -192,11 +229,11 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch, metav1.UpdateOptions{})
 		return err
 	}
-	return RetryWithExponentialBackOff(RetryFunction(updateFunc, nil))
+	return RetryWithExponentialBackOff(RetryFunction(updateFunc, options...))
 }
 
 // DeleteObject deletes object with given name, group, version and kind.
-func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) error {
+func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) error {
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
@@ -204,11 +241,12 @@ func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, 
 		deleteOption := &metav1.DeleteOptions{OrphanDependents: &falseVar}
 		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, deleteOption)
 	}
-	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, apierrs.IsNotFound))
+	options = append(options, Allow(apierrs.IsNotFound))
+	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, options...))
 }
 
 // GetObject retrieves object with given name, group, version and kind.
-func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) (*unstructured.Unstructured, error) {
+func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) (*unstructured.Unstructured, error) {
 	var obj *unstructured.Unstructured
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	getFunc := func() error {
@@ -218,7 +256,7 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 		obj, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
 		return err
 	}
-	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, nil)); err != nil {
+	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {
 		return nil, err
 	}
 	return obj, nil

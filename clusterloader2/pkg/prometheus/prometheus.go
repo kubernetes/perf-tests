@@ -267,5 +267,6 @@ type target struct {
 }
 
 func retryCreateFunction(f func() error) error {
-	return client.RetryWithExponentialBackOff(client.RetryFunction(f, apierrs.IsAlreadyExists))
+	return client.RetryWithExponentialBackOff(
+		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
 }

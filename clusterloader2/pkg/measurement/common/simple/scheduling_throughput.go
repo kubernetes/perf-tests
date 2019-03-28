@@ -79,7 +79,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 		}
 
 		s.stopCh = make(chan struct{})
-		return summaries, s.start(config.ClientSets.GetClient(), namespace, labelSelector, fieldSelector)
+		return summaries, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
 	case "gather":
 		return s.gather()
 	default:

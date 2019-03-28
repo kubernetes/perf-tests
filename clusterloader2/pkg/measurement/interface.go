@@ -23,12 +23,10 @@ import (
 
 // MeasurementConfig provides client and parameters required for the measurement execution.
 type MeasurementConfig struct {
-	// Clientsets are kubernetes clients.
-	ClientSets *framework.MultiClientSet
-	// DynamicClients are kubernetes dynamic clients.
-	DynamicClients *framework.MultiDynamicClient
-	// ClusterConfig represents configuration of the cluster.
-	ClusterConfig *config.ClusterConfig
+	// ClusterFramework returns cluster framework.
+	ClusterFramework *framework.Framework
+	// PrometheusFramework returns prometheus framework.
+	PrometheusFramework *framework.Framework
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config
 	// into the Execute method.
 	Params map[string]interface{}

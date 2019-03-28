@@ -76,7 +76,7 @@ func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.Mea
 	case "start":
 		a.start()
 	case "gather":
-		summary, err := a.gather(config.ClientSets.GetClient())
+		summary, err := a.gather(config.PrometheusFramework.GetClientSets().GetClient())
 		if err == nil || errors.IsMetricViolationError(err) {
 			summaries = append(summaries, summary)
 		}

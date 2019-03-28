@@ -187,7 +187,7 @@ func main() {
 	}
 
 	f, err := framework.NewFramework(
-		clusterLoaderConfig.ClusterConfig.KubeConfigPath,
+		&clusterLoaderConfig.ClusterConfig,
 		getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes),
 	)
 	if err != nil {
@@ -195,10 +195,12 @@ func main() {
 	}
 
 	var prometheusController *prometheus.PrometheusController
+	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.EnablePrometheusServer {
 		if prometheusController, err = prometheus.NewPrometheusController(&clusterLoaderConfig); err != nil {
 			klog.Fatalf("Error while creating Prometheus Controller: %v", err)
 		}
+		prometheusFramework = prometheusController.GetFramework()
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
 			klog.Fatalf("Error while setting up prometheus stack: %v", err)
 		}
@@ -217,7 +219,7 @@ func main() {
 			ComponentTexts: []string{suiteSummary.SuiteDescription, clusterLoaderConfig.TestConfigPath},
 		}
 		printTestStart(clusterLoaderConfig.TestConfigPath)
-		if errList := test.RunTest(f, &clusterLoaderConfig); !errList.IsEmpty() {
+		if errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig); !errList.IsEmpty() {
 			suiteSummary.NumberOfFailedSpecs++
 			specSummary.State = ginkgotypes.SpecStateFailed
 			specSummary.Failure = ginkgotypes.SpecFailure{

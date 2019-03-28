@@ -60,15 +60,15 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	if err != nil {
 		return summaries, err
 	}
-	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
+	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
 		return summaries, err
 	}
-	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterConfig.MasterIP)
+	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().MasterIP)
 	if err != nil {
 		return summaries, err
 	}
-	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterConfig.MasterName)
+	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterFramework.GetClusterConfig().MasterName)
 	if err != nil {
 		return summaries, err
 	}
@@ -76,9 +76,9 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return summaries, s.resetSchedulerMetrics(config.ClientSets.GetClient(), masterIP, provider, masterName)
+		return summaries, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	case "gather":
-		return s.getSchedulingLatency(config.ClientSets.GetClient(), masterIP, provider, masterName)
+		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}

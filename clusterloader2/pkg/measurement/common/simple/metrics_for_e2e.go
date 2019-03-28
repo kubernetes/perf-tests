@@ -86,7 +86,7 @@ type metricsForE2EMeasurement struct{}
 func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 
-	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
+	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
 		return summaries, err
 	}
@@ -97,7 +97,14 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	}
 	grabMetricsFromKubelets = grabMetricsFromKubelets && strings.ToLower(provider) != "kubemark"
 
-	grabber, err := metrics.NewMetricsGrabber(config.ClientSets.GetClient(), nil, grabMetricsFromKubelets, true, true, true, false)
+	grabber, err := metrics.NewMetricsGrabber(
+		config.ClusterFramework.GetClientSets().GetClient(),
+		nil, /*external client*/
+		grabMetricsFromKubelets,
+		true, /*grab metrics from scheduler*/
+		true, /*grab metrics from controller manager*/
+		true, /*grab metrics from apiserver*/
+		false /*grab metrics from cluster autoscaler*/)
 	if err != nil {
 		return summaries, fmt.Errorf("failed to create MetricsGrabber: %v", err)
 	}

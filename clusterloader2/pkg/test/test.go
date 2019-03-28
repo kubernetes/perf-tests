@@ -37,8 +37,8 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *errors.ErrorList {
-	if f == nil {
+func RunTest(clusterFramework, prometheusFramework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *errors.ErrorList {
+	if clusterFramework == nil {
 		return errors.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
@@ -51,7 +51,7 @@ func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderCo
 		return errors.NewErrorList(fmt.Errorf("no Test installed"))
 	}
 
-	ctx := CreateContext(clusterLoaderConfig, f, state.NewState())
+	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState())
 	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
 
 	mapping, errList := config.GetMapping(clusterLoaderConfig)

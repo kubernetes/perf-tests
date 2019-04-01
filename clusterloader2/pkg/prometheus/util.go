@@ -52,25 +52,25 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 	if err := json.Unmarshal(raw, &response); err != nil {
 		return false, err // This shouldn't happen, return error.
 	}
-	if len(response.Data.ActiveTargets) < minExpectedTargets {
-		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
-			len(response.Data.ActiveTargets), minExpectedTargets)
-		return false, nil
-	}
-
-	nReady := 0
+	nReady, nTotal := 0, 0
 	for _, t := range response.Data.ActiveTargets {
 		if !selector(t) {
 			continue
 		}
+		nTotal++
 		if t.Health == "up" {
 			nReady++
 		}
 	}
-	if nReady < len(response.Data.ActiveTargets) {
-		klog.Infof("%d/%d targets are ready", nReady, len(response.Data.ActiveTargets))
+	if nTotal < minExpectedTargets {
+		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
+			nTotal, minExpectedTargets)
 		return false, nil
 	}
-	klog.Infof("All %d targets are ready", len(response.Data.ActiveTargets))
+	if nReady < nTotal {
+		klog.Infof("%d/%d targets are ready", nReady, nTotal)
+		return false, nil
+	}
+	klog.Infof("All %d targets are ready", nTotal)
 	return true, nil
 }

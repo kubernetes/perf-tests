@@ -17,7 +17,6 @@ limitations under the License.
 package prometheus
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -209,22 +208,6 @@ func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
 }
 
 func (pc *PrometheusController) isPrometheusReady() (bool, error) {
-	raw, err := pc.framework.GetClientSets().GetClient().CoreV1().
-		Services(namespace).
-		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
-		DoRaw()
-	if err != nil {
-		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warningf("error while calling prometheus api: %v", err)
-		return false, nil
-	}
-
-	var response targetsResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		// This shouldn't happen, return error.
-		return false, err
-	}
-
 	// There should be at least as many targets as number of nodes (e.g. there is a kube-proxy
 	// instance on each node). This is a safeguard from a race condition where the prometheus
 	// server is started before targets are registered.
@@ -233,37 +216,10 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	if pc.isKubemark {
 		expectedTargets = 3 // kube-apiserver, prometheus, grafana
 	}
-	if len(response.Data.ActiveTargets) < expectedTargets {
-		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
-			len(response.Data.ActiveTargets), expectedTargets)
-		return false, nil
-	}
-
-	nReady := 0
-	for _, t := range response.Data.ActiveTargets {
-		if t.Health == "up" {
-			nReady++
-		}
-	}
-	if nReady < len(response.Data.ActiveTargets) {
-		klog.Infof("%d/%d targets are ready", nReady, len(response.Data.ActiveTargets))
-		return false, nil
-	}
-	klog.Infof("All %d targets are ready", len(response.Data.ActiveTargets))
-	return true, nil
-}
-
-type targetsResponse struct {
-	Data targetsData `json:"data""`
-}
-
-type targetsData struct {
-	ActiveTargets []target `json:"activeTargets"`
-}
-
-type target struct {
-	Labels map[string]string `json:"labels"`
-	Health string            `json:"health"`
+	return CheckTargetsReady(
+		pc.framework.GetClientSets().GetClient(),
+		func(Target) bool { return true }, // All targets.
+		expectedTargets)
 }
 
 func retryCreateFunction(f func() error) error {

@@ -163,7 +163,7 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
-- name: Deleting latancy pods
+- name: Deleting latency pods
 # Delete pods
 - phases:
   - namespaceRange:

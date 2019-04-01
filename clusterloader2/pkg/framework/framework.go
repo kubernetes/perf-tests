@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 
@@ -37,18 +38,34 @@ type Framework struct {
 	automanagedNamespaceCount  int
 	clientSets                 *MultiClientSet
 	dynamicClients             *MultiDynamicClient
+	clusterConfig              *config.ClusterConfig
 }
 
-// NewFramework creates new framework based on given kubeconfig.
-func NewFramework(kubeconfigPath string, clientsNumber int) (*Framework, error) {
+// NewFramework creates new framework based on given clusterConfig.
+func NewFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Framework, error) {
+	return newFramework(clusterConfig, clientsNumber, clusterConfig.KubeConfigPath)
+}
+
+// NewRootFramework creates framework for the root cluster.
+// For clusters other than kubemark there is no difference between NewRootFramework and NewFramework.
+func NewRootFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Framework, error) {
+	kubeConfigPath := clusterConfig.KubeConfigPath
+	if clusterConfig.Provider == "kubemark" {
+		kubeConfigPath = clusterConfig.KubemarkRootKubeConfigPath
+	}
+	return newFramework(clusterConfig, clientsNumber, kubeConfigPath)
+}
+
+func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeConfigPath string) (*Framework, error) {
 	var err error
 	f := Framework{
 		automanagedNamespaceCount: 0,
+		clusterConfig:             clusterConfig,
 	}
-	if f.clientSets, err = NewMultiClientSet(kubeconfigPath, clientsNumber); err != nil {
+	if f.clientSets, err = NewMultiClientSet(kubeConfigPath, clientsNumber); err != nil {
 		return nil, fmt.Errorf("multi client set creation error: %v", err)
 	}
-	if f.dynamicClients, err = NewMultiDynamicClient(kubeconfigPath, clientsNumber); err != nil {
+	if f.dynamicClients, err = NewMultiDynamicClient(kubeConfigPath, clientsNumber); err != nil {
 		return nil, fmt.Errorf("multi dynamic client creation error: %v", err)
 	}
 	return &f, nil
@@ -72,6 +89,11 @@ func (f *Framework) GetClientSets() *MultiClientSet {
 // GetDynamicClients returns dynamic clients.
 func (f *Framework) GetDynamicClients() *MultiDynamicClient {
 	return f.dynamicClients
+}
+
+// GetClusterConfig returns cluster config.
+func (f *Framework) GetClusterConfig() *config.ClusterConfig {
+	return f.clusterConfig
 }
 
 // CreateAutomanagedNamespaces creates automanged namespaces.

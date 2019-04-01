@@ -29,7 +29,8 @@ import (
 
 type simpleContext struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
-	framework           *framework.Framework
+	clusterFramework    *framework.Framework
+	prometheusFramework *framework.Framework
 	state               *state.State
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.TuningSetFactory
@@ -37,15 +38,16 @@ type simpleContext struct {
 	chaosMonkey         *chaos.Monkey
 }
 
-func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.State) Context {
+func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State) Context {
 	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestConfigPath))
 	return &simpleContext{
 		clusterLoaderConfig: c,
-		framework:           f,
+		clusterFramework:    f,
+		prometheusFramework: p,
 		state:               s,
 		templateProvider:    templateProvider,
 		tuningSetFactory:    tuningset.NewTuningSetFactory(),
-		measurementManager:  measurement.CreateMeasurementManager(f, &c.ClusterConfig, templateProvider),
+		measurementManager:  measurement.CreateMeasurementManager(f, p, templateProvider),
 		chaosMonkey:         chaos.NewMonkey(f.GetClientSets().GetClient(), c.ClusterConfig.Provider),
 	}
 }
@@ -55,9 +57,14 @@ func (sc *simpleContext) GetClusterLoaderConfig() *config.ClusterLoaderConfig {
 	return sc.clusterLoaderConfig
 }
 
-// GetFramework returns framework.
-func (sc *simpleContext) GetFramework() *framework.Framework {
-	return sc.framework
+// GetFramework returns cluster framework.
+func (sc *simpleContext) GetClusterFramework() *framework.Framework {
+	return sc.clusterFramework
+}
+
+// GetFramework returns prometheus framework.
+func (sc *simpleContext) GetPrometheusFramework() *framework.Framework {
+	return sc.prometheusFramework
 }
 
 // GetState returns current test state.

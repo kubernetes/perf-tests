@@ -61,11 +61,11 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 
 	switch action {
 	case "start":
-		provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterConfig.Provider)
+		provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 		if err != nil {
 			return summaries, err
 		}
-		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterConfig.MasterIP)
+		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP)
 		if err != nil {
 			return summaries, err
 		}
@@ -79,7 +79,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		}
 		if constraintsPath != "" {
 			mapping := make(map[string]interface{})
-			mapping["Nodes"] = config.ClusterConfig.Nodes
+			mapping["Nodes"] = config.ClusterFramework.GetClusterConfig().Nodes
 			if err = config.TemplateProvider.TemplateInto(constraintsPath, mapping, &e.resourceConstraints); err != nil {
 				return summaries, fmt.Errorf("resource constraints reading error: %v", err)
 			}
@@ -103,7 +103,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		}
 
 		klog.Infof("%s: starting resource usage collecting...", e)
-		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClientSets.GetClient(), host, provider, gatherers.ResourceGathererOptions{
+		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, provider, gatherers.ResourceGathererOptions{
 			InKubemark:                  strings.ToLower(provider) == "kubemark",
 			Nodes:                       nodesSet,
 			ResourceDataGatheringPeriod: 60 * time.Second,

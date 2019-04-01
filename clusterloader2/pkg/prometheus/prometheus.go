@@ -63,12 +63,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		isKubemark:          clusterLoaderConfig.ClusterConfig.Provider == "kubemark",
 	}
 
-	kubeConfigPath := clusterLoaderConfig.ClusterConfig.KubeConfigPath
-	if pc.isKubemark {
-		// For kubemark we will be setting up Prometheus stack in the root cluster.
-		kubeConfigPath = clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath
-	}
-	if pc.framework, err = framework.NewFramework(kubeConfigPath, numK8sClients); err != nil {
+	if pc.framework, err = framework.NewRootFramework(&clusterLoaderConfig.ClusterConfig, numK8sClients); err != nil {
 		return nil, err
 	}
 
@@ -127,6 +122,11 @@ func (pc *PrometheusController) TearDownPrometheusStack() error {
 		return err
 	}
 	return nil
+}
+
+// GetFramework returns prometheus framework.
+func (pc *PrometheusController) GetFramework() *framework.Framework {
+	return pc.framework
 }
 
 func (pc *PrometheusController) applyManifests(manifestGlob string) error {

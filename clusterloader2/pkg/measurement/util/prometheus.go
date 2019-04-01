@@ -17,8 +17,11 @@ limitations under the License.
 package util
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
@@ -44,4 +47,68 @@ func ExtractMetricSamples(metricsBlob string) ([]*model.Sample, error) {
 		}
 		samples = append(samples, v...)
 	}
+}
+
+// ExtractMetricSamples2 unpacks metric blob into prometheus model structures.
+func ExtractMetricSamples2(response []byte) ([]*model.Sample, error) {
+	var pqr promQueryResponse
+	if err := json.Unmarshal(response, &pqr); err != nil {
+		return nil, err
+	}
+	if pqr.Status != "success" {
+		return nil, fmt.Errorf("non-success response status: %v", pqr.Status)
+	}
+	vector, ok := pqr.Data.v.(model.Vector)
+	if !ok {
+		return nil, fmt.Errorf("incorrect response type: %v", pqr.Data.v.Type())
+	}
+	return []*model.Sample(vector), nil
+}
+
+type promQueryResponse struct {
+	Status string           `json:"status"`
+	Data   promResponseData `json:"data"`
+}
+
+type promResponseData struct {
+	v model.Value
+}
+
+// UnmarshalJSON unmarshals json into promResponseData structure.
+func (qr *promResponseData) UnmarshalJSON(b []byte) error {
+	v := struct {
+		Type   model.ValueType `json:"resultType"`
+		Result json.RawMessage `json:"result"`
+	}{}
+
+	err := json.Unmarshal(b, &v)
+	if err != nil {
+		return err
+	}
+
+	switch v.Type {
+	case model.ValScalar:
+		var sv model.Scalar
+		err = json.Unmarshal(v.Result, &sv)
+		qr.v = &sv
+	case model.ValVector:
+		var vv model.Vector
+		err = json.Unmarshal(v.Result, &vv)
+		qr.v = vv
+	case model.ValMatrix:
+		var mv model.Matrix
+		err = json.Unmarshal(v.Result, &mv)
+		qr.v = mv
+	default:
+		err = fmt.Errorf("unexpected value type %q", v.Type)
+	}
+	return err
+}
+
+// ToPrometheusTime returns prometheus string representation of given time.
+func ToPrometheusTime(t time.Duration) string {
+	if t < time.Minute {
+		return fmt.Sprintf("%ds", int64(t)/int64(time.Second))
+	}
+	return fmt.Sprintf("%dm", int64(t)/int64(time.Minute))
 }

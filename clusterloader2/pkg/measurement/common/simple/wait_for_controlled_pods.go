@@ -76,14 +76,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	opResourceVersion uint64
 	gvr               schema.GroupVersionResource
 	checkerMap        map[string]*objectChecker
-	clients           multiClients
-}
-
-type multiClients struct {
-	// Clientsets are kubernetes clients sets.
-	MultiClientSet *framework.MultiClientSet
-	// DynamicClients are kubernetes dynamic clients.
-	DynamicClients *framework.MultiDynamicClient
+	clusterFramework  *framework.Framework
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -94,10 +87,8 @@ type multiClients struct {
 func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 
-	w.clients = multiClients{
-		MultiClientSet: config.ClientSets,
-		DynamicClients: config.DynamicClients,
-	}
+	w.clusterFramework = config.ClusterFramework
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return summaries, err
@@ -164,7 +155,7 @@ func (w *waitForControlledPodsRunningMeasurement) newInformer() (cache.SharedInf
 		options.FieldSelector = w.fieldSelector
 		options.LabelSelector = w.labelSelector
 	}
-	c := w.clients.DynamicClients
+	c := w.clusterFramework.GetDynamicClients()
 	if c == nil {
 		return nil, fmt.Errorf("no clientsets for measurement")
 	}
@@ -444,7 +435,7 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clients.MultiClientSet.GetClient(), w.kind, w.namespace, w.labelSelector, w.fieldSelector)
+	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clusterFramework.GetClientSets().GetClient(), w.kind, w.namespace, w.labelSelector, w.fieldSelector)
 	if err != nil {
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}
@@ -495,7 +486,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	w.handlingGroup.Start(func() {
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = waitForPods(w.clients.MultiClientSet.GetClient(), runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
+		err = waitForPods(w.clusterFramework.GetClientSets().GetClient(), runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

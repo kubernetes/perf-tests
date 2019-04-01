@@ -25,10 +25,9 @@ import (
 
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
-	clientSets       *framework.MultiClientSet
-	dynamicClients   *framework.MultiDynamicClient
-	clusterConfig    *config.ClusterConfig
-	templateProvider *config.TemplateProvider
+	clusterFramework    *framework.Framework
+	prometheusFramework *framework.Framework
+	templateProvider    *config.TemplateProvider
 
 	lock sync.Mutex
 	// map from method type and identifier to measurement instance.
@@ -37,14 +36,14 @@ type MeasurementManager struct {
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(f *framework.Framework, clusterConfig *config.ClusterConfig, templateProvider *config.TemplateProvider) *MeasurementManager {
+func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework,
+	templateProvider *config.TemplateProvider) *MeasurementManager {
 	return &MeasurementManager{
-		clientSets:       f.GetClientSets(),
-		dynamicClients:   f.GetDynamicClients(),
-		clusterConfig:    clusterConfig,
-		templateProvider: templateProvider,
-		measurements:     make(map[string]map[string]Measurement),
-		summaries:        make([]Summary, 0),
+		clusterFramework:    clusterFramework,
+		prometheusFramework: prometheusFramework,
+		templateProvider:    templateProvider,
+		measurements:        make(map[string]map[string]Measurement),
+		summaries:           make([]Summary, 0),
 	}
 }
 
@@ -55,12 +54,11 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		return err
 	}
 	config := &MeasurementConfig{
-		ClientSets:       mm.clientSets,
-		DynamicClients:   mm.dynamicClients,
-		ClusterConfig:    mm.clusterConfig,
-		Params:           params,
-		TemplateProvider: mm.templateProvider,
-		Identifier:       identifier,
+		ClusterFramework:    mm.clusterFramework,
+		PrometheusFramework: mm.prometheusFramework,
+		Params:              params,
+		TemplateProvider:    mm.templateProvider,
+		Identifier:          identifier,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)

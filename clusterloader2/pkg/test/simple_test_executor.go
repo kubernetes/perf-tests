@@ -44,8 +44,8 @@ func createSimpleTestExecutor() TestExecutor {
 
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
-	ctx.GetFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
-	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetFramework().GetAutomanagedNamespacePrefix())
+	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
+	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 	stopCh := make(chan struct{})
@@ -53,14 +53,14 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	if err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh); err != nil {
 		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
 	}
-	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
+	automanagedNamespacesList, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
 	}
 	if len(automanagedNamespacesList) > 0 {
 		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
-	err = ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
+	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
 	}
@@ -257,15 +257,15 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	errList := errors.NewErrorList()
 	switch operation {
 	case CREATE_OBJECT:
-		if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
+		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 		}
 	case PATCH_OBJECT:
-		if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
+		if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
 		}
 	case DELETE_OBJECT:
-		if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
+		if err := ctx.GetClusterFramework().DeleteObject(gvk, namespace, objName); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
 		}
 	}
@@ -316,7 +316,7 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 	}
 
 	nsList := make([]string, 0)
-	nsBasename := ctx.GetFramework().GetAutomanagedNamespacePrefix()
+	nsBasename := ctx.GetClusterFramework().GetAutomanagedNamespacePrefix()
 	if namespaceRange.Basename != nil {
 		nsBasename = *namespaceRange.Basename
 	}
@@ -335,7 +335,7 @@ func isErrsCritical(*errors.ErrorList) bool {
 func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
 	ctx.GetMeasurementManager().Dispose()
-	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
+	if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
 		klog.Errorf("Resource cleanup error: %v", errList.String())
 		return
 	}

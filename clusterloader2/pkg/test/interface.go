@@ -47,7 +47,8 @@ const (
 // Test context provides framework client and cluster state.
 type Context interface {
 	GetClusterLoaderConfig() *config.ClusterLoaderConfig
-	GetFramework() *framework.Framework
+	GetClusterFramework() *framework.Framework
+	GetPrometheusFramework() *framework.Framework
 	GetState() *state.State
 	GetTemplateProvider() *config.TemplateProvider
 	GetTuningSetFactory() tuningset.TuningSetFactory

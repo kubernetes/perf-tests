@@ -18,3 +18,7 @@ report-dir
 enable-prometheus-server
 tear-down-prometheus-server
 kubemark-root-kubeconfig
+metric-bind-address
+ping-server-address
+ping-server-bind-address
+ping-sleep-duration

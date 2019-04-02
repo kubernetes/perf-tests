@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: probes
+  name: ping-client
+  labels:
+    probe: ping-client
+spec:
+  ports:
+    - name: metrics
+      port: 8080
+  selector:
+    probe: ping-client

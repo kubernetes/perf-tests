@@ -11,7 +11,7 @@ spec:
     - name: alertmanager-main
       namespace: monitoring
       port: web
-  baseImage: quay.io/prometheus/prometheus
+  baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
   nodeSelector:
     beta.kubernetes.io/os: linux
   replicas: 1

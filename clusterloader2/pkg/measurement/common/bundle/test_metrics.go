@@ -54,20 +54,32 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	if metrics.apiserverMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%s: apiserverMemoryProfile creation error: %v", metrics, err)
 	}
+	if metrics.schedulerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
+		klog.Errorf("%s: schedulerCPUProfile creation error: %v", metrics, err)
+	}
 	if metrics.schedulerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%s: schedulerMemoryProfile creation error: %v", metrics, err)
+	}
+	if metrics.controllerManagerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
+		klog.Errorf("%s: controllerManagerCPUProfile creation error: %v", metrics, err)
+	}
+	if metrics.controllerManagerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
+		klog.Errorf("%s: controllerManagerMemoryProfile creation error: %v", metrics, err)
 	}
 	return &metrics
 }
 
 type testMetrics struct {
-	etcdMetrics            measurement.Measurement
-	schedulingMetrics      measurement.Measurement
-	metricsForE2E          measurement.Measurement
-	resourceUsageSummary   measurement.Measurement
-	apiserverCPUProfile    measurement.Measurement
-	apiserverMemoryProfile measurement.Measurement
-	schedulerMemoryProfile measurement.Measurement
+	etcdMetrics                    measurement.Measurement
+	schedulingMetrics              measurement.Measurement
+	metricsForE2E                  measurement.Measurement
+	resourceUsageSummary           measurement.Measurement
+	apiserverCPUProfile            measurement.Measurement
+	apiserverMemoryProfile         measurement.Measurement
+	schedulerCPUProfile            measurement.Measurement
+	schedulerMemoryProfile         measurement.Measurement
+	controllerManagerCPUProfile    measurement.Measurement
+	controllerManagerMemoryProfile measurement.Measurement
 }
 
 // Execute supports two actions. start - which sets up all metrics.
@@ -95,6 +107,9 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	kubeSchedulerConfig := createConfig(config, map[string]interface{}{
 		"componentName": "kube-scheduler",
 	})
+	kubeControllerManagerConfig := createConfig(config, map[string]interface{}{
+		"componentName": "kube-controller-manager",
+	})
 
 	switch action {
 	case "start":
@@ -117,7 +132,13 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverConfig)
 		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerConfig)
+		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerConfig)
 		appendResults(&summaries, errList, summary, err)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)

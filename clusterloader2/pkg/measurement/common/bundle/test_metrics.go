@@ -101,13 +101,28 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	actionGatherConfig := createConfig(config, map[string]interface{}{
 		"action": "gather",
 	})
-	kubeApiserverConfig := createConfig(config, map[string]interface{}{
+	kubeApiserverStartConfig := createConfig(config, map[string]interface{}{
+		"action":        "start",
 		"componentName": "kube-apiserver",
 	})
-	kubeSchedulerConfig := createConfig(config, map[string]interface{}{
+	kubeApiserverGatherConfig := createConfig(config, map[string]interface{}{
+		"action":        "gather",
+		"componentName": "kube-apiserver",
+	})
+	kubeSchedulerStartConfig := createConfig(config, map[string]interface{}{
+		"action":        "start",
 		"componentName": "kube-scheduler",
 	})
-	kubeControllerManagerConfig := createConfig(config, map[string]interface{}{
+	kubeSchedulerGatherConfig := createConfig(config, map[string]interface{}{
+		"action":        "gather",
+		"componentName": "kube-scheduler",
+	})
+	kubeControllerManagerStartConfig := createConfig(config, map[string]interface{}{
+		"action":        "start",
+		"componentName": "kube-controller-manager",
+	})
+	kubeControllerManagerGatherConfig := createConfig(config, map[string]interface{}{
+		"action":        "gather",
 		"componentName": "kube-controller-manager",
 	})
 
@@ -119,6 +134,18 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.resourceUsageSummary, actionStartConfig)
 		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerStartConfig)
+		appendResults(&summaries, errList, summary, err)
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
 		appendResults(&summaries, errList, summary, err)
@@ -128,17 +155,17 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.resourceUsageSummary, actionGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.apiserverCPUProfile, kubeApiserverConfig)
+		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverConfig)
+		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerConfig)
+		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerConfig)
+		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerConfig)
+		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
-		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerConfig)
+		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)

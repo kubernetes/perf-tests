@@ -44,6 +44,9 @@ type memoryProfileMeasurement struct{}
 
 // Execute gathers memory profile of a given component.
 func (c *memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	// TODO: Introduce two actions:
+	// - start - start periodically gathering memory profiles
+	// - gather - finish gathering profile and gather memory allocations profile
 	return createMeasurement(c, config, "heap")
 }
 
@@ -63,6 +66,9 @@ type cpuProfileMeasurement struct{}
 
 // Execute gathers cpu profile of a given component.
 func (c *cpuProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	// TODO: Introduce two actions:
+	// - start - start periodically gathering cpu profiles
+	// - gather - finish gathering profile
 	return createMeasurement(c, config, "profile")
 }
 
@@ -117,6 +123,7 @@ func gatherProfile(caller measurement.Measurement, componentName, profileKind, h
 		profilePrefix += "_MemoryProfile"
 	case strings.HasPrefix(profileKind, "profile"):
 		profilePrefix += "_CPUProfile"
+	// TODO: Add memory allocations profile.
 	default:
 		return summaries, fmt.Errorf("unknown profile kind provided: %s", profileKind)
 	}

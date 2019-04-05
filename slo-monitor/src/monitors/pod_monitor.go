@@ -17,19 +17,21 @@ limitations under the License.
 package monitors
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/pager"
 
 	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
@@ -129,11 +131,13 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				obj, err := pm.kubeClient.Core().Pods(v1.NamespaceAll).List(options)
-				return runtime.Object(obj), err
+				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
+					return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(opts)
+				}))
+				return pg.List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return pm.kubeClient.Core().Pods(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(options)
 			},
 		},
 		&v1.Pod{},
@@ -176,12 +180,14 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = eventSelector
-				obj, err := pm.kubeClient.Core().Events(v1.NamespaceAll).List(options)
-				return runtime.Object(obj), err
+				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
+					return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(opts)
+				}))
+				return pg.List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = eventSelector
-				return pm.kubeClient.Core().Events(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).Watch(options)
 			},
 		},
 		&v1.Event{},

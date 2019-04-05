@@ -18,7 +18,7 @@ require (
 	k8s.io/apimachinery v0.0.0-20190405172352-ba051b3c4d9d
 	k8s.io/autoscaler v0.0.0-20190405122119-f37329a0aa3d
 	k8s.io/client-go v0.0.0-20190405172624-a18eda0c053a
-	k8s.io/contrib v0.0.0-20190328194957-8888e4cfd537
+	k8s.io/contrib v0.0.0-20190328194957-8888e4cfd537 // indirect
 	k8s.io/klog v0.2.0 // indirect
 	k8s.io/kubernetes v1.14.0
 	k8s.io/utils v0.0.0-20190308190857-21c4ce38f2a7 // indirect

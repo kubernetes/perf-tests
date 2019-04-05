@@ -20,7 +20,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	restclient "k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -119,7 +119,7 @@ func (config *DeferredLoadingClientConfig) ClientConfig() (*restclient.Config, e
 
 	// check for in-cluster configuration and use it
 	if config.icc.Possible() {
-		glog.V(4).Infof("Using in-cluster configuration")
+		klog.V(4).Infof("Using in-cluster configuration")
 		return config.icc.ClientConfig()
 	}
 
@@ -134,15 +134,34 @@ func (config *DeferredLoadingClientConfig) Namespace() (string, bool, error) {
 		return "", false, err
 	}
 
-	ns, ok, err := mergedKubeConfig.Namespace()
+	ns, overridden, err := mergedKubeConfig.Namespace()
 	// if we get an error and it is not empty config, or if the merged config defined an explicit namespace, or
 	// if in-cluster config is not possible, return immediately
-	if (err != nil && !IsEmptyConfig(err)) || ok || !config.icc.Possible() {
+	if (err != nil && !IsEmptyConfig(err)) || overridden || !config.icc.Possible() {
 		// return on any error except empty config
-		return ns, ok, err
+		return ns, overridden, err
 	}
 
-	glog.V(4).Infof("Using in-cluster namespace")
+	if len(ns) > 0 {
+		// if we got a non-default namespace from the kubeconfig, use it
+		if ns != "default" {
+			return ns, false, nil
+		}
+
+		// if we got a default namespace, determine whether it was explicit or implicit
+		if raw, err := mergedKubeConfig.RawConfig(); err == nil {
+			// determine the current context
+			currentContext := raw.CurrentContext
+			if config.overrides != nil && len(config.overrides.CurrentContext) > 0 {
+				currentContext = config.overrides.CurrentContext
+			}
+			if context := raw.Contexts[currentContext]; context != nil && len(context.Namespace) > 0 {
+				return ns, false, nil
+			}
+		}
+	}
+
+	klog.V(4).Infof("Using in-cluster namespace")
 
 	// allow the namespace from the service account token directory to be used.
 	return config.icc.Namespace()

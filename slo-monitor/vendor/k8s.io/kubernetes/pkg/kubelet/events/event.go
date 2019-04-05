@@ -16,11 +16,6 @@ limitations under the License.
 
 package events
 
-import (
-	clientv1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/api/v1"
-)
-
 const (
 	// Container event reason list
 	CreatedContainer        = "Created"
@@ -31,6 +26,12 @@ const (
 	PreemptContainer        = "Preempting"
 	BackOffStartContainer   = "BackOff"
 	ExceededGracePeriod     = "ExceededGracePeriod"
+
+	// Pod event reason list
+	FailedToKillPod                = "FailedKillPod"
+	FailedToCreatePodContainer     = "FailedCreatePodContainer"
+	FailedToMakePodDataDirectories = "Failed"
+	NetworkNotReady                = "NetworkNotReady"
 
 	// Image event reason list
 	PullingImage            = "Pulling"
@@ -47,31 +48,42 @@ const (
 	NodeNotSchedulable                   = "NodeNotSchedulable"
 	StartingKubelet                      = "Starting"
 	KubeletSetupFailed                   = "KubeletSetupFailed"
+	FailedAttachVolume                   = "FailedAttachVolume"
 	FailedDetachVolume                   = "FailedDetachVolume"
 	FailedMountVolume                    = "FailedMount"
+	VolumeResizeFailed                   = "VolumeResizeFailed"
+	VolumeResizeSuccess                  = "VolumeResizeSuccessful"
+	FileSystemResizeFailed               = "FileSystemResizeFailed"
+	FileSystemResizeSuccess              = "FileSystemResizeSuccessful"
 	FailedUnMountVolume                  = "FailedUnMount"
+	FailedMapVolume                      = "FailedMapVolume"
+	FailedUnmapDevice                    = "FailedUnmapDevice"
+	WarnAlreadyMountedVolume             = "AlreadyMountedVolume"
 	SuccessfulDetachVolume               = "SuccessfulDetachVolume"
+	SuccessfulAttachVolume               = "SuccessfulAttachVolume"
 	SuccessfulMountVolume                = "SuccessfulMountVolume"
 	SuccessfulUnMountVolume              = "SuccessfulUnMountVolume"
 	HostPortConflict                     = "HostPortConflict"
 	NodeSelectorMismatching              = "NodeSelectorMismatching"
 	InsufficientFreeCPU                  = "InsufficientFreeCPU"
 	InsufficientFreeMemory               = "InsufficientFreeMemory"
-	OutOfDisk                            = "OutOfDisk"
-	HostNetworkNotSupported              = "HostNetworkNotSupported"
-	UndefinedShaper                      = "NilShaper"
 	NodeRebooted                         = "Rebooted"
 	ContainerGCFailed                    = "ContainerGCFailed"
 	ImageGCFailed                        = "ImageGCFailed"
 	FailedNodeAllocatableEnforcement     = "FailedNodeAllocatableEnforcement"
 	SuccessfulNodeAllocatableEnforcement = "NodeAllocatableEnforced"
+	UnsupportedMountOption               = "UnsupportedMountOption"
+	SandboxChanged                       = "SandboxChanged"
+	FailedCreatePodSandBox               = "FailedCreatePodSandBox"
+	FailedStatusPodSandBox               = "FailedPodSandBoxStatus"
 
 	// Image manager event reason list
 	InvalidDiskCapacity = "InvalidDiskCapacity"
 	FreeDiskSpaceFailed = "FreeDiskSpaceFailed"
 
 	// Probe event reason list
-	ContainerUnhealthy = "Unhealthy"
+	ContainerUnhealthy    = "Unhealthy"
+	ContainerProbeWarning = "ProbeWarning"
 
 	// Pod worker event reason list
 	FailedSync = "FailedSync"
@@ -84,19 +96,3 @@ const (
 	FailedPreStopHook     = "FailedPreStopHook"
 	UnfinishedPreStopHook = "UnfinishedPreStopHook"
 )
-
-// ToObjectReference takes an old style object reference and converts it to a client-go one
-func ToObjectReference(ref *v1.ObjectReference) *clientv1.ObjectReference {
-	if ref == nil {
-		return nil
-	}
-	return &clientv1.ObjectReference{
-		Kind:            ref.Kind,
-		Namespace:       ref.Namespace,
-		Name:            ref.Name,
-		UID:             ref.UID,
-		APIVersion:      ref.APIVersion,
-		ResourceVersion: ref.ResourceVersion,
-		FieldPath:       ref.FieldPath,
-	}
-}

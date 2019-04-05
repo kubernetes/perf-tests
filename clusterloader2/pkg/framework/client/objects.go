@@ -199,6 +199,20 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 	return wait.PollImmediate(defaultNamespaceDeletionInterval, defaultNamespaceDeletionTimeout, retryWaitFunc)
 }
 
+// ListEvents retrieves events for the object with the given name.
+func ListEvents(c clientset.Interface, namespace string, name string, options ...*ApiCallOptions) (obj *apiv1.EventList, err error) {
+	getFunc := func() error {
+		obj, err = c.CoreV1().Events(namespace).List(metav1.ListOptions{
+			FieldSelector: "involvedObject.name=" + name,
+		})
+		return err
+	}
+	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // CreateObject creates object based on given object description.
 func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
 	gvk := obj.GroupVersionKind()

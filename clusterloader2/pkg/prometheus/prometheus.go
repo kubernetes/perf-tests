@@ -17,6 +17,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -104,6 +106,7 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 		}
 	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
+		dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient)
 		return err
 	}
 	klog.Info("Prometheus stack set up successfully")
@@ -225,4 +228,19 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 func retryCreateFunction(f func() error) error {
 	return client.RetryWithExponentialBackOff(
 		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
+}
+
+func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {
+	klog.Info("Dumping monitoring/prometheus-k8s events...")
+	list, err := client.ListEvents(k8sClient, namespace, "prometheus-k8s")
+	if err != nil {
+		klog.Warningf("Error while listing monitoring/prometheus-k8s events: %v", err)
+		return
+	}
+	s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)
+	if err != nil {
+		klog.Warningf("Error while marshalling response %v: %v", list, err)
+		return
+	}
+	klog.Info(string(s))
 }

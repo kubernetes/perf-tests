@@ -18,9 +18,6 @@ package prometheus
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -132,36 +129,7 @@ func (pc *PrometheusController) GetFramework() *framework.Framework {
 }
 
 func (pc *PrometheusController) applyManifests(manifestGlob string) error {
-	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
-	manifestGlob = os.ExpandEnv(manifestGlob)
-	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
-	manifests, err := filepath.Glob(manifestGlob)
-	if err != nil {
-		return err
-	}
-	for _, manifest := range manifests {
-		klog.Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), pc.templateMapping)
-		if err != nil {
-			return err
-		}
-		if obj.IsList() {
-			objList, err := obj.ToList()
-			if err != nil {
-				return err
-			}
-			for _, item := range objList.Items {
-				if err := pc.framework.CreateObject(item.GetNamespace(), item.GetName(), &item, client.Retry(apierrs.IsNotFound)); err != nil {
-					return fmt.Errorf("error while applying (%s): %v", manifest, err)
-				}
-			}
-		} else {
-			if err := pc.framework.CreateObject(obj.GetNamespace(), obj.GetName(), obj, client.Retry(apierrs.IsNotFound)); err != nil {
-				return fmt.Errorf("error while applying (%s): %v", manifest, err)
-			}
-		}
-	}
-	return nil
+	return pc.framework.ApplyTemplatedManifests(manifestGlob, pc.templateMapping)
 }
 
 // exposeKubemarkApiServerMetrics configures anonymous access to the apiserver metrics in the

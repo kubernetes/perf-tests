@@ -129,7 +129,8 @@ func (pc *PrometheusController) GetFramework() *framework.Framework {
 }
 
 func (pc *PrometheusController) applyManifests(manifestGlob string) error {
-	return pc.framework.ApplyTemplatedManifests(manifestGlob, pc.templateMapping)
+	return pc.framework.ApplyTemplatedManifests(
+		manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
 }
 
 // exposeKubemarkApiServerMetrics configures anonymous access to the apiserver metrics in the

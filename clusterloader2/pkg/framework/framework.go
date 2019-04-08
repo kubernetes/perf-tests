@@ -18,11 +18,15 @@ package framework
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
@@ -170,6 +174,41 @@ func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, 
 // GetObject retrieves object with given name and group-version-kind.
 func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.ApiCallOptions) (*unstructured.Unstructured, error) {
 	return client.GetObject(f.dynamicClients.GetClient(), gvk, namespace, name)
+}
+
+// ApplyTemplatedManifests finds and applies all manifest template files matching the provided
+// manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
+func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}) error {
+	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
+	manifestGlob = os.ExpandEnv(manifestGlob)
+	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
+	manifests, err := filepath.Glob(manifestGlob)
+	if err != nil {
+		return err
+	}
+	for _, manifest := range manifests {
+		klog.Infof("Applying %s\n", manifest)
+		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), templateMapping)
+		if err != nil {
+			return err
+		}
+		if obj.IsList() {
+			objList, err := obj.ToList()
+			if err != nil {
+				return err
+			}
+			for _, item := range objList.Items {
+				if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, client.Retry(apierrs.IsNotFound)); err != nil {
+					return fmt.Errorf("error while applying (%s): %v", manifest, err)
+				}
+			}
+		} else {
+			if err := f.CreateObject(obj.GetNamespace(), obj.GetName(), obj, client.Retry(apierrs.IsNotFound)); err != nil {
+				return fmt.Errorf("error while applying (%s): %v", manifest, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (f *Framework) isAutomanagedNamespace(name string) (bool, error) {

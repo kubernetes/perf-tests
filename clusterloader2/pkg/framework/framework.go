@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"regexp"
 
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -178,7 +177,7 @@ func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, nam
 
 // ApplyTemplatedManifests finds and applies all manifest template files matching the provided
 // manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}) error {
+func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.ApiCallOptions) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	manifestGlob = os.ExpandEnv(manifestGlob)
 	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
@@ -198,12 +197,12 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 				return err
 			}
 			for _, item := range objList.Items {
-				if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, client.Retry(apierrs.IsNotFound)); err != nil {
+				if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
 					return fmt.Errorf("error while applying (%s): %v", manifest, err)
 				}
 			}
 		} else {
-			if err := f.CreateObject(obj.GetNamespace(), obj.GetName(), obj, client.Retry(apierrs.IsNotFound)); err != nil {
+			if err := f.CreateObject(obj.GetNamespace(), obj.GetName(), obj, options...); err != nil {
 				return fmt.Errorf("error while applying (%s): %v", manifest, err)
 			}
 		}

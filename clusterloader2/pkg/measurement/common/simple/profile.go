@@ -62,6 +62,7 @@ func createProfileConfig(config *measurement.MeasurementConfig) (*profileConfig,
 }
 
 type profileMeasurement struct {
+	name      string
 	config    *profileConfig
 	summaries []measurement.Summary
 	isRunning bool
@@ -94,7 +95,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, profil
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := gatherProfile(config, p.config)
+				profileSummaries, err := p.gatherProfile()
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v", *p.config)
 					continue
@@ -115,7 +116,11 @@ func (p *profileMeasurement) stop() {
 }
 
 func createMemoryProfileMeasurement() measurement.Measurement {
-	return &memoryProfileMeasurement{}
+	return &memoryProfileMeasurement{
+		measurement: profileMeasurement{
+			name: memoryProfileName,
+		},
+	}
 }
 
 type memoryProfileMeasurement struct {
@@ -153,7 +158,11 @@ func (*memoryProfileMeasurement) String() string {
 }
 
 func createCPUProfileMeasurement() measurement.Measurement {
-	return &cpuProfileMeasurement{}
+	return &cpuProfileMeasurement{
+		measurement: profileMeasurement{
+			name: cpuProfileName,
+		},
+	}
 }
 
 type cpuProfileMeasurement struct {
@@ -190,34 +199,34 @@ func (*cpuProfileMeasurement) String() string {
 	return cpuProfileName
 }
 
-func gatherProfile(caller *measurement.MeasurementConfig, config *profileConfig) ([]measurement.Summary, error) {
+func (p *profileMeasurement) gatherProfile() ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
-	profilePort, err := getPortForComponent(config.componentName)
+	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return summaries, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
 
 	// Get the profile data over SSH.
-	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, config.kind)
-	sshResult, err := measurementutil.SSH(getCommand, config.host+":22", config.provider)
+	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, p.config.kind)
+	sshResult, err := measurementutil.SSH(getCommand, p.config.host+":22", p.config.provider)
 	if err != nil {
-		if config.provider == "gke" {
+		if p.config.provider == "gke" {
 			// Only logging error for gke. SSHing to gke master is not supported.
-			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", caller, err)
+			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", p.name, err)
 			return summaries, nil
 		}
 		return summaries, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
 	}
 
-	profilePrefix := config.componentName
+	profilePrefix := p.config.componentName
 	switch {
-	case config.kind == "heap":
+	case p.config.kind == "heap":
 		profilePrefix += "_MemoryProfile"
-	case strings.HasPrefix(config.kind, "profile"):
+	case strings.HasPrefix(p.config.kind, "profile"):
 		profilePrefix += "_CPUProfile"
 	// TODO(wojtekt): Add memory allocations profile.
 	default:
-		return summaries, fmt.Errorf("unknown profile kind provided: %s", config.kind)
+		return summaries, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
 	}
 
 	rawprofile := &profileSummary{

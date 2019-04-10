@@ -17,32 +17,35 @@ limitations under the License.
 package rest
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	gruntime "runtime"
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/transport"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/klog"
 )
 
 const (
 	DefaultQPS   float32 = 5.0
 	DefaultBurst int     = 10
 )
+
+var ErrNotInCluster = errors.New("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 
 // Config holds the common attributes that can be passed to a Kubernetes client on
 // initialization.
@@ -54,9 +57,6 @@ type Config struct {
 	Host string
 	// APIPath is a sub-path that points to an API root.
 	APIPath string
-	// Prefix is the sub path of the server. If not specified, the client will set
-	// a default value.  Use "/" to indicate the server root should be used
-	Prefix string
 
 	// ContentConfig contains settings that affect how objects are transformed when
 	// sent to the server.
@@ -71,6 +71,11 @@ type Config struct {
 	// TODO: demonstrate an OAuth2 compatible client.
 	BearerToken string
 
+	// Path to a file containing a BearerToken.
+	// If set, the contents are periodically read.
+	// The last successfully read value takes precedence over BearerToken.
+	BearerTokenFile string
+
 	// Impersonate is the configuration that RESTClient will use for impersonation.
 	Impersonate ImpersonationConfig
 
@@ -80,25 +85,27 @@ type Config struct {
 	// Callback to persist config for AuthProvider.
 	AuthConfigPersister AuthProviderConfigPersister
 
+	// Exec-based authentication provider.
+	ExecProvider *clientcmdapi.ExecConfig
+
 	// TLSClientConfig contains settings to enable transport layer security
 	TLSClientConfig
-
-	// Server should be accessed without verifying the TLS
-	// certificate. For testing only.
-	Insecure bool
 
 	// UserAgent is an optional field that specifies the caller of this request.
 	UserAgent string
 
 	// Transport may be used for custom HTTP behavior. This attribute may not
 	// be specified with the TLS client certificate options. Use WrapTransport
-	// for most client level operations.
+	// to provide additional per-server middleware behavior.
 	Transport http.RoundTripper
 	// WrapTransport will be invoked for custom HTTP behavior after the underlying
 	// transport is initialized (either the transport created from TLSClientConfig,
 	// Transport, or http.DefaultTransport). The config may layer other RoundTrippers
 	// on top of the returned RoundTripper.
-	WrapTransport func(rt http.RoundTripper) http.RoundTripper
+	//
+	// A future release will change this field to an array. Use config.Wrap()
+	// instead of setting this value directly.
+	WrapTransport transport.WrapperFunc
 
 	// QPS indicates the maximum QPS to the master from this client.
 	// If it's zero, the created RESTClient will use DefaultQPS: 5
@@ -114,9 +121,53 @@ type Config struct {
 	// The maximum length of time to wait before giving up on a server request. A value of zero means no timeout.
 	Timeout time.Duration
 
+	// Dial specifies the dial function for creating unencrypted TCP connections.
+	Dial func(ctx context.Context, network, address string) (net.Conn, error)
+
 	// Version forces a specific version to be used (if registered)
 	// Do we need this?
 	// Version string
+}
+
+var _ fmt.Stringer = new(Config)
+var _ fmt.GoStringer = new(Config)
+
+type sanitizedConfig *Config
+
+type sanitizedAuthConfigPersister struct{ AuthProviderConfigPersister }
+
+func (sanitizedAuthConfigPersister) GoString() string {
+	return "rest.AuthProviderConfigPersister(--- REDACTED ---)"
+}
+func (sanitizedAuthConfigPersister) String() string {
+	return "rest.AuthProviderConfigPersister(--- REDACTED ---)"
+}
+
+// GoString implements fmt.GoStringer and sanitizes sensitive fields of Config
+// to prevent accidental leaking via logs.
+func (c *Config) GoString() string {
+	return c.String()
+}
+
+// String implements fmt.Stringer and sanitizes sensitive fields of Config to
+// prevent accidental leaking via logs.
+func (c *Config) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+	cc := sanitizedConfig(CopyConfig(c))
+	// Explicitly mark non-empty credential fields as redacted.
+	if cc.Password != "" {
+		cc.Password = "--- REDACTED ---"
+	}
+	if cc.BearerToken != "" {
+		cc.BearerToken = "--- REDACTED ---"
+	}
+	if cc.AuthConfigPersister != nil {
+		cc.AuthConfigPersister = sanitizedAuthConfigPersister{cc.AuthConfigPersister}
+	}
+
+	return fmt.Sprintf("%#v", cc)
 }
 
 // ImpersonationConfig has all the available impersonation options
@@ -130,8 +181,16 @@ type ImpersonationConfig struct {
 	Extra map[string][]string
 }
 
+// +k8s:deepcopy-gen=true
 // TLSClientConfig contains settings to enable transport layer security
 type TLSClientConfig struct {
+	// Server should be accessed without verifying the TLS certificate. For testing only.
+	Insecure bool
+	// ServerName is passed to the server for SNI and is used in the client to check server
+	// ceritificates against. If ServerName is empty, the hostname used to contact the
+	// server is used.
+	ServerName string
+
 	// Server requires TLS client certificate authentication
 	CertFile string
 	// Server requires TLS client certificate authentication
@@ -148,6 +207,40 @@ type TLSClientConfig struct {
 	// CAData holds PEM-encoded bytes (typically read from a root certificates bundle).
 	// CAData takes precedence over CAFile
 	CAData []byte
+}
+
+var _ fmt.Stringer = TLSClientConfig{}
+var _ fmt.GoStringer = TLSClientConfig{}
+
+type sanitizedTLSClientConfig TLSClientConfig
+
+// GoString implements fmt.GoStringer and sanitizes sensitive fields of
+// TLSClientConfig to prevent accidental leaking via logs.
+func (c TLSClientConfig) GoString() string {
+	return c.String()
+}
+
+// String implements fmt.Stringer and sanitizes sensitive fields of
+// TLSClientConfig to prevent accidental leaking via logs.
+func (c TLSClientConfig) String() string {
+	cc := sanitizedTLSClientConfig{
+		Insecure:   c.Insecure,
+		ServerName: c.ServerName,
+		CertFile:   c.CertFile,
+		KeyFile:    c.KeyFile,
+		CAFile:     c.CAFile,
+		CertData:   c.CertData,
+		KeyData:    c.KeyData,
+		CAData:     c.CAData,
+	}
+	// Explicitly mark non-empty credential fields as redacted.
+	if len(cc.CertData) != 0 {
+		cc.CertData = []byte("--- TRUNCATED ---")
+	}
+	if len(cc.KeyData) != 0 {
+		cc.KeyData = []byte("--- REDACTED ---")
+	}
+	return fmt.Sprintf("%#v", cc)
 }
 
 type ContentConfig struct {
@@ -213,7 +306,7 @@ func RESTClientFor(config *Config) (*RESTClient, error) {
 // the config.Version to be empty.
 func UnversionedRESTClientFor(config *Config) (*RESTClient, error) {
 	if config.NegotiatedSerializer == nil {
-		return nil, fmt.Errorf("NeogitatedSerializer is required when initializing a RESTClient")
+		return nil, fmt.Errorf("NegotiatedSerializer is required when initializing a RESTClient")
 	}
 
 	baseURL, versionedAPIPath, err := defaultServerUrlFor(config)
@@ -252,39 +345,76 @@ func SetKubernetesDefaults(config *Config) error {
 	return nil
 }
 
-// DefaultKubernetesUserAgent returns the default user agent that clients can use.
+// adjustCommit returns sufficient significant figures of the commit's git hash.
+func adjustCommit(c string) string {
+	if len(c) == 0 {
+		return "unknown"
+	}
+	if len(c) > 7 {
+		return c[:7]
+	}
+	return c
+}
+
+// adjustVersion strips "alpha", "beta", etc. from version in form
+// major.minor.patch-[alpha|beta|etc].
+func adjustVersion(v string) string {
+	if len(v) == 0 {
+		return "unknown"
+	}
+	seg := strings.SplitN(v, "-", 2)
+	return seg[0]
+}
+
+// adjustCommand returns the last component of the
+// OS-specific command path for use in User-Agent.
+func adjustCommand(p string) string {
+	// Unlikely, but better than returning "".
+	if len(p) == 0 {
+		return "unknown"
+	}
+	return filepath.Base(p)
+}
+
+// buildUserAgent builds a User-Agent string from given args.
+func buildUserAgent(command, version, os, arch, commit string) string {
+	return fmt.Sprintf(
+		"%s/%s (%s/%s) kubernetes/%s", command, version, os, arch, commit)
+}
+
+// DefaultKubernetesUserAgent returns a User-Agent string built from static global vars.
 func DefaultKubernetesUserAgent() string {
-	commit := version.Get().GitCommit
-	if len(commit) > 7 {
-		commit = commit[:7]
-	}
-	if len(commit) == 0 {
-		commit = "unknown"
-	}
-	version := version.Get().GitVersion
-	seg := strings.SplitN(version, "-", 2)
-	version = seg[0]
-	return fmt.Sprintf("%s/%s (%s/%s) kubernetes/%s", path.Base(os.Args[0]), version, gruntime.GOOS, gruntime.GOARCH, commit)
+	return buildUserAgent(
+		adjustCommand(os.Args[0]),
+		adjustVersion(version.Get().GitVersion),
+		gruntime.GOOS,
+		gruntime.GOARCH,
+		adjustCommit(version.Get().GitCommit))
 }
 
 // InClusterConfig returns a config object which uses the service account
 // kubernetes gives to pods. It's intended for clients that expect to be
-// running inside a pod running on kubernetes. It will return an error if
-// called from a process not running in a kubernetes environment.
+// running inside a pod running on kubernetes. It will return ErrNotInCluster
+// if called from a process not running in a kubernetes environment.
 func InClusterConfig() (*Config, error) {
+	const (
+		tokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+		rootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	)
 	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 	if len(host) == 0 || len(port) == 0 {
-		return nil, fmt.Errorf("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
+		return nil, ErrNotInCluster
 	}
 
-	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/" + api.ServiceAccountTokenKey)
+	token, err := ioutil.ReadFile(tokenFile)
 	if err != nil {
 		return nil, err
 	}
+
 	tlsClientConfig := TLSClientConfig{}
-	rootCAFile := "/var/run/secrets/kubernetes.io/serviceaccount/" + api.ServiceAccountRootCAKey
+
 	if _, err := certutil.NewPool(rootCAFile); err != nil {
-		glog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+		klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
 	} else {
 		tlsClientConfig.CAFile = rootCAFile
 	}
@@ -292,8 +422,9 @@ func InClusterConfig() (*Config, error) {
 	return &Config{
 		// TODO: switch to using cluster DNS.
 		Host:            "https://" + net.JoinHostPort(host, port),
-		BearerToken:     string(token),
 		TLSClientConfig: tlsClientConfig,
+		BearerToken:     string(token),
+		BearerTokenFile: tokenFile,
 	}, nil
 }
 
@@ -356,25 +487,63 @@ func AddUserAgent(config *Config, userAgent string) *Config {
 	return config
 }
 
-// AnonymousClientConfig returns a copy of the given config with all user credentials (cert/key, bearer token, and username/password) removed
+// AnonymousClientConfig returns a copy of the given config with all user credentials (cert/key, bearer token, and username/password) and custom transports (WrapTransport, Transport) removed
 func AnonymousClientConfig(config *Config) *Config {
 	// copy only known safe fields
 	return &Config{
 		Host:          config.Host,
 		APIPath:       config.APIPath,
-		Prefix:        config.Prefix,
 		ContentConfig: config.ContentConfig,
 		TLSClientConfig: TLSClientConfig{
-			CAFile: config.TLSClientConfig.CAFile,
-			CAData: config.TLSClientConfig.CAData,
+			Insecure:   config.Insecure,
+			ServerName: config.ServerName,
+			CAFile:     config.TLSClientConfig.CAFile,
+			CAData:     config.TLSClientConfig.CAData,
 		},
-		RateLimiter:   config.RateLimiter,
-		Insecure:      config.Insecure,
+		RateLimiter: config.RateLimiter,
+		UserAgent:   config.UserAgent,
+		QPS:         config.QPS,
+		Burst:       config.Burst,
+		Timeout:     config.Timeout,
+		Dial:        config.Dial,
+	}
+}
+
+// CopyConfig returns a copy of the given config
+func CopyConfig(config *Config) *Config {
+	return &Config{
+		Host:            config.Host,
+		APIPath:         config.APIPath,
+		ContentConfig:   config.ContentConfig,
+		Username:        config.Username,
+		Password:        config.Password,
+		BearerToken:     config.BearerToken,
+		BearerTokenFile: config.BearerTokenFile,
+		Impersonate: ImpersonationConfig{
+			Groups:   config.Impersonate.Groups,
+			Extra:    config.Impersonate.Extra,
+			UserName: config.Impersonate.UserName,
+		},
+		AuthProvider:        config.AuthProvider,
+		AuthConfigPersister: config.AuthConfigPersister,
+		ExecProvider:        config.ExecProvider,
+		TLSClientConfig: TLSClientConfig{
+			Insecure:   config.TLSClientConfig.Insecure,
+			ServerName: config.TLSClientConfig.ServerName,
+			CertFile:   config.TLSClientConfig.CertFile,
+			KeyFile:    config.TLSClientConfig.KeyFile,
+			CAFile:     config.TLSClientConfig.CAFile,
+			CertData:   config.TLSClientConfig.CertData,
+			KeyData:    config.TLSClientConfig.KeyData,
+			CAData:     config.TLSClientConfig.CAData,
+		},
 		UserAgent:     config.UserAgent,
 		Transport:     config.Transport,
 		WrapTransport: config.WrapTransport,
 		QPS:           config.QPS,
 		Burst:         config.Burst,
+		RateLimiter:   config.RateLimiter,
 		Timeout:       config.Timeout,
+		Dial:          config.Dial,
 	}
 }

@@ -26,7 +26,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 
-	"k8s.io/contrib/cluster-autoscaler/config"
+	"k8s.io/autoscaler/cluster-autoscaler/config"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"

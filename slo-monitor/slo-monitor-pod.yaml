@@ -29,3 +29,4 @@ spec:
         cpu: 300m
         memory: 100Mi
   restartPolicy: Always
+  serviceAccountName: slo-monitor

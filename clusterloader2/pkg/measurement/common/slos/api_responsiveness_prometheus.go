@@ -44,7 +44,7 @@ const (
 	// latencyQuery %v should be replaced with query window size.
 	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile[%v])"
 	// countQuery %v should be replaced with query window size.
-	countQuery = "sum(increase(apiserver_request_latency_seconds_count[%v])) by (resource, subresource, scope, verb)"
+	countQuery = "sum(increase(apiserver_request_duration_seconds_count[%v])) by (resource, subresource, scope, verb)"
 
 	latencyWindowSize = 5 * time.Minute
 	queryTimeout      = 5 * time.Minute
@@ -137,11 +137,11 @@ func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Inte
 	measurementDuration := measurementEnd.Sub(a.startTime)
 	// Latency measurement is based on 5m window aggregation,
 	// therefore first 5 minutes of the test should be skipped.
-	latencymeasurementDuration := measurementDuration - latencyWindowSize
-	if latencymeasurementDuration < time.Minute {
-		latencymeasurementDuration = time.Minute
+	latencyMeasurementDuration := measurementDuration - latencyWindowSize
+	if latencyMeasurementDuration < time.Minute {
+		latencyMeasurementDuration = time.Minute
 	}
-	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, measurementutil.ToPrometheusTime(latencymeasurementDuration))
+	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, measurementutil.ToPrometheusTime(latencyMeasurementDuration))
 	latencySamples, err := gatherSamples(c, timeBoundedLatencyQuery, measurementEnd)
 	if err != nil {
 		return nil, err

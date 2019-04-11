@@ -175,6 +175,11 @@ func (*schedulingThroughput) SummaryName() string {
 	return schedulingThroughputMeasurementName
 }
 
+// SummaryTime returns time when summary was created.
+func (*schedulingThroughput) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (s *schedulingThroughput) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(s)

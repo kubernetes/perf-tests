@@ -19,6 +19,7 @@ package simple
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
@@ -151,6 +152,11 @@ func (m *metricsForE2E) filterMetrics() {
 // SummaryName returns name of the summary.
 func (m *metricsForE2E) SummaryName() string {
 	return metricsForE2EName
+}
+
+// SummaryTime returns time when summary was created.
+func (m *metricsForE2E) SummaryTime() time.Time {
+	return time.Now()
 }
 
 // PrintSummary returns summary as a string.

@@ -114,6 +114,11 @@ func (t *timerResult) SummaryName() string {
 	return timerMeasurementName
 }
 
+// SummaryTime returns time when summary was created.
+func (t *timerResult) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (t *timerResult) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(t)

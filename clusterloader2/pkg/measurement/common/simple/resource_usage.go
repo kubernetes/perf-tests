@@ -190,6 +190,11 @@ func (e *resourceUsageSummary) SummaryName() string {
 	return resourceUsageMetricName
 }
 
+// SummaryTime returns time when summary was created.
+func (e *resourceUsageSummary) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (e *resourceUsageSummary) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(e)

@@ -211,6 +211,11 @@ func (l *schedulingMetrics) SummaryName() string {
 	return schedulerLatencyMetricName
 }
 
+// SummaryTime returns time when summary was created.
+func (l *schedulingMetrics) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (l *schedulingMetrics) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(l)

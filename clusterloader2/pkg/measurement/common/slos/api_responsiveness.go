@@ -230,6 +230,11 @@ func (a *apiResponsiveness) SummaryName() string {
 	return apiResponsivenessMeasurementName
 }
 
+// SummaryTime returns time when summary was created.
+func (a *apiResponsiveness) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (a *apiResponsiveness) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(apiCallToPerfData(a))

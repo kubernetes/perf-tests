@@ -337,6 +337,11 @@ func (p *podStartupLatency) SummaryName() string {
 	return fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, p.identifier)
 }
 
+// SummaryTime returns time when summary was created.
+func (p *podStartupLatency) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (p *podStartupLatency) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(podStartupLatencyToPerfData(p))

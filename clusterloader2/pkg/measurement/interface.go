@@ -17,6 +17,8 @@ limitations under the License.
 package measurement
 
 import (
+	"time"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
@@ -51,5 +53,6 @@ type createMeasurementFunc func() Measurement
 // Summary represenst result of specific measurement.
 type Summary interface {
 	SummaryName() string
+	SummaryTime() time.Time
 	PrintSummary() (string, error)
 }

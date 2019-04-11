@@ -55,6 +55,10 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -247,6 +251,10 @@ steps:
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
     Params:
       action: gather
   - Identifier: TestMetrics

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -82,18 +83,20 @@ func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 
 func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()
-	lastBuildNo, err := g.GoogleGCSBucketUtils.GetLastestBuildNumberFromJenkinsGoogleBucket(job)
+	buildNumbers, err := g.GoogleGCSBucketUtils.GetBuildNumbersFromJenkinsGoogleBucket(job)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Last build no for %v: %v\n", job, lastBuildNo)
+
 	buildsToFetch := tests.BuildsCount
 	if buildsToFetch < 1 {
 		buildsToFetch = g.DefaultBuildsCount
 	}
 	fmt.Printf("Builds to fetch for %v: %v\n", job, buildsToFetch)
 
-	for buildNumber := lastBuildNo; buildNumber > lastBuildNo-buildsToFetch && buildNumber > 0; buildNumber-- {
+	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
+	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
+		buildNumber := buildNumbers[index]
 		fmt.Printf("Fetching %s build %v...\n", job, buildNumber)
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {

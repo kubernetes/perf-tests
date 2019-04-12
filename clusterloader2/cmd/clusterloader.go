@@ -25,6 +25,7 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
 	ginkgotypes "github.com/onsi/ginkgo/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -120,6 +121,17 @@ func completeConfig(m *framework.MultiClientSet) error {
 	return nil
 }
 
+func verifyCluster(c kubernetes.Interface) error {
+	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c)
+	if err != nil {
+		return err
+	}
+	if numSchedulableNodes == 0 {
+		return fmt.Errorf("no schedulable nodes in the cluster")
+	}
+	return nil
+}
+
 func getClientsNumber(nodesNumber int) int {
 	return (nodesNumber + nodesPerClients - 1) / nodesPerClients
 }
@@ -184,6 +196,10 @@ func main() {
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
 		klog.Errorf("Nodes info logging error: %v", err)
+	}
+
+	if err = verifyCluster(mclient.GetClient()); err != nil {
+		klog.Fatalf("Cluster verification error: %v", err)
 	}
 
 	f, err := framework.NewFramework(

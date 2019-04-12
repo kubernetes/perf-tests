@@ -17,6 +17,7 @@ limitations under the License.
 package schemes
 
 import (
+	"sort"
 	"time"
 
 	"k8s.io/perf-tests/benchmark/pkg/metricsfetcher/util"
@@ -26,21 +27,22 @@ import (
 // that've finished. If it cannot find n runs, returns as many runs as it could collect.
 // Note: We check if start time of the run is not earlier than 'n' hours from now.
 func GetJobRunsFromLastNHours(job string, n int, utils util.JobLogUtils) ([]int, error) {
-	latestRunNumber, err := utils.GetLatestBuildNumberForJob(job)
+	buildNumbers, err := utils.GetBuildNumbersForJob(job)
 	if err != nil {
 		return nil, err
 	}
+	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 
 	var runs []int
 	currentTime := uint64(time.Now().Unix())
-	for runNumber := latestRunNumber; runNumber > 0; runNumber-- {
-		if startTimestamp, err := utils.GetJobRunStartTimestamp(job, runNumber); err == nil {
-			if (currentTime - startTimestamp) < uint64(3600*n) {
-				if _, err := utils.GetJobRunFinishedStatus(job, runNumber); err == nil {
-					runs = append(runs, runNumber)
-				}
-			} else {
+	for index := 0; index < len(buildNumbers); index++ {
+		buildNumber := buildNumbers[index]
+		if startTimestamp, err := utils.GetJobRunStartTimestamp(job, buildNumber); err == nil {
+			if (currentTime - startTimestamp) >= uint64(3600*n) {
 				break
+			}
+			if _, err := utils.GetJobRunFinishedStatus(job, buildNumber); err == nil {
+				runs = append(runs, buildNumber)
 			}
 		}
 	}

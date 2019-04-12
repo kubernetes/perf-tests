@@ -224,14 +224,14 @@ func (p *profileMeasurement) gatherProfile() ([]measurement.Summary, error) {
 		profilePrefix += "_MemoryProfile"
 	case strings.HasPrefix(p.config.kind, "profile"):
 		profilePrefix += "_CPUProfile"
-	// TODO(wojtekt): Add memory allocations profile.
 	default:
 		return summaries, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
 	}
 
 	rawprofile := &profileSummary{
-		name:    profilePrefix,
-		content: sshResult.Stdout,
+		name:      profilePrefix,
+		timestamp: time.Now(),
+		content:   sshResult.Stdout,
 	}
 	summaries = append(summaries, rawprofile)
 	return summaries, nil
@@ -250,13 +250,19 @@ func getPortForComponent(componentName string) (int, error) {
 }
 
 type profileSummary struct {
-	name    string
-	content string
+	name      string
+	timestamp time.Time
+	content   string
 }
 
 // SummaryName returns name of the summary.
 func (p *profileSummary) SummaryName() string {
 	return p.name
+}
+
+// SummaryTime returns time when summary was created.
+func (p *profileSummary) SummaryTime() time.Time {
+	return p.timestamp
 }
 
 // PrintSummary returns summary as a string.

@@ -210,6 +210,11 @@ func (e *etcdMetrics) SummaryName() string {
 	return etcdMetricsMetricName
 }
 
+// SummaryTime returns time when summary was created.
+func (e *etcdMetrics) SummaryTime() time.Time {
+	return time.Now()
+}
+
 // PrintSummary returns summary as a string.
 func (e *etcdMetrics) PrintSummary() (string, error) {
 	return util.PrettyPrintJSON(e)

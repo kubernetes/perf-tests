@@ -67,6 +67,12 @@ type apiResponsivenessMeasurementPrometheus struct {
 func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 
+	if config.PrometheusFramework == nil {
+		klog.Errorf("%s: prometheus framework is not provided!")
+		// TODO(#498): for the testing purpose metric is not returning error.
+		return summaries, nil
+	}
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return summaries, err
@@ -97,6 +103,7 @@ func (*apiResponsivenessMeasurementPrometheus) String() string {
 }
 
 func (a *apiResponsivenessMeasurementPrometheus) start() {
+	klog.Infof("%s: starting latency metrics in apiserver...", a)
 	a.startTime = time.Now()
 }
 
@@ -126,10 +133,12 @@ func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (
 			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
-	if len(badMetrics) > 0 {
-		return metrics, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
-	}
-	return metrics, nil
+	// TODO(#498): For testing purpose this metric will never return metric violation error.
+	// The code below should be
+	// if len(badMetrics) > 0 {
+	// 	return &apiResponsivenessPrometheus{metrics}, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	// }
+	return &apiResponsivenessPrometheus{metrics}, nil
 }
 
 func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Interface) ([]apiCall, error) {
@@ -281,4 +290,23 @@ func getLatencyThreshold(call *apiCall) time.Duration {
 		}
 	}
 	return latencyThreshold
+}
+
+type apiResponsivenessPrometheus struct {
+	metric *apiResponsiveness
+}
+
+// SummaryName returns name of the summary.
+func (*apiResponsivenessPrometheus) SummaryName() string {
+	return apiResponsivenessPrometheusMeasurementName
+}
+
+// SummaryTime returns time when summary was created.
+func (a *apiResponsivenessPrometheus) SummaryTime() time.Time {
+	return time.Now()
+}
+
+// PrintSummary returns summary as a string.
+func (a *apiResponsivenessPrometheus) PrintSummary() (string, error) {
+	return a.metric.PrintSummary()
 }

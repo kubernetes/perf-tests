@@ -83,9 +83,13 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		if err = e.stopAndSummarize(host, provider); err != nil {
 			return summaries, err
 		}
-		summaries := append(summaries, e.metrics)
+		content, err := util.PrettyPrintJSON(e.metrics)
+		if err != nil {
+			return summaries, err
+		}
+		summary := measurement.CreateSummary(etcdMetricsMetricName, "json", content)
+		summaries := append(summaries, summary)
 		return summaries, nil
-
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}
@@ -203,19 +207,4 @@ func newEtcdMetrics() *etcdMetrics {
 		PeerRoundTripTime:         make(measurementutil.HistogramVec, 0),
 		WalFsyncDuration:          make(measurementutil.HistogramVec, 0),
 	}
-}
-
-// SummaryName returns name of the summary.
-func (e *etcdMetrics) SummaryName() string {
-	return etcdMetricsMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (e *etcdMetrics) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (e *etcdMetrics) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(e)
 }

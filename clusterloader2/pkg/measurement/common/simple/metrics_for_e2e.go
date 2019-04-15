@@ -19,7 +19,6 @@ package simple
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
@@ -114,7 +113,13 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	if err != nil {
 		klog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
 	}
-	summaries = append(summaries, (*metricsForE2E)(&received))
+	filterMetrics(&received)
+	content, jsonErr := util.PrettyPrintJSON(received)
+	if err != nil {
+		return summaries, jsonErr
+	}
+	summary := measurement.CreateSummary(metricsForE2EName, "json", content)
+	summaries = append(summaries, summary)
 	return summaries, err
 }
 
@@ -126,9 +131,7 @@ func (*metricsForE2EMeasurement) String() string {
 	return metricsForE2EName
 }
 
-type metricsForE2E metrics.MetricsCollection
-
-func (m *metricsForE2E) filterMetrics() {
+func filterMetrics(m *metrics.MetricsCollection) {
 	interestingApiServerMetrics := make(metrics.ApiServerMetrics)
 	for _, metric := range interestingApiServerMetricsLabels {
 		interestingApiServerMetrics[metric] = (*m).ApiServerMetrics[metric]
@@ -147,20 +150,4 @@ func (m *metricsForE2E) filterMetrics() {
 	(*m).ApiServerMetrics = interestingApiServerMetrics
 	(*m).ControllerManagerMetrics = interestingControllerManagerMetrics
 	(*m).KubeletMetrics = interestingKubeletMetrics
-}
-
-// SummaryName returns name of the summary.
-func (m *metricsForE2E) SummaryName() string {
-	return metricsForE2EName
-}
-
-// SummaryTime returns time when summary was created.
-func (m *metricsForE2E) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (m *metricsForE2E) PrintSummary() (string, error) {
-	m.filterMetrics()
-	return util.PrettyPrintJSON(m)
 }

@@ -53,6 +53,7 @@ type createMeasurementFunc func() Measurement
 // Summary represenst result of specific measurement.
 type Summary interface {
 	SummaryName() string
+	SummaryExt() string
 	SummaryTime() time.Time
-	PrintSummary() (string, error)
+	SummaryContent() string
 }

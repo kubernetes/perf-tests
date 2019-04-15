@@ -125,10 +125,13 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if err != nil {
 			return summaries, err
 		}
-		err = e.verifySummary(summary)
-		resourceSummary := resourceUsageSummary(*summary)
-		summaries := append(summaries, &resourceSummary)
-		return summaries, err
+		content, err := util.PrettyPrintJSON(summary)
+		if err != nil {
+			return summaries, err
+		}
+		resourceSummary := measurement.CreateSummary(resourceUsageMetricName, "json", content)
+		summaries := append(summaries, resourceSummary)
+		return summaries, e.verifySummary(summary)
 
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
@@ -181,21 +184,4 @@ func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.Resour
 		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated: %v", len(violatedConstraints), violatedConstraints))
 	}
 	return nil
-}
-
-type resourceUsageSummary gatherers.ResourceUsageSummary
-
-// SummaryName returns name of the summary.
-func (e *resourceUsageSummary) SummaryName() string {
-	return resourceUsageMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (e *resourceUsageSummary) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (e *resourceUsageSummary) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(e)
 }

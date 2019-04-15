@@ -135,10 +135,16 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
-	if len(badMetrics) > 0 {
-		return metrics, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+
+	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
+	if err != nil {
+		return nil, err
 	}
-	return metrics, nil
+	summary := measurement.CreateSummary(apiResponsivenessMeasurementName, "json", content)
+	if len(badMetrics) > 0 {
+		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	}
+	return summary, nil
 }
 
 func apiserverMetricsReset(c clientset.Interface) error {
@@ -223,21 +229,6 @@ type apiCall struct {
 
 type apiResponsiveness struct {
 	ApiCalls []apiCall `json:"apicalls"`
-}
-
-// SummaryName returns name of the summary.
-func (a *apiResponsiveness) SummaryName() string {
-	return apiResponsivenessMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (a *apiResponsiveness) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (a *apiResponsiveness) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(apiCallToPerfData(a))
 }
 
 func (a *apiResponsiveness) Len() int { return len(a.ApiCalls) }

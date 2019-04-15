@@ -140,7 +140,13 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		}
 		metric.SetQuantile(quantile, time.Duration(int64(float64(sample.Value)*float64(time.Second))))
 	}
-	summaries = append(summaries, &result)
+
+	content, err := util.PrettyPrintJSON(result)
+	if err != nil {
+		return summaries, err
+	}
+	summary := measurement.CreateSummary(schedulerLatencyMetricName, "json", content)
+	summaries = append(summaries, summary)
 
 	return summaries, nil
 }
@@ -204,19 +210,4 @@ type schedulingMetrics struct {
 	PriorityEvaluationLatency   measurementutil.LatencyMetric `json:"priorityEvaluationLatency"`
 	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              measurementutil.LatencyMetric `json:"bindingLatency"`
-}
-
-// SummaryName returns name of the summary.
-func (l *schedulingMetrics) SummaryName() string {
-	return schedulerLatencyMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (l *schedulingMetrics) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (l *schedulingMetrics) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(l)
 }

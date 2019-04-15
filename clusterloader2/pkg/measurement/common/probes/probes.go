@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	name            = "Probes"
-	probesNamespace = "probes"
+	probesMeasurementName = "Probes"
+	probesNamespace       = "probes"
 
 	manifestGlob = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/*.yaml"
 
@@ -51,7 +51,7 @@ var (
 )
 
 func init() {
-	measurement.Register(name, createProbesMeasurement)
+	measurement.Register(probesMeasurementName, createProbesMeasurement)
 }
 
 func createProbesMeasurement() measurement.Measurement {
@@ -120,7 +120,7 @@ func (p *probesMeasurement) Dispose() {
 
 // String returns string representation of this measurement.
 func (p *probesMeasurement) String() string {
-	return name
+	return probesMeasurementName
 }
 
 func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) error {
@@ -137,7 +137,7 @@ func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) er
 func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
 	klog.Info("Starting probes...")
 	if !p.startTime.IsZero() {
-		return fmt.Errorf("measurement %s cannot be started twice", name)
+		return fmt.Errorf("measurement %s cannot be started twice", p)
 	}
 	if err := p.initialize(config); err != nil {
 		return err
@@ -159,7 +159,7 @@ func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
 func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement.Summary, error) {
 	klog.Info("Gathering metrics from probes...")
 	if p.startTime.IsZero() {
-		return nil, fmt.Errorf("measurement %s has not been started", name)
+		return nil, fmt.Errorf("measurement %s has not been started", p)
 	}
 	thresholds, err := parseThresholds(params)
 	if err != nil {
@@ -174,21 +174,25 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 		if err != nil {
 			return nil, err
 		}
-		probe := &probeSummary{Name: probeName}
+		var latencyMetric measurementutil.LatencyMetric
 		for _, sample := range samples {
 			quantile, err := strconv.ParseFloat(string(sample.Metric["quantile"]), 64)
 			if err != nil {
 				return nil, err
 			}
 			latency := time.Duration(float64(sample.Value) * float64(time.Second))
-			probe.Latency.SetQuantile(quantile, latency)
+			latencyMetric.SetQuantile(quantile, latency)
 		}
 		if threshold, ok := thresholds[probeName]; ok {
-			if err = probe.Latency.VerifyThreshold(threshold); err != nil {
-				err = errors.NewMetricViolationError(probe.Name, err.Error())
+			if err = latencyMetric.VerifyThreshold(threshold); err != nil {
+				err = errors.NewMetricViolationError(probeName, err.Error())
 			}
 		}
-		probeSummaries = append(probeSummaries, probe)
+		probeSummary, err := createSummary(probeName, latencyMetric)
+		if err != nil {
+			return nil, err
+		}
+		probeSummaries = append(probeSummaries, probeSummary)
 	}
 	return probeSummaries, err
 }
@@ -247,35 +251,23 @@ func prepareQuery(queryTemplate string, startTime, endTime time.Time) string {
 	return fmt.Sprintf(queryTemplate, measurementutil.ToPrometheusTime(measurementDuration))
 }
 
-type probeSummary struct {
-	Name    string                        `json:"name"`
-	Latency measurementutil.LatencyMetric `json:"latency"`
-}
-
-// SummaryName returns name of the summary.
-func (p *probeSummary) SummaryName() string {
-	return p.Name
-}
-
-// SummaryTime returns time when summary was created.
-func (p *probeSummary) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (p *probeSummary) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(&measurementutil.PerfData{
+func createSummary(name string, latency measurementutil.LatencyMetric) (measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version: currentProbesMetricsVersion,
 		DataItems: []measurementutil.DataItem{
 			{
 				Data: map[string]float64{
-					"Perc50": float64(p.Latency.Perc50) / 1000000, // ns -> ms
-					"Perc90": float64(p.Latency.Perc90) / 1000000,
-					"Perc99": float64(p.Latency.Perc99) / 1000000,
+					"Perc50": float64(latency.Perc50) / 1000000, // ns -> ms
+					"Perc90": float64(latency.Perc90) / 1000000,
+					"Perc99": float64(latency.Perc99) / 1000000,
 				},
 				Unit:   "ms",
-				Labels: map[string]string{"Metric": name},
+				Labels: map[string]string{"Metric": probesMeasurementName},
 			},
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+	return measurement.CreateSummary(name, "json", content), nil
 }

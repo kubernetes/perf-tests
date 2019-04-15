@@ -225,7 +225,6 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.printLatencies(e2eLag, "worst e2e latencies")
 
 	podStartupLatency := &podStartupLatency{
-		identifier:              identifier,
 		CreateToScheduleLatency: extractLatencyMetrics(scheduleLag),
 		ScheduleToRunLatency:    extractLatencyMetrics(startupLag),
 		RunToWatchLatency:       extractLatencyMetrics(watchLag),
@@ -249,7 +248,13 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 		klog.Errorf("%s: %v", p, err)
 	}
-	return []measurement.Summary{podStartupLatency}, err
+
+	content, jsonErr := util.PrettyPrintJSON(podStartupLatencyToPerfData(podStartupLatency))
+	if err != nil {
+		return []measurement.Summary{}, jsonErr
+	}
+	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, identifier), "json", content)
+	return []measurement.Summary{summary}, err
 }
 
 func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface) error {
@@ -324,27 +329,11 @@ func (a podLatencySlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a podLatencySlice) Less(i, j int) bool { return a[i].Latency < a[j].Latency }
 
 type podStartupLatency struct {
-	identifier              string
 	CreateToScheduleLatency measurementutil.LatencyMetric `json:"createToScheduleLatency"`
 	ScheduleToRunLatency    measurementutil.LatencyMetric `json:"scheduleToRunLatency"`
 	RunToWatchLatency       measurementutil.LatencyMetric `json:"runToWatchLatency"`
 	ScheduleToWatchLatency  measurementutil.LatencyMetric `json:"scheduleToWatchLatency"`
 	E2ELatency              measurementutil.LatencyMetric `json:"e2eLatency"`
-}
-
-// SummaryName returns name of the summary.
-func (p *podStartupLatency) SummaryName() string {
-	return fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, p.identifier)
-}
-
-// SummaryTime returns time when summary was created.
-func (p *podStartupLatency) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (p *podStartupLatency) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(podStartupLatencyToPerfData(p))
 }
 
 func extractLatencyMetrics(latencies []podLatencyData) measurementutil.LatencyMetric {

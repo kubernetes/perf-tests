@@ -82,7 +82,7 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 		t.durations[label] = duration
 		delete(t.startTimes, label)
 	case "gather":
-		result := timerResult{
+		result := measurementutil.PerfData{
 			Version: "v1",
 			DataItems: []measurementutil.DataItem{{
 				Unit:   "s",
@@ -92,7 +92,12 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 		for label, duration := range t.durations {
 			result.DataItems[0].Data[label] = duration.Seconds()
 		}
-		summaries = append(summaries, &result)
+		content, err := util.PrettyPrintJSON(result)
+		if err != nil {
+			return summaries, err
+		}
+		summary := measurement.CreateSummary(timerMeasurementName, "json", content)
+		summaries = append(summaries, summary)
 	default:
 		return summaries, fmt.Errorf("unknown action %s", action)
 	}
@@ -105,21 +110,4 @@ func (t *timer) Dispose() {}
 // String returns string representation of this measurement.
 func (*timer) String() string {
 	return timerMeasurementName
-}
-
-type timerResult measurementutil.PerfData
-
-// SummaryName returns name of the summary.
-func (t *timerResult) SummaryName() string {
-	return timerMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (t *timerResult) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (t *timerResult) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(t)
 }

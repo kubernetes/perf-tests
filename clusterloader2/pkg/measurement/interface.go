@@ -35,8 +35,8 @@ type MeasurementConfig struct {
 	// TemplateProvider provides templated objects.
 	TemplateProvider *config.TemplateProvider
 	// Identifier identifies this instance of measurement.
-	Identifier string
-	// TODO(krzysied): add CloudProvider.
+	Identifier    string
+	CloudProvider string
 }
 
 // Measurement is an common interface for all measurements methods. It should be implemented by the user to

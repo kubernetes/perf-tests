@@ -207,6 +207,7 @@ func createConfig(config *measurement.MeasurementConfig, overrides map[string]in
 		PrometheusFramework: config.PrometheusFramework,
 		Params:              params,
 		TemplateProvider:    config.TemplateProvider,
+		CloudProvider:       config.CloudProvider,
 	}
 }
 

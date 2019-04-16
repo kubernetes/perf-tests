@@ -26,6 +26,7 @@ import (
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
 	clusterFramework    *framework.Framework
+	clusterLoaderConfig *config.ClusterLoaderConfig
 	prometheusFramework *framework.Framework
 	templateProvider    *config.TemplateProvider
 
@@ -37,9 +38,10 @@ type MeasurementManager struct {
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
 func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework,
-	templateProvider *config.TemplateProvider) *MeasurementManager {
+	templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) *MeasurementManager {
 	return &MeasurementManager{
 		clusterFramework:    clusterFramework,
+		clusterLoaderConfig: config,
 		prometheusFramework: prometheusFramework,
 		templateProvider:    templateProvider,
 		measurements:        make(map[string]map[string]Measurement),
@@ -59,6 +61,7 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		Params:              params,
 		TemplateProvider:    mm.templateProvider,
 		Identifier:          identifier,
+		CloudProvider:       mm.clusterLoaderConfig.ClusterConfig.Provider,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)

@@ -85,50 +85,48 @@ type waitForControlledPodsRunningMeasurement struct {
 // "Start" action starts observation of the controlling objects, while "gather" waits for until
 // specified number of controlling objects have all pods running.
 func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
-
 	w.clusterFramework = config.ClusterFramework
 
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "start":
 		w.apiVersion, err = util.GetString(config.Params, "apiVersion")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		w.kind, err = util.GetString(config.Params, "kind")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		w.namespace, err = util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		w.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		w.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		w.operationTimeout, err = util.GetDurationOrDefault(config.Params, "operationTimeout", defaultOperationTimeout)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
-		return summaries, w.start()
+		return nil, w.start()
 	case "gather":
 		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
-		return summaries, w.gather(syncTimeout)
+		return nil, w.gather(syncTimeout)
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 

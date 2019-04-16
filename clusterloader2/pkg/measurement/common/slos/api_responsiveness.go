@@ -66,30 +66,29 @@ type apiResponsivenessMeasurement struct{}
 // - reset - Resets latency data on api server side.
 // - gather - Gathers and prints current api server latency data.
 func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in apiserver...", a)
-		return summaries, apiserverMetricsReset(config.ClusterFramework.GetClientSets().GetClient())
+		return nil, apiserverMetricsReset(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
 		// New method is defined here: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/slos.md#steady-state-slisslos.
 		nodeCount, err := util.GetIntOrDefault(config.Params, "nodeCount", config.ClusterFramework.GetClusterConfig().Nodes)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		summary, err := a.apiserverMetricsGather(config.ClusterFramework.GetClientSets().GetClient(), nodeCount)
-		if err == nil || errors.IsMetricViolationError(err) {
-			summaries = append(summaries, summary)
+		if !errors.IsMetricViolationError(err) {
+			return nil, err
 		}
-		return summaries, err
+		return []measurement.Summary{summary}, err
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 

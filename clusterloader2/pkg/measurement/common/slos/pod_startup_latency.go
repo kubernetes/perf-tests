@@ -79,35 +79,34 @@ type podStartupLatencyMeasurement struct {
 // Does NOT support concurrency. Multiple calls to this measurement
 // shouldn't be done within one step.
 func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "start":
 		p.namespace, err = util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.threshold, err = util.GetDurationOrDefault(config.Params, "threshold", defaultPodStartupLatencyThreshold)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
-		return summaries, p.start(config.ClusterFramework.GetClientSets().GetClient())
+		return nil, p.start(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
 		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier)
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 
 }
@@ -168,7 +167,7 @@ func (p *podStartupLatencyMeasurement) stop() {
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
 	klog.Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
-		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
+		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
 
 	scheduleLag := make([]podLatencyData, 0)
@@ -180,7 +179,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.stop()
 
 	if err := p.gatherScheduleTimes(c); err != nil {
-		return []measurement.Summary{}, err
+		return nil, err
 	}
 	for key, create := range p.createTimes {
 		sched, hasSched := p.scheduleTimes[key]
@@ -251,7 +250,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 
 	content, jsonErr := util.PrettyPrintJSON(podStartupLatencyToPerfData(podStartupLatency))
 	if err != nil {
-		return []measurement.Summary{}, jsonErr
+		return nil, jsonErr
 	}
 	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, identifier), "json", content)
 	return []measurement.Summary{summary}, err

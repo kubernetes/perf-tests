@@ -53,10 +53,9 @@ type timer struct {
 // Both start and stop actions require label parameter to be provided.
 // Gather action logs a measurement for all collected phases durations.
 func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	t.lock.Lock()
@@ -65,17 +64,17 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 	case "start":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		t.startTimes[label] = time.Now()
 	case "stop":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		startTime, ok := t.startTimes[label]
 		if !ok {
-			return summaries, fmt.Errorf("uninitialized timer %s", label)
+			return nil, fmt.Errorf("uninitialized timer %s", label)
 		}
 		duration := time.Since(startTime)
 		klog.Infof("%s: %s - %v", t, label, duration)
@@ -94,14 +93,14 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 		}
 		content, err := util.PrettyPrintJSON(result)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		summary := measurement.CreateSummary(timerMeasurementName, "json", content)
-		summaries = append(summaries, summary)
+		return []measurement.Summary{summary}, nil
 	default:
-		return summaries, fmt.Errorf("unknown action %s", action)
+		return nil, fmt.Errorf("unknown action %s", action)
 	}
-	return summaries, nil
+	return nil, nil
 }
 
 // Dispose cleans up after the measurement.

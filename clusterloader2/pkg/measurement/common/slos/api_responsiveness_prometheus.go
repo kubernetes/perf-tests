@@ -62,17 +62,15 @@ type apiResponsivenessMeasurementPrometheus struct {
 }
 
 func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
-
 	if config.PrometheusFramework == nil {
 		klog.Errorf("%s: prometheus framework is not provided!")
 		// TODO(#498): for the testing purpose metric is not returning error.
-		return summaries, nil
+		return nil, nil
 	}
 
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
@@ -80,15 +78,15 @@ func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.Mea
 		a.start()
 	case "gather":
 		summary, err := a.gather(config.PrometheusFramework.GetClientSets().GetClient())
-		if err == nil || errors.IsMetricViolationError(err) {
-			summaries = append(summaries, summary)
+		if !errors.IsMetricViolationError(err) {
+			return nil, err
 		}
-		return summaries, err
+		return []measurement.Summary{summary}, err
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 
-	return summaries, nil
+	return nil, nil
 }
 
 // Dispose cleans up after the measurement.

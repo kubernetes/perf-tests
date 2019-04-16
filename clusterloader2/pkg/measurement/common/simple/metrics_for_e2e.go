@@ -84,16 +84,14 @@ type metricsForE2EMeasurement struct{}
 
 // Execute gathers and prints e2e metrics data.
 func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
-
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	grabMetricsFromKubelets, err := util.GetBoolOrDefault(config.Params, "gatherKubeletsMetrics", false)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	grabMetricsFromKubelets = grabMetricsFromKubelets && strings.ToLower(provider) != "kubemark"
 
@@ -106,7 +104,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 		true, /*grab metrics from apiserver*/
 		false /*grab metrics from cluster autoscaler*/)
 	if err != nil {
-		return summaries, fmt.Errorf("failed to create MetricsGrabber: %v", err)
+		return nil, fmt.Errorf("failed to create MetricsGrabber: %v", err)
 	}
 	// Grab apiserver, scheduler, controller-manager metrics and (optionally) nodes' kubelet metrics.
 	received, err := grabber.Grab()
@@ -116,11 +114,10 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	filterMetrics(&received)
 	content, jsonErr := util.PrettyPrintJSON(received)
 	if err != nil {
-		return summaries, jsonErr
+		return nil, jsonErr
 	}
 	summary := measurement.CreateSummary(metricsForE2EName, "json", content)
-	summaries = append(summaries, summary)
-	return summaries, err
+	return []measurement.Summary{summary}, err
 }
 
 // Dispose cleans up after the measurement.

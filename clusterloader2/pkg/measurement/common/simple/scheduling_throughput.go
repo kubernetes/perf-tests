@@ -54,36 +54,35 @@ type schedulingThroughputMeasurement struct {
 //   If namespace is not passed by parameter, all-namespace scope is assumed.
 // - gather - creates summary for observed values.
 func (s *schedulingThroughputMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	switch action {
 	case "start":
 		if s.isRunning {
 			klog.Infof("%s: measurement already running", s)
-			return summaries, nil
+			return nil, nil
 		}
 		namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 
 		s.stopCh = make(chan struct{})
-		return summaries, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
+		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
 	case "gather":
 		return s.gather()
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -127,10 +126,9 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 }
 
 func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	if !s.isRunning {
 		klog.Errorf("%s: measurementis nor running", s)
-		return summaries, fmt.Errorf("measurement is not running")
+		return nil, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
 	klog.Infof("%s: gathering data", s)
@@ -149,11 +147,10 @@ func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error
 	}
 	content, err := util.PrettyPrintJSON(throughputSummary)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	summary := measurement.CreateSummary(schedulingThroughputMeasurementName, "json", content)
-	summaries = append(summaries, summary)
-	return summaries, nil
+	return []measurement.Summary{summary}, nil
 }
 
 func (s *schedulingThroughputMeasurement) stop() {

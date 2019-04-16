@@ -51,33 +51,32 @@ type waitForRunningPodsMeasurement struct{}
 // Pods can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 func (*waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultWaitForPodsTimeout)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	stopCh := make(chan struct{})
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
 	})
-	return summaries, waitForPods(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true, waitForRunningPodsMeasurementName)
+	return nil, waitForPods(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector, desiredPodCount, stopCh, true, waitForRunningPodsMeasurementName)
 }
 
 // Dispose cleans up after the measurement.

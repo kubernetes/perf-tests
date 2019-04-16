@@ -56,18 +56,17 @@ type etcdMetricsMeasurement struct {
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
@@ -75,23 +74,22 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		klog.Infof("%s: starting etcd metrics collecting...", e)
 		waitTime, err := util.GetDurationOrDefault(config.Params, "waitTime", time.Minute)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		e.startCollecting(host, provider, waitTime)
-		return summaries, nil
+		return nil, nil
 	case "gather":
 		if err = e.stopAndSummarize(host, provider); err != nil {
-			return summaries, err
+			return nil, err
 		}
 		content, err := util.PrettyPrintJSON(e.metrics)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		summary := measurement.CreateSummary(etcdMetricsMetricName, "json", content)
-		summaries := append(summaries, summary)
-		return summaries, nil
+		return []measurement.Summary{summary}, nil
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 

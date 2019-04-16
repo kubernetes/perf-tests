@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    instance: kubemark-master
+  name: kubemark-master
+  namespace: monitoring
+spec:
+  jobLabel: instance
+  namespaceSelector:
+    matchNames:
+      - kubemark
+  selector:
+    matchLabels:
+      instance: kubemark-master
+  endpoints:
+  - interval: 5s
+    port: apiserver
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - interval: 5s
+    port: kubelet
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - interval: 5s
+    port: kubelet
+    path: metrics/cadvisor
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - interval: 5s
+    port: kube-scheduler
+  - interval: 5s
+    port: kube-controller-manager

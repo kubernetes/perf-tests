@@ -3,12 +3,18 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   namespace: kubemark
-  name: kube-apiserver
+  name: kubemark-master
   labels:
-    k8s-app: kube-apiserver
+    instance: kubemark-master
 subsets:
   - addresses:
       - ip: {{.MasterIp}}
     ports:
-      - name: https
+      - name: apiserver
         port: 443
+      - name: kubelet
+        port: 10250
+      - name: kube-scheduler
+        port: 10251
+      - name: kube-controller-manager
+        port: 10252

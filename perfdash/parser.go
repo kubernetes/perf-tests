@@ -24,7 +24,9 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -159,6 +161,7 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d\n", buildNumber)
 		return
 	}
+	resultMap := make(map[string]*perftype.DataItem)
 	for i := range metric {
 		perfData := perftype.DataItem{Unit: "", Data: make(map[string]float64), Labels: make(map[string]string)}
 		for k, v := range metric[i].Metric {
@@ -175,8 +178,27 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 			perfData.Labels["client"] = newClient
 		}
 		perfData.Data["RequestCount"] = float64(metric[i].Value)
+		key := createMapId(perfData.Labels)
+		if result, exists := resultMap[key]; exists {
+			result.Data["RequestCount"] += perfData.Data["RequestCount"]
+			continue
+		}
+		resultMap[key] = &perfData
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
+}
+
+func createMapId(m map[string]string) string {
+	var keys []string
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, key := range keys {
+		b.WriteString(fmt.Sprintf("%s:%s|", key, m[key]))
+	}
+	return b.String()
 }
 
 // TODO(krzysied): Copy of structures from kuberentes repository.

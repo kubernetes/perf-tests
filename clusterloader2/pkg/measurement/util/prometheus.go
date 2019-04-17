@@ -20,11 +20,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
+	"k8s.io/apimachinery/pkg/util/wait"
+	clientset "k8s.io/client-go/kubernetes"
+)
+
+const (
+	queryTimeout  = 5 * time.Minute
+	queryInterval = 30 * time.Second
 )
 
 // ExtractMetricSamples unpacks metric blob into prometheus model structures.
@@ -72,6 +80,48 @@ type promQueryResponse struct {
 
 type promResponseData struct {
 	v model.Value
+}
+
+// ExecutePrometheusQuery executes given prometheus query.
+func ExecutePrometheusQuery(c clientset.Interface, query string, queryTime time.Time) ([]*model.Sample, error) {
+	if queryTime.IsZero() {
+		return nil, fmt.Errorf("query time can't be zero")
+	}
+
+	var body []byte
+	var queryErr error
+	params := map[string]string{
+		"query": query,
+		"time":  queryTime.Format(time.RFC3339),
+	}
+	if err := wait.PollImmediate(queryInterval, queryTimeout, func() (bool, error) {
+		body, queryErr = c.CoreV1().
+			Services("monitoring").
+			ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
+			DoRaw()
+		if queryErr != nil {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		if queryErr != nil {
+			return nil, fmt.Errorf("query error: %v", queryErr)
+		}
+		return nil, fmt.Errorf("query error: %v", err)
+	}
+
+	samples, err := ExtractMetricSamples2(body)
+	if err != nil {
+		return nil, fmt.Errorf("exctracting error: %v", err)
+	}
+
+	var resultSamples []*model.Sample
+	for _, sample := range samples {
+		if !math.IsNaN(float64(sample.Value)) {
+			resultSamples = append(resultSamples, sample)
+		}
+	}
+	return resultSamples, nil
 }
 
 // UnmarshalJSON unmarshals json into promResponseData structure.

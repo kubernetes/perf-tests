@@ -22,3 +22,4 @@ metric-bind-address
 ping-server-address
 ping-server-bind-address
 ping-sleep-duration
+master-internal-ip

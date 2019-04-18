@@ -33,6 +33,7 @@ type ClusterConfig struct {
 	Provider       string `json: provider`
 	// TODO(krzysied): Add support for HA cluster with more than one master.
 	MasterIP                   string `json: masterIP`
+	MasterInternalIP           string `json: masterInternalIP`
 	MasterName                 string `json: masterName`
 	KubemarkRootKubeConfigPath string `json: kubemarkRootKubeConfigPath`
 }

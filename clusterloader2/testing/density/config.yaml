@@ -58,6 +58,13 @@ steps:
       action: start
       nodeMode: {{$NODE_MODE}}
       resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
+{{if $ENABLE_PROBES}}
+  - Identifier: Probes
+    Method: Probes
+    Params:
+      action: start
+      replicasPerProbe: {{AddInt 1 (DivideInt .Nodes 200)}}
+{{end}}
 # Create saturation pods
 - measurements:
   - Identifier: SaturationPodStartupLatency
@@ -198,3 +205,12 @@ steps:
     Method: TestMetrics
     Params:
       action: gather
+{{if $ENABLE_PROBES}}
+  - Identifier: Probes
+    Method: Probes
+    Params:
+      action: gather
+      thresholds:
+        # TODO(https://github.com/kubernetes/kubernetes/issues/76012): Lower the threshold once we know what to expect.
+        in_cluster_network_latency: 10s
+{{end}}

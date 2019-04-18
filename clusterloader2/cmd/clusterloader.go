@@ -56,6 +56,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIP, "masterip", "MASTER_IP", "", "Hostname/IP of the masternode")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIP, "master-internal-ip", "MASTER_INTERNAL_IP", "", "Cluster internal/private IP of the master vm")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 }

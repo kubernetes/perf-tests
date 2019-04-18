@@ -70,7 +70,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		return nil, errList
 	}
 	if pc.isKubemark {
-		mapping["KubemarkMasterIp"] = clusterLoaderConfig.ClusterConfig.MasterIP
+		mapping["KubemarkMasterIp"] = getKubemarkMasterIp(clusterLoaderConfig.ClusterConfig)
 	}
 	pc.templateMapping = mapping
 
@@ -212,4 +212,15 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 		return
 	}
 	klog.Info(string(s))
+}
+
+func getKubemarkMasterIp(clusterConfig config.ClusterConfig) string {
+	if clusterConfig.MasterInternalIP != "" {
+		klog.Infof("Using internal master ip (%s) to monitor kubemark master", clusterConfig.MasterInternalIP)
+		return clusterConfig.MasterInternalIP
+	}
+	// TODO(https://github.com/kubernetes/perf-tests/issues/503): Eventually we should fail if we reach here.
+	klog.Warningf("Internal master ip not available! Using the public ip (%s) to monitor kubemark master. "+
+		"Prometheus stack may fail if proper firewall rules are not configured.", clusterConfig.MasterIP)
+	return clusterConfig.MasterIP
 }

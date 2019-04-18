@@ -61,11 +61,14 @@ type apiResponsivenessMeasurementPrometheus struct {
 	apiCalls  map[string]*apiCall
 }
 
+// Execute supports two actions:
+// - start - Stores the measurement starting time.
+// - gather - Gathers and prints current api server latency data based on data collected by prometheus server.
 func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 
 	if config.PrometheusFramework == nil {
-		klog.Errorf("%s: prometheus framework is not provided!")
+		klog.Warning("%s: Prometheus is disabled, skipping the measurement!", a)
 		// TODO(#498): for the testing purpose metric is not returning error.
 		return summaries, nil
 	}

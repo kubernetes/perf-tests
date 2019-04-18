@@ -69,6 +69,12 @@ Currently available measurements are:
 This measurement creates summary for latency and number for server api calls.
 Api calls are divided by resource, subresource, verb and scope. \
 This measurement verifies if [API call latencies SLO] is satisfied.
+- **APIResponsivenessPrometheus** \
+This measurement creates summary for latency and number for server api calls
+based on the data collected by the prometheus server.
+Api calls are divided by resource, subresource, verb and scope. \
+This measurement verifies if [API call latencies SLO] is satisfied.
+If prometheus server is not available, the measurement will be skipped.
 - **CPUProfile** \
 This measurement gathers the cpu usage profile provided by pprof for a given component.
 - **EtcdMetrics** \

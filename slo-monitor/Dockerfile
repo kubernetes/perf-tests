@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.8
+FROM gcr.io/distroless/static:latest
 MAINTAINER Marek Grabowski <gmarek@google.com>
 ADD build/slo-monitor slo-monitor
 

@@ -18,6 +18,7 @@ package prometheus
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -69,8 +70,9 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 	if errList != nil {
 		return nil, errList
 	}
-	if pc.isKubemark {
-		mapping["KubemarkMasterIp"] = getKubemarkMasterIp(clusterLoaderConfig.ClusterConfig)
+	mapping["MasterIp"], err = getMasterIp(clusterLoaderConfig.ClusterConfig)
+	if err != nil {
+		return nil, err
 	}
 	pc.templateMapping = mapping
 
@@ -214,13 +216,10 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 	klog.Info(string(s))
 }
 
-func getKubemarkMasterIp(clusterConfig config.ClusterConfig) string {
+func getMasterIp(clusterConfig config.ClusterConfig) (string, error) {
 	if clusterConfig.MasterInternalIP != "" {
-		klog.Infof("Using internal master ip (%s) to monitor kubemark master", clusterConfig.MasterInternalIP)
-		return clusterConfig.MasterInternalIP
+		klog.Infof("Using internal master ip (%s) to monitor master's components", clusterConfig.MasterInternalIP)
+		return clusterConfig.MasterInternalIP, nil
 	}
-	// TODO(https://github.com/kubernetes/perf-tests/issues/503): Eventually we should fail if we reach here.
-	klog.Warningf("Internal master ip not available! Using the public ip (%s) to monitor kubemark master. "+
-		"Prometheus stack may fail if proper firewall rules are not configured.", clusterConfig.MasterIP)
-	return clusterConfig.MasterIP
+	return "", fmt.Errorf("internal master ip not available")
 }

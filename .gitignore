@@ -22,3 +22,6 @@ build
 *.un~
 Session.vim
 .netrwhist
+
+clusterloader2/junit.xml
+clusterloader2/clusterloader

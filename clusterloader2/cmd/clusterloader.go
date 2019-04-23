@@ -187,23 +187,23 @@ func main() {
 	defer klog.Flush()
 	initFlags()
 	if err := flags.Parse(); err != nil {
-		klog.Fatalf("Flag parse failed: %v", err)
+		klog.Exitf("Flag parse failed: %v", err)
 	}
 	if errList := validateFlags(); !errList.IsEmpty() {
-		klog.Fatalf("Parsing flags error: %v", errList.String())
+		klog.Exitf("Parsing flags error: %v", errList.String())
 	}
 
 	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)
 	if err != nil {
-		klog.Fatalf("Client creation error: %v", err)
+		klog.Exitf("Client creation error: %v", err)
 	}
 
 	if err = completeConfig(mclient); err != nil {
-		klog.Fatalf("Config completing error: %v", err)
+		klog.Exitf("Config completing error: %v", err)
 	}
 
 	if err = createReportDir(); err != nil {
-		klog.Fatalf("Cannot create report directory: %v", err)
+		klog.Exitf("Cannot create report directory: %v", err)
 	}
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
@@ -211,7 +211,7 @@ func main() {
 	}
 
 	if err = verifyCluster(mclient.GetClient()); err != nil {
-		klog.Fatalf("Cluster verification error: %v", err)
+		klog.Exitf("Cluster verification error: %v", err)
 	}
 
 	f, err := framework.NewFramework(
@@ -219,18 +219,18 @@ func main() {
 		getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes),
 	)
 	if err != nil {
-		klog.Fatalf("Framework creation error: %v", err)
+		klog.Exitf("Framework creation error: %v", err)
 	}
 
 	var prometheusController *prometheus.PrometheusController
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.EnablePrometheusServer {
 		if prometheusController, err = prometheus.NewPrometheusController(&clusterLoaderConfig); err != nil {
-			klog.Fatalf("Error while creating Prometheus Controller: %v", err)
+			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
 		prometheusFramework = prometheusController.GetFramework()
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
-			klog.Fatalf("Error while setting up prometheus stack: %v", err)
+			klog.Exitf("Error while setting up prometheus stack: %v", err)
 		}
 	}
 
@@ -270,7 +270,6 @@ func main() {
 		}
 	}
 	if suiteSummary.NumberOfFailedSpecs > 0 {
-		klog.Errorf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
-		os.Exit(1)
+		klog.Exitf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
 	}
 }

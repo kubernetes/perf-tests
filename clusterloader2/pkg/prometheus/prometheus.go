@@ -46,8 +46,8 @@ const (
 // the cluster.
 type PrometheusController struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
-	// isKubemark determines whether prometheus stack is being set up in kubemark cluster or not.
-	isKubemark bool
+	// provider is the cloud provider derived from the --provider flag.
+	provider string
 	// framework associated with the cluster where the prometheus stack should be set up.
 	// For kubemark it's the root cluster, otherwise it's the main (and only) cluster.
 	framework *framework.Framework
@@ -59,7 +59,7 @@ type PrometheusController struct {
 func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *PrometheusController, err error) {
 	pc = &PrometheusController{
 		clusterLoaderConfig: clusterLoaderConfig,
-		isKubemark:          clusterLoaderConfig.ClusterConfig.Provider == "kubemark",
+		provider:            clusterLoaderConfig.ClusterConfig.Provider,
 	}
 
 	if pc.framework, err = framework.NewRootFramework(&clusterLoaderConfig.ClusterConfig, numK8sClients); err != nil {
@@ -92,7 +92,7 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 	if err := pc.applyManifests(coreManifests); err != nil {
 		return err
 	}
-	if pc.isKubemark {
+	if pc.isKubemark() {
 		if err := pc.exposeKubemarkApiServerMetrics(); err != nil {
 			return err
 		}
@@ -187,13 +187,17 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	// server is started before targets are registered.
 	expectedTargets := pc.clusterLoaderConfig.ClusterConfig.Nodes
 	// TODO(mm4tt): Start monitoring kube-proxy in kubemark and get rid of this if.
-	if pc.isKubemark {
+	if pc.isKubemark() {
 		expectedTargets = 3 // kube-apiserver, prometheus, grafana
 	}
 	return CheckTargetsReady(
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
 		expectedTargets)
+}
+
+func (pc *PrometheusController) isKubemark() bool {
+	return pc.provider == "kubemark"
 }
 
 func retryCreateFunction(f func() error) error {

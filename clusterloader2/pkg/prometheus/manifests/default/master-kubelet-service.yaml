@@ -1,0 +1,14 @@
+# Service object for the kubelet running on master node.
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: master-kubelet
+  labels:
+    k8s-app: master-kubelet
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: https-metrics
+      port: 10250

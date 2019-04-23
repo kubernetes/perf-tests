@@ -25,6 +25,7 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
 	ginkgotypes "github.com/onsi/ginkgo/types"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -112,12 +113,21 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterIP == "" {
-		masterIP, err := util.GetMasterExternalIP(m.GetClient())
+		masterIP, err := util.GetMasterIP(m.GetClient(), corev1.NodeExternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIP = masterIP
 			klog.Infof("ClusterConfig.MasterIP set to %v", masterIP)
 		} else {
-			klog.Errorf("Getting master ip error: %v", err)
+			klog.Errorf("Getting master external ip error: %v", err)
+		}
+	}
+	if clusterLoaderConfig.ClusterConfig.MasterInternalIP == "" {
+		masterIP, err := util.GetMasterIP(m.GetClient(), corev1.NodeInternalIP)
+		if err == nil {
+			clusterLoaderConfig.ClusterConfig.MasterInternalIP = masterIP
+			klog.Infof("ClusterConfig.MasterInternalIP set to %v", masterIP)
+		} else {
+			klog.Errorf("Getting master internal ip error: %v", err)
 		}
 	}
 	return nil

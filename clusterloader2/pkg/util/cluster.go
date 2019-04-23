@@ -135,8 +135,8 @@ func GetMasterName(c clientset.Interface) (string, error) {
 	return "", fmt.Errorf("master node not found")
 }
 
-// GetMasterExternalIP returns master node external ip.
-func GetMasterExternalIP(c clientset.Interface) (string, error) {
+// GetMasterIP returns master node ip of the given type.
+func GetMasterIP(c clientset.Interface, addressType corev1.NodeAddressType) (string, error) {
 	nodeList, err := client.ListNodes(c)
 	if err != nil {
 		return "", err
@@ -144,11 +144,11 @@ func GetMasterExternalIP(c clientset.Interface) (string, error) {
 	for i := range nodeList {
 		if system.IsMasterNode(nodeList[i].Name) {
 			for _, address := range nodeList[i].Status.Addresses {
-				if address.Type == corev1.NodeExternalIP {
+				if address.Type == addressType && address.Address != "" {
 					return address.Address, nil
 				}
 			}
-			return "", fmt.Errorf("extrnal IP of the master not found")
+			return "", fmt.Errorf("%s IP of the master not found", addressType)
 		}
 	}
 	return "", fmt.Errorf("master node not found")

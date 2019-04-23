@@ -270,6 +270,7 @@ func main() {
 		}
 	}
 	if suiteSummary.NumberOfFailedSpecs > 0 {
-		klog.Fatalf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
+		klog.Errorf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
+		os.Exit(1)
 	}
 }

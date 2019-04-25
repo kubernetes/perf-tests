@@ -1,0 +1,14 @@
+# Endpoints object for the kubelet running on master node.
+apiVersion: v1
+kind: Endpoints
+metadata:
+  namespace: kube-system
+  name: master-kubelet
+  labels:
+    k8s-app: master-kubelet
+subsets:
+  - addresses:
+      - ip: {{.MasterIp}}
+    ports:
+      - name: https-metrics
+        port: 10250

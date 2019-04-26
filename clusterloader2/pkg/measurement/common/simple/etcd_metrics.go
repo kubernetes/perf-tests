@@ -56,18 +56,17 @@ type etcdMetricsMeasurement struct {
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
@@ -75,19 +74,22 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		klog.Infof("%s: starting etcd metrics collecting...", e)
 		waitTime, err := util.GetDurationOrDefault(config.Params, "waitTime", time.Minute)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		e.startCollecting(host, provider, waitTime)
-		return summaries, nil
+		return nil, nil
 	case "gather":
 		if err = e.stopAndSummarize(host, provider); err != nil {
-			return summaries, err
+			return nil, err
 		}
-		summaries := append(summaries, e.metrics)
-		return summaries, nil
-
+		content, err := util.PrettyPrintJSON(e.metrics)
+		if err != nil {
+			return nil, err
+		}
+		summary := measurement.CreateSummary(etcdMetricsMetricName, "json", content)
+		return []measurement.Summary{summary}, nil
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -203,19 +205,4 @@ func newEtcdMetrics() *etcdMetrics {
 		PeerRoundTripTime:         make(measurementutil.HistogramVec, 0),
 		WalFsyncDuration:          make(measurementutil.HistogramVec, 0),
 	}
-}
-
-// SummaryName returns name of the summary.
-func (e *etcdMetrics) SummaryName() string {
-	return etcdMetricsMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (e *etcdMetrics) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (e *etcdMetrics) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(e)
 }

@@ -53,10 +53,9 @@ type timer struct {
 // Both start and stop actions require label parameter to be provided.
 // Gather action logs a measurement for all collected phases durations.
 func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	t.lock.Lock()
@@ -65,24 +64,24 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 	case "start":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		t.startTimes[label] = time.Now()
 	case "stop":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		startTime, ok := t.startTimes[label]
 		if !ok {
-			return summaries, fmt.Errorf("uninitialized timer %s", label)
+			return nil, fmt.Errorf("uninitialized timer %s", label)
 		}
 		duration := time.Since(startTime)
 		klog.Infof("%s: %s - %v", t, label, duration)
 		t.durations[label] = duration
 		delete(t.startTimes, label)
 	case "gather":
-		result := timerResult{
+		result := measurementutil.PerfData{
 			Version: "v1",
 			DataItems: []measurementutil.DataItem{{
 				Unit:   "s",
@@ -92,11 +91,16 @@ func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Su
 		for label, duration := range t.durations {
 			result.DataItems[0].Data[label] = duration.Seconds()
 		}
-		summaries = append(summaries, &result)
+		content, err := util.PrettyPrintJSON(result)
+		if err != nil {
+			return nil, err
+		}
+		summary := measurement.CreateSummary(timerMeasurementName, "json", content)
+		return []measurement.Summary{summary}, nil
 	default:
-		return summaries, fmt.Errorf("unknown action %s", action)
+		return nil, fmt.Errorf("unknown action %s", action)
 	}
-	return summaries, nil
+	return nil, nil
 }
 
 // Dispose cleans up after the measurement.
@@ -105,21 +109,4 @@ func (t *timer) Dispose() {}
 // String returns string representation of this measurement.
 func (*timer) String() string {
 	return timerMeasurementName
-}
-
-type timerResult measurementutil.PerfData
-
-// SummaryName returns name of the summary.
-func (t *timerResult) SummaryName() string {
-	return timerMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (t *timerResult) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (t *timerResult) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(t)
 }

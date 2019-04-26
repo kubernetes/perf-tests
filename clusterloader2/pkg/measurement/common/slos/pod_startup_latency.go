@@ -79,35 +79,34 @@ type podStartupLatencyMeasurement struct {
 // Does NOT support concurrency. Multiple calls to this measurement
 // shouldn't be done within one step.
 func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "start":
 		p.namespace, err = util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		p.threshold, err = util.GetDurationOrDefault(config.Params, "threshold", defaultPodStartupLatencyThreshold)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
-		return summaries, p.start(config.ClusterFramework.GetClientSets().GetClient())
+		return nil, p.start(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
 		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier)
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 
 }
@@ -168,7 +167,7 @@ func (p *podStartupLatencyMeasurement) stop() {
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
 	klog.Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
-		return []measurement.Summary{}, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
+		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
 
 	scheduleLag := make([]podLatencyData, 0)
@@ -180,7 +179,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.stop()
 
 	if err := p.gatherScheduleTimes(c); err != nil {
-		return []measurement.Summary{}, err
+		return nil, err
 	}
 	for key, create := range p.createTimes {
 		sched, hasSched := p.scheduleTimes[key]
@@ -225,7 +224,6 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.printLatencies(e2eLag, "worst e2e latencies")
 
 	podStartupLatency := &podStartupLatency{
-		identifier:              identifier,
 		CreateToScheduleLatency: extractLatencyMetrics(scheduleLag),
 		ScheduleToRunLatency:    extractLatencyMetrics(startupLag),
 		RunToWatchLatency:       extractLatencyMetrics(watchLag),
@@ -249,7 +247,13 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 		klog.Errorf("%s: %v", p, err)
 	}
-	return []measurement.Summary{podStartupLatency}, err
+
+	content, jsonErr := util.PrettyPrintJSON(podStartupLatencyToPerfData(podStartupLatency))
+	if err != nil {
+		return nil, jsonErr
+	}
+	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, identifier), "json", content)
+	return []measurement.Summary{summary}, err
 }
 
 func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface) error {
@@ -324,27 +328,11 @@ func (a podLatencySlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a podLatencySlice) Less(i, j int) bool { return a[i].Latency < a[j].Latency }
 
 type podStartupLatency struct {
-	identifier              string
 	CreateToScheduleLatency measurementutil.LatencyMetric `json:"createToScheduleLatency"`
 	ScheduleToRunLatency    measurementutil.LatencyMetric `json:"scheduleToRunLatency"`
 	RunToWatchLatency       measurementutil.LatencyMetric `json:"runToWatchLatency"`
 	ScheduleToWatchLatency  measurementutil.LatencyMetric `json:"scheduleToWatchLatency"`
 	E2ELatency              measurementutil.LatencyMetric `json:"e2eLatency"`
-}
-
-// SummaryName returns name of the summary.
-func (p *podStartupLatency) SummaryName() string {
-	return fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, p.identifier)
-}
-
-// SummaryTime returns time when summary was created.
-func (p *podStartupLatency) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (p *podStartupLatency) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(podStartupLatencyToPerfData(p))
 }
 
 func extractLatencyMetrics(latencies []podLatencyData) measurementutil.LatencyMetric {

@@ -54,36 +54,35 @@ type schedulingThroughputMeasurement struct {
 //   If namespace is not passed by parameter, all-namespace scope is assumed.
 // - gather - creates summary for observed values.
 func (s *schedulingThroughputMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	switch action {
 	case "start":
 		if s.isRunning {
 			klog.Infof("%s: measurement already running", s)
-			return summaries, nil
+			return nil, nil
 		}
 		namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 
 		s.stopCh = make(chan struct{})
-		return summaries, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
+		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
 	case "gather":
 		return s.gather()
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -127,33 +126,31 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 }
 
 func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	if !s.isRunning {
 		klog.Errorf("%s: measurementis nor running", s)
-		return summaries, fmt.Errorf("measurement is not running")
+		return nil, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
 	klog.Infof("%s: gathering data", s)
 
-	summary := &schedulingThroughput{}
+	throughputSummary := &schedulingThroughput{}
 	if length := len(s.schedulingThroughputs); length > 0 {
-		if length == 0 {
-			summaries = append(summaries, summary)
-			return summaries, nil
-		}
-
 		sort.Float64s(s.schedulingThroughputs)
 		sum := 0.0
 		for i := range s.schedulingThroughputs {
 			sum += s.schedulingThroughputs[i]
 		}
-		summary.Average = sum / float64(length)
-		summary.Perc50 = s.schedulingThroughputs[int(math.Ceil(float64(length*50)/100))-1]
-		summary.Perc90 = s.schedulingThroughputs[int(math.Ceil(float64(length*90)/100))-1]
-		summary.Perc99 = s.schedulingThroughputs[int(math.Ceil(float64(length*99)/100))-1]
+		throughputSummary.Average = sum / float64(length)
+		throughputSummary.Perc50 = s.schedulingThroughputs[int(math.Ceil(float64(length*50)/100))-1]
+		throughputSummary.Perc90 = s.schedulingThroughputs[int(math.Ceil(float64(length*90)/100))-1]
+		throughputSummary.Perc99 = s.schedulingThroughputs[int(math.Ceil(float64(length*99)/100))-1]
 	}
-	summaries = append(summaries, summary)
-	return summaries, nil
+	content, err := util.PrettyPrintJSON(throughputSummary)
+	if err != nil {
+		return nil, err
+	}
+	summary := measurement.CreateSummary(schedulingThroughputMeasurementName, "json", content)
+	return []measurement.Summary{summary}, nil
 }
 
 func (s *schedulingThroughputMeasurement) stop() {
@@ -168,19 +165,4 @@ type schedulingThroughput struct {
 	Perc50  float64 `json:"perc50"`
 	Perc90  float64 `json:"perc90"`
 	Perc99  float64 `json:"perc99"`
-}
-
-// SummaryName returns name of the summary.
-func (*schedulingThroughput) SummaryName() string {
-	return schedulingThroughputMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (*schedulingThroughput) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (s *schedulingThroughput) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(s)
 }

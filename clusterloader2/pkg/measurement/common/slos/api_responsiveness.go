@@ -66,30 +66,29 @@ type apiResponsivenessMeasurement struct{}
 // - reset - Resets latency data on api server side.
 // - gather - Gathers and prints current api server latency data.
 func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in apiserver...", a)
-		return summaries, apiserverMetricsReset(config.ClusterFramework.GetClientSets().GetClient())
+		return nil, apiserverMetricsReset(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
 		// TODO(krzysied): Implement new method of collecting latency metrics.
 		// New method is defined here: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/slos.md#steady-state-slisslos.
 		nodeCount, err := util.GetIntOrDefault(config.Params, "nodeCount", config.ClusterFramework.GetClusterConfig().Nodes)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		summary, err := a.apiserverMetricsGather(config.ClusterFramework.GetClientSets().GetClient(), nodeCount)
-		if err == nil || errors.IsMetricViolationError(err) {
-			summaries = append(summaries, summary)
+		if !errors.IsMetricViolationError(err) {
+			return nil, err
 		}
-		return summaries, err
+		return []measurement.Summary{summary}, err
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -135,10 +134,16 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
-	if len(badMetrics) > 0 {
-		return metrics, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+
+	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
+	if err != nil {
+		return nil, err
 	}
-	return metrics, nil
+	summary := measurement.CreateSummary(apiResponsivenessMeasurementName, "json", content)
+	if len(badMetrics) > 0 {
+		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	}
+	return summary, nil
 }
 
 func apiserverMetricsReset(c clientset.Interface) error {
@@ -223,21 +228,6 @@ type apiCall struct {
 
 type apiResponsiveness struct {
 	ApiCalls []apiCall `json:"apicalls"`
-}
-
-// SummaryName returns name of the summary.
-func (a *apiResponsiveness) SummaryName() string {
-	return apiResponsivenessMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (a *apiResponsiveness) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (a *apiResponsiveness) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(apiCallToPerfData(a))
 }
 
 func (a *apiResponsiveness) Len() int { return len(a.ApiCalls) }

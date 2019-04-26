@@ -55,32 +55,31 @@ type schedulerLatencyMeasurement struct{}
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
 func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().MasterIP)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterFramework.GetClusterConfig().MasterName)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return summaries, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
+		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	case "gather":
 		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -102,16 +101,15 @@ func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interfac
 
 // Retrieves scheduler latency metrics.
 func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	result := schedulingMetrics{}
 	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	samples, err := measurementutil.ExtractMetricSamples(data)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	for _, sample := range samples {
@@ -136,13 +134,17 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 
 		quantile, err := strconv.ParseFloat(string(sample.Metric[model.QuantileLabel]), 64)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		metric.SetQuantile(quantile, time.Duration(int64(float64(sample.Value)*float64(time.Second))))
 	}
-	summaries = append(summaries, &result)
 
-	return summaries, nil
+	content, err := util.PrettyPrintJSON(result)
+	if err != nil {
+		return nil, err
+	}
+	summary := measurement.CreateSummary(schedulerLatencyMetricName, "json", content)
+	return []measurement.Summary{summary}, nil
 }
 
 // Sends request to kube scheduler metrics
@@ -204,19 +206,4 @@ type schedulingMetrics struct {
 	PriorityEvaluationLatency   measurementutil.LatencyMetric `json:"priorityEvaluationLatency"`
 	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              measurementutil.LatencyMetric `json:"bindingLatency"`
-}
-
-// SummaryName returns name of the summary.
-func (l *schedulingMetrics) SummaryName() string {
-	return schedulerLatencyMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (l *schedulingMetrics) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (l *schedulingMetrics) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(l)
 }

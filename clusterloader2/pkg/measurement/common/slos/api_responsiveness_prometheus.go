@@ -62,17 +62,15 @@ type apiResponsivenessMeasurementPrometheus struct {
 }
 
 func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
-
 	if config.PrometheusFramework == nil {
 		klog.Errorf("%s: prometheus framework is not provided!")
 		// TODO(#498): for the testing purpose metric is not returning error.
-		return summaries, nil
+		return nil, nil
 	}
 
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
@@ -80,15 +78,15 @@ func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.Mea
 		a.start()
 	case "gather":
 		summary, err := a.gather(config.PrometheusFramework.GetClientSets().GetClient())
-		if err == nil || errors.IsMetricViolationError(err) {
-			summaries = append(summaries, summary)
+		if !errors.IsMetricViolationError(err) {
+			return nil, err
 		}
-		return summaries, err
+		return []measurement.Summary{summary}, err
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 
-	return summaries, nil
+	return nil, nil
 }
 
 // Dispose cleans up after the measurement.
@@ -130,12 +128,18 @@ func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (
 			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
 		}
 	}
+
+	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
+	if err != nil {
+		return nil, err
+	}
+	summary := measurement.CreateSummary(apiResponsivenessPrometheusMeasurementName, "json", content)
 	// TODO(#498): For testing purpose this metric will never return metric violation error.
 	// The code below should be
 	// if len(badMetrics) > 0 {
-	// 	return &apiResponsivenessPrometheus{metrics}, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	// 	return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	// }
-	return &apiResponsivenessPrometheus{metrics}, nil
+	return summary, nil
 }
 
 func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Interface) ([]apiCall, error) {
@@ -246,23 +250,4 @@ func getLatencyThreshold(call *apiCall) time.Duration {
 		}
 	}
 	return latencyThreshold
-}
-
-type apiResponsivenessPrometheus struct {
-	metric *apiResponsiveness
-}
-
-// SummaryName returns name of the summary.
-func (*apiResponsivenessPrometheus) SummaryName() string {
-	return apiResponsivenessPrometheusMeasurementName
-}
-
-// SummaryTime returns time when summary was created.
-func (a *apiResponsivenessPrometheus) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (a *apiResponsivenessPrometheus) PrintSummary() (string, error) {
-	return a.metric.PrintSummary()
 }

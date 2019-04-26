@@ -95,12 +95,12 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, profil
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := p.gatherProfile()
+				profileSummary, err := p.gatherProfile()
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v", *p.config)
 					continue
 				}
-				p.summaries = append(p.summaries, profileSummaries...)
+				p.summaries = append(p.summaries, profileSummary)
 			}
 		}
 	}()
@@ -199,11 +199,10 @@ func (*cpuProfileMeasurement) String() string {
 	return cpuProfileName
 }
 
-func (p *profileMeasurement) gatherProfile() ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
+func (p *profileMeasurement) gatherProfile() (measurement.Summary, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
-		return summaries, fmt.Errorf("profile gathering failed finding component port: %v", err)
+		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
 
 	// Get the profile data over SSH.
@@ -213,9 +212,9 @@ func (p *profileMeasurement) gatherProfile() ([]measurement.Summary, error) {
 		if p.config.provider == "gke" {
 			// Only logging error for gke. SSHing to gke master is not supported.
 			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", p.name, err)
-			return summaries, nil
+			return nil, nil
 		}
-		return summaries, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
+		return nil, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
 	}
 
 	profilePrefix := p.config.componentName
@@ -225,16 +224,10 @@ func (p *profileMeasurement) gatherProfile() ([]measurement.Summary, error) {
 	case strings.HasPrefix(p.config.kind, "profile"):
 		profilePrefix += "_CPUProfile"
 	default:
-		return summaries, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
+		return nil, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
 	}
 
-	rawprofile := &profileSummary{
-		name:      profilePrefix,
-		timestamp: time.Now(),
-		content:   sshResult.Stdout,
-	}
-	summaries = append(summaries, rawprofile)
-	return summaries, nil
+	return measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout), err
 }
 
 func getPortForComponent(componentName string) (int, error) {
@@ -247,25 +240,4 @@ func getPortForComponent(componentName string) (int, error) {
 		return 10252, nil
 	}
 	return -1, fmt.Errorf("port for component %v unknown", componentName)
-}
-
-type profileSummary struct {
-	name      string
-	timestamp time.Time
-	content   string
-}
-
-// SummaryName returns name of the summary.
-func (p *profileSummary) SummaryName() string {
-	return p.name
-}
-
-// SummaryTime returns time when summary was created.
-func (p *profileSummary) SummaryTime() time.Time {
-	return p.timestamp
-}
-
-// PrintSummary returns summary as a string.
-func (p *profileSummary) PrintSummary() (string, error) {
-	return p.content, nil
 }

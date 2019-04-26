@@ -19,7 +19,6 @@ package simple
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
@@ -85,16 +84,14 @@ type metricsForE2EMeasurement struct{}
 
 // Execute gathers and prints e2e metrics data.
 func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
-
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	grabMetricsFromKubelets, err := util.GetBoolOrDefault(config.Params, "gatherKubeletsMetrics", false)
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 	grabMetricsFromKubelets = grabMetricsFromKubelets && strings.ToLower(provider) != "kubemark"
 
@@ -107,15 +104,20 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 		true, /*grab metrics from apiserver*/
 		false /*grab metrics from cluster autoscaler*/)
 	if err != nil {
-		return summaries, fmt.Errorf("failed to create MetricsGrabber: %v", err)
+		return nil, fmt.Errorf("failed to create MetricsGrabber: %v", err)
 	}
 	// Grab apiserver, scheduler, controller-manager metrics and (optionally) nodes' kubelet metrics.
 	received, err := grabber.Grab()
 	if err != nil {
 		klog.Errorf("%s: metricsGrabber failed to grab some of the metrics: %v", m, err)
 	}
-	summaries = append(summaries, (*metricsForE2E)(&received))
-	return summaries, err
+	filterMetrics(&received)
+	content, jsonErr := util.PrettyPrintJSON(received)
+	if err != nil {
+		return nil, jsonErr
+	}
+	summary := measurement.CreateSummary(metricsForE2EName, "json", content)
+	return []measurement.Summary{summary}, err
 }
 
 // Dispose cleans up after the measurement.
@@ -126,9 +128,7 @@ func (*metricsForE2EMeasurement) String() string {
 	return metricsForE2EName
 }
 
-type metricsForE2E metrics.MetricsCollection
-
-func (m *metricsForE2E) filterMetrics() {
+func filterMetrics(m *metrics.MetricsCollection) {
 	interestingApiServerMetrics := make(metrics.ApiServerMetrics)
 	for _, metric := range interestingApiServerMetricsLabels {
 		interestingApiServerMetrics[metric] = (*m).ApiServerMetrics[metric]
@@ -147,20 +147,4 @@ func (m *metricsForE2E) filterMetrics() {
 	(*m).ApiServerMetrics = interestingApiServerMetrics
 	(*m).ControllerManagerMetrics = interestingControllerManagerMetrics
 	(*m).KubeletMetrics = interestingKubeletMetrics
-}
-
-// SummaryName returns name of the summary.
-func (m *metricsForE2E) SummaryName() string {
-	return metricsForE2EName
-}
-
-// SummaryTime returns time when summary was created.
-func (m *metricsForE2E) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (m *metricsForE2E) PrintSummary() (string, error) {
-	m.filterMetrics()
-	return util.PrettyPrintJSON(m)
 }

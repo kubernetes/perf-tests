@@ -76,17 +76,16 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	}
 
 	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
-		summaryText, err := summary.PrintSummary()
 		if err != nil {
 			errList.Append(fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
 			continue
 		}
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
-			klog.Infof("%v: %v", summary.SummaryName(), summaryText)
+			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
-			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+summary.SummaryTime().Format(time.RFC3339)+".txt")
-			if err := ioutil.WriteFile(filePath, []byte(summaryText), 0644); err != nil {
+			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+summary.SummaryTime().Format(time.RFC3339)+"."+summary.SummaryExt())
+			if err := ioutil.WriteFile(filePath, []byte(summary.SummaryContent()), 0644); err != nil {
 				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
 				continue
 			}

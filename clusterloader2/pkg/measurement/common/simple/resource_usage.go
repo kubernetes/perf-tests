@@ -53,35 +53,34 @@ type resourceUsageMetricMeasurement struct {
 // - start - Starts resource metrics collecting.
 // - gather - Gathers and prints current resource usage metrics.
 func (e *resourceUsageMetricMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return summaries, err
+		return nil, err
 	}
 
 	switch action {
 	case "start":
 		provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		nodeMode, err := util.GetStringOrDefault(config.Params, "nodeMode", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		constraintsPath, err := util.GetStringOrDefault(config.Params, "resourceConstraints", "")
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		if constraintsPath != "" {
 			mapping := make(map[string]interface{})
 			mapping["Nodes"] = config.ClusterFramework.GetClusterConfig().Nodes
 			if err = config.TemplateProvider.TemplateInto(constraintsPath, mapping, &e.resourceConstraints); err != nil {
-				return summaries, fmt.Errorf("resource constraints reading error: %v", err)
+				return nil, fmt.Errorf("resource constraints reading error: %v", err)
 			}
 			for _, constraint := range e.resourceConstraints {
 				if constraint.CPUConstraint == 0 {
@@ -111,27 +110,29 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 			PrintVerboseLogs:            false,
 		}, nil)
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
 		go e.gatherer.StartGatheringData()
-		return summaries, nil
+		return nil, nil
 	case "gather":
 		if e.gatherer == nil {
 			klog.Errorf("%s: gatherer not initialized", e)
-			return summaries, nil
+			return nil, nil
 		}
 		klog.Infof("%s: gathering resource usage...", e)
 		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100})
 		if err != nil {
-			return summaries, err
+			return nil, err
 		}
-		err = e.verifySummary(summary)
-		resourceSummary := resourceUsageSummary(*summary)
-		summaries := append(summaries, &resourceSummary)
-		return summaries, err
+		content, err := util.PrettyPrintJSON(summary)
+		if err != nil {
+			return nil, err
+		}
+		resourceSummary := measurement.CreateSummary(resourceUsageMetricName, "json", content)
+		return []measurement.Summary{resourceSummary}, e.verifySummary(summary)
 
 	default:
-		return summaries, fmt.Errorf("unknown action %v", action)
+		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
@@ -181,21 +182,4 @@ func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.Resour
 		return errors.NewMetricViolationError("resource constraints", fmt.Sprintf("%d constraints violated: %v", len(violatedConstraints), violatedConstraints))
 	}
 	return nil
-}
-
-type resourceUsageSummary gatherers.ResourceUsageSummary
-
-// SummaryName returns name of the summary.
-func (e *resourceUsageSummary) SummaryName() string {
-	return resourceUsageMetricName
-}
-
-// SummaryTime returns time when summary was created.
-func (e *resourceUsageSummary) SummaryTime() time.Time {
-	return time.Now()
-}
-
-// PrintSummary returns summary as a string.
-func (e *resourceUsageSummary) PrintSummary() (string, error) {
-	return util.PrettyPrintJSON(e)
 }

@@ -100,7 +100,9 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, profil
 					klog.Errorf("failed to gather profile for %#v", *p.config)
 					continue
 				}
-				p.summaries = append(p.summaries, profileSummary)
+				if profileSummary != nil {
+					p.summaries = append(p.summaries, profileSummary)
+				}
 			}
 		}
 	}()

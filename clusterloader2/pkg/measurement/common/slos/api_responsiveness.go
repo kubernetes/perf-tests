@@ -83,7 +83,7 @@ func (a *apiResponsivenessMeasurement) Execute(config *measurement.MeasurementCo
 			return nil, err
 		}
 		summary, err := a.apiserverMetricsGather(config.ClusterFramework.GetClientSets().GetClient(), nodeCount)
-		if !errors.IsMetricViolationError(err) {
+		if err != nil && !errors.IsMetricViolationError(err) {
 			return nil, err
 		}
 		return []measurement.Summary{summary}, err

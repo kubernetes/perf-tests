@@ -10,7 +10,7 @@ coredns:
   memoryConstraint: 31457280 #30 * (1024 * 1024)
 fluentd-gcp:
   cpuConstraint: 1
-  memoryConstraint: 241172480 #230 * (1024 * 1024)
+  memoryConstraint: 314572800 #300 * (1024 * 1024)
 heapster:
   cpuConstraint: 0.15
   nemoryConstraint: 367001600 #350 * (1024 * 1024)

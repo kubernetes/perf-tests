@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strconv"
 
+	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +57,7 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 		}
 	case "ReplicaSet":
 		listFunc = func() error {
-			list, err := c.ExtensionsV1beta1().ReplicaSets(namespace).List(listOpts)
+			list, err := c.AppsV1().ReplicaSets(namespace).List(listOpts)
 			if err != nil {
 				return err
 			}
@@ -69,7 +69,7 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 		}
 	case "Deployment":
 		listFunc = func() error {
-			list, err := c.ExtensionsV1beta1().Deployments(namespace).List(listOpts)
+			list, err := c.AppsV1().Deployments(namespace).List(listOpts)
 			if err != nil {
 				return err
 			}
@@ -81,7 +81,7 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 		}
 	case "DaemonSet":
 		listFunc = func() error {
-			list, err := c.ExtensionsV1beta1().DaemonSets(namespace).List(listOpts)
+			list, err := c.AppsV1().DaemonSets(namespace).List(listOpts)
 			if err != nil {
 				return err
 			}
@@ -161,11 +161,11 @@ func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
 		return getSelectorFromUnstrutured(typed)
 	case *corev1.ReplicationController:
 		return labels.SelectorFromSet(typed.Spec.Selector), nil
-	case *extensions.ReplicaSet:
+	case *appsv1.ReplicaSet:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *extensions.Deployment:
+	case *appsv1.Deployment:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *extensions.DaemonSet:
+	case *appsv1.DaemonSet:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *batch.Job:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
@@ -215,11 +215,11 @@ func GetSpecFromRuntimeObject(obj runtime.Object) (interface{}, error) {
 		return getSpecFromUnstrutured(typed)
 	case *corev1.ReplicationController:
 		return typed.Spec, nil
-	case *extensions.ReplicaSet:
+	case *appsv1.ReplicaSet:
 		return typed.Spec, nil
-	case *extensions.Deployment:
+	case *appsv1.Deployment:
 		return typed.Spec, nil
-	case *extensions.DaemonSet:
+	case *appsv1.DaemonSet:
 		return typed.Spec, nil
 	case *batch.Job:
 		return typed.Spec, nil
@@ -253,17 +253,17 @@ func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
 			return *typed.Spec.Replicas, nil
 		}
 		return 0, nil
-	case *extensions.ReplicaSet:
+	case *appsv1.ReplicaSet:
 		if typed.Spec.Replicas != nil {
 			return *typed.Spec.Replicas, nil
 		}
 		return 0, nil
-	case *extensions.Deployment:
+	case *appsv1.Deployment:
 		if typed.Spec.Replicas != nil {
 			return *typed.Spec.Replicas, nil
 		}
 		return 0, nil
-	case *extensions.DaemonSet:
+	case *appsv1.DaemonSet:
 		return 0, nil
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {

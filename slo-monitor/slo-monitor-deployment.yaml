@@ -1,6 +1,6 @@
 # Deployment config for performance monitor. To be used when deploying in on the cluster.
 # RBAC: requires view access to Pods and Events.
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: slo-monitor

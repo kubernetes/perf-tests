@@ -25,7 +25,6 @@ import (
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -63,13 +62,13 @@ var replicationcontroller = &corev1.ReplicationController{
 	},
 }
 
-var replicaset = &extensions.ReplicaSet{
+var replicaset = &apps.ReplicaSet{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:            controllerName,
 		Namespace:       testNamespace,
 		ResourceVersion: defaultResourceVersion,
 	},
-	Spec: extensions.ReplicaSetSpec{
+	Spec: apps.ReplicaSetSpec{
 		Replicas: &defaultReplicas,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: simpleLabel,

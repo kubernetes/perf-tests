@@ -20,6 +20,8 @@ spec:
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s
+    port: etcd
+  - interval: 5s
     port: kubelet
     scheme: https
     tlsConfig:

@@ -18,3 +18,5 @@ subsets:
         port: 10251
       - name: kube-controller-manager
         port: 10252
+      - name: etcd
+        port: 2379

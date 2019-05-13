@@ -34,3 +34,5 @@ spec:
     port: kube-scheduler
   - interval: 5s
     port: kube-controller-manager
+  - interval: 5s
+    port: etcd

@@ -8,7 +8,7 @@ metadata:
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    interval: 30s
+    interval: 10s
     port: metrics
   jobLabel: k8s-app
   namespaceSelector:

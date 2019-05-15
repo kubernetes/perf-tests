@@ -182,14 +182,10 @@ func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
 }
 
 func (pc *PrometheusController) isPrometheusReady() (bool, error) {
-	// There should be at least as many targets as number of nodes (e.g. there is a kube-proxy
-	// instance on each node). This is a safeguard from a race condition where the prometheus
-	// server is started before targets are registered.
-	expectedTargets := pc.clusterLoaderConfig.ClusterConfig.Nodes
-	// TODO(mm4tt): Start monitoring kube-proxy in kubemark and get rid of this if.
-	if pc.isKubemark() {
-		expectedTargets = 3 // kube-apiserver, prometheus, grafana
-	}
+	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
+	// This is a safeguard from a race condition where the prometheus server is started before targets
+	// are registered.
+	expectedTargets := 8 // prometheus, prometheus-operator, grafana, master-kubelet, master-cadvisor, apiserver, controller-manager, scheduler
 	return CheckTargetsReady(
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.

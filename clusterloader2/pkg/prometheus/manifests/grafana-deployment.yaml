@@ -42,6 +42,9 @@ spec:
         - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-network-programming-latency
           name: grafana-dashboard-network-programming-latency
           readOnly: false
+        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-master-dashboard
+          name: grafana-dashboard-master-dashboard
+          readOnly: false
         env:
           - name: GF_AUTH_ANONYMOUS_ENABLED
             value: "true"
@@ -65,3 +68,6 @@ spec:
       - configMap:
           name: grafana-dashboard-network-programming-latency
         name: grafana-dashboard-network-programming-latency
+      - configMap:
+          name: grafana-dashboard-master-dashboard
+        name: grafana-dashboard-master-dashboard

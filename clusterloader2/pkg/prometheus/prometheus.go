@@ -114,6 +114,9 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 
 // TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
 func (pc *PrometheusController) TearDownPrometheusStack() error {
+	if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
+		klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+	}
 	klog.Info("Tearing down prometheus stack")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {

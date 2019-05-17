@@ -1,5 +1,6 @@
 comparison-scheme
 enable-output-coloring
+experimental-gcp-snapshot-prometheus-disk
 kubernetes-url
 left-build-number
 left-job-name

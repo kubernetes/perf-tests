@@ -19,8 +19,8 @@ spec:
       - args:
         - --logtostderr=true
         - --config-reloader-image=gcr.io/k8s-testimages/quay.io/coreos/configmap-reload:v0.0.1
-        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/coreos/prometheus-config-reloader:v0.28.0
-        image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.28.0
+        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/coreos/prometheus-config-reloader:v0.30.0
+        image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.30.0
         name: prometheus-operator
         ports:
         - containerPort: 8080

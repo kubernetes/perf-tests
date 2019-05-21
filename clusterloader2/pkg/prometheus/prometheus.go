@@ -71,10 +71,13 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		return nil, errList
 	}
 	mapping["MasterIp"], err = getMasterIp(clusterLoaderConfig.ClusterConfig)
+	mapping["CortexEnabled"] = false
 	if err != nil {
 		return nil, err
 	}
 	pc.templateMapping = mapping
+
+	pc.initializeCortexTemplateMappings()
 
 	return pc, nil
 }

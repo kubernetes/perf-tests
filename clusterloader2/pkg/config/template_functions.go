@@ -18,11 +18,17 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -49,6 +55,8 @@ func GetFuncs() template.FuncMap {
 		"IsEven":        isEven,
 		"IsOdd":         isOdd,
 		"DefaultParam":  defaultParam,
+		"IncludeFile":   includeFile,
+		"YamlQuote":     yamlQuote,
 	}
 }
 
@@ -183,4 +191,36 @@ func defaultParam(param, defaultValue interface{}) interface{} {
 		return defaultValue
 	}
 	return param
+}
+
+// includeFile reads file. 'file' is relative to ./clusterloader2 binary.
+func includeFile(file interface{}) (string, error) {
+	fileStr, ok := file.(string)
+	if !ok {
+		return "", fmt.Errorf("incorrect argument type: got: %T want: string", file)
+	}
+
+	ex, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("unable to determine executable path: %v", err)
+	}
+
+	path := filepath.Join(filepath.Dir(ex), fileStr)
+	data, err := ioutil.ReadFile(path)
+	return string(data), nil
+}
+
+// yamlQuote quotes yaml string aligning each output lin by tabsInt.
+func yamlQuote(strInt interface{}, tabsInt interface{}) (string, error) {
+	str, ok := strInt.(string)
+	if !ok {
+		return "", fmt.Errorf("incorrect argument type: got: %T want: string", strInt)
+	}
+	tabs, ok := tabsInt.(int)
+	if !ok {
+		return "", fmt.Errorf("incorrect argument type: got: %T want: int", tabsInt)
+	}
+	tabsStr := strings.Repeat("  ", tabs)
+	b, err := yaml.Marshal(&str)
+	return strings.ReplaceAll(string(b), "\n", "\n"+tabsStr), err
 }

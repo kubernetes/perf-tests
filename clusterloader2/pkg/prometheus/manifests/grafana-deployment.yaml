@@ -16,7 +16,7 @@ spec:
         app: grafana
     spec:
       containers:
-      - image: gcr.io/k8s-testimages/grafana/grafana:6.0.0
+      - image: gcr.io/k8s-testimages/grafana/grafana:6.2.0
         name: grafana
         ports:
         - containerPort: 3000

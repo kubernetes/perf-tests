@@ -120,7 +120,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 			return nil, nil
 		}
 		klog.Infof("%s: gathering resource usage...", e)
-		summary, err := e.gatherer.StopAndSummarize([]int{90, 99, 100})
+		summary, err := e.gatherer.StopAndSummarize([]int{50, 90, 99, 100})
 		if err != nil {
 			return nil, err
 		}

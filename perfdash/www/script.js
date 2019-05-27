@@ -155,8 +155,8 @@ PerfDashApp.prototype.labelChanged = function() {
     result = this.getData(this.selectedLabels);
     this.options = null;
     var seriesLabels = null;
-    var a = 0;
-    for (; a < result.length; a++) {
+    var a = result.length-1;
+    for (; a >= 0; a--) {
         if ("unit" in result[a] && "data" in result[a] && result[a].data != {}) {
             // All the unit should be the same
             this.options = {scaleLabel: "<%=value%> "+result[a].unit, animation: false};

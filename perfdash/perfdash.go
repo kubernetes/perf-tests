@@ -60,9 +60,11 @@ func run() error {
 		*builds = maxBuilds
 	}
 
-	downloader := NewGoogleGCSDownloader(*configPaths, *builds)
+	downloader, err := NewGoogleGCSDownloader(*configPaths, *builds)
+	if err != nil {
+		panic(err)
+	}
 	result := make(JobToCategoryData)
-	var err error
 
 	if !*www {
 		result, err = downloader.getData()

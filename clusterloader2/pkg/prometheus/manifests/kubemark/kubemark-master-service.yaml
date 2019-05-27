@@ -14,6 +14,8 @@ spec:
   ports:
     - name: apiserver
       port: 443
+    - name: etcd
+      port: 2379
     - name: kubelet
       port: 10250
     - name: kube-scheduler

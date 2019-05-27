@@ -1,19 +1,25 @@
+{{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
+
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    k8s-app: master-kubelet
-  name: master-kubelet
+    k8s-app: master
+  name: master
   namespace: monitoring
 spec:
   endpoints:
+  {{if $PROMETHEUS_SCRAPE_ETCD}}
   - interval: 5s
-    port: https-metrics
+    port: etcd
+  {{end}}
+  - interval: 5s
+    port: kubelet
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s
-    port: https-metrics
+    port: kubelet
     path: metrics/cadvisor
     scheme: https
     tlsConfig:
@@ -24,4 +30,4 @@ spec:
     - kube-system
   selector:
     matchLabels:
-      k8s-app: master-kubelet
+      k8s-app: master

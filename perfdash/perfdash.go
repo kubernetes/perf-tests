@@ -18,11 +18,12 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -32,10 +33,11 @@ const (
 )
 
 var (
-	addr   = flag.String("address", ":8080", "The address to serve web data on")
-	www    = flag.Bool("www", false, "If true, start a web-server to server performance data")
-	wwwDir = flag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
-	builds = flag.Int("builds", maxBuilds, "Total builds number")
+	addr        = pflag.String("address", ":8080", "The address to serve web data on")
+	www         = pflag.Bool("www", false, "If true, start a web-server to server performance data")
+	wwwDir      = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
+	builds      = pflag.Int("builds", maxBuilds, "Total builds number")
+	configPaths = pflag.StringArray("configPath", []string{}, "Paths/urls to the prow config")
 )
 
 func main() {
@@ -47,16 +49,18 @@ func main() {
 }
 
 func run() error {
-	flag.Parse()
+	pflag.Parse()
+	fmt.Printf("config paths - %d\n", len(*configPaths))
+	for i := 0; i < len(*configPaths); i++ {
+		fmt.Printf("config path %d: %s\n", i+1, (*configPaths)[i])
+	}
 
 	if *builds > maxBuilds || *builds < 0 {
 		fmt.Printf("Invalid number of builds: %d, setting to %d\n", *builds, maxBuilds)
 		*builds = maxBuilds
 	}
 
-	// TODO(random-liu): Add a top layer downloader to download build log from different buckets when we support
-	// more buckets in the future.
-	downloader := NewGoogleGCSDownloader(*builds)
+	downloader := NewGoogleGCSDownloader(*configPaths, *builds)
 	result := make(JobToCategoryData)
 	var err error
 

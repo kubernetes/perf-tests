@@ -36,6 +36,7 @@ const (
 	namespace                    = "monitoring"
 	coreManifests                = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml"
 	defaultServiceMonitors       = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/*.yaml"
+	masterIpServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/master-ip/*.yaml"
 	kubemarkServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/kubemark/*.yaml"
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
@@ -72,7 +73,8 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 	}
 	mapping["MasterIp"], err = getMasterIp(clusterLoaderConfig.ClusterConfig)
 	if err != nil {
-		return nil, err
+		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
+		delete(mapping, "MasterIp")
 	}
 	pc.templateMapping = mapping
 
@@ -102,6 +104,11 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 	} else {
 		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
 			return err
+		}
+		if _, ok := pc.templateMapping["MasterIp"]; ok {
+			if err := pc.applyManifests(masterIpServiceMonitors); err != nil {
+				return err
+			}
 		}
 	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
@@ -186,9 +193,10 @@ func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
 
 func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
-	// This is a safeguard from a race condition where the prometheus server is started before targets
-	// are registered.
-	expectedTargets := 8 // prometheus, prometheus-operator, grafana, master-kubelet, master-cadvisor, apiserver, controller-manager, scheduler
+	// This is a safeguard from a race condition where the prometheus server is started before
+	// targets are registered. These 4 targets are always expected, in all possible configurations:
+	// prometheus, prometheus-operator, grafana, apiserver
+	expectedTargets := 4
 	return CheckTargetsReady(
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.

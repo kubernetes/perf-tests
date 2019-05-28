@@ -38,6 +38,14 @@ var (
 	wwwDir      = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
 	builds      = pflag.Int("builds", maxBuilds, "Total builds number")
 	configPaths = pflag.StringArray("configPath", []string{}, "Paths/urls to the prow config")
+
+	logsBucket     = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
+	logsPath       = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
+	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")
+
+	storageUrl = pflag.String("storageUrl", "https://k8s-gubernator.appspot.com/build", "Name of the data bucket")
+
+	globalConfig = make(map[string]string)
 )
 
 func main() {
@@ -50,6 +58,7 @@ func main() {
 
 func run() error {
 	pflag.Parse()
+	initGlobalConfig()
 	fmt.Printf("config paths - %d\n", len(*configPaths))
 	for i := 0; i < len(*configPaths); i++ {
 		fmt.Printf("config path %d: %s\n", i+1, (*configPaths)[i])
@@ -60,7 +69,15 @@ func run() error {
 		*builds = maxBuilds
 	}
 
-	downloader, err := NewGoogleGCSDownloader(*configPaths, *builds)
+	opt := &GoogleGCSDownloaderOptions{
+		ConfigPaths:        *configPaths,
+		DefaultBuildsCount: *builds,
+		LogsBucket:         *logsBucket,
+		LogsPath:           *logsPath,
+		CredentialPath:     *credentialPath,
+	}
+
+	downloader, err := NewGoogleGCSDownloader(opt)
 	if err != nil {
 		panic(err)
 	}
@@ -99,5 +116,16 @@ func run() error {
 	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
 	http.HandleFunc("/metricnames", result.ServeMetricNames)
 	http.HandleFunc("/buildsdata", result.ServeBuildsData)
+	http.HandleFunc("/config", serveConfig)
 	return http.ListenAndServe(*addr, nil)
+}
+
+func initGlobalConfig() {
+	globalConfig["logsBucket"] = *logsBucket
+	globalConfig["logsPath"] = *logsPath
+	globalConfig["storageUrl"] = *storageUrl
+}
+
+func serveConfig(res http.ResponseWriter, req *http.Request) {
+	serveHTTPObject(res, req, &globalConfig)
 }

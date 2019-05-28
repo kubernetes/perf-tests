@@ -202,6 +202,8 @@ func main() {
 		klog.Exitf("Config completing error: %v", err)
 	}
 
+	klog.Infof("Using config: %+v", clusterLoaderConfig)
+
 	if err = createReportDir(); err != nil {
 		klog.Exitf("Cannot create report directory: %v", err)
 	}

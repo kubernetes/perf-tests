@@ -228,9 +228,9 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 }
 
 func getMasterIp(clusterConfig config.ClusterConfig) (string, error) {
-	if clusterConfig.MasterInternalIP != "" {
-		klog.Infof("Using internal master ip (%s) to monitor master's components", clusterConfig.MasterInternalIP)
-		return clusterConfig.MasterInternalIP, nil
+	if clusterConfig.GetMasterInternalIp() != "" {
+		klog.Infof("Using internal master ip (%s) to monitor master's components", clusterConfig.GetMasterInternalIp())
+		return clusterConfig.GetMasterInternalIp(), nil
 	}
 	return "", fmt.Errorf("internal master ip not available")
 }

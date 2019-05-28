@@ -65,7 +65,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	if err != nil {
 		return nil, err
 	}
-	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().MasterIP)
+	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().GetMasterIp())
 	if err != nil {
 		return nil, err
 	}

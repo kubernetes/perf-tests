@@ -59,7 +59,7 @@ func createProfileConfig(config *measurement.MeasurementConfig) (*profileConfig,
 	if pc.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
 		return nil, err
 	}
-	if pc.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP); err != nil {
+	if pc.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp()); err != nil {
 		return nil, err
 	}
 	return pc, nil

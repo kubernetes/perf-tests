@@ -135,21 +135,25 @@ func GetMasterName(c clientset.Interface) (string, error) {
 	return "", fmt.Errorf("master node not found")
 }
 
-// GetMasterIP returns master node ip of the given type.
-func GetMasterIP(c clientset.Interface, addressType corev1.NodeAddressType) (string, error) {
+// GetMasterIPs returns master node ips of the given type.
+func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]string, error) {
 	nodeList, err := client.ListNodes(c)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	var ips []string
 	for i := range nodeList {
 		if system.IsMasterNode(nodeList[i].Name) {
 			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == addressType && address.Address != "" {
-					return address.Address, nil
+					ips = append(ips, address.Address)
+					break
 				}
 			}
-			return "", fmt.Errorf("%s IP of the master not found", addressType)
 		}
 	}
-	return "", fmt.Errorf("master node not found")
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("didn't find any %s master IPs", addressType)
+	}
+	return ips, nil
 }

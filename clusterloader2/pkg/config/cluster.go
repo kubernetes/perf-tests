@@ -28,12 +28,29 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath string `json: kubeConfigPath`
-	Nodes          int    `json: nodes`
-	Provider       string `json: provider`
-	// TODO(krzysied): Add support for HA cluster with more than one master.
-	MasterIP                   string `json: masterIP`
-	MasterInternalIP           string `json: masterInternalIP`
-	MasterName                 string `json: masterName`
-	KubemarkRootKubeConfigPath string `json: kubemarkRootKubeConfigPath`
+	KubeConfigPath             string   `json: kubeConfigPath`
+	Nodes                      int      `json: nodes`
+	Provider                   string   `json: provider`
+	MasterIPs                  []string `json: masterIPs`
+	MasterInternalIPs          []string `json: masterInternalIPs`
+	MasterName                 string   `json: masterName`
+	KubemarkRootKubeConfigPath string   `json: kubemarkRootKubeConfigPath`
+}
+
+// GetMasterIp returns the first master ip, added for backward compatibility.
+// TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
+func (c *ClusterConfig) GetMasterIp() string {
+	if len(c.MasterIPs) > 0 {
+		return c.MasterIPs[0]
+	}
+	return ""
+}
+
+// GetMasterInternalIp returns the first internal master ip, added for backward compatibility.
+// TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
+func (c *ClusterConfig) GetMasterInternalIp() string {
+	if len(c.MasterInternalIPs) > 0 {
+		return c.MasterInternalIPs[0]
+	}
+	return ""
 }

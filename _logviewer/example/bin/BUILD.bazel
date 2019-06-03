@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["test.go"],
+    importpath = "k8s.io/perf-tests/logviewer/example/bin",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//example/protos:go_default_library",
+        "//example/protos2:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+    ],
+)
+
+go_binary(
+    name = "bin",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

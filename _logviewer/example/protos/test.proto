@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+// Paths in the repo are relative to WORKSPACE file.
+import "example/protos2/test2.proto";
+
+package k8s.io.perftests.logviewer.example.protos;
+
+option go_package = "protos";
+
+message TestMessage {
+    google.protobuf.Timestamp test = 1;
+    k8s.io.perftests.logviewer.example.protos2.TestMessage2 nested = 2;
+}
+
+service TestService {
+    rpc Test(TestMessage) returns (stream TestMessage) {}
+}

@@ -1,0 +1,7 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix k8s.io/perf-tests/logviewer
+gazelle(
+    name = "gazelle",
+    command = "fix",
+)

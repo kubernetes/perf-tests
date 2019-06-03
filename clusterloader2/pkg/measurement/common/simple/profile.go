@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -95,9 +96,9 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, profil
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummary, err := p.gatherProfile()
+				profileSummary, err := p.gatherProfile(config.ClusterFramework.GetClientSets().GetClient())
 				if err != nil {
-					klog.Errorf("failed to gather profile for %#v", *p.config)
+					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
 				}
 				if profileSummary != nil {
@@ -201,12 +202,29 @@ func (*cpuProfileMeasurement) String() string {
 	return cpuProfileName
 }
 
-func (p *profileMeasurement) gatherProfile() (measurement.Summary, error) {
+func (p *profileMeasurement) gatherProfile(c clientset.Interface) (measurement.Summary, error) {
+	profilePrefix := p.config.componentName
+	switch {
+	case p.config.kind == "heap":
+		profilePrefix += "_MemoryProfile"
+	case strings.HasPrefix(p.config.kind, "profile"):
+		profilePrefix += "_CPUProfile"
+	default:
+		return nil, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
+	}
+
+	if p.config.componentName == "kube-apiserver" {
+		body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
+		if err != nil {
+			return nil, err
+		}
+		return measurement.CreateSummary(profilePrefix, "pprof", string(body)), err
+	}
+
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
-
 	// Get the profile data over SSH.
 	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, p.config.kind)
 	sshResult, err := measurementutil.SSH(getCommand, p.config.host+":22", p.config.provider)
@@ -219,23 +237,11 @@ func (p *profileMeasurement) gatherProfile() (measurement.Summary, error) {
 		return nil, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
 	}
 
-	profilePrefix := p.config.componentName
-	switch {
-	case p.config.kind == "heap":
-		profilePrefix += "_MemoryProfile"
-	case strings.HasPrefix(p.config.kind, "profile"):
-		profilePrefix += "_CPUProfile"
-	default:
-		return nil, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
-	}
-
 	return measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout), err
 }
 
 func getPortForComponent(componentName string) (int, error) {
 	switch componentName {
-	case "kube-apiserver":
-		return 8080, nil
 	case "kube-scheduler":
 		return 10251, nil
 	case "kube-controller-manager":

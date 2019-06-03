@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "protos2_proto",
+    srcs = ["test2.proto"],
+    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:empty_proto"],
+)
+
+go_proto_library(
+    name = "protos2_go_proto",
+    importpath = "k8s.io/perf-tests/logviewer/example/protos2",
+    proto = ":protos2_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":protos2_go_proto"],
+    importpath = "k8s.io/perf-tests/logviewer/example/protos2",
+    visibility = ["//visibility:public"],
+)

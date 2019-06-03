@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package k8s.io.perftests.logviewer.example.protos2;
+
+option go_package = "protos2";
+
+message TestMessage2 {
+    google.protobuf.Empty empty = 1;
+}

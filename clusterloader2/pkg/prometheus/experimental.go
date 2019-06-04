@@ -19,12 +19,12 @@ package prometheus
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os/exec"
 	"time"
 
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 )
 

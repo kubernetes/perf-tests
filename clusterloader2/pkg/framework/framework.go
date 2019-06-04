@@ -189,23 +189,26 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 		klog.Infof("Applying %s\n", manifest)
 		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), templateMapping)
 		if err != nil {
+			if err == config.ErrorEmptyFile {
+				klog.Warningf("Skipping empty manifest %s", manifest)
+				continue
+			}
 			return err
 		}
+		objList := []unstructured.Unstructured{*obj}
 		if obj.IsList() {
-			objList, err := obj.ToList()
+			list, err := obj.ToList()
 			if err != nil {
 				return err
 			}
-			for _, item := range objList.Items {
-				if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
-					return fmt.Errorf("error while applying (%s): %v", manifest, err)
-				}
-			}
-		} else {
-			if err := f.CreateObject(obj.GetNamespace(), obj.GetName(), obj, options...); err != nil {
+			objList = list.Items
+		}
+		for _, item := range objList {
+			if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
 				return fmt.Errorf("error while applying (%s): %v", manifest, err)
 			}
 		}
+
 	}
 	return nil
 }

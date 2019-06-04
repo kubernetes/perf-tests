@@ -67,21 +67,21 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
+          "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile='0.99'}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "99pctl",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
+          "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile='0.90'}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "90pctl",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_latency_seconds_bucket[10m])) by (le))",
+          "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile='0.50'}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "50pctl",
@@ -109,10 +109,10 @@
       "yaxes": [
         {
           "format": "short",
-          "label": null,
+          "label": "seconds",
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         },
         {

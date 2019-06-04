@@ -1,0 +1,19 @@
+{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY false}}
+
+{{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-proxy
+  labels:
+    k8s-app: kube-proxy
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http-metrics
+      port: 10249
+  selector:
+    component: kube-proxy
+{{end}}

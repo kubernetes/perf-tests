@@ -222,5 +222,7 @@ func yamlQuote(strInt interface{}, tabsInt interface{}) (string, error) {
 	}
 	tabsStr := strings.Repeat("  ", tabs)
 	b, err := yaml.Marshal(&str)
-	return strings.ReplaceAll(string(b), "\n", "\n"+tabsStr), err
+	// TODO(oxddr): change back to strings.ReplaceAll once we figure out how to compile clusterloader2
+	// with newer versions of go for tests against stable version of K8s
+	return strings.Replace(string(b), "\n", "\n"+tabsStr, -1), err
 }

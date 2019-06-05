@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/contrib/test-utils/utils"
 )
 
 // To add new e2e test support, you need to:
@@ -215,15 +214,10 @@ var (
 		"benchmark":    benchmarkDescriptions,
 		"dnsBenchmark": dnsBenchmarkDescriptions,
 	}
-
-	// TestConfig contains all the test PerfDash supports now. Downloader will download and
-	// analyze build log from all these Jobs, and parse the data from all these Test.
-	// Notice that all the tests should have different name for now.
-	TestConfig = Buckets{utils.KubekinsBucket: getProwConfigOrDie()}
 )
 
-func getProwConfigOrDie() Jobs {
-	jobs, err := getProwConfig()
+func getProwConfigOrDie(configPaths []string) Jobs {
+	jobs, err := getProwConfig(configPaths)
 	if err != nil {
 		panic(err)
 	}
@@ -239,12 +233,22 @@ type periodic struct {
 	Tags []string `json:"tags"`
 }
 
-func getProwConfig() (Jobs, error) {
+func getProwConfig(configPaths []string) (Jobs, error) {
 	fmt.Fprintf(os.Stderr, "Fetching prow config from GitHub...\n")
 	jobs := Jobs{}
-	yamlLinks := []string{
-		"https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml",
-		"https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-release-blocking-jobs.yaml",
+	yamlLinks := []string{}
+	for _, configPath := range configPaths {
+		// Perfdash supports only urls.
+		if !strings.HasPrefix(configPath, "http") {
+			fmt.Fprintf(os.Stderr, "%s is not an url!\n", configPath)
+			continue
+		}
+		// Perfdash supports only yamls.
+		if !strings.HasSuffix(configPath, ".yaml") {
+			fmt.Fprintf(os.Stderr, "%s is not an yaml file!\n", configPath)
+			continue
+		}
+		yamlLinks = append(yamlLinks, configPath)
 	}
 
 	for _, yamlLink := range yamlLinks {

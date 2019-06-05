@@ -32,32 +32,32 @@ import (
 type GoogleGCSDownloader struct {
 	DefaultBuildsCount   int
 	GoogleGCSBucketUtils *utils.Utils
+	ConfigPaths          []string
 }
 
 // NewGoogleGCSDownloader creates a new GoogleGCSDownloader
-func NewGoogleGCSDownloader(defaultBuildsCount int) *GoogleGCSDownloader {
+func NewGoogleGCSDownloader(configPaths []string, defaultBuildsCount int) *GoogleGCSDownloader {
 	return &GoogleGCSDownloader{
 		DefaultBuildsCount:   defaultBuildsCount,
 		GoogleGCSBucketUtils: utils.NewUtils(utils.KubekinsBucket, utils.LogDir),
+		ConfigPaths:          configPaths,
 	}
 }
 
 // TODO(random-liu): Only download and update new data each time.
 func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
-	newJobs, err := getProwConfig()
-	if err == nil {
-		TestConfig[utils.KubekinsBucket] = newJobs
-	} else {
-		fmt.Fprintf(os.Stderr, "Failed to refresh config: %v\n", err)
+	newJobs, err := getProwConfig(g.ConfigPaths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh config: %v", err)
 	}
 	fmt.Print("Getting Data from GCS...\n")
 	result := make(JobToCategoryData)
 	var resultLock sync.Mutex
 	var wg sync.WaitGroup
-	wg.Add(len(TestConfig[utils.KubekinsBucket]))
-	for job, tests := range TestConfig[utils.KubekinsBucket] {
+	wg.Add(len(newJobs))
+	for job, tests := range newJobs {
 		if tests.Prefix == "" {
-			return result, fmt.Errorf("Invalid empty Prefix for job %s", job)
+			return nil, fmt.Errorf("Invalid empty Prefix for job %s", job)
 		}
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel := range categoryMap {

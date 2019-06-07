@@ -233,38 +233,47 @@ type periodic struct {
 	Tags []string `json:"tags"`
 }
 
+func urlConfigRead(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching prow config from %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading prow config from %s: %v", url, err)
+	}
+	return b, nil
+}
+
+func fileConfigRead(path string) ([]byte, error) {
+	return ioutil.ReadFile(path)
+}
+
 func getProwConfig(configPaths []string) (Jobs, error) {
-	fmt.Fprintf(os.Stderr, "Fetching prow config from GitHub...\n")
 	jobs := Jobs{}
-	yamlLinks := []string{}
+
 	for _, configPath := range configPaths {
-		// Perfdash supports only urls.
-		if !strings.HasPrefix(configPath, "http") {
-			fmt.Fprintf(os.Stderr, "%s is not an url!\n", configPath)
-			continue
-		}
+		fmt.Fprintf(os.Stderr, "Fetching config %s\n", configPath)
 		// Perfdash supports only yamls.
 		if !strings.HasSuffix(configPath, ".yaml") {
 			fmt.Fprintf(os.Stderr, "%s is not an yaml file!\n", configPath)
 			continue
 		}
-		yamlLinks = append(yamlLinks, configPath)
-	}
-
-	for _, yamlLink := range yamlLinks {
-		fmt.Fprintf(os.Stderr, "Fetching config %s\n", yamlLink)
-		resp, err := http.Get(yamlLink)
-		if err != nil {
-			return nil, fmt.Errorf("error fetching prow config from GitHub: %v", err)
+		var content []byte
+		var err error
+		switch {
+		case strings.HasPrefix(configPath, "http://"), strings.HasPrefix(configPath, "https://"):
+			content, err = urlConfigRead(configPath)
+		default:
+			content, err = fileConfigRead(configPath)
 		}
-		defer resp.Body.Close()
-		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("error reading prow config from GitHub: %v", err)
+			return nil, err
 		}
 		conf := &config{}
-		if err := yaml.Unmarshal(b, conf); err != nil {
-			return nil, fmt.Errorf("error unmarshaling prow config from GitHub: %v", err)
+		if err := yaml.Unmarshal(content, conf); err != nil {
+			return nil, fmt.Errorf("error unmarshaling prow config from %s: %v", configPath, err)
 		}
 		for _, periodic := range conf.Periodics {
 			var thisPeriodicConfig Tests

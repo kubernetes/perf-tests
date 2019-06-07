@@ -147,16 +147,16 @@ var versionMatcher = regexp.MustCompile("kubernetes/.{7}")
 func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
 	build := fmt.Sprintf("%d", buildNumber)
-	var obj metrics.MetricsCollection
+	var obj metrics.Collection
 	if err := json.Unmarshal(data, &obj); err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
 		return
 	}
-	if obj.ApiServerMetrics == nil {
+	if obj.APIServerMetrics == nil {
 		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
 		return
 	}
-	metric, ok := obj.ApiServerMetrics["apiserver_request_count"]
+	metric, ok := obj.APIServerMetrics["apiserver_request_count"]
 	if !ok {
 		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d\n", buildNumber)
 		return

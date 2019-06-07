@@ -11,6 +11,9 @@ matrix:
     include:
         - go: 1.11
 
+before_install:
+    - sudo apt-get install jq
+
 install:
 # Create and move build under the go path
     - mkdir -p $HOME/gopath/src/k8s.io
@@ -23,6 +26,7 @@ script:
     - ./verify/verify-gofmt.sh
     - ./verify/verify-golint.sh
     - ./verify/verify-flags-underscore.py
+    - ./verify/verify-dashboard-format.sh
     - go get -d ./...
     - travis_wait go build $(go list ./... | grep -v "/vendor/")
     - ./verify/test.sh

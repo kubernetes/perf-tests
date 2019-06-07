@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
-	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -40,10 +39,14 @@ import (
 const (
 	apiResponsivenessPrometheusMeasurementName = "APIResponsivenessPrometheus"
 
-	// latencyQuery %v should be replaced with query window size.
-	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile[%v])"
-	// countQuery %v should be replaced with query window size.
-	countQuery = "sum(increase(apiserver_request_duration_seconds_count[%v])) by (resource, subresource, scope, verb)"
+	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|proxy|CONNECT"`
+
+	// latencyQuery: %v should be replaced with (1) filters and (2) query window size.
+	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this.
+	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{%v}[%v])"
+
+	// countQuery %v should be replaced with (1) filters and (2) query window size.
+	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	latencyWindowSize = 5 * time.Minute
 )
@@ -154,12 +157,12 @@ func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Inte
 	if latencyMeasurementDuration < time.Minute {
 		latencyMeasurementDuration = time.Minute
 	}
-	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, measurementutil.ToPrometheusTime(latencyMeasurementDuration))
+	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, filters, measurementutil.ToPrometheusTime(latencyMeasurementDuration))
 	latencySamples, err := measurementutil.ExecutePrometheusQuery(c, timeBoundedLatencyQuery, measurementEnd)
 	if err != nil {
 		return nil, err
 	}
-	timeBoundedCountQuery := fmt.Sprintf(countQuery, measurementutil.ToPrometheusTime(measurementDuration))
+	timeBoundedCountQuery := fmt.Sprintf(countQuery, filters, measurementutil.ToPrometheusTime(measurementDuration))
 	countSamples, err := measurementutil.ExecutePrometheusQuery(c, timeBoundedCountQuery, measurementEnd)
 	if err != nil {
 		return nil, err
@@ -169,9 +172,6 @@ func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Inte
 
 func (a *apiResponsivenessMeasurementPrometheus) convertToApiCalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
 	apiCalls := make(map[string]*apiCall)
-	ignoredResources := sets.NewString("events")
-	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this.
-	ignoredVerbs := sets.NewString("WATCH", "WATCHLIST", "PROXY", "proxy", "CONNECT")
 
 	for _, sample := range latencySamples {
 		resource := string(sample.Metric["resource"])
@@ -181,9 +181,6 @@ func (a *apiResponsivenessMeasurementPrometheus) convertToApiCalls(latencySample
 		quantile, err := strconv.ParseFloat(string(sample.Metric["quantile"]), 64)
 		if err != nil {
 			return nil, err
-		}
-		if ignoredResources.Has(resource) || ignoredVerbs.Has(verb) {
-			continue
 		}
 
 		latency := time.Duration(float64(sample.Value) * float64(time.Second))
@@ -195,9 +192,6 @@ func (a *apiResponsivenessMeasurementPrometheus) convertToApiCalls(latencySample
 		subresource := string(sample.Metric["subresource"])
 		verb := string(sample.Metric["verb"])
 		scope := string(sample.Metric["scope"])
-		if ignoredResources.Has(resource) || ignoredVerbs.Has(verb) {
-			continue
-		}
 
 		count := int(math.Round(float64(sample.Value)))
 		addCount(apiCalls, resource, subresource, verb, scope, count)

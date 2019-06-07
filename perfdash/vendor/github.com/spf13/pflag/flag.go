@@ -279,16 +279,16 @@ func (f *FlagSet) VisitAll(fn func(*Flag)) {
 	}
 }
 
-// HasFlags returns a bool to indicate if the FlagSet has any flags definied.
+// HasFlags returns a bool to indicate if the FlagSet has any flags defined.
 func (f *FlagSet) HasFlags() bool {
 	return len(f.formal) > 0
 }
 
 // HasAvailableFlags returns a bool to indicate if the FlagSet has any flags
-// definied that are not hidden or deprecated.
+// that are not hidden.
 func (f *FlagSet) HasAvailableFlags() bool {
 	for _, flag := range f.formal {
-		if !flag.Hidden && len(flag.Deprecated) == 0 {
+		if !flag.Hidden {
 			return true
 		}
 	}
@@ -398,6 +398,7 @@ func (f *FlagSet) MarkDeprecated(name string, usageMessage string) error {
 		return fmt.Errorf("deprecated message for flag %q must be set", name)
 	}
 	flag.Deprecated = usageMessage
+	flag.Hidden = true
 	return nil
 }
 
@@ -668,7 +669,7 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 
 	maxlen := 0
 	f.VisitAll(func(flag *Flag) {
-		if flag.Deprecated != "" || flag.Hidden {
+		if flag.Hidden {
 			return
 		}
 
@@ -714,6 +715,9 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 			} else {
 				line += fmt.Sprintf(" (default %s)", flag.DefValue)
 			}
+		}
+		if len(flag.Deprecated) != 0 {
+			line += fmt.Sprintf(" (DEPRECATED: %s)", flag.Deprecated)
 		}
 
 		lines = append(lines, line)
@@ -921,13 +925,16 @@ func stripUnknownFlagValue(args []string) []string {
 	}
 
 	first := args[0]
-	if first[0] == '-' {
+	if len(first) > 0 && first[0] == '-' {
 		//--unknown --next-flag ...
 		return args
 	}
 
 	//--unknown arg ... (args will be arg ...)
-	return args[1:]
+	if len(args) > 1 {
+		return args[1:]
+	}
+	return nil
 }
 
 func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []string, err error) {
@@ -986,11 +993,12 @@ func (f *FlagSet) parseLongArg(s string, args []string, fn parseFunc) (a []strin
 }
 
 func (f *FlagSet) parseSingleShortArg(shorthands string, args []string, fn parseFunc) (outShorts string, outArgs []string, err error) {
+	outArgs = args
+
 	if strings.HasPrefix(shorthands, "test.") {
 		return
 	}
 
-	outArgs = args
 	outShorts = shorthands[1:]
 	c := shorthands[0]
 

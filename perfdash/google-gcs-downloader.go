@@ -33,36 +33,36 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
-const (
-	// KubekinsBucket is a default kubekins bucket name.
-	KubekinsBucket = "kubernetes-jenkins"
-	// LogDir is a default name for kubekins log directory.
-	LogDir = "logs"
-)
-
-// GoogleGCSDownloader that gets data about Google results from the GCS repository
-type GoogleGCSDownloader struct {
-	DefaultBuildsCount   int
-	GoogleGCSBucketUtils *bucketUtil
-	ConfigPaths          []string
+// GoogleGCSDownloaderOptions is an options for GoogleGCSDownloader.
+type GoogleGCSDownloaderOptions struct {
+	ConfigPaths        []string
+	DefaultBuildsCount int
+	LogsBucket         string
+	LogsPath           string
+	CredentialPath     string
 }
 
-// NewGoogleGCSDownloader creates a new GoogleGCSDownloader
-func NewGoogleGCSDownloader(configPaths []string, defaultBuildsCount int) (*GoogleGCSDownloader, error) {
-	b, err := newBucketUtil()
+// GoogleGCSDownloader that gets data about Google results from the GCS repository.
+type GoogleGCSDownloader struct {
+	GoogleGCSBucketUtils *bucketUtil
+	Options              *GoogleGCSDownloaderOptions
+}
+
+// NewGoogleGCSDownloader creates a new GoogleGCSDownloader.
+func NewGoogleGCSDownloader(opt *GoogleGCSDownloaderOptions) (*GoogleGCSDownloader, error) {
+	b, err := newBucketUtil(opt.LogsBucket, opt.LogsPath, opt.CredentialPath)
 	if err != nil {
 		return nil, err
 	}
 	return &GoogleGCSDownloader{
-		DefaultBuildsCount:   defaultBuildsCount,
 		GoogleGCSBucketUtils: b,
-		ConfigPaths:          configPaths,
+		Options:              opt,
 	}, nil
 }
 
 // TODO(random-liu): Only download and update new data each time.
 func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
-	newJobs, err := getProwConfig(g.ConfigPaths)
+	newJobs, err := getProwConfig(g.Options.ConfigPaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh config: %v", err)
 	}
@@ -106,7 +106,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 
 	buildsToFetch := tests.BuildsCount
 	if buildsToFetch < 1 {
-		buildsToFetch = g.DefaultBuildsCount
+		buildsToFetch = g.Options.DefaultBuildsCount
 	}
 	fmt.Printf("Builds to fetch for %v: %v\n", job, buildsToFetch)
 
@@ -145,27 +145,33 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 }
 
 type bucketUtil struct {
-	client *storage.Client
-	bucket *storage.BucketHandle
+	client  *storage.Client
+	bucket  *storage.BucketHandle
+	logPath string
 }
 
-func newBucketUtil() (*bucketUtil, error) {
+func newBucketUtil(bucket, path, credentialPath string) (*bucketUtil, error) {
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithoutAuthentication())
+	authOpt := option.WithoutAuthentication()
+	if credentialPath != "" {
+		authOpt = option.WithCredentialsFile(credentialPath)
+	}
+	c, err := storage.NewClient(ctx, authOpt)
 	if err != nil {
 		return nil, err
 	}
-	bucket := client.Bucket(KubekinsBucket)
+	b := c.Bucket(bucket)
 	return &bucketUtil{
-		client: client,
-		bucket: bucket,
+		client:  c,
+		bucket:  b,
+		logPath: path,
 	}, nil
 }
 
 func (b *bucketUtil) getBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, error) {
 	var builds []int
 	ctx := context.Background()
-	jobPrefix := joinStringsAndInts(LogDir, job) + "/"
+	jobPrefix := joinStringsAndInts(b.logPath, job) + "/"
 	fmt.Printf("%s\n", jobPrefix)
 	it := b.bucket.Objects(ctx, &storage.Query{
 		Prefix:    jobPrefix,
@@ -196,7 +202,7 @@ func (b *bucketUtil) getBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, 
 func (b *bucketUtil) listFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
 	var files []string
 	ctx := context.Background()
-	jobPrefix := joinStringsAndInts(LogDir, job, buildNumber, prefix)
+	jobPrefix := joinStringsAndInts(b.logPath, job, buildNumber, prefix)
 	it := b.bucket.Objects(ctx, &storage.Query{
 		Prefix: jobPrefix,
 	})
@@ -216,7 +222,7 @@ func (b *bucketUtil) listFilesInBuild(job string, buildNumber int, prefix string
 
 func (b *bucketUtil) getFileFromJenkinsGoogleBucket(job string, buildNumber int, path string) ([]byte, error) {
 	ctx := context.Background()
-	filePath := joinStringsAndInts(LogDir, job, buildNumber, path)
+	filePath := joinStringsAndInts(b.logPath, job, buildNumber, path)
 	rc, err := b.bucket.Object(filePath).NewReader(ctx)
 	if err != nil {
 		return nil, err

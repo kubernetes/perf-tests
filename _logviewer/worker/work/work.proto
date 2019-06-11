@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "k8s.io/perf-tests/logviewer/worker/work";
+
+package work;
+
+message Work {
+    string file = 1;
+    string targetSubstring = 2;
+    timestamp since = 3;
+    timestamp until = 4;
+  }
+
+  message LogLine {
+    timestamp timestamp = 1;
+    string entry = 2;
+  }
+
+  message WorkResult {
+    repeated LogLine logLines = 1;
+  }
+
+  service Worker {
+    rpc DoWork (Work) returns (stream WorkResult) {}
+  }

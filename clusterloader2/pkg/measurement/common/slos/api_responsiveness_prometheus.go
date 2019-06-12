@@ -28,9 +28,11 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"github.com/spf13/pflag"
+
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -52,6 +54,10 @@ const (
 
 	// Number of metrics with highest latency to print. If the latency exceeeds SLO threshold, a metric is printed regardless.
 	topToPrint = 5
+)
+
+var (
+	enableViolations = pflag.Bool("enable-violations-api-responsiveness-prometheus", false, "Whether to enable violations in the API call responsiveness measurement done via Prometheus")
 )
 
 func init() {
@@ -100,11 +106,9 @@ func (a *apiResponsivenessGatherer) Gather(config *measurement.MeasurementConfig
 		return nil, err
 	}
 	summary := measurement.CreateSummary(apiResponsivenessPrometheusMeasurementName, "json", content)
-	// TODO(#498): For testing purpose this metric will never return metric violation error.
-	// The code below should be
-	// if len(badMetrics) > 0 {
-	// 	return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
-	// }
+	if len(badMetrics) > 0 && *enableViolations {
+		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	}
 	return summary, nil
 }
 

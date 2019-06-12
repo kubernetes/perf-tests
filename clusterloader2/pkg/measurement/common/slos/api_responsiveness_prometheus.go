@@ -30,7 +30,7 @@ import (
 	"github.com/prometheus/common/model"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -49,67 +49,27 @@ const (
 	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	latencyWindowSize = 5 * time.Minute
+
+	// Number of metrics with highest latency to print. If the latency exceeeds SLO threshold, a metric is printed regardless.
+	topToPrint = 5
 )
 
 func init() {
-	measurement.Register(apiResponsivenessPrometheusMeasurementName, createAPIResponsivenessPrometheusMeasurement)
-}
-
-func createAPIResponsivenessPrometheusMeasurement() measurement.Measurement {
-	return &apiResponsivenessMeasurementPrometheus{}
-}
-
-type apiResponsivenessMeasurementPrometheus struct {
-	startTime time.Time
-	apiCalls  map[string]*apiCall
-}
-
-// Execute supports two actions:
-// - start - Stores the measurement starting time.
-// - gather - Gathers and prints current api server latency data based on data collected by prometheus server.
-func (a *apiResponsivenessMeasurementPrometheus) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	if config.PrometheusFramework == nil {
-		klog.Warning("%s: Prometheus is disabled, skipping the measurement!", a)
-		// TODO(#498): for the testing purpose metric is not returning error.
-		return nil, nil
+	if err := measurement.Register(apiResponsivenessPrometheusMeasurementName, createMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", apiResponsivenessPrometheusMeasurementName, err)
 	}
-
-	action, err := util.GetString(config.Params, "action")
-	if err != nil {
-		return nil, err
-	}
-
-	switch action {
-	case "start":
-		a.start()
-	case "gather":
-		summary, err := a.gather(config.PrometheusFramework.GetClientSets().GetClient())
-		if err != nil && !errors.IsMetricViolationError(err) {
-			return nil, err
-		}
-		return []measurement.Summary{summary}, err
-	default:
-		return nil, fmt.Errorf("unknown action %v", action)
-	}
-
-	return nil, nil
 }
 
-// Dispose cleans up after the measurement.
-func (a *apiResponsivenessMeasurementPrometheus) Dispose() {}
-
-// String returns string representation of this measurement.
-func (*apiResponsivenessMeasurementPrometheus) String() string {
-	return apiResponsivenessPrometheusMeasurementName
+func createMeasurement() measurement.Measurement {
+	return createPrometheusMeasurement(apiResponsivenessPrometheusMeasurementName, &apiResponsivenessGatherer{})
 }
 
-func (a *apiResponsivenessMeasurementPrometheus) start() {
-	klog.Infof("%s: starting latency metrics in apiserver...", a)
-	a.startTime = time.Now()
-}
+type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (measurement.Summary, error) {
-	apiCalls, err := a.gatherApiCalls(c)
+func (a *apiResponsivenessGatherer) Gather(config *measurement.MeasurementConfig, startTime time.Time) (measurement.Summary, error) {
+	c := config.PrometheusFramework.GetClientSets().GetClient()
+
+	apiCalls, err := a.gatherApiCalls(c, startTime)
 	if err != nil {
 		klog.Errorf("%s: samples gathering error: %v", a, err)
 	}
@@ -117,13 +77,13 @@ func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (
 	metrics := &apiResponsiveness{ApiCalls: apiCalls}
 	sort.Sort(sort.Reverse(metrics))
 	var badMetrics []string
-	top := 5
-	for i := range metrics.ApiCalls {
+	top := topToPrint
+	for _, apiCall := range metrics.ApiCalls {
 		isBad := false
-		latencyThreshold := getLatencyThreshold(&metrics.ApiCalls[i])
-		if metrics.ApiCalls[i].Latency.Perc99 > latencyThreshold {
+		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
+		if apiCall.Latency.Perc99 > sloThreshold {
 			isBad = true
-			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", metrics.ApiCalls[i], latencyThreshold))
+			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, sloThreshold))
 		}
 		if top > 0 || isBad {
 			top--
@@ -131,7 +91,7 @@ func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (
 			if isBad {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, apiCall, sloThreshold)
 		}
 	}
 
@@ -148,9 +108,9 @@ func (a *apiResponsivenessMeasurementPrometheus) gather(c clientset.Interface) (
 	return summary, nil
 }
 
-func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Interface) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) gatherApiCalls(c clientset.Interface, startTime time.Time) ([]apiCall, error) {
 	measurementEnd := time.Now()
-	measurementDuration := measurementEnd.Sub(a.startTime)
+	measurementDuration := measurementEnd.Sub(startTime)
 	// Latency measurement is based on 5m window aggregation,
 	// therefore first 5 minutes of the test should be skipped.
 	latencyMeasurementDuration := measurementDuration - latencyWindowSize
@@ -170,7 +130,7 @@ func (a *apiResponsivenessMeasurementPrometheus) gatherApiCalls(c clientset.Inte
 	return a.convertToApiCalls(latencySamples, countSamples)
 }
 
-func (a *apiResponsivenessMeasurementPrometheus) convertToApiCalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) convertToApiCalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
 	apiCalls := make(map[string]*apiCall)
 
 	for _, sample := range latencySamples {
@@ -236,15 +196,12 @@ func getMetricKey(resource, subresource, verb, scope string) string {
 	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
 }
 
-func getLatencyThreshold(call *apiCall) time.Duration {
-	isListCall := (call.Verb == "LIST")
-	isClusterScopedCall := (call.Scope == "cluster")
-	latencyThreshold := apiCallLatencyThreshold
-	if isListCall {
-		latencyThreshold = apiListCallLatencyThreshold
-		if isClusterScopedCall {
-			latencyThreshold = apiClusterScopeListCallThreshold
-		}
+func getSLOThreshold(verb, scope string) time.Duration {
+	if verb != "LIST" {
+		return apiCallLatencyThreshold
 	}
-	return latencyThreshold
+	if scope == "cluster" {
+		return apiClusterScopeListCallThreshold
+	}
+	return apiListCallLatencyThreshold
 }

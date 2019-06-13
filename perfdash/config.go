@@ -82,20 +82,10 @@ var (
 				OutputFilePrefix: "PodStartupLatency_SaturationPodStartupLatency",
 				Parser:           parseResponsivenessData,
 			}},
-			"DensityTestPhaseTimer": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "TestPhaseTimer",
-				Parser:           parseResponsivenessData,
-			}},
 			"LoadResources": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
-			}},
-			"LoadTestPhaseTimer": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "TestPhaseTimer",
-				Parser:           parseResponsivenessData,
 			}},
 		},
 		"APIServer": {

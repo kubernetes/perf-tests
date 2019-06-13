@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
@@ -65,6 +66,18 @@ func StringArrayVar(s *[]string, flagName string, defaultValue []string, descrip
 	pflag.StringArrayVar(s, flagName, defaultValue, description)
 }
 
+// StringSliceEnvVar creates a string slice flag with the given parameters.
+// If the flag is not provided, it will try to get the env variable.
+// Flag accepts multiple values separated by commas.
+func StringSliceEnvVar(s *[]string, flagName, envVariable string, defaultValue []string, description string) {
+	stringSliceFlag := &stringSliceFlagFunc{
+		valPtr:         s,
+		initializeFunc: func() error { return parseEnvStringSlice(s, envVariable, defaultValue) },
+	}
+	pflag.Var(stringSliceFlag, flagName, description)
+	flags = append(flags, stringSliceFlag)
+}
+
 // IntEnvVar creates int flag with given parameters.
 // If flag is not provided, it will try to get env variable.
 func IntEnvVar(i *int, flagName, envVariable string, defaultValue int, description string) {
@@ -107,6 +120,16 @@ func parseEnvString(s *string, envVariable, defaultValue string) error {
 		if val, ok := os.LookupEnv(envVariable); ok {
 			*s = val
 			return nil
+		}
+	}
+	return nil
+}
+
+func parseEnvStringSlice(s *[]string, envVariable string, defaultValue []string) error {
+	*s = defaultValue
+	if envVariable != "" {
+		if val, ok := os.LookupEnv(envVariable); ok && val != "" {
+			*s = strings.Split(val, ",")
 		}
 	}
 	return nil

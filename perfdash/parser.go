@@ -142,7 +142,8 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 	}
 }
 
-var versionMatcher = regexp.MustCompile("kubernetes/.{7}")
+var commitMatcher = regexp.MustCompile("kubernetes/.{7}")
+var versionMatcher = regexp.MustCompile(`\/v?\d+\.\d+.\d+`)
 
 func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
@@ -169,18 +170,23 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		}
 		delete(perfData.Labels, "__name__")
 		delete(perfData.Labels, "contentType")
+		dataLabel := "RequestCount"
 		if client, ok := perfData.Labels["client"]; ok {
 			// Client label contains kubernetes version, which is different
 			// in every build. This causes unnecessary creation on multiple different label sets
 			// for one metric.
 			// This fix removes kubernetes version from client label.
-			newClient := versionMatcher.ReplaceAllString(client, "kubernetes")
+			newClient := commitMatcher.ReplaceAllString(client, "kubernetes")
+			if version := versionMatcher.Find([]byte(newClient)); version != nil {
+				dataLabel = string(version)
+				newClient = strings.Replace(newClient, dataLabel, "", 1)
+			}
 			perfData.Labels["client"] = newClient
 		}
-		perfData.Data["RequestCount"] = float64(metric[i].Value)
+		perfData.Data[dataLabel] = float64(metric[i].Value)
 		key := createMapId(perfData.Labels)
 		if result, exists := resultMap[key]; exists {
-			result.Data["RequestCount"] += perfData.Data["RequestCount"]
+			result.Data[dataLabel] += perfData.Data[dataLabel]
 			continue
 		}
 		resultMap[key] = &perfData

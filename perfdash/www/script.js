@@ -28,6 +28,7 @@ var PerfDashApp = function(http, scope, route) {
     this.cap = 0;
     this.currentCall = 0;
     this.scope.$on('$routeChangeSuccess', this.routeChanged.bind(this));
+    this.lastCall = {jobname: "", metriccategoryname: "", metricname: "", time: Date.now()};
 };
 
 
@@ -139,7 +140,17 @@ PerfDashApp.prototype.metricCategoryNameChanged = function() {
 // Update the data to graph, using the selected metricName
 PerfDashApp.prototype.metricNameChanged = function() {
     this.setURLParameters();
+    if (
+        this.lastCall.jobname == this.jobName &&
+        this.lastCall.metriccategoryname == this.metricCategoryName &&
+        this.lastCall.metricname == this.metricName &&
+        Date.now() < this.lastCall.time
+    ) {
+        // Preventing initialization calls spamming.
+        return;
+    }
     var callId = ++this.currentCall;
+    this.lastCall = {jobname: this.jobName, metriccategoryname: this.metricCategoryName, metricname: this.metricName, time: Date.now() + 1000};
     this.http.get("buildsdata", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName, metricname: this.metricName}})
             .success(function(data) {
                     if (this.currentCall != callId) {

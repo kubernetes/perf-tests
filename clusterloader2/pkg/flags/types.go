@@ -18,6 +18,7 @@ package flags
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -55,6 +56,36 @@ func (s *stringFlagFunc) Set(val string) error {
 // Type returns flag type.
 func (s *stringFlagFunc) Type() string {
 	return "string"
+}
+
+type stringSliceFlagFunc struct {
+	valPtr         *[]string
+	initializeFunc func() error
+}
+
+// initialize runs additional parsing function.
+func (s *stringSliceFlagFunc) initialize() error {
+	return s.initializeFunc()
+}
+
+// String returns default string.
+func (*stringSliceFlagFunc) String() string {
+	return "false"
+}
+
+// Set handles flag value setting.
+func (s *stringSliceFlagFunc) Set(val string) error {
+	if val != "" {
+		*s.valPtr = strings.Split(val, ",")
+	} else {
+		*s.valPtr = nil
+	}
+	return nil
+}
+
+// Type returns flag type.
+func (*stringSliceFlagFunc) Type() string {
+	return "stringSlice"
 }
 
 type intFlagFunc struct {

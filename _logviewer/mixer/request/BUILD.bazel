@@ -6,7 +6,7 @@ proto_library(
     srcs = ["request.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//k8s.io/perf-tests/logviewer/worker/work:work_proto",
+        "//worker/work:work_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
 )
@@ -17,7 +17,7 @@ go_proto_library(
     importpath = "k8s.io/perf-tests/logviewer/mixer/request",
     proto = ":request_proto",
     visibility = ["//visibility:public"],
-    deps = ["//k8s.io/perf-tests/logviewer/worker/work:go_default_library"],
+    deps = ["//worker/work:go_default_library"],
 )
 
 go_library(

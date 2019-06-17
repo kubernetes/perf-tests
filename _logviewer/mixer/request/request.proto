@@ -1,11 +1,10 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
-import "k8s.io/perf-tests/logviewer/worker/work/work.proto";
+import "worker/work/work.proto";
 
-option go_package = "k8s.io/perf-tests/logviewer/mixer/request";
-
-package request;
+package k8s.io.perftests.logviewer.mixer.request;
+option go_package = "request";
 
 message MixerRequest {
     int32 buildNumber = 1;
@@ -16,7 +15,7 @@ message MixerRequest {
   }
 
   message MixerResult {
-    repeated work.LogLine logLines = 1;
+    repeated k8s.io.perftests.logviewer.worker.work.LogLine logLines = 1;
   }
 
   service MixerService {

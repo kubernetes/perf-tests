@@ -2,19 +2,18 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "k8s.io/perf-tests/logviewer/worker/work";
-
-package work;
+package k8s.io.perftests.logviewer.worker.work;
+option go_package = "work";
 
 message Work {
     string file = 1;
     string targetSubstring = 2;
-    timestamp since = 3;
-    timestamp until = 4;
+    google.protobuf.Timestamp since = 3;
+    google.protobuf.Timestamp until = 4;
   }
 
   message LogLine {
-    timestamp timestamp = 1;
+    google.protobuf.Timestamp timestamp = 1;
     string entry = 2;
   }
 

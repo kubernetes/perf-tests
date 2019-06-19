@@ -82,8 +82,18 @@ type promResponseData struct {
 	v model.Value
 }
 
-// ExecutePrometheusQuery executes given prometheus query.
-func ExecutePrometheusQuery(c clientset.Interface, query string, queryTime time.Time) ([]*model.Sample, error) {
+// NewQueryExecutor creates instance of PrometheusQueryExecutor.
+func NewQueryExecutor(c clientset.Interface) *PrometheusQueryExecutor {
+	return &PrometheusQueryExecutor{client: c}
+}
+
+// PrometheusQueryExecutor executes queries against Prometheus instance running inside test cluster.
+type PrometheusQueryExecutor struct {
+	client clientset.Interface
+}
+
+// Query executes given prometheus query at given point in time.
+func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
 	if queryTime.IsZero() {
 		return nil, fmt.Errorf("query time can't be zero")
 	}
@@ -95,7 +105,7 @@ func ExecutePrometheusQuery(c clientset.Interface, query string, queryTime time.
 		"time":  queryTime.Format(time.RFC3339),
 	}
 	if err := wait.PollImmediate(queryInterval, queryTimeout, func() (bool, error) {
-		body, queryErr = c.CoreV1().
+		body, queryErr = e.client.CoreV1().
 			Services("monitoring").
 			ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
 			DoRaw()

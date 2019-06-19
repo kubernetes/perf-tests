@@ -20,24 +20,31 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
-func createPrometheusMeasurement(name string, gatherer Gatherer) measurement.Measurement {
+func createPrometheusMeasurement(gatherer Gatherer) measurement.Measurement {
 	return &prometheusMeasurement{
-		name:     name,
 		gatherer: gatherer,
 	}
+}
+
+// QueryExecutor is an interface for queryning Prometheus server.
+type QueryExecutor interface {
+	Query(query string, queryTime time.Time) ([]*model.Sample, error)
 }
 
 // Gatherer is an interface for measurements based on Prometheus metrics. Those measurments don't require any preparation.
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
-	Gather(config *measurement.MeasurementConfig, startTime time.Time) (measurement.Summary, error)
+	Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error)
+	String() string
 }
 
 type prometheusMeasurement struct {
@@ -64,7 +71,10 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		m.startTime = time.Now()
 		return nil, nil
 	case "gather":
-		summary, err := m.gatherer.Gather(config, m.startTime)
+		c := config.PrometheusFramework.GetClientSets().GetClient()
+		executor := measurementutil.NewQueryExecutor(c)
+
+		summary, err := m.gatherer.Gather(executor, m.startTime)
 		if err != nil && !errors.IsMetricViolationError(err) {
 			return nil, err
 		}
@@ -77,5 +87,5 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 func (m *prometheusMeasurement) Dispose() {}
 
 func (m *prometheusMeasurement) String() string {
-	return m.name
+	return m.gatherer.String()
 }

@@ -42,3 +42,20 @@ spec:
       record: probes:in_cluster_network_latency:histogram_quantile
       labels:
         quantile: "0.50"
+  - name: kube-proxy.rules
+    rules:
+    - expr: |
+        histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.90, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile
+      labels:
+        quantile: "0.50"

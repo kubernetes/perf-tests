@@ -56,7 +56,7 @@ type prometheusMeasurement struct {
 
 func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	if config.PrometheusFramework == nil {
-		klog.Warning("%s: Prometheus is disable, skipping the measurement!", m)
+		klog.Warningf("%s: Prometheus is disable, skipping the measurement!", m)
 		return nil, nil
 	}
 
@@ -71,6 +71,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		m.startTime = time.Now()
 		return nil, nil
 	case "gather":
+		klog.Infof("%s gathering results", m)
 		c := config.PrometheusFramework.GetClientSets().GetClient()
 		executor := measurementutil.NewQueryExecutor(c)
 

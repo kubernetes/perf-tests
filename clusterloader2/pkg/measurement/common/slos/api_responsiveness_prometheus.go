@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -55,23 +54,19 @@ const (
 )
 
 func init() {
-	if err := measurement.Register(apiResponsivenessPrometheusMeasurementName, createMeasurement); err != nil {
+	create := func() measurement.Measurement { return createPrometheusMeasurement(&apiResponsivenessGatherer{}) }
+	if err := measurement.Register(apiResponsivenessPrometheusMeasurementName, create); err != nil {
 		klog.Fatalf("Cannot register %s: %v", apiResponsivenessPrometheusMeasurementName, err)
 	}
 }
 
-func createMeasurement() measurement.Measurement {
-	return createPrometheusMeasurement(apiResponsivenessPrometheusMeasurementName, &apiResponsivenessGatherer{})
-}
-
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(config *measurement.MeasurementConfig, startTime time.Time) (measurement.Summary, error) {
-	c := config.PrometheusFramework.GetClientSets().GetClient()
-
-	apiCalls, err := a.gatherApiCalls(c, startTime)
+func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error) {
+	apiCalls, err := a.gatherApiCalls(executor, startTime)
 	if err != nil {
-		klog.Errorf("%s: samples gathering error: %v", a, err)
+		klog.Errorf("%s: samples gathering error: %v", apiResponsivenessMeasurementName, err)
+		return nil, err
 	}
 
 	metrics := &apiResponsiveness{ApiCalls: apiCalls}
@@ -91,7 +86,7 @@ func (a *apiResponsivenessGatherer) Gather(config *measurement.MeasurementConfig
 			if isBad {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, apiCall, sloThreshold)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", apiResponsivenessMeasurementName, prefix, apiCall, sloThreshold)
 		}
 	}
 
@@ -108,7 +103,11 @@ func (a *apiResponsivenessGatherer) Gather(config *measurement.MeasurementConfig
 	return summary, nil
 }
 
-func (a *apiResponsivenessGatherer) gatherApiCalls(c clientset.Interface, startTime time.Time) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) String() string {
+	return apiResponsivenessPrometheusMeasurementName
+}
+
+func (a *apiResponsivenessGatherer) gatherApiCalls(executor QueryExecutor, startTime time.Time) ([]apiCall, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
 	// Latency measurement is based on 5m window aggregation,
@@ -118,12 +117,12 @@ func (a *apiResponsivenessGatherer) gatherApiCalls(c clientset.Interface, startT
 		latencyMeasurementDuration = time.Minute
 	}
 	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, filters, measurementutil.ToPrometheusTime(latencyMeasurementDuration))
-	latencySamples, err := measurementutil.ExecutePrometheusQuery(c, timeBoundedLatencyQuery, measurementEnd)
+	latencySamples, err := executor.Query(timeBoundedLatencyQuery, measurementEnd)
 	if err != nil {
 		return nil, err
 	}
 	timeBoundedCountQuery := fmt.Sprintf(countQuery, filters, measurementutil.ToPrometheusTime(measurementDuration))
-	countSamples, err := measurementutil.ExecutePrometheusQuery(c, timeBoundedCountQuery, measurementEnd)
+	countSamples, err := executor.Query(timeBoundedCountQuery, measurementEnd)
 	if err != nil {
 		return nil, err
 	}

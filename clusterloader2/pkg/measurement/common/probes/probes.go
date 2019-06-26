@@ -51,7 +51,9 @@ var (
 )
 
 func init() {
-	measurement.Register(probesMeasurementName, createProbesMeasurement)
+	if err := measurement.Register(probesMeasurementName, createProbesMeasurement); err != nil {
+		klog.Errorf("cannot register %s: %v", probesMeasurementName, err)
+	}
 }
 
 func createProbesMeasurement() measurement.Measurement {
@@ -169,8 +171,8 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 	var probeSummaries []measurement.Summary
 	for probeName, queryTmpl := range p.probeNameToPrometheusQueryTmpl {
 		query := prepareQuery(queryTmpl, p.startTime, measurementEnd)
-		samples, err := measurementutil.ExecutePrometheusQuery(
-			p.framework.GetClientSets().GetClient(), query, measurementEnd)
+		executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
+		samples, err := executor.Query(query, measurementEnd)
 		if err != nil {
 			return nil, err
 		}

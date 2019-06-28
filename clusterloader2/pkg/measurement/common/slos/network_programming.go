@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	netProg = "NetworkiProgrammingLatency"
+	netProg = "NetworkProgrammingLatency"
 
 	metricVersion = "v1"
 

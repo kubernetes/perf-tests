@@ -69,18 +69,18 @@ var (
 				{
 					Name:             "density",
 					OutputFilePrefix: "PodStartupLatency",
-					Parser:           parseResponsivenessData,
+					Parser:           parsePerfData,
 				},
 				{
 					Name:             "density",
 					OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
-					Parser:           parseResponsivenessData,
+					Parser:           parsePerfData,
 				},
 			},
 			"DensitySaturationPodStartup": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "PodStartupLatency_SaturationPodStartupLatency",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"LoadResources": []TestDescription{{
 				Name:             "load",
@@ -92,7 +92,7 @@ var (
 			"DensityResponsiveness": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"DensityRequestCount": []TestDescription{{
 				Name:             "density",
@@ -107,7 +107,7 @@ var (
 			"LoadResponsiveness": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"LoadRequestCount": []TestDescription{{
 				Name:             "load",
@@ -161,6 +161,13 @@ var (
 				Parser:           parseHistogramMetric("walFsyncDuration"),
 			}},
 		},
+		"KubeProxy": {
+			"NetworkProgrammingLatency": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "NetworkProgrammingLatency",
+				Parser:           parsePerfData,
+			}},
+		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf
@@ -169,7 +176,7 @@ var (
 			"BenchmarkResults": []TestDescription{{
 				Name:             "benchmark",
 				OutputFilePrefix: "BenchmarkResults",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 		},
 	}
@@ -179,22 +186,22 @@ var (
 			"Latency": []TestDescription{{
 				Name:             "dns",
 				OutputFilePrefix: "Latency",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"LatencyPerc": []TestDescription{{
 				Name:             "dns",
 				OutputFilePrefix: "LatencyPerc",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"Queries": []TestDescription{{
 				Name:             "dns",
 				OutputFilePrefix: "Queries",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 			"Qps": []TestDescription{{
 				Name:             "dns",
 				OutputFilePrefix: "Qps",
-				Parser:           parseResponsivenessData,
+				Parser:           parsePerfData,
 			}},
 		},
 	}

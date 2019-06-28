@@ -13,6 +13,7 @@
 {{$MEDIUM_GROUP_SIZE := 30}}
 {{$SMALL_GROUP_SIZE := 5}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
+{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY false}}
 
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -59,6 +60,12 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
+  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
+  - Identifier: NetworkiProgrammingLatency
+    Method: NetworkiProgrammingLatency
+    Params:
+      action: start
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -257,6 +264,12 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
+  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
+  - Identifier: NetworkiProgrammingLatency
+    Method: NetworkiProgrammingLatency
+    Params:
+      action: gather
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

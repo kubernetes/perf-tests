@@ -38,7 +38,9 @@ const (
 )
 
 func init() {
-	measurement.Register(waitForRunningPodsMeasurementName, createWaitForRunningPodsMeasurement)
+	if err := measurement.Register(waitForRunningPodsMeasurementName, createWaitForRunningPodsMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", waitForRunningPodsMeasurementName, err)
+	}
 }
 
 func createWaitForRunningPodsMeasurement() measurement.Measurement {

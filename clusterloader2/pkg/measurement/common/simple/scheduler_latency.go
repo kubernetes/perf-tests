@@ -42,7 +42,9 @@ const (
 )
 
 func init() {
-	measurement.Register(schedulerLatencyMetricName, createSchedulerLatencyMeasurement)
+	if err := measurement.Register(schedulerLatencyMetricName, createSchedulerLatencyMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", schedulerLatencyMetricName, err)
+	}
 }
 
 func createSchedulerLatencyMeasurement() measurement.Measurement {

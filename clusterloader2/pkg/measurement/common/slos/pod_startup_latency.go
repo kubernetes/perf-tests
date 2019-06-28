@@ -363,7 +363,7 @@ func latencyToPerfData(l measurementutil.LatencyMetric, name string) measurement
 }
 
 func podStartupLatencyToPerfData(latency *podStartupLatency) *measurementutil.PerfData {
-	perfData := &measurementutil.PerfData{Version: currentApiCallMetricsVersion}
+	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.CreateToScheduleLatency, "create_to_schedule"))
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.ScheduleToRunLatency, "schedule_to_run"))
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.RunToWatchLatency, "run_to_watch"))

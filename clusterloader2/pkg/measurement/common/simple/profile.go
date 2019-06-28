@@ -35,8 +35,12 @@ const (
 )
 
 func init() {
-	measurement.Register(memoryProfileName, createMemoryProfileMeasurement)
-	measurement.Register(cpuProfileName, createCPUProfileMeasurement)
+	if err := measurement.Register(memoryProfileName, createMemoryProfileMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", memoryProfileName, err)
+	}
+	if err := measurement.Register(cpuProfileName, createCPUProfileMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", cpuProfileName, err)
+	}
 }
 
 type profileConfig struct {

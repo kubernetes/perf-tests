@@ -32,13 +32,9 @@ const (
 )
 
 var interestingApiServerMetricsLabels = []string{
+	"apiserver_init_events_total",
 	"apiserver_request_count",
 	"apiserver_request_latencies_summary",
-	"etcd_helper_cache_entry_count",
-	"etcd_helper_cache_hit_count",
-	"etcd_helper_cache_miss_count",
-	"etcd_request_cache_add_latencies_summary",
-	"etcd_request_cache_get_latencies_summary",
 	"etcd_request_latencies_summary",
 }
 

@@ -200,7 +200,10 @@ func getSelectorFromUnstrutured(obj *unstructured.Unstructured) (labels.Selector
 			return nil, fmt.Errorf("try to selector failed, field selector not found")
 		}
 		var selector metav1.LabelSelector
-		runtime.DefaultUnstructuredConverter.FromUnstructured(selectorMap, &selector)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(selectorMap, &selector)
+		if err != nil {
+			return nil, fmt.Errorf("try to selector failed, %v", err)
+		}
 		return metav1.LabelSelectorAsSelector(&selector)
 	}
 }

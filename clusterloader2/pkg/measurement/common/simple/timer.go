@@ -32,7 +32,9 @@ const (
 )
 
 func init() {
-	measurement.Register(timerMeasurementName, createTimerMeasurment)
+	if err := measurement.Register(timerMeasurementName, createTimerMeasurment); err != nil {
+		klog.Fatalf("Cannot register %s: %v", timerMeasurementName, err)
+	}
 }
 
 func createTimerMeasurment() measurement.Measurement {

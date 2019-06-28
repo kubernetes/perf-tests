@@ -35,7 +35,9 @@ const (
 )
 
 func init() {
-	measurement.Register(schedulingThroughputMeasurementName, createSchedulingThroughputMeasurement)
+	if err := measurement.Register(schedulingThroughputMeasurementName, createSchedulingThroughputMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", schedulingThroughputMeasurementName, err)
+	}
 }
 
 func createSchedulingThroughputMeasurement() measurement.Measurement {

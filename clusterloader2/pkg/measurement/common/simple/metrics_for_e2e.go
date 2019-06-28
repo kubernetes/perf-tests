@@ -69,7 +69,9 @@ var interestingKubeletMetricsLabels = []string{
 }
 
 func init() {
-	measurement.Register(metricsForE2EName, createmetricsForE2EMeasurement)
+	if err := measurement.Register(metricsForE2EName, createmetricsForE2EMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", metricsForE2EName, err)
+	}
 }
 
 func createmetricsForE2EMeasurement() measurement.Measurement {

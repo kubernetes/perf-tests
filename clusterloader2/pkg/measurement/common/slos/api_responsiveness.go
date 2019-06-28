@@ -47,13 +47,15 @@ const (
 	apiListCallLatencyThreshold      time.Duration = 5 * time.Second
 	apiClusterScopeListCallThreshold time.Duration = 10 * time.Second
 
-	currentApiCallMetricsVersion = "v1"
+	currentAPICallMetricsVersion = "v1"
 
 	apiResponsivenessMeasurementName = "APIResponsiveness"
 )
 
 func init() {
-	measurement.Register(apiResponsivenessMeasurementName, createAPIResponsivenessMeasurement)
+	if err := measurement.Register(apiResponsivenessMeasurementName, createAPIResponsivenessMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", apiResponsivenessMeasurementName, err)
+	}
 }
 
 func createAPIResponsivenessMeasurement() measurement.Measurement {
@@ -273,7 +275,7 @@ func setQuantileAPICall(apicall apiCall, quantile float64, latency time.Duration
 
 // apiCallToPerfData transforms apiResponsiveness to PerfData.
 func apiCallToPerfData(apicalls *apiResponsiveness) *measurementutil.PerfData {
-	perfData := &measurementutil.PerfData{Version: currentApiCallMetricsVersion}
+	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
 	for _, apicall := range apicalls.ApiCalls {
 		item := measurementutil.DataItem{
 			Data: map[string]float64{

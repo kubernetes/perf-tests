@@ -34,7 +34,9 @@ const (
 )
 
 func init() {
-	measurement.Register(etcdMetricsMetricName, createEtcdMetricsMeasurement)
+	if err := measurement.Register(etcdMetricsMetricName, createEtcdMetricsMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", etcdMetricsMetricName, err)
+	}
 }
 
 func createEtcdMetricsMeasurement() measurement.Measurement {

@@ -35,7 +35,9 @@ const (
 )
 
 func init() {
-	measurement.Register(resourceUsageMetricName, createResourceUsageMetricMeasurement)
+	if err := measurement.Register(resourceUsageMetricName, createResourceUsageMetricMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", resourceUsageMetricName, err)
+	}
 }
 
 func createResourceUsageMetricMeasurement() measurement.Measurement {

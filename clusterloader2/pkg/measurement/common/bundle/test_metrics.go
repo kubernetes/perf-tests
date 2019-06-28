@@ -30,7 +30,9 @@ const (
 )
 
 func init() {
-	measurement.Register(testMetricsMeasurementName, createTestMetricsMeasurment)
+	if err := measurement.Register(testMetricsMeasurementName, createTestMetricsMeasurment); err != nil {
+		klog.Fatalf("Cannot register %s: %v", testMetricsMeasurementName, err)
+	}
 }
 
 func createTestMetricsMeasurment() measurement.Measurement {

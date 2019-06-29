@@ -61,8 +61,8 @@ steps:
     Params:
       action: start
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkiProgrammingLatency
-    Method: NetworkiProgrammingLatency
+  - Identifier: NetworkProgrammingLatency
+    Method: NetworkProgrammingLatency
     Params:
       action: start
   {{end}}
@@ -265,8 +265,8 @@ steps:
     Params:
       action: gather
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkiProgrammingLatency
-    Method: NetworkiProgrammingLatency
+  - Identifier: NetworkProgrammingLatency
+    Method: NetworkProgrammingLatency
     Params:
       action: gather
   {{end}}

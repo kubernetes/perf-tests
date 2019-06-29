@@ -1,0 +1,97 @@
+#Constants
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 1}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 1}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
+
+{{$VOLUMES_PER_POD := 4}}
+{{$VOLUME_TYPE := DefaultParam .VOLUME_TYPE "EmptyDir"}}
+{{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
+
+{{$APP_NAME := "pod-load"}}
+{{$GROUP := "pod-with-ephemeral-volume-startup-latency"}}
+
+#Variables
+# TODO think about this!
+{{$podStartupTimeout := $VOLUMES_PER_POD}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
+
+name: pod-with-ephemeral-volume-startup-latency
+automanagedNamespaces: {{$namespaces}}
+tuningSets:
+# TODO different options?
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+steps:
+- measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: reset
+{{ if $PROVISION_VOLUME }}
+# Provision volumes
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$volumesPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: vol-{{$APP_NAME}}
+      objectTemplatePath: {{$VOLUME_TYPE}}.yaml
+{{ end }}
+# Start measurements
+- measurements:
+  - Identifier: PodWithMultiVolumeStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = {{$GROUP}}
+      threshold: {{$podStartupTimeout}}s
+# Create pods
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$podsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: {{$APP_NAME}}
+      objectTemplatePath: pod.yaml
+      templateFillMap:
+        Group: {{$GROUP}}
+        VolumesPerPod: {{$VOLUMES_PER_POD}}
+        VolumeType: {{$VOLUME_TYPE}}
+        AppName: {{$APP_NAME}}
+- measurements:
+  - Identifier: WaitForRunningPodsWithStorage
+    Method: WaitForRunningPods
+    Params:
+      desiredPodCount: {{$totalPods}}
+      labelSelector: group = {{$GROUP}}
+      # TODO how can i determine this?
+      timeout: 15m
+- measurements:
+  - Identifier: PodWithMultiVolumeStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+# Delete pods
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: {{$APP_NAME}}
+      objectTemplatePath: pod.yaml
+# Collect measurements
+- measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: gather

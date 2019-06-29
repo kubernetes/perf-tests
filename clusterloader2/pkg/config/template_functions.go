@@ -57,7 +57,12 @@ func GetFuncs() template.FuncMap {
 		"DefaultParam":  defaultParam,
 		"IncludeFile":   includeFile,
 		"YamlQuote":     yamlQuote,
+		"Seq":           seq,
 	}
+}
+
+func seq(size interface{}) []int {
+	return make([]int, int(toFloat64(size)))
 }
 
 func toFloat64(val interface{}) float64 {

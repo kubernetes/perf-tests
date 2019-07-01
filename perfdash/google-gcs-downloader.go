@@ -40,6 +40,9 @@ type GoogleGCSDownloaderOptions struct {
 	LogsBucket         string
 	LogsPath           string
 	CredentialPath     string
+	// Development-only flag.
+	// Overrides build count from "perfDashBuildsCount" label with DefaultBuildsCount.
+	OverrideBuildCount bool
 }
 
 // GoogleGCSDownloader that gets data about Google results from the GCS repository.
@@ -105,7 +108,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 	}
 
 	buildsToFetch := tests.BuildsCount
-	if buildsToFetch < 1 {
+	if buildsToFetch < 1 || g.Options.OverrideBuildCount {
 		buildsToFetch = g.Options.DefaultBuildsCount
 	}
 	fmt.Printf("Builds to fetch for %v: %v\n", job, buildsToFetch)

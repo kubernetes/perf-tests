@@ -19,8 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/kubernetes/test/e2e/framework/metrics"
-	"k8s.io/kubernetes/test/e2e/perftype"
 	"math"
 	"os"
 	"regexp"
@@ -28,6 +26,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/kubernetes/test/e2e/framework/metrics"
+	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
 func stripCount(data *perftype.DataItem) {
@@ -49,7 +50,7 @@ func createRequestCountData(data *perftype.DataItem) error {
 	return nil
 }
 
-func parseResponsivenessData(data []byte, buildNumber int, testResult *BuildData) {
+func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
 	build := fmt.Sprintf("%d", buildNumber)
 	obj := perftype.PerfData{}
 	if err := json.Unmarshal(data, &obj); err != nil {

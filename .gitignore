@@ -25,3 +25,9 @@ Session.vim
 
 clusterloader2/junit.xml
 clusterloader2/clusterloader
+
+# Python generated files
+*.pyc
+
+# Vscode files
+.vscode

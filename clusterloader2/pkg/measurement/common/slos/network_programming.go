@@ -18,6 +18,7 @@ package slos
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"k8s.io/klog"
@@ -35,7 +36,7 @@ const (
 	// %v should be replaced with query window size (duration of the test).
 	// This measurement assumes, that there is no data points for the rest of the cluster-day.
 	// Definition: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/network_programming_latency.md
-	query = "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile='0.99'}[%v])"
+	query = "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{}[%v])"
 )
 
 func init() {
@@ -52,7 +53,8 @@ func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time) (m
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("%s: 99th percentaile of network programming latency %.2f ms", netProg, latency)
+
+	klog.Infof("%s: percentailes of network programming latency 50: %.2f, 90: %.2f, 99: %.2f ms", netProg, latency[0], latency[1], latency[2])
 	return n.createSummary(latency)
 }
 
@@ -60,7 +62,7 @@ func (n *netProgGatherer) String() string {
 	return netProg
 }
 
-func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (float64, error) {
+func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) ([]float64, error) {
 	end := time.Now()
 	duration := end.Sub(startTime)
 
@@ -68,16 +70,21 @@ func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (fl
 
 	samples, err := executor.Query(boundedQuery, end)
 	if err != nil {
-		return 0, err
+		return []float64{}, err
 	}
-	if len(samples) != 1 {
-		return 0, fmt.Errorf("got unexpected number of samples: %d", len(samples))
+	if len(samples) != 3 {
+		return []float64{}, fmt.Errorf("got unexpected number of samples: %d", len(samples))
 	}
-	return float64(samples[0].Value) * 1000, nil // s -> ms
+	latencies := make([]float64, 3)
+	for i, sample := range samples {
+		latencies[i] = float64(sample.Value) * 1000 // s -> ms
+	}
+	sort.Float64s(latencies) // put quantiles in ascending order
+	return latencies, nil
 }
 
-func (n *netProgGatherer) createSummary(latency float64) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(n.createPerfData(latency))
+func (n *netProgGatherer) createSummary(p []float64) (measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(n.createPerfData(p))
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +92,15 @@ func (n *netProgGatherer) createSummary(latency float64) (measurement.Summary, e
 	return summary, nil
 }
 
-func (n *netProgGatherer) createPerfData(latency float64) *measurementutil.PerfData {
+func (n *netProgGatherer) createPerfData(p []float64) *measurementutil.PerfData {
 	return &measurementutil.PerfData{
 		Version: metricVersion,
 		DataItems: []measurementutil.DataItem{{
-			Data: map[string]float64{"NetProgSLI": latency},
+			Data: map[string]float64{
+				"Perc50": p[0],
+				"Perc90": p[1],
+				"Perc99": p[2],
+			},
 			Unit: "ms",
 		}},
 	}

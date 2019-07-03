@@ -83,16 +83,3 @@ func (f *fakeExecutor) Query(query string, queryTime time.Time) ([]*model.Sample
 	}
 	return f.samples, nil
 }
-
-func createPerfData(p []float64) *measurementutil.PerfData {
-	return &measurementutil.PerfData{
-		Version: "v1",
-		DataItems: []measurementutil.DataItem{{
-			Data: map[string]float64{
-				"Perc50": p[0],
-				"Perc90": p[1],
-				"Perc99": p[2]},
-			Unit: "ms",
-		}},
-	}
-}

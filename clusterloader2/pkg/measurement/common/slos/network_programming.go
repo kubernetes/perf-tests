@@ -32,7 +32,7 @@ const (
 
 	metricVersion = "v1"
 
-	// Query measuring 99th percentaile of network programming latency.
+	// Query measuring 99th percentile of Xth percentiles (where X=50,90,99) of network programming latency over last 5min.
 	// %v should be replaced with query window size (duration of the test).
 	// This measurement assumes, that there is no data points for the rest of the cluster-day.
 	// Definition: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/network_programming_latency.md
@@ -84,7 +84,7 @@ func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) ([]
 }
 
 func (n *netProgGatherer) createSummary(p []float64) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(n.createPerfData(p))
+	content, err := util.PrettyPrintJSON(createPerfData(p))
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (n *netProgGatherer) createSummary(p []float64) (measurement.Summary, error
 	return summary, nil
 }
 
-func (n *netProgGatherer) createPerfData(p []float64) *measurementutil.PerfData {
+func createPerfData(p []float64) *measurementutil.PerfData {
 	return &measurementutil.PerfData{
 		Version: metricVersion,
 		DataItems: []measurementutil.DataItem{{

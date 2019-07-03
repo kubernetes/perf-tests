@@ -72,12 +72,22 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		return nil, nil
 	case "gather":
 		klog.Infof("%s gathering results", m)
+		enableViolations, err := util.GetBoolOrDefault(config.Params, "enableViolations", false)
+		if err != nil {
+			return nil, err
+		}
+
 		c := config.PrometheusFramework.GetClientSets().GetClient()
 		executor := measurementutil.NewQueryExecutor(c)
 
 		summary, err := m.gatherer.Gather(executor, m.startTime)
-		if err != nil && !errors.IsMetricViolationError(err) {
-			return nil, err
+		if err != nil {
+			if !errors.IsMetricViolationError(err) {
+				return nil, err
+			}
+			if !enableViolations {
+				err = nil
+			}
 		}
 		return []measurement.Summary{summary}, err
 	default:

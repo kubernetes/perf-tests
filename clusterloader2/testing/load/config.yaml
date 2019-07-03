@@ -14,7 +14,7 @@
 {{$SMALL_GROUP_SIZE := 5}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY false}}
-
+{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -264,6 +264,9 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
+      enableViolations: true
+      {{end}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkiProgrammingLatency
     Method: NetworkiProgrammingLatency

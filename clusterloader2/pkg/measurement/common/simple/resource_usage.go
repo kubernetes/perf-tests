@@ -66,7 +66,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if err != nil {
 			return nil, err
 		}
-		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().MasterIP)
+		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp())
 		if err != nil {
 			return nil, err
 		}

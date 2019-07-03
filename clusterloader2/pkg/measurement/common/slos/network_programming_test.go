@@ -34,11 +34,14 @@ func TestGather(t *testing.T) {
 		wantData  *measurementutil.PerfData
 		wantError error
 	}{{
-		samples:  []*model.Sample{{Value: 100.5}},
-		wantData: createPerfData(100500),
+		samples:  []*model.Sample{{Value: 200.5}, {Value: 100.5}, {Value: 300.5}},
+		wantData: createPerfData([]float64{100500, 200500, 300500}),
 	}, {
-		samples:   []*model.Sample{{Value: 1}, {Value: 2}},
-		wantError: errors.New("got unexpected number of samples: 2"),
+		samples:   []*model.Sample{{Value: 1}},
+		wantError: errors.New("got unexpected number of samples: 1"),
+	}, {
+		samples:   []*model.Sample{{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}},
+		wantError: errors.New("got unexpected number of samples: 4"),
 	}}
 
 	for _, v := range cases {
@@ -81,11 +84,14 @@ func (f *fakeExecutor) Query(query string, queryTime time.Time) ([]*model.Sample
 	return f.samples, nil
 }
 
-func createPerfData(latency float64) *measurementutil.PerfData {
+func createPerfData(p []float64) *measurementutil.PerfData {
 	return &measurementutil.PerfData{
 		Version: "v1",
 		DataItems: []measurementutil.DataItem{{
-			Data: map[string]float64{"NetProgSLI": latency},
+			Data: map[string]float64{
+				"Perc50": p[0],
+				"Perc90": p[1],
+				"Perc99": p[2]},
 			Unit: "ms",
 		}},
 	}

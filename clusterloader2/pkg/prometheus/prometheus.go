@@ -72,11 +72,14 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		return nil, errList
 	}
 	mapping["MasterIp"], err = getMasterIp(clusterLoaderConfig.ClusterConfig)
+	mapping["CortexEnabled"] = false
 	if err != nil {
 		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
 		delete(mapping, "MasterIp")
 	}
 	pc.templateMapping = mapping
+
+	pc.initializeCortexTemplateMappings()
 
 	return pc, nil
 }

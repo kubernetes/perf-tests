@@ -32,6 +32,14 @@ spec:
   serviceMonitorSelector: {}
   version: v2.9.2
   retention: 7d
+  {{if .CortexEnabled}}
+  remoteWrite:
+    - url: http://35.237.38.211:9090/cortex/{{.CortexTenantId}}/api/prom/push
+      queueConfig:
+        # The default is 1 shard which is not enough in our set-up, causing initial samples to be
+        # dropped until more shards are added. We avoid that by starting with 5 shards.
+        minShards: 5
+  {{end}}
   storage:
     volumeClaimTemplate:
       spec:

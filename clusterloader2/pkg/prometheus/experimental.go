@@ -30,6 +30,7 @@ import (
 
 var (
 	shouldSnapshotPrometheusDisk = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
+	cortexTenantId               = pflag.String("experimental-cortex-tenant-id", "", "(experimental) if set the remote write to cortex will be enabled with the given tenant id")
 )
 
 func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
@@ -80,4 +81,11 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
 	output, err := cmd.CombinedOutput()
 	klog.Infof("Creating disk snapshot finished with: %q\nError is: %v", string(output), err)
 	return true, err
+}
+
+func (pc *PrometheusController) initializeCortexTemplateMappings() {
+	if *cortexTenantId != "" {
+		pc.templateMapping["CortexEnabled"] = true
+		pc.templateMapping["CortexTenantId"] = *cortexTenantId
+	}
 }

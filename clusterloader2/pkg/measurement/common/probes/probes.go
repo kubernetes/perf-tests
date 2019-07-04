@@ -169,6 +169,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 	}
 	measurementEnd := time.Now()
 	var probeSummaries []measurement.Summary
+	var violationErrors []error
 	for probeName, queryTmpl := range p.probeNameToPrometheusQueryTmpl {
 		query := prepareQuery(queryTmpl, p.startTime, measurementEnd)
 		executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
@@ -185,16 +186,24 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 			latency := time.Duration(float64(sample.Value) * float64(time.Second))
 			latencyMetric.SetQuantile(quantile, latency)
 		}
+		prefix, suffix := "", ""
 		if threshold, ok := thresholds[probeName]; ok {
+			suffix = fmt.Sprintf(", expected perc99 <= %v", threshold.Perc99)
 			if err = latencyMetric.VerifyThreshold(threshold); err != nil {
-				err = errors.NewMetricViolationError(probeName, err.Error())
+				violationErrors = append(violationErrors, errors.NewMetricViolationError(probeName, err.Error()))
+				prefix = " WARNING"
 			}
 		}
+		klog.Infof("%s:%s got latency perc50: %v, perc90: %v, perc99: %v%s", probeName, prefix, latencyMetric.Perc50, latencyMetric.Perc90, latencyMetric.Perc99, suffix)
+
 		probeSummary, err := createSummary(probeName, latencyMetric)
 		if err != nil {
 			return nil, err
 		}
 		probeSummaries = append(probeSummaries, probeSummary)
+	}
+	if len(violationErrors) > 0 {
+		err = errors.NewMetricViolationError("probers", fmt.Sprintf("there should not be errors from probers, got %v", violationErrors))
 	}
 	return probeSummaries, err
 }
@@ -230,7 +239,11 @@ func isProbeTarget(t prometheus.Target) bool {
 
 func parseThresholds(params map[string]interface{}) (map[string]*measurementutil.LatencyMetric, error) {
 	thresholds := make(map[string]*measurementutil.LatencyMetric)
-	for name, thresholdVal := range params["thresholds"].(map[string]interface{}) {
+	t, ok := params["thresholds"]
+	if !ok {
+		return thresholds, nil
+	}
+	for name, thresholdVal := range t.(map[string]interface{}) {
 		threshold, err := time.ParseDuration(thresholdVal.(string))
 		if err != nil {
 			return nil, err

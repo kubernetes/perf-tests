@@ -71,10 +71,10 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 	if errList != nil {
 		return nil, errList
 	}
-	mapping["MasterIp"], err = getMasterIp(clusterLoaderConfig.ClusterConfig)
+	mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig)
 	if err != nil {
 		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
-		delete(mapping, "MasterIp")
+		delete(mapping, "MasterIps")
 	}
 	pc.templateMapping = mapping
 
@@ -105,7 +105,7 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
 			return err
 		}
-		if _, ok := pc.templateMapping["MasterIp"]; ok {
+		if _, ok := pc.templateMapping["MasterIps"]; ok {
 			if err := pc.applyManifests(masterIpServiceMonitors); err != nil {
 				return err
 			}
@@ -227,10 +227,10 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 	klog.Info(string(s))
 }
 
-func getMasterIp(clusterConfig config.ClusterConfig) (string, error) {
-	if clusterConfig.GetMasterInternalIp() != "" {
-		klog.Infof("Using internal master ip (%s) to monitor master's components", clusterConfig.GetMasterInternalIp())
-		return clusterConfig.GetMasterInternalIp(), nil
+func getMasterIps(clusterConfig config.ClusterConfig) ([]string, error) {
+	if len(clusterConfig.MasterInternalIPs) != 0 {
+		klog.Infof("Using internal master ips (%s) to monitor master's components", clusterConfig.MasterInternalIPs)
+		return clusterConfig.MasterInternalIPs, nil
 	}
-	return "", fmt.Errorf("internal master ip not available")
+	return nil, fmt.Errorf("internal master ips not available")
 }

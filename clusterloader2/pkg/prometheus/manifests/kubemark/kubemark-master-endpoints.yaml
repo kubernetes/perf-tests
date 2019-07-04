@@ -8,7 +8,9 @@ metadata:
     instance: kubemark-master
 subsets:
   - addresses:
-      - ip: {{.MasterIp}}
+    {{range .MasterIps}}
+      - ip: {{.}}
+    {{end}}
     ports:
       - name: apiserver
         port: 443

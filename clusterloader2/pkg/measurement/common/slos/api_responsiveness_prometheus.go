@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/common/model"
 	"k8s.io/klog"
 
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -95,11 +96,9 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 		return nil, err
 	}
 	summary := measurement.CreateSummary(apiResponsivenessPrometheusMeasurementName, "json", content)
-	// TODO(#498): For testing purpose this metric will never return metric violation error.
-	// The code below should be
-	// if len(badMetrics) > 0 {
-	// 	return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
-	// }
+	if len(badMetrics) > 0 {
+		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+	}
 	return summary, nil
 }
 

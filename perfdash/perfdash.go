@@ -32,21 +32,26 @@ const (
 	maxBuilds    = 100
 )
 
-var (
-	addr        = pflag.String("address", ":8080", "The address to serve web data on")
-	www         = pflag.Bool("www", false, "If true, start a web-server to server performance data")
-	wwwDir      = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
-	builds      = pflag.Int("builds", maxBuilds, "Total builds number")
-	configPaths = pflag.StringArray("configPath", []string{}, "Paths/urls to the prow config")
+var options = &GoogleGCSDownloaderOptions{}
 
-	logsBucket     = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
-	logsPath       = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
-	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")
+var (
+	addr   = pflag.String("address", ":8080", "The address to serve web data on")
+	www    = pflag.Bool("www", false, "If true, start a web-server to server performance data")
+	wwwDir = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
 
 	storageUrl = pflag.String("storageUrl", "https://k8s-gubernator.appspot.com/build", "Name of the data bucket")
 
 	globalConfig = make(map[string]string)
 )
+
+func initGoogleDownloaderOptions() {
+	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. This would override values defined by \"perfDashBuildsCount\" label on prow job")
+	pflag.IntVar(&options.DefaultBuildsCount, "builds", maxBuilds, "Total builds number")
+	pflag.StringArrayVar(&options.ConfigPaths, "configPath", []string{}, "Paths/urls to the prow config")
+	pflag.StringVar(&options.CredentialPath, "credentialPath", "", "Path to the gcs credential json")
+	pflag.StringVar(&options.LogsBucket, "logsBucket", "kubernetes-jenkins", "Name of the data bucket")
+	pflag.StringVar(&options.LogsPath, "logsPath", "logs", "Path to the logs inside the logs bucket")
+}
 
 func main() {
 	fmt.Println("Starting perfdash...")
@@ -57,27 +62,21 @@ func main() {
 }
 
 func run() error {
+	initGoogleDownloaderOptions()
 	pflag.Parse()
 	initGlobalConfig()
-	fmt.Printf("config paths - %d\n", len(*configPaths))
-	for i := 0; i < len(*configPaths); i++ {
-		fmt.Printf("config path %d: %s\n", i+1, (*configPaths)[i])
+
+	fmt.Printf("config paths - %d\n", len(options.ConfigPaths))
+	for i := 0; i < len(options.ConfigPaths); i++ {
+		fmt.Printf("config path %d: %s\n", i+1, (options.ConfigPaths)[i])
 	}
 
-	if *builds > maxBuilds || *builds < 0 {
-		fmt.Printf("Invalid number of builds: %d, setting to %d\n", *builds, maxBuilds)
-		*builds = maxBuilds
+	if options.DefaultBuildsCount > maxBuilds || options.DefaultBuildsCount < 0 {
+		fmt.Printf("Invalid number of builds: %d, setting to %d\n", options.DefaultBuildsCount, maxBuilds)
+		options.DefaultBuildsCount = maxBuilds
 	}
 
-	opt := &GoogleGCSDownloaderOptions{
-		ConfigPaths:        *configPaths,
-		DefaultBuildsCount: *builds,
-		LogsBucket:         *logsBucket,
-		LogsPath:           *logsPath,
-		CredentialPath:     *credentialPath,
-	}
-
-	downloader, err := NewGoogleGCSDownloader(opt)
+	downloader, err := NewGoogleGCSDownloader(options)
 	if err != nil {
 		panic(err)
 	}
@@ -121,8 +120,8 @@ func run() error {
 }
 
 func initGlobalConfig() {
-	globalConfig["logsBucket"] = *logsBucket
-	globalConfig["logsPath"] = *logsPath
+	globalConfig["logsBucket"] = options.LogsBucket
+	globalConfig["logsPath"] = options.LogsPath
 	globalConfig["storageUrl"] = *storageUrl
 }
 

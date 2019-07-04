@@ -104,6 +104,11 @@ var (
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
 			}},
+			"DensityInitEventsCount": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverInitEventsCount,
+			}},
 			"LoadResponsiveness": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
@@ -118,6 +123,11 @@ var (
 				Name:             "load",
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
+			}},
+			"LoadInitEventsCount": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverInitEventsCount,
 			}},
 		},
 		"Scheduler": {

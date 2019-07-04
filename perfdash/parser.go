@@ -195,6 +195,34 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 	}
 }
 
+func parseApiserverInitEventsCount(data []byte, buildNumber int, testResult *BuildData) {
+	testResult.Version = "v1"
+	build := fmt.Sprintf("%d", buildNumber)
+	var obj metrics.Collection
+	if err := json.Unmarshal(data, &obj); err != nil {
+		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		return
+	}
+	if obj.APIServerMetrics == nil {
+		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
+		return
+	}
+	metric, ok := obj.APIServerMetrics["apiserver_init_events_total"]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "no apiserver_init_events_total metric data in build %d\n", buildNumber)
+		return
+	}
+	for i := range metric {
+		perfData := perftype.DataItem{Unit: "", Data: make(map[string]float64), Labels: make(map[string]string)}
+		for k, v := range metric[i].Metric {
+			perfData.Labels[string(k)] = string(v)
+		}
+		delete(perfData.Labels, "__name__")
+		perfData.Data["InitEventsCount"] = float64(metric[i].Value)
+		testResult.Builds[build] = append(testResult.Builds[build], perfData)
+	}
+}
+
 func createMapId(m map[string]string) string {
 	var keys []string
 	for key := range m {

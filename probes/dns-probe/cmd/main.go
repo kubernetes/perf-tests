@@ -21,30 +21,13 @@ import (
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/probes/common"
-	pingclient "k8s.io/perf-tests/probes/ping-probe/pkg/ping/client"
-	pingserver "k8s.io/perf-tests/probes/ping-probe/pkg/ping/server"
-)
-
-var (
-	mode = flag.String("mode", "", "Mode that should be run. Supported values: ping-server, ping-client")
+	"k8s.io/perf-tests/probes/dns-probe/pkg/dns"
 )
 
 func main() {
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
-	klog.Infof("I'm probes.")
-	klog.Infof("Mode is: %s\n", *mode)
-
 	common.ExposeMetrics()
-	// TODO(mm4tt): Implement readiness probes.
-
-	switch *mode {
-	case "ping-client":
-		pingclient.Run(pingclient.NewDefaultPingClientConfig())
-	case "ping-server":
-		pingserver.Run(pingserver.NewDefaultPingServerConfig())
-	default:
-		klog.Fatalf("Unrecognized mode: %q", *mode)
-	}
+	dns.RunDNSProber()
 }

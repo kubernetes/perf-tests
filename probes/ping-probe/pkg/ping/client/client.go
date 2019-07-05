@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"k8s.io/klog"
-	"k8s.io/perf-tests/probes/pkg/metrics"
+	"k8s.io/perf-tests/probes/ping-probe/pkg/metrics"
 )
 
 var (

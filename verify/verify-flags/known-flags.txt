@@ -1,3 +1,4 @@
+# keep it sorted
 comparison-scheme
 enable-output-coloring
 enable-prometheus-server
@@ -19,6 +20,7 @@ n-runs-count
 ping-server-address
 ping-server-bind-address
 ping-sleep-duration
+probing-interval
 purge-after-seconds
 report-dir
 right-build-number

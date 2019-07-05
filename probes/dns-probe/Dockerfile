@@ -1,6 +1,6 @@
-FROM golang:1.12.1 AS build-env
+FROM golang:1.12.5 AS build-env
 
-ARG gopkg=k8s.io/perf-tests/probes/ping-probe
+ARG gopkg=k8s.io/perf-tests/probes/dns-probe
 
 ADD ["cmd", "/go/src/$gopkg/cmd"]
 ADD ["pkg", "/go/src/$gopkg/pkg"]
@@ -11,7 +11,7 @@ ENV GO111MODULE on
 WORKDIR /go/src/$gopkg
 RUN CGO_ENABLED=0 go build -o /workspace/probes ./cmd
 
-FROM golang:1.12.1-alpine
+FROM golang:1.12.5-alpine
 WORKDIR /workspace
 COPY --from=build-env /workspace/probes .
 ENTRYPOINT ["/workspace/probes"]

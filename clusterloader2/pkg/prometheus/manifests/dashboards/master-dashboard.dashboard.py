@@ -65,6 +65,7 @@ HEALTH_PANELS = [
 ]
 
 ETCD_PANELS = [
+    simple_graph("etcd leader", "etcd_server_is_leader"),
     simple_graph(
         "etcd disk backend commit duration",
         "histogram_quantile(0.95, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) by (le))",
@@ -86,6 +87,11 @@ ETCD_PANELS = [
         g.single_y_axis(format=g.OPS_FORMAT),
     ),
     simple_graph(
+        "etcd get lease latency by instance (99th percentile)",
+        'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get", type="*coordination.Lease"}[1m])) by (le, type, instance))',
+        g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
+    simple_graph(
         "etcd get latency by type (99th percentile)",
         'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
         g.single_y_axis(format=g.SECONDS_FORMAT),
@@ -95,7 +101,7 @@ ETCD_PANELS = [
         'histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
         g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
-    simple_graph("etcd objects", "sum(etcd_object_counts) by (resource)"),
+    simple_graph("etcd objects", "sum(etcd_object_counts) by (resource, instance)"),
 ]
 
 APISERVER_PANELS = [
@@ -108,20 +114,23 @@ APISERVER_PANELS = [
     ),
     simple_graph(
         "Number of active watches",
-        "sum(apiserver_registered_watchers) by (group, kind)",
+        "sum(apiserver_registered_watchers) by (group, kind, instance)",
     ),
     simple_graph(
         "(experimental) Watch events rate",
-        "sum(rate(apiserver_watch_events_total[1m])) by (version, kind)",
+        "sum(rate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
     ),
     simple_graph(
-        "Inflight requests", "sum(apiserver_current_inflight_requests) by (requestKind)"
+        "Inflight requests",
+        "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
     ),
     simple_graph(
-        "Request rate", "sum(rate(apiserver_request_count[1m])) by (verb, resource)"
+        "Request rate",
+        "sum(rate(apiserver_request_count[1m])) by (verb, resource, instance)",
     ),
     simple_graph(
-        "Request rate by code", "sum(rate(apiserver_request_count[1m])) by (code)"
+        "Request rate by code",
+        "sum(rate(apiserver_request_count[1m])) by (code, instance)",
     ),
     simple_graph(
         "Request latency (50th percentile)",
@@ -149,7 +158,7 @@ APISERVER_PANELS = [
     ),
     simple_graph(
         "Traffic",
-        'sum(rate(apiserver_response_sizes_sum{verb!="WATCH"}[1m])) by (verb, version, resource, scope)',
+        'sum(rate(apiserver_response_sizes_sum{verb!="WATCH"}[1m])) by (verb, version, resource, scope, instance)',
         g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
 ]
@@ -157,33 +166,33 @@ APISERVER_PANELS = [
 VM_PANELS = [
     simple_graph(
         "fs bytes reads by container",
-        "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name)",
+        "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     simple_graph(
         "fs reads by container",
-        "sum(rate(container_fs_reads_total[1m])) by (container_name)",
+        "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
     ),
     simple_graph(
         "fs bytes writes by container",
-        "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name)",
+        "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     simple_graph(
         "fs writes by container",
-        "sum(rate(container_fs_writes_total[1m])) by (container_name)",
+        "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
     ),
     simple_graph(
         "CPU usage by container",
         [
-            'sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name)',
+            'sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name, instance)',
             "machine_cpu_cores",
         ],
     ),
     simple_graph(
         "memory usage by container",
         [
-            'sum(container_memory_usage_bytes{container_name!=""}) by (container_name)',
+            'sum(container_memory_usage_bytes{container_name!=""}) by (container_name, instance)',
             "machine_memory_bytes",
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
@@ -191,7 +200,7 @@ VM_PANELS = [
     simple_graph(
         "memory working set by container",
         [
-            'sum(container_memory_working_set_bytes{container_name!=""}) by (container_name)',
+            'sum(container_memory_working_set_bytes{container_name!=""}) by (container_name, instance)',
             "machine_memory_bytes",
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
@@ -199,16 +208,16 @@ VM_PANELS = [
     simple_graph(
         "Network usage (bytes)",
         [
-            'sum(rate(container_network_transmit_bytes_total{id="/"}[1m]))',
-            'sum(rate(container_network_receive_bytes_total{id="/"}[1m]))',
+            'rate(container_network_transmit_bytes_total{id="/"}[1m])',
+            'rate(container_network_receive_bytes_total{id="/"}[1m])',
         ],
         g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     simple_graph(
         "Network usage (packets)",
         [
-            'sum(rate(container_network_transmit_packets_total{id="/"}[1m]))',
-            'sum(rate(container_network_receive_packets_total{id="/"}[1m]))',
+            'rate(container_network_transmit_packets_total{id="/"}[1m])',
+            'rate(container_network_receive_packets_total{id="/"}[1m])',
         ],
     ),
 ]

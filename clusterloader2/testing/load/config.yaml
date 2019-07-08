@@ -104,8 +104,8 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: v1
-      kind: ReplicationController
+      apiVersion: apps/v1
+      kind: Deployment
       labelSelector: group = load
       operationTimeout: 15m
 - phases:
@@ -116,7 +116,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
@@ -128,7 +128,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
@@ -140,7 +140,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
@@ -160,7 +160,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
@@ -172,7 +172,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
@@ -184,7 +184,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
@@ -204,7 +204,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -212,7 +212,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -220,7 +220,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: rc.yaml
+      objectTemplatePath: deployment.yaml
 - name: Deleting RCs
 - measurements:
   - Identifier: WaitForRunningRCs

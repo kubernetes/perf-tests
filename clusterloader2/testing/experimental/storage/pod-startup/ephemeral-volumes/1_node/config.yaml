@@ -1,27 +1,26 @@
+# ASSUMPTIONS:
+# - this test cases should be run on only 1 node
+
 #Constants
-{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 1}}
-{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 1}}
+{{$TOTAL_PODS := DefaultParam .TOTAL_PODS 1}}
+{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "pod_with_EmptyDirs.yaml"}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
 
-{{$VOLUMES_PER_POD := 4}}
-{{$VOLUME_TYPE := DefaultParam .VOLUME_TYPE "EmptyDir"}}
+{{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 4}}
+{{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
 {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
 
 {{$APP_NAME := "pod-load"}}
 {{$GROUP := "pod-with-ephemeral-volume-startup-latency"}}
 
 #Variables
-# TODO think about this!
-{{$podStartupTimeout := $VOLUMES_PER_POD}}
-{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
-{{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
-{{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
-{{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
+# used stateless pod SLO for initial run
+{{$podStartupTimeout := 5}}
+{{$totalVolumes := MultiplyInt $TOTAL_PODS $VOLUMES_PER_POD}}
 
 name: pod-with-ephemeral-volume-startup-latency
-automanagedNamespaces: {{$namespaces}}
+automanagedNamespaces: 1
 tuningSets:
-# TODO different options?
 - name: UniformQPS
   qpsLoad:
     qps: {{$LOAD_TEST_THROUGHPUT}}
@@ -36,12 +35,12 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$volumesPerNamespace}}
+      max: 1
+    replicasPerNamespace: {{$totalVolumes}}
     tuningSet: UniformQPS
     objectBundle:
     - basename: vol-{{$APP_NAME}}
-      objectTemplatePath: {{$VOLUME_TYPE}}.yaml
+      objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
 {{ end }}
 # Start measurements
 - measurements:
@@ -55,24 +54,23 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$podsPerNamespace}}
+      max: 1
+    replicasPerNamespace: {{$TOTAL_PODS}}
     tuningSet: UniformQPS
     objectBundle:
     - basename: {{$APP_NAME}}
-      objectTemplatePath: pod.yaml
+      objectTemplatePath: {{$POD_TEMPLATE_PATH}}
       templateFillMap:
         Group: {{$GROUP}}
         VolumesPerPod: {{$VOLUMES_PER_POD}}
-        VolumeType: {{$VOLUME_TYPE}}
         AppName: {{$APP_NAME}}
 - measurements:
   - Identifier: WaitForRunningPodsWithStorage
     Method: WaitForRunningPods
     Params:
-      desiredPodCount: {{$totalPods}}
+      desiredPodCount: {{$TOTAL_PODS}}
       labelSelector: group = {{$GROUP}}
-      # TODO how can i determine this?
+      # TODO decide this after test roll-out phase
       timeout: 15m
 - measurements:
   - Identifier: PodWithMultiVolumeStartupLatency
@@ -83,12 +81,12 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: {{$namespaces}}
+      max: 1
     replicasPerNamespace: 0
     tuningSet: UniformQPS
     objectBundle:
     - basename: {{$APP_NAME}}
-      objectTemplatePath: pod.yaml
+      objectTemplatePath: {{$POD_TEMPLATE_PATH}}
 # Collect measurements
 - measurements:
   - Identifier: APIResponsiveness

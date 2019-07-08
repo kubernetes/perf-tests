@@ -1,4 +1,3 @@
-{{$volumeType := .VolumeType}}
 {{$index := .Index}}
 {{$appName := .AppName}}
 {{$volumesPerPod := .VolumesPerPod}}
@@ -14,9 +13,6 @@ spec:
   - name: {{.Name}}
     image: k8s.gcr.io/pause:3.1
     imagePullPolicy: IfNotPresent
-    ports:
-    - containerPort: 80
-      name: {{.Name}}
     volumeMounts:
     {{ range $volumeIndex, $vol := Seq .VolumesPerPod }}
     - name: vol-{{$volumeIndex}}
@@ -25,18 +21,6 @@ spec:
   volumes:
   {{ range $volumeIndex, $vol := Seq .VolumesPerPod }}
   - name: vol-{{$volumeIndex}}
-  {{ if eq $volumeType  "ConfigMap" }}
-    configMap:
-      name: vol-{{$appName}}-{{AddInt $volumeIndex (MultiplyInt $index $volumesPerPod)}}
-  {{ end }}
-  {{ if eq $volumeType  "EmptyDir" }}
-    emptyDir: {}
-  {{ end }}
-  {{ if eq $volumeType  "Secret" }}
-    secret:
-      secretName: vol-{{$appName}}-{{AddInt $volumeIndex (MultiplyInt $index $volumesPerPod)}}
-  {{ end }}
-  {{ if eq $volumeType  "DownwardAPI" }}
     downwardAPI:
       items:
       - path: "pod_name"
@@ -45,5 +29,4 @@ spec:
       - path: "pod_namespace"
         fieldRef:
           fieldPath: metadata.namespace
-  {{ end }}
   {{ end }}

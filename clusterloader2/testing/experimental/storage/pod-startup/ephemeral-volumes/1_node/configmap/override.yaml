@@ -1,0 +1,3 @@
+PROVISION_VOLUME: true
+POD_TEMPLATE_PATH: "configmap/pod_with_ConfigMaps.yaml"
+VOLUME_TEMPLATE_PATH: "configmap/ConfigMap.yaml"

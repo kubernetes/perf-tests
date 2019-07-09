@@ -18,7 +18,7 @@ kube-apiserver:
   cpuConstraint: 2.2
   memoryConstraint: 1258291200 #1200 * (1024 * 1024)
 kube-controller-manager:
-  cpuConstraint: 1.1
+  cpuConstraint: 2 # TODO(https://github.com/kubernetes/kubernetes/issues/79898): Lower when issue is investigated.
   memoryConstraint: 314572800 #300 * (1024 * 1024)
 kube-proxy:
   cpuConstraint: 0.1

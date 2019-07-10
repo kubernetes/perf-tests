@@ -25,11 +25,19 @@ tuningSets:
   qpsLoad:
     qps: {{$LOAD_TEST_THROUGHPUT}}
 steps:
+# Start measurements
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:
       action: reset
+- measurements:
+  - Identifier: PodWithMultiVolumeStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = {{$GROUP}}
+      threshold: {{$podStartupTimeout}}s
 {{ if $PROVISION_VOLUME }}
 # Provision volumes
 - phases:
@@ -42,14 +50,6 @@ steps:
     - basename: vol-{{$APP_NAME}}
       objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
 {{ end }}
-# Start measurements
-- measurements:
-  - Identifier: PodWithMultiVolumeStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = {{$GROUP}}
-      threshold: {{$podStartupTimeout}}s
 # Create pods
 - phases:
   - namespaceRange:

@@ -18,7 +18,6 @@ package slos
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"sync"
 	"time"
@@ -170,11 +169,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
 
-	scheduleLag := make([]podLatencyData, 0)
-	startupLag := make([]podLatencyData, 0)
-	watchLag := make([]podLatencyData, 0)
-	schedToWatchLag := make([]podLatencyData, 0)
-	e2eLag := make([]podLatencyData, 0)
+	scheduleLag := make([]measurementutil.LatencyData, 0)
+	startupLag := make([]measurementutil.LatencyData, 0)
+	watchLag := make([]measurementutil.LatencyData, 0)
+	schedToWatchLag := make([]measurementutil.LatencyData, 0)
+	e2eLag := make([]measurementutil.LatencyData, 0)
 
 	p.stop()
 
@@ -211,11 +210,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		e2eLag = append(e2eLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(create.Time)})
 	}
 
-	sort.Sort(podLatencySlice(scheduleLag))
-	sort.Sort(podLatencySlice(startupLag))
-	sort.Sort(podLatencySlice(watchLag))
-	sort.Sort(podLatencySlice(schedToWatchLag))
-	sort.Sort(podLatencySlice(e2eLag))
+	sort.Sort(measurementutil.LatencySlice(scheduleLag))
+	sort.Sort(measurementutil.LatencySlice(startupLag))
+	sort.Sort(measurementutil.LatencySlice(watchLag))
+	sort.Sort(measurementutil.LatencySlice(schedToWatchLag))
+	sort.Sort(measurementutil.LatencySlice(e2eLag))
 
 	p.printLatencies(scheduleLag, "worst create-to-schedule latencies")
 	p.printLatencies(startupLag, "worst schedule-to-run latencies")
@@ -224,11 +223,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.printLatencies(e2eLag, "worst e2e latencies")
 
 	podStartupLatency := &podStartupLatency{
-		CreateToScheduleLatency: extractLatencyMetrics(scheduleLag),
-		ScheduleToRunLatency:    extractLatencyMetrics(startupLag),
-		RunToWatchLatency:       extractLatencyMetrics(watchLag),
-		ScheduleToWatchLatency:  extractLatencyMetrics(schedToWatchLag),
-		E2ELatency:              extractLatencyMetrics(e2eLag),
+		CreateToScheduleLatency: measurementutil.ExtractLatencyMetrics(scheduleLag),
+		ScheduleToRunLatency:    measurementutil.ExtractLatencyMetrics(startupLag),
+		RunToWatchLatency:       measurementutil.ExtractLatencyMetrics(watchLag),
+		ScheduleToWatchLatency:  measurementutil.ExtractLatencyMetrics(schedToWatchLag),
+		E2ELatency:              measurementutil.ExtractLatencyMetrics(e2eLag),
 	}
 
 	var err error
@@ -305,8 +304,8 @@ func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
 	}
 }
 
-func (p *podStartupLatencyMeasurement) printLatencies(latencies []podLatencyData, header string) {
-	metrics := extractLatencyMetrics(latencies)
+func (p *podStartupLatencyMeasurement) printLatencies(latencies []measurementutil.LatencyData, header string) {
+	metrics := measurementutil.ExtractLatencyMetrics(latencies)
 	index := len(latencies) - 100
 	if index < 0 {
 		index = 0
@@ -321,11 +320,9 @@ type podLatencyData struct {
 	Latency time.Duration
 }
 
-type podLatencySlice []podLatencyData
-
-func (a podLatencySlice) Len() int           { return len(a) }
-func (a podLatencySlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a podLatencySlice) Less(i, j int) bool { return a[i].Latency < a[j].Latency }
+func (p podLatencyData) GetLatency() time.Duration {
+	return p.Latency
+}
 
 type podStartupLatency struct {
 	CreateToScheduleLatency measurementutil.LatencyMetric `json:"createToScheduleLatency"`
@@ -335,40 +332,14 @@ type podStartupLatency struct {
 	E2ELatency              measurementutil.LatencyMetric `json:"e2eLatency"`
 }
 
-func extractLatencyMetrics(latencies []podLatencyData) measurementutil.LatencyMetric {
-	length := len(latencies)
-	if length == 0 {
-		// Ideally we can return LatencyMetric with some NaN/incorrect values,
-		// but 0 is the best we can get for time.Duration type.
-		return measurementutil.LatencyMetric{Perc50: 0, Perc90: 0, Perc99: 0}
-	}
-	perc50 := latencies[int(math.Ceil(float64(length*50)/100))-1].Latency
-	perc90 := latencies[int(math.Ceil(float64(length*90)/100))-1].Latency
-	perc99 := latencies[int(math.Ceil(float64(length*99)/100))-1].Latency
-	return measurementutil.LatencyMetric{Perc50: perc50, Perc90: perc90, Perc99: perc99}
-}
-
-func latencyToPerfData(l measurementutil.LatencyMetric, name string) measurementutil.DataItem {
-	return measurementutil.DataItem{
-		Data: map[string]float64{
-			"Perc50": float64(l.Perc50) / 1000000, // ns -> ms
-			"Perc90": float64(l.Perc90) / 1000000,
-			"Perc99": float64(l.Perc99) / 1000000,
-		},
-		Unit: "ms",
-		Labels: map[string]string{
-			"Metric": name,
-		},
-	}
-}
-
 func podStartupLatencyToPerfData(latency *podStartupLatency) *measurementutil.PerfData {
+	const nsToMs = 1000000.0
 	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
-	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.CreateToScheduleLatency, "create_to_schedule"))
-	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.ScheduleToRunLatency, "schedule_to_run"))
-	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.RunToWatchLatency, "run_to_watch"))
-	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.ScheduleToWatchLatency, "schedule_to_watch"))
-	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.E2ELatency, "pod_startup"))
+	perfData.DataItems = append(perfData.DataItems, latency.CreateToScheduleLatency.ToPerfData("create_to_schedule", nsToMs))
+	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToRunLatency.ToPerfData("schedule_to_run", nsToMs))
+	perfData.DataItems = append(perfData.DataItems, latency.RunToWatchLatency.ToPerfData("run_to_watch", nsToMs))
+	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToWatchLatency.ToPerfData("schedule_to_watch", nsToMs))
+	perfData.DataItems = append(perfData.DataItems, latency.E2ELatency.ToPerfData("pod_startup", nsToMs))
 	return perfData
 }
 

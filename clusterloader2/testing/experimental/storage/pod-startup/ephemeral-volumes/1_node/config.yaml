@@ -3,7 +3,7 @@
 
 #Constants
 {{$TOTAL_PODS := DefaultParam .TOTAL_PODS 1}}
-{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "pod_with_EmptyDirs.yaml"}}
+{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "pod_with_emptydir.yaml"}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
 
 {{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 4}}
@@ -31,7 +31,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
-- measurements:
   - Identifier: PodWithMultiVolumeStartupLatency
     Method: PodStartupLatency
     Params:
@@ -72,11 +71,6 @@ steps:
       labelSelector: group = {{$GROUP}}
       # TODO decide this after test roll-out phase
       timeout: 15m
-- measurements:
-  - Identifier: PodWithMultiVolumeStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
 # Delete pods
 - phases:
   - namespaceRange:
@@ -89,6 +83,10 @@ steps:
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
 # Collect measurements
 - measurements:
+  - Identifier: PodWithMultiVolumeStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:

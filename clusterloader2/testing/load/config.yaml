@@ -61,6 +61,12 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = load
+      threshold: 1h
   {{if $ENABLE_PROBES}}
   - Identifier: Probes
     Method: Probes
@@ -275,6 +281,10 @@ steps:
       {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
       {{end}}
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
   {{if $ENABLE_PROBES}}
   - Identifier: Probes
     Method: Probes

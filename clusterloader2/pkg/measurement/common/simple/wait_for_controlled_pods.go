@@ -27,13 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -148,46 +148,6 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 	return waitForControlledPodsRunningName
 }
 
-func (w *waitForControlledPodsRunningMeasurement) newInformer() (cache.SharedInformer, error) {
-	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = w.fieldSelector
-		options.LabelSelector = w.labelSelector
-	}
-	c := w.clusterFramework.GetDynamicClients()
-	if c == nil {
-		return nil, fmt.Errorf("no clientsets for measurement")
-	}
-	tweakListOptions := dynamicinformer.TweakListOptionsFunc(optionsModifier)
-	dInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.GetClient(), 0, w.namespace, tweakListOptions)
-
-	informer := dInformerFactory.ForResource(w.gvr).Informer()
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			addF := func() {
-				w.handleObject(nil, obj)
-			}
-			w.queue.Add(&addF)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			updateF := func() {
-				w.handleObject(oldObj, newObj)
-			}
-			w.queue.Add(&updateF)
-		},
-		DeleteFunc: func(obj interface{}) {
-			deleteF := func() {
-				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					w.handleObject(tombstone.Obj, nil)
-				} else {
-					w.handleObject(obj, nil)
-				}
-			}
-			w.queue.Add(&deleteF)
-		},
-	})
-
-	return informer, nil
-}
 func (w *waitForControlledPodsRunningMeasurement) start() error {
 	gv, err := schema.ParseGroupVersion(w.apiVersion)
 	if err != nil {
@@ -205,11 +165,19 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
 
-	w.informer, err = w.newInformer()
-	if err != nil {
-		klog.Infof("%v: create dynamic informer failed.", w)
-		return err
-	}
+	w.informer = informer.NewDynamicInformer(
+		w.clusterFramework.GetDynamicClients().GetClient(),
+		w.gvr,
+		w.namespace,
+		w.fieldSelector,
+		w.labelSelector,
+		func(odlObj, newObj interface{}) {
+			f := func() {
+				w.handleObject(odlObj, newObj)
+			}
+			w.queue.Add(&f)
+		},
+	)
 
 	go w.informer.Run(w.stopCh)
 	timeoutCh := make(chan struct{})

@@ -29,13 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -56,7 +56,7 @@ func init() {
 
 func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
-		queue:      workqueue.New(),
+		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
 		checkerMap: make(map[string]*objectChecker),
 	}
 }
@@ -71,8 +71,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	operationTimeout  time.Duration
 	stopCh            chan struct{}
 	isRunning         bool
-	queue             workqueue.Interface
-	workerGroup       wait.Group
+	queue             workerqueue.Interface
 	handlingGroup     wait.Group
 	lock              sync.Mutex
 	opResourceVersion uint64
@@ -135,8 +134,7 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 // Dispose cleans up after the measurement.
 func (w *waitForControlledPodsRunningMeasurement) Dispose() {
 	close(w.stopCh)
-	w.queue.ShutDown()
-	w.workerGroup.Wait()
+	w.queue.Stop()
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	w.isRunning = false
@@ -213,9 +211,6 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 		return err
 	}
 
-	for i := 0; i < waitForControlledPodsWorkers; i++ {
-		w.workerGroup.Start(w.worker)
-	}
 	go w.informer.Run(w.stopCh)
 	timeoutCh := make(chan struct{})
 	timeoutTimer := time.AfterFunc(informerSyncTimeout, func() {
@@ -227,17 +222,6 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	}
 
 	return nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) worker() {
-	for {
-		f, stop := w.queue.Get()
-		if stop {
-			return
-		}
-		(*f.(*func()))()
-		w.queue.Done(f)
-	}
 }
 
 func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {

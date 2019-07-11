@@ -292,6 +292,7 @@ PerfDashApp.prototype.getLabels = function() {
             }
             labels[name].push(item)
         }, this);
+        labels[name].sort()
     }, this);
     return labels;
 };

@@ -1,3 +1,5 @@
+{{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+
 # This service points to the Kubemark ApiServer, which runs on separate VM, outside of the main
 # cluster.The service is needed for Prometheus (discovery and monitoring in Prometheus server is
 # based on k8s services and endpoints) in order to collect metrics from the Kubemark ApiServer.
@@ -22,3 +24,7 @@ spec:
       port: 10251
     - name: kube-controller-manager
       port: 10252
+    {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
+    - name: node-exporter
+      port: 9100
+    {{end}}

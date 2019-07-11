@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
+{{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -12,6 +13,10 @@ spec:
   {{if $PROMETHEUS_SCRAPE_ETCD}}
   - interval: 5s
     port: etcd
+  {{end}}
+  {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
+  - interval: 5s
+    port: node-exporter
   {{end}}
   - interval: 5s
     port: kubelet

@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-exporter
+  namespace: kube-system
+  labels:
+    k8s-app: node-exporter
+spec:
+  containers:
+    - name: prometheus-node-exporter
+      image: quay.io/prometheus/node-exporter:v0.18.1
+      imagePullPolicy: "IfNotPresent"
+      args:
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --collector.netstat.fields=^.*$
+        - --collector.qdisc
+      ports:
+        - name: metrics
+          containerPort: 9100
+          hostPort: 9100
+      volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly:  true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+      resources:
+        limits:
+          cpu: 10m
+          memory: 50Mi
+        requests:
+          cpu: 10m
+          memory: 50Mi
+  hostNetwork: true
+  hostPID: true
+  volumes:
+    - name: proc
+      hostPath:
+        path: /proc
+    - name: sys
+      hostPath:
+        path: /sys

@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       labels:
+        group: load
         name: {{.Name}}
         svc: {{.SvcName}}-{{.Index}}
     spec:

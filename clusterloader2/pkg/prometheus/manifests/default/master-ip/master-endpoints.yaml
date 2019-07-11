@@ -8,7 +8,9 @@ metadata:
     k8s-app: master
 subsets:
   - addresses:
-      - ip: {{.MasterIp}}
+    {{range .MasterIps}}
+      - ip: {{.}}
+    {{end}}
     ports:
       - name: etcd
         port: 2379

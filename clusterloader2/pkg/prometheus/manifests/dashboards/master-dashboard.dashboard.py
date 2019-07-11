@@ -14,23 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import attr
 from grafanalib import core as g
 
 DECREASING_ORDER_TOOLTIP = g.Tooltip(sort=g.SORT_DESC)
 DEFAULT_PANEL_HEIGHT = g.Pixels(300)
 
+# Graph is a g.Graph with reasonable defaults applied.
+@attr.s
+class Graph(g.Graph):
+    dataSource = attr.ib(default="$source")
+    span = attr.ib(default=g.TOTAL_SPAN)
+    tooltip = attr.ib(default=DECREASING_ORDER_TOOLTIP)
 
-def simple_graph(title, exprs, yAxes=None):
+
+def simple_graph(title, exprs, yAxes=None, legend=""):
     if not isinstance(exprs, (list, tuple)):
         exprs = [exprs]
-    return g.Graph(
+    if legend != "" and len(exprs) != 1:
+        raise ValueError("legend can be specified only for a 1-element exprs")
+    return Graph(
         title=title,
-        dataSource="$source",
         # One graph per row.
-        span=g.TOTAL_SPAN,
-        targets=[g.Target(expr=expr) for expr in exprs],
+        targets=[g.Target(expr=expr, legendFormat=legend) for expr in exprs],
         yAxes=yAxes or g.YAxes(),
-        tooltip=DECREASING_ORDER_TOOLTIP,
     )
 
 
@@ -43,16 +50,22 @@ CLUSTERLOADER_PANELS = [
         "API call latency (1s thresholds)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="LIST", verb!="WATCH", verb!="CONNECT"}',
         g.single_y_axis(format=g.SECONDS_FORMAT),
+        "{{verb}} {{scope}}/{{resource}}",
     ),
     simple_graph(
         "API call latency aggregated (1s thresholds)",
         'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!="LIST", verb!="WATCH", verb!="CONNECT"}[5d])) by (le, resource, verb, scope, subresource))',
         g.single_y_axis(format=g.SECONDS_FORMAT),
+        "{{verb}} {{scope}}/{{resource}}",
     ),
 ]
 
 HEALTH_PANELS = [
-    simple_graph("Unhealthy nodes", "node_collector_unhealthy_nodes_in_zone"),
+    simple_graph(
+        "Unhealthy nodes",
+        "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
+        legend="{{zone}}",
+    ),
     # It's not clear which "Component restarts" shows more accurate results.
     simple_graph(
         "Component restarts",
@@ -61,6 +74,9 @@ HEALTH_PANELS = [
     simple_graph(
         "Component restarts 2",
         'sum(min_over_time(container_start_time_seconds{container_name!="",container_name!="POD"}[2m])) by (container_name)',
+    ),
+    simple_graph(
+        "Active component", "sum(leader_election_master_status) by (name, instance)"
     ),
 ]
 
@@ -101,6 +117,12 @@ ETCD_PANELS = [
         'histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
         g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    simple_graph("etcd instance id", "sum(etcd_server_id) by (instance, server_id)"),
+    simple_graph(
+        "etcd network latency (99th percentile)",
+        "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[1m])) by (le, instance, To))",
+        g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
     simple_graph("etcd objects", "sum(etcd_object_counts) by (resource, instance)"),
 ]
 
@@ -117,7 +139,7 @@ APISERVER_PANELS = [
         "sum(apiserver_registered_watchers) by (group, kind, instance)",
     ),
     simple_graph(
-        "(experimental) Watch events rate",
+        "Watch events rate",
         "sum(rate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
     ),
     simple_graph(
@@ -136,25 +158,17 @@ APISERVER_PANELS = [
         "Request latency (50th percentile)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.50", verb!="WATCH"}',
         g.single_y_axis(format=g.SECONDS_FORMAT),
+        "{{verb}} {{scope}}/{{resource}}",
     ),
     simple_graph(
         "Request latency (99th percentile)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="WATCH"}',
         g.single_y_axis(format=g.SECONDS_FORMAT),
+        "{{verb}} {{scope}}/{{resource}}",
     ),
     simple_graph(
         '"Big" LIST requests',
-        [
-            'sum(rate(apiserver_request_count{verb="LIST", resource="%s"}[1m])) by (resource, client)'
-            % resource
-            for resource in [
-                "nodes",
-                "pods",
-                "services",
-                "endpoints",
-                "replicationcontrollers",
-            ]
-        ],
+        'sum(rate(apiserver_request_count{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource, client)',
     ),
     simple_graph(
         "Traffic",
@@ -205,20 +219,46 @@ VM_PANELS = [
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),
-    simple_graph(
-        "Network usage (bytes)",
-        [
-            'rate(container_network_transmit_bytes_total{id="/"}[1m])',
-            'rate(container_network_receive_bytes_total{id="/"}[1m])',
+    Graph(
+        title="Network usage (bytes)",
+        targets=[
+            g.Target(
+                expr='rate(container_network_transmit_bytes_total{id="/"}[1m])',
+                legendFormat="{{instance}} transmit",
+            ),
+            g.Target(
+                expr='rate(container_network_receive_bytes_total{id="/"}[1m])',
+                legendFormat="{{instance}} receive",
+            ),
         ],
-        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
-    simple_graph(
-        "Network usage (packets)",
-        [
-            'rate(container_network_transmit_packets_total{id="/"}[1m])',
-            'rate(container_network_receive_packets_total{id="/"}[1m])',
+    Graph(
+        title="Network usage (packets)",
+        targets=[
+            g.Target(
+                expr='rate(container_network_transmit_packets_total{id="/"}[1m])',
+                legendFormat="{{instance}} transmit",
+            ),
+            g.Target(
+                expr='rate(container_network_receive_packets_total{id="/"}[1m])',
+                legendFormat="{{instance}} receive",
+            ),
         ],
+    ),
+    Graph(
+        title="Network usage (avg packet size)",
+        targets=[
+            g.Target(
+                expr='rate(container_network_transmit_bytes_total{id="/"}[1m]) / rate(container_network_transmit_packets_total{id="/"}[1m])',
+                legendFormat="{{instance}} transmit",
+            ),
+            g.Target(
+                expr='rate(container_network_receive_bytes_total{id="/"}[1m]) / rate(container_network_receive_packets_total{id="/"}[1m])',
+                legendFormat="{{instance}} receive",
+            ),
+        ],
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
 ]
 
@@ -250,7 +290,13 @@ dashboard = g.Dashboard(
         g.Row(
             title="kube-controller-manager",
             height=DEFAULT_PANEL_HEIGHT,
-            panels=[simple_graph("Workqueue depths", "workqueue_depth")],
+            panels=[
+                simple_graph(
+                    "Workqueue depths",
+                    'workqueue_depth{endpoint="kube-controller-manager"}',
+                    legend="{{name}}",
+                )
+            ],
         ),
         g.Row(title="Master VM", height=DEFAULT_PANEL_HEIGHT, panels=VM_PANELS),
         g.Row(

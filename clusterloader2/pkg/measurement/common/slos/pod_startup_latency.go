@@ -31,6 +31,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -56,13 +57,14 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 }
 
 type podStartupLatencyMeasurement struct {
-	namespace       string
-	labelSelector   string
-	fieldSelector   string
-	informer        cache.SharedInformer
-	isRunning       bool
-	stopCh          chan struct{}
-	mutex           sync.Mutex
+	namespace     string
+	labelSelector string
+	fieldSelector string
+	informer      cache.SharedInformer
+	isRunning     bool
+	stopCh        chan struct{}
+
+	lock            sync.Mutex
 	createTimes     map[string]metav1.Time
 	scheduleTimes   map[string]metav1.Time
 	runTimes        map[string]metav1.Time
@@ -129,20 +131,14 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
-	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = p.fieldSelector
-		options.LabelSelector = p.labelSelector
-	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), "pods", p.namespace, optionsModifier)
-	p.informer = cache.NewSharedInformer(listerWatcher, &corev1.Pod{}, 0)
-	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			p.checkPod(obj)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			p.checkPod(newObj)
-		},
-	})
+	p.informer = informer.NewInformer(
+		c,
+		"pods",
+		p.namespace,
+		p.fieldSelector,
+		p.labelSelector,
+		p.checkPod,
+	)
 
 	go p.informer.Run(p.stopCh)
 	timeoutCh := make(chan struct{})
@@ -274,14 +270,17 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	return nil
 }
 
-func (p *podStartupLatencyMeasurement) checkPod(obj interface{}) {
+func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
+	if obj == nil {
+		return
+	}
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return
 	}
 	if pod.Status.Phase == corev1.PodRunning {
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
+		p.lock.Lock()
+		defer p.lock.Unlock()
 		key := createMetaNamespaceKey(pod.Namespace, pod.Name)
 		if _, found := p.watchTimes[key]; !found {
 			p.watchTimes[key] = metav1.Now()

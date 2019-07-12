@@ -414,8 +414,8 @@
 			"revision": "0646ccaebea1ed1539efcab30cae44019090093f",
 			"revisionTime": "2018-03-12T05:41:25Z"
 		},
-	        {
-		    "checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
+		{
+			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",
 			"revision": "5d4384ee4fb2527b0a1256a821ebfc92f91efefc",
 			"revisionTime": "2018-12-26T10:54:42Z"
@@ -749,6 +749,12 @@
 			"path": "golang.org/x/oauth2/jwt",
 			"revision": "99b60b757ec124ebb7d6b7e97f153b19c10ce163",
 			"revisionTime": "2019-01-29T22:49:30Z"
+		},
+		{
+			"checksumSHA1": "iEK5hCRfrkdc1JOJsaiWuymHmeQ=",
+			"path": "golang.org/x/sync/errgroup",
+			"revision": "112230192c580c3556b8cee6403af37a4fc5f28c",
+			"revisionTime": "2019-04-22T22:11:18Z"
 		},
 		{
 			"checksumSHA1": "tI1YsCNEjyDW/aGNtunZDyjN9MA=",

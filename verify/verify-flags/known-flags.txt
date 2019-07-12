@@ -1,4 +1,5 @@
 comparison-scheme
+enable-exec-service
 enable-output-coloring
 enable-prometheus-server
 experimental-gcp-snapshot-prometheus-disk

@@ -21,6 +21,7 @@ type ClusterLoaderConfig struct {
 	ClusterConfig            ClusterConfig `json: clusterConfig`
 	ReportDir                string        `json: reportDir`
 	EnablePrometheusServer   bool          `json: enablePrometheusServer`
+	EnableExecService        bool          `json: enableExecService`
 	TearDownPrometheusServer bool          `json: tearDownPrometheusServer`
 	TestConfigPath           string        `json: testConfigPath`
 	TestOverridesPath        []string      `json: testOverrides`

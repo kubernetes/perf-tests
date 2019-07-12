@@ -19,17 +19,21 @@ package prometheus
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
@@ -41,6 +45,8 @@ const (
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
+	nodeExporterPod              = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/exporters/node-exporter.yaml"
+	nodeExporterTemplateName     = "PROMETHEUS_SCRAPE_NODE_EXPORTER"
 )
 
 // PrometheusController is a util for managing (setting up / tearing down) the prometheus stack in
@@ -93,6 +99,11 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 	}
 	if err := pc.applyManifests(coreManifests); err != nil {
 		return err
+	}
+	if scrapeNodeExporter, ok := pc.templateMapping[nodeExporterTemplateName].(bool); ok && scrapeNodeExporter {
+		if err := pc.runNodeExporter(); err != nil {
+			return err
+		}
 	}
 	if pc.isKubemark() {
 		if err := pc.exposeKubemarkApiServerMetrics(); err != nil {
@@ -181,6 +192,46 @@ func (pc *PrometheusController) exposeKubemarkApiServerMetrics() error {
 		return err
 	}
 	return nil
+}
+
+// runNodeExporter adds node-exporter as master's static manifest pod.
+// TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
+// when master nodes have configured networking.
+func (pc *PrometheusController) runNodeExporter() error {
+	klog.Infof("Starting node-exporter on master nodes.")
+	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
+	if err != nil {
+		return err
+	}
+
+	// Validate masters first
+	nodes, err := client.ListNodes(kubemarkFramework.GetClientSets().GetClient())
+	if err != nil {
+		return err
+	}
+
+	var g errgroup.Group
+	numMasters := 0
+	for _, node := range nodes {
+		node := node
+		if system.IsMasterNode(node.Name) {
+			numMasters++
+			g.Go(func() error {
+				f, err := os.Open(os.ExpandEnv(nodeExporterPod))
+				if err != nil {
+					return fmt.Errorf("Unable to open manifest file: %v", err)
+				}
+				defer f.Close()
+				return util.SSH("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
+			})
+		}
+	}
+
+	if numMasters == 0 {
+		return fmt.Errorf("node-exporter requires master to be registered nodes")
+	}
+
+	return g.Wait()
 }
 
 func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {

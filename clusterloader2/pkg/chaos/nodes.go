@@ -19,7 +19,6 @@ package chaos
 import (
 	"fmt"
 	"math/rand"
-	"os/exec"
 	"sync"
 	"time"
 
@@ -95,7 +94,7 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 			defer wg.Done()
 
 			klog.Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
-			err := k.ssh("sudo systemctl stop docker kubelet", &node)
+			err := util.SSH("sudo systemctl stop docker kubelet", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: ERROR while stopping node %q: %v", k, node.Name, err)
 				return
@@ -104,7 +103,7 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 			time.Sleep(time.Duration(k.config.SimulatedDowntime))
 
 			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
-			err = k.ssh("sudo reboot", &node)
+			err = util.SSH("sudo reboot", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: Error while rebooting node %q: %v", k, node.Name, err)
 				return
@@ -116,15 +115,4 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 
 func (k *NodeKiller) String() string {
 	return "NodeKiller"
-}
-
-func (k *NodeKiller) ssh(command string, node *v1.Node) error {
-	zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
-	if !ok {
-		return fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)
-	}
-	cmd := exec.Command("gcloud", "compute", "ssh", "--zone", zone, "--command", command, node.Name)
-	output, err := cmd.CombinedOutput()
-	klog.Infof("%s: ssh to %q finished with %q: %v", k, node.Name, string(output), err)
-	return err
 }

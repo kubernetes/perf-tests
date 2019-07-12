@@ -14,3 +14,5 @@ spec:
       port: 2379
     - name: kubelet
       port: 10250
+    - name: node-exporter
+      port: 9100

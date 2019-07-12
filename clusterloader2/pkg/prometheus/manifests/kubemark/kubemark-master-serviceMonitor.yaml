@@ -1,3 +1,5 @@
+{{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -36,3 +38,7 @@ spec:
     port: kube-scheduler
   - interval: 5s
     port: kube-controller-manager
+  {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
+  - interval: 5s
+    port: node-exporter
+  {{end}}

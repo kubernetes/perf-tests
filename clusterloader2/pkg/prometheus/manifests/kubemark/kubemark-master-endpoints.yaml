@@ -1,3 +1,5 @@
+{{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+
 # Endpoints object for the kubemark/kube-apiserver service. For details, see the service object yaml
 apiVersion: v1
 kind: Endpoints
@@ -22,3 +24,7 @@ subsets:
         port: 10251
       - name: kube-controller-manager
         port: 10252
+      {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
+      - name: node-exporter
+        port: 9100
+      {{end}}

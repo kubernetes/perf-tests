@@ -143,6 +143,14 @@ APISERVER_PANELS = [
         "sum(rate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
     ),
     simple_graph(
+        "(Experimental) Watch events traffic",
+        "sum(rate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+    ),
+    simple_graph(
+        "Watch event avg size",
+        "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (version, kind, instance)",
+    ),
+    simple_graph(
         "Inflight requests",
         "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
     ),
@@ -259,6 +267,24 @@ VM_PANELS = [
             ),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
+    ),
+    Graph(
+        title="Network tcp segments",
+        targets=[
+            g.Target(
+                expr="sum(rate(node_netstat_Tcp_InSegs[1m])) by (instance)",
+                legendFormat="InSegs {{instance}}",
+            ),
+            g.Target(
+                expr="sum(rate(node_netstat_Tcp_OutSegs[1m])) by (instance)",
+                legendFormat="OutSegs {{instance}}",
+            ),
+            g.Target(
+                expr="sum(rate(node_netstat_Tcp_RetransSegs[1m])) by (instance)",
+                legendFormat="RetransSegs {{instance}}",
+            ),
+        ],
+        yAxes=g.single_y_axis(logBase=10),
     ),
 ]
 

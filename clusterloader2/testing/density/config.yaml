@@ -25,10 +25,10 @@
 {{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
-{{$saturationRCTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
-# saturationRCHardTimeout must be at least 20m to make sure that ~10m node
+{{$saturationDeploymentTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
+# saturationDeploymentHardTimeout must be at least 20m to make sure that ~10m node
 # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
-{{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 1200}}
+{{$saturationDeploymentHardTimeout := MaxInt $saturationDeploymentTimeout 1200}}
 
 name: density
 automanagedNamespaces: {{$namespaces}}
@@ -67,16 +67,16 @@ steps:
     Params:
       action: start
       labelSelector: group = saturation
-      threshold: {{$saturationRCTimeout}}s
+      threshold: {{$saturationDeploymentTimeout}}s
 - measurements:
-  - Identifier: WaitForRunningSaturationRCs
+  - Identifier: WaitForRunningSaturationDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: start
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = saturation
-      operationTimeout: {{$saturationRCHardTimeout}}s
+      operationTimeout: {{$saturationDeploymentHardTimeout}}s
 - phases:
   - namespaceRange:
       min: 1
@@ -84,7 +84,7 @@ steps:
     replicasPerNamespace: 1
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: saturation-rc
+    - basename: saturation-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
@@ -98,7 +98,7 @@ steps:
       action: start
       labelSelector: group = saturation
 - measurements:
-  - Identifier: WaitForRunningSaturationRCs
+  - Identifier: WaitForRunningSaturationDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -121,7 +121,7 @@ steps:
       action: start
       labelSelector: group = latency
 - measurements:
-  - Identifier: WaitForRunningLatencyRCs
+  - Identifier: WaitForRunningLatencyDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: start
@@ -136,7 +136,7 @@ steps:
     replicasPerNamespace: {{$latencyReplicas}}
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-pod-rc
+    - basename: latency-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: 1
@@ -144,7 +144,7 @@ steps:
         CpuRequest: {{$LATENCY_POD_CPU}}m
         MemoryRequest: {{$LATENCY_POD_MEMORY}}M
 - measurements:
-  - Identifier: WaitForRunningLatencyRCs
+  - Identifier: WaitForRunningLatencyDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -157,10 +157,10 @@ steps:
     replicasPerNamespace: 0
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-pod-rc
+    - basename: latency-deployment
       objectTemplatePath: deployment.yaml
 - measurements:
-  - Identifier: WaitForRunningLatencyRCs
+  - Identifier: WaitForRunningLatencyDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -178,10 +178,10 @@ steps:
     replicasPerNamespace: 0
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: saturation-rc
+    - basename: saturation-deployment
       objectTemplatePath: deployment.yaml
 - measurements:
-  - Identifier: WaitForRunningSaturationRCs
+  - Identifier: WaitForRunningSaturationDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather

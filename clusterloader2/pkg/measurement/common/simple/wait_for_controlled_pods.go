@@ -33,6 +33,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
@@ -436,9 +437,18 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
+		options := &measurementutil.WaitForPodOptions{
+			Namespace:           runtimeObjectNamespace,
+			LabelSelector:       runtimeObjectSelector.String(),
+			FieldSelector:       "",
+			DesiredPodCount:     int(runtimeObjectReplicas),
+			EnableLogging:       true,
+			CallerName:          w.String(),
+			WaitForPodsInterval: defaultWaitForPodsInterval,
+		}
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = waitForPods(w.clusterFramework.GetClientSets().GetClient(), runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), o.stopCh, true, w.String())
+		err = measurementutil.WaitForPods(w.clusterFramework.GetClientSets().GetClient(), o.stopCh, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

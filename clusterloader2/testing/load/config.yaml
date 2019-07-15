@@ -67,6 +67,13 @@ steps:
       action: start
       labelSelector: group = load
       threshold: 1h
+  {{if $ENABLE_PROBES}}
+  - Identifier: Probes
+    Method: Probes
+    Params:
+      action: start
+      replicasPerProbe: {{DivideInt .Nodes 100}}
+  {{end}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
@@ -278,6 +285,12 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
+  {{if $ENABLE_PROBES}}
+  - Identifier: Probes
+    Method: Probes
+    Params:
+      action: gather
+  {{end}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency

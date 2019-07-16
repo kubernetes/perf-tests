@@ -1,8 +1,8 @@
 # ASSUMPTIONS:
 # - Underlying cluster should have 100+ nodes.
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
-# - The number of created SVCs is half the number of created RCs.
-# - Only half of RCs will be assigned 1-1 to existing SVCs.
+# - The number of created SVCs is half the number of created Deployments.
+# - Only half of Deployments will be assigned 1-1 to existing SVCs.
 
 #Constants
 {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
@@ -20,12 +20,12 @@
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
-# bigRCs - 1/4 of namespace pods should be in big RCs.
-{{$bigRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $BIG_GROUP_SIZE)}}
-# mediumRCs - 1/4 of namespace pods should be in medium RCs.
-{{$mediumRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
-# smallRCs - 1/2 of namespace pods should be in small RCs.
-{{$smallRcsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
+# bigDeployments - 1/4 of namespace pods should be in big Deployments.
+{{$bigDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $BIG_GROUP_SIZE)}}
+# mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
+{{$mediumDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
+# smallDeployments - 1/2 of namespace pods should be in small Deployments.
+{{$smallDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
 
 
 name: load
@@ -40,7 +40,7 @@ tuningSets:
 - name: RandomizedScalingTimeLimited
   RandomizedTimeLimitedLoad:
     # The expected number of created/deleted pods is totalPods/4 when scaling,
-    # as each RC changes its size from X to a uniform random value in [X/2, 3X/2].
+    # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
     timeLimit: {{DivideInt $saturationTime 4}}s
 {{if $ENABLE_CHAOSMONKEY}}
@@ -90,7 +90,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $bigRcsPerNamespace 1) 2}}
+    replicasPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
     tuningSet: Sequence
     objectBundle:
     - basename: big-service
@@ -98,7 +98,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $mediumRcsPerNamespace 1) 2}}
+    replicasPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
     tuningSet: Sequence
     objectBundle:
     - basename: medium-service
@@ -106,15 +106,15 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $smallRcsPerNamespace 1) 2}}
+    replicasPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
     tuningSet: Sequence
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
 - name: Creating SVCs
-# Create RCs
+# Create Deployments
 - measurements:
-  - Identifier: WaitForRunningRCs
+  - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: start
@@ -126,10 +126,10 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$bigRcsPerNamespace}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: big-rc
+    - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$BIG_GROUP_SIZE}}
@@ -138,10 +138,10 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$mediumRcsPerNamespace}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: medium-rc
+    - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
@@ -150,30 +150,30 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$smallRcsPerNamespace}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: small-rc
+    - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
 - measurements:
-  - Identifier: WaitForRunningRCs
+  - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- name: Creating RCs
-# Scale RCs
+- name: Creating Deployments
+# Scale Deployments
 - phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$bigRcsPerNamespace}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
-    - basename: big-rc
+    - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
@@ -182,10 +182,10 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$mediumRcsPerNamespace}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
-    - basename: medium-rc
+    - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
@@ -194,22 +194,22 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: {{$smallRcsPerNamespace}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
-    - basename: small-rc
+    - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
 - measurements:
-  - Identifier: WaitForRunningRCs
+  - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- name: Scaling RCs
-# Delete RCs
+- name: Scaling Deployments
+# Delete Deployments
 - phases:
   - namespaceRange:
       min: 1
@@ -217,7 +217,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: big-rc
+    - basename: big-deployment
       objectTemplatePath: deployment.yaml
   - namespaceRange:
       min: 1
@@ -225,7 +225,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: medium-rc
+    - basename: medium-deployment
       objectTemplatePath: deployment.yaml
   - namespaceRange:
       min: 1
@@ -233,11 +233,11 @@ steps:
     replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-    - basename: small-rc
+    - basename: small-deployment
       objectTemplatePath: deployment.yaml
-- name: Deleting RCs
+- name: Deleting Deployments
 - measurements:
-  - Identifier: WaitForRunningRCs
+  - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather

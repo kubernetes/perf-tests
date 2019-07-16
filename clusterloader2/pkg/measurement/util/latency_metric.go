@@ -19,7 +19,10 @@ package util
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/common/model"
 )
 
 // LatencyMetric represent 50th, 90th and 99th duration quantiles.
@@ -57,18 +60,22 @@ func (metric *LatencyMetric) VerifyThreshold(threshold *LatencyMetric) error {
 }
 
 // ToPerfData converts latency metric to PerfData.
-func (metric *LatencyMetric) ToPerfData(name string, ratio float64) DataItem {
+func (metric *LatencyMetric) ToPerfData(name string) DataItem {
 	return DataItem{
 		Data: map[string]float64{
-			"Perc50": float64(metric.Perc50) / ratio,
-			"Perc90": float64(metric.Perc90) / ratio,
-			"Perc99": float64(metric.Perc99) / ratio,
+			"Perc50": float64(metric.Perc50) / float64(time.Millisecond),
+			"Perc90": float64(metric.Perc90) / float64(time.Millisecond),
+			"Perc99": float64(metric.Perc99) / float64(time.Millisecond),
 		},
 		Unit: "ms",
 		Labels: map[string]string{
 			"Metric": name,
 		},
 	}
+}
+
+func (metric LatencyMetric) String() string {
+	return fmt.Sprintf("perc50: %v, perc90: %v, perc99: %v", metric.Perc50, metric.Perc90, metric.Perc99)
 }
 
 // LatencyData is an interface for latance data structure.
@@ -83,7 +90,7 @@ func (l LatencySlice) Len() int           { return len(l) }
 func (l LatencySlice) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l LatencySlice) Less(i, j int) bool { return l[i].GetLatency() < l[j].GetLatency() }
 
-// ExtractLatencyMetrics converts latency data arry to latency metric.
+// ExtractLatencyMetrics converts latency data array to latency metric.
 func ExtractLatencyMetrics(latencies []LatencyData) LatencyMetric {
 	length := len(latencies)
 	if length == 0 {
@@ -95,4 +102,23 @@ func ExtractLatencyMetrics(latencies []LatencyData) LatencyMetric {
 	perc90 := latencies[int(math.Ceil(float64(length*90)/100))-1].GetLatency()
 	perc99 := latencies[int(math.Ceil(float64(length*99)/100))-1].GetLatency()
 	return LatencyMetric{Perc50: perc50, Perc90: perc90, Perc99: perc99}
+}
+
+// ParseFromPrometheus tries to parse latency data from results of Prometheus query.
+func ParseFromPrometheus(samples []*model.Sample) (*LatencyMetric, error) {
+	var latencyMetric LatencyMetric
+	for _, sample := range samples {
+		val, ok := sample.Metric["quantile"]
+		if !ok {
+			return nil, fmt.Errorf("quantile missing in sample %v", sample)
+		}
+
+		quantile, err := strconv.ParseFloat(string(val), 64)
+		if err != nil {
+			return nil, err
+		}
+		latency := time.Duration(float64(sample.Value) * float64(time.Second))
+		latencyMetric.SetQuantile(quantile, latency)
+	}
+	return &latencyMetric, nil
 }

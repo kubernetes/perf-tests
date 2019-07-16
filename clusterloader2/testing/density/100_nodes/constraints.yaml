@@ -24,7 +24,7 @@ kube-proxy:
   cpuConstraint: 0.1
   memoryConstraint: 31457280 #30 * (1024 * 1024)
 kube-scheduler:
-  cpuConstraint: 0.35
+  cpuConstraint: 0.7 # TODO(https://github.com/kubernetes/kubernetes/issues/80212): Change back to 0.35 once investigated.
   memoryConstraint: 125829120 #120 * (1024 * 1024)
 l7-lb-controller:
   cpuConstraint: 0.20

@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -63,7 +62,6 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 }
 
 type waitForControlledPodsRunningMeasurement struct {
-	informer          cache.SharedInformer
 	apiVersion        string
 	kind              string
 	namespace         string
@@ -134,11 +132,14 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 
 // Dispose cleans up after the measurement.
 func (w *waitForControlledPodsRunningMeasurement) Dispose() {
+	if !w.isRunning {
+		return
+	}
+	w.isRunning = false
 	close(w.stopCh)
 	w.queue.Stop()
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	w.isRunning = false
 	for _, checker := range w.checkerMap {
 		checker.terminate(false)
 	}
@@ -150,6 +151,11 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 }
 
 func (w *waitForControlledPodsRunningMeasurement) start() error {
+	if w.isRunning {
+		klog.Infof("%v: wait for controlled pods measurement already running", w)
+		return nil
+	}
+	klog.Infof("%v: starting wait for controlled pods measurement...", w)
 	gv, err := schema.ParseGroupVersion(w.apiVersion)
 	if err != nil {
 		return err
@@ -157,16 +163,9 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	gvk := gv.WithKind(w.kind)
 	w.gvr, _ = meta.UnsafeGuessKindToResource(gvk)
 
-	if w.informer != nil {
-		klog.Infof("%v: wait for controlled pods measurement already running", w)
-		return nil
-	}
-	klog.Infof("%v: starting wait for controlled pods measurement...", w)
-
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
-
-	w.informer = informer.NewDynamicInformer(
+	i := informer.NewDynamicInformer(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr,
 		w.namespace,
@@ -179,23 +178,12 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 			w.queue.Add(&f)
 		},
 	)
-
-	go w.informer.Run(w.stopCh)
-	timeoutCh := make(chan struct{})
-	timeoutTimer := time.AfterFunc(informerSyncTimeout, func() {
-		close(timeoutCh)
-	})
-	defer timeoutTimer.Stop()
-	if !cache.WaitForCacheSync(timeoutCh, w.informer.HasSynced) {
-		return fmt.Errorf("timed out waiting for caches to sync")
-	}
-
-	return nil
+	return informer.StartAndSync(i, w.stopCh, informerSyncTimeout)
 }
 
 func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {
 	klog.Infof("%v: waiting for controlled pods measurement...", w)
-	if w.informer == nil {
+	if !w.isRunning {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
 	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion()

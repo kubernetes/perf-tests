@@ -332,13 +332,12 @@ type podStartupLatency struct {
 }
 
 func podStartupLatencyToPerfData(latency *podStartupLatency) *measurementutil.PerfData {
-	const nsToMs = 1000000.0
 	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
-	perfData.DataItems = append(perfData.DataItems, latency.CreateToScheduleLatency.ToPerfData("create_to_schedule", nsToMs))
-	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToRunLatency.ToPerfData("schedule_to_run", nsToMs))
-	perfData.DataItems = append(perfData.DataItems, latency.RunToWatchLatency.ToPerfData("run_to_watch", nsToMs))
-	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToWatchLatency.ToPerfData("schedule_to_watch", nsToMs))
-	perfData.DataItems = append(perfData.DataItems, latency.E2ELatency.ToPerfData("pod_startup", nsToMs))
+	perfData.DataItems = append(perfData.DataItems, latency.CreateToScheduleLatency.ToPerfData("create_to_schedule"))
+	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToRunLatency.ToPerfData("schedule_to_run"))
+	perfData.DataItems = append(perfData.DataItems, latency.RunToWatchLatency.ToPerfData("run_to_watch"))
+	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToWatchLatency.ToPerfData("schedule_to_watch"))
+	perfData.DataItems = append(perfData.DataItems, latency.E2ELatency.ToPerfData("pod_startup"))
 	return perfData
 }
 

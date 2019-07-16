@@ -34,7 +34,7 @@ func TestGather(t *testing.T) {
 		wantData  *measurementutil.PerfData
 		wantError error
 	}{{
-		samples:  []*model.Sample{{Value: 200.5}, {Value: 100.5}, {Value: 300.5}},
+		samples:  []*model.Sample{createSample("0.9", 200.5), createSample("0.5", 100.5), createSample("0.99", 300.5)},
 		wantData: createPerfData([]float64{100500, 200500, 300500}),
 	}, {
 		samples:   []*model.Sample{{Value: 1}},
@@ -82,4 +82,28 @@ func (f *fakeExecutor) Query(query string, queryTime time.Time) ([]*model.Sample
 		return nil, f.err
 	}
 	return f.samples, nil
+}
+
+func createSample(p string, l float64) *model.Sample {
+	lset := make(model.LabelSet, 1)
+	lset["quantile"] = model.LabelValue(p)
+	return &model.Sample{
+		Value:  model.SampleValue(l),
+		Metric: model.Metric(lset),
+	}
+}
+
+func createPerfData(p []float64) *measurementutil.PerfData {
+	return &measurementutil.PerfData{
+		Version: metricVersion,
+		DataItems: []measurementutil.DataItem{{
+			Data: map[string]float64{
+				"Perc50": p[0],
+				"Perc90": p[1],
+				"Perc99": p[2],
+			},
+			Unit:   "ms",
+			Labels: map[string]string{"Metric": "NetworkProgrammingLatency"},
+		}},
+	}
 }

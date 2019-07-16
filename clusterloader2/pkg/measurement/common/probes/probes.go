@@ -18,7 +18,6 @@ package probes
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -177,14 +176,10 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 		if err != nil {
 			return nil, err
 		}
-		var latencyMetric measurementutil.LatencyMetric
-		for _, sample := range samples {
-			quantile, err := strconv.ParseFloat(string(sample.Metric["quantile"]), 64)
-			if err != nil {
-				return nil, err
-			}
-			latency := time.Duration(float64(sample.Value) * float64(time.Second))
-			latencyMetric.SetQuantile(quantile, latency)
+
+		latencyMetric, err := measurementutil.ParseFromPrometheus(samples)
+		if err != nil {
+			return nil, err
 		}
 		prefix, suffix := "", ""
 		if threshold, ok := thresholds[probeName]; ok {
@@ -194,9 +189,9 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 				prefix = " WARNING"
 			}
 		}
-		klog.Infof("%s:%s got latency perc50: %v, perc90: %v, perc99: %v%s", probeName, prefix, latencyMetric.Perc50, latencyMetric.Perc90, latencyMetric.Perc99, suffix)
+		klog.Infof("%s:%s got %v%s", probeName, prefix, latencyMetric, suffix)
 
-		probeSummary, err := createSummary(probeName, latencyMetric)
+		probeSummary, err := createSummary(probeName, *latencyMetric)
 		if err != nil {
 			return nil, err
 		}
@@ -268,18 +263,8 @@ func prepareQuery(queryTemplate string, startTime, endTime time.Time) string {
 
 func createSummary(name string, latency measurementutil.LatencyMetric) (measurement.Summary, error) {
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version: currentProbesMetricsVersion,
-		DataItems: []measurementutil.DataItem{
-			{
-				Data: map[string]float64{
-					"Perc50": float64(latency.Perc50) / 1000000, // ns -> ms
-					"Perc90": float64(latency.Perc90) / 1000000,
-					"Perc99": float64(latency.Perc99) / 1000000,
-				},
-				Unit:   "ms",
-				Labels: map[string]string{"Metric": probesMeasurementName},
-			},
-		},
+		Version:   currentProbesMetricsVersion,
+		DataItems: []measurementutil.DataItem{latency.ToPerfData(probesMeasurementName)},
 	})
 	if err != nil {
 		return nil, err

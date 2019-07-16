@@ -191,10 +191,20 @@ var (
 				Parser:           parseHistogramMetric("walFsyncDuration"),
 			}},
 		},
-		"KubeProxy": {
-			"NetworkProgrammingLatency": []TestDescription{{
+		"Network": {
+			"Load_NetworkProgrammingLatency": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "NetworkProgrammingLatency",
+				Parser:           parsePerfData,
+			}},
+			"Load_NetworkLatency": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "in_cluster_network_latency",
+				Parser:           parsePerfData,
+			}},
+			"Density_NetworkLatency": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "in_cluster_network_latency",
 				Parser:           parsePerfData,
 			}},
 		},

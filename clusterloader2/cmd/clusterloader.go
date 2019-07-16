@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
@@ -80,6 +81,7 @@ func validateClusterFlags() *errors.ErrorList {
 func initFlags() {
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
 	flags.BoolEnvVar(&clusterLoaderConfig.EnablePrometheusServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
+	flags.BoolEnvVar(&clusterLoaderConfig.EnableExecService, "enable-exec-service", "ENABLE_EXEC_SERVICE", false, "Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.")
 	flags.BoolEnvVar(&clusterLoaderConfig.TearDownPrometheusServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
@@ -236,6 +238,11 @@ func main() {
 			klog.Exitf("Error while setting up prometheus stack: %v", err)
 		}
 	}
+	if clusterLoaderConfig.EnableExecService {
+		if err := execservice.SetUpExecService(f); err != nil {
+			klog.Exitf("Error while setting up exec service: %v", err)
+		}
+	}
 
 	suiteSummary := &ginkgotypes.SuiteSummary{
 		SuiteDescription:           "ClusterLoaderV2",
@@ -270,6 +277,11 @@ func main() {
 	if clusterLoaderConfig.EnablePrometheusServer && clusterLoaderConfig.TearDownPrometheusServer {
 		if err := prometheusController.TearDownPrometheusStack(); err != nil {
 			klog.Errorf("Error while tearing down prometheus stack: %v", err)
+		}
+	}
+	if clusterLoaderConfig.EnableExecService {
+		if err := execservice.TearDownExecService(f); err != nil {
+			klog.Errorf("Error while tearing down exec service: %v", err)
 		}
 	}
 	if suiteSummary.NumberOfFailedSpecs > 0 {

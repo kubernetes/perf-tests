@@ -264,7 +264,11 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	for _, event := range schedEvents.Items {
 		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
 		if _, ok := p.createTimes[key]; ok {
-			p.scheduleTimes[key] = event.FirstTimestamp
+			if !event.EventTime.IsZero() {
+				p.scheduleTimes[key] = (metav1.Time)(event.EventTime)
+			} else {
+				p.scheduleTimes[key] = event.FirstTimestamp
+			}
 		}
 	}
 	return nil

@@ -74,7 +74,7 @@ func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (*m
 	if len(samples) != 3 {
 		return nil, fmt.Errorf("got unexpected number of samples: %d", len(samples))
 	}
-	return measurementutil.ParseFromPrometheus(samples)
+	return measurementutil.NewLatencyMetricPrometheus(samples)
 }
 
 func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) (measurement.Summary, error) {
@@ -85,6 +85,5 @@ func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) 
 	if err != nil {
 		return nil, err
 	}
-	summary := measurement.CreateSummary(netProg, "json", content)
-	return summary, nil
+	return measurement.CreateSummary(netProg, "json", content), nil
 }

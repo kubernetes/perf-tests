@@ -177,7 +177,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement
 			return nil, err
 		}
 
-		latencyMetric, err := measurementutil.ParseFromPrometheus(samples)
+		latencyMetric, err := measurementutil.NewLatencyMetricPrometheus(samples)
 		if err != nil {
 			return nil, err
 		}

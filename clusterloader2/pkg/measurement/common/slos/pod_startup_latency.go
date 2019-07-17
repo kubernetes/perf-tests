@@ -219,11 +219,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	p.printLatencies(e2eLag, "worst e2e latencies")
 
 	podStartupLatency := &podStartupLatency{
-		CreateToScheduleLatency: measurementutil.ExtractLatencyMetrics(scheduleLag),
-		ScheduleToRunLatency:    measurementutil.ExtractLatencyMetrics(startupLag),
-		RunToWatchLatency:       measurementutil.ExtractLatencyMetrics(watchLag),
-		ScheduleToWatchLatency:  measurementutil.ExtractLatencyMetrics(schedToWatchLag),
-		E2ELatency:              measurementutil.ExtractLatencyMetrics(e2eLag),
+		CreateToScheduleLatency: measurementutil.NewLatencyMetric(scheduleLag),
+		ScheduleToRunLatency:    measurementutil.NewLatencyMetric(startupLag),
+		RunToWatchLatency:       measurementutil.NewLatencyMetric(watchLag),
+		ScheduleToWatchLatency:  measurementutil.NewLatencyMetric(schedToWatchLag),
+		E2ELatency:              measurementutil.NewLatencyMetric(e2eLag),
 	}
 
 	var err error
@@ -304,7 +304,7 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 }
 
 func (p *podStartupLatencyMeasurement) printLatencies(latencies []measurementutil.LatencyData, header string) {
-	metrics := measurementutil.ExtractLatencyMetrics(latencies)
+	metrics := measurementutil.NewLatencyMetric(latencies)
 	index := len(latencies) - 100
 	if index < 0 {
 		index = 0

@@ -90,8 +90,8 @@ func (l LatencySlice) Len() int           { return len(l) }
 func (l LatencySlice) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l LatencySlice) Less(i, j int) bool { return l[i].GetLatency() < l[j].GetLatency() }
 
-// ExtractLatencyMetrics converts latency data array to latency metric.
-func ExtractLatencyMetrics(latencies []LatencyData) LatencyMetric {
+// NewLatencyMetric converts latency data array to latency metric.
+func NewLatencyMetric(latencies []LatencyData) LatencyMetric {
 	length := len(latencies)
 	if length == 0 {
 		// Ideally we can return LatencyMetric with some NaN/incorrect values,
@@ -104,8 +104,8 @@ func ExtractLatencyMetrics(latencies []LatencyData) LatencyMetric {
 	return LatencyMetric{Perc50: perc50, Perc90: perc90, Perc99: perc99}
 }
 
-// ParseFromPrometheus tries to parse latency data from results of Prometheus query.
-func ParseFromPrometheus(samples []*model.Sample) (*LatencyMetric, error) {
+// NewLatencyMetricPrometheus tries to parse latency data from results of Prometheus query.
+func NewLatencyMetricPrometheus(samples []*model.Sample) (*LatencyMetric, error) {
 	var latencyMetric LatencyMetric
 	for _, sample := range samples {
 		val, ok := sample.Metric["quantile"]

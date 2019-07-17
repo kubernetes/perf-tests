@@ -1,4 +1,6 @@
 comparison-scheme
+dns-probe-interval
+dns-probe-url
 enable-exec-service
 enable-output-coloring
 enable-prometheus-server

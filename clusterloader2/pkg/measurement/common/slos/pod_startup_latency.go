@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -60,7 +59,6 @@ type podStartupLatencyMeasurement struct {
 	namespace     string
 	labelSelector string
 	fieldSelector string
-	informer      cache.SharedInformer
 	isRunning     bool
 	stopCh        chan struct{}
 
@@ -131,7 +129,7 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
-	p.informer = informer.NewInformer(
+	i := informer.NewInformer(
 		c,
 		"pods",
 		p.namespace,
@@ -139,17 +137,7 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 		p.labelSelector,
 		p.checkPod,
 	)
-
-	go p.informer.Run(p.stopCh)
-	timeoutCh := make(chan struct{})
-	timeoutTimer := time.AfterFunc(informerSyncTimeout, func() {
-		close(timeoutCh)
-	})
-	defer timeoutTimer.Stop()
-	if !cache.WaitForCacheSync(timeoutCh, p.informer.HasSynced) {
-		return fmt.Errorf("timed out waiting for caches to sync")
-	}
-	return nil
+	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
 }
 
 func (p *podStartupLatencyMeasurement) stop() {

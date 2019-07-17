@@ -17,6 +17,9 @@ limitations under the License.
 package informer
 
 import (
+	"fmt"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -82,4 +85,18 @@ func addEventHandler(i cache.SharedInformer,
 			}
 		},
 	})
+}
+
+// StartAndSync starts informer and waits for it to be synced.
+func StartAndSync(i cache.SharedInformer, stopCh chan struct{}, timeout time.Duration) error {
+	go i.Run(stopCh)
+	timeoutCh := make(chan struct{})
+	timeoutTimer := time.AfterFunc(timeout, func() {
+		close(timeoutCh)
+	})
+	defer timeoutTimer.Stop()
+	if !cache.WaitForCacheSync(timeoutCh, i.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
+	}
+	return nil
 }

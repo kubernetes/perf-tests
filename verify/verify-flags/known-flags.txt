@@ -2,6 +2,7 @@ comparison-scheme
 enable-output-coloring
 enable-prometheus-server
 experimental-gcp-snapshot-prometheus-disk
+experimental-prometheus-disk-snapshot-name
 force-builds
 kubemark-root-kubeconfig
 kubernetes-url

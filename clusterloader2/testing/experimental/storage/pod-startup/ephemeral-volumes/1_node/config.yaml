@@ -3,7 +3,7 @@
 
 #Constants
 {{$TOTAL_PODS := DefaultParam .TOTAL_PODS 1}}
-{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "pod_with_emptydir.yaml"}}
+{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "emptydir/pod_with_emptydir.yaml"}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
 
 {{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 100}}

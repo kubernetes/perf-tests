@@ -1,12 +1,17 @@
 # ASSUMPTIONS:
-# - this test cases should be run on only 1 node
+# - Underlying cluster should have 100+ nodes.
+# - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
-{{$TOTAL_PODS := DefaultParam .TOTAL_PODS 1}}
-{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "../volume-types/emptydir/pod_with_emptydir.yaml"}}
+# TODO(mucahitkurt) copied from load tests, open for discussion.
+{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+
+{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "../emptydir/pod_with_emptydir.yaml"}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
 
-{{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 100}}
+{{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 1}}
 {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
 {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
 
@@ -15,11 +20,14 @@
 
 #Variables
 # used stateless pod SLO for initial run
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podStartupTimeout := 5}}
-{{$totalVolumes := MultiplyInt $TOTAL_PODS $VOLUMES_PER_POD}}
+{{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
 
 name: pod-with-ephemeral-volume-startup-latency
-automanagedNamespaces: 1
+automanagedNamespaces: {{$namespaces}}
 tuningSets:
 - name: UniformQPS
   qpsLoad:
@@ -42,8 +50,8 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: 1
-    replicasPerNamespace: {{$totalVolumes}}
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$volumesPerNamespace}}
     tuningSet: UniformQPS
     objectBundle:
     - basename: vol-{{$APP_NAME}}
@@ -53,8 +61,8 @@ steps:
 - phases:
   - namespaceRange:
       min: 1
-      max: 1
-    replicasPerNamespace: {{$TOTAL_PODS}}
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$podsPerNamespace}}
     tuningSet: UniformQPS
     objectBundle:
     - basename: {{$APP_NAME}}
@@ -67,15 +75,15 @@ steps:
   - Identifier: WaitForRunningPodsWithStorage
     Method: WaitForRunningPods
     Params:
-      desiredPodCount: {{$TOTAL_PODS}}
+      desiredPodCount: {{$totalPods}}
       labelSelector: group = {{$GROUP}}
-      # TODO decide this after test roll-out phase
+      # TODO(mucahitkurt) decide this after test roll-out phase
       timeout: 15m
 # Delete pods
 - phases:
   - namespaceRange:
       min: 1
-      max: 1
+      max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: UniformQPS
     objectBundle:

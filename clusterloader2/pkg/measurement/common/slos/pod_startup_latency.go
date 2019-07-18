@@ -18,7 +18,6 @@ package slos
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -39,6 +38,11 @@ const (
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
 	successfulStartupRatioThreshold   = 0.99
+
+	createPhase   = "create"
+	schedulePhase = "schedule"
+	runPhase      = "run"
+	watchPhase    = "watch"
 )
 
 func init() {
@@ -47,11 +51,7 @@ func init() {
 
 func createPodStartupLatencyMeasurement() measurement.Measurement {
 	return &podStartupLatencyMeasurement{
-		createTimes:   make(map[string]metav1.Time),
-		scheduleTimes: make(map[string]metav1.Time),
-		runTimes:      make(map[string]metav1.Time),
-		watchTimes:    make(map[string]metav1.Time),
-		nodeNames:     make(map[string]string),
+		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 	}
 }
 
@@ -62,14 +62,10 @@ type podStartupLatencyMeasurement struct {
 	isRunning     bool
 	stopCh        chan struct{}
 
-	lock            sync.Mutex
-	createTimes     map[string]metav1.Time
-	scheduleTimes   map[string]metav1.Time
-	runTimes        map[string]metav1.Time
-	watchTimes      map[string]metav1.Time
-	nodeNames       map[string]string
-	threshold       time.Duration
-	selectorsString string
+	lock              sync.Mutex
+	podStartupEntries *measurementutil.ObjectTransitionTimes
+	threshold         time.Duration
+	selectorsString   string
 }
 
 // Execute supports two actions:
@@ -153,72 +149,35 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}
 
-	scheduleLag := make([]measurementutil.LatencyData, 0)
-	startupLag := make([]measurementutil.LatencyData, 0)
-	watchLag := make([]measurementutil.LatencyData, 0)
-	schedToWatchLag := make([]measurementutil.LatencyData, 0)
-	e2eLag := make([]measurementutil.LatencyData, 0)
-
 	p.stop()
 
 	if err := p.gatherScheduleTimes(c); err != nil {
 		return nil, err
 	}
-	for key, create := range p.createTimes {
-		sched, hasSched := p.scheduleTimes[key]
-		if !hasSched {
-			klog.Infof("%s: failed to find schedule time for %v", p, key)
-		}
-		run, ok := p.runTimes[key]
-		if !ok {
-			klog.Infof("%s: failed to find run time for %v", p, key)
-			continue
-		}
-		watch, ok := p.watchTimes[key]
-		if !ok {
-			klog.Infof("%s: failed to find watch time for %v", p, key)
-			continue
-		}
-		node, ok := p.nodeNames[key]
-		if !ok {
-			klog.Infof("%s: failed to find node for %v", p, key)
-			continue
-		}
 
-		if hasSched {
-			scheduleLag = append(scheduleLag, podLatencyData{Name: key, Node: node, Latency: sched.Time.Sub(create.Time)})
-			startupLag = append(startupLag, podLatencyData{Name: key, Node: node, Latency: run.Time.Sub(sched.Time)})
-			schedToWatchLag = append(schedToWatchLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(sched.Time)})
-		}
-		watchLag = append(watchLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(run.Time)})
-		e2eLag = append(e2eLag, podLatencyData{Name: key, Node: node, Latency: watch.Time.Sub(create.Time)})
-	}
-
-	sort.Sort(measurementutil.LatencySlice(scheduleLag))
-	sort.Sort(measurementutil.LatencySlice(startupLag))
-	sort.Sort(measurementutil.LatencySlice(watchLag))
-	sort.Sort(measurementutil.LatencySlice(schedToWatchLag))
-	sort.Sort(measurementutil.LatencySlice(e2eLag))
-
-	p.printLatencies(scheduleLag, "worst create-to-schedule latencies")
-	p.printLatencies(startupLag, "worst schedule-to-run latencies")
-	p.printLatencies(watchLag, "worst run-to-watch latencies")
-	p.printLatencies(schedToWatchLag, "worst schedule-to-watch latencies")
-	p.printLatencies(e2eLag, "worst e2e latencies")
-
-	podStartupLatency := &podStartupLatency{
-		CreateToScheduleLatency: measurementutil.NewLatencyMetric(scheduleLag),
-		ScheduleToRunLatency:    measurementutil.NewLatencyMetric(startupLag),
-		RunToWatchLatency:       measurementutil.NewLatencyMetric(watchLag),
-		ScheduleToWatchLatency:  measurementutil.NewLatencyMetric(schedToWatchLag),
-		E2ELatency:              measurementutil.NewLatencyMetric(e2eLag),
-	}
-
-	var err error
-	if successRatio := float32(len(e2eLag)) / float32(len(p.createTimes)); successRatio < successfulStartupRatioThreshold {
-		err = fmt.Errorf("only %v%% of all pods were scheduled successfully", successRatio*100)
-		klog.Errorf("%s: %v", p, err)
-	}
+	podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(map[string]measurementutil.Transition{
+		"create_to_schedule": {
+			From: createPhase,
+			To:   schedulePhase,
+		},
+		"schedule_to_run": {
+			From: schedulePhase,
+			To:   runPhase,
+		},
+		"run_to_watch": {
+			From: runPhase,
+			To:   watchPhase,
+		},
+		"schedule_to_watch": {
+			From: schedulePhase,
+			To:   watchPhase,
+		},
+		"pod_startup": {
+			From:      createPhase,
+			To:        watchPhase,
+			Threshold: p.threshold,
+		},
+	})
 
 	podStartupLatencyThreshold := &measurementutil.LatencyMetric{
 		Perc50: p.threshold,
@@ -226,12 +185,13 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		Perc99: p.threshold,
 	}
 
-	if slosErr := podStartupLatency.E2ELatency.VerifyThreshold(podStartupLatencyThreshold); slosErr != nil {
+	var err error
+	if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(podStartupLatencyThreshold); slosErr != nil {
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 		klog.Errorf("%s: %v", p, err)
 	}
 
-	content, jsonErr := util.PrettyPrintJSON(podStartupLatencyToPerfData(podStartupLatency))
+	content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(podStartupLatency))
 	if err != nil {
 		return nil, jsonErr
 	}
@@ -251,11 +211,11 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	}
 	for _, event := range schedEvents.Items {
 		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-		if _, ok := p.createTimes[key]; ok {
+		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
 			if !event.EventTime.IsZero() {
-				p.scheduleTimes[key] = (metav1.Time)(event.EventTime)
+				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
 			} else {
-				p.scheduleTimes[key] = event.FirstTimestamp
+				p.podStartupEntries.Set(key, schedulePhase, event.FirstTimestamp.Time)
 			}
 		}
 	}
@@ -274,10 +234,9 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 		p.lock.Lock()
 		defer p.lock.Unlock()
 		key := createMetaNamespaceKey(pod.Namespace, pod.Name)
-		if _, found := p.watchTimes[key]; !found {
-			p.watchTimes[key] = metav1.Now()
-			p.createTimes[key] = pod.CreationTimestamp
-			p.nodeNames[key] = pod.Spec.NodeName
+		if _, found := p.podStartupEntries.Get(key, createPhase); !found {
+			p.podStartupEntries.Set(key, watchPhase, time.Now())
+			p.podStartupEntries.Set(key, createPhase, pod.CreationTimestamp.Time)
 			var startTime metav1.Time
 			for _, cs := range pod.Status.ContainerStatuses {
 				if cs.State.Running != nil {
@@ -287,50 +246,12 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 				}
 			}
 			if startTime != metav1.NewTime(time.Time{}) {
-				p.runTimes[key] = startTime
+				p.podStartupEntries.Set(key, runPhase, startTime.Time)
 			} else {
 				klog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
 			}
 		}
 	}
-}
-
-func (p *podStartupLatencyMeasurement) printLatencies(latencies []measurementutil.LatencyData, header string) {
-	metrics := measurementutil.NewLatencyMetric(latencies)
-	index := len(latencies) - 100
-	if index < 0 {
-		index = 0
-	}
-	klog.Infof("%s: %d %s: %v", p, len(latencies)-index, header, latencies[index:])
-	klog.Infof("%s: perc50: %v, perc90: %v, perc99: %v; threshold: %v", p, metrics.Perc50, metrics.Perc90, metrics.Perc99, p.threshold)
-}
-
-type podLatencyData struct {
-	Name    string
-	Node    string
-	Latency time.Duration
-}
-
-func (p podLatencyData) GetLatency() time.Duration {
-	return p.Latency
-}
-
-type podStartupLatency struct {
-	CreateToScheduleLatency measurementutil.LatencyMetric `json:"createToScheduleLatency"`
-	ScheduleToRunLatency    measurementutil.LatencyMetric `json:"scheduleToRunLatency"`
-	RunToWatchLatency       measurementutil.LatencyMetric `json:"runToWatchLatency"`
-	ScheduleToWatchLatency  measurementutil.LatencyMetric `json:"scheduleToWatchLatency"`
-	E2ELatency              measurementutil.LatencyMetric `json:"e2eLatency"`
-}
-
-func podStartupLatencyToPerfData(latency *podStartupLatency) *measurementutil.PerfData {
-	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
-	perfData.DataItems = append(perfData.DataItems, latency.CreateToScheduleLatency.ToPerfData("create_to_schedule"))
-	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToRunLatency.ToPerfData("schedule_to_run"))
-	perfData.DataItems = append(perfData.DataItems, latency.RunToWatchLatency.ToPerfData("run_to_watch"))
-	perfData.DataItems = append(perfData.DataItems, latency.ScheduleToWatchLatency.ToPerfData("schedule_to_watch"))
-	perfData.DataItems = append(perfData.DataItems, latency.E2ELatency.ToPerfData("pod_startup"))
-	return perfData
 }
 
 func createMetaNamespaceKey(namespace, name string) string {

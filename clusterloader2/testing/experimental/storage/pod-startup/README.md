@@ -10,10 +10,9 @@
     - tries to stress the max number of volumes a single pod can have
 - X pods with 1 volume each on cluster in parallel
     - run on a cluster with num nodes that is a multiple of `NODES_PER_NAMESPACE` (default 100)
-    - no config file is necessary (this is the default)
+    - use override file in `tests/cluster_load_scale_by_nodes` 
 
 **Volume Type**
 
-Each test must use a type of volume. The empty-dir volume
-is used by default. Use a override in `volume-types` to set
+Each test must use a type of volume. Use a override in `volume-types` to set
 a specific type of volume to test.

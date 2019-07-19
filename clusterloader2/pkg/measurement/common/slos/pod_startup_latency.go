@@ -51,21 +51,19 @@ func init() {
 
 func createPodStartupLatencyMeasurement() measurement.Measurement {
 	return &podStartupLatencyMeasurement{
+		selector:          measurementutil.NewObjectSelector(),
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 	}
 }
 
 type podStartupLatencyMeasurement struct {
-	namespace     string
-	labelSelector string
-	fieldSelector string
-	isRunning     bool
-	stopCh        chan struct{}
+	selector  *measurementutil.ObjectSelector
+	isRunning bool
+	stopCh    chan struct{}
 
 	lock              sync.Mutex
 	podStartupEntries *measurementutil.ObjectTransitionTimes
 	threshold         time.Duration
-	selectorsString   string
 }
 
 // Execute supports two actions:
@@ -81,16 +79,7 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementCo
 
 	switch action {
 	case "start":
-		p.namespace, err = util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
-		if err != nil {
-			return nil, err
-		}
-		p.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
-		if err != nil {
-			return nil, err
-		}
-		p.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
-		if err != nil {
+		if err := p.selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
 		p.threshold, err = util.GetDurationOrDefault(config.Params, "threshold", defaultPodStartupLatencyThreshold)
@@ -113,7 +102,7 @@ func (p *podStartupLatencyMeasurement) Dispose() {
 
 // String returns string representation of this measurement.
 func (p *podStartupLatencyMeasurement) String() string {
-	return podStartupLatencyMeasurementName + ": " + p.selectorsString
+	return podStartupLatencyMeasurementName + ": " + p.selector.String()
 }
 
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
@@ -121,16 +110,13 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 		klog.Infof("%s: pod startup latancy measurement already running", p)
 		return nil
 	}
-	p.selectorsString = measurementutil.CreateSelectorsString(p.namespace, p.labelSelector, p.fieldSelector)
 	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	i := informer.NewInformer(
 		c,
 		"pods",
-		p.namespace,
-		p.fieldSelector,
-		p.labelSelector,
+		p.selector,
 		p.checkPod,
 	)
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
@@ -205,7 +191,7 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 		"source":              corev1.DefaultSchedulerName,
 	}.AsSelector().String()
 	options := metav1.ListOptions{FieldSelector: selector}
-	schedEvents, err := c.CoreV1().Events(p.namespace).List(options)
+	schedEvents, err := c.CoreV1().Events(p.selector.Namespace).List(options)
 	if err != nil {
 		return err
 	}

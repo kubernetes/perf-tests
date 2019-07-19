@@ -22,7 +22,6 @@ import (
 	"sort"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -66,21 +65,13 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 			klog.Infof("%s: measurement already running", s)
 			return nil, nil
 		}
-		namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
-		if err != nil {
-			return nil, err
-		}
-		labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
-		if err != nil {
-			return nil, err
-		}
-		fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
-		if err != nil {
+		selector := measurementutil.NewObjectSelector()
+		if err := selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
 
 		s.stopCh = make(chan struct{})
-		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), namespace, labelSelector, fieldSelector)
+		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector)
 	case "gather":
 		return s.gather()
 	default:
@@ -98,8 +89,8 @@ func (*schedulingThroughputMeasurement) String() string {
 	return schedulingThroughputMeasurementName
 }
 
-func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, namespace, labelSelector, fieldSelector string) error {
-	ps, err := measurementutil.NewPodStore(clientSet, namespace, labelSelector, fieldSelector)
+func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *measurementutil.ObjectSelector) error {
+	ps, err := measurementutil.NewPodStore(clientSet, selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
@@ -108,7 +99,6 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 
 	go func() {
 		defer ps.Stop()
-		selectorsString := measurementutil.CreateSelectorsString(namespace, labelSelector, fieldSelector)
 		lastScheduledCount := 0
 		for {
 			select {
@@ -120,7 +110,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, n
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(defaultWaitForPodsInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
 				lastScheduledCount = podsStatus.Scheduled
-				klog.Infof("%v: %s: %d pods scheduled", s, selectorsString, lastScheduledCount)
+				klog.Infof("%v: %s: %d pods scheduled", s, selector.String(), lastScheduledCount)
 			}
 		}
 	}()

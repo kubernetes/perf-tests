@@ -42,23 +42,23 @@ type PodStore struct {
 }
 
 // NewPodStore creates PodStore based on given namespace, label selector and field selector.
-func NewPodStore(c clientset.Interface, namespace string, labelSelector string, fieldSelector string) (*PodStore, error) {
+func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = labelSelector
-			options.FieldSelector = fieldSelector
-			obj, err := c.CoreV1().Pods(namespace).List(options)
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			obj, err := c.CoreV1().Pods(selector.Namespace).List(options)
 			return runtime.Object(obj), err
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = labelSelector
-			options.FieldSelector = fieldSelector
-			return c.CoreV1().Pods(namespace).Watch(options)
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().Pods(selector.Namespace).Watch(options)
 		},
 	}
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
-	name := fmt.Sprintf("PodStore: %s", CreateSelectorsString(namespace, labelSelector, fieldSelector))
+	name := fmt.Sprintf("PodStore: %s", selector.String())
 	reflector := cache.NewNamedReflector(name, lw, &v1.Pod{}, store, 0)
 	go reflector.Run(stopCh)
 	if err := wait.PollImmediate(50*time.Millisecond, 2*time.Minute, func() (bool, error) {

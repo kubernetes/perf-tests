@@ -78,10 +78,13 @@ func SetUpExecService(f *framework.Framework) error {
 	time.AfterFunc(execPodCheckTimeout, func() {
 		close(stopCh)
 	})
+	selector := &measurementutil.ObjectSelector{
+		Namespace:     execDeploymentNamespace,
+		LabelSelector: execPodSelector,
+		FieldSelector: "",
+	}
 	options := &measurementutil.WaitForPodOptions{
-		Namespace:           execDeploymentNamespace,
-		LabelSelector:       execPodSelector,
-		FieldSelector:       "",
+		Selector:            selector,
 		DesiredPodCount:     execPodReplicas,
 		EnableLogging:       true,
 		CallerName:          execServiceName,
@@ -90,7 +93,7 @@ func SetUpExecService(f *framework.Framework) error {
 	if err = measurementutil.WaitForPods(f.GetClientSets().GetClient(), stopCh, options); err != nil {
 		return err
 	}
-	podStore, err = measurementutil.NewPodStore(f.GetClientSets().GetClient(), execDeploymentNamespace, execPodSelector, "")
+	podStore, err = measurementutil.NewPodStore(f.GetClientSets().GetClient(), selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}

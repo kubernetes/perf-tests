@@ -50,6 +50,12 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	if metrics.resourceUsageSummary, err = measurement.CreateMeasurement("ResourceUsageSummary"); err != nil {
 		klog.Errorf("%s: resourceUsageSummary creation error: %v", metrics, err)
 	}
+	if metrics.etcdCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
+		klog.Errorf("%s: etcdCPUProfile creation error: %v", metrics, err)
+	}
+	if metrics.etcdMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
+		klog.Errorf("%s: etcdMemoryProfile creation error: %v", metrics, err)
+	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%s: apiserverCPUProfile creation error: %v", metrics, err)
 	}
@@ -76,6 +82,8 @@ type testMetrics struct {
 	schedulingMetrics              measurement.Measurement
 	metricsForE2E                  measurement.Measurement
 	resourceUsageSummary           measurement.Measurement
+	etcdCPUProfile                 measurement.Measurement
+	etcdMemoryProfile              measurement.Measurement
 	apiserverCPUProfile            measurement.Measurement
 	apiserverMemoryProfile         measurement.Measurement
 	schedulerCPUProfile            measurement.Measurement
@@ -102,6 +110,14 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	})
 	actionGatherConfig := createConfig(config, map[string]interface{}{
 		"action": "gather",
+	})
+	etcdStartConfig := createConfig(config, map[string]interface{}{
+		"action":        "start",
+		"componentName": "etcd",
+	})
+	etcdGatherConfig := createConfig(config, map[string]interface{}{
+		"action":        "gather",
+		"componentName": "etcd",
 	})
 	kubeApiserverStartConfig := createConfig(config, map[string]interface{}{
 		"action":        "start",
@@ -136,6 +152,10 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.resourceUsageSummary, actionStartConfig)
 		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.etcdCPUProfile, etcdStartConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.etcdMemoryProfile, etcdStartConfig)
+		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
@@ -156,6 +176,10 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		summary, err = execute(t.metricsForE2E, config)
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.resourceUsageSummary, actionGatherConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.etcdCPUProfile, etcdGatherConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.etcdMemoryProfile, etcdGatherConfig)
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, err)
@@ -186,9 +210,14 @@ func (t *testMetrics) Dispose() {
 	t.schedulingMetrics.Dispose()
 	t.metricsForE2E.Dispose()
 	t.resourceUsageSummary.Dispose()
+	t.etcdCPUProfile.Dispose()
+	t.etcdMemoryProfile.Dispose()
 	t.apiserverCPUProfile.Dispose()
 	t.apiserverMemoryProfile.Dispose()
+	t.schedulerCPUProfile.Dispose()
 	t.schedulerMemoryProfile.Dispose()
+	t.controllerManagerCPUProfile.Dispose()
+	t.controllerManagerMemoryProfile.Dispose()
 }
 
 // String returns a string representation of the measurement.

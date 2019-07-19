@@ -36,9 +36,7 @@ const (
 
 // WaitForPodOptions is an options used by WaitForPods methods.
 type WaitForPodOptions struct {
-	Namespace           string
-	LabelSelector       string
-	FieldSelector       string
+	Selector            *ObjectSelector
 	DesiredPodCount     int
 	EnableLogging       bool
 	CallerName          string
@@ -50,21 +48,20 @@ type WaitForPodOptions struct {
 // If stopCh is closed before all pods are running, the error will be returned.
 func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) error {
 	// TODO(#269): Change to shared podStore.
-	ps, err := NewPodStore(clientSet, options.Namespace, options.LabelSelector, options.FieldSelector)
+	ps, err := NewPodStore(clientSet, options.Selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
 	defer ps.Stop()
 
 	var podsStatus PodsStartupStatus
-	selectorsString := CreateSelectorsString(options.Namespace, options.LabelSelector, options.FieldSelector)
 	scaling := uninitialized
 	var oldPods []*corev1.Pod
 	for {
 		select {
 		case <-stopCh:
 			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running",
-				options.DesiredPodCount, options.Namespace, options.LabelSelector, options.FieldSelector, podsStatus.Running)
+				options.DesiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.Running)
 		case <-time.After(options.WaitForPodsInterval):
 			pods := ps.List()
 			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount)
@@ -72,12 +69,12 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				diff := DiffPods(oldPods, pods)
 				deletedPods := diff.DeletedPods()
 				if scaling != down && len(deletedPods) > 0 {
-					klog.Errorf("%s: %s: %d pods disappeared: %v", options.CallerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
+					klog.Errorf("%s: %s: %d pods disappeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
 					klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
 				}
 				addedPods := diff.AddedPods()
 				if scaling != up && len(addedPods) > 0 {
-					klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, selectorsString, len(deletedPods), strings.Join(deletedPods, ", "))
+					klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
 					klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
 				}
 			} else {
@@ -91,7 +88,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				}
 			}
 			if options.EnableLogging {
-				klog.Infof("%s: %s: %s", options.CallerName, selectorsString, podsStatus.String())
+				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
 			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.

@@ -19,7 +19,6 @@ package common
 import (
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -52,16 +51,8 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementC
 	if err != nil {
 		return nil, err
 	}
-	namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
-	labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
-	if err != nil {
-		return nil, err
-	}
-	fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
-	if err != nil {
+	selector := measurementutil.NewObjectSelector()
+	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
 	}
 	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultWaitForPodsTimeout)
@@ -74,9 +65,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementC
 		close(stopCh)
 	})
 	options := &measurementutil.WaitForPodOptions{
-		Namespace:           namespace,
-		LabelSelector:       labelSelector,
-		FieldSelector:       fieldSelector,
+		Selector:            selector,
 		DesiredPodCount:     desiredPodCount,
 		EnableLogging:       true,
 		CallerName:          w.String(),

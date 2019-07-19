@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -56,6 +55,7 @@ func init() {
 
 func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
+		selector:   measurementutil.NewObjectSelector(),
 		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
 		checkerMap: make(map[string]*objectChecker),
 	}
@@ -64,9 +64,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 type waitForControlledPodsRunningMeasurement struct {
 	apiVersion        string
 	kind              string
-	namespace         string
-	labelSelector     string
-	fieldSelector     string
+	selector          *measurementutil.ObjectSelector
 	operationTimeout  time.Duration
 	stopCh            chan struct{}
 	isRunning         bool
@@ -102,16 +100,7 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 		if err != nil {
 			return nil, err
 		}
-		w.namespace, err = util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
-		if err != nil {
-			return nil, err
-		}
-		w.labelSelector, err = util.GetStringOrDefault(config.Params, "labelSelector", "")
-		if err != nil {
-			return nil, err
-		}
-		w.fieldSelector, err = util.GetStringOrDefault(config.Params, "fieldSelector", "")
-		if err != nil {
+		if err = w.selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
 		w.operationTimeout, err = util.GetDurationOrDefault(config.Params, "operationTimeout", defaultOperationTimeout)
@@ -168,9 +157,7 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	i := informer.NewDynamicInformer(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr,
-		w.namespace,
-		w.fieldSelector,
-		w.labelSelector,
+		w.selector,
 		func(odlObj, newObj interface{}) {
 			f := func() {
 				w.handleObject(odlObj, newObj)
@@ -376,7 +363,8 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clusterFramework.GetClientSets().GetClient(), w.kind, w.namespace, w.labelSelector, w.fieldSelector)
+	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clusterFramework.GetClientSets().GetClient(),
+		w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
 	if err != nil {
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}
@@ -426,9 +414,11 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
 		options := &measurementutil.WaitForPodOptions{
-			Namespace:           runtimeObjectNamespace,
-			LabelSelector:       runtimeObjectSelector.String(),
-			FieldSelector:       "",
+			Selector: &measurementutil.ObjectSelector{
+				Namespace:     runtimeObjectNamespace,
+				LabelSelector: runtimeObjectSelector.String(),
+				FieldSelector: "",
+			},
 			DesiredPodCount:     int(runtimeObjectReplicas),
 			EnableLogging:       true,
 			CallerName:          w.String(),

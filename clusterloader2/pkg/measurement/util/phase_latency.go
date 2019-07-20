@@ -98,7 +98,7 @@ func (o *ObjectTransitionTimes) printLatencies(latencies []LatencyData, header s
 	if index < 0 {
 		index = 0
 	}
-	klog.Infof("%s: %d %s: %v", len(latencies)-index, o.name, header, latencies[index:])
+	klog.Infof("%s: %d %s: %v", o.name, len(latencies)-index, header, latencies[index:])
 	var thresholdString string
 	if threshold != time.Duration(0) {
 		thresholdString = fmt.Sprintf("; threshold %v", threshold)

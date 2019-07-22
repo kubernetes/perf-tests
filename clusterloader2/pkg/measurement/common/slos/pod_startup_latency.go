@@ -37,7 +37,7 @@ const (
 	defaultPodStartupLatencyThreshold = 5 * time.Second
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
-	successfulStartupRatioThreshold   = 0.99
+	eventPollingInterval              = 30 * time.Minute
 
 	createPhase   = "create"
 	schedulePhase = "schedule"
@@ -113,6 +113,7 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	klog.Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
+	go p.eventPolling(c)
 	i := informer.NewInformer(
 		c,
 		"pods",
@@ -120,6 +121,19 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 		p.checkPod,
 	)
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
+}
+
+func (p *podStartupLatencyMeasurement) eventPolling(c clientset.Interface) {
+	for {
+		select {
+		case <-p.stopCh:
+			return
+		case <-time.After(eventPollingInterval):
+			if err := p.gatherScheduleTimes(c); err != nil {
+				klog.Warningf("%s: event polling: %v", p, err)
+			}
+		}
+	}
 }
 
 func (p *podStartupLatencyMeasurement) stop() {
@@ -140,6 +154,9 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	if err := p.gatherScheduleTimes(c); err != nil {
 		return nil, err
 	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(map[string]measurementutil.Transition{
 		"create_to_schedule": {
@@ -195,6 +212,8 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	if err != nil {
 		return err
 	}
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	for _, event := range schedEvents.Items {
 		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
 		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {

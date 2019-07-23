@@ -23,6 +23,7 @@ package util
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -34,32 +35,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// PodStore is a convenient wrapper around cache.Store that returns list of v1.Pod instead of interface{}.
-type PodStore struct {
+// ObjectStore is a convenient wrapper around cache.Store.
+type ObjectStore struct {
 	cache.Store
 	stopCh    chan struct{}
 	Reflector *cache.Reflector
 }
 
-// NewPodStore creates PodStore based on given namespace, label selector and field selector.
-func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
-	lw := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = selector.LabelSelector
-			options.FieldSelector = selector.FieldSelector
-			obj, err := c.CoreV1().Pods(selector.Namespace).List(options)
-			return runtime.Object(obj), err
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = selector.LabelSelector
-			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().Pods(selector.Namespace).Watch(options)
-		},
-	}
+// newObjectStore creates ObjectStore based on given object  selector.
+func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *ObjectSelector) (*ObjectStore, error) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
-	name := fmt.Sprintf("PodStore: %s", selector.String())
-	reflector := cache.NewNamedReflector(name, lw, &v1.Pod{}, store, 0)
+	name := fmt.Sprintf("%sStore: %s", reflect.TypeOf(obj).String(), selector.String())
+	reflector := cache.NewNamedReflector(name, lw, obj, store, 0)
 	go reflector.Run(stopCh)
 	if err := wait.PollImmediate(50*time.Millisecond, 2*time.Minute, func() (bool, error) {
 		if len(reflector.LastSyncResourceVersion()) != 0 {
@@ -68,22 +56,52 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 		return false, nil
 	}); err != nil {
 		close(stopCh)
+		return nil, fmt.Errorf("couldn't initialize %s: %v", name, err)
+	}
+	return &ObjectStore{
+		Store:     store,
+		stopCh:    stopCh,
+		Reflector: reflector,
+	}, nil
+}
+
+// Stop stops ObjectStore watch.
+func (s *ObjectStore) Stop() {
+	close(s.stopCh)
+}
+
+// PodStore is a convenient wrapper around cache.Store.
+type PodStore struct {
+	*ObjectStore
+}
+
+// NewPodStore creates PodStore based on given object selector.
+func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().Pods(selector.Namespace).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().Pods(selector.Namespace).Watch(options)
+		},
+	}
+	objectStore, err := newObjectStore(&v1.Pod{}, lw, selector)
+	if err != nil {
 		return nil, err
 	}
-	return &PodStore{Store: store, stopCh: stopCh, Reflector: reflector}, nil
+	return &PodStore{ObjectStore: objectStore}, nil
 }
 
 // List returns to list of pods (that satisfy conditions provided to NewPodStore).
 func (s *PodStore) List() []*v1.Pod {
 	objects := s.Store.List()
-	pods := make([]*v1.Pod, 0)
+	pods := make([]*v1.Pod, 0, len(objects))
 	for _, o := range objects {
 		pods = append(pods, o.(*v1.Pod))
 	}
 	return pods
-}
-
-// Stop stops podstore watch.
-func (s *PodStore) Stop() {
-	close(s.stopCh)
 }

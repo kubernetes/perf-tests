@@ -19,6 +19,7 @@ package util
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"k8s.io/klog"
@@ -33,9 +34,10 @@ type Transition struct {
 
 // ObjectTransitionTimes stores beginning time of each phase.
 // It can calculate transition latency between phases.
-// ObjectTransitionTimes is not thread-safe.
+// ObjectTransitionTimes is thread-safe.
 type ObjectTransitionTimes struct {
 	name string
+	lock sync.Mutex
 	// times is a map: object key->phase->time.
 	times map[string]map[string]time.Time
 }
@@ -50,6 +52,8 @@ func NewObjectTransitionTimes(name string) *ObjectTransitionTimes {
 
 // Set sets time of given phase for given key.
 func (o *ObjectTransitionTimes) Set(key, phase string, t time.Time) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
 	if _, exists := o.times[key]; !exists {
 		o.times[key] = make(map[string]time.Time)
 	}
@@ -58,6 +62,8 @@ func (o *ObjectTransitionTimes) Set(key, phase string, t time.Time) {
 
 // Get returns time of given phase for given key.
 func (o *ObjectTransitionTimes) Get(key, phase string) (time.Time, bool) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
 	if entry, exists := o.times[key]; exists {
 		val, ok := entry[phase]
 		return val, ok
@@ -67,6 +73,8 @@ func (o *ObjectTransitionTimes) Get(key, phase string) (time.Time, bool) {
 
 // CalculateTransitionsLatency returns a latency map for given transitions.
 func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transition) map[string]*LatencyMetric {
+	o.lock.Lock()
+	defer o.lock.Unlock()
 	metric := make(map[string]*LatencyMetric)
 	for name, transition := range t {
 		lag := make([]LatencyData, 0, len(o.times))

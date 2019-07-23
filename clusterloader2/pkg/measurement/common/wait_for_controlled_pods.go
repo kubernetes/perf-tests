@@ -32,6 +32,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/checker"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
@@ -57,7 +58,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
 		selector:   measurementutil.NewObjectSelector(),
 		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
-		checkerMap: make(map[string]*objectChecker),
+		checkerMap: checker.NewCheckerMap(),
 	}
 }
 
@@ -73,7 +74,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	lock              sync.Mutex
 	opResourceVersion uint64
 	gvr               schema.GroupVersionResource
-	checkerMap        map[string]*objectChecker
+	checkerMap        checker.CheckerMap
 	clusterFramework  *framework.Framework
 }
 
@@ -129,9 +130,7 @@ func (w *waitForControlledPodsRunningMeasurement) Dispose() {
 	w.queue.Stop()
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	for _, checker := range w.checkerMap {
-		checker.terminate(false)
-	}
+	w.checkerMap.Dispose()
 }
 
 // String returns a string representation of the metric.
@@ -192,14 +191,15 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	unknowStatusErrList := errors.NewErrorList()
 	timedOutObjects := []string{}
 	for _, checker := range w.checkerMap {
-		status, err := checker.getStatus()
+		objChecker := checker.(*objectChecker)
+		status, err := objChecker.getStatus()
 		switch status {
 		case running:
 			numberRunning++
 		case deleted:
 			numberDeleted++
 		case timeout:
-			timedOutObjects = append(timedOutObjects, checker.key)
+			timedOutObjects = append(timedOutObjects, objChecker.key)
 			numberTimeout++
 		default:
 			numberUnknown++
@@ -319,7 +319,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, new
 	time.AfterFunc(operationTimeout, func() {
 		checker.terminate(true)
 	})
-	w.checkerMap[key] = checker
+	w.checkerMap.Add(key, checker)
 	return nil
 }
 
@@ -331,10 +331,7 @@ func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(obj runtime
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-	if checker, exists := w.checkerMap[key]; exists {
-		checker.terminate(false)
-		delete(w.checkerMap, key)
-	}
+	w.checkerMap.DeleteAndStop(key)
 	return nil
 }
 
@@ -478,6 +475,10 @@ func newObjectChecker(key string) *objectChecker {
 		status:    unknown,
 		key:       key,
 	}
+}
+
+func (o *objectChecker) Stop() {
+	o.terminate(false)
 }
 
 func (o *objectChecker) getStatus() (objectStatus, error) {

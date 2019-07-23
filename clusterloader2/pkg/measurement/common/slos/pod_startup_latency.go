@@ -18,7 +18,6 @@ package slos
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -57,11 +56,9 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 }
 
 type podStartupLatencyMeasurement struct {
-	selector  *measurementutil.ObjectSelector
-	isRunning bool
-	stopCh    chan struct{}
-
-	lock              sync.Mutex
+	selector          *measurementutil.ObjectSelector
+	isRunning         bool
+	stopCh            chan struct{}
 	podStartupEntries *measurementutil.ObjectTransitionTimes
 	threshold         time.Duration
 }
@@ -217,8 +214,6 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 		return
 	}
 	if pod.Status.Phase == corev1.PodRunning {
-		p.lock.Lock()
-		defer p.lock.Unlock()
 		key := createMetaNamespaceKey(pod.Namespace, pod.Name)
 		if _, found := p.podStartupEntries.Get(key, createPhase); !found {
 			p.podStartupEntries.Set(key, watchPhase, time.Now())

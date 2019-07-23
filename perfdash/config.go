@@ -246,10 +246,35 @@ var (
 		},
 	}
 
+	storageDescriptions = TestDescriptions{
+		"APIServer": {
+			"Responsiveness": []TestDescription{{
+				Name:             "pod-with-ephemeral-volume-startup-latency",
+				OutputFilePrefix: "APIResponsiveness",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount": []TestDescription{{
+				Name:             "pod-with-ephemeral-volume-startup-latency",
+				OutputFilePrefix: "APIResponsiveness",
+				Parser:           parseRequestCountData,
+			}},
+		},
+		"E2E": {
+			"PodStartup": []TestDescription{
+				{
+					Name:             "pod-with-ephemeral-volume-startup-latency",
+					OutputFilePrefix: "PodStartupLatency_PodWithMultiVolumeStartupLatency",
+					Parser:           parsePerfData,
+				},
+			},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
 		"benchmark":    benchmarkDescriptions,
 		"dnsBenchmark": dnsBenchmarkDescriptions,
+		"storage":      storageDescriptions,
 	}
 )
 

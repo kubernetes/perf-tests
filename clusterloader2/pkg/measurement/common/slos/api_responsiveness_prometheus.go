@@ -196,10 +196,10 @@ func getMetricKey(resource, subresource, verb, scope string) string {
 
 func getSLOThreshold(verb, scope string) time.Duration {
 	if verb != "LIST" {
-		return apiCallLatencyThreshold
+		return resourceThreshold
 	}
 	if scope == "cluster" {
-		return apiClusterScopeListCallThreshold
+		return clusterThreshold
 	}
-	return apiListCallLatencyThreshold
+	return namespaceThreshold
 }

@@ -178,7 +178,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	}
 
 	content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(podStartupLatency))
-	if err != nil {
+	if jsonErr != nil {
 		return nil, jsonErr
 	}
 	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, identifier), "json", content)

@@ -73,12 +73,12 @@ func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transit
 		for key, transitionTimes := range o.times {
 			fromPhaseTime, exists := transitionTimes[transition.From]
 			if !exists {
-				klog.Infof("%s: failed to find %v time for %v", o.name, transition.From, key)
+				klog.V(4).Infof("%s: failed to find %v time for %v", o.name, transition.From, key)
 				continue
 			}
 			toPhaseTime, exists := transitionTimes[transition.To]
 			if !exists {
-				klog.Infof("%s: failed to find %v time for %v", o.name, transition.To, key)
+				klog.V(4).Infof("%s: failed to find %v time for %v", o.name, transition.To, key)
 				continue
 			}
 			lag = append(lag, latencyData{key: key, latency: toPhaseTime.Sub(fromPhaseTime)})

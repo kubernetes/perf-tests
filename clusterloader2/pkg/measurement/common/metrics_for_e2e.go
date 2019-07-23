@@ -111,7 +111,7 @@ func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig
 	}
 	filterMetrics(&received)
 	content, jsonErr := util.PrettyPrintJSON(received)
-	if err != nil {
+	if jsonErr != nil {
 		return nil, jsonErr
 	}
 	summary := measurement.CreateSummary(metricsForE2EName, "json", content)

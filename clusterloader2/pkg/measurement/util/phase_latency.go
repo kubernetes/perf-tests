@@ -71,6 +71,19 @@ func (o *ObjectTransitionTimes) Get(key, phase string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// Count returns number of key having given phase entry.
+func (o *ObjectTransitionTimes) Count(phase string) int {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	count := 0
+	for _, entry := range o.times {
+		if _, exists := entry[phase]; exists {
+			count++
+		}
+	}
+	return count
+}
+
 // CalculateTransitionsLatency returns a latency map for given transitions.
 func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transition) map[string]*LatencyMetric {
 	o.lock.Lock()

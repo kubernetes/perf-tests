@@ -248,7 +248,26 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
 	// prometheus, prometheus-operator, grafana, apiserver
 	expectedTargets := 4
-	return CheckTargetsReady(
+	if scrapeEtcd, ok := pc.templateMapping["PROMETHEUS_SCRAPE_ETCD"].(bool); ok && scrapeEtcd {
+		// If scraping etcd is enabled we need a bit more complicated logic to asses whether all targets
+		// are ready. Etcd metric port has changed in https://github.com/kubernetes/kubernetes/pull/77561,
+		// depending on the k8s version etcd metrics may be available at port 2379 xor 2382. We solve
+		// that by setting two etcd serviceMonitors one for 2379 and other for 2382 and expect that at
+		// least 1 of them should be healthy.
+		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
+			pc.framework.GetClientSets().GetClient(),
+			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
+			expectedTargets)
+		if err != nil || !ok {
+			return ok, err
+		}
+		return CheckTargetsReady( // 1 out of 2 etcd targets should be ready.
+			pc.framework.GetClientSets().GetClient(),
+			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
+			2, // expected targets: etcd-2379 and etcd-2382
+			1) // one of them should be healthy
+	}
+	return CheckAllTargetsReady(
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
 		expectedTargets)
@@ -284,4 +303,8 @@ func getMasterIps(clusterConfig config.ClusterConfig) ([]string, error) {
 		return clusterConfig.MasterInternalIPs, nil
 	}
 	return nil, fmt.Errorf("internal master ips not available")
+}
+
+func isEtcdEndpoint(endpoint string) bool {
+	return endpoint == "etcd-2379" || endpoint == "etcd-2382"
 }

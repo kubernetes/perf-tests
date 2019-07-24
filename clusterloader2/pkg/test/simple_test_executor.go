@@ -96,6 +96,9 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
+	if step.Name != "" {
+		klog.Infof("Step %q started", step.Name)
+	}
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	if len(step.Measurements) > 0 {
@@ -123,7 +126,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 	}
 	wg.Wait()
 	if step.Name != "" {
-		klog.Infof("Step \"%s\" ended", step.Name)
+		klog.Infof("Step %q ended", step.Name)
 	}
 	return errList
 }

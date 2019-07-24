@@ -1,1 +1,1 @@
-POD_TEMPLATE_PATH: "volume-types/downwardapi/pod_with_downwardapi.yaml"
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/downwardapi/deployment_with_downwardapi.yaml"

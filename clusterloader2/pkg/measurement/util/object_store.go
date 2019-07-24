@@ -42,7 +42,7 @@ type ObjectStore struct {
 	Reflector *cache.Reflector
 }
 
-// newObjectStore creates ObjectStore based on given object  selector.
+// newObjectStore creates ObjectStore based on given object selector.
 func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *ObjectSelector) (*ObjectStore, error) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
@@ -96,7 +96,7 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 	return &PodStore{ObjectStore: objectStore}, nil
 }
 
-// List returns to list of pods (that satisfy conditions provided to NewPodStore).
+// List returns list of pods (that satisfy conditions provided to NewPodStore).
 func (s *PodStore) List() []*v1.Pod {
 	objects := s.Store.List()
 	pods := make([]*v1.Pod, 0, len(objects))
@@ -104,4 +104,40 @@ func (s *PodStore) List() []*v1.Pod {
 		pods = append(pods, o.(*v1.Pod))
 	}
 	return pods
+}
+
+// PVCStore is a convenient wrapper around cache.Store.
+type PVCStore struct {
+	*ObjectStore
+}
+
+// NewPVCStore creates PVCStore based on a given object selector.
+func NewPVCStore(c clientset.Interface, selector *ObjectSelector) (*PVCStore, error) {
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).Watch(options)
+		},
+	}
+	objectStore, err := newObjectStore(&v1.PersistentVolumeClaim{}, lw, selector)
+	if err != nil {
+		return nil, err
+	}
+	return &PVCStore{ObjectStore: objectStore}, nil
+}
+
+// List returns list of pvcs (that satisfy conditions provided to NewPVCStore).
+func (s *PVCStore) List() []*v1.PersistentVolumeClaim {
+	objects := s.Store.List()
+	pvcs := make([]*v1.PersistentVolumeClaim, 0, len(objects))
+	for _, o := range objects {
+		pvcs = append(pvcs, o.(*v1.PersistentVolumeClaim))
+	}
+	return pvcs
 }

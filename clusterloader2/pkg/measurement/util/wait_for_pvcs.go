@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -46,17 +44,16 @@ func WaitForPVCs(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	}
 	defer ps.Stop()
 
-	pvcs := ps.List()
-	var oldPVCs []*corev1.PersistentVolumeClaim
-	pvcsStatus := ComputePVCStartupStatus(pvcs, options.DesiredPVCCount)
+	oldPVCs := ps.List()
 	scaling := uninitialized
+	var pvcsStatus PVCsStartupStatus
 
 	switch {
-	case len(pvcs) == options.DesiredPVCCount:
+	case len(oldPVCs) == options.DesiredPVCCount:
 		scaling = none
-	case len(pvcs) < options.DesiredPVCCount:
+	case len(oldPVCs) < options.DesiredPVCCount:
 		scaling = up
-	case len(pvcs) > options.DesiredPVCCount:
+	case len(oldPVCs) > options.DesiredPVCCount:
 		scaling = down
 	}
 
@@ -66,16 +63,17 @@ func WaitForPVCs(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			return fmt.Errorf("timeout while waiting for %d PVCs to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found bound",
 				options.DesiredPVCCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, pvcsStatus.Bound)
 		case <-time.After(options.WaitForPVCsInterval):
+			pvcs := ps.List()
+			pvcsStatus = ComputePVCsStartupStatus(pvcs, options.DesiredPVCCount)
+
 			diff := DiffPVCs(oldPVCs, pvcs)
 			deletedPVCs := diff.DeletedPVCs()
 			if scaling != down && len(deletedPVCs) > 0 {
 				klog.Errorf("%s: %s: %d PVCs disappeared: %v", options.CallerName, options.Selector.String(), len(deletedPVCs), strings.Join(deletedPVCs, ", "))
-				klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
 			}
 			addedPVCs := diff.AddedPVCs()
 			if scaling != up && len(addedPVCs) > 0 {
 				klog.Errorf("%s: %s: %d PVCs appeared: %v", options.CallerName, options.Selector.String(), len(deletedPVCs), strings.Join(deletedPVCs, ", "))
-				klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
 			}
 			if options.EnableLogging {
 				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvcsStatus.String())
@@ -85,8 +83,6 @@ func WaitForPVCs(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				return nil
 			}
 			oldPVCs = pvcs
-			pvcs = ps.List()
-			pvcsStatus = ComputePVCStartupStatus(pvcs, options.DesiredPVCCount)
 		}
 	}
 }

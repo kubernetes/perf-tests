@@ -1,5 +1,4 @@
 # ASSUMPTIONS:
-# - Underlying cluster should have 100+ nodes.
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
@@ -8,7 +7,7 @@
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 
-{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "../emptydir/pod_with_emptydir.yaml"}}
+{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "../volume-types/emptydir/pod_with_emptydir.yaml"}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
 
 {{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 1}}
@@ -20,7 +19,7 @@
 
 #Variables
 # used stateless pod SLO for initial run
-{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE | MaxInt 1}}
 {{$podStartupTimeout := 5}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}

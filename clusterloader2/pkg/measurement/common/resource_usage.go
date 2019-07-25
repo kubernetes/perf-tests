@@ -108,7 +108,6 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 			InKubemark:                  strings.ToLower(provider) == "kubemark",
 			Nodes:                       nodesSet,
 			ResourceDataGatheringPeriod: 60 * time.Second,
-			ProbeDuration:               15 * time.Second,
 			PrintVerboseLogs:            false,
 		}, nil)
 		if err != nil {

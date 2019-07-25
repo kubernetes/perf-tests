@@ -248,12 +248,12 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
 	// prometheus, prometheus-operator, grafana, apiserver
 	expectedTargets := 4
-	if scrapeEtcd, ok := pc.templateMapping["PROMETHEUS_SCRAPE_ETCD"].(bool); ok && scrapeEtcd {
-		// If scraping etcd is enabled we need a bit more complicated logic to asses whether all targets
-		// are ready. Etcd metric port has changed in https://github.com/kubernetes/kubernetes/pull/77561,
-		// depending on the k8s version etcd metrics may be available at port 2379 xor 2382. We solve
-		// that by setting two etcd serviceMonitors one for 2379 and other for 2382 and expect that at
-		// least 1 of them should be healthy.
+	if scrapeEtcd, ok := pc.templateMapping["PROMETHEUS_SCRAPE_ETCD"].(bool); (ok && scrapeEtcd) || pc.isKubemark() {
+		// If scraping etcd is enabled (or it's kubemark where we scrape etcd unconditionally) we need
+		// a bit more complicated logic to asses whether all targets are ready. Etcd metric port has
+		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version
+		// etcd metrics may be available at port 2379 xor 2382. We solve that by setting two etcd
+		// serviceMonitors one for 2379 and other for 2382 and expect that at least 1 of them should be healthy.
 		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },

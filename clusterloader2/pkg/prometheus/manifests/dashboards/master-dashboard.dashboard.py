@@ -83,13 +83,8 @@ HEALTH_PANELS = [
 ETCD_PANELS = [
     simple_graph("etcd leader", "etcd_server_is_leader"),
     simple_graph(
-        "etcd disk backend commit duration",
-        "histogram_quantile(0.95, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) by (le))",
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-    ),
-    simple_graph(
         "etcd bytes sent",
-        "rate(etcd_network_client_grpc_sent_bytes_total[1m])",
+        "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
         g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     simple_graph(
@@ -123,7 +118,45 @@ ETCD_PANELS = [
         "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[1m])) by (le, instance, To))",
         g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    simple_graph(
+        "etcd compaction keys",
+        "delta(etcd_debugging_mvcc_db_compaction_keys_total[1m])",
+    ),
+    simple_graph(
+        "etcd compaction pause sum duration",
+        "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_sum[1m])",
+        g.single_y_axis(format=g.MILLISECONDS_FORMAT),
+    ),
+    simple_graph(
+        "etcd compaction pause num chunks",
+        "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_count[1m])",
+    ),
+    simple_graph(
+        "etcd_disk_backend_commit_duration_seconds",
+        "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
+        g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
+    Graph(
+        title="etcd compaction max pause",
+        points=True,
+        lines=False,
+        targets=[
+            g.Target(
+                expr="histogram_quantile(1.0, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket[1m])) by (le, instance))"
+            )
+        ],
+        yAxes=g.single_y_axis(format=g.MILLISECONDS_FORMAT),
+    ),
     simple_graph("etcd objects", "sum(etcd_object_counts) by (resource, instance)"),
+    simple_graph(
+        "etcd db size",
+        [
+            "etcd_mvcc_db_total_size_in_bytes",
+            "etcd_mvcc_db_total_size_in_use_in_bytes",
+            "etcd_server_quota_backend_bytes",
+        ],
+        g.single_y_axis(format=g.BYTES_FORMAT),
+    ),
 ]
 
 APISERVER_PANELS = [
@@ -140,11 +173,12 @@ APISERVER_PANELS = [
     ),
     simple_graph(
         "Watch events rate",
-        "sum(rate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
+        "sum(irate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
     ),
     simple_graph(
         "(Experimental) Watch events traffic",
-        "sum(rate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+        "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     simple_graph(
         "Watch event avg size",
@@ -284,7 +318,7 @@ VM_PANELS = [
                 legendFormat="RetransSegs {{instance}}",
             ),
         ],
-        yAxes=g.single_y_axis(logBase=10),
+        yAxes=g.single_y_axis(format=g.SHORT_FORMAT, logBase=10),
     ),
 ]
 

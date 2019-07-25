@@ -67,7 +67,6 @@ type ResourceGathererOptions struct {
 	InKubemark                  bool
 	Nodes                       NodesSet
 	ResourceDataGatheringPeriod time.Duration
-	ProbeDuration               time.Duration
 	PrintVerboseLogs            bool
 }
 
@@ -89,7 +88,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 			wg:                          &g.workerWg,
 			finished:                    false,
 			resourceDataGatheringPeriod: options.ResourceDataGatheringPeriod,
-			probeDuration:               options.ProbeDuration,
 			printVerboseLogs:            options.PrintVerboseLogs,
 			host:                        host,
 			provider:                    provider,
@@ -138,7 +136,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 					finished:                    false,
 					inKubemark:                  false,
 					resourceDataGatheringPeriod: options.ResourceDataGatheringPeriod,
-					probeDuration:               options.ProbeDuration,
 					printVerboseLogs:            options.PrintVerboseLogs,
 				})
 				if options.Nodes == MasterNodes {

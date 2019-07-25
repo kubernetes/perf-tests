@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// PVCStartupStatus represents phase of a pvc group.
-type PVCStartupStatus struct {
+// PVCsStartupStatus represents phase of a pvc group.
+type PVCsStartupStatus struct {
 	Pending  int
 	Bound    int
 	Lost     int
@@ -33,13 +33,13 @@ type PVCStartupStatus struct {
 }
 
 // String returns string representation for PVCsStartupStatus.
-func (s *PVCStartupStatus) String() string {
+func (s *PVCsStartupStatus) String() string {
 	return fmt.Sprintf("PVCs: %d out of %d created, %d bound, %d pending, %d lost", s.Created, s.Expected, s.Bound, s.Pending, s.Lost)
 }
 
-// ComputePVCStartupStatus computes PVCsStartupStatus for a group of PVCs.
-func ComputePVCStartupStatus(pvcs []*corev1.PersistentVolumeClaim, expected int) PVCStartupStatus {
-	startupStatus := PVCStartupStatus{
+// ComputePVCsStartupStatus computes PVCsStartupStatus for a group of PVCs.
+func ComputePVCsStartupStatus(pvcs []*corev1.PersistentVolumeClaim, expected int) PVCsStartupStatus {
+	startupStatus := PVCsStartupStatus{
 		Expected: expected,
 	}
 	for _, p := range pvcs {

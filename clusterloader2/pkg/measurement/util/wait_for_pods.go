@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -47,16 +45,25 @@ type WaitForPodOptions struct {
 // Pods are be specified by namespace, field and/or label selectors.
 // If stopCh is closed before all pods are running, the error will be returned.
 func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) error {
-	// TODO(#269): Change to shared podStore.
 	ps, err := NewPodStore(clientSet, options.Selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
 	defer ps.Stop()
 
-	var podsStatus PodsStartupStatus
+	oldPods := ps.List()
 	scaling := uninitialized
-	var oldPods []*corev1.Pod
+	var podsStatus PodsStartupStatus
+
+	switch {
+	case len(oldPods) == options.DesiredPodCount:
+		scaling = none
+	case len(oldPods) < options.DesiredPodCount:
+		scaling = up
+	case len(oldPods) > options.DesiredPodCount:
+		scaling = down
+	}
+
 	for {
 		select {
 		case <-stopCh:
@@ -65,27 +72,15 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 		case <-time.After(options.WaitForPodsInterval):
 			pods := ps.List()
 			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount)
-			if scaling != uninitialized {
-				diff := DiffPods(oldPods, pods)
-				deletedPods := diff.DeletedPods()
-				if scaling != down && len(deletedPods) > 0 {
-					klog.Errorf("%s: %s: %d pods disappeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
-					klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
-				}
-				addedPods := diff.AddedPods()
-				if scaling != up && len(addedPods) > 0 {
-					klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
-					klog.Infof("%s: %v", options.CallerName, diff.String(sets.NewString()))
-				}
-			} else {
-				switch {
-				case len(pods) == options.DesiredPodCount:
-					scaling = none
-				case len(pods) < options.DesiredPodCount:
-					scaling = up
-				case len(pods) > options.DesiredPodCount:
-					scaling = down
-				}
+
+			diff := DiffPods(oldPods, pods)
+			deletedPods := diff.DeletedPods()
+			if scaling != down && len(deletedPods) > 0 {
+				klog.Errorf("%s: %s: %d pods disappeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
+			}
+			addedPods := diff.AddedPods()
+			if scaling != up && len(addedPods) > 0 {
+				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
 			}
 			if options.EnableLogging {
 				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())

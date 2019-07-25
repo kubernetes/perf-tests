@@ -28,7 +28,7 @@ class Graph(g.Graph):
     tooltip = attr.ib(default=DECREASING_ORDER_TOOLTIP)
 
 
-def simple_graph(title, exprs, yAxes=None, legend=""):
+def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
     if not isinstance(exprs, (list, tuple)):
         exprs = [exprs]
     if legend != "" and len(exprs) != 1:
@@ -36,7 +36,7 @@ def simple_graph(title, exprs, yAxes=None, legend=""):
     return Graph(
         title=title,
         # One graph per row.
-        targets=[g.Target(expr=expr, legendFormat=legend) for expr in exprs],
+        targets=[g.Target(expr=expr, legendFormat=legend, interval=interval, intervalFactor=1) for expr in exprs],
         yAxes=yAxes or g.YAxes(),
     )
 

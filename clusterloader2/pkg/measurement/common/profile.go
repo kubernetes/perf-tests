@@ -18,7 +18,6 @@ package common
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,16 +29,20 @@ import (
 )
 
 const (
-	memoryProfileName = "MemoryProfile"
 	cpuProfileName    = "CPUProfile"
+	memoryProfileName = "MemoryProfile"
+	mutexProfileName  = "MutexProfile"
 )
 
 func init() {
-	if err := measurement.Register(memoryProfileName, createMemoryProfileMeasurement); err != nil {
+	if err := measurement.Register(cpuProfileName, createProfileMeasurementFactory(cpuProfileName, "profile")); err != nil {
+		klog.Fatalf("Cannot register %s: %v", cpuProfileName, err)
+	}
+	if err := measurement.Register(memoryProfileName, createProfileMeasurementFactory(memoryProfileName, "heap")); err != nil {
 		klog.Fatalf("Cannot register %s: %v", memoryProfileName, err)
 	}
-	if err := measurement.Register(cpuProfileName, createCPUProfileMeasurement); err != nil {
-		klog.Fatalf("Cannot register %s: %v", cpuProfileName, err)
+	if err := measurement.Register(mutexProfileName, createProfileMeasurementFactory(mutexProfileName, "mutex")); err != nil {
+		klog.Fatalf("Cannot register %s: %v", mutexProfileName, err)
 	}
 }
 
@@ -50,20 +53,18 @@ type profileConfig struct {
 	kind          string
 }
 
-func createProfileConfig(config *measurement.MeasurementConfig) (*profileConfig, error) {
+func (p *profileMeasurement) populateProfileConfig(config *measurement.MeasurementConfig) error {
 	var err error
-	pc := &profileConfig{}
-	if pc.componentName, err = util.GetString(config.Params, "componentName"); err != nil {
-		return nil, err
+	if p.config.componentName, err = util.GetString(config.Params, "componentName"); err != nil {
+		return err
 	}
-	if pc.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
-		return nil, err
+	if p.config.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
+		return err
 	}
-	if pc.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp()); err != nil {
-		return nil, err
+	if p.config.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp()); err != nil {
+		return err
 	}
-	return pc, nil
-
+	return nil
 }
 
 type profileMeasurement struct {
@@ -75,13 +76,19 @@ type profileMeasurement struct {
 	wg        sync.WaitGroup
 }
 
-func (p *profileMeasurement) start(config *measurement.MeasurementConfig, profileKind string) error {
-	var err error
-	p.config, err = createProfileConfig(config)
-	if err != nil {
+func createProfileMeasurementFactory(name, kind string) func() measurement.Measurement {
+	return func() measurement.Measurement {
+		return &profileMeasurement{
+			name:   name,
+			config: &profileConfig{kind: kind},
+		}
+	}
+}
+
+func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error {
+	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
-	p.config.kind = profileKind
 	p.summaries = make([]measurement.Summary, 0)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
@@ -122,20 +129,8 @@ func (p *profileMeasurement) stop() {
 	p.wg.Wait()
 }
 
-func createMemoryProfileMeasurement() measurement.Measurement {
-	return &memoryProfileMeasurement{
-		measurement: profileMeasurement{
-			name: memoryProfileName,
-		},
-	}
-}
-
-type memoryProfileMeasurement struct {
-	measurement profileMeasurement
-}
-
 // Execute gathers memory profile of a given component.
-func (c *memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -143,80 +138,29 @@ func (c *memoryProfileMeasurement) Execute(config *measurement.MeasurementConfig
 
 	switch action {
 	case "start":
-		if c.measurement.isRunning {
-			klog.Infof("%s: measurement already running", c)
+		if p.isRunning {
+			klog.Infof("%s: measurement already running", p)
 			return nil, nil
 		}
-		return nil, c.measurement.start(config, "heap")
+		return nil, p.start(config)
 	case "gather":
-		c.measurement.stop()
-		return c.measurement.summaries, nil
+		p.stop()
+		return p.summaries, nil
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
 // Dispose cleans up after the measurement.
-func (*memoryProfileMeasurement) Dispose() {}
+func (*profileMeasurement) Dispose() {}
 
 // String returns string representation of this measurement.
-func (*memoryProfileMeasurement) String() string {
-	return memoryProfileName
-}
-
-func createCPUProfileMeasurement() measurement.Measurement {
-	return &cpuProfileMeasurement{
-		measurement: profileMeasurement{
-			name: cpuProfileName,
-		},
-	}
-}
-
-type cpuProfileMeasurement struct {
-	measurement profileMeasurement
-}
-
-// Execute gathers cpu profile of a given component.
-func (c *cpuProfileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	action, err := util.GetString(config.Params, "action")
-	if err != nil {
-		return nil, err
-	}
-
-	switch action {
-	case "start":
-		if c.measurement.isRunning {
-			klog.Infof("%s: measurement already running", c)
-			return nil, nil
-		}
-		return nil, c.measurement.start(config, "profile")
-	case "gather":
-		c.measurement.stop()
-		return c.measurement.summaries, nil
-	default:
-		return nil, fmt.Errorf("unknown action %v", action)
-	}
-}
-
-// Dispose cleans up after the measurement.
-func (*cpuProfileMeasurement) Dispose() {}
-
-// String returns string representation of this measurement.
-func (*cpuProfileMeasurement) String() string {
-	return cpuProfileName
+func (p *profileMeasurement) String() string {
+	return p.name
 }
 
 func (p *profileMeasurement) gatherProfile(c clientset.Interface) (measurement.Summary, error) {
-	profilePrefix := p.config.componentName
-	switch {
-	case p.config.kind == "heap":
-		profilePrefix += "_MemoryProfile"
-	case strings.HasPrefix(p.config.kind, "profile"):
-		profilePrefix += "_CPUProfile"
-	default:
-		return nil, fmt.Errorf("unknown profile kind provided: %s", p.config.kind)
-	}
-
+	profilePrefix := fmt.Sprintf("%s_%s", p.config.componentName, p.name)
 	if p.config.componentName == "kube-apiserver" {
 		body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
 		if err != nil {

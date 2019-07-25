@@ -1,15 +1,19 @@
-Below test cases can be run with the parameters like;
+**Test Cases**
 
 - 1 pod with X volumes and 1 node
-    - config file is under `1_node`
-    - test case override file is under `1_node/max_volumes_per_pod`
-    - `.Nodes := 1`, `$TOTAL_PODS := 1`, `$VOLUMES_PER_POD := <X>`
+    - run on a single node cluster
+    - use override file in `tests/max_volumes_per_node` 
+    - tries to stress the max number of volumes a single node can have
 - X pods with 1 volume each on 1 node in parallel
-    - config file is under `1_node`
-    - test case override file is under `1_node/max_volumes_per_node`
-    - `.Nodes := 1`, `$TOTAL_PODS := <X>`, `$VOLUMES_PER_POD := 1`
+    - run on a single node cluster
+    - use override file in `tests/max_volumes_per_pod` 
+    - tries to stress the max number of volumes a single pod can have
 - X pods with 1 volume each on cluster in parallel
-    - config file is under `cluster-wide`
-    - `.Nodes := <X>`, `$NODES_PER_NAMESPACE := <X>`, `$PODS_PER_NODE := <X>` `$VOLUMES_PER_POD := 1`
+    - run on a cluster with num nodes that is a multiple of `NODES_PER_NAMESPACE` (default 100)
+    - no config file is necessary (this is the default)
 
-To test with different volume types please use the override file for the specific volume type, default volume type is `EmptyDir`
+**Volume Type**
+
+Each test must use a type of volume. The empty-dir volume
+is used by default. Use a override in `volume-types` to set
+a specific type of volume to test.

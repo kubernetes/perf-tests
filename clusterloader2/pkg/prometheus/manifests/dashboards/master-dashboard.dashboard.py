@@ -54,7 +54,13 @@ CLUSTERLOADER_PANELS = [
     ),
     simple_graph(
         "API call latency aggregated (1s thresholds)",
-        'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!="LIST", verb!="WATCH", verb!="CONNECT"}[5d])) by (le, resource, verb, scope, subresource))',
+        'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])) by (le, resource, verb, scope, subresource))',
+        g.single_y_axis(format=g.SECONDS_FORMAT),
+        "{{verb}} {{scope}}/{{resource}}",
+    ),
+    simple_graph(
+        "API call latency aggregated (prometheus, 1s threshold)",
+        'quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])',
         g.single_y_axis(format=g.SECONDS_FORMAT),
         "{{verb}} {{scope}}/{{resource}}",
     ),

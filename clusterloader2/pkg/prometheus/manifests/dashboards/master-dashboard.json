@@ -256,7 +256,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!=\"LIST\", verb!=\"WATCH\", verb!=\"CONNECT\"}[5d])) by (le, resource, verb, scope, subresource))",
+              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])) by (le, resource, verb, scope, subresource))",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -271,6 +271,102 @@
           "timeFrom": null,
           "timeShift": null,
           "title": "API call latency aggregated (1s thresholds)",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 4,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "API call latency aggregated (prometheus, 1s threshold)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -327,7 +423,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 4,
+          "id": 5,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -423,7 +519,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 5,
+          "id": 6,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -519,7 +615,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 6,
+          "id": 7,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -615,7 +711,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 7,
+          "id": 8,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -721,7 +817,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 8,
+          "id": 9,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -817,7 +913,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 9,
+          "id": 10,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -913,7 +1009,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 10,
+          "id": 11,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1009,7 +1105,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 11,
+          "id": 12,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1105,7 +1201,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 12,
+          "id": 13,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1201,7 +1297,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 13,
+          "id": 14,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1297,7 +1393,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 14,
+          "id": 15,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1393,7 +1489,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 15,
+          "id": 16,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1489,7 +1585,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 16,
+          "id": 17,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1585,7 +1681,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 17,
+          "id": 18,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1681,7 +1777,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 18,
+          "id": 19,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1777,7 +1873,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 19,
+          "id": 20,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1873,7 +1969,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 20,
+          "id": 21,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1969,7 +2065,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 21,
+          "id": 22,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2065,7 +2161,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 22,
+          "id": 23,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2161,7 +2257,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 23,
+          "id": 24,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2293,7 +2389,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 24,
+          "id": 25,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2389,7 +2485,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 25,
+          "id": 26,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2485,7 +2581,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 26,
+          "id": 27,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2581,7 +2677,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 27,
+          "id": 28,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2677,7 +2773,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 28,
+          "id": 29,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2773,7 +2869,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 29,
+          "id": 30,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2869,7 +2965,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 30,
+          "id": 31,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2965,7 +3061,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 31,
+          "id": 32,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3061,7 +3157,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 32,
+          "id": 33,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3157,7 +3253,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 33,
+          "id": 34,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3253,7 +3349,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 34,
+          "id": 35,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3349,7 +3445,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 35,
+          "id": 36,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3445,7 +3541,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 36,
+          "id": 37,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3541,7 +3637,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 37,
+          "id": 38,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3647,7 +3743,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 38,
+          "id": 39,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3753,7 +3849,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 39,
+          "id": 40,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3849,7 +3945,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 40,
+          "id": 41,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3945,7 +4041,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 41,
+          "id": 42,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4041,7 +4137,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 42,
+          "id": 43,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4137,7 +4233,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 43,
+          "id": 44,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4246,7 +4342,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 44,
+          "id": 45,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4355,7 +4451,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 45,
+          "id": 46,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4464,7 +4560,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 46,
+          "id": 47,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4573,7 +4669,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 47,
+          "id": 48,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4682,7 +4778,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 48,
+          "id": 49,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4791,7 +4887,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 49,
+          "id": 50,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4923,7 +5019,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 50,
+          "id": 51,
           "isNew": true,
           "legend": {
             "alignAsTable": false,

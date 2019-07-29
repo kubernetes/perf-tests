@@ -1,4 +1,4 @@
-# TODO(https://github.com/kubernetes/perf-tests/issues/413): Rename to config.yaml and delete the old one once tested.
+# This config is currently blocked by etcd performance, see https://github.com/kubernetes/perf-tests/issues/413#issuecomment-515952588
 
 # ASSUMPTIONS:
 # - Underlying cluster should have 100+ nodes.

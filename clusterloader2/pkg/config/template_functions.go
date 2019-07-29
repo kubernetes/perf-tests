@@ -52,6 +52,7 @@ func GetFuncs() template.FuncMap {
 		"MinInt":        minInt,
 		"MaxFloat":      maxFloat,
 		"MinFloat":      minFloat,
+		"Mod":           mod,
 		"IsEven":        isEven,
 		"IsOdd":         isOdd,
 		"DefaultParam":  defaultParam,
@@ -181,6 +182,10 @@ func minFloat(numbers ...interface{}) float64 {
 		min = math.Min(min, toFloat64(number))
 	}
 	return min
+}
+
+func mod(a interface{}, b interface{}) int {
+	return int(toFloat64(a)) % int(toFloat64(b))
 }
 
 func isEven(number interface{}) bool {

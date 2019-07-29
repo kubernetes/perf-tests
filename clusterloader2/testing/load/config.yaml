@@ -245,7 +245,7 @@ steps:
       objectTemplatePath: deployment.yaml
 
 - name: Waiting for Deployments to be deleted
-- measurements:
+  measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:

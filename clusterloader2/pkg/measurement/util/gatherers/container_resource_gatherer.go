@@ -64,10 +64,11 @@ type ContainerResourceGatherer struct {
 
 // ResourceGathererOptions specifies options for ContainerResourceGatherer.
 type ResourceGathererOptions struct {
-	InKubemark                  bool
-	Nodes                       NodesSet
-	ResourceDataGatheringPeriod time.Duration
-	PrintVerboseLogs            bool
+	InKubemark                        bool
+	Nodes                             NodesSet
+	ResourceDataGatheringPeriod       time.Duration
+	MasterResourceDataGatheringPeriod time.Duration
+	PrintVerboseLogs                  bool
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
@@ -127,6 +128,10 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 		for _, node := range nodeList.Items {
 			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || dnsNodes[node.Name] {
 				g.workerWg.Add(1)
+				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
+				if system.IsMasterNode(node.Name) {
+					resourceDataGatheringPeriod = options.MasterResourceDataGatheringPeriod
+				}
 				g.workers = append(g.workers, resourceGatherWorker{
 					c:                           c,
 					nodeName:                    node.Name,
@@ -135,7 +140,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 					stopCh:                      g.stopCh,
 					finished:                    false,
 					inKubemark:                  false,
-					resourceDataGatheringPeriod: options.ResourceDataGatheringPeriod,
+					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
 					printVerboseLogs:            options.PrintVerboseLogs,
 				})
 				if options.Nodes == MasterNodes {

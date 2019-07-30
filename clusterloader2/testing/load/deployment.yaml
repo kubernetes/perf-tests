@@ -1,6 +1,5 @@
-# TODO(mm4tt): Allow using global overrides in object templates.
-{{$EnableConfigMaps := DefaultParam .EnableConfigMaps false}}
-{{$EnableSecrets := DefaultParam .EnableSecrets false}}
+{{$EnableConfigMaps := DefaultParam .ENABLE_CONFIGMAPS false}}
+{{$EnableSecrets := DefaultParam .ENABLE_SECRETS false}}
 
 apiVersion: apps/v1
 kind: Deployment

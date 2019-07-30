@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -238,7 +239,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	var obj *unstructured.Unstructured
 	switch operation {
 	case CREATE_OBJECT, PATCH_OBJECT:
-		mapping := make(map[string]interface{})
+		mapping := ctx.GetTemplateMappingCopy()
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}
@@ -246,20 +247,22 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
-		if err != nil {
+		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case DELETE_OBJECT:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-		if err != nil {
+		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
 	default:
 		return errors.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 	}
-	gvk := obj.GroupVersionKind()
-
 	errList := errors.NewErrorList()
+	if err == config.ErrorEmptyFile {
+		return errList
+	}
+	gvk := obj.GroupVersionKind()
 	switch operation {
 	case CREATE_OBJECT:
 		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {

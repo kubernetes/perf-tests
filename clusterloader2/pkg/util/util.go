@@ -219,6 +219,13 @@ func CopyMap(src, dest map[string]interface{}) {
 	}
 }
 
+// CloneMap returns clone of the provided map.
+func CloneMap(src map[string]interface{}) map[string]interface{} {
+	m := make(map[string]interface{})
+	CopyMap(src, m)
+	return m
+}
+
 // RandomDNS1123String generates random string of a given length.
 func RandomDNS1123String(length int) string {
 	characters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")

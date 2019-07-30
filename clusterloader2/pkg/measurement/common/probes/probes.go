@@ -18,10 +18,9 @@ package probes
 
 import (
 	"fmt"
+	"path"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -36,18 +35,27 @@ import (
 const (
 	probesNamespace = "probes"
 
+	manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/"
+
 	checkProbesReadyInterval = 15 * time.Second
 	checkProbesReadyTimeout  = 5 * time.Minute
 )
 
 var (
-	serviceMonitorGvr = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
-
 	networkLatencyConfig = proberConfig{
-		Name:          "InClusterNetworkLatency",
-		MetricVersion: "v1",
-		Query:         "quantile_over_time(0.99, probes:in_cluster_network_latency:histogram_quantile[%v])",
-		Manifests:     "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/*.yaml",
+		Name:             "InClusterNetworkLatency",
+		MetricVersion:    "v1",
+		Query:            "quantile_over_time(0.99, probes:in_cluster_network_latency:histogram_quantile[%v])",
+		Manifests:        "*.yaml",
+		ProbeLabelValues: []string{"ping-client", "ping-server"},
+	}
+
+	dnsLookupConfig = proberConfig{
+		Name:             "DnsLookupLatency",
+		MetricVersion:    "v1",
+		Query:            "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile[%v])",
+		Manifests:        "dnsLookup/*yaml",
+		ProbeLabelValues: []string{"dns"},
 	}
 )
 
@@ -56,13 +64,18 @@ func init() {
 	if err := measurement.Register(networkLatencyConfig.Name, create); err != nil {
 		klog.Errorf("cannot register %s: %v", networkLatencyConfig.Name, err)
 	}
+	create = func() measurement.Measurement { return createProber(dnsLookupConfig) }
+	if err := measurement.Register(dnsLookupConfig.Name, create); err != nil {
+		klog.Errorf("cannot register %s: %v", dnsLookupConfig.Name, err)
+	}
 }
 
 type proberConfig struct {
-	Name          string
-	MetricVersion string
-	Query         string
-	Manifests     string
+	Name             string
+	MetricVersion    string
+	Query            string
+	Manifests        string
+	ProbeLabelValues []string
 }
 
 func createProber(config proberConfig) measurement.Measurement {
@@ -109,10 +122,10 @@ func (p *probesMeasurement) Execute(config *measurement.MeasurementConfig) ([]me
 // Dispose cleans up after the measurement.
 func (p *probesMeasurement) Dispose() {
 	if p.framework == nil {
-		klog.Info("Probes weren't started, skipping the Dispose() step")
+		klog.Infof("Probe %s wasn't started, skipping the Dispose() step", p)
 		return
 	}
-	klog.Info("Stopping probes...")
+	klog.Infof("Stopping %s probe...", p)
 	k8sClient := p.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, probesNamespace); err != nil {
 		klog.Errorf("error while deleting %s namespace: %v", probesNamespace, err)
@@ -139,7 +152,7 @@ func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) er
 }
 
 func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
-	klog.Info("Starting probes...")
+	klog.Infof("Starting %s probe...", p)
 	if !p.startTime.IsZero() {
 		return fmt.Errorf("measurement %s cannot be started twice", p)
 	}
@@ -202,28 +215,29 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 }
 
 func (p *probesMeasurement) createProbesObjects() error {
-	return p.framework.ApplyTemplatedManifests(p.config.Manifests, p.templateMapping)
+	return p.framework.ApplyTemplatedManifests(path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
 }
 
 func (p *probesMeasurement) waitForProbesReady() error {
-	klog.Info("Waiting for Probes to become ready...")
+	klog.Infof("Waiting for Probe %s to become ready...", p)
 	return wait.Poll(checkProbesReadyInterval, checkProbesReadyTimeout, p.checkProbesReady)
 }
 
 func (p *probesMeasurement) checkProbesReady() (bool, error) {
-	serviceMonitors, err := p.framework.GetDynamicClients().GetClient().
-		Resource(serviceMonitorGvr).Namespace(probesNamespace).List(metav1.ListOptions{})
-	if err != nil {
-		if client.IsRetryableAPIError(err) || client.IsRetryableNetError(err) {
-			err = nil // Retryable error, don't return it.
-		}
-		return false, err
-	}
 	// TODO(mm4tt): Using prometheus targets to check whether probes are up is a bit hacky.
 	//              Consider rewriting this to something more intuitive.
-	expectedTargets := p.replicasPerProbe * len(serviceMonitors.Items)
+	selector := func(t prometheus.Target) bool {
+		for _, value := range p.config.ProbeLabelValues {
+			// NOTE(oxddr): Prometheus does some translation of labels. Labels here are not the same as labels defined on a monitored pod.
+			if t.Labels["job"] == value && t.Labels["namespace"] == probesNamespace {
+				return true
+			}
+		}
+		return false
+	}
+	expectedTargets := p.replicasPerProbe * len(p.config.ProbeLabelValues)
 	return prometheus.CheckAllTargetsReady(
-		p.framework.GetClientSets().GetClient(), isProbeTarget, expectedTargets)
+		p.framework.GetClientSets().GetClient(), selector, expectedTargets)
 }
 
 func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {
@@ -235,10 +249,6 @@ func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric)
 		return nil, err
 	}
 	return measurement.CreateSummary(p.String(), "json", content), nil
-}
-
-func isProbeTarget(t prometheus.Target) bool {
-	return t.Labels["namespace"] == probesNamespace
 }
 
 func prepareQuery(queryTemplate string, startTime, endTime time.Time) string {

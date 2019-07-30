@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: probes
+  name: dns
+  labels:
+    probe: dns
+spec:
+  selector:
+    matchLabels:
+      probe: dns
+  replicas: {{.Replicas}}
+  template:
+    metadata:
+      labels:
+        probe: dns
+    spec:
+      containers:
+        - name: dns
+          image: gcr.io/k8s-testimages/probes:v0.0.3
+          args:
+            - --metric-bind-address=0.0.0.0:8080
+            - --mode=dns
+            # Instead of creating dedicated "null-service" use one that's already exists
+            # TODO(oxddr): according to @wojtek-t there are differences between fully and not fully qualified domain names
+            # Investigate it and potentially measure latency for both
+            - --dns-probe-url=ping-server.probes
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
+              name: metrics

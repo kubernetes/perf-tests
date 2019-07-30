@@ -42,6 +42,21 @@ spec:
       record: probes:in_cluster_network_latency:histogram_quantile
       labels:
         quantile: "0.50"
+    - expr: |
+        histogram_quantile(0.99, sum(rate(probes_in_cluster_dns_latency_seconds_bucket[5m])) by (le))
+      record: probes:dns_lookup_latency:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.90, sum(rate(probes_in_cluster_dns_latency_seconds_bucket[5m])) by (le))
+      record: probes:dns_lookup_latency:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.50, sum(rate(probes_in_cluster_dns_latency_seconds_bucket[5m])) by (le))
+      record: probes:dns_lookup_latency:histogram_quantile
+      labels:
+        quantile: "0.50"
   - name: kube-proxy.rules
     rules:
     - expr: |

@@ -1,5 +1,4 @@
 {{$index := .Index}}
-{{$appName := .AppName}}
 {{$volumesPerPod := .VolumesPerPod}}
 apiVersion: v1
 kind: Pod

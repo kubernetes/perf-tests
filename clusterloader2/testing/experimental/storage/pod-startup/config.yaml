@@ -65,7 +65,7 @@ steps:
     replicasPerNamespace: {{$volumesPerNamespace}}
     tuningSet: Sequence
     objectBundle:
-    - basename: vol-{{$TEST_NAME}}
+    - basename: vol
       objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
       templateFillMap:
         Group: volume-test
@@ -89,7 +89,7 @@ steps:
     replicasPerNamespace: {{$podsPerNamespace}}
     tuningSet: Sequence
     objectBundle:
-    - basename: pod-{{$TEST_NAME}}
+    - basename: pod
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
       templateFillMap:
         Group: volume-test
@@ -109,7 +109,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: Sequence
     objectBundle:
-    - basename: pod-{{$TEST_NAME}}
+    - basename: pod
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
 {{ if $PROVISION_VOLUME }}
 # Delete volumes
@@ -120,7 +120,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: Sequence
     objectBundle:
-      - basename: vol-{{$TEST_NAME}}
+      - basename: vol
         objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
 {{ end }}
 # Collect measurements

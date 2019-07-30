@@ -238,7 +238,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	var obj *unstructured.Unstructured
 	switch operation {
 	case CREATE_OBJECT, PATCH_OBJECT:
-		mapping := make(map[string]interface{})
+		mapping := ctx.GetTemplateMappingCopy()
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}

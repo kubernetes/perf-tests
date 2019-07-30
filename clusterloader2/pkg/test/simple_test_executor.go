@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
@@ -32,8 +33,9 @@ import (
 )
 
 const (
-	namePlaceholder  = "Name"
-	indexPlaceholder = "Index"
+	baseNamePlaceholder = "BaseName"
+	indexPlaceholder    = "Index"
+	namePlaceholder     = "Name"
 )
 
 type simpleTestExecutor struct{}
@@ -240,6 +242,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}
+		mapping[baseNamePlaceholder] = object.Basename
 		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
@@ -292,13 +295,6 @@ func verifyBundleCorrectness(instancesStates []*state.InstancesState) error {
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
-	objName := fmt.Sprintf("%v-%d", object.Basename, 0)
-	mapping := make(map[string]interface{})
-	if object.TemplateFillMap != nil {
-		util.CopyMap(object.TemplateFillMap, mapping)
-	}
-	mapping[namePlaceholder] = objName
-	mapping[indexPlaceholder] = 0
 	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) for identifier error: %v", object.ObjectTemplatePath, err)

@@ -16,6 +16,8 @@
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
+{{$ENABLE_CONFIGMAPS := DefaultParam .ENABLE_CONFIGMAPS false}}
+{{$ENABLE_SECRETS := DefaultParam .ENABLE_SECRETS false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -133,9 +135,19 @@ steps:
     replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: big-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: big-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
@@ -145,9 +157,19 @@ steps:
     replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: medium-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: medium-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
@@ -157,9 +179,19 @@ steps:
     replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: small-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: small-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
@@ -182,6 +214,8 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
@@ -194,6 +228,8 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
@@ -206,6 +242,8 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
+        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
@@ -227,6 +265,14 @@ steps:
     objectBundle:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: big-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: big-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -235,6 +281,14 @@ steps:
     objectBundle:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: medium-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: medium-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -243,6 +297,14 @@ steps:
     objectBundle:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
+    {{if $ENABLE_CONFIGMAPS}}
+    - basename: small-deployment
+      objectTemplatePath: configmap.yaml
+    {{end}}
+    {{if $ENABLE_SECRETS}}
+    - basename: small-deployment
+      objectTemplatePath: secret.yaml
+    {{end}}
 
 - name: Waiting for Deployments to be deleted
   measurements:

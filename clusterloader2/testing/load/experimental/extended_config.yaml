@@ -146,8 +146,6 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
@@ -168,8 +166,6 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
@@ -190,8 +186,6 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
@@ -214,8 +208,6 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
@@ -228,8 +220,6 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
@@ -242,8 +232,6 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
-        EnableConfigMaps: {{$ENABLE_CONFIGMAPS}}
-        EnableSecrets: {{$ENABLE_SECRETS}}
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service

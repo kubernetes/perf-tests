@@ -1,5 +1,4 @@
 {{$index := .Index}}
-{{$appName := .AppName}}
 {{$volumesPerPod := .VolumesPerPod}}
 apiVersion: v1
 kind: Pod
@@ -22,5 +21,5 @@ spec:
   {{ range $volumeIndex, $vol := Seq .VolumesPerPod }}
   - name: vol-{{$volumeIndex}}
     configMap:
-      name: vol-{{$appName}}-{{AddInt $volumeIndex (MultiplyInt $index $volumesPerPod)}}
+      name: vol-{{AddInt $volumeIndex (MultiplyInt $index $volumesPerPod)}}
   {{ end }}

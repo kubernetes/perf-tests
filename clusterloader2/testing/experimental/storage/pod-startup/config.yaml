@@ -1,36 +1,39 @@
 # ASSUMPTIONS:
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
+# - If using Persistent Volumes, the default storage class must have volumeBindingMode: Immediate
 
-#Constants
-# TODO(mucahitkurt) copied from load tests, open for discussion.
-{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
-{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
-{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+# Cluster Variables
+  {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
+  {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 
-{{$POD_TEMPLATE_PATH := DefaultParam .POD_TEMPLATE_PATH "../volume-types/emptydir/pod_with_emptydir.yaml"}}
-{{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
+# Test Variales
+  {{$TEST_NAME := DefaultParam .TEST_NAME "generic-test"}}
+  {{$PODS_PER_NODE := .PODS_PER_NODE}}
+  {{$POD_TEMPLATE_PATH := .POD_TEMPLATE_PATH }}
+  {{$VOLUMES_PER_POD := .VOLUMES_PER_POD}}
+  {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
+  {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
+  {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
+  {{$WAIT_FOR_PVC := DefaultParam .WAIT_FOR_PVC false}}
+  # TODO(hantaowang): remove knob after deciding on right values
+  {{$POD_STARTUP_TIMEOUT := DefaultParam .POD_STARTUP_TIMEOUT "15m"}}
+  {{$POD_STARTUP_SLO := DefaultParam .POD_STARTUP_SLO 300}}
 
-{{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 1}}
-{{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
-{{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
+# Computed Variables
+  {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE | MaxInt 1}}
+  {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+  {{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+  {{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
+  {{$totalVols := MultiplyInt $volumesPerNamespace $namespaces}}
+  {{$PVCBoundTime := MultiplyInt $totalVols 2 | MaxInt 60}}
 
-{{$APP_NAME := "pod-load"}}
-{{$GROUP := "pod-with-ephemeral-volume-startup-latency"}}
 
-#Variables
-# used stateless pod SLO for initial run
-{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE | MaxInt 1}}
-{{$podStartupTimeout := 5}}
-{{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
-{{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
-{{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
-
-name: pod-with-ephemeral-volume-startup-latency
+name: storage-{{$TEST_NAME}}
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
-- name: UniformQPS
-  qpsLoad:
-    qps: {{$LOAD_TEST_THROUGHPUT}}
+  - name: Sequence
+    parallelismLimitedLoad:
+      parallelismLimit: 1
 steps:
 # Start measurements
 - measurements:
@@ -38,12 +41,21 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
-  - Identifier: PodWithMultiVolumeStartupLatency
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: start
+      nodeMode: {{$NODE_MODE}}
+  - Identifier: PodWithVolumesStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
-      labelSelector: group = {{$GROUP}}
-      threshold: {{$podStartupTimeout}}s
+      labelSelector: group = volume-test
+      threshold: {{$POD_STARTUP_SLO}}s
 {{ if $PROVISION_VOLUME }}
 # Provision volumes
 - phases:
@@ -51,10 +63,23 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$volumesPerNamespace}}
-    tuningSet: UniformQPS
+    tuningSet: Sequence
     objectBundle:
-    - basename: vol-{{$APP_NAME}}
+    - basename: vol-{{$TEST_NAME}}
       objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
+      templateFillMap:
+        Group: volume-test
+        VolSize: {{$VOL_SIZE}}
+{{ end }}
+{{ if $WAIT_FOR_PVC }}
+- measurements:
+  - Identifier: WaitForPVCsToBeBound
+    Method: WaitForBoundPVCs
+    Params:
+      desiredPVCCount: {{$totalVols}}
+      apiVersion: v1
+      labelSelector: group = volume-test
+      timeout: {{$PVCBoundTime}}s
 {{ end }}
 # Create pods
 - phases:
@@ -62,39 +87,57 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$podsPerNamespace}}
-    tuningSet: UniformQPS
+    tuningSet: Sequence
     objectBundle:
-    - basename: {{$APP_NAME}}
+    - basename: pod-{{$TEST_NAME}}
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
       templateFillMap:
-        Group: {{$GROUP}}
+        Group: volume-test
         VolumesPerPod: {{$VOLUMES_PER_POD}}
-        AppName: {{$APP_NAME}}
 - measurements:
-  - Identifier: WaitForRunningPodsWithStorage
+  - Identifier: WaitForRunningPodsWithVolumes
     Method: WaitForRunningPods
     Params:
       desiredPodCount: {{$totalPods}}
-      labelSelector: group = {{$GROUP}}
-      # TODO(mucahitkurt) decide this after test roll-out phase
-      timeout: 15m
+      labelSelector: group = volume-test
+      timeout: {{$POD_STARTUP_TIMEOUT}}
 # Delete pods
 - phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: UniformQPS
+    tuningSet: Sequence
     objectBundle:
-    - basename: {{$APP_NAME}}
+    - basename: pod-{{$TEST_NAME}}
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
+{{ if $PROVISION_VOLUME }}
+# Delete volumes
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+      - basename: vol-{{$TEST_NAME}}
+        objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
+{{ end }}
 # Collect measurements
 - measurements:
-  - Identifier: PodWithMultiVolumeStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: gather
+  - Identifier: PodWithVolumesStartupLatency
+    Method: PodStartupLatency
     Params:
       action: gather

@@ -161,8 +161,21 @@ func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interfa
 	return decodeInto(b, obj)
 }
 
-// GetOverridesMapping returns mapping from file specified by the given paths.
-func GetOverridesMapping(paths []string) (map[string]interface{}, error) {
+// LoadTestSuite creates test suite config from file specified by the given path.
+func LoadTestSuite(path string) (api.TestSuite, error) {
+	bin, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("test suite reading error: %v", err)
+	}
+	var testSuite api.TestSuite
+	if err = decodeInto(bin, &testSuite); err != nil {
+		return nil, err
+	}
+	return testSuite, nil
+}
+
+// LoadTestOverrides returns mapping from file specified by the given paths.
+func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
 	mapping := make(map[string]interface{})
 	for _, path := range paths {
 		bin, err := ioutil.ReadFile(path)
@@ -183,7 +196,7 @@ func GetOverridesMapping(paths []string) (map[string]interface{}, error) {
 
 // GetMapping returns template variable mapping for the given ClusterLoaderConfig.
 func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
-	mapping, err := GetOverridesMapping(clusterLoaderConfig.TestOverridesPath)
+	mapping, err := LoadTestOverrides(clusterLoaderConfig.TestOverridesPath)
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}

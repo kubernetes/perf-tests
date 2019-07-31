@@ -1,0 +1,56 @@
+{{$EnablePVs := DefaultParam .ENABLE_PVS false}}
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Name}}
+  labels:
+    group: load
+spec:
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  serviceName: {{.Name}}
+  replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
+  template:
+    metadata:
+      labels:
+        group: statefulset
+        name: {{.Name}}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+      - name: {{.Name}}
+        image: k8s.gcr.io/pause:3.1
+        ports:
+          - containerPort: 80
+            name: web
+        {{if $EnablePVs}}
+        volumeMounts:
+          - name: pv
+            mountPath: /var/pv
+        {{end}}
+        resources:
+          requests:
+            cpu: 10m
+            memory: "10M"
+  {{if $EnablePVs}}
+  # TODO(#704): We should have better control over deleting PVs.
+  # While this StatefulSet's feature is convenient for creating PVs, there is no easy way to delete
+  # them later, as deleting StatefulSet doesn't delete PVs. They are going to be eventually deleted
+  # once namespace is deleted, but ideally we should have a better (more controlled) way of doing
+  # that, so we can delete them during test, e.g. after StatefulSets are deleted, and  measure the
+  # api call latency for that. There are two options here:
+  # 1. Create a new measurement that will delete PVs created by StatefulSets
+  # 2. Create PVs manually, attach them here (but not via volumeClaimTemplates) and delete them
+  #    manually later
+  volumeClaimTemplates:
+    - metadata:
+        name: pv
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 100Mi
+  {{end}}

@@ -79,6 +79,18 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 			}
 			return nil
 		}
+	case "StatefulSet":
+		listFunc = func() error {
+			list, err := c.AppsV1().StatefulSets(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
+		}
 	case "DaemonSet":
 		listFunc = func() error {
 			list, err := c.AppsV1().DaemonSets(namespace).List(listOpts)
@@ -165,6 +177,8 @@ func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *appsv1.Deployment:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	case *appsv1.StatefulSet:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *appsv1.DaemonSet:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *batch.Job:
@@ -222,6 +236,8 @@ func GetSpecFromRuntimeObject(obj runtime.Object) (interface{}, error) {
 		return typed.Spec, nil
 	case *appsv1.Deployment:
 		return typed.Spec, nil
+	case *appsv1.StatefulSet:
+		return typed.Spec, nil
 	case *appsv1.DaemonSet:
 		return typed.Spec, nil
 	case *batch.Job:
@@ -262,6 +278,11 @@ func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
 		}
 		return 0, nil
 	case *appsv1.Deployment:
+		if typed.Spec.Replicas != nil {
+			return *typed.Spec.Replicas, nil
+		}
+		return 0, nil
+	case *appsv1.StatefulSet:
 		if typed.Spec.Replicas != nil {
 			return *typed.Spec.Replicas, nil
 		}

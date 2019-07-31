@@ -15,6 +15,7 @@
   {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
   {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
   {{$WAIT_FOR_PVC := DefaultParam .WAIT_FOR_PVC false}}
+  {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 10}}
   # TODO(hantaowang): remove knob after deciding on right values
   {{$POD_STARTUP_TIMEOUT := DefaultParam .POD_STARTUP_TIMEOUT "15m"}}
   {{$POD_STARTUP_SLO := DefaultParam .POD_STARTUP_SLO 300}}
@@ -31,9 +32,9 @@
 name: storage-{{$TEST_NAME}}
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
-  - name: Sequence
-    parallelismLimitedLoad:
-      parallelismLimit: 1
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$POD_THROUGHPUT}}
 steps:
 # Start measurements
 - measurements:
@@ -63,7 +64,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$volumesPerNamespace}}
-    tuningSet: Sequence
+    tuningSet: UniformQPS
     objectBundle:
     - basename: vol
       objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
@@ -87,7 +88,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$podsPerNamespace}}
-    tuningSet: Sequence
+    tuningSet: UniformQPS
     objectBundle:
     - basename: pod
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
@@ -107,7 +108,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: Sequence
+    tuningSet: UniformQPS
     objectBundle:
     - basename: pod
       objectTemplatePath: {{$POD_TEMPLATE_PATH}}
@@ -118,7 +119,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: Sequence
+    tuningSet: UniformQPS
     objectBundle:
       - basename: vol
         objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}

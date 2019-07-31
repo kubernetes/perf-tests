@@ -23,6 +23,7 @@
 {{$ENABLE_PVS := DefaultParam .ENABLE_PVS false}}
 {{$ENABLE_SECRETS := DefaultParam .ENABLE_SECRETS false}}
 {{$ENABLE_STATEFULSETS := DefaultParam .ENABLE_STATEFULSETS false}}
+{{$ENABLE_NETWORKPOLICIES := DefaultParam .ENABLE_NETWORKPOLICIES false}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -212,6 +213,10 @@ steps:
     - basename: big-deployment
       objectTemplatePath: secret.yaml
     {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: big-deployment
+      objectTemplatePath: networkpolicy.yaml
+    {{end}}
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
@@ -232,6 +237,10 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: secret.yaml
     {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: medium-deployment
+      objectTemplatePath: networkpolicy.yaml
+    {{end}}
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
@@ -251,6 +260,10 @@ steps:
     {{if $ENABLE_SECRETS}}
     - basename: small-deployment
       objectTemplatePath: secret.yaml
+    {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: small-deployment
+      objectTemplatePath: networkpolicy.yaml
     {{end}}
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
@@ -500,6 +513,10 @@ steps:
     - basename: big-deployment
       objectTemplatePath: secret.yaml
     {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: big-deployment
+      objectTemplatePath: networkpolicy.yaml
+    {{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -516,6 +533,10 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: secret.yaml
     {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: medium-deployment
+      objectTemplatePath: networkpolicy.yaml
+    {{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -531,6 +552,10 @@ steps:
     {{if $ENABLE_SECRETS}}
     - basename: small-deployment
       objectTemplatePath: secret.yaml
+    {{end}}
+    {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: small-deployment
+      objectTemplatePath: networkpolicy.yaml
     {{end}}
   {{if $ENABLE_STATEFULSETS}}
   - namespaceRange:

@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+cd $(dirname "${BASH_SOURCE}")
+
 pip install -U grafanalib
 for file in *.dashboard.py; do
     echo "Processing ${file}"

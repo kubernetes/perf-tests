@@ -55,14 +55,12 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-  {{if $ENABLE_PROBES}}
   # TODO(oxddr): figure out how many probers to run in function of cluster
   - Identifier: Probes
     Method: Probes
     Params:
       action: start
       replicasPerProbe: {{DivideInt .Nodes 100}}
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -220,12 +218,10 @@ steps:
       {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
       {{end}}
-  {{if $ENABLE_PROBES}}
   - Identifier: Probes
     Method: Probes
     Params:
       action: gather
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

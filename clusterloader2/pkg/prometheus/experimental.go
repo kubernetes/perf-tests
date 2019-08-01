@@ -86,6 +86,10 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
 	klog.Infof("Snapshotting PD '%s' into snapshot '%s' in zone '%s'", pdName, snapshotName, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()
-	klog.Infof("Creating disk snapshot finished with: %q\nError is: %v", string(output), err)
+	if err != nil {
+		klog.Errorf("Creating disk snapshot failed: %v\nCommand output: %q", err, string(output))
+	} else {
+		klog.Infof("Creating disk snapshot finished with: %q", string(output))
+	}
 	return true, err
 }

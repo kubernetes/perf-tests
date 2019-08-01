@@ -13,6 +13,7 @@
   {{$VOLUMES_PER_POD := .VOLUMES_PER_POD}}
   {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
   {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
+  {{$USE_CSI := DefaultParam .USE_CSI false}}
   {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
   {{$WAIT_FOR_PVC := DefaultParam .WAIT_FOR_PVC false}}
   {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 10}}
@@ -70,6 +71,7 @@ steps:
       templateFillMap:
         Group: volume-test
         VolSize: {{$VOL_SIZE}}
+        UseCSI: {{$USE_CSI}}
 {{ end }}
 {{ if $WAIT_FOR_PVC }}
 - measurements:

@@ -141,3 +141,39 @@ func (s *PVCStore) List() []*v1.PersistentVolumeClaim {
 	}
 	return pvcs
 }
+
+// PVStore is a convenient wrapper around cache.Store.
+type PVStore struct {
+	*ObjectStore
+}
+
+// NewPVStore creates PVStore based on a given object selector.
+func NewPVStore(c clientset.Interface, selector *ObjectSelector) (*PVStore, error) {
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().PersistentVolumes().List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().PersistentVolumes().Watch(options)
+		},
+	}
+	objectStore, err := newObjectStore(&v1.PersistentVolume{}, lw, selector)
+	if err != nil {
+		return nil, err
+	}
+	return &PVStore{ObjectStore: objectStore}, nil
+}
+
+// List returns list of pvs (that satisfy conditions provided to NewPVStore).
+func (s *PVStore) List() []*v1.PersistentVolume {
+	objects := s.Store.List()
+	pvs := make([]*v1.PersistentVolume, 0, len(objects))
+	for _, o := range objects {
+		pvs = append(pvs, o.(*v1.PersistentVolume))
+	}
+	return pvs
+}

@@ -123,10 +123,10 @@ func (s *serviceCreationLatencyMeasurement) String() string {
 
 func (s *serviceCreationLatencyMeasurement) start() error {
 	if s.isRunning {
-		klog.Infof("%s: wait for controlled pods measurement already running", s)
+		klog.Infof("%s: service creation latency measurement already running", s)
 		return nil
 	}
-	klog.Infof("%s: starting wait for controlled pods measurement...", s)
+	klog.Infof("%s: starting service creation latency measurement...", s)
 
 	s.isRunning = true
 	s.stopCh = make(chan struct{})

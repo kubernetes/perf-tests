@@ -20,6 +20,20 @@ import (
 	"time"
 )
 
+// TestSuite defines list of test scenarios to be run.
+type TestSuite []TestScenario
+
+// TestScenario defines customized test to be run.
+type TestScenario struct {
+	// Identifier is a unique test scenario name across test suite.
+	Identifier string `json: identifier`
+	// ConfigPath defines path to the file containing a single Config definition.
+	ConfigPath string `json: configPath`
+	// OverridePaths defines what override files should be applied
+	// to the config specified by the ConfigPath.
+	OverridePaths []string `json: overridePaths`
+}
+
 // Config is a structure that represents configuration
 // for a single test scenario.
 type Config struct {

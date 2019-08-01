@@ -18,6 +18,9 @@ package prometheus
 
 import (
 	"encoding/json"
+	"fmt"
+	"regexp"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -84,4 +87,16 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 	}
 	klog.Infof("All %d expected targets are ready", minReadyTargets)
 	return true, nil
+}
+
+const snapshotNamePattern = `^(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?)$`
+
+var re = regexp.MustCompile(snapshotNamePattern)
+
+// VerifySnapshotName verifies if snapshot name statisfies snapshot name regex.
+func VerifySnapshotName(name string) error {
+	if re.MatchString(name) {
+		return nil
+	}
+	return fmt.Errorf("disk name doesn't match %v", snapshotNamePattern)
 }

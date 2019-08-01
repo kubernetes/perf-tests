@@ -77,7 +77,11 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
 	}
 	snapshotName := pdName
 	if *prometheusDiskSnapshotName != "" {
-		snapshotName = *prometheusDiskSnapshotName
+		if err := VerifySnapshotName(*prometheusDiskSnapshotName); err == nil {
+			snapshotName = *prometheusDiskSnapshotName
+		} else {
+			klog.Warningf("Incorrect disk name %v: %v. Using default name: %v", *prometheusDiskSnapshotName, err, pdName)
+		}
 	}
 	klog.Infof("Snapshotting PD '%s' into snapshot '%s' in zone '%s'", pdName, snapshotName, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--zone", zone, "--snapshot-names", snapshotName)

@@ -8,6 +8,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  {{ if .UseCSI }}
+  storageClassName: csi-gce-pd
+  {{ end }}
   resources:
     requests:
       storage: {{.VolSize}}

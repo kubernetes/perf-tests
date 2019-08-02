@@ -1,0 +1,354 @@
+# This config generated from the GCP PD CSI Driver
+# https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
+# with the command: kustomize build deploy/kubernetes/overlays/stable
+# and an addition storage class from examples/kubernetes/zonal-sc-example.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-controller-sa
+  namespace: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-node-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: driver-registrar-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: external-attacher-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - csinodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - volumeattachments
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: external-provisioner-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - storageclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - list
+      - watch
+      - create
+      - update
+      - patch
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - csinodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-controller-attacher-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-attacher-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-controller-sa
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-controller-provisioner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-controller-sa
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: driver-registrar-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: driver-registrar-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-node-sa
+    namespace: default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-gce-pd-controller
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gcp-compute-persistent-disk-csi-driver
+  serviceName: csi-gce-pd
+  template:
+    metadata:
+      labels:
+        app: gcp-compute-persistent-disk-csi-driver
+    spec:
+      containers:
+        - args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --feature-gates=Topology=true
+          image: gke.gcr.io/csi-provisioner:v1.2.1-gke.0
+          name: csi-provisioner
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+          image: gke.gcr.io/csi-attacher:v1.2.0-gke.0
+          name: csi-attacher
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+        - args:
+            - --v=5
+            - --endpoint=unix:/csi/csi.sock
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/cloud-sa/cloud-sa.json
+          image: gke.gcr.io/gcp-compute-persistent-disk-csi-driver:v0.5.1-gke.0
+          name: gce-pd-driver
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /etc/cloud-sa
+              name: cloud-sa-volume
+              readOnly: true
+      serviceAccountName: csi-controller-sa
+      volumes:
+        - emptyDir: {}
+          name: socket-dir
+        - name: cloud-sa-volume
+          secret:
+            secretName: cloud-sa
+  volumeClaimTemplates: []
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: gcp-compute-persistent-disk-csi-driver
+  name: csi-gce-pd-node
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: gcp-compute-persistent-disk-csi-driver
+  template:
+    metadata:
+      labels:
+        app: gcp-compute-persistent-disk-csi-driver
+    spec:
+      containers:
+        - args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/pd.csi.storage.gke.io/csi.sock
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: gke.gcr.io/csi-node-driver-registrar:v1.1.0-gke.0
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - rm -rf /registration/pd.csi.storage.gke.io /registration/pd.csi.storage.gke.io-reg.sock
+          name: csi-driver-registrar
+          volumeMounts:
+            - mountPath: /csi
+              name: plugin-dir
+            - mountPath: /registration
+              name: registration-dir
+        - args:
+            - --v=5
+            - --endpoint=unix:/csi/csi.sock
+          image: gke.gcr.io/gcp-compute-persistent-disk-csi-driver:v0.5.1-gke.0
+          name: gce-pd-driver
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/lib/kubelet
+              mountPropagation: Bidirectional
+              name: kubelet-dir
+            - mountPath: /csi
+              name: plugin-dir
+            - mountPath: /dev
+              name: device-dir
+            - mountPath: /etc/udev
+              name: udev-rules-etc
+            - mountPath: /lib/udev
+              name: udev-rules-lib
+            - mountPath: /run/udev
+              name: udev-socket
+            - mountPath: /sys
+              name: sys
+      serviceAccountName: csi-node-sa
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+          name: kubelet-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins/pd.csi.storage.gke.io/
+            type: DirectoryOrCreate
+          name: plugin-dir
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: device-dir
+        - hostPath:
+            path: /etc/udev
+            type: Directory
+          name: udev-rules-etc
+        - hostPath:
+            path: /lib/udev
+            type: Directory
+          name: udev-rules-lib
+        - hostPath:
+            path: /run/udev
+            type: Directory
+          name: udev-socket
+        - hostPath:
+            path: /sys
+            type: Directory
+          name: sys
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: csi-gce-pd
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-standard
+volumeBindingMode: WaitForFirstConsumer

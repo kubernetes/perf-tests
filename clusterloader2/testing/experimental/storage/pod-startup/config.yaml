@@ -14,7 +14,7 @@
   {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
   {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
   {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
-  {{$WAIT_FOR_PVC := DefaultParam .WAIT_FOR_PVC false}}
+  {{$WAIT_FOR_PVS := DefaultParam .WAIT_FOR_PVS false}}
   {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 10}}
   # TODO(hantaowang): remove knob after deciding on right values
   {{$POD_STARTUP_TIMEOUT := DefaultParam .POD_STARTUP_TIMEOUT "15m"}}
@@ -71,7 +71,7 @@ steps:
         Group: volume-test
         VolSize: {{$VOL_SIZE}}
 {{ end }}
-{{ if $WAIT_FOR_PVC }}
+{{ if $WAIT_FOR_PVS }}
 - measurements:
   - Identifier: WaitForPVCsToBeBound
     Method: WaitForBoundPVCs
@@ -131,6 +131,15 @@ steps:
     objectBundle:
       - basename: vol
         objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
+{{ end }}
+{{if $WAIT_FOR_PVS }}
+- measurements:
+    - Identifier: WaitForPVsToBeDeleted
+      Method: WaitForAvailablePVs
+      Params:
+        desiredPVCount: 0
+        apiVersion: v1
+        timeout: {{$PVCBoundTime}}s
 {{ end }}
 # Collect measurements
 - measurements:

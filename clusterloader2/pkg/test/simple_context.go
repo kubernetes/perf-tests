@@ -41,7 +41,7 @@ type simpleContext struct {
 }
 
 func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, templateMapping map[string]interface{}) Context {
-	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestConfigPath))
+	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestScenario.ConfigPath))
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		clusterFramework:    f,

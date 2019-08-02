@@ -56,7 +56,7 @@ func RunTest(clusterFramework, prometheusFramework *framework.Framework, cluster
 		return errList
 	}
 	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), mapping)
-	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
+	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))

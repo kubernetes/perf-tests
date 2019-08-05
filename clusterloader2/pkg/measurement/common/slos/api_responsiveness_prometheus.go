@@ -106,6 +106,10 @@ func (a *apiResponsivenessGatherer) String() string {
 	return apiResponsivenessPrometheusMeasurementName
 }
 
+func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
+	return true
+}
+
 func (a *apiResponsivenessGatherer) gatherApiCalls(executor QueryExecutor, startTime time.Time) ([]apiCall, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)

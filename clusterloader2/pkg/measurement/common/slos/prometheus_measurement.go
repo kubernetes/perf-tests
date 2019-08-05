@@ -44,6 +44,7 @@ type QueryExecutor interface {
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
 	Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error)
+	IsEnabled(config *measurement.MeasurementConfig) bool
 	String() string
 }
 
@@ -56,7 +57,12 @@ type prometheusMeasurement struct {
 
 func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	if config.PrometheusFramework == nil {
-		klog.Warningf("%s: Prometheus is disable, skipping the measurement!", m)
+		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", m)
+		return nil, nil
+	}
+
+	if !m.gatherer.IsEnabled(config) {
+		klog.Warningf("%s: disabled, skipping the measuerment!", m)
 		return nil, nil
 	}
 

@@ -46,15 +46,15 @@ func (metric *LatencyMetric) SetQuantile(quantile float64, latency time.Duration
 }
 
 // VerifyThreshold verifies latency metric against given percentile thresholds.
-func (metric *LatencyMetric) VerifyThreshold(threshold *LatencyMetric) error {
-	if metric.Perc50 > threshold.Perc50 {
-		return fmt.Errorf("too high latency 50th percentile: %v", metric.Perc50)
+func (metric *LatencyMetric) VerifyThreshold(threshold time.Duration) error {
+	if metric.Perc50 > threshold {
+		return fmt.Errorf("too high latency 50th percentile: got %v expected: %v", metric.Perc50, threshold)
 	}
-	if metric.Perc90 > threshold.Perc90 {
-		return fmt.Errorf("too high latency 90th percentile: %v", metric.Perc90)
+	if metric.Perc90 > threshold {
+		return fmt.Errorf("too high latency 90th percentile: got %v expected: %v", metric.Perc90, threshold)
 	}
-	if metric.Perc99 > threshold.Perc99 {
-		return fmt.Errorf("too high latency 99th percentile: %v", metric.Perc99)
+	if metric.Perc99 > threshold {
+		return fmt.Errorf("too high latency 99th percentile: got %v expected: %v", metric.Perc99, threshold)
 	}
 	return nil
 }

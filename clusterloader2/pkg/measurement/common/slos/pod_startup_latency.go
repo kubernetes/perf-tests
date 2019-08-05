@@ -162,14 +162,8 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		},
 	})
 
-	podStartupLatencyThreshold := &measurementutil.LatencyMetric{
-		Perc50: p.threshold,
-		Perc90: p.threshold,
-		Perc99: p.threshold,
-	}
-
 	var err error
-	if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(podStartupLatencyThreshold); slosErr != nil {
+	if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(p.threshold); slosErr != nil {
 		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 		klog.Errorf("%s: %v", p, err)
 	}

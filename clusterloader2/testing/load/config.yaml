@@ -66,8 +66,8 @@ steps:
       action: start
       labelSelector: group = load
       threshold: 1h
-  - Identifier: Probes
-    Method: Probes
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
     Params:
       action: start
       replicasPerProbe: {{DivideInt .Nodes 100}}
@@ -289,8 +289,8 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
-  - Identifier: Probes
-    Method: Probes
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
     Params:
       action: gather
   - Identifier: NetworkProgrammingLatency

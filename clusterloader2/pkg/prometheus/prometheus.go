@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -46,8 +47,15 @@ const (
 	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
 	nodeExporterPod              = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/exporters/node-exporter.yaml"
-	nodeExporterTemplateName     = "PROMETHEUS_SCRAPE_NODE_EXPORTER"
 )
+
+// InitFlags initializes prometheus flags.
+func InitFlags(p *config.PrometheusConfig) {
+	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
+	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
+	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
+	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
+}
 
 // PrometheusController is a util for managing (setting up / tearing down) the prometheus stack in
 // the cluster.
@@ -82,6 +90,19 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
 		delete(mapping, "MasterIps")
 	}
+	// TODO: Change to pure assignments when overrides are not used.
+	if _, exists := mapping["PROMETHEUS_SCRAPE_ETCD"]; !exists {
+		mapping["PROMETHEUS_SCRAPE_ETCD"] = clusterLoaderConfig.PrometheusConfig.ScrapeEtcd
+	} else {
+		// Backward compatibility.
+		clusterLoaderConfig.PrometheusConfig.ScrapeEtcd = mapping["PROMETHEUS_SCRAPE_ETCD"].(bool)
+	}
+	if _, exists := mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"]; !exists {
+		mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter
+	} else {
+		// Backward compatibility.
+		clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter = mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"].(bool)
+	}
 	pc.templateMapping = mapping
 
 	return pc, nil
@@ -100,7 +121,7 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 	if err := pc.applyManifests(coreManifests); err != nil {
 		return err
 	}
-	if scrapeNodeExporter, ok := pc.templateMapping[nodeExporterTemplateName].(bool); ok && scrapeNodeExporter {
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
 		if err := pc.runNodeExporter(); err != nil {
 			return err
 		}
@@ -248,7 +269,7 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
 	// prometheus, prometheus-operator, grafana, apiserver
 	expectedTargets := 4
-	if scrapeEtcd, ok := pc.templateMapping["PROMETHEUS_SCRAPE_ETCD"].(bool); (ok && scrapeEtcd) || pc.isKubemark() {
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeEtcd || pc.isKubemark() {
 		// If scraping etcd is enabled (or it's kubemark where we scrape etcd unconditionally) we need
 		// a bit more complicated logic to asses whether all targets are ready. Etcd metric port has
 		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version

@@ -1,6 +1,6 @@
 PROJECT = k8s-testimages
 IMG = gcr.io/$(PROJECT)/probes
-TAG = v0.0.2
+TAG = v0.0.3
 
 all: push
 

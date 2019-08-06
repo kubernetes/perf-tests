@@ -70,7 +70,7 @@ func validateClusterFlags() *errors.ErrorList {
 		errList.Append(fmt.Errorf("no kubeconfig path specified"))
 	}
 	if clusterLoaderConfig.ClusterConfig.Provider == "kubemark" &&
-		clusterLoaderConfig.EnablePrometheusServer &&
+		clusterLoaderConfig.PrometheusConfig.EnableServer &&
 		clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath == "" {
 		errList.Append(fmt.Errorf("no kubemark-root-kubeconfig path specified"))
 	}
@@ -79,11 +79,10 @@ func validateClusterFlags() *errors.ErrorList {
 
 func initFlags() {
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
-	flags.BoolEnvVar(&clusterLoaderConfig.EnablePrometheusServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
-	flags.BoolEnvVar(&clusterLoaderConfig.TearDownPrometheusServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	initClusterFlags()
+	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
 }
 
 func validateFlags() *errors.ErrorList {
@@ -227,7 +226,7 @@ func main() {
 
 	var prometheusController *prometheus.PrometheusController
 	var prometheusFramework *framework.Framework
-	if clusterLoaderConfig.EnablePrometheusServer {
+	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		if prometheusController, err = prometheus.NewPrometheusController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
@@ -267,7 +266,7 @@ func main() {
 	suiteSummary.RunTime = time.Since(testsStart)
 	junitReporter.SpecSuiteDidEnd(suiteSummary)
 
-	if clusterLoaderConfig.EnablePrometheusServer && clusterLoaderConfig.TearDownPrometheusServer {
+	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
 		if err := prometheusController.TearDownPrometheusStack(); err != nil {
 			klog.Errorf("Error while tearing down prometheus stack: %v", err)
 		}

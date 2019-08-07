@@ -16,24 +16,14 @@
 
 import attr
 from grafanalib import core as g
-
-DECREASING_ORDER_TOOLTIP = g.Tooltip(sort=g.SORT_DESC)
-DEFAULT_PANEL_HEIGHT = g.Pixels(300)
-
-# Graph is a g.Graph with reasonable defaults applied.
-@attr.s
-class Graph(g.Graph):
-    dataSource = attr.ib(default="$source")
-    span = attr.ib(default=g.TOTAL_SPAN)
-    tooltip = attr.ib(default=DECREASING_ORDER_TOOLTIP)
-
+import defaults
 
 def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
     if not isinstance(exprs, (list, tuple)):
         exprs = [exprs]
     if legend != "" and len(exprs) != 1:
         raise ValueError("legend can be specified only for a 1-element exprs")
-    return Graph(
+    return defaults.Graph(
         title=title,
         # One graph per row.
         targets=[
@@ -147,7 +137,7 @@ ETCD_PANELS = [
         "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
         g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
-    Graph(
+    defaults.Graph(
         title="etcd compaction max pause",
         points=True,
         lines=False,
@@ -285,7 +275,7 @@ VM_PANELS = [
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),
-    Graph(
+    defaults.Graph(
         title="Network usage (bytes)",
         targets=[
             g.Target(
@@ -299,7 +289,7 @@ VM_PANELS = [
         ],
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
-    Graph(
+    defaults.Graph(
         title="Network usage (packets)",
         targets=[
             g.Target(
@@ -312,7 +302,7 @@ VM_PANELS = [
             ),
         ],
     ),
-    Graph(
+    defaults.Graph(
         title="Network usage (avg packet size)",
         targets=[
             g.Target(
@@ -326,7 +316,7 @@ VM_PANELS = [
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
-    Graph(
+    defaults.Graph(
         title="Network tcp segments",
         targets=[
             g.Target(
@@ -357,23 +347,12 @@ dashboard = g.Dashboard(
         ]
     ),
     rows=[
-        g.Row(
-            title="Clusterloader",
-            height=DEFAULT_PANEL_HEIGHT,
-            panels=CLUSTERLOADER_PANELS,
-        ),
-        g.Row(
-            title="Overall cluster health",
-            height=DEFAULT_PANEL_HEIGHT,
-            panels=HEALTH_PANELS,
-        ),
-        g.Row(title="etcd", height=DEFAULT_PANEL_HEIGHT, panels=ETCD_PANELS),
-        g.Row(
-            title="kube-apiserver", height=DEFAULT_PANEL_HEIGHT, panels=APISERVER_PANELS
-        ),
-        g.Row(
+        defaults.Row(title="Clusterloader", panels=CLUSTERLOADER_PANELS),
+        defaults.Row(title="Overall cluster health", panels=HEALTH_PANELS),
+        defaults.Row(title="etcd", panels=ETCD_PANELS),
+        defaults.Row(title="kube-apiserver", panels=APISERVER_PANELS),
+        defaults.Row(
             title="kube-controller-manager",
-            height=DEFAULT_PANEL_HEIGHT,
             panels=[
                 simple_graph(
                     "Workqueue depths",
@@ -382,12 +361,11 @@ dashboard = g.Dashboard(
                 )
             ],
         ),
-        g.Row(title="Master VM", height=DEFAULT_PANEL_HEIGHT, panels=VM_PANELS),
-        g.Row(
+        defaults.Row(title="Master VM", panels=VM_PANELS),
+        defaults.Row(
             title="Addons",
-            height=DEFAULT_PANEL_HEIGHT,
             panels=[
-                g.Graph(
+                defaults.Graph(
                     title="Coredns memory",
                     dataSource="$source",
                     targets=[

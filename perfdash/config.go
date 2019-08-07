@@ -65,18 +65,11 @@ var (
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
 			}},
-			"DensityPodStartup": []TestDescription{
-				{
-					Name:             "density",
-					OutputFilePrefix: "PodStartupLatency",
-					Parser:           parsePerfData,
-				},
-				{
-					Name:             "density",
-					OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
-					Parser:           parsePerfData,
-				},
-			},
+			"DensityPodStartup": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
+				Parser:           parsePerfData,
+			}},
 			"DensitySaturationPodStartup": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "PodStartupLatency_SaturationPodStartupLatency",
@@ -156,18 +149,11 @@ var (
 				OutputFilePrefix: "SchedulingMetrics",
 				Parser:           parseSchedulingLatency,
 			}},
-			"SchedulingThroughput": []TestDescription{
-				{
-					Name:             "density",
-					OutputFilePrefix: "SchedulingThroughput",
-					Parser:           parseSchedulingThroughputCL,
-				},
-				{
-					Name:             "density",
-					OutputFilePrefix: "SchedulingMetrics",
-					Parser:           parseSchedulingThroughput,
-				},
-			},
+			"SchedulingThroughput": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "SchedulingThroughput",
+				Parser:           parseSchedulingThroughputCL,
+			}},
 		},
 		"Etcd": {
 			"BackendCommitDuration": []TestDescription{{

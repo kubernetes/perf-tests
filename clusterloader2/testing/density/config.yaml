@@ -56,8 +56,8 @@ steps:
     Params:
       action: start
   # TODO(oxddr): figure out how many probers to run in function of cluster
-  - Identifier: Probes
-    Method: Probes
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
     Params:
       action: start
       replicasPerProbe: {{DivideInt .Nodes 100}}
@@ -218,8 +218,8 @@ steps:
       {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
       {{end}}
-  - Identifier: Probes
-    Method: Probes
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
     Params:
       action: gather
   - Identifier: TestMetrics

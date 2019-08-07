@@ -34,42 +34,45 @@ import (
 )
 
 const (
-	probesMeasurementName = "Probes"
-	probesNamespace       = "probes"
-
-	manifestGlob = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/*.yaml"
+	probesNamespace = "probes"
 
 	checkProbesReadyInterval = 15 * time.Second
 	checkProbesReadyTimeout  = 5 * time.Minute
-
-	currentProbesMetricsVersion = "v1"
 )
 
 var (
 	serviceMonitorGvr = schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "servicemonitors"}
+
+	networkLatencyConfig = proberConfig{
+		Name:          "InClusterNetworkLatency",
+		MetricVersion: "v1",
+		Query:         "quantile_over_time(0.99, probes:in_cluster_network_latency:histogram_quantile[%v])",
+		Manifests:     "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/*.yaml",
+	}
 )
 
 func init() {
-	if err := measurement.Register(probesMeasurementName, createProbesMeasurement); err != nil {
-		klog.Errorf("cannot register %s: %v", probesMeasurementName, err)
+	create := func() measurement.Measurement { return createProber(networkLatencyConfig) }
+	if err := measurement.Register(networkLatencyConfig.Name, create); err != nil {
+		klog.Errorf("cannot register %s: %v", networkLatencyConfig.Name, err)
 	}
 }
 
-func createProbesMeasurement() measurement.Measurement {
+type proberConfig struct {
+	Name          string
+	MetricVersion string
+	Query         string
+	Manifests     string
+}
+
+func createProber(config proberConfig) measurement.Measurement {
 	return &probesMeasurement{
-		probeNameToPrometheusQueryTmpl: map[string]string{
-			"in_cluster_network_latency": "quantile_over_time(0.99, probes:in_cluster_network_latency:histogram_quantile[%v])",
-		},
+		config: config,
 	}
 }
 
 type probesMeasurement struct {
-	// probeNameToPrometheusQueryTmpl defines a config of this measurement. Updating the config in the
-	// createProbesMeasurement method is the only place in go code that needs to be changed while
-	// adding a new probe.
-	// Each query template should accept a single %v placeholder corresponding to the query window
-	// length. See the 'in_cluster_network_latency' as an example.
-	probeNameToPrometheusQueryTmpl map[string]string
+	config proberConfig
 
 	framework        *framework.Framework
 	replicasPerProbe int
@@ -93,11 +96,11 @@ func (p *probesMeasurement) Execute(config *measurement.MeasurementConfig) ([]me
 	case "start":
 		return nil, p.start(config)
 	case "gather":
-		summaries, err := p.gather(config.Params)
+		summary, err := p.gather(config.Params)
 		if err != nil && !errors.IsMetricViolationError(err) {
 			return nil, err
 		}
-		return summaries, err
+		return []measurement.Summary{summary}, err
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -121,7 +124,7 @@ func (p *probesMeasurement) Dispose() {
 
 // String returns string representation of this measurement.
 func (p *probesMeasurement) String() string {
-	return probesMeasurementName
+	return p.config.Name
 }
 
 func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) error {
@@ -157,54 +160,49 @@ func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
 	return nil
 }
 
-func (p *probesMeasurement) gather(params map[string]interface{}) ([]measurement.Summary, error) {
+func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.Summary, error) {
 	klog.Info("Gathering metrics from probes...")
 	if p.startTime.IsZero() {
 		return nil, fmt.Errorf("measurement %s has not been started", p)
 	}
-	thresholds, err := parseThresholds(params)
+	threshold, err := util.GetDurationOrDefault(params, "threshold", 0)
 	if err != nil {
 		return nil, err
 	}
 	measurementEnd := time.Now()
-	var probeSummaries []measurement.Summary
-	var violationErrors []error
-	for probeName, queryTmpl := range p.probeNameToPrometheusQueryTmpl {
-		query := prepareQuery(queryTmpl, p.startTime, measurementEnd)
-		executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
-		samples, err := executor.Query(query, measurementEnd)
-		if err != nil {
-			return nil, err
-		}
 
-		latencyMetric, err := measurementutil.NewLatencyMetricPrometheus(samples)
-		if err != nil {
-			return nil, err
-		}
-		prefix, suffix := "", ""
-		if threshold, ok := thresholds[probeName]; ok {
-			suffix = fmt.Sprintf(", expected perc99 <= %v", threshold.Perc99)
-			if err = latencyMetric.VerifyThreshold(threshold); err != nil {
-				violationErrors = append(violationErrors, errors.NewMetricViolationError(probeName, err.Error()))
-				prefix = " WARNING"
-			}
-		}
-		klog.Infof("%s:%s got %v%s", probeName, prefix, latencyMetric, suffix)
+	query := prepareQuery(p.config.Query, p.startTime, measurementEnd)
+	executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
+	samples, err := executor.Query(query, measurementEnd)
+	if err != nil {
+		return nil, err
+	}
 
-		probeSummary, err := createSummary(probeName, *latencyMetric)
-		if err != nil {
-			return nil, err
+	latency, err := measurementutil.NewLatencyMetricPrometheus(samples)
+	if err != nil {
+		return nil, err
+	}
+
+	var violation error
+	prefix, suffix := "", ""
+	if threshold > 0 {
+		suffix = fmt.Sprintf(", expected perc99 <= %v", threshold)
+		if err := latency.VerifyThreshold(threshold); err != nil {
+			violation = errors.NewMetricViolationError(p.String(), err.Error())
+			prefix = " WARNING"
 		}
-		probeSummaries = append(probeSummaries, probeSummary)
 	}
-	if len(violationErrors) > 0 {
-		err = errors.NewMetricViolationError("probers", fmt.Sprintf("there should not be errors from probers, got %v", violationErrors))
+	klog.Infof("%s:%s got %v%s", p, prefix, latency, suffix)
+
+	summary, err := p.createSummary(*latency)
+	if err != nil {
+		return nil, err
 	}
-	return probeSummaries, err
+	return summary, violation
 }
 
 func (p *probesMeasurement) createProbesObjects() error {
-	return p.framework.ApplyTemplatedManifests(manifestGlob, p.templateMapping)
+	return p.framework.ApplyTemplatedManifests(p.config.Manifests, p.templateMapping)
 }
 
 func (p *probesMeasurement) waitForProbesReady() error {
@@ -228,46 +226,22 @@ func (p *probesMeasurement) checkProbesReady() (bool, error) {
 		p.framework.GetClientSets().GetClient(), isProbeTarget, expectedTargets)
 }
 
+func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
+		Version:   p.config.MetricVersion,
+		DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return measurement.CreateSummary(p.String(), "json", content), nil
+}
+
 func isProbeTarget(t prometheus.Target) bool {
 	return t.Labels["namespace"] == probesNamespace
-}
-
-func parseThresholds(params map[string]interface{}) (map[string]*measurementutil.LatencyMetric, error) {
-	thresholds := make(map[string]*measurementutil.LatencyMetric)
-	t, ok := params["thresholds"]
-	if !ok {
-		return thresholds, nil
-	}
-	for name, thresholdVal := range t.(map[string]interface{}) {
-		threshold, err := time.ParseDuration(thresholdVal.(string))
-		if err != nil {
-			return nil, err
-		}
-		thresholds[name] = makeLatencyThreshold(threshold)
-	}
-	return thresholds, nil
-}
-
-func makeLatencyThreshold(threshold time.Duration) *measurementutil.LatencyMetric {
-	return &measurementutil.LatencyMetric{
-		Perc50: threshold,
-		Perc90: threshold,
-		Perc99: threshold,
-	}
 }
 
 func prepareQuery(queryTemplate string, startTime, endTime time.Time) string {
 	measurementDuration := endTime.Sub(startTime)
 	return fmt.Sprintf(queryTemplate, measurementutil.ToPrometheusTime(measurementDuration))
-}
-
-func createSummary(name string, latency measurementutil.LatencyMetric) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version:   currentProbesMetricsVersion,
-		DataItems: []measurementutil.DataItem{latency.ToPerfData(probesMeasurementName)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return measurement.CreateSummary(name, "json", content), nil
 }

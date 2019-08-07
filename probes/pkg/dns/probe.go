@@ -21,40 +21,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog"
-	"k8s.io/perf-tests/probes/pkg/common"
 )
 
 var (
-	// inClusterDNSLatency implements the In-Cluster DNS latency SLI, see
-	// https://github.com/kubernetes/community/blob/master/sig-scalability/slos/dns_latency.md
-	inClusterDNSLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: common.ProbeNamespace,
-		Name:      "in_cluster_dns_latency_seconds",
-		Buckets:   prometheus.ExponentialBuckets(0.000001, 2, 26), // from 1us up to ~1min
-		Help:      "Histogram of the time (in seconds) it took to ping a ping-server instance.",
-	})
-	// inClusterDNSLookupCount counts DNS lookups done by prober.
-	inClusterDNSLookupCount = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: common.ProbeNamespace,
-		Name:      "in_cluster_dns_lookup_count",
-		Help:      "Counter of DNS lookups made by dns-prober.",
-	})
-	// inClusterDNSLookupError counts failed DNS lookups done by prober.
-	inClusterDNSLookupError = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: common.ProbeNamespace,
-		Name:      "in_cluster_dns_lookup_error",
-		Help:      "Counter of DNS lookups made by dns-prober that failed",
-	})
-
 	url      = flag.String("dns-probe-url", "", "Name of a Service to lookup")
 	interval = flag.Duration("dns-probe-interval", 1*time.Second, "Interval between DNS lookups")
 )
-
-func init() {
-	prometheus.MustRegister(inClusterDNSLatency, inClusterDNSLookupCount, inClusterDNSLookupError)
-}
 
 // Run periodically does DNS lookups.
 // Lookup's interval and URL are configurable via flags.

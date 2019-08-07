@@ -4,10 +4,10 @@ items:
   - apiVersion: v1
     kind: ConfigMap
     metadata:
-      name: grafana-dashboard-network-programming-latency
+      name: grafana-dashboard-network
       namespace: monitoring
     data:
-      network-programming-latency.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/network-programming-latency.json") 4}}
+      network-programming-latency.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/network.json") 4}}
   - apiVersion: v1
     kind: ConfigMap
     metadata:

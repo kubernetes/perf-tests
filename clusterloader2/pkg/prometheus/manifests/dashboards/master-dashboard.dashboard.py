@@ -26,20 +26,20 @@ CLUSTERLOADER_PANELS = [
     d.simple_graph(
         "API call latency (1s thresholds)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="LIST", verb!="WATCH", verb!="CONNECT"}',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-        "{{verb}} {{scope}}/{{resource}}",
+        legend="{{verb}} {{scope}}/{{resource}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "API call latency aggregated (1s thresholds)",
         'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])) by (le, resource, verb, scope, subresource))',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-        "{{verb}} {{scope}}/{{resource}}",
+        legend="{{verb}} {{scope}}/{{resource}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "API call latency aggregated (prometheus, 1s threshold)",
         'quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-        "{{verb}} {{scope}}/{{resource}}",
+        legend="{{verb}} {{scope}}/{{resource}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
 ]
 
@@ -68,38 +68,38 @@ ETCD_PANELS = [
     d.simple_graph(
         "etcd bytes sent",
         "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
-        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     d.simple_graph(
         "etcd lists rate",
         'sum(rate(etcd_request_duration_seconds_count{operation="list"}[1m])) by (type)',
-        g.single_y_axis(format=g.OPS_FORMAT),
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "etcd operations rate",
         "sum(rate(etcd_request_duration_seconds_count[1m])) by (operation, type)",
-        g.single_y_axis(format=g.OPS_FORMAT),
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "etcd get lease latency by instance (99th percentile)",
         'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get", type="*coordination.Lease"}[1m])) by (le, type, instance))',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "etcd get latency by type (99th percentile)",
         'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "etcd get latency by type (50th percentile)",
         'histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph("etcd instance id", "sum(etcd_server_id) by (instance, server_id)"),
     d.simple_graph(
         "etcd network latency (99th percentile)",
         "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[1m])) by (le, instance, To))",
-        g.single_y_axis(format=g.SECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "etcd compaction keys",
@@ -108,7 +108,7 @@ ETCD_PANELS = [
     d.simple_graph(
         "etcd compaction pause sum duration",
         "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_sum[1m])",
-        g.single_y_axis(format=g.MILLISECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.MILLISECONDS_FORMAT),
     ),
     d.simple_graph(
         "etcd compaction pause num chunks",
@@ -117,7 +117,7 @@ ETCD_PANELS = [
     d.simple_graph(
         "etcd_disk_backend_commit_duration_seconds",
         "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
-        g.single_y_axis(format=g.SECONDS_FORMAT),
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.Graph(
         title="etcd compaction max pause",
@@ -138,17 +138,19 @@ ETCD_PANELS = [
             "etcd_mvcc_db_total_size_in_use_in_bytes",
             "etcd_server_quota_backend_bytes",
         ],
-        g.single_y_axis(format=g.BYTES_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
 ]
 
 APISERVER_PANELS = [
     d.simple_graph("goroutines", 'go_goroutines{job="apiserver"}'),
-    d.simple_graph("gc rate", 'rate(go_gc_duration_seconds_count{job="apiserver"}[1m])'),
+    d.simple_graph(
+        "gc rate", 'rate(go_gc_duration_seconds_count{job="apiserver"}[1m])'
+    ),
     d.simple_graph(
         "alloc rate",
         'rate(go_memstats_alloc_bytes_total{job="apiserver"}[1m])',
-        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     d.simple_graph(
         "Number of active watches",
@@ -161,7 +163,7 @@ APISERVER_PANELS = [
     d.simple_graph(
         "(Experimental) Watch events traffic",
         "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
-        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     d.simple_graph(
         "Watch event avg size",
@@ -182,14 +184,14 @@ APISERVER_PANELS = [
     d.simple_graph(
         "Request latency (50th percentile)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.50", verb!="WATCH"}',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-        "{{verb}} {{scope}}/{{resource}}",
+        legend="{{verb}} {{scope}}/{{resource}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "Request latency (99th percentile)",
         'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="WATCH"}',
-        g.single_y_axis(format=g.SECONDS_FORMAT),
-        "{{verb}} {{scope}}/{{resource}}",
+        legend="{{verb}} {{scope}}/{{resource}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         '"Big" LIST requests',
@@ -198,7 +200,7 @@ APISERVER_PANELS = [
     d.simple_graph(
         "Traffic",
         'sum(rate(apiserver_response_sizes_sum{verb!="WATCH"}[1m])) by (verb, version, resource, scope, instance)',
-        g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
 ]
 
@@ -206,8 +208,8 @@ VM_PANELS = [
     d.simple_graph(
         "fs bytes reads by container",
         "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
-        g.single_y_axis(format=g.BYTES_FORMAT),
         legend="{{container_name}} {{instance}}",
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.simple_graph(
         "fs reads by container",
@@ -217,8 +219,8 @@ VM_PANELS = [
     d.simple_graph(
         "fs bytes writes by container",
         "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
-        g.single_y_axis(format=g.BYTES_FORMAT),
         legend="{{container_name}} {{instance}}",
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.simple_graph(
         "fs writes by container",
@@ -244,7 +246,7 @@ VM_PANELS = [
             ),
             g.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
-        g.single_y_axis(format=g.BYTES_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.simple_graph(
         "memory working set by container",
@@ -255,7 +257,7 @@ VM_PANELS = [
             ),
             g.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
-        g.single_y_axis(format=g.BYTES_FORMAT),
+        yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.Graph(
         title="Network usage (bytes)",
@@ -342,7 +344,6 @@ dashboard = d.Dashboard(
             panels=[
                 d.Graph(
                     title="Coredns memory",
-                    dataSource="$source",
                     targets=[
                         g.Target(
                             expr='quantile(1, sum(process_resident_memory_bytes{job="kube-dns"}) by (pod))',

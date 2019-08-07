@@ -36,7 +36,12 @@ def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
     return Graph(
         title=title,
         # One graph per row.
-        targets=[g.Target(expr=expr, legendFormat=legend, interval=interval, intervalFactor=1) for expr in exprs],
+        targets=[
+            g.Target(
+                expr=expr, legendFormat=legend, interval=interval, intervalFactor=1
+            )
+            for expr in exprs
+        ],
         yAxes=yAxes or g.YAxes(),
     )
 
@@ -230,40 +235,53 @@ VM_PANELS = [
         "fs bytes reads by container",
         "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
         g.single_y_axis(format=g.BYTES_FORMAT),
+        legend="{{container_name}} {{instance}}",
     ),
     simple_graph(
         "fs reads by container",
         "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
+        legend="{{container_name}} {{instance}}",
     ),
     simple_graph(
         "fs bytes writes by container",
         "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
         g.single_y_axis(format=g.BYTES_FORMAT),
+        legend="{{container_name}} {{instance}}",
     ),
     simple_graph(
         "fs writes by container",
         "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
+        legend="{{container_name}} {{instance}}",
     ),
     simple_graph(
         "CPU usage by container",
         [
-            'sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name, instance)',
-            "machine_cpu_cores",
+            g.Target(
+                expr='sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name, instance)',
+                legendFormat="{{container_name}} {{instance}}",
+            ),
+            g.Target(expr="machine_cpu_cores", legendFormat="limit"),
         ],
     ),
     simple_graph(
         "memory usage by container",
         [
-            'sum(container_memory_usage_bytes{container_name!=""}) by (container_name, instance)',
-            "machine_memory_bytes",
+            g.Target(
+                expr='sum(container_memory_usage_bytes{container_name!=""}) by (container_name, instance)',
+                legendFormat="{{container_name}} {{instance}}",
+            ),
+            g.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     simple_graph(
         "memory working set by container",
         [
-            'sum(container_memory_working_set_bytes{container_name!=""}) by (container_name, instance)',
-            "machine_memory_bytes",
+            g.Target(
+                expr='sum(container_memory_working_set_bytes{container_name!=""}) by (container_name, instance)',
+                legendFormat="{{container_name}} {{instance}}",
+            ),
+            g.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         g.single_y_axis(format=g.BYTES_FORMAT),
     ),

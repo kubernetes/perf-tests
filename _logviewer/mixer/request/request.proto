@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "worker/work/work.proto";
+
+package k8s.io.perftests.logviewer.mixer.request;
+option go_package = "request";
+
+message MixerRequest {
+    int32 buildNumber = 1;
+    string targetSubstring = 2;
+    string filePrefix = 3;
+    google.protobuf.Timestamp since = 4;
+    google.protobuf.Timestamp until = 5;
+  }
+
+  message MixerResult {
+    repeated k8s.io.perftests.logviewer.worker.work.LogLine logLines = 1;
+  }
+
+  service MixerService {
+    rpc DoWork (MixerRequest) returns (stream MixerResult) {}
+  }

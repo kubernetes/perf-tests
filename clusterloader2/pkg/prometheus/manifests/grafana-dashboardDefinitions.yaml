@@ -15,3 +15,10 @@ items:
       namespace: monitoring
     data:
       master-dashboard.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/master-dashboard.json") 4}}
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: grafana-dashboard-slo
+      namespace: monitoring
+    data:
+      master-dashboard.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/slo.json") 4}}

@@ -29,7 +29,7 @@ var (
 		Name:      "in_cluster_network_latency_seconds",
 		Buckets: merge(
 			prometheus.LinearBuckets(0.025, 0.025, 3), // 25ms, 50ms, 75ms
-			prometheus.LinearBuckets(0.1, 0.05, 20),   // 100ms, 150ms, 200ms... 950ms
+			prometheus.LinearBuckets(0.1, 0.05, 18),   // 100ms, 150ms, 200ms... 950ms
 			prometheus.LinearBuckets(1, 1, 5),         // 1s, 2s, 3s, 4s, 5s
 			prometheus.LinearBuckets(10, 5, 5),        // 10s, 15s, 20s, 25s, 30s
 		),

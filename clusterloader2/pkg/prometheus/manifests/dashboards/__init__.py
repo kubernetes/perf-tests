@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env python
 
 # Copyright 2019 The Kubernetes Authors.
 #
@@ -13,12 +13,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-cd $(dirname "${BASH_SOURCE}")
-
-pip install -U grafanalib
-for file in *.dashboard.py; do
-    echo "Processing ${file}"
-    OUTPUT=${file%.dashboard.py}.json
-    generate-dashboard "${file}" | jq -M . > "${OUTPUT}"
-done

@@ -156,23 +156,43 @@ var (
 			}},
 		},
 		"Etcd": {
-			"BackendCommitDuration": []TestDescription{{
+			"DensityBackendCommitDuration": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("backendCommitDuration"),
 			}},
-			"SnapshotSaveTotalDuration": []TestDescription{{
+			"DensitySnapshotSaveTotalDuration": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
 			}},
-			"PeerRoundTripTime": []TestDescription{{
+			"DensityPeerRoundTripTime": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("peerRoundTripTime"),
 			}},
-			"WalFsyncDuration": []TestDescription{{
+			"DensityWalFsyncDuration": []TestDescription{{
 				Name:             "density",
+				OutputFilePrefix: "EtcdMetrics",
+				Parser:           parseHistogramMetric("walFsyncDuration"),
+			}},
+			"LoadBackendCommitDuration": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "EtcdMetrics",
+				Parser:           parseHistogramMetric("backendCommitDuration"),
+			}},
+			"LoadSnapshotSaveTotalDuration": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "EtcdMetrics",
+				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
+			}},
+			"LoadPeerRoundTripTime": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "EtcdMetrics",
+				Parser:           parseHistogramMetric("peerRoundTripTime"),
+			}},
+			"LoadWalFsyncDuration": []TestDescription{{
+				Name:             "load",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("walFsyncDuration"),
 			}},

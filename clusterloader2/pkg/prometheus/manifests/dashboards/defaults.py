@@ -46,3 +46,21 @@ class Graph(g.Graph):
 @attr.s
 class Row(g.Row):
     height = attr.ib(default=PANEL_HEIGHT)
+
+
+def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
+    if not isinstance(exprs, (list, tuple)):
+        exprs = [exprs]
+    if legend != "" and len(exprs) != 1:
+        raise ValueError("legend can be specified only for a 1-element exprs")
+    return Graph(
+        title=title,
+        # One graph per row.
+        targets=[
+            g.Target(
+                expr=expr, legendFormat=legend, interval=interval, intervalFactor=1
+            )
+            for expr in exprs
+        ],
+        yAxes=yAxes or g.YAxes(),
+    )

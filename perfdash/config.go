@@ -203,14 +203,40 @@ var (
 				OutputFilePrefix: "NetworkProgrammingLatency",
 				Parser:           parsePerfData,
 			}},
-			"Load_NetworkLatency": []TestDescription{{
+
+			"Load_NetworkLatency": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "load",
+					OutputFilePrefix: "in_cluster_network_latency",
+					Parser:           parsePerfData,
+				}, {
+					Name:             "load",
+					OutputFilePrefix: "InClusterNetworkLatency",
+					Parser:           parsePerfData,
+				}},
+
+			"Density_NetworkLatency": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "density",
+					OutputFilePrefix: "in_cluster_network_latency",
+					Parser:           parsePerfData,
+				}, {
+					Name:             "density",
+					OutputFilePrefix: "InClusterNetworkLatency",
+					Parser:           parsePerfData,
+				}},
+		},
+		"DNS": {
+			"Load_DNSLookupLatency": []TestDescription{{
 				Name:             "load",
-				OutputFilePrefix: "in_cluster_network_latency",
+				OutputFilePrefix: "DnsLookupLatency",
 				Parser:           parsePerfData,
 			}},
-			"Density_NetworkLatency": []TestDescription{{
+			"Density_DNSLookupLatency": []TestDescription{{
 				Name:             "density",
-				OutputFilePrefix: "in_cluster_network_latency",
+				OutputFilePrefix: "DnsLookupLatency",
 				Parser:           parsePerfData,
 			}},
 		},

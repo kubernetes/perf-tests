@@ -48,7 +48,7 @@ class Row(g.Row):
     height = attr.ib(default=PANEL_HEIGHT)
 
 
-def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
+def simple_graph(title, exprs, legend="", interval="5s", **kwargs):
     if not isinstance(exprs, (list, tuple)):
         exprs = [exprs]
     if legend != "" and len(exprs) != 1:
@@ -62,5 +62,5 @@ def simple_graph(title, exprs, yAxes=None, legend="", interval="5s"):
             )
             for expr in exprs
         ],
-        yAxes=yAxes or g.YAxes(),
+        **kwargs
     )

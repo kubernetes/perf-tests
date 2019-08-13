@@ -100,7 +100,7 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Measurem
 	case "waitForReady":
 		return nil, s.waitForReady()
 	case "gather":
-		return s.gather()
+		return s.gather(config.Identifier)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -155,7 +155,7 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 	})
 }
 
-func (s *serviceCreationLatencyMeasurement) gather() ([]measurement.Summary, error) {
+func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measurement.Summary, error) {
 	klog.Infof("%s: gathering service created latency measurement...", s)
 	if !s.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", s)
@@ -180,7 +180,7 @@ func (s *serviceCreationLatencyMeasurement) gather() ([]measurement.Summary, err
 	if err != nil {
 		return nil, err
 	}
-	summary := measurement.CreateSummary(serviceCreationLatencyName, "json", content)
+	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", serviceCreationLatencyName, identifier), "json", content)
 	return []measurement.Summary{summary}, nil
 }
 

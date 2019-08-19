@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
@@ -51,6 +52,7 @@ const (
 var (
 	clusterLoaderConfig config.ClusterLoaderConfig
 	testConfigPaths     []string
+	testOverridePaths   []string
 	testSuiteConfigPath string
 )
 
@@ -84,7 +86,7 @@ func initFlags() {
 	flags.BoolEnvVar(&clusterLoaderConfig.EnableExecService, "enable-exec-service", "ENABLE_EXEC_SERVICE", false, "Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
-	flags.StringArrayVar(&clusterLoaderConfig.TestOverridesPath, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
+	flags.StringArrayVar(&testOverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	initClusterFlags()
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
@@ -262,13 +264,13 @@ func main() {
 			klog.Exitf("Error while reading test suite: %v", err)
 		}
 		for i := range testSuite {
-			clusterLoaderConfig.TestOverridesPath = testSuite[i].OverridePaths
-			clusterLoaderConfig.TestConfigPath = testSuite[i].ConfigPath
+			clusterLoaderConfig.TestScenario = testSuite[i]
 			runSingleTest(f, prometheusFramework, junitReporter, suiteSummary)
 		}
 	} else {
 		for i := range testConfigPaths {
-			clusterLoaderConfig.TestConfigPath = testConfigPaths[i]
+			clusterLoaderConfig.TestScenario.ConfigPath = testConfigPaths[i]
+			clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
 			runSingleTest(f, prometheusFramework, junitReporter, suiteSummary)
 		}
 	}
@@ -296,22 +298,30 @@ func runSingleTest(
 	junitReporter *ginkgoreporters.JUnitReporter,
 	suiteSummary *ginkgotypes.SuiteSummary,
 ) {
+	testId := getTestId(clusterLoaderConfig.TestScenario)
 	testStart := time.Now()
 	specSummary := &ginkgotypes.SpecSummary{
-		ComponentTexts: []string{suiteSummary.SuiteDescription, clusterLoaderConfig.TestConfigPath},
+		ComponentTexts: []string{suiteSummary.SuiteDescription, testId},
 	}
-	printTestStart(clusterLoaderConfig.TestConfigPath)
+	printTestStart(testId)
 	if errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig); !errList.IsEmpty() {
 		suiteSummary.NumberOfFailedSpecs++
 		specSummary.State = ginkgotypes.SpecStateFailed
 		specSummary.Failure = ginkgotypes.SpecFailure{
 			Message: errList.String(),
 		}
-		printTestResult(clusterLoaderConfig.TestConfigPath, "Fail", errList.String())
+		printTestResult(testId, "Fail", errList.String())
 	} else {
 		specSummary.State = ginkgotypes.SpecStatePassed
-		printTestResult(clusterLoaderConfig.TestConfigPath, "Success", "")
+		printTestResult(testId, "Success", "")
 	}
 	specSummary.RunTime = time.Since(testStart)
 	junitReporter.SpecDidComplete(specSummary)
+}
+
+func getTestId(ts api.TestScenario) string {
+	if ts.Identifier != "" {
+		return fmt.Sprintf("%s(%s)", ts.Identifier, ts.ConfigPath)
+	}
+	return ts.ConfigPath
 }

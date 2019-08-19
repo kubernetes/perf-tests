@@ -16,13 +16,16 @@ limitations under the License.
 
 package config
 
-// ClusterLoaderConfig represents all flags used by CLusterLoader
+import (
+	"k8s.io/perf-tests/clusterloader2/api"
+)
+
+// ClusterLoaderConfig represents all single test run parameters used by CLusterLoader.
 type ClusterLoaderConfig struct {
 	ClusterConfig     ClusterConfig
 	ReportDir         string
 	EnableExecService bool
-	TestConfigPath    string
-	TestOverridesPath []string
+	TestScenario      api.TestScenario
 	PrometheusConfig  PrometheusConfig
 }
 

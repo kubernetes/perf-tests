@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -86,8 +87,13 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
 			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
+			testDistinctor := ""
+			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
+				testDistinctor = "_" + ctx.GetClusterLoaderConfig().TestScenario.Identifier
+			}
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
-			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+summary.SummaryTime().Format(time.RFC3339)+"."+summary.SummaryExt())
+			fileName := strings.Join([]string{summary.SummaryName(), conf.Name + testDistinctor, summary.SummaryTime().Format(time.RFC3339)}, "_")
+			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, strings.Join([]string{fileName, summary.SummaryExt()}, "."))
 			if err := ioutil.WriteFile(filePath, []byte(summary.SummaryContent()), 0644); err != nil {
 				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
 				continue

@@ -19,14 +19,12 @@ package main
 import (
 	"flag"
 	"net/http"
-	"net/url"
 	"time"
 
 	"k8s.io/perf-tests/slo-monitor/src/monitors"
 
 	clientset "k8s.io/client-go/kubernetes"
-
-	"k8s.io/autoscaler/cluster-autoscaler/config"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,30 +32,39 @@ import (
 )
 
 var (
+	apiServerAddress  string
+	kubeconfigFile    string
 	kubernetesURL     string
 	listenURL         string
 	purgeAfterSeconds int32
 )
 
 func registerFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&kubernetesURL, "kubernetes-url", "", "Kubernetes master location. Leave blank for default")
-	fs.StringVar(&listenURL, "listen-url", ":8080", "URL on which monitor should serve metrics")
-	fs.Int32Var(&purgeAfterSeconds, "purge-after-seconds", 120, "Time after which deleted entries are purged.")
+	fs.StringVar(&apiServerAddress, "apiserver-address", "",
+		`The address of the Kubernetes Apiserver to connect to in the format of
+protocol://address:port, e.g., http://localhost:8080. If not specified, the
+assumption is that the binary runs inside a Kubernetes cluster and local
+discovery is attempted.`)
+	fs.StringVar(&kubeconfigFile, "kubeconfig", "",
+		`Path to kubeconfig file with authorization and master location information.`)
+	fs.StringVar(&listenURL, "listen-url", ":8080",
+		`URL on which monitor should serve metrics.`)
+	fs.Int32Var(&purgeAfterSeconds, "purge-after-seconds", 120,
+		`Time after which deleted entries are purged.`)
+
+	// DEPRECATED
+	fs.StringVar(&kubernetesURL, "kubernetes-url", "",
+		`Kubernetes master location. Leave blank for default.`)
 }
 
-func createKubeClient() clientset.Interface {
-	url, err := url.Parse(kubernetesURL)
+func createKubeClient() (clientset.Interface, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(apiServerAddress, kubeconfigFile)
 	if err != nil {
-		glog.Fatalf("Failed to parse Kubernetes url: %v", err)
-	}
-
-	kubeConfig, err := config.GetKubeClientConfig(url)
-	if err != nil {
-		glog.Fatalf("Failed to build Kubernetes client configuration: %v", err)
+		return nil, err
 	}
 	kubeConfig.ContentType = "application/vnd.kubernetes.protobuf"
 
-	return clientset.NewForConfigOrDie(kubeConfig)
+	return clientset.NewForConfig(kubeConfig)
 }
 
 func main() {
@@ -70,7 +77,10 @@ func main() {
 	monitors.Register()
 	http.Handle("/metrics", prometheus.Handler())
 
-	kubeClient := createKubeClient()
+	kubeClient, err := createKubeClient()
+	if err != nil {
+		glog.Fatalf("Failed to create kubernetes client: %v", err)
+	}
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)

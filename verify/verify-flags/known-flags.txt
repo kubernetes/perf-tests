@@ -1,3 +1,4 @@
+apiserver-address
 comparison-scheme
 dns-probe-interval
 dns-probe-url
@@ -7,6 +8,7 @@ enable-prometheus-server
 experimental-gcp-snapshot-prometheus-disk
 experimental-prometheus-disk-snapshot-name
 force-builds
+kubeconfig-file
 kubemark-root-kubeconfig
 kubernetes-url
 left-build-number

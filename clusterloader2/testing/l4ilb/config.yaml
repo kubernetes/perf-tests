@@ -117,30 +117,30 @@ steps:
     replicasPerNamespace: 0
     tuningSet: ILBConstantQPS
     objectBundle:
-    - basename: large-backends-service
-      objectTemplatePath: service.yaml
     - basename: large-backends-dep
       objectTemplatePath: dep.yaml
+    - basename: large-backends-service
+      objectTemplatePath: service.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: ILBConstantQPS
     objectBundle:
-    - basename: medium-backends-service
-      objectTemplatePath: service.yaml
     - basename: medium-backends-dep
       objectTemplatePath: dep.yaml
+    - basename: medium-backends-service
+      objectTemplatePath: service.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: ILBConstantQPS
     objectBundle:
-    - basename: small-backends-service
-      objectTemplatePath: service.yaml
     - basename: small-backends-dep
       objectTemplatePath: dep.yaml
+    - basename: small-backends-service
+      objectTemplatePath: service.yaml
 - measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency

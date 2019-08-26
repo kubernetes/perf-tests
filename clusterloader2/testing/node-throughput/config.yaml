@@ -3,7 +3,7 @@
 
 #Constants
 {{$POD_COUNT := 100}}
-{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 5}}
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 2}}
 
 name: node-throughput
 automanagedNamespaces: {{$POD_COUNT}}

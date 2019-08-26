@@ -19,7 +19,6 @@
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
-{{$ENABLE_DNS_PROBES := DefaultParam .ENABLE_DNS_PROBES false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
@@ -62,13 +61,11 @@ steps:
     Params:
       action: start
       replicasPerProbe: {{DivideInt .Nodes 100}}
-  {{if $ENABLE_DNS_PROBES}}
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:
       action: start
       replicasPerProbe: {{DivideInt .Nodes 100}}
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -230,12 +227,10 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: gather
-  {{if $ENABLE_DNS_PROBES}}
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:
       action: gather
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

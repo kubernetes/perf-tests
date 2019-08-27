@@ -65,6 +65,7 @@ steps:
     Params:
       action: start
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+      threshold: 1000ms
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:

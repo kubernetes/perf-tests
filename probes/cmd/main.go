@@ -20,6 +20,8 @@ import (
 	"flag"
 	"net/http"
 
+	_ "net/http/pprof"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/probes/pkg/dns"

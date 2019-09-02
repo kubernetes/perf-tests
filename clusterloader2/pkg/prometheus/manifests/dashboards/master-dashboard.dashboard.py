@@ -227,35 +227,35 @@ VM_PANELS = [
         "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
         legend="{{container_name}} {{instance}}",
     ),
-    d.simple_graph(
-        "CPU usage by container",
-        [
-            g.Target(
+    d.Graph(
+        title="CPU usage by container",
+        targets=[
+            d.Target(
                 expr='sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name, instance)',
                 legendFormat="{{container_name}} {{instance}}",
             ),
-            g.Target(expr="machine_cpu_cores", legendFormat="limit"),
+            d.Target(expr="machine_cpu_cores", legendFormat="limit"),
         ],
     ),
-    d.simple_graph(
-        "memory usage by container",
-        [
-            g.Target(
+    d.Graph(
+        title="memory usage by container",
+        targets=[
+            d.Target(
                 expr='sum(container_memory_usage_bytes{container_name!=""}) by (container_name, instance)',
                 legendFormat="{{container_name}} {{instance}}",
             ),
-            g.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
-    d.simple_graph(
-        "memory working set by container",
-        [
-            g.Target(
+    d.Graph(
+        title="memory working set by container",
+        targets=[
+            d.Target(
                 expr='sum(container_memory_working_set_bytes{container_name!=""}) by (container_name, instance)',
                 legendFormat="{{container_name}} {{instance}}",
             ),
-            g.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),

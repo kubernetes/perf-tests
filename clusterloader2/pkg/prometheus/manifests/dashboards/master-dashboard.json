@@ -4268,12 +4268,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container_name!=\"\"}[1m])) by (container_name, instance)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
+              "legendFormat": "{{container}} {{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4377,12 +4377,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(container_memory_usage_bytes{container_name!=\"\"}) by (container_name, instance)",
+              "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
+              "legendFormat": "{{container}} {{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4486,12 +4486,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(container_memory_working_set_bytes{container_name!=\"\"}) by (container_name, instance)",
+              "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
+              "legendFormat": "{{container}} {{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,

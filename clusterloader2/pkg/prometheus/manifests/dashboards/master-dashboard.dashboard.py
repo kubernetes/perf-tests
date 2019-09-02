@@ -231,8 +231,8 @@ VM_PANELS = [
         title="CPU usage by container",
         targets=[
             d.Target(
-                expr='sum(rate(container_cpu_usage_seconds_total{container_name!=""}[1m])) by (container_name, instance)',
-                legendFormat="{{container_name}} {{instance}}",
+                expr='sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (container, instance)',
+                legendFormat="{{container}} {{instance}}",
             ),
             d.Target(expr="machine_cpu_cores", legendFormat="limit"),
         ],
@@ -241,8 +241,8 @@ VM_PANELS = [
         title="memory usage by container",
         targets=[
             d.Target(
-                expr='sum(container_memory_usage_bytes{container_name!=""}) by (container_name, instance)',
-                legendFormat="{{container_name}} {{instance}}",
+                expr='sum(container_memory_usage_bytes{container!=""}) by (container, instance)',
+                legendFormat="{{container}} {{instance}}",
             ),
             d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
@@ -252,8 +252,8 @@ VM_PANELS = [
         title="memory working set by container",
         targets=[
             d.Target(
-                expr='sum(container_memory_working_set_bytes{container_name!=""}) by (container_name, instance)',
-                legendFormat="{{container_name}} {{instance}}",
+                expr='sum(container_memory_working_set_bytes{container!=""}) by (container, instance)',
+                legendFormat="{{container}} {{instance}}",
             ),
             d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],

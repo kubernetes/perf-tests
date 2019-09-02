@@ -46,6 +46,7 @@ type PrometheusConfig struct {
 	TearDownServer     bool
 	ScrapeEtcd         bool
 	ScrapeNodeExporter bool
+	ScrapeKubelets     bool
 }
 
 // GetMasterIp returns the first master ip, added for backward compatibility.

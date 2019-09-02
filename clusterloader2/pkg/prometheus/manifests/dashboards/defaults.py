@@ -48,6 +48,12 @@ class Row(g.Row):
     height = attr.ib(default=PANEL_HEIGHT)
 
 
+@attr.s
+class Target(g.Target):
+    interval = attr.ib(default="5s")
+    intervalFactor = attr.ib(default=1)
+
+
 def simple_graph(title, exprs, legend="", interval="5s", **kwargs):
     if not isinstance(exprs, (list, tuple)):
         exprs = [exprs]

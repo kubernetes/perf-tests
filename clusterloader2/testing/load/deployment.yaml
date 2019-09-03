@@ -1,5 +1,6 @@
-{{$EnableConfigMaps := DefaultParam .ENABLE_CONFIGMAPS false}}
-{{$EnableSecrets := DefaultParam .ENABLE_SECRETS false}}
+# TODO(mm4tt): Change to read from .ENABLE_CONFIGMAPS and .ENABLE_SECRETS vars.
+{{$EnableConfigMaps := false}}
+{{$EnableSecrets := false}}
 
 apiVersion: apps/v1
 kind: Deployment

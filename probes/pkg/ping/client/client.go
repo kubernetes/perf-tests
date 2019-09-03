@@ -65,7 +65,10 @@ func Run(config *Config) {
 }
 
 func ping(serverAddress string) error {
-	_, err := http.Get("http://" + serverAddress)
+	resp, err := http.Get("http://" + serverAddress)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	return err
 }
 

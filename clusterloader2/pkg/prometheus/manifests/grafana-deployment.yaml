@@ -42,6 +42,9 @@ spec:
         - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-network
           name: grafana-dashboard-network
           readOnly: false
+        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-dns
+          name: grafana-dashboard-dns
+          readOnly: false
         - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-master-dashboard
           name: grafana-dashboard-master-dashboard
           readOnly: false
@@ -71,6 +74,9 @@ spec:
       - configMap:
           name: grafana-dashboard-network
         name: grafana-dashboard-network
+      - configMap:
+          name: grafana-dashboard-dns
+        name: grafana-dashboard-dns
       - configMap:
           name: grafana-dashboard-master-dashboard
         name: grafana-dashboard-master-dashboard

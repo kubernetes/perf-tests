@@ -17,18 +17,6 @@
 from grafanalib import core as g
 import defaults as d
 
-QUANTILES = [0.99, 0.9, 0.5]
-
-
-def show_quantiles(queryTemplate, quantiles=None, legend=""):
-    quantiles = quantiles or QUANTILES
-    targets = []
-    for quantile in quantiles:
-        q = "{:.2f}".format(quantile)
-        l = legend or q
-        targets.append(g.Target(expr=queryTemplate.format(quantile=q), legendFormat=l))
-    return targets
-
 
 NETWORK_PROGRAMMING_PANEL = [
     d.Graph(
@@ -40,7 +28,7 @@ NETWORK_PROGRAMMING_PANEL = [
             + "kube-proxy rules were synced. Exported for each endpoints object "
             + "that were part of the rules sync."
         ),
-        targets=show_quantiles(
+        targets=d.show_quantiles(
             (
                 "quantile_over_time("
                 + "0.99, "
@@ -59,7 +47,7 @@ NETWORK_PROGRAMMING_PANEL = [
             + "kube-proxy rules were synced. Exported for each endpoints object "
             + "that were part of the rules sync."
         ),
-        targets=show_quantiles(
+        targets=d.show_quantiles(
             'kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{{quantile="{quantile}"}}',
             legend="{{quantile}}",
         ),
@@ -68,7 +56,7 @@ NETWORK_PROGRAMMING_PANEL = [
     d.Graph(
         title="kube-proxy: sync rules duation",
         description="Latency of one round of kube-proxy syncing proxy rules.",
-        targets=show_quantiles(
+        targets=d.show_quantiles(
             "histogram_quantile({quantile}, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))"
         ),
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
@@ -102,7 +90,7 @@ NETWORK_PROGRAMMING_PANEL = [
 NETWORK_LATENCY_PANEL = [
     d.Graph(
         title="Network latency",
-        targets=show_quantiles(
+        targets=d.show_quantiles(
             'probes:in_cluster_network_latency:histogram_quantile{{quantile="{quantile}"}}',
             legend="{{quantile}}",
         ),

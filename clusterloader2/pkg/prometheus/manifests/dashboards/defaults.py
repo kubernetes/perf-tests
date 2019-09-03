@@ -18,8 +18,8 @@ import attr
 from grafanalib import core as g
 
 DECREASING_ORDER_TOOLTIP = g.Tooltip(sort=g.SORT_DESC)
-
 PANEL_HEIGHT = g.Pixels(300)
+QUANTILES = [0.99, 0.9, 0.5]
 
 
 @attr.s
@@ -70,3 +70,25 @@ def simple_graph(title, exprs, legend="", interval="5s", **kwargs):
         ],
         **kwargs
     )
+
+
+def show_quantiles(queryTemplate, quantiles=None, legend=""):
+    quantiles = quantiles or QUANTILES
+    targets = []
+    for quantile in quantiles:
+        q = "{:.2f}".format(quantile)
+        l = legend or q
+        targets.append(g.Target(expr=queryTemplate.format(quantile=q), legendFormat=l))
+    return targets
+
+
+def min_max_avg(base, by, legend=""):
+    return [
+        g.Target(
+            expr="{func}({query}) by ({by})".format(
+                func=f, query=base, by=", ".join(by)
+            ),
+            legendFormat="{func} {legend}".format(func=f, legend=legend),
+        )
+        for f in ("min", "avg", "max")
+    ]

@@ -68,6 +68,8 @@ type PrometheusController struct {
 	framework *framework.Framework
 	// templateMapping is a mapping defining placeholders used in manifest templates.
 	templateMapping map[string]interface{}
+	// diskMetadata store name and zone of Prometheus persistent disk.
+	diskMetadata prometheusDiskMetadata
 }
 
 // NewPrometheusController creates a new instance of PrometheusController for the given config.
@@ -148,6 +150,9 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 		return err
 	}
 	klog.Info("Prometheus stack set up successfully")
+	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
+		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
+	}
 	return nil
 }
 

@@ -339,32 +339,5 @@ dashboard = d.Dashboard(
             ],
         ),
         d.Row(title="Master VM", panels=VM_PANELS),
-        d.Row(
-            title="Addons",
-            panels=[
-                d.Graph(
-                    title="Coredns memory",
-                    targets=[
-                        g.Target(
-                            expr='quantile(1, sum(process_resident_memory_bytes{job="kube-dns"}) by (pod))',
-                            legendFormat="coredns-mem-100pctl",
-                        ),
-                        g.Target(
-                            expr='quantile(0.99, sum(process_resident_memory_bytes{job="kube-dns"}) by (pod))',
-                            legendFormat="coredns-mem-99ctl",
-                        ),
-                        g.Target(
-                            expr='quantile(0.90, sum(process_resident_memory_bytes{job="kube-dns"}) by (pod))',
-                            legendFormat="coredns-mem-90ctl",
-                        ),
-                        g.Target(
-                            expr='quantile(0.50, sum(process_resident_memory_bytes{job="kube-dns"}) by (pod))',
-                            legendFormat="coredns-mem-50ctl",
-                        ),
-                    ],
-                    yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
-                )
-            ],
-        ),
     ],
 ).auto_panel_ids()

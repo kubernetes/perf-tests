@@ -12,20 +12,27 @@
 {{$BIG_GROUP_SIZE := 250}}
 {{$MEDIUM_GROUP_SIZE := 30}}
 {{$SMALL_GROUP_SIZE := 5}}
+{{$SMALL_STATEFUL_SETS_PER_NAMESPACE := 1}}
+{{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_CONFIGMAPS := DefaultParam .ENABLE_CONFIGMAPS false}}
 {{$ENABLE_SECRETS := DefaultParam .ENABLE_SECRETS false}}
+{{$ENABLE_STATEFULSETS := DefaultParam .ENABLE_STATEFULSETS false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
 # bigDeployments - 1/4 of namespace pods should be in big Deployments.
-{{$bigDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $BIG_GROUP_SIZE)}}
+{{$bigDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $BIG_GROUP_SIZE)}}
 # mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
-{{$mediumDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
+{{$mediumDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
 # smallDeployments - 1/2 of namespace pods should be in small Deployments.
-{{$smallDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
+{{$smallDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
+# If StatefulSets are enabled reduce the number of small and medium deployments per namespace
+{{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace (IfThenElse $ENABLE_STATEFULSETS $SMALL_STATEFUL_SETS_PER_NAMESPACE 0)}}
+{{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace (IfThenElse $ENABLE_STATEFULSETS $MEDIUM_STATEFUL_SETS_PER_NAMESPACE 0)}}
 
 
 name: load
@@ -115,7 +122,7 @@ steps:
     - basename: small-service
       objectTemplatePath: service.yaml
 
-- name: Starting measurement for waiting for deployments
+- name: Starting measurement for waiting for pods
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
@@ -125,8 +132,18 @@ steps:
       kind: Deployment
       labelSelector: group = load
       operationTimeout: 15m
+  {{if $ENABLE_STATEFULSETS}}
+  - Identifier: WaitForRunningStatefulSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: StatefulSet
+      labelSelector: group = load
+      operationTimeout: 15m
+  {{end}}
 
-- name: Creating Deployments
+- name: Creating objects
   phases:
   - namespaceRange:
       min: 1
@@ -188,15 +205,49 @@ steps:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
+  {{if $ENABLE_STATEFULSETS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: small-statefulset
+        objectTemplatePath: statefulset_service.yaml
+      - basename: small-statefulset
+        objectTemplatePath: statefulset.yaml
+        templateFillMap:
+          ReplicasMin: {{$SMALL_GROUP_SIZE}}
+          ReplicasMax: {{$SMALL_GROUP_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: medium-statefulset
+        objectTemplatePath: statefulset_service.yaml
+      - basename: medium-statefulset
+        objectTemplatePath: statefulset.yaml
+        templateFillMap:
+          ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
+          ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
+  {{end}}
 
-- name: Waiting for deployments to be running
+- name: Waiting for pods to be running
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+  {{if $ENABLE_STATEFULSETS}}
+  - Identifier: WaitForRunningStatefulSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
 
-- name: Scaling Deployments
+- name: Scaling objects
   phases:
   - namespaceRange:
       min: 1
@@ -234,15 +285,45 @@ steps:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
+  {{if $ENABLE_STATEFULSETS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+    tuningSet: RandomizedScalingTimeLimited
+    objectBundle:
+      - basename: small-statefulset
+        objectTemplatePath: statefulset.yaml
+        templateFillMap:
+          ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
+          ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+    tuningSet: RandomizedScalingTimeLimited
+    objectBundle:
+      - basename: medium-statefulset
+        objectTemplatePath: statefulset.yaml
+        templateFillMap:
+          ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
+          ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+  {{end}}
 
-- name: Waiting for deployments to become scaled
+- name: Waiting for objects to become scaled
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+  {{if $ENABLE_STATEFULSETS}}
+  - Identifier: WaitForRunningStatefulSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
 
-- name: Deleting Deployments
+- name: Deleting objects
   phases:
   - namespaceRange:
       min: 1
@@ -292,13 +373,41 @@ steps:
     - basename: small-deployment
       objectTemplatePath: secret.yaml
     {{end}}
+  {{if $ENABLE_STATEFULSETS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: small-statefulset
+        objectTemplatePath: statefulset.yaml
+      - basename: small-statefulset
+        objectTemplatePath: statefulset_service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: medium-statefulset
+        objectTemplatePath: statefulset.yaml
+      - basename: medium-statefulset
+        objectTemplatePath: statefulset_service.yaml
+  {{end}}
 
-- name: Waiting for Deployments to be deleted
+- name: Waiting for pods to be deleted
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+  {{if $ENABLE_STATEFULSETS}}
+  - Identifier: WaitForRunningStatefulSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
 
 - name: Deleting SVCs
   phases:

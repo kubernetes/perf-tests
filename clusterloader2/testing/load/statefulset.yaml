@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       labels:
-        group: statefulset
+        group: load
         name: {{.Name}}
     spec:
       terminationGracePeriodSeconds: 1

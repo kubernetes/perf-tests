@@ -101,13 +101,22 @@ NETWORK_LATENCY_PANEL = [
         title="probes: ping rate",
         targets=[
             g.Target(
-                expr='rate(probes_in_cluster_network_latency_ping_count{namespace="probes", job="ping-client"}[1m])',
+                expr='sum(rate(probes_in_cluster_network_latency_ping_count{namespace="probes", job="ping-client"}[1m])) by (job)',
                 legendFormat="rate",
             ),
             g.Target(
-                expr='rate(probes_in_cluster_network_latency_error{namespace="probes", job="ping-client"}[1m])',
+                expr='sum(rate(probes_in_cluster_network_latency_error{namespace="probes", job="ping-client"}[1m])) by (job)',
                 legendFormat="error rate",
             ),
+        ],
+        nullPointMode="null",
+    ),
+    d.Graph(
+        title="probe: # running",
+        targets=[
+            d.Target(
+                expr='count(container_memory_usage_bytes{namespace="probes", container=~"ping-client|ping-server"}) by (container, namespace)'
+            )
         ],
         nullPointMode="null",
     ),

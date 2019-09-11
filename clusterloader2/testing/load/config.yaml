@@ -79,12 +79,12 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: start
-      replicasPerProbe: {{DivideInt .Nodes 100}}
+      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:
       action: start
-      replicasPerProbe: {{DivideInt .Nodes 100}}
+      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
     Params:

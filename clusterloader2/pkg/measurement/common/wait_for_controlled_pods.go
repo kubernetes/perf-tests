@@ -277,12 +277,12 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj in
 	}
 }
 
-func checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
-	oldReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(oldObj)
+func (w *waitForControlledPodsRunningMeasurement) checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
+	oldReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), oldObj)
 	if err != nil {
 		return false, err
 	}
-	newReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(newObj)
+	newReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), newObj)
 	if err != nil {
 		return false, err
 	}
@@ -292,7 +292,7 @@ func checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
 
 func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, newObj runtime.Object) error {
 	isObjDeleted := newObj == nil
-	isScalingDown, err := checkScaledown(oldObj, newObj)
+	isScalingDown, err := w.checkScaledown(oldObj, newObj)
 	if err != nil {
 		return fmt.Errorf("checkScaledown error: %v", err)
 	}
@@ -394,7 +394,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	if err != nil {
 		return nil, err
 	}
-	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(obj)
+	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), obj)
 	if err != nil {
 		return nil, err
 	}

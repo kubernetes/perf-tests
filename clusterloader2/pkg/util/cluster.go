@@ -40,7 +40,7 @@ func GetSchedulableUntainedNodes(c clientset.Interface) ([]corev1.Node, error) {
 	}
 	var filtered []corev1.Node
 	for i := range nodeList {
-		if isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i]) {
+		if IsNodeSchedulableAndUntainted(&nodeList[i]) {
 			filtered = append(filtered, nodeList[i])
 		}
 	}
@@ -68,6 +68,11 @@ func LogClusterNodes(c clientset.Interface) error {
 		klog.Infof("Name: %v, clusterIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
 	}
 	return nil
+}
+
+// IsNodeSchedulableAndUntainted returns true whether node is schedulable and untainted.
+func IsNodeSchedulableAndUntainted(node *corev1.Node) bool {
+	return isNodeSchedulable(node) && isNodeUntainted(node)
 }
 
 // Node is schedulable if:

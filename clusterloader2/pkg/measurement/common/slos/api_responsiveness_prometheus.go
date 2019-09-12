@@ -39,11 +39,19 @@ import (
 const (
 	apiResponsivenessPrometheusMeasurementName = "APIResponsivenessPrometheus"
 
+	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this
 	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|proxy|CONNECT"`
 
-	// latencyQuery: %v should be replaced with (1) filters and (2) query window size.
-	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this.
-	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{%v}[%v])"
+	// latencyQuery matches description of the API call latency SLI and measure 99th percentaile over 5m windows
+	//
+	// latencyQuery: %v should be replaced with (1) filters and (2) query window size..
+	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{ %v}[%v])"
+
+	// simpleLatencyQuery measures 99th percentile of API call latency  over given period of time
+	// it doesn't match SLI, but is useful in shorter tests, where we don't have enough number of windows to use latencyQuery meaningfully.
+	//
+	// simpleLatencyQuery: placeholders should be replaced with (1) quantile (2) filters and (3) query window size.
+	simpleLatencyQuery = "histogram_quantile(%.2f, sum(rate(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource,  subresource, verb, scope, le))"
 
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
 	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
@@ -63,8 +71,8 @@ func init() {
 
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error) {
-	apiCalls, err := a.gatherApiCalls(executor, startTime)
+func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
 	if err != nil {
 		klog.Errorf("%s: samples gathering error: %v", apiResponsivenessMeasurementName, err)
 		return nil, err
@@ -77,9 +85,9 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 	for _, apiCall := range metrics.ApiCalls {
 		isBad := false
 		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
-		if apiCall.Latency.Perc99 > sloThreshold {
+		if err := apiCall.Latency.VerifyThreshold(sloThreshold); err != nil {
 			isBad = true
-			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, sloThreshold))
+			badMetrics = append(badMetrics, err.Error())
 		}
 		if top > 0 || isBad {
 			top--
@@ -110,29 +118,56 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.MeasurementCon
 	return true
 }
 
-func (a *apiResponsivenessGatherer) gatherApiCalls(executor QueryExecutor, startTime time.Time) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]apiCall, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
-	// Latency measurement is based on 5m window aggregation,
-	// therefore first 5 minutes of the test should be skipped.
-	latencyMeasurementDuration := measurementDuration - latencyWindowSize
-	if latencyMeasurementDuration < time.Minute {
-		latencyMeasurementDuration = time.Minute
-	}
-	timeBoundedLatencyQuery := fmt.Sprintf(latencyQuery, filters, measurementutil.ToPrometheusTime(latencyMeasurementDuration))
-	latencySamples, err := executor.Query(timeBoundedLatencyQuery, measurementEnd)
+
+	useSimple, err := util.GetBoolOrDefault(config.Params, "useSimpleLatencyQuery", false)
 	if err != nil {
 		return nil, err
 	}
+
+	var latencySamples []*model.Sample
+	if useSimple {
+		promDuration := measurementutil.ToPrometheusTime(measurementDuration)
+		quantiles := []float64{0.5, 0.9, 0.99}
+		for _, q := range quantiles {
+			query := fmt.Sprintf(simpleLatencyQuery, q, filters, promDuration)
+			samples, err := executor.Query(query, measurementEnd)
+			if err != nil {
+				return nil, err
+			}
+			// Underlying code assumes presence of 'quantile' label, so adding it manually.
+			for _, sample := range samples {
+				sample.Metric["quantile"] = model.LabelValue(fmt.Sprintf("%.2f", q))
+			}
+			latencySamples = append(latencySamples, samples...)
+		}
+	} else {
+		// Latency measurement is based on 5m window aggregation,
+		// therefore first 5 minutes of the test should be skipped.
+		latencyMeasurementDuration := measurementDuration - latencyWindowSize
+		if latencyMeasurementDuration < time.Minute {
+			latencyMeasurementDuration = time.Minute
+		}
+		promDuration := measurementutil.ToPrometheusTime(latencyMeasurementDuration)
+
+		query := fmt.Sprintf(latencyQuery, filters, promDuration)
+		latencySamples, err = executor.Query(query, measurementEnd)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	timeBoundedCountQuery := fmt.Sprintf(countQuery, filters, measurementutil.ToPrometheusTime(measurementDuration))
 	countSamples, err := executor.Query(timeBoundedCountQuery, measurementEnd)
 	if err != nil {
 		return nil, err
 	}
-	return a.convertToApiCalls(latencySamples, countSamples)
+	return a.convertToAPICalls(latencySamples, countSamples)
 }
 
-func (a *apiResponsivenessGatherer) convertToApiCalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) convertToAPICalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
 	apiCalls := make(map[string]*apiCall)
 
 	for _, sample := range latencySamples {
@@ -166,7 +201,7 @@ func (a *apiResponsivenessGatherer) convertToApiCalls(latencySamples, countSampl
 	return result, nil
 }
 
-func getApiCall(apiCalls map[string]*apiCall, resource, subresource, verb, scope string) *apiCall {
+func getAPICall(apiCalls map[string]*apiCall, resource, subresource, verb, scope string) *apiCall {
 	key := getMetricKey(resource, subresource, verb, scope)
 	call, exists := apiCalls[key]
 	if !exists {
@@ -182,7 +217,7 @@ func getApiCall(apiCalls map[string]*apiCall, resource, subresource, verb, scope
 }
 
 func addLatency(apiCalls map[string]*apiCall, resource, subresource, verb, scope string, quantile float64, latency time.Duration) {
-	call := getApiCall(apiCalls, resource, subresource, verb, scope)
+	call := getAPICall(apiCalls, resource, subresource, verb, scope)
 	call.Latency.SetQuantile(quantile, latency)
 }
 
@@ -190,7 +225,7 @@ func addCount(apiCalls map[string]*apiCall, resource, subresource, verb, scope s
 	if count == 0 {
 		return
 	}
-	call := getApiCall(apiCalls, resource, subresource, verb, scope)
+	call := getAPICall(apiCalls, resource, subresource, verb, scope)
 	call.Count = count
 }
 

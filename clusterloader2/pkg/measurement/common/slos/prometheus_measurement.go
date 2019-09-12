@@ -43,13 +43,12 @@ type QueryExecutor interface {
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
-	Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error)
+	Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error)
 	IsEnabled(config *measurement.MeasurementConfig) bool
 	String() string
 }
 
 type prometheusMeasurement struct {
-	name     string
 	gatherer Gatherer
 
 	startTime time.Time
@@ -86,7 +85,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		c := config.PrometheusFramework.GetClientSets().GetClient()
 		executor := measurementutil.NewQueryExecutor(c)
 
-		summary, err := m.gatherer.Gather(executor, m.startTime)
+		summary, err := m.gatherer.Gather(executor, m.startTime, config)
 		if err != nil {
 			if !errors.IsMetricViolationError(err) {
 				return nil, err

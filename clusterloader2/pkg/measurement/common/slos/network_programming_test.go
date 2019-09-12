@@ -52,7 +52,7 @@ func TestGather(t *testing.T) {
 
 func testGatherer(t *testing.T, executor QueryExecutor, wantData *measurementutil.PerfData, wantError error) {
 	g := &netProgGatherer{}
-	summary, err := g.Gather(executor, time.Now())
+	summary, err := g.Gather(executor, time.Now(), nil)
 	if err != nil {
 		if wantError != nil {
 			assert.Equal(t, wantError, err)

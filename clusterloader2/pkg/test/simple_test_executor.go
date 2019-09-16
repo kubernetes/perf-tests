@@ -137,6 +137,9 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 	if step.Name != "" {
 		klog.Infof("Step %q ended", step.Name)
 	}
+	if !errList.IsEmpty() {
+		klog.Warningf("Got errors during step execution: %v", errList)
+	}
 	return errList
 }
 

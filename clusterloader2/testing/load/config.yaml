@@ -18,6 +18,7 @@
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_CONFIGMAPS := DefaultParam .ENABLE_CONFIGMAPS false}}
 {{$ENABLE_DAEMONSETS := DefaultParam .ENABLE_DAEMONSETS false}}
+{{$ENABLE_JOBS := DefaultParam .ENABLE_JOBS false}}
 {{$ENABLE_SECRETS := DefaultParam .ENABLE_SECRETS false}}
 {{$ENABLE_STATEFULSETS := DefaultParam .ENABLE_STATEFULSETS false}}
 #Variables
@@ -35,6 +36,10 @@
 {{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace (IfThenElse $ENABLE_STATEFULSETS $SMALL_STATEFUL_SETS_PER_NAMESPACE 0)}}
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace (IfThenElse $ENABLE_STATEFULSETS $MEDIUM_STATEFUL_SETS_PER_NAMESPACE 0)}}
 
+# If Jobs are enabled reduce the number of small, medium, big deployments per namespace.
+{{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
+{{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
+{{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 
 name: load
 automanagedNamespaces: {{$namespaces}}
@@ -153,6 +158,16 @@ steps:
       labelSelector: group = load
       operationTimeout: 15m
   {{end}}
+  {{if $ENABLE_JOBS}}
+  - Identifier: WaitForRunningJobs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: batch/v1
+      kind: Job
+      labelSelector: group = load
+      operationTimeout: 15m
+  {{end}}
 
 - name: Creating objects
   phases:
@@ -256,6 +271,41 @@ steps:
           ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
           ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
   {{end}}
+  {{if $ENABLE_JOBS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: small-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{$SMALL_GROUP_SIZE}}
+          ReplicasMax: {{$SMALL_GROUP_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: medium-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
+          ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: big-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{$BIG_GROUP_SIZE}}
+          ReplicasMax: {{$BIG_GROUP_SIZE}}
+  {{end}}
 
 - name: Waiting for pods to be running
   measurements:
@@ -271,6 +321,12 @@ steps:
   {{end}}
   {{if $ENABLE_DAEMONSETS}}
   - Identifier: WaitForRunningDaemonSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
+  {{if $ENABLE_JOBS}}
+  - Identifier: WaitForRunningJobs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -350,6 +406,41 @@ steps:
         templateFillMap:
           Image: k8s.gcr.io/pause:3.1
   {{end}}
+  {{if $ENABLE_JOBS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: small-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
+          ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: medium-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
+          ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: big-job
+        objectTemplatePath: job.yaml
+        templateFillMap:
+          ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
+          ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
+  {{end}}
 
 - name: Waiting for objects to become scaled
   measurements:
@@ -365,6 +456,12 @@ steps:
   {{end}}
   {{if $ENABLE_DAEMONSETS}}
   - Identifier: WaitForRunningDaemonSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
+  {{if $ENABLE_JOBS}}
+  - Identifier: WaitForRunningJobs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -452,6 +549,32 @@ steps:
       - basename: daemonset
         objectTemplatePath: daemonset.yaml
   {{end}}
+  {{if $ENABLE_JOBS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: small-job
+        objectTemplatePath: job.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: medium-job
+        objectTemplatePath: job.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      - basename: big-job
+        objectTemplatePath: job.yaml
+  {{end}}
 
 - name: Waiting for pods to be deleted
   measurements:
@@ -467,6 +590,12 @@ steps:
   {{end}}
   {{if $ENABLE_DAEMONSETS}}
   - Identifier: WaitForRunningDaemonSets
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  {{end}}
+  {{if $ENABLE_JOBS}}
+  - Identifier: WaitForRunningJobs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather

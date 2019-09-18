@@ -29,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -398,4 +400,16 @@ func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
 		return "", fmt.Errorf("retrieving name error: %v", err)
 	}
 	return namespace + "/" + name, nil
+}
+
+// GetNumObjectsMatchingSelector returns number of objects matching the given selector.
+func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resource schema.GroupVersionResource, labelSelector labels.Selector) (int, error) {
+	var numObjects int
+	listFunc := func() error {
+		list, err := c.Resource(resource).Namespace(namespace).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+		numObjects = len(list.Items)
+		return err
+	}
+	err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc))
+	return numObjects, err
 }

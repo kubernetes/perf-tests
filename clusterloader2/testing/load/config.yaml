@@ -19,6 +19,7 @@
 {{$ENABLE_CONFIGMAPS := DefaultParam .ENABLE_CONFIGMAPS false}}
 {{$ENABLE_DAEMONSETS := DefaultParam .ENABLE_DAEMONSETS false}}
 {{$ENABLE_JOBS := DefaultParam .ENABLE_JOBS false}}
+{{$ENABLE_PVS := DefaultParam .ENABLE_PVS false}}
 {{$ENABLE_SECRETS := DefaultParam .ENABLE_SECRETS false}}
 {{$ENABLE_STATEFULSETS := DefaultParam .ENABLE_STATEFULSETS false}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
@@ -576,6 +577,37 @@ steps:
       - basename: big-job
         objectTemplatePath: job.yaml
   {{end}}
+  # If both StatefulSets and PVs were enabled we need to delete PVs manually.
+  {{if and $ENABLE_STATEFULSETS $ENABLE_PVS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      {{range $ssIndex := Seq $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-small-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: small-statefulset-{{$ssIndex}}
+      {{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+      {{range $ssIndex := Seq $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-medium-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: medium-statefulset-{{$ssIndex}}
+      {{end}}
+  {{end}}
 
 - name: Waiting for pods to be deleted
   measurements:
@@ -600,6 +632,14 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+  {{end}}
+  {{if and $ENABLE_STATEFULSETS $ENABLE_PVS}}
+  - Identifier: WaitForPVCsToBeDeleted
+    Method: WaitForBoundPVCs
+    Params:
+      desiredPVCCount: 0
+      labelSelector: group = load
+      timeout: 15m
   {{end}}
 
 - name: Deleting SVCs

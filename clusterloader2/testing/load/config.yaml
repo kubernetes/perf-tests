@@ -130,6 +130,16 @@ steps:
     - basename: small-service
       objectTemplatePath: service.yaml
 
+{{if $ENABLE_DAEMONSETS}}
+- name: Creating PriorityClass for DaemonSets
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+      - basename: daemonset-priorityclass
+        objectTemplatePath: daemonset-priorityclass.yaml
+{{end}}
+
 - name: Starting measurement for waiting for pods
   measurements:
   - Identifier: WaitForRunningDeployments
@@ -641,6 +651,16 @@ steps:
       labelSelector: group = load
       timeout: 15m
   {{end}}
+
+{{if $ENABLE_DAEMONSETS}}
+- name: Deleting PriorityClass for DaemonSets
+  phases:
+    - replicasPerNamespace: 0
+      tuningSet: Sequence
+      objectBundle:
+        - basename: daemonset-priorityclass
+          objectTemplatePath: daemonset-priorityclass.yaml
+{{end}}
 
 - name: Deleting SVCs
   phases:

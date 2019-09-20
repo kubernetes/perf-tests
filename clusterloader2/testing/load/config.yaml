@@ -15,6 +15,7 @@
 {{$SMALL_STATEFUL_SETS_PER_NAMESPACE := 1}}
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
+{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_CONFIGMAPS := DefaultParam .ENABLE_CONFIGMAPS false}}
 {{$ENABLE_DAEMONSETS := DefaultParam .ENABLE_DAEMONSETS false}}
@@ -93,10 +94,12 @@ steps:
     Params:
       action: start
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
     Params:
       action: start
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -717,10 +720,12 @@ steps:
     Method: DnsLookupLatency
     Params:
       action: gather
+  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
     Params:
       action: gather
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

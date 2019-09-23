@@ -64,6 +64,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		return false, err // This shouldn't happen, return error.
 	}
 	nReady, nTotal := 0, 0
+	var exampleNotReadyTarget Target
 	for _, t := range response.Data.ActiveTargets {
 		if !selector(t) {
 			continue
@@ -71,7 +72,9 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		nTotal++
 		if t.Health == "up" {
 			nReady++
+			continue
 		}
+		exampleNotReadyTarget = t
 	}
 	if nTotal < minActiveTargets {
 		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
@@ -82,7 +85,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		minReadyTargets = nTotal
 	}
 	if nReady < minReadyTargets {
-		klog.Infof("%d/%d targets are ready", nReady, minReadyTargets)
+		klog.Infof("%d/%d targets are ready, example not ready target: %v", nReady, minReadyTargets, exampleNotReadyTarget)
 		return false, nil
 	}
 	klog.Infof("All %d expected targets are ready", minReadyTargets)

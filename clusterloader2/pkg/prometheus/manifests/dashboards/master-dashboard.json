@@ -2083,6 +2083,102 @@
             "total": false,
             "values": false
           },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "histogram_quantile(1.0, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (le, endpoint))",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "etcd wal fsync duration",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 23,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
           "lines": false,
           "linewidth": 2,
           "links": [],
@@ -2161,7 +2257,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 23,
+          "id": 24,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2257,7 +2353,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 24,
+          "id": 25,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2389,7 +2485,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 25,
+          "id": 26,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2485,7 +2581,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 26,
+          "id": 27,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2581,7 +2677,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 27,
+          "id": 28,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2677,7 +2773,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 28,
+          "id": 29,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2773,7 +2869,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 29,
+          "id": 30,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2869,7 +2965,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 30,
+          "id": 31,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2965,7 +3061,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 31,
+          "id": 32,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3061,7 +3157,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 32,
+          "id": 33,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3157,7 +3253,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 33,
+          "id": 34,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3253,7 +3349,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 34,
+          "id": 35,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3349,7 +3445,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 35,
+          "id": 36,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3445,7 +3541,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 36,
+          "id": 37,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3541,7 +3637,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 37,
+          "id": 38,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3637,7 +3733,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 38,
+          "id": 39,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3743,7 +3839,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 39,
+          "id": 40,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3849,7 +3945,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 40,
+          "id": 41,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3945,7 +4041,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 41,
+          "id": 42,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4041,7 +4137,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 42,
+          "id": 43,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4137,7 +4233,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 43,
+          "id": 44,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4233,7 +4329,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 44,
+          "id": 45,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4342,7 +4438,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 45,
+          "id": 46,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4451,7 +4547,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 46,
+          "id": 47,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4560,7 +4656,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 47,
+          "id": 48,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4669,7 +4765,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 48,
+          "id": 49,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4778,7 +4874,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 49,
+          "id": 50,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4887,7 +4983,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 50,
+          "id": 51,
           "isNew": true,
           "legend": {
             "alignAsTable": false,

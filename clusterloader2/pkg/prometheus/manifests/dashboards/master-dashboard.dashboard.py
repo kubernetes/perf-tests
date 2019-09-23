@@ -119,6 +119,11 @@ ETCD_PANELS = [
         "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    d.simple_graph(
+        "etcd wal fsync duration",
+        "histogram_quantile(1.0, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (le, endpoint))",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
     d.Graph(
         title="etcd compaction max pause",
         points=True,

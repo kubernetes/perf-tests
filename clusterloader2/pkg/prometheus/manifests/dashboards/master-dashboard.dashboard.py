@@ -330,9 +330,9 @@ dashboard = d.Dashboard(
     title="Master dashboard",
     rows=[
         d.Row(title="Clusterloader", panels=CLUSTERLOADER_PANELS),
-        d.Row(title="Overall cluster health", panels=HEALTH_PANELS),
-        d.Row(title="etcd", panels=ETCD_PANELS),
-        d.Row(title="kube-apiserver", panels=APISERVER_PANELS),
+        d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
+        d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
+        d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),
         d.Row(
             title="kube-controller-manager",
             panels=[
@@ -342,7 +342,8 @@ dashboard = d.Dashboard(
                     legend="{{name}}",
                 )
             ],
+            collapse=True,
         ),
-        d.Row(title="Master VM", panels=VM_PANELS),
+        d.Row(title="Master VM", panels=VM_PANELS, collapse=True),
     ],
 ).auto_panel_ids()

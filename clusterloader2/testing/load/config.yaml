@@ -414,7 +414,7 @@ steps:
       min: 1
       max: 1
     replicasPerNamespace: 1
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedScalingTimeLimited
     objectBundle:
       - basename: daemonset
         objectTemplatePath: daemonset.yaml
@@ -426,7 +426,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 1
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedScalingTimeLimited
     objectBundle:
       - basename: small-job
         objectTemplatePath: job.yaml
@@ -437,7 +437,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 1
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedScalingTimeLimited
     objectBundle:
       - basename: medium-job
         objectTemplatePath: job.yaml
@@ -448,7 +448,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 1
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedScalingTimeLimited
     objectBundle:
       - basename: big-job
         objectTemplatePath: job.yaml

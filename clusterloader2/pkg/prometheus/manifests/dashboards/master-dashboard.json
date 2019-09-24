@@ -405,7 +405,7 @@
       "title": "Clusterloader"
     },
     {
-      "collapse": false,
+      "collapse": true,
       "editable": true,
       "height": "300px",
       "panels": [
@@ -799,7 +799,7 @@
       "title": "Overall cluster health"
     },
     {
-      "collapse": false,
+      "collapse": true,
       "editable": true,
       "height": "300px",
       "panels": [
@@ -2467,7 +2467,7 @@
       "title": "etcd"
     },
     {
-      "collapse": false,
+      "collapse": true,
       "editable": true,
       "height": "300px",
       "panels": [
@@ -3821,7 +3821,7 @@
       "title": "kube-apiserver"
     },
     {
-      "collapse": false,
+      "collapse": true,
       "editable": true,
       "height": "300px",
       "panels": [
@@ -3927,7 +3927,7 @@
       "title": "kube-controller-manager"
     },
     {
-      "collapse": false,
+      "collapse": true,
       "editable": true,
       "height": "300px",
       "panels": [

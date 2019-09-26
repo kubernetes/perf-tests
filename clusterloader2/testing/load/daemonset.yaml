@@ -9,7 +9,7 @@ metadata:
 spec:
   updateStrategy:
     rollingUpdate:
-      maxUnavailable: {{MaxInt 10 (DivideInt .Nodes 100)}} # 1% of nodes, but not less than 10
+      maxUnavailable: {{MaxInt 10 (DivideInt .Nodes 20)}} # 5% of nodes, but not less than 10
   selector:
     matchLabels:
       name: {{.Name}}

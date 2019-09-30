@@ -29,7 +29,8 @@
   {{$PVCBoundTime := MultiplyInt $totalVols 2 | MaxInt 60}}
 
 
-name: storage-{{$TEST_NAME}}
+# TODO(pierewoj): Remove this condition once all storage tests are migrated to a single suite.
+name: {{ if eq $TEST_NAME "" }} storage {{ else }} storage-{{$TEST_NAME}} {{ end }}
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
 - name: UniformQPS

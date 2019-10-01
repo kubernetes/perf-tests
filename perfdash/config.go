@@ -282,24 +282,14 @@ var (
 		"APIServer": {
 			"Responsiveness": []TestDescription{
 				{
-					Name:             "pod-with-ephemeral-volume-startup-latency",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parsePerfData,
-				},
-				{
-					Name:             "storage-",
+					Name:             "storage",
 					OutputFilePrefix: "APIResponsiveness",
 					Parser:           parsePerfData,
 				},
 			},
 			"RequestCount": []TestDescription{
 				{
-					Name:             "pod-with-ephemeral-volume-startup-latency",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parseRequestCountData,
-				},
-				{
-					Name:             "storage-",
+					Name:             "storage",
 					OutputFilePrefix: "APIResponsiveness",
 					Parser:           parseRequestCountData,
 				},
@@ -308,12 +298,7 @@ var (
 		"E2E": {
 			"PodStartup": []TestDescription{
 				{
-					Name:             "pod-with-ephemeral-volume-startup-latency",
-					OutputFilePrefix: "PodStartupLatency_PodWithMultiVolumeStartupLatency",
-					Parser:           parsePerfData,
-				},
-				{
-					Name:             "storage-",
+					Name:             "storage",
 					OutputFilePrefix: "PodStartupLatency_PodWithVolumesStartupLatency",
 					Parser:           parsePerfData,
 				},

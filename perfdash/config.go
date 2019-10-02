@@ -380,7 +380,7 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 					periodic.Name, err)
 				continue
 			}
-			shouldUse, err := validatePeriodicConfig(config)
+			shouldUse, err := checkIfConfigShouldBeUsed(config)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to validate config of %q due to: %v\n",
 					periodic.Name, err)
@@ -431,13 +431,13 @@ func parsePeriodicConfig(periodic periodic) (Tests, error) {
 	return thisPeriodicConfig, nil
 }
 
-func validatePeriodicConfig(config Tests) (shouldUse bool, err error) {
+func checkIfConfigShouldBeUsed(config Tests) (bool, error) {
 	if config.Prefix == "" && config.Descriptions == nil {
-		// this is expected case for jobs which are not expected to be visible in perfdash
+		// This is expected case for jobs which are not expected to be visible in perfdash.
 		return false, nil
 	}
 	if config.Prefix == "" || config.Descriptions == nil {
-		return false, fmt.Errorf("nonee or both of prefix and job type must be specified")
+		return false, fmt.Errorf("none or both of prefix and job type must be specified")
 	}
 	return true, nil
 }

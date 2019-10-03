@@ -1,7 +1,0 @@
-# TODO(pierewoj): Remove this file once all storage tests are migrated to a single suite.
-# This is used for the storage tests migration from separate jobs to a single suite.
-# Old storage tests won't have this override applied, so metric file names will
-# remain the same.
-# New tests will use this override, so the metric file name will be only parametrized
-# by the suite test identifier.
-TEST_NAME: ''

@@ -92,7 +92,7 @@ updates result with parsed metrics for a given prow job. Assumptions:
 - metric file names have following prefix: {{OutputFilePrefix}}_{{Name}},
   where OutputFilePrefix and Name are parts of test description (specified in prefdash config)
 - if there are multiple files with a given prefix, then expected format is
-  {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is appended to the category label,
+  {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is prepended to the category label,
   which allows comparing metrics across several runs in a given suite
 */
 func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
@@ -148,7 +148,7 @@ func getResultCategory(metricsFileName string, filePrefix string, category strin
 	// If there are more artifacts, assume that this is a test suite run.
 	trimmed := strings.TrimPrefix(metricsFileName, filePrefix+"_")
 	suiteId := strings.Split(trimmed, "_")[0]
-	return fmt.Sprintf("%v_%v", category, suiteId)
+	return fmt.Sprintf("%v_%v", suiteId, category)
 }
 
 func getBuildData(result JobToCategoryData, prefix string, category string, label string, job string, resultLock *sync.Mutex) *BuildData {

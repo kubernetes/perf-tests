@@ -1,3 +1,2 @@
-TEST_NAME: cluster-load-scale-by-node
 PODS_PER_NODE: 10
 VOLUMES_PER_POD: 1

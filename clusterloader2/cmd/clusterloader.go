@@ -61,9 +61,8 @@ func initClusterFlags() {
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
-	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
-	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
-	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
+	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterips", "MASTER_IPS", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
+	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ips", "MASTER_INTERNAL_IPS", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 }
@@ -126,7 +125,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeExternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIPs = masterIPs
-			klog.Infof("ClusterConfig.MasterIP set to %v", masterIPs)
+			klog.Infof("ClusterConfig.MasterIPs set to %v", masterIPs)
 		} else {
 			klog.Errorf("Getting master external ip error: %v", err)
 		}
@@ -135,7 +134,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeInternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterInternalIPs = masterIPs
-			klog.Infof("ClusterConfig.MasterInternalIP set to %v", masterIPs)
+			klog.Infof("ClusterConfig.MasterInternalIPs set to %v", masterIPs)
 		} else {
 			klog.Errorf("Getting master internal ip error: %v", err)
 		}

@@ -15,7 +15,7 @@ left-build-number
 left-job-name
 listen-url
 log-source-mode
-master-internal-ip
+master-internal-ips
 match-threshold
 metric-bind-address
 min-allowed-api-request-count

@@ -23,7 +23,6 @@ import (
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
@@ -58,7 +57,7 @@ func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, co
 	}
 
 	klog.Infof("%s: got %v", netProg, latency)
-	return n.createSummary(latency)
+	return createLatencySummary(latency, netProg)
 }
 
 func (n *netProgGatherer) String() string {
@@ -79,15 +78,4 @@ func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (*m
 		return nil, fmt.Errorf("got unexpected number of samples: %d", len(samples))
 	}
 	return measurementutil.NewLatencyMetricPrometheus(samples)
-}
-
-func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version:   metricVersion,
-		DataItems: []measurementutil.DataItem{latency.ToPerfData(netProg)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return measurement.CreateSummary(netProg, "json", content), nil
 }

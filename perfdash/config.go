@@ -259,6 +259,16 @@ var (
 				OutputFilePrefix: "DnsLookupLatency",
 				Parser:           parsePerfData,
 			}},
+			"Load_DNSProgrammingLatency": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "DnsProgrammingLatency",
+				Parser:           parsePerfData,
+			}},
+			"Density_DNSProgrammingLatency": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "DnsProgrammingLatency",
+				Parser:           parsePerfData,
+			}},
 		},
 		"SystemPodMetrics": {
 			"Load_SystemPodMetrics": []TestDescription{{

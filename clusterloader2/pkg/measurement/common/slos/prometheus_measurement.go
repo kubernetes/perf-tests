@@ -34,6 +34,17 @@ func createPrometheusMeasurement(gatherer Gatherer) measurement.Measurement {
 	}
 }
 
+func createLatencySummary(latency *measurementutil.LatencyMetric, metricName string) ([]measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
+		Version:   metricVersion,
+		DataItems: []measurementutil.DataItem{latency.ToPerfData(metricName)},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{measurement.CreateSummary(metricName, "json", content)}, nil
+}
+
 // QueryExecutor is an interface for queryning Prometheus server.
 type QueryExecutor interface {
 	Query(query string, queryTime time.Time) ([]*model.Sample, error)

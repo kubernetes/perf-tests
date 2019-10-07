@@ -20,6 +20,7 @@
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
+{{$ENABLE_DNS_PROGRAMMING := DefaultParam .CL2_ENABLE_DNS_PROGRAMMING false}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
@@ -99,6 +100,12 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+  {{if $ENABLE_DNS_PROGRAMMING}}
+  - Identifier: DnsProgrammingLatency
+    Method: DnsProgrammingLatency
+    Params:
+      action: start
+  {{end}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
@@ -681,6 +688,12 @@ steps:
     Method: DnsLookupLatency
     Params:
       action: gather
+  {{if $ENABLE_DNS_PROGRAMMING}}
+  - Identifier: DnsProgrammingLatency
+    Method: DnsProgrammingLatency
+    Params:
+      action: gather
+  {{end}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency

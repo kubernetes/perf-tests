@@ -18,6 +18,7 @@
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
+{{$ENABLE_DNS_PROGRAMMING := DefaultParam .CL2_ENABLE_DNS_PROGRAMMING false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
@@ -76,6 +77,12 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+  {{if $ENABLE_DNS_PROGRAMMING}}
+  - Identifier: DnsProgrammingLatency
+    Method: DnsProgrammingLatency
+    Params:
+      action: start
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -247,6 +254,12 @@ steps:
     Method: DnsLookupLatency
     Params:
       action: gather
+  {{if $ENABLE_DNS_PROGRAMMING}}
+  - Identifier: DnsProgrammingLatency
+    Method: DnsProgrammingLatency
+    Params:
+      action: gather
+  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

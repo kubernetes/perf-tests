@@ -68,6 +68,9 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	if metrics.controllerManagerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%s: controllerManagerMemoryProfile creation error: %v", metrics, err)
 	}
+	if metrics.systemPodMetrics, err = measurement.CreateMeasurement("SystemPodMetrics"); err != nil {
+		klog.Errorf("%s: systemPodMetrics creation error: %v", metrics, err)
+	}
 	return &metrics
 }
 
@@ -82,6 +85,7 @@ type testMetrics struct {
 	schedulerMemoryProfile         measurement.Measurement
 	controllerManagerCPUProfile    measurement.Measurement
 	controllerManagerMemoryProfile measurement.Measurement
+	systemPodMetrics               measurement.Measurement
 }
 
 // Execute supports two actions. start - which sets up all metrics.
@@ -168,6 +172,8 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerGatherConfig)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, err)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)

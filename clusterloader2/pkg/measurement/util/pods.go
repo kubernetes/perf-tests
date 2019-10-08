@@ -178,3 +178,40 @@ func DiffPods(oldPods []*corev1.Pod, curPods []*corev1.Pod) PodDiff {
 	}
 	return podDiffInfoMap
 }
+
+type podInfo struct {
+	name     string
+	hostname string
+	phase    string
+}
+
+func (p *podInfo) String() string {
+	return fmt.Sprintf("{%v %v %v}", p.name, p.phase, p.hostname)
+}
+
+// PodsStatus is a collection of current pod phases and node assignments data.
+type PodsStatus struct {
+	info     []*podInfo
+	expected int
+}
+
+// ComputePodsStatus computes PodsStatus for a group of pods.
+func ComputePodsStatus(pods []*corev1.Pod, expected int) *PodsStatus {
+	ps := &PodsStatus{
+		info:     make([]*podInfo, len(pods)),
+		expected: expected,
+	}
+	for i := range pods {
+		ps.info[i] = &podInfo{
+			name:     pods[i].Name,
+			hostname: pods[i].Spec.NodeName,
+			phase:    string(pods[i].Status.Phase),
+		}
+	}
+	return ps
+}
+
+// String returns string representation of a PodsStatus.
+func (ps *PodsStatus) String() string {
+	return fmt.Sprintf("%v, expected %d", ps.info, ps.expected)
+}

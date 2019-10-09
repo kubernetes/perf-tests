@@ -69,7 +69,7 @@ var globalLock sync.Mutex
 const (
 	workerMode           = "worker"
 	orchestratorMode     = "orchestrator"
-	iperf3Path           = "/usr/bin/iperf3"
+	iperf3Path           = "/usr/local/bin/iperf3"
 	netperfPath          = "/usr/local/bin/netperf"
 	netperfServerPath    = "/usr/local/bin/netserver"
 	outputCaptureFile    = "/tmp/output.txt"

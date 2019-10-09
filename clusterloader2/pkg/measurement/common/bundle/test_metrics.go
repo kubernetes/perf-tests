@@ -178,6 +178,8 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerStartConfig)
 		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.systemPodMetrics, config)
+		appendResults(&summaries, errList, summary, err)
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
 		appendResults(&summaries, errList, summary, err)

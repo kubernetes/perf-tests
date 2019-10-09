@@ -29,10 +29,10 @@ case "$1" in
     python py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   core-dns )
-    python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir out --use-cluster-dns
+    python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   node-local-dns )
-    python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir out --nodecache-ip ${nodeLocalIP}
+    python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
     ;;
 esac
 

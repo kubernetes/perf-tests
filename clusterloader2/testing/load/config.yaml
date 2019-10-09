@@ -723,16 +723,21 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-  - Identifier: APIResponsivenessPrometheus
+  - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
       {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
       {{end}}
-      {{if $USE_SIMPLE_LATENCY_QUERY}}
       useSimpleLatencyQuery: true
-      {{end}}
+      summaryName: APIResponsivenessPrometheus_simple
+  {{if not $USE_SIMPLE_LATENCY_QUERY}}
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+  {{end}}
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:

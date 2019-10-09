@@ -103,7 +103,13 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 	if err != nil {
 		return nil, err
 	}
-	summary := measurement.CreateSummary(apiResponsivenessPrometheusMeasurementName, "json", content)
+
+	summaryName, err := util.GetStringOrDefault(config.Params, "summaryName", apiResponsivenessPrometheusMeasurementName)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := measurement.CreateSummary(summaryName, "json", content)
 	if len(badMetrics) > 0 {
 		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}

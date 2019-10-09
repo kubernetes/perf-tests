@@ -17,6 +17,8 @@ limitations under the License.
 package common
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -41,8 +43,14 @@ func createSystemPodMetricsMeasurement() measurement.Measurement {
 	return &systemPodMetricsMeasurement{}
 }
 
-// Gathers metrics for system pods, right now it only gathers container restart counts
-type systemPodMetricsMeasurement struct{}
+// Gathers metrics for system pods, right now it only gathers container restart counts.
+// System pods are listed twice: first time for "start" action, second time for "gather" action.
+// When executing "gather", initial restart counts are subtracted from the current
+// restart counts. In effect, only restarts that happened during test execution
+// (between "start" and "gather") are visible in the final summary.
+type systemPodMetricsMeasurement struct {
+	initSnapshot *systemPodsMetrics
+}
 
 type containerMetrics struct {
 	Name         string `json:"name"`
@@ -69,19 +77,42 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.MeasurementCon
 		return []measurement.Summary{}, nil
 	}
 
+	metrics, err := getPodMetrics(config)
+	if err != nil {
+		return nil, err
+	}
+
+	action, err := util.GetString(config.Params, "action")
+	if err != nil {
+		return nil, err
+	}
+
+	switch action {
+	case "start":
+		m.initSnapshot = metrics
+		return nil, nil
+	case "gather":
+		if m.initSnapshot == nil {
+			return nil, fmt.Errorf("start needs to be executed before gather")
+		}
+		subtractInitialRestartCounts(metrics, m.initSnapshot)
+		summary, err := buildSummary(metrics)
+		if err != nil {
+			return nil, err
+		}
+		return summary, nil
+	default:
+		return nil, fmt.Errorf("unknown action %v", action)
+	}
+}
+
+func getPodMetrics(config *measurement.MeasurementConfig) (*systemPodsMetrics, error) {
 	klog.Info("collecting system pod metrics...")
 	lst, err := getPodList(config.ClusterFramework.GetClientSets().GetClient())
 	if err != nil {
-		return nil, err
+		return &systemPodsMetrics{}, err
 	}
-
-	content, err := util.PrettyPrintJSON(extractMetrics(lst))
-	if err != nil {
-		return nil, err
-	}
-
-	summary := measurement.CreateSummary(systemPodMetricsName, "json", content)
-	return []measurement.Summary{summary}, nil
+	return extractMetrics(lst), nil
 }
 
 func getPodList(client kubernetes.Interface) (*v1.PodList, error) {
@@ -94,7 +125,33 @@ func getPodList(client kubernetes.Interface) (*v1.PodList, error) {
 	return lst, nil
 }
 
-func extractMetrics(lst *v1.PodList) systemPodsMetrics {
+func subtractInitialRestartCounts(metrics *systemPodsMetrics, initMetrics *systemPodsMetrics) {
+	// podName -> containerName -> restartCount
+	initRestarts := make(map[string]map[string]int32)
+
+	for _, initPod := range initMetrics.Pods {
+		initRestarts[initPod.Name] = make(map[string]int32)
+		for _, initContainer := range initPod.Containers {
+			initRestarts[initPod.Name][initContainer.Name] = initContainer.RestartCount
+		}
+	}
+
+	for _, pod := range metrics.Pods {
+		for i, container := range pod.Containers {
+			initPod, ok := initRestarts[pod.Name]
+			if !ok {
+				continue
+			}
+			initRestartCount, ok := initPod[container.Name]
+			if !ok {
+				continue
+			}
+			pod.Containers[i].RestartCount -= initRestartCount
+		}
+	}
+}
+
+func extractMetrics(lst *v1.PodList) *systemPodsMetrics {
 	metrics := systemPodsMetrics{
 		Pods: []podMetrics{},
 	}
@@ -111,7 +168,17 @@ func extractMetrics(lst *v1.PodList) systemPodsMetrics {
 		}
 		metrics.Pods = append(metrics.Pods, podMetrics)
 	}
-	return metrics
+	return &metrics
+}
+
+func buildSummary(podMetrics *systemPodsMetrics) ([]measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(podMetrics)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := measurement.CreateSummary(systemPodMetricsName, "json", content)
+	return []measurement.Summary{summary}, nil
 }
 
 // Dispose cleans up after the measurement.

@@ -67,8 +67,8 @@
               "expr": "sum(rate(apiserver_request_count{client=\"clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format\"}[1m])) by (verb, resource)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -163,8 +163,8 @@
               "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!=\"LIST\", verb!=\"WATCH\", verb!=\"CONNECT\"}",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
@@ -256,11 +256,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])) by (le, resource, verb, scope, subresource))",
+              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!=\"LIST\", verb!=\"WATCH\", verb!=\"CONNECT\"}[5d])) by (le, resource, verb, scope, subresource))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
@@ -302,7 +302,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "Clusterloader"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -352,12 +362,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])",
+              "expr": "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "{{zone}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -366,7 +376,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "API call latency aggregated (prometheus, 1s threshold)",
+          "title": "Unhealthy nodes",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -381,7 +391,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "s",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -398,17 +408,7 @@
               "show": true
             }
           ]
-        }
-      ],
-      "repeat": null,
-      "showTitle": true,
-      "title": "Clusterloader"
-    },
-    {
-      "collapse": true,
-      "editable": true,
-      "height": "300px",
-      "panels": [
+        },
         {
           "aliasColors": {},
           "bars": false,
@@ -458,12 +458,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
+              "expr": "sum(rate(process_start_time_seconds[1m]) > bool 0) by (job, endpoint)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{zone}}",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -472,7 +472,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Unhealthy nodes",
+          "title": "Component restarts",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -554,11 +554,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(process_start_time_seconds[1m]) > bool 0) by (job, endpoint)",
+              "expr": "sum(min_over_time(container_start_time_seconds{container_name!=\"\",container_name!=\"POD\"}[2m])) by (container_name)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -568,7 +568,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Component restarts",
+          "title": "Component restarts 2",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -650,11 +650,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(min_over_time(container_start_time_seconds{container_name!=\"\",container_name!=\"POD\"}[2m])) by (container_name)",
+              "expr": "sum(leader_election_master_status) by (name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -664,7 +664,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Component restarts 2",
+          "title": "Active component",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -696,7 +696,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "Overall cluster health"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -746,11 +756,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(leader_election_master_status) by (name, instance)",
+              "expr": "etcd_server_is_leader",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -760,7 +770,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Active component",
+          "title": "etcd leader",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -792,17 +802,7 @@
               "show": true
             }
           ]
-        }
-      ],
-      "repeat": null,
-      "showTitle": true,
-      "title": "Overall cluster health"
-    },
-    {
-      "collapse": true,
-      "editable": true,
-      "height": "300px",
-      "panels": [
+        },
         {
           "aliasColors": {},
           "bars": false,
@@ -852,11 +852,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "etcd_server_is_leader",
+              "expr": "histogram_quantile(0.95, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) by (le))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -866,7 +866,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd leader",
+          "title": "etcd disk backend commit duration",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -881,7 +881,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -948,11 +948,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
+              "expr": "rate(etcd_network_client_grpc_sent_bytes_total[1m])",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1047,8 +1047,8 @@
               "expr": "sum(rate(etcd_request_duration_seconds_count{operation=\"list\"}[1m])) by (type)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1143,8 +1143,8 @@
               "expr": "sum(rate(etcd_request_duration_seconds_count[1m])) by (operation, type)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1239,8 +1239,8 @@
               "expr": "histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation=\"get\", type=\"*coordination.Lease\"}[1m])) by (le, type, instance))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1335,8 +1335,8 @@
               "expr": "histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation=\"get\"}[1m])) by (le, type))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1431,8 +1431,8 @@
               "expr": "histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation=\"get\"}[1m])) by (le, type))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1527,8 +1527,8 @@
               "expr": "sum(etcd_server_id) by (instance, server_id)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1623,8 +1623,8 @@
               "expr": "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[1m])) by (le, instance, To))",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1716,11 +1716,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "delta(etcd_debugging_mvcc_db_compaction_keys_total[1m])",
+              "expr": "sum(etcd_object_counts) by (resource, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1730,7 +1730,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd compaction keys",
+          "title": "etcd objects",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -1762,7 +1762,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "etcd"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -1812,11 +1822,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_sum[1m])",
+              "expr": "go_goroutines{job=\"apiserver\"}",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1826,7 +1836,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd compaction pause sum duration",
+          "title": "goroutines",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -1841,7 +1851,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "ms",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -1908,11 +1918,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_count[1m])",
+              "expr": "rate(go_gc_duration_seconds_count{job=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -1922,7 +1932,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd compaction pause num chunks",
+          "title": "gc rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2004,11 +2014,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
+              "expr": "rate(go_memstats_alloc_bytes_total{job=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2018,7 +2028,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd_disk_backend_commit_duration_seconds",
+          "title": "alloc rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2033,7 +2043,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "s",
+              "format": "Bps",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2100,11 +2110,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(1.0, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (le, endpoint))",
+              "expr": "sum(apiserver_registered_watchers) by (group, kind, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2114,7 +2124,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd wal fsync duration",
+          "title": "Number of active watches",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2129,7 +2139,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "s",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2179,14 +2189,14 @@
             "total": false,
             "values": false
           },
-          "lines": false,
+          "lines": true,
           "linewidth": 2,
           "links": [],
           "minSpan": null,
           "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
-          "points": true,
+          "points": false,
           "renderer": "flot",
           "repeat": null,
           "seriesOverrides": [],
@@ -2196,7 +2206,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(1.0, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket[1m])) by (le, instance))",
+              "expr": "sum(rate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "",
@@ -2210,7 +2220,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd compaction max pause",
+          "title": "Watch events rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2225,7 +2235,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "ms",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2292,11 +2302,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(etcd_object_counts) by (resource, instance)",
+              "expr": "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2306,7 +2316,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd objects",
+          "title": "Inflight requests",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2388,37 +2398,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "etcd_mvcc_db_total_size_in_bytes",
+              "expr": "sum(rate(apiserver_request_count[1m])) by (verb, resource, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "etcd_mvcc_db_total_size_in_use_in_bytes",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "etcd_server_quota_backend_bytes",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2428,7 +2412,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "etcd db size",
+          "title": "Request rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2443,7 +2427,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "bytes",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2460,17 +2444,7 @@
               "show": true
             }
           ]
-        }
-      ],
-      "repeat": null,
-      "showTitle": true,
-      "title": "etcd"
-    },
-    {
-      "collapse": true,
-      "editable": true,
-      "height": "300px",
-      "panels": [
+        },
         {
           "aliasColors": {},
           "bars": false,
@@ -2520,11 +2494,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "go_goroutines{job=\"apiserver\"}",
+              "expr": "sum(rate(apiserver_request_count[1m])) by (code, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2534,7 +2508,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "goroutines",
+          "title": "Request rate by code",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2616,12 +2590,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "rate(go_gc_duration_seconds_count{job=\"apiserver\"}[1m])",
+              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.50\", verb!=\"WATCH\"}",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -2630,7 +2604,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "gc rate",
+          "title": "Request latency (50th percentile)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2645,7 +2619,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2712,12 +2686,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "rate(go_memstats_alloc_bytes_total{job=\"apiserver\"}[1m])",
+              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!=\"WATCH\"}",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -2726,7 +2700,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "alloc rate",
+          "title": "Request latency (99th percentile)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2741,7 +2715,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "Bps",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2808,11 +2782,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(apiserver_registered_watchers) by (group, kind, instance)",
+              "expr": "sum(rate(apiserver_request_count{verb=\"LIST\", resource=~\"nodes|pods|services|endpoints|replicationcontrollers\"}[1m])) by (resource, client)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2822,7 +2796,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Number of active watches",
+          "title": "\"Big\" LIST requests",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2904,11 +2878,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(irate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
+              "expr": "sum(rate(apiserver_response_sizes_sum{verb!=\"WATCH\"}[1m])) by (verb, version, resource, scope, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -2918,7 +2892,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Watch events rate",
+          "title": "Traffic",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2933,7 +2907,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "Bps",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -2950,7 +2924,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "kube-apiserver"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -3000,12 +2984,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+              "expr": "workqueue_depth{endpoint=\"kube-controller-manager\"}",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "{{name}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3014,7 +2998,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "(Experimental) Watch events traffic",
+          "title": "Workqueue depths",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3029,7 +3013,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "Bps",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3046,7 +3030,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "kube-controller-manager"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -3096,11 +3090,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (version, kind, instance)",
+              "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -3110,7 +3104,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Watch event avg size",
+          "title": "fs bytes reads by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3125,7 +3119,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "bytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3192,11 +3186,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
+              "expr": "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -3206,7 +3200,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Inflight requests",
+          "title": "fs reads by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3288,11 +3282,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count[1m])) by (verb, resource, instance)",
+              "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -3302,7 +3296,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Request rate",
+          "title": "fs bytes writes by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3317,7 +3311,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "bytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3384,11 +3378,11 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count[1m])) by (code, instance)",
+              "expr": "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
               "refId": "",
@@ -3398,7 +3392,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Request rate by code",
+          "title": "fs writes by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3480,12 +3474,25 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.50\", verb!=\"WATCH\"}",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container_name!=\"\"}[1m])) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "machine_cpu_cores",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3494,7 +3501,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Request latency (50th percentile)",
+          "title": "CPU usage by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3509,7 +3516,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "s",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3576,12 +3583,25 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!=\"WATCH\"}",
+              "expr": "sum(container_memory_usage_bytes{container_name!=\"\"}) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "machine_memory_bytes",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3590,7 +3610,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Request latency (99th percentile)",
+          "title": "memory usage by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3605,7 +3625,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "s",
+              "format": "bytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3672,813 +3692,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count{verb=\"LIST\", resource=~\"nodes|pods|services|endpoints|replicationcontrollers\"}[1m])) by (resource, client)",
+              "expr": "sum(container_memory_working_set_bytes{container_name!=\"\"}) by (container_name, instance)",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "\"Big\" LIST requests",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 39,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(apiserver_response_sizes_sum{verb!=\"WATCH\"}[1m])) by (verb, version, resource, scope, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Traffic",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "Bps",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        }
-      ],
-      "repeat": null,
-      "showTitle": true,
-      "title": "kube-apiserver"
-    },
-    {
-      "collapse": true,
-      "editable": true,
-      "height": "300px",
-      "panels": [
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 40,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "workqueue_depth{endpoint=\"kube-controller-manager\"}",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{name}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Workqueue depths",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        }
-      ],
-      "repeat": null,
-      "showTitle": true,
-      "title": "kube-controller-manager"
-    },
-    {
-      "collapse": true,
-      "editable": true,
-      "height": "300px",
-      "panels": [
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 41,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs bytes reads by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 42,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs reads by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 43,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs bytes writes by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 44,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs writes by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 45,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "machine_cpu_cores",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "limit",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "CPU usage by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 46,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4489,118 +3708,9 @@
               "expr": "machine_memory_bytes",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "limit",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "memory usage by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 47,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) by (container, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "machine_memory_bytes",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "limit",
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4656,7 +3766,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 48,
+          "id": 39,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4765,7 +3875,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 49,
+          "id": 40,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4874,7 +3984,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 50,
+          "id": 41,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4968,7 +4078,17 @@
               "show": true
             }
           ]
-        },
+        }
+      ],
+      "repeat": null,
+      "showTitle": true,
+      "title": "Master VM"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "300px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -4983,7 +4103,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 51,
+          "id": 42,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -5018,12 +4138,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(node_netstat_Tcp_InSegs[1m])) by (instance)",
+              "expr": "quantile(1, sum(process_resident_memory_bytes{job=\"kube-dns\"}) by (pod))",
               "format": "time_series",
               "instant": false,
               "interval": "",
               "intervalFactor": 2,
-              "legendFormat": "InSegs {{instance}}",
+              "legendFormat": "coredns-mem-100pctl",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -5031,12 +4151,12 @@
             },
             {
               "datasource": "",
-              "expr": "sum(rate(node_netstat_Tcp_OutSegs[1m])) by (instance)",
+              "expr": "quantile(0.99, sum(process_resident_memory_bytes{job=\"kube-dns\"}) by (pod))",
               "format": "time_series",
               "instant": false,
               "interval": "",
               "intervalFactor": 2,
-              "legendFormat": "OutSegs {{instance}}",
+              "legendFormat": "coredns-mem-99ctl",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -5044,12 +4164,25 @@
             },
             {
               "datasource": "",
-              "expr": "sum(rate(node_netstat_Tcp_RetransSegs[1m])) by (instance)",
+              "expr": "quantile(0.90, sum(process_resident_memory_bytes{job=\"kube-dns\"}) by (pod))",
               "format": "time_series",
               "instant": false,
               "interval": "",
               "intervalFactor": 2,
-              "legendFormat": "RetransSegs {{instance}}",
+              "legendFormat": "coredns-mem-90ctl",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "quantile(0.50, sum(process_resident_memory_bytes{job=\"kube-dns\"}) by (pod))",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "coredns-mem-50ctl",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -5058,11 +4191,11 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Network tcp segments",
+          "title": "Coredns memory",
           "tooltip": {
             "msResolution": true,
             "shared": true,
-            "sort": 2,
+            "sort": 0,
             "value_type": "cumulative"
           },
           "transparent": false,
@@ -5073,9 +4206,9 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "bytes",
               "label": null,
-              "logBase": 10,
+              "logBase": 1,
               "max": null,
               "min": 0,
               "show": true
@@ -5094,7 +4227,7 @@
       ],
       "repeat": null,
       "showTitle": true,
-      "title": "Master VM"
+      "title": "Addons"
     }
   ],
   "schemaVersion": 12,

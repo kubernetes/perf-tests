@@ -12,10 +12,8 @@ subsets:
       - ip: {{.}}
     {{end}}
     ports:
-      - name: etcd-2379
+      - name: etcd
         port: 2379
-      - name: etcd-2382
-        port: 2382
       - name: kubelet
         port: 10250
       - name: node-exporter

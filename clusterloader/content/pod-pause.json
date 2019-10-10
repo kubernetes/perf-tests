@@ -1,0 +1,36 @@
+{
+    "kind": "Pod",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "pause-amd64",
+        "creationTimestamp": null,
+        "labels": {
+            "name": "pause-amd64"
+        }
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "pause-amd64",
+                "image": "k8s.gcr.io/pause-amd64:3.0",
+                "ports": [
+                    {
+                        "containerPort": 8080,
+                        "protocol": "TCP"
+                    }
+                ],
+                "terminationMessagePath": "/dev/termination-log",
+                "imagePullPolicy": "IfNotPresent",
+                "capabilities": {},
+                "securityContext": {
+                    "capabilities": {},
+                    "privileged": false
+                }
+            }
+        ],
+        "restartPolicy": "Always",
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccount": ""
+    },
+    "status": {}
+}

@@ -21,46 +21,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
-
-// ObjectSelector is an aggregation of namespace, labelSelector and fieldSelector.
-type ObjectSelector struct {
-	Namespace     string
-	LabelSelector string
-	FieldSelector string
-}
-
-// NewObjectSelector creates default object selector.
-func NewObjectSelector() *ObjectSelector {
-	return &ObjectSelector{
-		Namespace: metav1.NamespaceAll,
-	}
-}
-
-// Parse parses namespace, labelSelector and fieldSelector from params map.
-func (o *ObjectSelector) Parse(params map[string]interface{}) error {
-	var err error
-	o.Namespace, err = util.GetStringOrDefault(params, "namespace", metav1.NamespaceAll)
-	if err != nil {
-		return err
-	}
-	o.LabelSelector, err = util.GetStringOrDefault(params, "labelSelector", "")
-	if err != nil {
-		return err
-	}
-	o.FieldSelector, err = util.GetStringOrDefault(params, "fieldSelector", "")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// String returns string representation of the selector.
-func (o *ObjectSelector) String() string {
-	return CreateSelectorsString(o.Namespace, o.LabelSelector, o.FieldSelector)
-}
 
 // CreateSelectorsString creates a string representation for given namespace, label selector and field selector.
 func CreateSelectorsString(namespace, labelSelector, fieldSelector string) string {

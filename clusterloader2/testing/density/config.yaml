@@ -17,8 +17,6 @@
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
-{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
-{{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
@@ -50,10 +48,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: start
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -73,8 +67,8 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
+      apiVersion: v1
+      kind: ReplicationController
       labelSelector: group = saturation
       operationTimeout: {{$saturationRCHardTimeout}}s
 - phases:
@@ -85,7 +79,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
         Group: saturation
@@ -125,8 +119,8 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
+      apiVersion: v1
+      kind: ReplicationController
       labelSelector: group = latency
       operationTimeout: 15m
 - phases:
@@ -137,7 +131,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-pod-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         Replicas: 1
         Group: latency
@@ -158,7 +152,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-pod-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
@@ -169,7 +163,7 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
-- name: Deleting latency pods
+- name: Deleting latancy pods
 # Delete pods
 - phases:
   - namespaceRange:
@@ -179,7 +173,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
@@ -192,13 +186,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
-      enableViolations: true
-      {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

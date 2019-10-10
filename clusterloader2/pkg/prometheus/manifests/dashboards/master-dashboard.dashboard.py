@@ -119,11 +119,6 @@ ETCD_PANELS = [
         "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
-    d.simple_graph(
-        "etcd wal fsync duration",
-        "histogram_quantile(1.0, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (le, endpoint))",
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
-    ),
     d.Graph(
         title="etcd compaction max pause",
         points=True,
@@ -330,9 +325,9 @@ dashboard = d.Dashboard(
     title="Master dashboard",
     rows=[
         d.Row(title="Clusterloader", panels=CLUSTERLOADER_PANELS),
-        d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
-        d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
-        d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),
+        d.Row(title="Overall cluster health", panels=HEALTH_PANELS),
+        d.Row(title="etcd", panels=ETCD_PANELS),
+        d.Row(title="kube-apiserver", panels=APISERVER_PANELS),
         d.Row(
             title="kube-controller-manager",
             panels=[
@@ -342,8 +337,7 @@ dashboard = d.Dashboard(
                     legend="{{name}}",
                 )
             ],
-            collapse=True,
         ),
-        d.Row(title="Master VM", panels=VM_PANELS, collapse=True),
+        d.Row(title="Master VM", panels=VM_PANELS),
     ],
 ).auto_panel_ids()

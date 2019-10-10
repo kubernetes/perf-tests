@@ -282,14 +282,24 @@ var (
 		"APIServer": {
 			"Responsiveness": []TestDescription{
 				{
-					Name:             "storage",
+					Name:             "pod-with-ephemeral-volume-startup-latency",
+					OutputFilePrefix: "APIResponsiveness",
+					Parser:           parsePerfData,
+				},
+				{
+					Name:             "storage-",
 					OutputFilePrefix: "APIResponsiveness",
 					Parser:           parsePerfData,
 				},
 			},
 			"RequestCount": []TestDescription{
 				{
-					Name:             "storage",
+					Name:             "pod-with-ephemeral-volume-startup-latency",
+					OutputFilePrefix: "APIResponsiveness",
+					Parser:           parseRequestCountData,
+				},
+				{
+					Name:             "storage-",
 					OutputFilePrefix: "APIResponsiveness",
 					Parser:           parseRequestCountData,
 				},
@@ -298,7 +308,12 @@ var (
 		"E2E": {
 			"PodStartup": []TestDescription{
 				{
-					Name:             "storage",
+					Name:             "pod-with-ephemeral-volume-startup-latency",
+					OutputFilePrefix: "PodStartupLatency_PodWithMultiVolumeStartupLatency",
+					Parser:           parsePerfData,
+				},
+				{
+					Name:             "storage-",
 					OutputFilePrefix: "PodStartupLatency_PodWithVolumesStartupLatency",
 					Parser:           parsePerfData,
 				},
@@ -374,70 +389,48 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 			return nil, fmt.Errorf("error unmarshaling prow config from %s: %v", configPath, err)
 		}
 		for _, periodic := range conf.Periodics {
-			config, err := parsePeriodicConfig(periodic)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to parse config of %q due to: %v\n",
-					periodic.Name, err)
+			var thisPeriodicConfig Tests
+			for _, tag := range periodic.Tags {
+				if strings.HasPrefix(tag, "perfDashPrefix:") {
+					split := strings.SplitN(tag, ":", 2)
+					thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
+					continue
+				}
+				if strings.HasPrefix(tag, "perfDashJobType:") {
+					split := strings.SplitN(tag, ":", 2)
+					jobType := strings.TrimSpace(split[1])
+					var exists bool
+					if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
+						fmt.Fprintf(os.Stderr, "warning: unknown job type - %s\n", jobType)
+					}
+					continue
+				}
+				if strings.HasPrefix(tag, "perfDashBuildsCount:") {
+					split := strings.SplitN(tag, ":", 2)
+					i, err := strconv.Atoi(strings.TrimSpace(split[1]))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warning: unparsable builds count - %v\n", split[1])
+					}
+					if i < 1 {
+						fmt.Fprintf(os.Stderr, "warning: non-positive builds count - %v\n", i)
+						continue
+					}
+					thisPeriodicConfig.BuildsCount = i
+					continue
+				}
+				if strings.HasPrefix(tag, "perfDash") {
+					fmt.Fprintf(os.Stderr, "warning: unknown perfdash tag name: %q\n", tag)
+				}
+			}
+			if thisPeriodicConfig.Prefix == "" && thisPeriodicConfig.Descriptions == nil {
 				continue
 			}
-			shouldUse, err := checkIfConfigShouldBeUsed(config)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to validate config of %q due to: %v\n",
-					periodic.Name, err)
-				continue
+			if thisPeriodicConfig.Prefix == "" || thisPeriodicConfig.Descriptions == nil {
+				return nil, fmt.Errorf("invalid perfdash config of periodic %q: none or both of prefix and job type must be specified", periodic.Name)
 			}
-			if shouldUse {
-				jobs[periodic.Name] = config
-			}
+			jobs[periodic.Name] = thisPeriodicConfig
 		}
 	}
 	fmt.Printf("Read configs with %d jobs\n", len(jobs))
 	return jobs, nil
-}
-
-func parsePeriodicConfig(periodic periodic) (Tests, error) {
-	var thisPeriodicConfig Tests
-	for _, tag := range periodic.Tags {
-		if strings.HasPrefix(tag, "perfDashPrefix:") {
-			split := strings.SplitN(tag, ":", 2)
-			thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDashJobType:") {
-			split := strings.SplitN(tag, ":", 2)
-			jobType := strings.TrimSpace(split[1])
-			var exists bool
-			if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
-				return Tests{}, fmt.Errorf("unknown job type - %s", jobType)
-			}
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDashBuildsCount:") {
-			split := strings.SplitN(tag, ":", 2)
-			i, err := strconv.Atoi(strings.TrimSpace(split[1]))
-			if err != nil {
-				return Tests{}, fmt.Errorf("unparsable builds count - %v", split[1])
-			}
-			if i < 1 {
-				return Tests{}, fmt.Errorf("non-positive builds count - %v", i)
-			}
-			thisPeriodicConfig.BuildsCount = i
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDash") {
-			return Tests{}, fmt.Errorf("unknown perfdash tag name: %q", tag)
-		}
-	}
-	return thisPeriodicConfig, nil
-}
-
-func checkIfConfigShouldBeUsed(config Tests) (bool, error) {
-	if config.Prefix == "" && config.Descriptions == nil {
-		// This is expected case for jobs which are not expected to be visible in perfdash.
-		return false, nil
-	}
-	if config.Prefix == "" || config.Descriptions == nil {
-		return false, fmt.Errorf("none or both of prefix and job type must be specified")
-	}
-	return true, nil
 }

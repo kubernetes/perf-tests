@@ -74,6 +74,23 @@ spec:
       record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile
       labels:
         quantile: "0.50"
+  - name: apiserver.30s.rules
+    rules:
+    - expr: |
+        histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[30s])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_latency_30s:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket[30s])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_latency_30s:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[30s])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_latency_30s:histogram_quantile
+      labels:
+        quantile: "0.50"
   - name: apiserver.1m.rules
     rules:
     - expr: |

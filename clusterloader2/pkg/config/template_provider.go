@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"text/template"
 
@@ -172,22 +171,7 @@ func LoadTestSuite(path string) (api.TestSuite, error) {
 	if err = decodeInto(bin, &testSuite); err != nil {
 		return nil, err
 	}
-	if err = validateTestSuite(testSuite); err != nil {
-		return nil, err
-	}
 	return testSuite, nil
-}
-
-func validateTestSuite(suite api.TestSuite) error {
-	for _, scenario := range suite {
-		// Scenario identifiers cannot contain underscores. This is because underscores
-		// are used as separators in artifact filenames.
-		if strings.Contains(scenario.Identifier, "_") {
-			return fmt.Errorf("scenario identifiers cannot contain underscores: %q",
-				scenario.Identifier)
-		}
-	}
-	return nil
 }
 
 // LoadTestOverrides returns mapping from file specified by the given paths.

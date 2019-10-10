@@ -23,15 +23,13 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -139,9 +137,6 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 	if step.Name != "" {
 		klog.Infof("Step %q ended", step.Name)
 	}
-	if !errList.IsEmpty() {
-		klog.Warningf("Got errors during step execution: %v", errList)
-	}
 	return errList
 }
 
@@ -168,14 +163,9 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			}
 			instances, exists := ctx.GetState().GetNamespacesState().Get(nsName, id)
 			if !exists {
-				currentReplicaCount, err := getReplicaCountOfNewObject(ctx, nsName, &phase.ObjectBundle[j])
-				if err != nil {
-					errList.Append(err)
-					return errList
-				}
 				instances = &state.InstancesState{
 					DesiredReplicaCount: 0,
-					CurrentReplicaCount: currentReplicaCount,
+					CurrentReplicaCount: 0,
 					Object:              phase.ObjectBundle[j],
 				}
 			}
@@ -357,31 +347,4 @@ func cleanupResources(ctx Context) {
 		return
 	}
 	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
-}
-
-func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Object) (int32, error) {
-	if object.ListUnknownObjectOptions == nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: new object detected, will list objects in order to find num replicas", object.Basename)
-	selector, err := metav1.LabelSelectorAsSelector(object.ListUnknownObjectOptions.LabelSelector)
-	if err != nil {
-		return 0, err
-	}
-	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-	if err != nil {
-		return 0, err
-	}
-	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-	replicaCount, err := runtimeobjects.GetNumObjectsMatchingSelector(
-		ctx.GetClusterFramework().GetDynamicClients().GetClient(),
-		namespace,
-		gvr,
-		selector)
-	if err != nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: found %d replicas", object.Basename, replicaCount)
-	return int32(replicaCount), nil
 }

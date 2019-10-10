@@ -7,6 +7,7 @@
   {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 
 # Test Variales
+  {{$TEST_NAME := DefaultParam .TEST_NAME "generic-test"}}
   {{$PODS_PER_NODE := .PODS_PER_NODE}}
   {{$DEPLOYMENT_TEMPLATE_PATH := .DEPLOYMENT_TEMPLATE_PATH }}
   {{$VOLUMES_PER_POD := .VOLUMES_PER_POD}}
@@ -28,7 +29,7 @@
   {{$PVCBoundTime := MultiplyInt $totalVols 2 | MaxInt 60}}
 
 
-name: storage
+name: storage-{{$TEST_NAME}}
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
 - name: UniformQPS

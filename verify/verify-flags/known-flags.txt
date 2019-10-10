@@ -27,7 +27,6 @@ ping-server-bind-address
 ping-sleep-duration
 prometheus-scrape-etcd
 prometheus-scrape-kubelets
-prometheus-scrape-kube-proxy
 prometheus-scrape-node-exporter
 purge-after-seconds
 report-dir

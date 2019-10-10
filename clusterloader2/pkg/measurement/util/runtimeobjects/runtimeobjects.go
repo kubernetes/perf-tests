@@ -29,10 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
@@ -291,7 +290,7 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (in
 		return 0, nil
 	case *appsv1.DaemonSet:
 		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
-		return getNumSchedulableNodesMatchingSelector(c, typed.Spec.Template.Spec.NodeSelector)
+		return GetNumSchedulableNodesMatchingSelector(c, typed.Spec.Template.Spec.NodeSelector)
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {
 			return *typed.Spec.Parallelism, nil
@@ -302,8 +301,8 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (in
 	}
 }
 
-// getNumSchedulableNodesMatchingSelector returns the number of schedulable nodes matching the provided selector.
-func getNumSchedulableNodesMatchingSelector(c clientset.Interface, nodeSelector map[string]string) (int32, error) {
+// GetNumSchedulableNodesMatchingSelector returns the number of schedulable nodes matching the provided selector.
+func GetNumSchedulableNodesMatchingSelector(c clientset.Interface, nodeSelector map[string]string) (int32, error) {
 	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(nodeSelector))
 	if err != nil {
 		return 0, err
@@ -315,7 +314,7 @@ func getNumSchedulableNodesMatchingSelector(c clientset.Interface, nodeSelector 
 	}
 	var numSchedulableNodes int32
 	for _, node := range list {
-		if !node.Spec.Unschedulable {
+		if util.IsNodeSchedulableAndUntainted(&node) {
 			numSchedulableNodes++
 		}
 	}
@@ -339,7 +338,7 @@ func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[stri
 			return 0, err
 		}
 		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
-		return getNumSchedulableNodesMatchingSelector(c, nodeSelector)
+		return GetNumSchedulableNodesMatchingSelector(c, nodeSelector)
 	case "Job":
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
@@ -399,16 +398,4 @@ func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
 		return "", fmt.Errorf("retrieving name error: %v", err)
 	}
 	return namespace + "/" + name, nil
-}
-
-// GetNumObjectsMatchingSelector returns number of objects matching the given selector.
-func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resource schema.GroupVersionResource, labelSelector labels.Selector) (int, error) {
-	var numObjects int
-	listFunc := func() error {
-		list, err := c.Resource(resource).Namespace(namespace).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
-		numObjects = len(list.Items)
-		return err
-	}
-	err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc))
-	return numObjects, err
 }

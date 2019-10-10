@@ -5,6 +5,7 @@ metadata:
   namespace: default
   labels:
     app: perfdash
+    version: "2.11"
 spec:
   selector:
     matchLabels:
@@ -16,7 +17,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-testimages/perfdash:2.13
+        image: gcr.io/k8s-testimages/perfdash:2.11
         command:
           - /perfdash
           -   --www=true
@@ -39,8 +40,8 @@ spec:
         resources:
           requests:
             cpu: 600m
-            memory: 8Gi
+            memory: 4000Mi
           limits:
             cpu: 600m
-            memory: 8Gi
+            memory: 4000Mi
       restartPolicy: Always

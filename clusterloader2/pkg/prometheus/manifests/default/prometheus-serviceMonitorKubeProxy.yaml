@@ -1,6 +1,3 @@
-{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
-
-{{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -24,4 +21,3 @@ spec:
   selector:
     matchLabels:
       k8s-app: kube-proxy
-{{end}}

@@ -237,8 +237,6 @@ func main() {
 	var prometheusController *prometheus.PrometheusController
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
-		// Pass overrides to prometheus controller
-		clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
 		if prometheusController, err = prometheus.NewPrometheusController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}

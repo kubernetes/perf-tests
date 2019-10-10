@@ -34,7 +34,7 @@ case "$1" in
     cd ${PERFTEST_ROOT}/network/benchmarks/netperf/ && go run ./launch.go  --kubeConfig="${HOME}/.kube/config" --hostnetworking --iterations 1
     exit
     ;;
-  kube-dns|core-dns|node-local-dns )
+  kube-dns|core-dns )
     cd ${PERFTEST_ROOT}/dns
     ./run $@
     exit
@@ -44,7 +44,6 @@ case "$1" in
     echo  " network-performance           Run Network Performance Test"
     echo  " kube-dns                      Run Kube-DNS test"
     echo  " core-dns                      Run Core-DNS test"
-    echo  " node-local-dns                Run NodeLocalDNS test"
     exit
     ;;
 esac

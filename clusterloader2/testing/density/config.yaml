@@ -3,11 +3,9 @@
 # - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
 
 #Constants
-{{$DENSITY_RESOURCE_CONSTRAINTS_FILE := DefaultParam .DENSITY_RESOURCE_CONSTRAINTS_FILE ""}}
-{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
-{{$DENSITY_TEST_THROUGHPUT := DefaultParam .DENSITY_TEST_THROUGHPUT 20}}
+{{$TEST_THROUGHPUT := DefaultParam .TEST_THROUGHPUT 20}}
 # LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
 # Increasing allocation of both memory and cpu by 10%
 # decreases the value of priority function in scheduler by one point.
@@ -16,19 +14,15 @@
 {{$LATENCY_POD_MEMORY := DefaultParam .LATENCY_POD_MEMORY 400}}
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
-{{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
-{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
-{{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
+
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
-{{$saturationRCTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
-# saturationRCHardTimeout must be at least 20m to make sure that ~10m node
-# failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
-{{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 1200}}
+{{$saturationRCTimeout := DivideFloat $totalPods $TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
+
 
 name: density
 automanagedNamespaces: {{$namespaces}}
@@ -36,47 +30,25 @@ tuningSets:
 - name: Uniform5qps
   qpsLoad:
     qps: 5
-{{if $ENABLE_CHAOSMONKEY}}
-chaosMonkey:
-  nodeFailure:
-    failureRate: 0.01
-    interval: 1m
-    jitterFactor: 10.0
-    simulatedDowntime: 10m
-{{end}}
 steps:
 - measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:
       action: reset
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: start
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
       action: start
-      nodeMode: {{$NODE_MODE}}
-      resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
 # Create saturation pods
-- measurements:
-  - Identifier: SaturationPodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = saturation
-      threshold: {{$saturationRCTimeout}}s
 - measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
+      kind: ReplicationController
       labelSelector: group = saturation
-      operationTimeout: {{$saturationRCHardTimeout}}s
+      operationTimeout: {{$saturationRCTimeout}}s
 - phases:
   - namespaceRange:
       min: 1
@@ -85,7 +57,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
         Group: saturation
@@ -100,11 +72,6 @@ steps:
 - measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-- measurements:
-  - Identifier: SaturationPodStartupLatency
-    Method: PodStartupLatency
     Params:
       action: gather
 - measurements:
@@ -125,10 +92,9 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
+      kind: ReplicationController
       labelSelector: group = latency
-      operationTimeout: 15m
+      operationTimeout: 10m
 - phases:
   - namespaceRange:
       min: 1
@@ -137,7 +103,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-pod-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         Replicas: 1
         Group: latency
@@ -158,7 +124,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-pod-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
@@ -169,7 +135,7 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
-- name: Deleting latency pods
+- name: Deleting latancy pods
 # Delete pods
 - phases:
   - namespaceRange:
@@ -179,7 +145,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
 - measurements:
   - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
@@ -192,13 +158,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
-      enableViolations: true
-      {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

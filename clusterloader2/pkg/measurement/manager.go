@@ -62,6 +62,7 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		TemplateProvider:    mm.templateProvider,
 		Identifier:          identifier,
 		CloudProvider:       mm.clusterLoaderConfig.ClusterConfig.Provider,
+		ClusterLoaderConfig: mm.clusterLoaderConfig,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)

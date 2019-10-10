@@ -48,6 +48,10 @@ func init() {
 type netProgGatherer struct{}
 
 func (n *netProgGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
+	// Disable NetworkProgrammingLatency measurement if scraping kube-proxy is disabled.
+	if !config.ClusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy {
+		return false
+	}
 	return config.CloudProvider != "kubemark"
 }
 

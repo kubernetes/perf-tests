@@ -28,12 +28,14 @@ import (
 func (in *List) DeepCopyInto(out *List) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]runtime.Object, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
+			if (*in)[i] == nil {
+				(*out)[i] = nil
+			} else {
 				(*out)[i] = (*in)[i].DeepCopyObject()
 			}
 		}
@@ -63,16 +65,24 @@ func (in *List) DeepCopyObject() runtime.Object {
 func (in *ListOptions) DeepCopyInto(out *ListOptions) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	if in.LabelSelector != nil {
+	if in.LabelSelector == nil {
+		out.LabelSelector = nil
+	} else {
 		out.LabelSelector = in.LabelSelector.DeepCopySelector()
 	}
-	if in.FieldSelector != nil {
+	if in.FieldSelector == nil {
+		out.FieldSelector = nil
+	} else {
 		out.FieldSelector = in.FieldSelector.DeepCopySelector()
 	}
 	if in.TimeoutSeconds != nil {
 		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
-		*out = new(int64)
-		**out = **in
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(int64)
+			**out = **in
+		}
 	}
 	return
 }

@@ -18,85 +18,58 @@ package framework
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	"k8s.io/client-go/dynamic"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+const (
+	// AutomanagedNamespaceName is a basename for automanaged namespaces.
+	AutomanagedNamespaceName = "namespace"
+)
+
 // Framework allows for interacting with Kubernetes cluster via
 // official Kubernetes client.
 type Framework struct {
-	automanagedNamespacePrefix string
-	automanagedNamespaceCount  int
-	clientSets                 *MultiClientSet
-	dynamicClients             *MultiDynamicClient
-	clusterConfig              *config.ClusterConfig
+	automanagedNamespaceCount int
+	clientSet                 clientset.Interface
+	dynamicClient             dynamic.Interface
 }
 
-// NewFramework creates new framework based on given clusterConfig.
-func NewFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Framework, error) {
-	return newFramework(clusterConfig, clientsNumber, clusterConfig.KubeConfigPath)
-}
-
-// NewRootFramework creates framework for the root cluster.
-// For clusters other than kubemark there is no difference between NewRootFramework and NewFramework.
-func NewRootFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Framework, error) {
-	kubeConfigPath := clusterConfig.KubeConfigPath
-	if clusterConfig.Provider == "kubemark" {
-		kubeConfigPath = clusterConfig.KubemarkRootKubeConfigPath
+// NewFramework creates new framework based on given kubeconfig.
+func NewFramework(kubeconfigPath string) (*Framework, error) {
+	conf, err := config.PrepareConfig(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("config prepare failed: %v", err)
 	}
-	return newFramework(clusterConfig, clientsNumber, kubeConfigPath)
-}
-
-func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeConfigPath string) (*Framework, error) {
-	var err error
-	f := Framework{
+	clientSet, err := clientset.NewForConfig(conf)
+	if err != nil {
+		return nil, fmt.Errorf("creating clientset failed: %v", err)
+	}
+	dynamicClient, err := dynamic.NewForConfig(conf)
+	if err != nil {
+		return nil, fmt.Errorf("creating dynamic config failed: %v", err)
+	}
+	return &Framework{
 		automanagedNamespaceCount: 0,
-		clusterConfig:             clusterConfig,
-	}
-	if f.clientSets, err = NewMultiClientSet(kubeConfigPath, clientsNumber); err != nil {
-		return nil, fmt.Errorf("multi client set creation error: %v", err)
-	}
-	if f.dynamicClients, err = NewMultiDynamicClient(kubeConfigPath, clientsNumber); err != nil {
-		return nil, fmt.Errorf("multi dynamic client creation error: %v", err)
-	}
-	return &f, nil
+		clientSet:                 clientSet,
+		dynamicClient:             dynamicClient,
+	}, nil
 }
 
-// GetAutomanagedNamespacePrefix returns automanaged namespace prefix.
-func (f *Framework) GetAutomanagedNamespacePrefix() string {
-	return f.automanagedNamespacePrefix
-}
-
-// SetAutomanagedNamespacePrefix sets automanaged namespace prefix.
-func (f *Framework) SetAutomanagedNamespacePrefix(nsName string) {
-	f.automanagedNamespacePrefix = nsName
-}
-
-// GetClientSets returns clientSet clients.
-func (f *Framework) GetClientSets() *MultiClientSet {
-	return f.clientSets
-}
-
-// GetDynamicClients returns dynamic clients.
-func (f *Framework) GetDynamicClients() *MultiDynamicClient {
-	return f.dynamicClients
-}
-
-// GetClusterConfig returns cluster config.
-func (f *Framework) GetClusterConfig() *config.ClusterConfig {
-	return f.clusterConfig
+// GetClientSet returns clientSet client.
+func (f *Framework) GetClientSet() clientset.Interface {
+	return f.clientSet
 }
 
 // CreateAutomanagedNamespaces creates automanged namespaces.
@@ -105,8 +78,8 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 		return fmt.Errorf("automanaged namespaces already created")
 	}
 	for i := 1; i <= namespaceCount; i++ {
-		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
-		if err := client.CreateNamespace(f.clientSets.GetClient(), name); err != nil {
+		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
+		if err := client.CreateNamespace(f.clientSet, name); err != nil {
 			return err
 		}
 		f.automanagedNamespaceCount++
@@ -117,12 +90,12 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 // ListAutomanagedNamespaces returns all existing automanged namespace names.
 func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
 	var automanagedNamespacesList []string
-	namespacesList, err := client.ListNamespaces(f.clientSets.GetClient())
+	namespacesList, err := client.ListNamespaces(f.clientSet)
 	if err != nil {
 		return automanagedNamespacesList, err
 	}
 	for _, namespace := range namespacesList {
-		matched, err := f.isAutomanagedNamespace(namespace.Name)
+		matched, err := isAutomanagedNamespace(namespace.Name)
 		if err != nil {
 			return automanagedNamespacesList, err
 		}
@@ -134,18 +107,17 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
-func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
+func (f *Framework) DeleteAutomanagedNamespaces() *util.ErrorList {
 	var wg wait.Group
-	errList := errors.NewErrorList()
+	errList := util.NewErrorList()
 	for i := 1; i <= f.automanagedNamespaceCount; i++ {
-		clientSet := f.clientSets.GetClient()
-		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
+		name := fmt.Sprintf("%v-%d", AutomanagedNamespaceName, i)
 		wg.Start(func() {
-			if err := client.DeleteNamespace(clientSet, name); err != nil {
+			if err := client.DeleteNamespace(f.clientSet, name); err != nil {
 				errList.Append(err)
 				return
 			}
-			if err := client.WaitForDeleteNamespace(clientSet, name); err != nil {
+			if err := client.WaitForDeleteNamespace(f.clientSet, name); err != nil {
 				errList.Append(err)
 			}
 		})
@@ -156,63 +128,25 @@ func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 }
 
 // CreateObject creates object base on given object description.
-func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.ApiCallOptions) error {
-	return client.CreateObject(f.dynamicClients.GetClient(), namespace, name, obj, options...)
+func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured) error {
+	return client.CreateObject(f.dynamicClient, namespace, name, obj)
 }
 
 // PatchObject updates object (using patch) with given name using given object description.
-func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.ApiCallOptions) error {
-	return client.PatchObject(f.dynamicClients.GetClient(), namespace, name, obj)
+func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured) error {
+	return client.PatchObject(f.dynamicClient, namespace, name, obj)
 }
 
 // DeleteObject deletes object with given name and group-version-kind.
-func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.ApiCallOptions) error {
-	return client.DeleteObject(f.dynamicClients.GetClient(), gvk, namespace, name)
+func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string) error {
+	return client.DeleteObject(f.dynamicClient, gvk, namespace, name)
 }
 
 // GetObject retrieves object with given name and group-version-kind.
-func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.ApiCallOptions) (*unstructured.Unstructured, error) {
-	return client.GetObject(f.dynamicClients.GetClient(), gvk, namespace, name)
+func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string) (*unstructured.Unstructured, error) {
+	return client.GetObject(f.dynamicClient, gvk, namespace, name)
 }
 
-// ApplyTemplatedManifests finds and applies all manifest template files matching the provided
-// manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.ApiCallOptions) error {
-	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
-	manifestGlob = os.ExpandEnv(manifestGlob)
-	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
-	manifests, err := filepath.Glob(manifestGlob)
-	if err != nil {
-		return err
-	}
-	for _, manifest := range manifests {
-		klog.Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), templateMapping)
-		if err != nil {
-			if err == config.ErrorEmptyFile {
-				klog.Warningf("Skipping empty manifest %s", manifest)
-				continue
-			}
-			return err
-		}
-		objList := []unstructured.Unstructured{*obj}
-		if obj.IsList() {
-			list, err := obj.ToList()
-			if err != nil {
-				return err
-			}
-			objList = list.Items
-		}
-		for _, item := range objList {
-			if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
-				return fmt.Errorf("error while applying (%s): %v", manifest, err)
-			}
-		}
-
-	}
-	return nil
-}
-
-func (f *Framework) isAutomanagedNamespace(name string) (bool, error) {
-	return regexp.MatchString(f.automanagedNamespacePrefix+"-[1-9][0-9]*", name)
+func isAutomanagedNamespace(name string) (bool, error) {
+	return regexp.MatchString(AutomanagedNamespaceName+"-[1-9][0-9]*", name)
 }

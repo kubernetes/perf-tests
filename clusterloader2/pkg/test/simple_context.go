@@ -19,39 +19,30 @@ package test
 import (
 	"path/filepath"
 
-	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
-	"k8s.io/perf-tests/clusterloader2/pkg/tuningset"
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/ticker"
 )
 
 type simpleContext struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
-	clusterFramework    *framework.Framework
-	prometheusFramework *framework.Framework
-	state               *state.State
-	templateMapping     map[string]interface{}
+	framework           *framework.Framework
+	state               *state.NamespacesState
 	templateProvider    *config.TemplateProvider
-	tuningSetFactory    tuningset.TuningSetFactory
+	tickerFactory       ticker.TickerFactory
 	measurementManager  *measurement.MeasurementManager
-	chaosMonkey         *chaos.Monkey
 }
 
-func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, templateMapping map[string]interface{}) Context {
-	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestScenario.ConfigPath))
+func createSimpleContext(c *config.ClusterLoaderConfig, f *framework.Framework, s *state.NamespacesState) Context {
 	return &simpleContext{
 		clusterLoaderConfig: c,
-		clusterFramework:    f,
-		prometheusFramework: p,
+		framework:           f,
 		state:               s,
-		templateMapping:     util.CloneMap(templateMapping),
-		templateProvider:    templateProvider,
-		tuningSetFactory:    tuningset.NewTuningSetFactory(),
-		measurementManager:  measurement.CreateMeasurementManager(f, p, templateProvider, c),
-		chaosMonkey:         chaos.NewMonkey(f.GetClientSets().GetClient(), c.ClusterConfig.Provider),
+		templateProvider:    config.NewTemplateProvider(filepath.Dir(c.TestConfigPath)),
+		tickerFactory:       ticker.NewTickerFactory(),
+		measurementManager:  measurement.CreateMeasurementManager(f.GetClientSet()),
 	}
 }
 
@@ -60,18 +51,13 @@ func (sc *simpleContext) GetClusterLoaderConfig() *config.ClusterLoaderConfig {
 	return sc.clusterLoaderConfig
 }
 
-// GetFramework returns cluster framework.
-func (sc *simpleContext) GetClusterFramework() *framework.Framework {
-	return sc.clusterFramework
-}
-
-// GetFramework returns prometheus framework.
-func (sc *simpleContext) GetPrometheusFramework() *framework.Framework {
-	return sc.prometheusFramework
+// GetFramework returns framework.
+func (sc *simpleContext) GetFramework() *framework.Framework {
+	return sc.framework
 }
 
 // GetState returns current test state.
-func (sc *simpleContext) GetState() *state.State {
+func (sc *simpleContext) GetState() *state.NamespacesState {
 	return sc.state
 }
 
@@ -80,22 +66,12 @@ func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
 	return sc.templateProvider
 }
 
-// GetTemplateMappingCopy returns a copy of template mapping.
-func (sc *simpleContext) GetTemplateMappingCopy() map[string]interface{} {
-	return util.CloneMap(sc.templateMapping)
+// GetTickerFactory returns ticker factory.
+func (sc *simpleContext) GetTickerFactory() ticker.TickerFactory {
+	return sc.tickerFactory
 }
 
-// GetTickerFactory returns tuning set factory.
-func (sc *simpleContext) GetTuningSetFactory() tuningset.TuningSetFactory {
-	return sc.tuningSetFactory
-}
-
-// GetMeasurementManager returns measurement manager.
+// GetMeasurementManager returns measurment manager.
 func (sc *simpleContext) GetMeasurementManager() *measurement.MeasurementManager {
 	return sc.measurementManager
-}
-
-// GetChaosMonkey returns chaos monkey.
-func (sc *simpleContext) GetChaosMonkey() *chaos.Monkey {
-	return sc.chaosMonkey
 }

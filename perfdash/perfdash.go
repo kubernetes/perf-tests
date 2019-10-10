@@ -18,12 +18,11 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -32,26 +31,12 @@ const (
 	maxBuilds    = 100
 )
 
-var options = &GoogleGCSDownloaderOptions{}
-
 var (
-	addr   = pflag.String("address", ":8080", "The address to serve web data on")
-	www    = pflag.Bool("www", false, "If true, start a web-server to server performance data")
-	wwwDir = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
-
-	storageUrl = pflag.String("storageUrl", "https://k8s-gubernator.appspot.com/build", "Name of the data bucket")
-
-	globalConfig = make(map[string]string)
+	addr   = flag.String("address", ":8080", "The address to serve web data on")
+	www    = flag.Bool("www", false, "If true, start a web-server to server performance data")
+	wwwDir = flag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
+	builds = flag.Int("builds", maxBuilds, "Total builds number")
 )
-
-func initGoogleDownloaderOptions() {
-	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. This would override values defined by \"perfDashBuildsCount\" label on prow job")
-	pflag.IntVar(&options.DefaultBuildsCount, "builds", maxBuilds, "Total builds number")
-	pflag.StringArrayVar(&options.ConfigPaths, "configPath", []string{}, "Paths/urls to the prow config")
-	pflag.StringVar(&options.CredentialPath, "credentialPath", "", "Path to the gcs credential json")
-	pflag.StringVar(&options.LogsBucket, "logsBucket", "kubernetes-jenkins", "Name of the data bucket")
-	pflag.StringVar(&options.LogsPath, "logsPath", "logs", "Path to the logs inside the logs bucket")
-}
 
 func main() {
 	fmt.Println("Starting perfdash...")
@@ -62,25 +47,18 @@ func main() {
 }
 
 func run() error {
-	initGoogleDownloaderOptions()
-	pflag.Parse()
-	initGlobalConfig()
+	flag.Parse()
 
-	fmt.Printf("config paths - %d\n", len(options.ConfigPaths))
-	for i := 0; i < len(options.ConfigPaths); i++ {
-		fmt.Printf("config path %d: %s\n", i+1, (options.ConfigPaths)[i])
+	if *builds > maxBuilds || *builds < 0 {
+		fmt.Printf("Invalid number of builds: %d, setting to %d\n", *builds, maxBuilds)
+		*builds = maxBuilds
 	}
 
-	if options.DefaultBuildsCount > maxBuilds || options.DefaultBuildsCount < 0 {
-		fmt.Printf("Invalid number of builds: %d, setting to %d\n", options.DefaultBuildsCount, maxBuilds)
-		options.DefaultBuildsCount = maxBuilds
-	}
-
-	downloader, err := NewGoogleGCSDownloader(options)
-	if err != nil {
-		panic(err)
-	}
+	// TODO(random-liu): Add a top layer downloader to download build log from different buckets when we support
+	// more buckets in the future.
+	downloader := NewGoogleGCSDownloader(*builds)
 	result := make(JobToCategoryData)
+	var err error
 
 	if !*www {
 		result, err = downloader.getData()
@@ -115,16 +93,5 @@ func run() error {
 	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
 	http.HandleFunc("/metricnames", result.ServeMetricNames)
 	http.HandleFunc("/buildsdata", result.ServeBuildsData)
-	http.HandleFunc("/config", serveConfig)
 	return http.ListenAndServe(*addr, nil)
-}
-
-func initGlobalConfig() {
-	globalConfig["logsBucket"] = options.LogsBucket
-	globalConfig["logsPath"] = options.LogsPath
-	globalConfig["storageUrl"] = *storageUrl
-}
-
-func serveConfig(res http.ResponseWriter, req *http.Request) {
-	serveHTTPObject(res, req, &globalConfig)
 }

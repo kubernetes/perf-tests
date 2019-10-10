@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 // Fork from kubernetes/test/utils - necessary to make the types match...

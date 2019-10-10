@@ -18,97 +18,50 @@ package common
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
-	"k8s.io/klog"
+	"github.com/golang/glog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
-const (
-	timerMeasurementName = "Timer"
-)
-
 func init() {
-	if err := measurement.Register(timerMeasurementName, createTimerMeasurment); err != nil {
-		klog.Fatalf("Cannot register %s: %v", timerMeasurementName, err)
-	}
+	measurement.Register("Timer", createTimerMeasurment)
 }
 
 func createTimerMeasurment() measurement.Measurement {
-	return &timer{
-		startTimes: make(map[string]time.Time),
-		durations:  make(map[string]time.Duration),
-	}
+	return &timer{}
 }
 
 type timer struct {
-	lock       sync.Mutex
-	startTimes map[string]time.Time
-	durations  map[string]time.Duration
+	startTime time.Time
 }
 
 // Execute supports two actions. start - which start timer. stop - which stops timer
-// and collects time duration between start and stop.
-// Both start and stop actions require label parameter to be provided.
-// Gather action logs a measurement for all collected phases durations.
+// and prints to log time duration between start and stop.
+// Stop action requires label parameter to be provided.
 func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
-		return nil, err
+		return summaries, err
 	}
 
-	t.lock.Lock()
-	defer t.lock.Unlock()
 	switch action {
 	case "start":
-		label, err := util.GetString(config.Params, "label")
-		if err != nil {
-			return nil, err
-		}
-		t.startTimes[label] = time.Now()
+		t.startTime = time.Now()
 	case "stop":
 		label, err := util.GetString(config.Params, "label")
 		if err != nil {
-			return nil, err
+			return summaries, err
 		}
-		startTime, ok := t.startTimes[label]
-		if !ok {
-			return nil, fmt.Errorf("uninitialized timer %s", label)
+		if t.startTime.IsZero() {
+			return summaries, fmt.Errorf("uninitialized timer")
 		}
-		duration := time.Since(startTime)
-		klog.Infof("%s: %s - %v", t, label, duration)
-		t.durations[label] = duration
-		delete(t.startTimes, label)
-	case "gather":
-		result := measurementutil.PerfData{
-			Version: "v1",
-			DataItems: []measurementutil.DataItem{{
-				Unit:   "s",
-				Labels: map[string]string{"test": "phases"},
-				Data:   make(map[string]float64)}}}
-
-		for label, duration := range t.durations {
-			result.DataItems[0].Data[label] = duration.Seconds()
-		}
-		content, err := util.PrettyPrintJSON(result)
-		if err != nil {
-			return nil, err
-		}
-		summary := measurement.CreateSummary(timerMeasurementName, "json", content)
-		return []measurement.Summary{summary}, nil
+		glog.Infof("%s: %v", label, time.Since(t.startTime))
+		t.startTime = time.Time{}
 	default:
-		return nil, fmt.Errorf("unknown action %s", action)
+		return summaries, fmt.Errorf("unknown action %s", action)
 	}
-	return nil, nil
-}
-
-// Dispose cleans up after the measurement.
-func (t *timer) Dispose() {}
-
-// String returns string representation of this measurement.
-func (*timer) String() string {
-	return timerMeasurementName
+	return summaries, nil
 }

@@ -61,8 +61,3 @@ func (mc *measurementFactory) createMeasurement(methodName string) (Measurement,
 func Register(methodName string, createFunc createMeasurementFunc) error {
 	return factory.register(methodName, createFunc)
 }
-
-// CreateMeasurement creates measurement instance.
-func CreateMeasurement(methodName string) (Measurement, error) {
-	return factory.createMeasurement(methodName)
-}

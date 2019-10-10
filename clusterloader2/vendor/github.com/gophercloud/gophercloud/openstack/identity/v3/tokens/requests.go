@@ -52,28 +52,19 @@ type AuthOptions struct {
 	// authentication token ID.
 	TokenID string `json:"-"`
 
-	// Authentication through Application Credentials requires supplying name, project and secret
-	// For project we can use TenantID
-	ApplicationCredentialID     string `json:"-"`
-	ApplicationCredentialName   string `json:"-"`
-	ApplicationCredentialSecret string `json:"-"`
-
 	Scope Scope `json:"-"`
 }
 
 // ToTokenV3CreateMap builds a request body from AuthOptions.
 func (opts *AuthOptions) ToTokenV3CreateMap(scope map[string]interface{}) (map[string]interface{}, error) {
 	gophercloudAuthOpts := gophercloud.AuthOptions{
-		Username:                    opts.Username,
-		UserID:                      opts.UserID,
-		Password:                    opts.Password,
-		DomainID:                    opts.DomainID,
-		DomainName:                  opts.DomainName,
-		AllowReauth:                 opts.AllowReauth,
-		TokenID:                     opts.TokenID,
-		ApplicationCredentialID:     opts.ApplicationCredentialID,
-		ApplicationCredentialName:   opts.ApplicationCredentialName,
-		ApplicationCredentialSecret: opts.ApplicationCredentialSecret,
+		Username:    opts.Username,
+		UserID:      opts.UserID,
+		Password:    opts.Password,
+		DomainID:    opts.DomainID,
+		DomainName:  opts.DomainName,
+		AllowReauth: opts.AllowReauth,
+		TokenID:     opts.TokenID,
 	}
 
 	return gophercloudAuthOpts.ToTokenV3CreateMap(scope)

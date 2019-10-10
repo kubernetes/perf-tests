@@ -18,12 +18,13 @@ package test
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 var (
@@ -37,29 +38,37 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(clusterFramework, prometheusFramework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *errors.ErrorList {
-	if clusterFramework == nil {
-		return errors.NewErrorList(fmt.Errorf("framework must be provided"))
+func RunTest(f *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *util.ErrorList {
+	if f == nil {
+		return util.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
-		return errors.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
+		return util.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
 	}
 	if CreateContext == nil {
-		return errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
+		return util.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 	if Test == nil {
-		return errors.NewErrorList(fmt.Errorf("no Test installed"))
+		return util.NewErrorList(fmt.Errorf("no Test installed"))
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
-	if errList != nil {
-		return errList
+	if clusterLoaderConfig.ReportDir != "" {
+		if _, err := os.Stat(clusterLoaderConfig.ReportDir); err != nil {
+			if !os.IsNotExist(err) {
+				return util.NewErrorList(err)
+			}
+			if err = os.Mkdir(clusterLoaderConfig.ReportDir, 0755); err != nil {
+				return util.NewErrorList(fmt.Errorf("report directory creation error: %v", err))
+			}
+		}
 	}
-	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), mapping)
-	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
+
+	ctx := CreateContext(clusterLoaderConfig, f, state.NewNamespacesState())
+	testConfigFilename := filepath.Base(clusterLoaderConfig.TestConfigPath)
+	mapping := map[string]interface{}{"Nodes": clusterLoaderConfig.ClusterConfig.Nodes}
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
+		return util.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
 	return Test.ExecuteTest(ctx, testConfig)
 }

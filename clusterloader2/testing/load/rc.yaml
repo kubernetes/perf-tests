@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: {{.Name}}
+  labels:
+    kind: loadRC
+spec:
+  replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
+  selector:
+    name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+    spec:
+      containers:
+      - image: k8s.gcr.io/pause:3.1
+        name: {{.Name}}
+        resources:
+          requests:
+            cpu: 10m
+            memory: "10M"

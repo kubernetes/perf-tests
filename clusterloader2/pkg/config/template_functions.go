@@ -18,17 +18,10 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
-	"math"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"text/template"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -38,31 +31,17 @@ func init() {
 // GetFuncs returns map of names to functions, that are supported by template provider.
 func GetFuncs() template.FuncMap {
 	return template.FuncMap{
-		"AddFloat":      addFloat,
-		"AddInt":        addInt,
-		"DefaultParam":  defaultParam,
-		"DivideFloat":   divideFloat,
-		"DivideInt":     divideInt,
-		"IfThenElse":    ifThenElse,
-		"IncludeFile":   includeFile,
-		"MaxFloat":      maxFloat,
-		"MaxInt":        maxInt,
-		"MinFloat":      minFloat,
-		"MinInt":        minInt,
-		"Mod":           mod,
-		"MultiplyFloat": multiplyFloat,
-		"MultiplyInt":   multiplyInt,
 		"RandInt":       randInt,
 		"RandIntRange":  randIntRange,
-		"Seq":           seq,
-		"SubtractFloat": subtractFloat,
+		"AddInt":        addInt,
 		"SubtractInt":   subtractInt,
-		"YamlQuote":     yamlQuote,
+		"MultiplyInt":   multiplyInt,
+		"DivideInt":     divideInt,
+		"AddFloat":      addFloat,
+		"SubtractFloat": subtractFloat,
+		"MultiplyFloat": multiplyFloat,
+		"DivideFloat":   divideFloat,
 	}
-}
-
-func seq(size interface{}) []int {
-	return make([]int, int(toFloat64(size)))
 }
 
 func toFloat64(val interface{}) float64 {
@@ -109,28 +88,26 @@ func randIntRange(i, j interface{}) int {
 	return typedI + rand.Intn(typedJ-typedI+1)
 }
 
-func addInt(numbers ...interface{}) int {
-	return int(addFloat(numbers...))
+func addInt(i, j interface{}) int {
+	return int(addFloat(i, j))
 }
 
 func subtractInt(i, j interface{}) int {
 	return int(subtractFloat(i, j))
 }
 
-func multiplyInt(numbers ...interface{}) int {
-	return int(multiplyFloat(numbers...))
+func multiplyInt(i, j interface{}) int {
+	return int(multiplyFloat(i, j))
 }
 
 func divideInt(i, j interface{}) int {
 	return int(divideFloat(i, j))
 }
 
-func addFloat(numbers ...interface{}) float64 {
-	sum := 0.0
-	for _, number := range numbers {
-		sum += toFloat64(number)
-	}
-	return sum
+func addFloat(i, j interface{}) float64 {
+	typedI := toFloat64(i)
+	typedJ := toFloat64(j)
+	return typedI + typedJ
 }
 
 func subtractFloat(i, j interface{}) float64 {
@@ -139,102 +116,14 @@ func subtractFloat(i, j interface{}) float64 {
 	return typedI - typedJ
 }
 
-func multiplyFloat(numbers ...interface{}) float64 {
-	product := 1.0
-	for _, number := range numbers {
-		product *= toFloat64(number)
-	}
-	return product
+func multiplyFloat(i, j interface{}) float64 {
+	typedI := toFloat64(i)
+	typedJ := toFloat64(j)
+	return typedI * typedJ
 }
 
 func divideFloat(i, j interface{}) float64 {
 	typedI := toFloat64(i)
 	typedJ := toFloat64(j)
 	return typedI / typedJ
-}
-
-func maxInt(numbers ...interface{}) int {
-	return int(maxFloat(numbers...))
-}
-
-func minInt(numbers ...interface{}) int {
-	return int(minFloat(numbers...))
-}
-
-func maxFloat(numbers ...interface{}) float64 {
-	if len(numbers) == 0 {
-		panic("maximum undefined")
-	}
-	max := toFloat64(numbers[0])
-	for _, number := range numbers {
-		max = math.Max(max, toFloat64(number))
-	}
-	return max
-}
-
-func minFloat(numbers ...interface{}) float64 {
-	if len(numbers) == 0 {
-		panic("minimum undefined")
-	}
-	min := toFloat64(numbers[0])
-	for _, number := range numbers {
-		min = math.Min(min, toFloat64(number))
-	}
-	return min
-}
-
-func mod(a interface{}, b interface{}) int {
-	return int(toFloat64(a)) % int(toFloat64(b))
-}
-
-func defaultParam(param, defaultValue interface{}) interface{} {
-	if param == nil {
-		return defaultValue
-	}
-	return param
-}
-
-// includeFile reads file. 'file' is relative to ./clusterloader2 binary.
-func includeFile(file interface{}) (string, error) {
-	fileStr, ok := file.(string)
-	if !ok {
-		return "", fmt.Errorf("incorrect argument type: got: %T want: string", file)
-	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("unable to determine executable path: %v", err)
-	}
-
-	path := filepath.Join(filepath.Dir(ex), fileStr)
-	data, err := ioutil.ReadFile(path)
-	return string(data), nil
-}
-
-// yamlQuote quotes yaml string aligning each output lin by tabsInt.
-func yamlQuote(strInt interface{}, tabsInt interface{}) (string, error) {
-	str, ok := strInt.(string)
-	if !ok {
-		return "", fmt.Errorf("incorrect argument type: got: %T want: string", strInt)
-	}
-	tabs, ok := tabsInt.(int)
-	if !ok {
-		return "", fmt.Errorf("incorrect argument type: got: %T want: int", tabsInt)
-	}
-	tabsStr := strings.Repeat("  ", tabs)
-	b, err := yaml.Marshal(&str)
-	// TODO(oxddr): change back to strings.ReplaceAll once we figure out how to compile clusterloader2
-	// with newer versions of go for tests against stable version of K8s
-	return strings.Replace(string(b), "\n", "\n"+tabsStr, -1), err
-}
-
-func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface{}) (interface{}, error) {
-	condition, ok := conditionVal.(bool)
-	if !ok {
-		return nil, fmt.Errorf("incorrect argument type: got: %T want: bool", conditionVal)
-	}
-	if condition {
-		return thenVal, nil
-	}
-	return elseVal, nil
 }

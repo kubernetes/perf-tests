@@ -40,11 +40,6 @@ func (utils MockJobLogUtils) GetLatestBuildNumberForJob(job string) (int, error)
 	return utils.MockBuildNumbers[length-1], nil
 }
 
-// GetBuildNumbersForJob return list of build numbers.
-func (utils MockJobLogUtils) GetBuildNumbersForJob(job string) ([]int, error) {
-	return utils.MockBuildNumbers, nil
-}
-
 // GetJobRunStartTimestamp returns start timestamp for the job run.
 func (utils MockJobLogUtils) GetJobRunStartTimestamp(job string, run int) (uint64, error) {
 	value, ok := utils.MockStartTimestamps[run]

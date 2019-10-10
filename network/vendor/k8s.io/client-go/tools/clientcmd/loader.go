@@ -30,13 +30,13 @@ import (
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/schema"
+	utilerrors "k8s.io/client-go/pkg/util/errors"
+	"k8s.io/client-go/pkg/util/homedir"
+	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
-	"k8s.io/client-go/util/homedir"
 )
 
 const (
@@ -47,11 +47,8 @@ const (
 	RecommendedSchemaName       = "schema"
 )
 
-var (
-	RecommendedConfigDir  = path.Join(homedir.HomeDir(), RecommendedHomeDir)
-	RecommendedHomeFile   = path.Join(RecommendedConfigDir, RecommendedFileName)
-	RecommendedSchemaFile = path.Join(RecommendedConfigDir, RecommendedSchemaName)
-)
+var RecommendedHomeFile = path.Join(homedir.HomeDir(), RecommendedHomeDir, RecommendedFileName)
+var RecommendedSchemaFile = path.Join(homedir.HomeDir(), RecommendedHomeDir, RecommendedSchemaName)
 
 // currentMigrationRules returns a map that holds the history of recommended home directories used in previous versions.
 // Any future changes to RecommendedHomeFile and related are expected to add a migration rule here, in order to make
@@ -71,7 +68,7 @@ func currentMigrationRules() map[string]string {
 type ClientConfigLoader interface {
 	ConfigAccess
 	// IsDefaultConfig returns true if the returned config matches the defaults.
-	IsDefaultConfig(*restclient.Config) bool
+	IsDefaultConfig(*rest.Config) bool
 	// Load returns the latest config
 	Load() (*clientcmdapi.Config, error)
 }
@@ -104,14 +101,14 @@ func (g *ClientConfigGetter) IsExplicitFile() bool {
 func (g *ClientConfigGetter) GetExplicitFile() string {
 	return ""
 }
-func (g *ClientConfigGetter) IsDefaultConfig(config *restclient.Config) bool {
+func (g *ClientConfigGetter) IsDefaultConfig(config *rest.Config) bool {
 	return false
 }
 
 // ClientConfigLoadingRules is an ExplicitPath and string slice of specific locations that are used for merging together a Config
 // Callers can put the chain together however they want, but we'd recommend:
 // EnvVarPathFiles if set (a list of files if set) OR the HomeDirectoryPath
-// ExplicitPath is special, because if a user specifically requests a certain file be used and error is reported if this file is not present
+// ExplicitPath is special, because if a user specifically requests a certain file be used and error is reported if thie file is not present
 type ClientConfigLoadingRules struct {
 	ExplicitPath string
 	Precedence   []string
@@ -139,9 +136,7 @@ func NewDefaultClientConfigLoadingRules() *ClientConfigLoadingRules {
 
 	envVarFiles := os.Getenv(RecommendedConfigPathEnvVar)
 	if len(envVarFiles) != 0 {
-		fileList := filepath.SplitList(envVarFiles)
-		// prevent the same path load multiple times
-		chain = append(chain, deduplicate(fileList)...)
+		chain = append(chain, filepath.SplitList(envVarFiles)...)
 
 	} else {
 		chain = append(chain, RecommendedHomeFile)
@@ -211,7 +206,7 @@ func (rules *ClientConfigLoadingRules) Load() (*clientcmdapi.Config, error) {
 	mapConfig := clientcmdapi.NewConfig()
 
 	for _, kubeconfig := range kubeconfigs {
-		mergo.MergeWithOverwrite(mapConfig, kubeconfig)
+		mergo.Merge(mapConfig, kubeconfig)
 	}
 
 	// merge all of the struct values in the reverse order so that priority is given correctly
@@ -219,14 +214,14 @@ func (rules *ClientConfigLoadingRules) Load() (*clientcmdapi.Config, error) {
 	nonMapConfig := clientcmdapi.NewConfig()
 	for i := len(kubeconfigs) - 1; i >= 0; i-- {
 		kubeconfig := kubeconfigs[i]
-		mergo.MergeWithOverwrite(nonMapConfig, kubeconfig)
+		mergo.Merge(nonMapConfig, kubeconfig)
 	}
 
 	// since values are overwritten, but maps values are not, we can merge the non-map config on top of the map config and
 	// get the values we expect.
 	config := clientcmdapi.NewConfig()
-	mergo.MergeWithOverwrite(config, mapConfig)
-	mergo.MergeWithOverwrite(config, nonMapConfig)
+	mergo.Merge(config, mapConfig)
+	mergo.Merge(config, nonMapConfig)
 
 	if rules.ResolvePaths() {
 		if err := ResolveLocalPaths(config); err != nil {
@@ -335,7 +330,7 @@ func (rules *ClientConfigLoadingRules) GetExplicitFile() string {
 }
 
 // IsDefaultConfig returns true if the provided configuration matches the default
-func (rules *ClientConfigLoadingRules) IsDefaultConfig(config *restclient.Config) bool {
+func (rules *ClientConfigLoadingRules) IsDefaultConfig(config *rest.Config) bool {
 	if rules.DefaultClientConfig == nil {
 		return false
 	}
@@ -422,7 +417,7 @@ func WriteToFile(config clientcmdapi.Config, filename string) error {
 
 func lockFile(filename string) error {
 	// TODO: find a way to do this with actual file locks. Will
-	// probably need separate solution for windows and Linux.
+	// probably need seperate solution for windows and linux.
 
 	// Make sure the dir exists before we try to create a lock file.
 	dir := filepath.Dir(filename)
@@ -559,12 +554,7 @@ func GetClusterFileReferences(cluster *clientcmdapi.Cluster) []*string {
 }
 
 func GetAuthInfoFileReferences(authInfo *clientcmdapi.AuthInfo) []*string {
-	s := []*string{&authInfo.ClientCertificate, &authInfo.ClientKey, &authInfo.TokenFile}
-	// Only resolve exec command if it isn't PATH based.
-	if authInfo.Exec != nil && strings.ContainsRune(authInfo.Exec.Command, filepath.Separator) {
-		s = append(s, &authInfo.Exec.Command)
-	}
-	return s
+	return []*string{&authInfo.ClientCertificate, &authInfo.ClientKey, &authInfo.TokenFile}
 }
 
 // ResolvePaths updates the given refs to be absolute paths, relative to the given base directory
@@ -616,18 +606,4 @@ func MakeRelative(path, base string) (string, error) {
 		return rel, nil
 	}
 	return path, nil
-}
-
-// deduplicate removes any duplicated values and returns a new slice, keeping the order unchanged
-func deduplicate(s []string) []string {
-	encountered := map[string]bool{}
-	ret := make([]string, 0)
-	for i := range s {
-		if encountered[s[i]] {
-			continue
-		}
-		encountered[s[i]] = true
-		ret = append(ret, s[i])
-	}
-	return ret
 }

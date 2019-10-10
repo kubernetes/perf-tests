@@ -1,7 +1,10 @@
 {
-	"ImportPath": "k8s.io/perf-tests/perfdash",
-	"GoVersion": "go1.11",
+	"ImportPath": "k8s.io/contrib/perfdash",
+	"GoVersion": "go1.9",
 	"GodepVersion": "v80",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/ghodss/yaml",
@@ -72,7 +75,7 @@
 		},
 		{
 			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",
-			"Comment": "v1.0.1",
+			"Comment": "v1.0.0-2-gc12348c",
 			"Rev": "c12348ce28de40eed0136aa2b644d0ee0650e56c"
 		},
 		{
@@ -110,6 +113,10 @@
 		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",
 			"Rev": "b2aa35443fbc700ab74c586ae79b81c171851023"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "b3c676e531a6dc479fa1b35ac961c13f5e2b4d2e"
 		},
 		{
 			"ImportPath": "golang.org/x/net/http2",
@@ -160,13 +167,16 @@
 			"Rev": "26559e0f760e39c24d730d3224364aef164ee23f"
 		},
 		{
+			"ImportPath": "gopkg.in/check.v1",
+			"Rev": "20d25e2804050c1cd24a7eea1e7a6447dd0e74ec"
+		},
+		{
 			"ImportPath": "gopkg.in/inf.v0",
 			"Comment": "v0.9.1",
 			"Rev": "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
-			"Comment": "v2.2.1",
 			"Rev": "5420a8b6744d3b0345ab293f6fcba19c978f1183"
 		},
 		{
@@ -711,8 +721,8 @@
 		},
 		{
 			"ImportPath": "k8s.io/contrib/test-utils/utils",
-			"Comment": "cluster-autoscaler-0.5.1-467-g89f6948e",
-			"Rev": "89f6948e24578fed2a90a87871b2263729f90ac3"
+			"Comment": "cluster-autoscaler-0.5.1-383-g837806a6",
+			"Rev": "837806a61b60b9c153cc9e18725f56a39f7f3a2b"
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/pkg/apis/core",
@@ -731,12 +741,11 @@
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/test/e2e/framework/metrics",
-			"Comment": "v1.11.0-alpha.0-2155-g80bd7510df",
 			"Rev": "80bd7510df14e8d6042fdad9ff2d54f331e3f487"
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/test/e2e/perftype",
-			"Comment": "v1.11.0-alpha.0-2155-g80bd7510df",
+			"Comment": "v1.3.0-alpha.3-580-g6f288b3",
 			"Rev": "80bd7510df14e8d6042fdad9ff2d54f331e3f487"
 		}
 	]

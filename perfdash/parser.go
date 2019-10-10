@@ -19,16 +19,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/kubernetes/test/e2e/framework/metrics"
+	"k8s.io/kubernetes/test/e2e/perftype"
 	"math"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
-	"strings"
 	"time"
-
-	"k8s.io/kubernetes/test/e2e/framework/metrics"
-	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
 func stripCount(data *perftype.DataItem) {
@@ -50,7 +47,7 @@ func createRequestCountData(data *perftype.DataItem) error {
 	return nil
 }
 
-func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
+func parseResponsivenessData(data []byte, buildNumber int, testResult *BuildData) {
 	build := fmt.Sprintf("%d", buildNumber)
 	obj := perftype.PerfData{}
 	if err := json.Unmarshal(data, &obj); err != nil {
@@ -143,27 +140,25 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 	}
 }
 
-var commitMatcher = regexp.MustCompile("kubernetes/.{7}")
-var versionMatcher = regexp.MustCompile(`\/v?\d+\.\d+.\d+`)
+var versionMatcher = regexp.MustCompile("kubernetes/.{7}")
 
 func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
 	build := fmt.Sprintf("%d", buildNumber)
-	var obj metrics.Collection
+	var obj metrics.MetricsCollection
 	if err := json.Unmarshal(data, &obj); err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
 		return
 	}
-	if obj.APIServerMetrics == nil {
-		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
+	if obj.ApiServerMetrics == nil {
+		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d", buildNumber)
 		return
 	}
-	metric, ok := obj.APIServerMetrics["apiserver_request_count"]
+	metric, ok := obj.ApiServerMetrics["apiserver_request_count"]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d\n", buildNumber)
+		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d", buildNumber)
 		return
 	}
-	resultMap := make(map[string]*perftype.DataItem)
 	for i := range metric {
 		perfData := perftype.DataItem{Unit: "", Data: make(map[string]float64), Labels: make(map[string]string)}
 		for k, v := range metric[i].Metric {
@@ -171,69 +166,17 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 		}
 		delete(perfData.Labels, "__name__")
 		delete(perfData.Labels, "contentType")
-		dataLabel := "RequestCount"
 		if client, ok := perfData.Labels["client"]; ok {
 			// Client label contains kubernetes version, which is different
 			// in every build. This causes unnecessary creation on multiple different label sets
 			// for one metric.
 			// This fix removes kubernetes version from client label.
-			newClient := commitMatcher.ReplaceAllString(client, "kubernetes")
-			if version := versionMatcher.Find([]byte(newClient)); version != nil {
-				dataLabel = string(version)
-				newClient = strings.Replace(newClient, dataLabel, "", 1)
-			}
+			newClient := versionMatcher.ReplaceAllString(client, "kubernetes")
 			perfData.Labels["client"] = newClient
 		}
-		perfData.Data[dataLabel] = float64(metric[i].Value)
-		key := createMapId(perfData.Labels)
-		if result, exists := resultMap[key]; exists {
-			result.Data[dataLabel] += perfData.Data[dataLabel]
-			continue
-		}
-		resultMap[key] = &perfData
+		perfData.Data["RequestCount"] = float64(metric[i].Value)
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
-}
-
-func parseApiserverInitEventsCount(data []byte, buildNumber int, testResult *BuildData) {
-	testResult.Version = "v1"
-	build := fmt.Sprintf("%d", buildNumber)
-	var obj metrics.Collection
-	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
-		return
-	}
-	if obj.APIServerMetrics == nil {
-		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
-		return
-	}
-	metric, ok := obj.APIServerMetrics["apiserver_init_events_total"]
-	if !ok {
-		fmt.Fprintf(os.Stderr, "no apiserver_init_events_total metric data in build %d\n", buildNumber)
-		return
-	}
-	for i := range metric {
-		perfData := perftype.DataItem{Unit: "", Data: make(map[string]float64), Labels: make(map[string]string)}
-		for k, v := range metric[i].Metric {
-			perfData.Labels[string(k)] = string(v)
-		}
-		delete(perfData.Labels, "__name__")
-		perfData.Data["InitEventsCount"] = float64(metric[i].Value)
-		testResult.Builds[build] = append(testResult.Builds[build], perfData)
-	}
-}
-
-func createMapId(m map[string]string) string {
-	var keys []string
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	var b strings.Builder
-	for _, key := range keys {
-		b.WriteString(fmt.Sprintf("%s:%s|", key, m[key]))
-	}
-	return b.String()
 }
 
 // TODO(krzysied): Copy of structures from kuberentes repository.
@@ -281,26 +224,19 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
 }
 
-type schedulingThroughputMetric struct {
-	Average float64 `json:"average"`
-	Perc50  float64 `json:"perc50"`
-	Perc90  float64 `json:"perc90"`
-	Perc99  float64 `json:"perc99"`
-}
-
-func parseSchedulingThroughputCL(data []byte, buildNumber int, testResult *BuildData) {
+func pareseSchedulingThroughput(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
 	build := fmt.Sprintf("%d", buildNumber)
-	var obj schedulingThroughputMetric
+	var obj schedulingMetrics
 	if err := json.Unmarshal(data, &obj); err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
 		return
 	}
 	perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{}, Data: make(map[string]float64)}
-	perfData.Data["Perc50"] = obj.Perc50
-	perfData.Data["Perc90"] = obj.Perc90
-	perfData.Data["Perc99"] = obj.Perc99
-	perfData.Data["Average"] = obj.Average
+	perfData.Data["Perc50"] = obj.ThroughputPerc50
+	perfData.Data["Perc90"] = obj.ThroughputPerc90
+	perfData.Data["Perc99"] = obj.ThroughputPerc99
+	perfData.Data["Average"] = obj.ThroughputAverage
 	testResult.Builds[build] = append(testResult.Builds[build], perfData)
 }
 
@@ -354,10 +290,6 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 				}
 				for kBucket, vBucket := range histogramVecMetric[i].Buckets {
 					if kBucket != "+Inf" {
-						if count == 0 {
-							perfData.Data["<= "+kBucket+"s"] = 0
-							continue
-						}
 						perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
 					}
 				}

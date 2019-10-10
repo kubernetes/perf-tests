@@ -31,9 +31,7 @@ find_test_dirs() {
         -o -path './clusterloader/vendor/*' \
         -o -path './compare/vendor/*' \
         -o -path './network/vendor/*' \
-        -o -path './perfdash/vendor/*' \
         -o -path './slo-monitor/vendor/*' \
-        -o -path './_logviewer/*' \
       \) -prune \
     \) -name '*_test.go' -print0 | xargs -0n1 dirname | sed "s|^\./|${KUBE_GO_PACKAGE}/|" | LC_ALL=C sort -u
   )

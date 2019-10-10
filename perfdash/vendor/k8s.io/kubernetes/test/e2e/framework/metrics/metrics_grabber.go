@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -26,23 +27,25 @@ import (
 	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/kubernetes/pkg/util/system"
 
-	"k8s.io/klog"
+	"github.com/golang/glog"
 )
 
-// Collection is metrics collection of components
-type Collection struct {
-	APIServerMetrics         APIServerMetrics
+const (
+	ProxyTimeout = 2 * time.Minute
+)
+
+type MetricsCollection struct {
+	ApiServerMetrics         ApiServerMetrics
 	ControllerManagerMetrics ControllerManagerMetrics
 	KubeletMetrics           map[string]KubeletMetrics
 	SchedulerMetrics         SchedulerMetrics
 	ClusterAutoscalerMetrics ClusterAutoscalerMetrics
 }
 
-// Grabber provides functions which grab metrics from components
-type Grabber struct {
+type MetricsGrabber struct {
 	client                    clientset.Interface
 	externalClient            clientset.Interface
-	grabFromAPIServer         bool
+	grabFromApiServer         bool
 	grabFromControllerManager bool
 	grabFromKubelets          bool
 	grabFromScheduler         bool
@@ -51,8 +54,7 @@ type Grabber struct {
 	registeredMaster          bool
 }
 
-// NewMetricsGrabber returns new metrics which are initialized.
-func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets bool, scheduler bool, controllers bool, apiServer bool, clusterAutoscaler bool) (*Grabber, error) {
+func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets bool, scheduler bool, controllers bool, apiServer bool, clusterAutoscaler bool) (*MetricsGrabber, error) {
 	registeredMaster := false
 	masterName := ""
 	nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -60,7 +62,7 @@ func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets b
 		return nil, err
 	}
 	if len(nodeList.Items) < 1 {
-		klog.Warning("Can't find any Nodes in the API server to grab metrics from")
+		glog.Warning("Can't find any Nodes in the API server to grab metrics from")
 	}
 	for _, node := range nodeList.Items {
 		if system.IsMasterNode(node.Name) {
@@ -74,16 +76,16 @@ func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets b
 		controllers = false
 		clusterAutoscaler = ec != nil
 		if clusterAutoscaler {
-			klog.Warningf("Master node is not registered. Grabbing metrics from Scheduler, ControllerManager is disabled.")
+			glog.Warningf("Master node is not registered. Grabbing metrics from Scheduler, ControllerManager is disabled.")
 		} else {
-			klog.Warningf("Master node is not registered. Grabbing metrics from Scheduler, ControllerManager and ClusterAutoscaler is disabled.")
+			glog.Warningf("Master node is not registered. Grabbing metrics from Scheduler, ControllerManager and ClusterAutoscaler is disabled.")
 		}
 	}
 
-	return &Grabber{
+	return &MetricsGrabber{
 		client:                    c,
 		externalClient:            ec,
-		grabFromAPIServer:         apiServer,
+		grabFromApiServer:         apiServer,
 		grabFromControllerManager: controllers,
 		grabFromKubelets:          kubelets,
 		grabFromScheduler:         scheduler,
@@ -94,12 +96,11 @@ func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets b
 }
 
 // HasRegisteredMaster returns if metrics grabber was able to find a master node
-func (g *Grabber) HasRegisteredMaster() bool {
+func (g *MetricsGrabber) HasRegisteredMaster() bool {
 	return g.registeredMaster
 }
 
-// GrabFromKubelet returns metrics from kubelet
-func (g *Grabber) GrabFromKubelet(nodeName string) (KubeletMetrics, error) {
+func (g *MetricsGrabber) GrabFromKubelet(nodeName string) (KubeletMetrics, error) {
 	nodes, err := g.client.CoreV1().Nodes().List(metav1.ListOptions{FieldSelector: fields.Set{api.ObjectNameField: nodeName}.AsSelector().String()})
 	if err != nil {
 		return KubeletMetrics{}, err
@@ -111,9 +112,9 @@ func (g *Grabber) GrabFromKubelet(nodeName string) (KubeletMetrics, error) {
 	return g.grabFromKubeletInternal(nodeName, int(kubeletPort))
 }
 
-func (g *Grabber) grabFromKubeletInternal(nodeName string, kubeletPort int) (KubeletMetrics, error) {
+func (g *MetricsGrabber) grabFromKubeletInternal(nodeName string, kubeletPort int) (KubeletMetrics, error) {
 	if kubeletPort <= 0 || kubeletPort > 65535 {
-		return KubeletMetrics{}, fmt.Errorf("Invalid Kubelet port %v. Skipping Kubelet's metrics gathering", kubeletPort)
+		return KubeletMetrics{}, fmt.Errorf("Invalid Kubelet port %v. Skipping Kubelet's metrics gathering.", kubeletPort)
 	}
 	output, err := g.getMetricsFromNode(nodeName, int(kubeletPort))
 	if err != nil {
@@ -122,22 +123,20 @@ func (g *Grabber) grabFromKubeletInternal(nodeName string, kubeletPort int) (Kub
 	return parseKubeletMetrics(output)
 }
 
-// GrabFromScheduler returns metrics from scheduler
-func (g *Grabber) GrabFromScheduler() (SchedulerMetrics, error) {
+func (g *MetricsGrabber) GrabFromScheduler() (SchedulerMetrics, error) {
 	if !g.registeredMaster {
-		return SchedulerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping Scheduler's metrics gathering")
+		return SchedulerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping Scheduler's metrics gathering.")
 	}
-	output, err := g.getMetricsFromPod(g.client, fmt.Sprintf("%v-%v", "kube-scheduler", g.masterName), metav1.NamespaceSystem, ports.InsecureSchedulerPort)
+	output, err := g.getMetricsFromPod(g.client, fmt.Sprintf("%v-%v", "kube-scheduler", g.masterName), metav1.NamespaceSystem, ports.SchedulerPort)
 	if err != nil {
 		return SchedulerMetrics{}, err
 	}
 	return parseSchedulerMetrics(output)
 }
 
-// GrabFromClusterAutoscaler returns metrics from cluster autoscaler
-func (g *Grabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) {
+func (g *MetricsGrabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) {
 	if !g.registeredMaster && g.externalClient == nil {
-		return ClusterAutoscalerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ClusterAutoscaler's metrics gathering")
+		return ClusterAutoscalerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ClusterAutoscaler's metrics gathering.")
 	}
 	var client clientset.Interface
 	var namespace string
@@ -155,10 +154,9 @@ func (g *Grabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) 
 	return parseClusterAutoscalerMetrics(output)
 }
 
-// GrabFromControllerManager returns metrics from controller manager
-func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) {
+func (g *MetricsGrabber) GrabFromControllerManager() (ControllerManagerMetrics, error) {
 	if !g.registeredMaster {
-		return ControllerManagerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ControllerManager's metrics gathering")
+		return ControllerManagerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ControllerManager's metrics gathering.")
 	}
 	output, err := g.getMetricsFromPod(g.client, fmt.Sprintf("%v-%v", "kube-controller-manager", g.masterName), metav1.NamespaceSystem, ports.InsecureKubeControllerManagerPort)
 	if err != nil {
@@ -167,25 +165,23 @@ func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) 
 	return parseControllerManagerMetrics(output)
 }
 
-// GrabFromAPIServer returns metrics from API server
-func (g *Grabber) GrabFromAPIServer() (APIServerMetrics, error) {
-	output, err := g.getMetricsFromAPIServer()
+func (g *MetricsGrabber) GrabFromApiServer() (ApiServerMetrics, error) {
+	output, err := g.getMetricsFromApiServer()
 	if err != nil {
-		return APIServerMetrics{}, nil
+		return ApiServerMetrics{}, nil
 	}
-	return parseAPIServerMetrics(output)
+	return parseApiServerMetrics(output)
 }
 
-// Grab returns metrics from corresponding component
-func (g *Grabber) Grab() (Collection, error) {
-	result := Collection{}
+func (g *MetricsGrabber) Grab() (MetricsCollection, error) {
+	result := MetricsCollection{}
 	var errs []error
-	if g.grabFromAPIServer {
-		metrics, err := g.GrabFromAPIServer()
+	if g.grabFromApiServer {
+		metrics, err := g.GrabFromApiServer()
 		if err != nil {
 			errs = append(errs, err)
 		} else {
-			result.APIServerMetrics = metrics
+			result.ApiServerMetrics = metrics
 		}
 	}
 	if g.grabFromScheduler {
@@ -234,7 +230,7 @@ func (g *Grabber) Grab() (Collection, error) {
 	return result, nil
 }
 
-func (g *Grabber) getMetricsFromPod(client clientset.Interface, podName string, namespace string, port int) (string, error) {
+func (g *MetricsGrabber) getMetricsFromPod(client clientset.Interface, podName string, namespace string, port int) (string, error) {
 	rawOutput, err := client.CoreV1().RESTClient().Get().
 		Namespace(namespace).
 		Resource("pods").

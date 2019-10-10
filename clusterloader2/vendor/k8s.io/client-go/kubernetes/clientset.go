@@ -20,23 +20,21 @@ package kubernetes
 
 import (
 	discovery "k8s.io/client-go/discovery"
+	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
-	auditregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/auditregistration/v1alpha1"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	authorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
-	autoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
-	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
@@ -58,17 +56,15 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	AdmissionregistrationV1alpha1() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface
 	AdmissionregistrationV1beta1() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Admissionregistration() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface
+	AppsV1beta1() appsv1beta1.AppsV1beta1Interface
+	AppsV1beta2() appsv1beta2.AppsV1beta2Interface
 	AppsV1() appsv1.AppsV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Apps() appsv1.AppsV1Interface
-	AppsV1beta1() appsv1beta1.AppsV1beta1Interface
-	AppsV1beta2() appsv1beta2.AppsV1beta2Interface
-	AuditregistrationV1alpha1() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Auditregistration() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface
 	AuthenticationV1() authenticationv1.AuthenticationV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Authentication() authenticationv1.AuthenticationV1Interface
@@ -81,7 +77,6 @@ type Interface interface {
 	// Deprecated: please explicitly pick a version if possible.
 	Autoscaling() autoscalingv1.AutoscalingV1Interface
 	AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1Interface
-	AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface
 	BatchV1() batchv1.BatchV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Batch() batchv1.BatchV1Interface
@@ -91,9 +86,8 @@ type Interface interface {
 	// Deprecated: please explicitly pick a version if possible.
 	Certificates() certificatesv1beta1.CertificatesV1beta1Interface
 	CoordinationV1beta1() coordinationv1beta1.CoordinationV1beta1Interface
-	CoordinationV1() coordinationv1.CoordinationV1Interface
 	// Deprecated: please explicitly pick a version if possible.
-	Coordination() coordinationv1.CoordinationV1Interface
+	Coordination() coordinationv1beta1.CoordinationV1beta1Interface
 	CoreV1() corev1.CoreV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Core() corev1.CoreV1Interface
@@ -132,38 +126,41 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	admissionregistrationV1beta1 *admissionregistrationv1beta1.AdmissionregistrationV1beta1Client
-	appsV1                       *appsv1.AppsV1Client
-	appsV1beta1                  *appsv1beta1.AppsV1beta1Client
-	appsV1beta2                  *appsv1beta2.AppsV1beta2Client
-	auditregistrationV1alpha1    *auditregistrationv1alpha1.AuditregistrationV1alpha1Client
-	authenticationV1             *authenticationv1.AuthenticationV1Client
-	authenticationV1beta1        *authenticationv1beta1.AuthenticationV1beta1Client
-	authorizationV1              *authorizationv1.AuthorizationV1Client
-	authorizationV1beta1         *authorizationv1beta1.AuthorizationV1beta1Client
-	autoscalingV1                *autoscalingv1.AutoscalingV1Client
-	autoscalingV2beta1           *autoscalingv2beta1.AutoscalingV2beta1Client
-	autoscalingV2beta2           *autoscalingv2beta2.AutoscalingV2beta2Client
-	batchV1                      *batchv1.BatchV1Client
-	batchV1beta1                 *batchv1beta1.BatchV1beta1Client
-	batchV2alpha1                *batchv2alpha1.BatchV2alpha1Client
-	certificatesV1beta1          *certificatesv1beta1.CertificatesV1beta1Client
-	coordinationV1beta1          *coordinationv1beta1.CoordinationV1beta1Client
-	coordinationV1               *coordinationv1.CoordinationV1Client
-	coreV1                       *corev1.CoreV1Client
-	eventsV1beta1                *eventsv1beta1.EventsV1beta1Client
-	extensionsV1beta1            *extensionsv1beta1.ExtensionsV1beta1Client
-	networkingV1                 *networkingv1.NetworkingV1Client
-	policyV1beta1                *policyv1beta1.PolicyV1beta1Client
-	rbacV1                       *rbacv1.RbacV1Client
-	rbacV1beta1                  *rbacv1beta1.RbacV1beta1Client
-	rbacV1alpha1                 *rbacv1alpha1.RbacV1alpha1Client
-	schedulingV1alpha1           *schedulingv1alpha1.SchedulingV1alpha1Client
-	schedulingV1beta1            *schedulingv1beta1.SchedulingV1beta1Client
-	settingsV1alpha1             *settingsv1alpha1.SettingsV1alpha1Client
-	storageV1beta1               *storagev1beta1.StorageV1beta1Client
-	storageV1                    *storagev1.StorageV1Client
-	storageV1alpha1              *storagev1alpha1.StorageV1alpha1Client
+	admissionregistrationV1alpha1 *admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Client
+	admissionregistrationV1beta1  *admissionregistrationv1beta1.AdmissionregistrationV1beta1Client
+	appsV1beta1                   *appsv1beta1.AppsV1beta1Client
+	appsV1beta2                   *appsv1beta2.AppsV1beta2Client
+	appsV1                        *appsv1.AppsV1Client
+	authenticationV1              *authenticationv1.AuthenticationV1Client
+	authenticationV1beta1         *authenticationv1beta1.AuthenticationV1beta1Client
+	authorizationV1               *authorizationv1.AuthorizationV1Client
+	authorizationV1beta1          *authorizationv1beta1.AuthorizationV1beta1Client
+	autoscalingV1                 *autoscalingv1.AutoscalingV1Client
+	autoscalingV2beta1            *autoscalingv2beta1.AutoscalingV2beta1Client
+	batchV1                       *batchv1.BatchV1Client
+	batchV1beta1                  *batchv1beta1.BatchV1beta1Client
+	batchV2alpha1                 *batchv2alpha1.BatchV2alpha1Client
+	certificatesV1beta1           *certificatesv1beta1.CertificatesV1beta1Client
+	coordinationV1beta1           *coordinationv1beta1.CoordinationV1beta1Client
+	coreV1                        *corev1.CoreV1Client
+	eventsV1beta1                 *eventsv1beta1.EventsV1beta1Client
+	extensionsV1beta1             *extensionsv1beta1.ExtensionsV1beta1Client
+	networkingV1                  *networkingv1.NetworkingV1Client
+	policyV1beta1                 *policyv1beta1.PolicyV1beta1Client
+	rbacV1                        *rbacv1.RbacV1Client
+	rbacV1beta1                   *rbacv1beta1.RbacV1beta1Client
+	rbacV1alpha1                  *rbacv1alpha1.RbacV1alpha1Client
+	schedulingV1alpha1            *schedulingv1alpha1.SchedulingV1alpha1Client
+	schedulingV1beta1             *schedulingv1beta1.SchedulingV1beta1Client
+	settingsV1alpha1              *settingsv1alpha1.SettingsV1alpha1Client
+	storageV1beta1                *storagev1beta1.StorageV1beta1Client
+	storageV1                     *storagev1.StorageV1Client
+	storageV1alpha1               *storagev1alpha1.StorageV1alpha1Client
+}
+
+// AdmissionregistrationV1alpha1 retrieves the AdmissionregistrationV1alpha1Client
+func (c *Clientset) AdmissionregistrationV1alpha1() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+	return c.admissionregistrationV1alpha1
 }
 
 // AdmissionregistrationV1beta1 retrieves the AdmissionregistrationV1beta1Client
@@ -177,17 +174,6 @@ func (c *Clientset) Admissionregistration() admissionregistrationv1beta1.Admissi
 	return c.admissionregistrationV1beta1
 }
 
-// AppsV1 retrieves the AppsV1Client
-func (c *Clientset) AppsV1() appsv1.AppsV1Interface {
-	return c.appsV1
-}
-
-// Deprecated: Apps retrieves the default version of AppsClient.
-// Please explicitly pick a version.
-func (c *Clientset) Apps() appsv1.AppsV1Interface {
-	return c.appsV1
-}
-
 // AppsV1beta1 retrieves the AppsV1beta1Client
 func (c *Clientset) AppsV1beta1() appsv1beta1.AppsV1beta1Interface {
 	return c.appsV1beta1
@@ -198,15 +184,15 @@ func (c *Clientset) AppsV1beta2() appsv1beta2.AppsV1beta2Interface {
 	return c.appsV1beta2
 }
 
-// AuditregistrationV1alpha1 retrieves the AuditregistrationV1alpha1Client
-func (c *Clientset) AuditregistrationV1alpha1() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
-	return c.auditregistrationV1alpha1
+// AppsV1 retrieves the AppsV1Client
+func (c *Clientset) AppsV1() appsv1.AppsV1Interface {
+	return c.appsV1
 }
 
-// Deprecated: Auditregistration retrieves the default version of AuditregistrationClient.
+// Deprecated: Apps retrieves the default version of AppsClient.
 // Please explicitly pick a version.
-func (c *Clientset) Auditregistration() auditregistrationv1alpha1.AuditregistrationV1alpha1Interface {
-	return c.auditregistrationV1alpha1
+func (c *Clientset) Apps() appsv1.AppsV1Interface {
+	return c.appsV1
 }
 
 // AuthenticationV1 retrieves the AuthenticationV1Client
@@ -257,11 +243,6 @@ func (c *Clientset) AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1In
 	return c.autoscalingV2beta1
 }
 
-// AutoscalingV2beta2 retrieves the AutoscalingV2beta2Client
-func (c *Clientset) AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface {
-	return c.autoscalingV2beta2
-}
-
 // BatchV1 retrieves the BatchV1Client
 func (c *Clientset) BatchV1() batchv1.BatchV1Interface {
 	return c.batchV1
@@ -299,15 +280,10 @@ func (c *Clientset) CoordinationV1beta1() coordinationv1beta1.CoordinationV1beta
 	return c.coordinationV1beta1
 }
 
-// CoordinationV1 retrieves the CoordinationV1Client
-func (c *Clientset) CoordinationV1() coordinationv1.CoordinationV1Interface {
-	return c.coordinationV1
-}
-
 // Deprecated: Coordination retrieves the default version of CoordinationClient.
 // Please explicitly pick a version.
-func (c *Clientset) Coordination() coordinationv1.CoordinationV1Interface {
-	return c.coordinationV1
+func (c *Clientset) Coordination() coordinationv1beta1.CoordinationV1beta1Interface {
+	return c.coordinationV1beta1
 }
 
 // CoreV1 retrieves the CoreV1Client
@@ -450,11 +426,11 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.admissionregistrationV1beta1, err = admissionregistrationv1beta1.NewForConfig(&configShallowCopy)
+	cs.admissionregistrationV1alpha1, err = admissionregistrationv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
-	cs.appsV1, err = appsv1.NewForConfig(&configShallowCopy)
+	cs.admissionregistrationV1beta1, err = admissionregistrationv1beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +442,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.auditregistrationV1alpha1, err = auditregistrationv1alpha1.NewForConfig(&configShallowCopy)
+	cs.appsV1, err = appsv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -494,10 +470,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.autoscalingV2beta2, err = autoscalingv2beta2.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	cs.batchV1, err = batchv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -515,10 +487,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 		return nil, err
 	}
 	cs.coordinationV1beta1, err = coordinationv1beta1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
-	cs.coordinationV1, err = coordinationv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -590,24 +558,22 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.admissionregistrationV1alpha1 = admissionregistrationv1alpha1.NewForConfigOrDie(c)
 	cs.admissionregistrationV1beta1 = admissionregistrationv1beta1.NewForConfigOrDie(c)
-	cs.appsV1 = appsv1.NewForConfigOrDie(c)
 	cs.appsV1beta1 = appsv1beta1.NewForConfigOrDie(c)
 	cs.appsV1beta2 = appsv1beta2.NewForConfigOrDie(c)
-	cs.auditregistrationV1alpha1 = auditregistrationv1alpha1.NewForConfigOrDie(c)
+	cs.appsV1 = appsv1.NewForConfigOrDie(c)
 	cs.authenticationV1 = authenticationv1.NewForConfigOrDie(c)
 	cs.authenticationV1beta1 = authenticationv1beta1.NewForConfigOrDie(c)
 	cs.authorizationV1 = authorizationv1.NewForConfigOrDie(c)
 	cs.authorizationV1beta1 = authorizationv1beta1.NewForConfigOrDie(c)
 	cs.autoscalingV1 = autoscalingv1.NewForConfigOrDie(c)
 	cs.autoscalingV2beta1 = autoscalingv2beta1.NewForConfigOrDie(c)
-	cs.autoscalingV2beta2 = autoscalingv2beta2.NewForConfigOrDie(c)
 	cs.batchV1 = batchv1.NewForConfigOrDie(c)
 	cs.batchV1beta1 = batchv1beta1.NewForConfigOrDie(c)
 	cs.batchV2alpha1 = batchv2alpha1.NewForConfigOrDie(c)
 	cs.certificatesV1beta1 = certificatesv1beta1.NewForConfigOrDie(c)
 	cs.coordinationV1beta1 = coordinationv1beta1.NewForConfigOrDie(c)
-	cs.coordinationV1 = coordinationv1.NewForConfigOrDie(c)
 	cs.coreV1 = corev1.NewForConfigOrDie(c)
 	cs.eventsV1beta1 = eventsv1beta1.NewForConfigOrDie(c)
 	cs.extensionsV1beta1 = extensionsv1beta1.NewForConfigOrDie(c)
@@ -630,24 +596,22 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.admissionregistrationV1alpha1 = admissionregistrationv1alpha1.New(c)
 	cs.admissionregistrationV1beta1 = admissionregistrationv1beta1.New(c)
-	cs.appsV1 = appsv1.New(c)
 	cs.appsV1beta1 = appsv1beta1.New(c)
 	cs.appsV1beta2 = appsv1beta2.New(c)
-	cs.auditregistrationV1alpha1 = auditregistrationv1alpha1.New(c)
+	cs.appsV1 = appsv1.New(c)
 	cs.authenticationV1 = authenticationv1.New(c)
 	cs.authenticationV1beta1 = authenticationv1beta1.New(c)
 	cs.authorizationV1 = authorizationv1.New(c)
 	cs.authorizationV1beta1 = authorizationv1beta1.New(c)
 	cs.autoscalingV1 = autoscalingv1.New(c)
 	cs.autoscalingV2beta1 = autoscalingv2beta1.New(c)
-	cs.autoscalingV2beta2 = autoscalingv2beta2.New(c)
 	cs.batchV1 = batchv1.New(c)
 	cs.batchV1beta1 = batchv1beta1.New(c)
 	cs.batchV2alpha1 = batchv2alpha1.New(c)
 	cs.certificatesV1beta1 = certificatesv1beta1.New(c)
 	cs.coordinationV1beta1 = coordinationv1beta1.New(c)
-	cs.coordinationV1 = coordinationv1.New(c)
 	cs.coreV1 = corev1.New(c)
 	cs.eventsV1beta1 = eventsv1beta1.New(c)
 	cs.extensionsV1beta1 = extensionsv1beta1.New(c)

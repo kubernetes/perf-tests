@@ -17,12 +17,10 @@ limitations under the License.
 package monitors
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/pager"
 
 	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
@@ -47,20 +45,12 @@ const (
 )
 
 var (
-	// StartupLatencyBuckets represents the histogram bucket boundaries for pod
-	// startup latency metrics, measured in seconds. These are hand-picked so
-	// as to be roughly exponential but still round numbers in everyday units.
-	// This is to minimise the number of buckets while allowing accurate
-	// measurement of thresholds which might be used in SLOs e.g. x% of pods
-	// start up within 30 seconds, or 15 minutes, etc.
-	StartupLatencyBuckets = []float64{0.5, 1, 2, 3, 4, 5, 6, 8, 10, 20, 30, 45, 60, 120, 180, 240, 300, 360, 480, 600, 900, 1200, 1800, 2700, 3600}
-
 	// PodE2EStartupLatency is a prometheus metric for monitoring pod startup latency.
 	PodE2EStartupLatency = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    PodE2EStartupLatencyKey,
 			Help:    "Pod e2e startup latencies in seconds, without image pull times",
-			Buckets: StartupLatencyBuckets,
+			Buckets: prometheus.LinearBuckets(0.5, 0.25, 50),
 		},
 	)
 
@@ -69,7 +59,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    PodFullStartupLatencyKey,
 			Help:    "Pod e2e startup latencies in seconds, with image pull times",
-			Buckets: StartupLatencyBuckets,
+			Buckets: prometheus.LinearBuckets(0.5, 0.5, 100),
 		},
 	)
 )
@@ -131,13 +121,11 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-					return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(opts)
-				}))
-				return pg.List(context.Background(), options)
+				obj, err := pm.kubeClient.Core().Pods(v1.NamespaceAll).List(options)
+				return runtime.Object(obj), err
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.Core().Pods(v1.NamespaceAll).Watch(options)
 			},
 		},
 		&v1.Pod{},
@@ -180,14 +168,12 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = eventSelector
-				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-					return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(opts)
-				}))
-				return pg.List(context.Background(), options)
+				obj, err := pm.kubeClient.Core().Events(v1.NamespaceAll).List(options)
+				return runtime.Object(obj), err
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = eventSelector
-				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.Core().Events(v1.NamespaceAll).Watch(options)
 			},
 		},
 		&v1.Event{},
@@ -324,7 +310,7 @@ func (pm *PodStartupLatencyDataMonitor) insertPodRunningTime(podKey string, crea
 	var data PodStartupMilestones
 	var ok bool
 	if data, ok = pm.PodStartupData[podKey]; !ok {
-		// Necessary to work anywhere except UTC time zone...
+		// Necessary to work anywere except UTC time zone...
 		data.startedPulling = time.Unix(0, 0)
 		data.finishedPulling = time.Unix(0, 0)
 	}

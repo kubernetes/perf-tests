@@ -76,10 +76,9 @@ type ListMeta struct {
 	// continue may be set if the user set a limit on the number of items returned, and indicates that
 	// the server has more data available. The value is opaque and may be used to issue another request
 	// to the endpoint that served this list to retrieve the next set of available objects. Continuing a
-	// consistent list may not be possible if the server configuration has changed or more than a few
-	// minutes have passed. The resourceVersion field returned when using this continue value will be
-	// identical to the value in the first response, unless you have received this token from an error
-	// message.
+	// list may not be possible if the server configuration has changed or more than a few minutes have
+	// passed. The resourceVersion field returned when using this continue value will be identical to
+	// the value in the first response.
 	Continue string `json:"continue,omitempty" protobuf:"bytes,3,opt,name=continue"`
 }
 
@@ -235,8 +234,6 @@ type ObjectMeta struct {
 	// When an object is created, the system will populate this list with the current set of initializers.
 	// Only privileged users may set or modify this list. Once it is empty, it may not be modified further
 	// by any user.
-	//
-	// DEPRECATED - initializers are an alpha field and will be removed in v1.15.
 	Initializers *Initializers `json:"initializers,omitempty" protobuf:"bytes,16,opt,name=initializers"`
 
 	// Must be empty before the object is deleted from the registry. Each entry
@@ -288,8 +285,8 @@ const (
 )
 
 // OwnerReference contains enough information to let you identify an owning
-// object. An owning object must be in the same namespace as the dependent, or
-// be cluster-scoped, so there is no namespace field.
+// object. Currently, an owning object must be in the same namespace, so there
+// is no namespace field.
 type OwnerReference struct {
 	// API version of the referent.
 	APIVersion string `json:"apiVersion" protobuf:"bytes,5,opt,name=apiVersion"`
@@ -329,9 +326,9 @@ type ListOptions struct {
 	// Defaults to everything.
 	// +optional
 	FieldSelector string `json:"fieldSelector,omitempty" protobuf:"bytes,2,opt,name=fieldSelector"`
-
-	// +k8s:deprecated=includeUninitialized,protobuf=6
-
+	// If true, partially initialized resources are included in the response.
+	// +optional
+	IncludeUninitialized bool `json:"includeUninitialized,omitempty" protobuf:"varint,6,opt,name=includeUninitialized"`
 	// Watch for changes to the described resources and return them as a stream of
 	// add, update, and remove notifications. Specify resourceVersion.
 	// +optional
@@ -366,20 +363,14 @@ type ListOptions struct {
 	// updated during a chunked list the version of the object that was present at the time the first list
 	// result was calculated is returned.
 	Limit int64 `json:"limit,omitempty" protobuf:"varint,7,opt,name=limit"`
-	// The continue option should be set when retrieving more results from the server. Since this value is
-	// server defined, clients may only use the continue value from a previous query result with identical
-	// query parameters (except for the value of continue) and the server may reject a continue value it
-	// does not recognize. If the specified continue value is no longer valid whether due to expiration
-	// (generally five to fifteen minutes) or a configuration change on the server, the server will
-	// respond with a 410 ResourceExpired error together with a continue token. If the client needs a
-	// consistent list, it must restart their list without the continue field. Otherwise, the client may
-	// send another list request with the token received with the 410 error, the server will respond with
-	// a list starting from the next key, but from the latest snapshot, which is inconsistent from the
-	// previous list results - objects that are created, modified, or deleted after the first list request
-	// will be included in the response, as long as their keys are after the "next key".
-	//
-	// This field is not supported when watch is true. Clients may start a watch from the last
-	// resourceVersion value returned by the server and not miss any modifications.
+	// The continue option should be set when retrieving more results from the server. Since this value
+	// is server defined, clients may only use the continue value from a previous query result with
+	// identical query parameters (except for the value of continue) and the server may reject a continue
+	// value it does not recognize. If the specified continue value is no longer valid whether due to
+	// expiration (generally five to fifteen minutes) or a configuration change on the server the server
+	// will respond with a 410 ResourceExpired error indicating the client must restart their list without
+	// the continue field. This field is not supported when watch is true. Clients may start a watch from
+	// the last resourceVersion value returned by the server and not miss any modifications.
 	Continue string `json:"continue,omitempty" protobuf:"bytes,8,opt,name=continue"`
 }
 
@@ -404,7 +395,9 @@ type GetOptions struct {
 	// - if it's 0, then we simply return what we currently have in cache, no guarantee;
 	// - if set to non zero, then the result is at least as fresh as given rv.
 	ResourceVersion string `json:"resourceVersion,omitempty" protobuf:"bytes,1,opt,name=resourceVersion"`
-	// +k8s:deprecated=includeUninitialized,protobuf=2
+	// If true, partially initialized resources are included in the response.
+	// +optional
+	IncludeUninitialized bool `json:"includeUninitialized,omitempty" protobuf:"varint,2,opt,name=includeUninitialized"`
 }
 
 // DeletionPropagation decides if a deletion will propagate to the dependents of
@@ -489,7 +482,10 @@ type CreateOptions struct {
 	// - All: all dry run stages will be processed
 	// +optional
 	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
-	// +k8s:deprecated=includeUninitialized,protobuf=2
+
+	// If IncludeUninitialized is specified, the object may be
+	// returned without completing initialization.
+	IncludeUninitialized bool `json:"includeUninitialized,omitempty" protobuf:"varint,2,opt,name=includeUninitialized"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

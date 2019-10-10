@@ -26,6 +26,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	mathrand "math/rand"
 	"net"
@@ -36,13 +37,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/ssh"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 )
 
 var (
@@ -67,27 +68,51 @@ func init() {
 
 // TODO: Unit tests for this code, we can spin up a test SSH server with instructions here:
 // https://godoc.org/golang.org/x/crypto/ssh#ServerConn
-type sshTunnel struct {
+type SSHTunnel struct {
 	Config  *ssh.ClientConfig
 	Host    string
 	SSHPort string
+	running bool
+	sock    net.Listener
 	client  *ssh.Client
 }
 
-func makeSSHTunnel(user string, signer ssh.Signer, host string) (*sshTunnel, error) {
+func (s *SSHTunnel) copyBytes(out io.Writer, in io.Reader) {
+	if _, err := io.Copy(out, in); err != nil {
+		glog.Errorf("Error in SSH tunnel: %v", err)
+	}
+}
+
+func NewSSHTunnel(user, keyfile, host string) (*SSHTunnel, error) {
+	signer, err := MakePrivateKeySignerFromFile(keyfile)
+	if err != nil {
+		return nil, err
+	}
+	return makeSSHTunnel(user, signer, host)
+}
+
+func NewSSHTunnelFromBytes(user string, privateKey []byte, host string) (*SSHTunnel, error) {
+	signer, err := MakePrivateKeySignerFromBytes(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	return makeSSHTunnel(user, signer, host)
+}
+
+func makeSSHTunnel(user string, signer ssh.Signer, host string) (*SSHTunnel, error) {
 	config := ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	return &sshTunnel{
+	return &SSHTunnel{
 		Config:  &config,
 		Host:    host,
 		SSHPort: "22",
 	}, nil
 }
 
-func (s *sshTunnel) Open() error {
+func (s *SSHTunnel) Open() error {
 	var err error
 	s.client, err = realTimeoutDialer.Dial("tcp", net.JoinHostPort(s.Host, s.SSHPort), s.Config)
 	tunnelOpenCounter.Inc()
@@ -97,7 +122,7 @@ func (s *sshTunnel) Open() error {
 	return err
 }
 
-func (s *sshTunnel) Dial(ctx context.Context, network, address string) (net.Conn, error) {
+func (s *SSHTunnel) Dial(ctx context.Context, network, address string) (net.Conn, error) {
 	if s.client == nil {
 		return nil, errors.New("tunnel is not opened.")
 	}
@@ -105,7 +130,20 @@ func (s *sshTunnel) Dial(ctx context.Context, network, address string) (net.Conn
 	return s.client.Dial(network, address)
 }
 
-func (s *sshTunnel) Close() error {
+func (s *SSHTunnel) tunnel(conn net.Conn, remoteHost, remotePort string) error {
+	if s.client == nil {
+		return errors.New("tunnel is not opened.")
+	}
+	tunnel, err := s.client.Dial("tcp", net.JoinHostPort(remoteHost, remotePort))
+	if err != nil {
+		return err
+	}
+	go s.copyBytes(tunnel, conn)
+	go s.copyBytes(conn, tunnel)
+	return nil
+}
+
+func (s *SSHTunnel) Close() error {
 	if s.client == nil {
 		return errors.New("Cannot close tunnel. Tunnel was not opened.")
 	}
@@ -190,7 +228,6 @@ func runSSHCommand(dialer sshDialer, cmd, user, host string, signer ssh.Signer, 
 	if err != nil {
 		return "", "", 0, fmt.Errorf("error getting SSH client to %s@%s: '%v'", user, host, err)
 	}
-	defer client.Close()
 	session, err := client.NewSession()
 	if err != nil {
 		return "", "", 0, fmt.Errorf("error creating session to %s@%s: '%v'", user, host, err)
@@ -268,17 +305,13 @@ type sshTunnelEntry struct {
 }
 
 type sshTunnelCreator interface {
-	newSSHTunnel(user, keyFile, host string) (tunnel, error)
+	NewSSHTunnel(user, keyFile, healthCheckURL string) (tunnel, error)
 }
 
 type realTunnelCreator struct{}
 
-func (*realTunnelCreator) newSSHTunnel(user, keyFile, host string) (tunnel, error) {
-	signer, err := MakePrivateKeySignerFromFile(keyFile)
-	if err != nil {
-		return nil, err
-	}
-	return makeSSHTunnel(user, signer, host)
+func (*realTunnelCreator) NewSSHTunnel(user, keyFile, healthCheckURL string) (tunnel, error) {
+	return NewSSHTunnel(user, keyFile, healthCheckURL)
 }
 
 type SSHTunnelList struct {
@@ -320,8 +353,8 @@ func (l *SSHTunnelList) delayedHealthCheck(e sshTunnelEntry, delay time.Duration
 		defer runtime.HandleCrash()
 		time.Sleep(delay)
 		if err := l.healthCheck(e); err != nil {
-			klog.Errorf("Healthcheck failed for tunnel to %q: %v", e.Address, err)
-			klog.Infof("Attempting once to re-establish tunnel to %q", e.Address)
+			glog.Errorf("Healthcheck failed for tunnel to %q: %v", e.Address, err)
+			glog.Infof("Attempting once to re-establish tunnel to %q", e.Address)
 			l.removeAndReAdd(e)
 		}
 	}()
@@ -358,7 +391,7 @@ func (l *SSHTunnelList) removeAndReAdd(e sshTunnelEntry) {
 	}
 	l.tunnelsLock.Unlock()
 	if err := e.Tunnel.Close(); err != nil {
-		klog.Infof("Failed to close removed tunnel: %v", err)
+		glog.Infof("Failed to close removed tunnel: %v", err)
 	}
 	go l.createAndAddTunnel(e.Address)
 }
@@ -366,9 +399,9 @@ func (l *SSHTunnelList) removeAndReAdd(e sshTunnelEntry) {
 func (l *SSHTunnelList) Dial(ctx context.Context, net, addr string) (net.Conn, error) {
 	start := time.Now()
 	id := mathrand.Int63() // So you can match begins/ends in the log.
-	klog.Infof("[%x: %v] Dialing...", id, addr)
+	glog.Infof("[%x: %v] Dialing...", id, addr)
 	defer func() {
-		klog.Infof("[%x: %v] Dialed in %v.", id, addr, time.Since(start))
+		glog.Infof("[%x: %v] Dialed in %v.", id, addr, time.Since(start))
 	}()
 	tunnel, err := l.pickTunnel(strings.Split(addr, ":")[0])
 	if err != nil {
@@ -390,7 +423,7 @@ func (l *SSHTunnelList) pickTunnel(addr string) (tunnel, error) {
 			return entry.Tunnel, nil
 		}
 	}
-	klog.Warningf("SSH tunnel not found for address %q, picking random node", addr)
+	glog.Warningf("SSH tunnel not found for address %q, picking random node", addr)
 	n := mathrand.Intn(len(l.entries))
 	return l.entries[n].Tunnel, nil
 }
@@ -431,11 +464,11 @@ func (l *SSHTunnelList) Update(addrs []string) {
 		for i := range l.entries {
 			if _, ok := wantAddrsMap[l.entries[i].Address]; !ok {
 				tunnelEntry := l.entries[i]
-				klog.Infof("Removing tunnel to deleted node at %q", tunnelEntry.Address)
+				glog.Infof("Removing tunnel to deleted node at %q", tunnelEntry.Address)
 				go func() {
 					defer runtime.HandleCrash()
 					if err := tunnelEntry.Tunnel.Close(); err != nil {
-						klog.Errorf("Failed to close tunnel to %q: %v", tunnelEntry.Address, err)
+						glog.Errorf("Failed to close tunnel to %q: %v", tunnelEntry.Address, err)
 					}
 				}()
 			} else {
@@ -447,14 +480,14 @@ func (l *SSHTunnelList) Update(addrs []string) {
 }
 
 func (l *SSHTunnelList) createAndAddTunnel(addr string) {
-	klog.Infof("Trying to add tunnel to %q", addr)
-	tunnel, err := l.tunnelCreator.newSSHTunnel(l.user, l.keyfile, addr)
+	glog.Infof("Trying to add tunnel to %q", addr)
+	tunnel, err := l.tunnelCreator.NewSSHTunnel(l.user, l.keyfile, addr)
 	if err != nil {
-		klog.Errorf("Failed to create tunnel for %q: %v", addr, err)
+		glog.Errorf("Failed to create tunnel for %q: %v", addr, err)
 		return
 	}
 	if err := tunnel.Open(); err != nil {
-		klog.Errorf("Failed to open tunnel to %q: %v", addr, err)
+		glog.Errorf("Failed to open tunnel to %q: %v", addr, err)
 		l.tunnelsLock.Lock()
 		delete(l.adding, addr)
 		l.tunnelsLock.Unlock()
@@ -464,7 +497,7 @@ func (l *SSHTunnelList) createAndAddTunnel(addr string) {
 	l.entries = append(l.entries, sshTunnelEntry{addr, tunnel})
 	delete(l.adding, addr)
 	l.tunnelsLock.Unlock()
-	klog.Infof("Successfully added tunnel for %q", addr)
+	glog.Infof("Successfully added tunnel for %q", addr)
 }
 
 func EncodePrivateKey(private *rsa.PrivateKey) []byte {

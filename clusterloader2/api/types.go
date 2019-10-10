@@ -18,23 +18,7 @@ package api
 
 import (
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// TestSuite defines list of test scenarios to be run.
-type TestSuite []TestScenario
-
-// TestScenario defines customized test to be run.
-type TestScenario struct {
-	// Identifier is a unique test scenario name across test suite.
-	Identifier string `json: identifier`
-	// ConfigPath defines path to the file containing a single Config definition.
-	ConfigPath string `json: configPath`
-	// OverridePaths defines what override files should be applied
-	// to the config specified by the ConfigPath.
-	OverridePaths []string `json: overridePaths`
-}
 
 // Config is a structure that represents configuration
 // for a single test scenario.
@@ -47,8 +31,6 @@ type Config struct {
 	Steps []Step `json: steps`
 	// TuningSets is a collection of tuning sets that can be used by steps.
 	TuningSets []TuningSet `json: tuningSets`
-	// ChaosMonkey is a config for simulated component failures.
-	ChaosMonkey ChaosMonkeyConfig `json: chaosMonkey`
 }
 
 // Step represents encapsulation of some actions. These actions could be
@@ -60,9 +42,6 @@ type Step struct {
 	Phases []Phase `json: phases`
 	// Measurements is a collection of parallel measurement calls.
 	Measurements []Measurement `json: measurements`
-	// Name is an optional name for given step. If name is set,
-	// timer will be run for the step execution.
-	Name string `json: name`
 }
 
 // Phase is a structure that declaratively defines state of objects.
@@ -92,18 +71,6 @@ type Object struct {
 	ObjectTemplatePath string `json: objectTemplatePath`
 	// TemplateFillMap specifies for each placeholder what value should it be replaced with.
 	TemplateFillMap map[string]interface{} `json: templateFillMap`
-	// ListUnknownObjectOptions, if set, will result in listing objects that were
-	// not created directly via ClusterLoader2 before executing Phase. The main
-	// use case for that is deleting unknown objects using the Phase mechanism,
-	// e.g. deleting PVs that were created via StatefulSets leveraging all Phase
-	// functionalities, e.g. respecting given QPS, doing it in parallel with other
-	// Phases, etc.
-	ListUnknownObjectOptions *ListUnknownObjectOptions `json: listUnknownObjectOptions`
-}
-
-// ListUnknownObjectOptions struct specifies options for listing unknown objects.
-type ListUnknownObjectOptions struct {
-	LabelSelector *metav1.LabelSelector `json: labelSelector`
 }
 
 // NamespaceRange specifies the range of namespaces [Min, Max].
@@ -125,19 +92,13 @@ type TuningSet struct {
 	// Name by which the TuningSet will be referenced.
 	Name string `json: name`
 	// InitialDelay specifies the waiting time before starting phase execution.
-	InitialDelay Duration `json: initialDelay`
+	InitialDelay time.Duration `json: initialDelay`
 	// QpsLoad is a definition for QpsLoad tuning set.
 	QpsLoad *QpsLoad `json: qpsLoad`
 	// RandomizedLoad is a definition for RandomizedLoad tuning set.
 	RandomizedLoad *RandomizedLoad `json: randomizedLoad`
 	// SteppedLoad is a definition for SteppedLoad tuning set.
 	SteppedLoad *SteppedLoad `json: steppedLoad`
-	// TimeLimitedLoad is a definition for TimeLimitedLoad tuning set.
-	TimeLimitedLoad *TimeLimitedLoad `json: timeLimitedLoad`
-	// RandomizedTimeLimitedLoad is a definition for RandomizedTimeLimitedLoad tuning set.
-	RandomizedTimeLimitedLoad *RandomizedTimeLimitedLoad `json: randomizedTimeLimitedLoad`
-	// ParallelismLimitedLoad is a definition for ParallelismLimitedLoad tuning set.
-	ParallelismLimitedLoad *ParallelismLimitedLoad `json: parallelismLimitedLoad`
 }
 
 // Measurement is a structure that defines the measurement method call.
@@ -170,45 +131,5 @@ type SteppedLoad struct {
 	// BurstSize specifies the qps peek.
 	BurstSize int32 `json: burstSize`
 	// StepDelay specifies the interval between peeks.
-	StepDelay Duration `json: stepDelay`
+	StepDelay time.Duration `json: stepDelay`
 }
-
-// TimeLimitedLoad defines a load that spreads operations over given time.
-type TimeLimitedLoad struct {
-	// TimeLimit specifies the limit of the time that operation will be spread over.
-	TimeLimit Duration `json: timeLimit`
-}
-
-// RandomizedTimeLimitedLoad defines a load that randomly spreads operations over given time.
-type RandomizedTimeLimitedLoad struct {
-	// TimeLimit specifies the limit of the time that operation will be spread over.
-	TimeLimit Duration `json: timeLimit`
-}
-
-// ParallelismLimitedLoad defines a load that executes actions with given parallelism.
-type ParallelismLimitedLoad struct {
-	// ParallelismLimit specifies the limit of the parallelism for the action executions.
-	ParallelismLimit int32 `json: parallelismLimit`
-}
-
-// ChaosMonkeyConfig descibes simulated component failures.
-type ChaosMonkeyConfig struct {
-	// NodeFailure is a config for simulated node failures.
-	NodeFailure *NodeFailureConfig `json: nodeFailure`
-}
-
-// NodeFailureConfig describes simulated node failures.
-type NodeFailureConfig struct {
-	// FailureRate is a percentage of all nodes that could fail simultinously.
-	FailureRate float64 `json: failureRate`
-	// Interval is time between node failures.
-	Interval Duration `json: interval`
-	// JitterFactor is factor used to jitter node failures.
-	// Node will be killed between [Interval, Interval + (1.0 + JitterFactor)].
-	JitterFactor float64 `json: jitterFactor`
-	// SimulatedDowntime is a duration between node is killed and recreated.
-	SimulatedDowntime Duration `json: simulatedDowntime`
-}
-
-// Duration is time.Duration that uses string format (e.g. 1h2m3s) for marshaling.
-type Duration time.Duration

@@ -17,26 +17,17 @@ limitations under the License.
 package measurement
 
 import (
-	"time"
-
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	clientset "k8s.io/client-go/kubernetes"
 )
 
 // MeasurementConfig provides client and parameters required for the measurement execution.
 type MeasurementConfig struct {
-	// ClusterFramework returns cluster framework.
-	ClusterFramework *framework.Framework
-	// PrometheusFramework returns prometheus framework.
-	PrometheusFramework *framework.Framework
+	// Clientset is a kubernetes client.
+	ClientSet clientset.Interface
 	// Params is a map of {name: value} pairs enabling for injection of arbitrary config
 	// into the Execute method.
 	Params map[string]interface{}
-	// TemplateProvider provides templated objects.
-	TemplateProvider *config.TemplateProvider
-	// Identifier identifies this instance of measurement.
-	Identifier    string
-	CloudProvider string
+	// TODO(krzysied): add CloudProvider.
 }
 
 // Measurement is an common interface for all measurements methods. It should be implemented by the user to
@@ -44,8 +35,6 @@ type MeasurementConfig struct {
 // See https://github.com/kubernetes/perf-tests/blob/master/clusterloader/docs/design.md for reference.
 type Measurement interface {
 	Execute(config *MeasurementConfig) ([]Summary, error)
-	Dispose()
-	String() string
 }
 
 type createMeasurementFunc func() Measurement
@@ -53,7 +42,5 @@ type createMeasurementFunc func() Measurement
 // Summary represenst result of specific measurement.
 type Summary interface {
 	SummaryName() string
-	SummaryExt() string
-	SummaryTime() time.Time
-	SummaryContent() string
+	PrintSummary() (string, error)
 }

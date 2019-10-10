@@ -56,12 +56,6 @@ def parse_args():
       '--params', type=str, required=True,
       help='perf test parameters')
   parser.add_argument(
-      '--run-large-queries', action='store_true',
-      help='runs large example query file from dnsperf repo')
-  parser.add_argument(
-      '--testsvc-yaml', type=str, default='cluster/testsvc.yaml',
-      help='yaml for creating test services to be queried by dnsperf')
-  parser.add_argument(
       '--out-dir', type=str, default='out',
       help='output directory')
   parser.add_argument(
@@ -80,9 +74,6 @@ def parse_args():
       '--dns-ip', type=str, default='10.0.0.20',
       help='IP to use for the DNS service. Note: --use-cluster-dns '
         'implicitly sets the service-ip of kube-dns service')
-  parser.add_argument(
-      '--nodecache-ip', type=str, default='',
-      help='IP of existing node-cache service to use for testing')
   parser.add_argument(
       '-v', '--verbose', action='store_true',
       help='show verbose logging')

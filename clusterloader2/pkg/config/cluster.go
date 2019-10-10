@@ -16,54 +16,15 @@ limitations under the License.
 
 package config
 
-import (
-	"k8s.io/perf-tests/clusterloader2/api"
-)
-
-// ClusterLoaderConfig represents all single test run parameters used by CLusterLoader.
+// ClusterLoaderConfig represents all flags used by CLusterLoader
 type ClusterLoaderConfig struct {
-	ClusterConfig     ClusterConfig
-	ReportDir         string
-	EnableExecService bool
-	TestScenario      api.TestScenario
-	PrometheusConfig  PrometheusConfig
+	ClusterConfig  ClusterConfig `json: clusterConfig`
+	ReportDir      string        `json: reportDir`
+	TestConfigPath string        `json: testConfigPath`
 }
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath             string
-	Nodes                      int
-	Provider                   string
-	MasterIPs                  []string
-	MasterInternalIPs          []string
-	MasterName                 string
-	KubemarkRootKubeConfigPath string
-}
-
-// PrometheusConfig represents all flags used by prometheus.
-type PrometheusConfig struct {
-	EnableServer       bool
-	TearDownServer     bool
-	ScrapeEtcd         bool
-	ScrapeNodeExporter bool
-	ScrapeKubelets     bool
-	ScrapeKubeProxy    bool
-}
-
-// GetMasterIp returns the first master ip, added for backward compatibility.
-// TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
-func (c *ClusterConfig) GetMasterIp() string {
-	if len(c.MasterIPs) > 0 {
-		return c.MasterIPs[0]
-	}
-	return ""
-}
-
-// GetMasterInternalIp returns the first internal master ip, added for backward compatibility.
-// TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
-func (c *ClusterConfig) GetMasterInternalIp() string {
-	if len(c.MasterInternalIPs) > 0 {
-		return c.MasterInternalIPs[0]
-	}
-	return ""
+	KubeConfigPath string `json: kubeConfigPath`
+	Nodes          int    `json: nodes`
 }

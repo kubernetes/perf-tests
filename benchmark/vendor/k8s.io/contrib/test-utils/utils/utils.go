@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -61,7 +60,7 @@ type Utils struct {
 	derefCacheLock sync.Mutex
 }
 
-// NewUtils returns new Utils struct for a given bucket name and subdirectory
+// NewUtils returnes new Utils struct for a given bucket name and subdirectory
 func NewUtils(bucket, directory string) *Utils {
 	return &Utils{
 		bucket:     NewBucket(bucket),
@@ -70,7 +69,7 @@ func NewUtils(bucket, directory string) *Utils {
 	}
 }
 
-// NewWithPresubmitDetection returns new Utils struct for a given bucket name
+// NewWithPresubmitDetection returnes new Utils struct for a given bucket name
 // and subdirectory. If a job name contains the presubmitKey, it will be gotten
 // from the presubmitDirectory and trigger the dereferencing logic.
 func NewWithPresubmitDetection(bucket, directory, presubmitKey, presubmitDirectory string) *Utils {
@@ -83,7 +82,7 @@ func NewWithPresubmitDetection(bucket, directory, presubmitKey, presubmitDirecto
 	}
 }
 
-// NewTestUtils returns new Utils struct for a given url pointing to a file server.
+// NewTestUtils returnes new Utils struct for a given url pointing to a file server.
 func NewTestUtils(bucket, directory, url string) *Utils {
 	return &Utils{
 		bucket:     NewTestBucket(bucket, url),
@@ -200,43 +199,15 @@ func (u *Utils) GetLastestBuildNumberFromJenkinsGoogleBucket(job string) (int, e
 	return lastBuildNo, nil
 }
 
-// GetBuildNumbersFromJenkinsGoogleBucket returns list of available build numbers
-// of the given job from the Google project's GCS bucket.
-func (u *Utils) GetBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, error) {
-	var results []string
-	var err error
-	if u.needsDeref(job) {
-		results, err = u.bucket.ListDirs(u.pullDirectory, lookUpDirectory, job)
-	} else {
-		results, err = u.bucket.ListDirs(u.directory, job)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	jobPrefix := fmt.Sprintf("%s/%s/", u.directory, job)
-	builds := make([]int, 0)
-	for _, r := range results {
-		build := strings.TrimPrefix(r, jobPrefix)
-		build = strings.TrimSuffix(build, "/")
-		buildNo, err := strconv.Atoi(build)
-		if err != nil {
-			fmt.Printf("jobPrefix: %s", jobPrefix)
-			return nil, fmt.Errorf("unknown build name convention: %s", build)
-		}
-		builds = append(builds, buildNo)
-	}
-	return builds, nil
-}
-
-// StartedFile is a type in which we store test starting information in GCS as started.json
+// StartedFile is a type in which we store test starting informatio in GCS as started.json
 type StartedFile struct {
 	Version     string `json:"version"`
 	Timestamp   uint64 `json:"timestamp"`
 	JenkinsNode string `json:"jenkins-node"`
 }
 
-// CheckStartedStatus returns the started.json file for a given job and build number.
+// CheckStartedStatus reads the started.json file for a given job and build number.
+// It returns true if the result stored there is success, and false otherwise.
 func (u *Utils) CheckStartedStatus(job string, buildNumber int) (*StartedFile, error) {
 	response, err := u.GetFileFromJenkinsGoogleBucket(job, buildNumber, "started.json")
 	if err != nil {
@@ -247,7 +218,7 @@ func (u *Utils) CheckStartedStatus(job string, buildNumber int) (*StartedFile, e
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		glog.Errorf("Got a non-success response %v while reading data for %v/%v/%v", response.StatusCode, job, buildNumber, "started.json")
-		return nil, fmt.Errorf("non-success response: %v", response.StatusCode)
+		return nil, err
 	}
 	result := &StartedFile{}
 	err = json.NewDecoder(response.Body).Decode(result)
@@ -282,7 +253,7 @@ func (u *Utils) CheckFinishedStatus(job string, buildNumber int) (bool, error) {
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		glog.Errorf("Failed to read the response for %v/%v/%v: %v", job, buildNumber, "finished.json", err)
-		return false, fmt.Errorf("non-success response: %v", response.StatusCode)
+		return false, err
 	}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
@@ -302,6 +273,7 @@ func (u *Utils) ListFilesInBuild(job string, buildNumber int, prefix string) ([]
 		}
 		return u.bucket.List(dir, prefix)
 	}
+
 	return u.bucket.List(u.directory, job, buildNumber, prefix)
 }
 

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: {{.Name}}
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        kind: {{.PodKind}}
+    spec:
+      containers:
+      - image: k8s.gcr.io/pause:3.1
+        imagePullPolicy: IfNotPresent
+        name: {{.Name}}
+        ports:
+        resources:
+          requests:
+            cpu: 10m
+            memory: "10M"

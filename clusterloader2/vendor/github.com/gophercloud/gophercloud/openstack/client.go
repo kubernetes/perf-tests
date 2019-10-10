@@ -150,7 +150,6 @@ func v2auth(client *gophercloud.ProviderClient, endpoint string, options gopherc
 		// with the token and reauth func zeroed out. combined with setting `AllowReauth` to `false`,
 		// this should retry authentication only once
 		tac := *client
-		tac.IsThrowaway = true
 		tac.ReauthFunc = nil
 		tac.TokenID = ""
 		tao := options
@@ -207,7 +206,6 @@ func v3auth(client *gophercloud.ProviderClient, endpoint string, opts tokens3.Au
 		// with the token and reauth func zeroed out. combined with setting `AllowReauth` to `false`,
 		// this should retry authentication only once
 		tac := *client
-		tac.IsThrowaway = true
 		tac.ReauthFunc = nil
 		tac.TokenID = ""
 		var tao tokens3.AuthOptionsBuilder
@@ -421,9 +419,4 @@ func NewKeyManagerV1(client *gophercloud.ProviderClient, eo gophercloud.Endpoint
 // package.
 func NewContainerInfraV1(client *gophercloud.ProviderClient, eo gophercloud.EndpointOpts) (*gophercloud.ServiceClient, error) {
 	return initClientOpts(client, eo, "container-infra")
-}
-
-// NewWorkflowV2 creates a ServiceClient that may be used with the v2 workflow management package.
-func NewWorkflowV2(client *gophercloud.ProviderClient, eo gophercloud.EndpointOpts) (*gophercloud.ServiceClient, error) {
-	return initClientOpts(client, eo, "workflowv2")
 }

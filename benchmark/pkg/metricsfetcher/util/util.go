@@ -33,7 +33,6 @@ const (
 // for obtaining metrics for a given source mode (GCS/local/...).
 type JobLogUtils interface {
 	GetLatestBuildNumberForJob(string) (int, error)
-	GetBuildNumbersForJob(string) ([]int, error)
 	GetJobRunStartTimestamp(string, int) (uint64, error)
 	GetJobRunFinishedStatus(string, int) (bool, error)
 	GetJobRunFileContents(string, int, string) ([]byte, error)
@@ -56,11 +55,6 @@ func NewGCSLogUtils() GCSLogUtils {
 // GetLatestBuildNumberForJob returns latest build number for the job.
 func (utils GCSLogUtils) GetLatestBuildNumberForJob(job string) (int, error) {
 	return utils.googleGCSBucketUtils.GetLastestBuildNumberFromJenkinsGoogleBucket(job)
-}
-
-// GetBuildNumbersForJob return list of build numbers.
-func (utils GCSLogUtils) GetBuildNumbersForJob(job string) ([]int, error) {
-	return utils.googleGCSBucketUtils.GetBuildNumbersFromJenkinsGoogleBucket(job)
 }
 
 // GetJobRunStartTimestamp returns start timestamp for the job run.

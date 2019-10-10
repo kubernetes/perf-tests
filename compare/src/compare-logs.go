@@ -136,7 +136,7 @@ func CompareLogGenerationSpeed(left *e2e.LogsSizeDataSummary, right *e2e.LogsSiz
 	leftAggregates := computeLogsAggregates(left)
 	rightAggregates := computeLogsAggregates(right)
 	if len(leftAggregates) == 0 || len(rightAggregates) == 0 {
-		glog.Warningf("No data found in at least one input\nleft: %v\nright: %v", leftAggregates, rightAggregates)
+		glog.Warningf("No data found in at leaste one input\nleft: %v\nright: %v", leftAggregates, rightAggregates)
 		return result
 	}
 

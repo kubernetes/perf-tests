@@ -19,27 +19,22 @@ package test
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"path"
-	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	baseNamePlaceholder = "BaseName"
-	indexPlaceholder    = "Index"
-	namePlaceholder     = "Name"
+	namePlaceholder  = "Name"
+	indexPlaceholder = "Index"
 )
 
 type simpleTestExecutor struct{}
@@ -49,29 +44,22 @@ func createSimpleTestExecutor() TestExecutor {
 }
 
 // ExecuteTest executes test based on provided configuration.
-func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
-	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
-	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
+func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *util.ErrorList {
 	defer cleanupResources(ctx)
-	ctx.GetTuningSetFactory().Init(conf.TuningSets)
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	if err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh); err != nil {
-		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
-	}
-	automanagedNamespacesList, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
+	ctx.GetTickerFactory().Init(conf.TuningSets)
+	automanagedNamespacesList, err := ctx.GetFramework().ListAutomanagedNamespaces()
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
+		return util.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
 	}
 	if len(automanagedNamespacesList) > 0 {
-		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
+		return util.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
-	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
+	err = ctx.GetFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
+		return util.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
 	}
 
-	errList := errors.NewErrorList()
+	errList := util.NewErrorList()
 	for i := range conf.Steps {
 		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); !stepErrList.IsEmpty() {
 			errList.Concat(stepErrList)
@@ -82,21 +70,17 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	}
 
 	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
+		summaryText, err := summary.PrintSummary()
 		if err != nil {
 			errList.Append(fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
 			continue
 		}
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
-			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
+			glog.Infof("%v: %v", summary.SummaryName(), summaryText)
 		} else {
-			testDistinctor := ""
-			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
-				testDistinctor = "_" + ctx.GetClusterLoaderConfig().TestScenario.Identifier
-			}
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
-			fileName := strings.Join([]string{summary.SummaryName(), conf.Name + testDistinctor, summary.SummaryTime().Format(time.RFC3339)}, "_")
-			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, strings.Join([]string{fileName, summary.SummaryExt()}, "."))
-			if err := ioutil.WriteFile(filePath, []byte(summary.SummaryContent()), 0644); err != nil {
+			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+time.Now().Format(time.RFC3339)+".txt")
+			if err := ioutil.WriteFile(filePath, []byte(summaryText), 0644); err != nil {
 				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
 				continue
 			}
@@ -106,20 +90,16 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 }
 
 // ExecuteStep executes single test step based on provided step configuration.
-func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
-	if step.Name != "" {
-		klog.Infof("Step %q started", step.Name)
-	}
+func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *util.ErrorList {
 	var wg wait.Group
-	errList := errors.NewErrorList()
+	// TODO(krzysied): Consider moving lock and errList to separate structure.
+	errList := util.NewErrorList()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method,
-					step.Measurements[index].Identifier,
-					step.Measurements[index].Params)
+				err := ctx.GetMeasurementManager().Execute(step.Measurements[index].Method, step.Measurements[index].Identifier, step.Measurements[index].Params)
 				if err != nil {
 					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}
@@ -136,184 +116,173 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 		}
 	}
 	wg.Wait()
-	if step.Name != "" {
-		klog.Infof("Step %q ended", step.Name)
-	}
-	if !errList.IsEmpty() {
-		klog.Warningf("Got errors during step execution: %v", errList)
-	}
 	return errList
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.
-func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
+func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *util.ErrorList {
 	// TODO: add tuning set
-	errList := errors.NewErrorList()
-	nsList := createNamespacesList(ctx, phase.NamespaceRange)
-	tuningSet, err := ctx.GetTuningSetFactory().CreateTuningSet(phase.TuningSet)
+	errList := util.NewErrorList()
+	nsList := createNamespacesList(phase.NamespaceRange)
+	ticker, err := ctx.GetTickerFactory().CreateTicker(phase.TuningSet)
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))
+		return util.NewErrorList(fmt.Errorf("ticker creation error: %v", err))
 	}
-
-	var actions []func()
+	defer ticker.Stop()
+	var wg wait.Group
 	for namespaceIndex := range nsList {
 		nsName := nsList[namespaceIndex]
-		instancesStates := make([]*state.InstancesState, 0)
-		// Updating state (DesiredReplicaCount) of every object in object bundle.
-		for j := range phase.ObjectBundle {
-			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
-			if err != nil {
-				errList.Append(err)
-				return errList
-			}
-			instances, exists := ctx.GetState().GetNamespacesState().Get(nsName, id)
-			if !exists {
-				currentReplicaCount, err := getReplicaCountOfNewObject(ctx, nsName, &phase.ObjectBundle[j])
+		wg.Start(func() {
+			instancesStates := make([]*state.InstancesState, 0)
+			// Updating state (DesiredReplicaCount) of every object in object bundle.
+			for j := range phase.ObjectBundle {
+				id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
 				if err != nil {
 					errList.Append(err)
-					return errList
+					return
 				}
-				instances = &state.InstancesState{
-					DesiredReplicaCount: 0,
-					CurrentReplicaCount: currentReplicaCount,
-					Object:              phase.ObjectBundle[j],
-				}
-			}
-			instances.DesiredReplicaCount = phase.ReplicasPerNamespace
-			ctx.GetState().GetNamespacesState().Set(nsName, id, instances)
-			instancesStates = append(instancesStates, instances)
-		}
-
-		if err := verifyBundleCorrectness(instancesStates); err != nil {
-			klog.Errorf("Skipping phase. Incorrect bundle in phase: %+v", *phase)
-			return errors.NewErrorList(err)
-		}
-
-		// Deleting objects with index greater or equal requested replicas per namespace number.
-		// Objects will be deleted in reversed order.
-		for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < instancesStates[0].CurrentReplicaCount; replicaCounter++ {
-			replicaIndex := replicaCounter
-			actions = append(actions, func() {
-				for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
-					if replicaIndex < instancesStates[j].CurrentReplicaCount {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
-							errList.Concat(objectErrList)
-						}
+				instances, exists := ctx.GetState().Get(nsName, id)
+				if !exists {
+					instances = &state.InstancesState{
+						DesiredReplicaCount: 0,
+						CurrentReplicaCount: 0,
+						Object:              phase.ObjectBundle[j],
 					}
 				}
-			})
-		}
+				instances.DesiredReplicaCount = phase.ReplicasPerNamespace
+				ctx.GetState().Set(nsName, id, instances)
+				instancesStates = append(instancesStates, instances)
+			}
 
-		// Updating objects when desired replicas per namespace equals current replica count.
-		if instancesStates[0].CurrentReplicaCount == phase.ReplicasPerNamespace {
-			for replicaCounter := int32(0); replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+			// Calculating maximal replica count of objects from object bundle.
+			var maxCurrentReplicaCount int32
+			for j := range instancesStates {
+				if instancesStates[j].CurrentReplicaCount > maxCurrentReplicaCount {
+					maxCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+				}
+			}
+
+			var namespaceWG wait.Group
+			// Deleting objects with index greater or equal requested replicas per namespace number.
+			// Objects will be deleted in reversed order.
+			for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < maxCurrentReplicaCount; replicaCounter++ {
 				replicaIndex := replicaCounter
-				actions = append(actions, func() {
-					for j := range phase.ObjectBundle {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
-							errList.Concat(objectErrList)
-							// If error then skip this bundle
-							break
+				namespaceWG.Start(func() {
+					<-ticker.C
+					for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
+						if replicaIndex < instancesStates[j].CurrentReplicaCount {
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+							}
 						}
 					}
 				})
 			}
-		}
 
-		// Adding objects with index greater than current replica count and lesser than desired replicas per namespace.
-		for replicaCounter := instancesStates[0].CurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
-			replicaIndex := replicaCounter
-			actions = append(actions, func() {
-				for j := range phase.ObjectBundle {
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
-						errList.Concat(objectErrList)
-						// If error then skip this bundle
-						break
-					}
+			// Calculating minimal replica count of objects from object bundle.
+			// If there is update operation to be executed, minimal replica count is set to zero.
+			minCurrentReplicaCount := int32(math.MaxInt32)
+			for j := range instancesStates {
+				if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+					minCurrentReplicaCount = 0
+					break
 				}
-			})
-		}
-
-		// Updating state (CurrentReplicaCount) of every object in object bundle.
-		defer func() {
+				if instancesStates[j].CurrentReplicaCount < minCurrentReplicaCount {
+					minCurrentReplicaCount = instancesStates[j].CurrentReplicaCount
+				}
+			}
+			// Handling for update/create objects.
+			for replicaCounter := minCurrentReplicaCount; replicaCounter < phase.ReplicasPerNamespace; replicaCounter++ {
+				replicaIndex := replicaCounter
+				namespaceWG.Start(func() {
+					<-ticker.C
+					for j := range phase.ObjectBundle {
+						if instancesStates[j].CurrentReplicaCount == phase.ReplicasPerNamespace {
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+								// If error then skip this bundle
+								break
+							}
+						} else if replicaIndex >= instancesStates[j].CurrentReplicaCount {
+							if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+								errList.Concat(objectErrList)
+								// If error then skip this bundle
+								break
+							}
+						}
+					}
+				})
+			}
+			namespaceWG.Wait()
+			// Updating state (CurrentReplicaCount) of every object in object bundle.
 			for j := range phase.ObjectBundle {
 				id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
 				instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
-				ctx.GetState().GetNamespacesState().Set(nsName, id, instancesStates[j])
+				ctx.GetState().Set(nsName, id, instancesStates[j])
 			}
-		}()
-
+		})
 	}
-	tuningSet.Execute(actions)
+	wg.Wait()
 	return errList
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
-func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
+func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *util.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 	var err error
 	var obj *unstructured.Unstructured
 	switch operation {
 	case CREATE_OBJECT, PATCH_OBJECT:
-		mapping := ctx.GetTemplateMappingCopy()
+		mapping := make(map[string]interface{})
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}
-		mapping[baseNamePlaceholder] = object.Basename
 		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
-		if err != nil && err != config.ErrorEmptyFile {
-			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
+		if err != nil {
+			return util.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case DELETE_OBJECT:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-		if err != nil && err != config.ErrorEmptyFile {
-			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
+		if err != nil {
+			return util.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
 	default:
-		return errors.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
-	}
-	errList := errors.NewErrorList()
-	if err == config.ErrorEmptyFile {
-		return errList
+		return util.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 	}
 	gvk := obj.GroupVersionKind()
-	switch operation {
-	case CREATE_OBJECT:
-		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
-		}
-	case PATCH_OBJECT:
-		if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
-		}
-	case DELETE_OBJECT:
-		if err := ctx.GetClusterFramework().DeleteObject(gvk, namespace, objName); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+
+	errList := util.NewErrorList()
+	if namespace == "" {
+		// TODO: handle cluster level object
+	} else {
+		switch operation {
+		case CREATE_OBJECT:
+			if err := ctx.GetFramework().CreateObject(namespace, objName, obj); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+			}
+		case PATCH_OBJECT:
+			if err := ctx.GetFramework().PatchObject(namespace, objName, obj); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+			}
+		case DELETE_OBJECT:
+			if err := ctx.GetFramework().DeleteObject(gvk, namespace, objName); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+			}
 		}
 	}
 	return errList
 }
 
-// verifyBundleCorrectness checks if all bundle objects have the same replica count.
-func verifyBundleCorrectness(instancesStates []*state.InstancesState) error {
-	const uninitialized int32 = -1
-	expectedReplicaCount := uninitialized
-	for j := range instancesStates {
-		if expectedReplicaCount != uninitialized && instancesStates[j].CurrentReplicaCount != expectedReplicaCount {
-			return fmt.Errorf("bundle error: %s has %d replicas while %s has %d",
-				instancesStates[j].Object.Basename,
-				instancesStates[j].CurrentReplicaCount,
-				instancesStates[j-1].Object.Basename,
-				instancesStates[j-1].CurrentReplicaCount)
-		}
-		expectedReplicaCount = instancesStates[j].CurrentReplicaCount
-	}
-	return nil
-}
-
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
+	objName := fmt.Sprintf("%v-%d", object.Basename, 0)
+	mapping := make(map[string]interface{})
+	if object.TemplateFillMap != nil {
+		util.CopyMap(object.TemplateFillMap, mapping)
+	}
+	mapping[namePlaceholder] = objName
+	mapping[indexPlaceholder] = 0
 	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) for identifier error: %v", object.ObjectTemplatePath, err)
@@ -326,14 +295,13 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	}, nil
 }
 
-func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []string {
+func createNamespacesList(namespaceRange *api.NamespaceRange) []string {
 	if namespaceRange == nil {
-		// Returns "" which represents cluster level.
 		return []string{""}
 	}
 
 	nsList := make([]string, 0)
-	nsBasename := ctx.GetClusterFramework().GetAutomanagedNamespacePrefix()
+	nsBasename := framework.AutomanagedNamespaceName
 	if namespaceRange.Basename != nil {
 		nsBasename = *namespaceRange.Basename
 	}
@@ -344,44 +312,16 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 	return nsList
 }
 
-func isErrsCritical(*errors.ErrorList) bool {
+func isErrsCritical(*util.ErrorList) bool {
 	// TODO: define critical errors
 	return false
 }
 
 func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
-	ctx.GetMeasurementManager().Dispose()
-	if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
-		klog.Errorf("Resource cleanup error: %v", errList.String())
+	if errList := ctx.GetFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
+		glog.Errorf("Resource cleanup error: %v", errList.String())
 		return
 	}
-	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
-}
-
-func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Object) (int32, error) {
-	if object.ListUnknownObjectOptions == nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: new object detected, will list objects in order to find num replicas", object.Basename)
-	selector, err := metav1.LabelSelectorAsSelector(object.ListUnknownObjectOptions.LabelSelector)
-	if err != nil {
-		return 0, err
-	}
-	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-	if err != nil {
-		return 0, err
-	}
-	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-	replicaCount, err := runtimeobjects.GetNumObjectsMatchingSelector(
-		ctx.GetClusterFramework().GetDynamicClients().GetClient(),
-		namespace,
-		gvr,
-		selector)
-	if err != nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: found %d replicas", object.Basename, replicaCount)
-	return int32(replicaCount), nil
+	glog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
 }

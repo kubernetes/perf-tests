@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM debian:jessie
+FROM google/debian:jessie
+MAINTAINER Brendan Burns <bburns@google.com>
 RUN apt-get update
 RUN apt-get install -y -qq ca-certificates
 ADD perfdash /perfdash

@@ -18,7 +18,6 @@ package client
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -73,84 +72,17 @@ func IsRetryableAPIError(err error) bool {
 	return false
 }
 
-// IsRetryableNetError determines whether the error is a retryable net error.
-func IsRetryableNetError(err error) bool {
-	if netError, ok := err.(net.Error); ok {
-		return netError.Temporary() || netError.Timeout()
-	}
-	return false
-}
-
-// ApiCallOptions describes how api call errors should be treated, i.e. which errors should be
-// allowed (ignored) and which should be retried.
-type ApiCallOptions struct {
-	shouldAllowError func(error) bool
-	shouldRetryError func(error) bool
-}
-
-// Allow creates an ApiCallOptions that allows (ignores) errors matching the given predicate.
-func Allow(allowErrorPredicate func(error) bool) *ApiCallOptions {
-	return &ApiCallOptions{shouldAllowError: allowErrorPredicate}
-}
-
-// Retry creates an ApiCallOptions that retries errors matching the given predicate.
-func Retry(retryErrorPredicate func(error) bool) *ApiCallOptions {
-	return &ApiCallOptions{shouldRetryError: retryErrorPredicate}
-}
-
-// RetryFunction opaques given function into retryable function.
-func RetryFunction(f func() error, options ...*ApiCallOptions) wait.ConditionFunc {
-	var shouldAllowErrorFuncs, shouldRetryErrorFuncs []func(error) bool
-	for _, option := range options {
-		if option.shouldAllowError != nil {
-			shouldAllowErrorFuncs = append(shouldAllowErrorFuncs, option.shouldAllowError)
-		}
-		if option.shouldRetryError != nil {
-			shouldRetryErrorFuncs = append(shouldRetryErrorFuncs, option.shouldRetryError)
-		}
-	}
+func retryFunction(f func() error, isAllowedError func(error) bool) wait.ConditionFunc {
 	return func() (bool, error) {
 		err := f()
-		if err == nil {
+		if err == nil || (isAllowedError != nil && isAllowedError(err)) {
 			return true, nil
 		}
-		if IsRetryableAPIError(err) || IsRetryableNetError(err) {
+		if IsRetryableAPIError(err) {
 			return false, nil
-		}
-		for _, shouldAllowError := range shouldAllowErrorFuncs {
-			if shouldAllowError(err) {
-				return true, nil
-			}
-		}
-		for _, shouldRetryError := range shouldRetryErrorFuncs {
-			if shouldRetryError(err) {
-				return false, nil
-			}
 		}
 		return false, err
 	}
-}
-
-// ListNodes returns list of cluster nodes.
-func ListNodes(c clientset.Interface) ([]apiv1.Node, error) {
-	return ListNodesWithOptions(c, metav1.ListOptions{})
-}
-
-// ListNodesWithOptions lists the cluster nodes using the provided options.
-func ListNodesWithOptions(c clientset.Interface, listOpts metav1.ListOptions) ([]apiv1.Node, error) {
-	var nodes []apiv1.Node
-	listFunc := func() error {
-		nodesList, err := c.CoreV1().Nodes().List(listOpts)
-		if err != nil {
-			return err
-		}
-		nodes = nodesList.Items
-		return nil
-	}
-	if err := RetryWithExponentialBackOff(RetryFunction(listFunc)); err != nil {
-		return nodes, err
-	}
-	return nodes, nil
 }
 
 // CreateNamespace creates a single namespace with given name.
@@ -159,7 +91,7 @@ func CreateNamespace(c clientset.Interface, namespace string) error {
 		_, err := c.CoreV1().Namespaces().Create(&apiv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
 		return err
 	}
-	return RetryWithExponentialBackOff(RetryFunction(createFunc, Allow(apierrs.IsAlreadyExists)))
+	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
 }
 
 // DeleteNamespace deletes namespace with given name.
@@ -167,7 +99,7 @@ func DeleteNamespace(c clientset.Interface, namespace string) error {
 	deleteFunc := func() error {
 		return c.CoreV1().Namespaces().Delete(namespace, nil)
 	}
-	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, Allow(apierrs.IsNotFound)))
+	return RetryWithExponentialBackOff(retryFunction(deleteFunc, apierrs.IsNotFound))
 }
 
 // ListNamespaces returns list of existing namespace names.
@@ -181,7 +113,7 @@ func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 		namespaces = namespacesList.Items
 		return nil
 	}
-	if err := RetryWithExponentialBackOff(RetryFunction(listFunc)); err != nil {
+	if err := RetryWithExponentialBackOff(retryFunction(listFunc, nil)); err != nil {
 		return namespaces, err
 	}
 	return namespaces, nil
@@ -204,35 +136,20 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 	return wait.PollImmediate(defaultNamespaceDeletionInterval, defaultNamespaceDeletionTimeout, retryWaitFunc)
 }
 
-// ListEvents retrieves events for the object with the given name.
-func ListEvents(c clientset.Interface, namespace string, name string, options ...*ApiCallOptions) (obj *apiv1.EventList, err error) {
-	getFunc := func() error {
-		obj, err = c.CoreV1().Events(namespace).List(metav1.ListOptions{
-			FieldSelector: "involvedObject.name=" + name,
-		})
-		return err
-	}
-	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // CreateObject creates object based on given object description.
-func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
+func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
 	createFunc := func() error {
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj, metav1.CreateOptions{})
+		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj)
 		return err
 	}
-	options = append(options, Allow(apierrs.IsAlreadyExists))
-	return RetryWithExponentialBackOff(RetryFunction(createFunc, options...))
+	return RetryWithExponentialBackOff(retryFunction(createFunc, apierrs.IsAlreadyExists))
 }
 
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
-func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
+func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -245,27 +162,23 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch, metav1.UpdateOptions{})
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch)
 		return err
 	}
-	return RetryWithExponentialBackOff(RetryFunction(updateFunc, options...))
+	return RetryWithExponentialBackOff(retryFunction(updateFunc, nil))
 }
 
 // DeleteObject deletes object with given name, group, version and kind.
-func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) error {
+func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) error {
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	deleteFunc := func() error {
-		// Delete operation removes object with all of the dependants.
-		falseVar := false
-		deleteOption := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, deleteOption)
+		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, nil)
 	}
-	options = append(options, Allow(apierrs.IsNotFound))
-	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, options...))
+	return RetryWithExponentialBackOff(retryFunction(deleteFunc, apierrs.IsNotFound))
 }
 
 // GetObject retrieves object with given name, group, version and kind.
-func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) (*unstructured.Unstructured, error) {
+func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string) (*unstructured.Unstructured, error) {
 	var obj *unstructured.Unstructured
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	getFunc := func() error {
@@ -275,7 +188,7 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 		obj, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
 		return err
 	}
-	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {
+	if err := RetryWithExponentialBackOff(retryFunction(getFunc, nil)); err != nil {
 		return nil, err
 	}
 	return obj, nil

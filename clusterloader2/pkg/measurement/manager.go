@@ -19,16 +19,12 @@ package measurement
 import (
 	"sync"
 
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
-	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	clientset "k8s.io/client-go/kubernetes"
 )
 
 // MeasurementManager manages all measurement executions.
 type MeasurementManager struct {
-	clusterFramework    *framework.Framework
-	clusterLoaderConfig *config.ClusterLoaderConfig
-	prometheusFramework *framework.Framework
-	templateProvider    *config.TemplateProvider
+	clientSet clientset.Interface
 
 	lock sync.Mutex
 	// map from method type and identifier to measurement instance.
@@ -37,15 +33,11 @@ type MeasurementManager struct {
 }
 
 // CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework,
-	templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) *MeasurementManager {
+func CreateMeasurementManager(clientSet clientset.Interface) *MeasurementManager {
 	return &MeasurementManager{
-		clusterFramework:    clusterFramework,
-		clusterLoaderConfig: config,
-		prometheusFramework: prometheusFramework,
-		templateProvider:    templateProvider,
-		measurements:        make(map[string]map[string]Measurement),
-		summaries:           make([]Summary, 0),
+		clientSet:    clientSet,
+		measurements: make(map[string]map[string]Measurement),
+		summaries:    make([]Summary, 0),
 	}
 }
 
@@ -56,12 +48,8 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 		return err
 	}
 	config := &MeasurementConfig{
-		ClusterFramework:    mm.clusterFramework,
-		PrometheusFramework: mm.prometheusFramework,
-		Params:              params,
-		TemplateProvider:    mm.templateProvider,
-		Identifier:          identifier,
-		CloudProvider:       mm.clusterLoaderConfig.ClusterConfig.Provider,
+		ClientSet: mm.clientSet,
+		Params:    params,
 	}
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)
@@ -71,15 +59,6 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 // GetSummaries returns collected summaries.
 func (mm *MeasurementManager) GetSummaries() []Summary {
 	return mm.summaries
-}
-
-// Dispose disposes measurement instances.
-func (mm *MeasurementManager) Dispose() {
-	for _, instances := range mm.measurements {
-		for _, measurement := range instances {
-			measurement.Dispose()
-		}
-	}
 }
 
 func (mm *MeasurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {

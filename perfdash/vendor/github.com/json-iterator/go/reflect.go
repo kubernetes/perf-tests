@@ -2,10 +2,9 @@ package jsoniter
 
 import (
 	"fmt"
+	"github.com/modern-go/reflect2"
 	"reflect"
 	"unsafe"
-
-	"github.com/modern-go/reflect2"
 )
 
 // ValDecoder is an internal type registered to cache as needed.
@@ -39,14 +38,6 @@ type ctx struct {
 	prefix   string
 	encoders map[reflect2.Type]ValEncoder
 	decoders map[reflect2.Type]ValDecoder
-}
-
-func (b *ctx) caseSensitive() bool {
-	if b.frozenConfig == nil {
-		// default is case-insensitive
-		return false
-	}
-	return b.frozenConfig.caseSensitive
 }
 
 func (b *ctx) append(prefix string) *ctx {
@@ -120,8 +111,7 @@ func decoderOfType(ctx *ctx, typ reflect2.Type) ValDecoder {
 	for _, extension := range extensions {
 		decoder = extension.DecorateDecoder(typ, decoder)
 	}
-	decoder = ctx.decoderExtension.DecorateDecoder(typ, decoder)
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		decoder = extension.DecorateDecoder(typ, decoder)
 	}
 	return decoder
@@ -223,8 +213,7 @@ func encoderOfType(ctx *ctx, typ reflect2.Type) ValEncoder {
 	for _, extension := range extensions {
 		encoder = extension.DecorateEncoder(typ, encoder)
 	}
-	encoder = ctx.encoderExtension.DecorateEncoder(typ, encoder)
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		encoder = extension.DecorateEncoder(typ, encoder)
 	}
 	return encoder

@@ -20,101 +20,54 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"time"
 )
 
-// ErrKeyNotFound is returned when key doesn't exists in a map.
-type ErrKeyNotFound struct {
-	key string
-}
-
-// Erros is an error interface implementation.
-func (e *ErrKeyNotFound) Error() string {
-	return fmt.Sprintf("key %s not found", e.key)
-}
-
-// IsErrKeyNotFound returns true only if error type is ErrKeyNotFound.
-func IsErrKeyNotFound(err error) bool {
-	_, isErrKeyNotFound := err.(*ErrKeyNotFound)
-	return isErrKeyNotFound
-}
-
 // GetString tries to return value from map cast to string type. If value doesn't exist, error is returned.
 func GetString(dict map[string]interface{}, key string) (string, error) {
-	return getString(dict, key)
+	return getString(dict, key, "", fmt.Errorf("key %s not found", key))
 }
 
 // GetInt tries to return value from map cast to int type. If value doesn't exist, error is returned.
 func GetInt(dict map[string]interface{}, key string) (int, error) {
-	return getInt(dict, key)
+	return getInt(dict, key, 0, fmt.Errorf("key %s not found", key))
 }
 
 // GetFloat64 tries to return value from map cast to float64 type. If value doesn't exist, error is returned.
 func GetFloat64(dict map[string]interface{}, key string) (float64, error) {
-	return getFloat64(dict, key)
+	return getFloat64(dict, key, 0, fmt.Errorf("key %s not found", key))
 }
 
 // GetDuration tries to return value from map cast to duration type. If value doesn't exist, error is returned.
 func GetDuration(dict map[string]interface{}, key string) (time.Duration, error) {
-	return getDuration(dict, key)
-}
-
-// GetBool tries to return value from map cast to bool type. If value doesn't exist, error is returned.
-func GetBool(dict map[string]interface{}, key string) (bool, error) {
-	return getBool(dict, key)
+	return getDuration(dict, key, 0, fmt.Errorf("key %s not found", key))
 }
 
 // GetStringOrDefault tries to return value from map cast to string type. If value doesn't exist default value is used.
 func GetStringOrDefault(dict map[string]interface{}, key string, defaultValue string) (string, error) {
-	value, err := getString(dict, key)
-	if IsErrKeyNotFound(err) {
-		return defaultValue, nil
-	}
-	return value, err
+	return getString(dict, key, defaultValue, nil)
 }
 
 // GetIntOrDefault tries to return value from map cast to int type. If value doesn't exist default value is used.
 func GetIntOrDefault(dict map[string]interface{}, key string, defaultValue int) (int, error) {
-	value, err := getInt(dict, key)
-	if IsErrKeyNotFound(err) {
-		return defaultValue, nil
-	}
-	return value, err
+	return getInt(dict, key, defaultValue, nil)
 }
 
 // GetFloat64OrDefault tries to return value from map cast to float64 type. If value doesn't exist default value is used.
 func GetFloat64OrDefault(dict map[string]interface{}, key string, defaultValue float64) (float64, error) {
-	value, err := getFloat64(dict, key)
-	if IsErrKeyNotFound(err) {
-		return defaultValue, nil
-	}
-	return value, err
+	return getFloat64(dict, key, defaultValue, nil)
 }
 
 // GetDurationOrDefault tries to return value from map cast to duration type. If value doesn't exist default value is used.
 func GetDurationOrDefault(dict map[string]interface{}, key string, defaultValue time.Duration) (time.Duration, error) {
-	value, err := getDuration(dict, key)
-	if IsErrKeyNotFound(err) {
-		return defaultValue, nil
-	}
-	return value, err
+	return getDuration(dict, key, defaultValue, nil)
 }
 
-// GetBoolOrDefault tries to return value from map cast to bool type. If value doesn't exist default value is used.
-func GetBoolOrDefault(dict map[string]interface{}, key string, defaultValue bool) (bool, error) {
-	value, err := getBool(dict, key)
-	if IsErrKeyNotFound(err) {
-		return defaultValue, nil
-	}
-	return value, err
-}
-
-func getString(dict map[string]interface{}, key string) (string, error) {
+func getString(dict map[string]interface{}, key string, defaultValue string, defaultError error) (string, error) {
 	value, exists := dict[key]
-	if !exists || value == nil {
-		return "", &ErrKeyNotFound{key}
+	if !exists {
+		return defaultValue, defaultError
 	}
 
 	stringValue, ok := value.(string)
@@ -124,10 +77,10 @@ func getString(dict map[string]interface{}, key string) (string, error) {
 	return stringValue, nil
 }
 
-func getInt(dict map[string]interface{}, key string) (int, error) {
+func getInt(dict map[string]interface{}, key string, defaultValue int, defaultError error) (int, error) {
 	value, exists := dict[key]
 	if !exists {
-		return 0, &ErrKeyNotFound{key}
+		return defaultValue, defaultError
 	}
 
 	intValue, ok := value.(int)
@@ -145,13 +98,13 @@ func getInt(dict map[string]interface{}, key string) (int, error) {
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf("type assertion error: %v is not an int", value)
+	return 0, fmt.Errorf("type assertion error: %v of is not an int", value)
 }
 
-func getFloat64(dict map[string]interface{}, key string) (float64, error) {
+func getFloat64(dict map[string]interface{}, key string, defaultValue float64, defaultError error) (float64, error) {
 	value, exists := dict[key]
 	if !exists {
-		return 0, &ErrKeyNotFound{key}
+		return defaultValue, defaultError
 	}
 
 	floatValue, ok := value.(float64)
@@ -164,12 +117,16 @@ func getFloat64(dict map[string]interface{}, key string) (float64, error) {
 			return f, nil
 		}
 	}
-	return 0, fmt.Errorf("type assertion error: %v is not a float", value)
+	return 0, fmt.Errorf("type assertion error: %v of is not a float", value)
 }
 
-func getDuration(dict map[string]interface{}, key string) (time.Duration, error) {
-	durationString, err := getString(dict, key)
+func getDuration(dict map[string]interface{}, key string, defaultValue time.Duration, defaultError error) (time.Duration, error) {
+	defaultErr := fmt.Errorf("key %s not found", key)
+	durationString, err := getString(dict, key, "", defaultErr)
 	if err != nil {
+		if err == defaultErr {
+			return defaultValue, defaultError
+		}
 		return 0, err
 	}
 
@@ -178,25 +135,6 @@ func getDuration(dict map[string]interface{}, key string) (time.Duration, error)
 		return 0, fmt.Errorf("parsing duration error: %v", err)
 	}
 	return duration, nil
-}
-
-func getBool(dict map[string]interface{}, key string) (bool, error) {
-	value, exists := dict[key]
-	if !exists {
-		return false, &ErrKeyNotFound{key}
-	}
-
-	boolValue, ok := value.(bool)
-	if ok {
-		return boolValue, nil
-	}
-	stringValue, ok := value.(string)
-	if ok {
-		if b, err := strconv.ParseBool(stringValue); err != nil {
-			return b, nil
-		}
-	}
-	return false, fmt.Errorf("type assertion error: %v is not a bool", value)
 }
 
 // PrettyPrintJSON converts given data into formatted json.
@@ -217,21 +155,4 @@ func CopyMap(src, dest map[string]interface{}) {
 	for k, v := range src {
 		dest[k] = v
 	}
-}
-
-// CloneMap returns clone of the provided map.
-func CloneMap(src map[string]interface{}) map[string]interface{} {
-	m := make(map[string]interface{})
-	CopyMap(src, m)
-	return m
-}
-
-// RandomDNS1123String generates random string of a given length.
-func RandomDNS1123String(length int) string {
-	characters := []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	s := make([]rune, length)
-	for i := range s {
-		s[i] = characters[rand.Intn(len(characters))]
-	}
-	return string(s)
 }

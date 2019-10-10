@@ -53,10 +53,6 @@ RESULTS = [
            re.compile(r'\s*Average Latency \(s\):.*max ([0-9.]+).*')),
     Result('stddev_latency', float,
            re.compile(r'\s*Latency StdDev \(s\):\s*([0-9.]+)')),
-    Result('max_perfserver_cpu', int, None),
-    Result('max_perfserver_memory', int, None),
-    Result('max_kubedns_cpu', int, None),
-    Result('max_kubedns_memory', int, None),
     # Derived results
     Result('latency_50_percentile', float, None),
     Result('latency_95_percentile', float, None),
@@ -100,7 +96,6 @@ class Parser(object):
 
   def _compute_derived(self):
     # Note: not very efficient, but functional
-    from functools import reduce
     histogram = reduce(
         list.__add__,
         [[rtt]*count for rtt, count in self.histogram],

@@ -31,8 +31,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/glog"
 	"golang.org/x/net/http2"
-	"k8s.io/klog"
 )
 
 // JoinPreservingTrailingSlash does a path.Join of the specified elements,
@@ -68,17 +68,14 @@ func IsProbableEOF(err error) bool {
 	if uerr, ok := err.(*url.Error); ok {
 		err = uerr.Err
 	}
-	msg := err.Error()
 	switch {
 	case err == io.EOF:
 		return true
-	case msg == "http: can't write HTTP request on broken connection":
+	case err.Error() == "http: can't write HTTP request on broken connection":
 		return true
-	case strings.Contains(msg, "http2: server sent GOAWAY and closed the connection"):
+	case strings.Contains(err.Error(), "connection reset by peer"):
 		return true
-	case strings.Contains(msg, "connection reset by peer"):
-		return true
-	case strings.Contains(strings.ToLower(msg), "use of closed network connection"):
+	case strings.Contains(strings.ToLower(err.Error()), "use of closed network connection"):
 		return true
 	}
 	return false
@@ -110,10 +107,10 @@ func SetTransportDefaults(t *http.Transport) *http.Transport {
 	t = SetOldTransportDefaults(t)
 	// Allow clients to disable http2 if needed.
 	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
-		klog.Infof("HTTP2 has been explicitly disabled")
+		glog.Infof("HTTP2 has been explicitly disabled")
 	} else {
 		if err := http2.ConfigureTransport(t); err != nil {
-			klog.Warningf("Transport failed http2 configuration: %v", err)
+			glog.Warningf("Transport failed http2 configuration: %v", err)
 		}
 	}
 	return t
@@ -324,10 +321,9 @@ type Dialer interface {
 
 // ConnectWithRedirects uses dialer to send req, following up to 10 redirects (relative to
 // originalLocation). It returns the opened net.Conn and the raw response bytes.
-// If requireSameHostRedirects is true, only redirects to the same host are permitted.
-func ConnectWithRedirects(originalMethod string, originalLocation *url.URL, header http.Header, originalBody io.Reader, dialer Dialer, requireSameHostRedirects bool) (net.Conn, []byte, error) {
+func ConnectWithRedirects(originalMethod string, originalLocation *url.URL, header http.Header, originalBody io.Reader, dialer Dialer) (net.Conn, []byte, error) {
 	const (
-		maxRedirects    = 9     // Fail on the 10th redirect
+		maxRedirects    = 10
 		maxResponseSize = 16384 // play it safe to allow the potential for lots of / large headers
 	)
 
@@ -371,7 +367,7 @@ redirectLoop:
 		resp, err := http.ReadResponse(respReader, nil)
 		if err != nil {
 			// Unable to read the backend response; let the client handle it.
-			klog.Warningf("Error reading backend response: %v", err)
+			glog.Warningf("Error reading backend response: %v", err)
 			break redirectLoop
 		}
 
@@ -391,6 +387,10 @@ redirectLoop:
 
 		resp.Body.Close() // not used
 
+		// Reset the connection.
+		intermediateConn.Close()
+		intermediateConn = nil
+
 		// Prepare to follow the redirect.
 		redirectStr := resp.Header.Get("Location")
 		if redirectStr == "" {
@@ -404,15 +404,6 @@ redirectLoop:
 		if err != nil {
 			return nil, nil, fmt.Errorf("malformed Location header: %v", err)
 		}
-
-		// Only follow redirects to the same host. Otherwise, propagate the redirect response back.
-		if requireSameHostRedirects && location.Hostname() != originalLocation.Hostname() {
-			break redirectLoop
-		}
-
-		// Reset the connection.
-		intermediateConn.Close()
-		intermediateConn = nil
 	}
 
 	connToReturn := intermediateConn

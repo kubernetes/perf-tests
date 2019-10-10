@@ -14,487 +14,223 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/*
+TODO(krzysied): Replace ClientSet interface with dynamic client.
+This will allow more generic approach.
+*/
+
 package common
 
 import (
 	"fmt"
-	"strings"
-	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/golang/glog"
+	batch "k8s.io/api/batch/v1"
+	"k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
-
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
-	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/checker"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	defaultSyncTimeout               = 60 * time.Second
-	defaultOperationTimeout          = 10 * time.Minute
-	checkControlledPodsInterval      = 5 * time.Second
-	informerSyncTimeout              = time.Minute
+	defaultWaitForRCPodsTimeout      = 60 * time.Second
+	defaultWaitForRCPodsInterval     = 5 * time.Second
 	waitForControlledPodsRunningName = "WaitForControlledPodsRunning"
-	waitForControlledPodsWorkers     = 10
 )
 
 func init() {
-	if err := measurement.Register(waitForControlledPodsRunningName, createWaitForControlledPodsRunningMeasurement); err != nil {
-		klog.Fatalf("Cannot register %s: %v", waitForControlledPodsRunningName, err)
-	}
+	measurement.Register(waitForControlledPodsRunningName, createWaitForControlledPodsRunningMeasurement)
 }
 
 func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
-	return &waitForControlledPodsRunningMeasurement{
-		selector:   measurementutil.NewObjectSelector(),
-		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
-		checkerMap: checker.NewCheckerMap(),
-	}
+	return &waitForControlledPodsRunningMeasurement{}
 }
 
-type waitForControlledPodsRunningMeasurement struct {
-	apiVersion        string
-	kind              string
-	selector          *measurementutil.ObjectSelector
-	operationTimeout  time.Duration
-	stopCh            chan struct{}
-	isRunning         bool
-	queue             workerqueue.Interface
-	handlingGroup     wait.Group
-	lock              sync.Mutex
-	opResourceVersion uint64
-	gvr               schema.GroupVersionResource
-	checkerMap        checker.CheckerMap
-	clusterFramework  *framework.Framework
-}
+type waitForControlledPodsRunningMeasurement struct{}
 
-// Execute waits until all specified controlling objects have all pods running or until timeout happens.
-// Controlling objects can be specified by field and/or label selectors.
+// Execute waits until all specified RCs have all pods running or until timeout happens.
+// RCs can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
-// "Start" action starts observation of the controlling objects, while "gather" waits for until
-// specified number of controlling objects have all pods running.
-func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	w.clusterFramework = config.ClusterFramework
-
-	action, err := util.GetString(config.Params, "action")
+func (*waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
+	kind, err := util.GetString(config.Params, "kind")
 	if err != nil {
-		return nil, err
+		return summaries, err
+	}
+	namespace, err := util.GetStringOrDefault(config.Params, "namespace", metav1.NamespaceAll)
+	if err != nil {
+		return summaries, err
+	}
+	labelSelector, err := util.GetStringOrDefault(config.Params, "labelSelector", "")
+	if err != nil {
+		return summaries, err
+	}
+	fieldSelector, err := util.GetStringOrDefault(config.Params, "fieldSelector", "")
+	if err != nil {
+		return summaries, err
+	}
+	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultWaitForRCPodsTimeout)
+	if err != nil {
+		return summaries, err
 	}
 
-	switch action {
-	case "start":
-		w.apiVersion, err = util.GetString(config.Params, "apiVersion")
+	runtimeObjectsList, err := getRuntimeObjectsForKind(config.ClientSet, kind, namespace, labelSelector, fieldSelector)
+	if err != nil {
+		return summaries, err
+	}
+	runningRuntimeObjects := 0
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(defaultWaitForRCPodsInterval) {
+		if runningRuntimeObjects >= len(runtimeObjectsList) {
+			return summaries, nil
+		}
+
+		if err := waitForRuntimeObject(config.ClientSet, runtimeObjectsList[runningRuntimeObjects], timeout-time.Since(start)); err != nil {
+			return summaries, fmt.Errorf("waiting for %v error: %v", kind, err)
+		}
+		runningRuntimeObjects++
+		if namespace == metav1.NamespaceAll {
+			glog.Infof("%s: %d / %d %ss with all pods running", waitForControlledPodsRunningName, runningRuntimeObjects, len(runtimeObjectsList), kind)
+		} else {
+			glog.Infof("%s: %v: %d / %d %ss with all pods running", waitForControlledPodsRunningName, namespace, runningRuntimeObjects, len(runtimeObjectsList), kind)
+		}
+	}
+
+	return summaries, fmt.Errorf("timeout while waiting for %ss to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running with all pods", kind, namespace, labelSelector, fieldSelector, runningRuntimeObjects)
+}
+
+func waitForRuntimeObject(c clientset.Interface, obj runtime.Object, timeout time.Duration) error {
+	runtimeObjectNamespace, err := getNamespaceFromRuntimeObject(obj)
+	if err != nil {
+		return err
+	}
+	runtimeObjectSelector, err := getSelectorFromRuntimeObject(obj)
+	if err != nil {
+		return err
+	}
+	runtimeObjectReplicas, err := getReplicasFromRuntimeObject(obj)
+	if err != nil {
+		return err
+	}
+
+	err = waitForPods(c, runtimeObjectNamespace, runtimeObjectSelector.String(), "", int(runtimeObjectReplicas), timeout)
+	if err != nil {
+		return fmt.Errorf("waiting pods error: %v", err)
+	}
+	return nil
+}
+
+func getRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
+	listOpts := metav1.ListOptions{
+		LabelSelector: labelSelector,
+		FieldSelector: fieldSelector,
+	}
+	runtimeObjectsList := make([]runtime.Object, 0)
+	switch kind {
+	case "ReplicationController":
+		list, err := c.CoreV1().ReplicationControllers(namespace).List(listOpts)
 		if err != nil {
-			return nil, err
+			return runtimeObjectsList, err
 		}
-		w.kind, err = util.GetString(config.Params, "kind")
+		for i := range list.Items {
+			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
+		}
+		return runtimeObjectsList, nil
+	case "ReplicaSet":
+		list, err := c.ExtensionsV1beta1().ReplicaSets(namespace).List(listOpts)
 		if err != nil {
-			return nil, err
+			return runtimeObjectsList, err
 		}
-		if err = w.selector.Parse(config.Params); err != nil {
-			return nil, err
+		for i := range list.Items {
+			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
 		}
-		w.operationTimeout, err = util.GetDurationOrDefault(config.Params, "operationTimeout", defaultOperationTimeout)
+		return runtimeObjectsList, nil
+	case "Deployment":
+		list, err := c.ExtensionsV1beta1().Deployments(namespace).List(listOpts)
 		if err != nil {
-			return nil, err
+			return runtimeObjectsList, err
 		}
-		return nil, w.start()
-	case "gather":
-		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
+		for i := range list.Items {
+			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
+		}
+		return runtimeObjectsList, nil
+	case "DaemonSet":
+		list, err := c.ExtensionsV1beta1().DaemonSets(namespace).List(listOpts)
 		if err != nil {
-			return nil, err
+			return runtimeObjectsList, err
 		}
-		return nil, w.gather(syncTimeout)
+		for i := range list.Items {
+			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
+		}
+		return runtimeObjectsList, nil
+	case "Job":
+		list, err := c.BatchV1().Jobs(namespace).List(listOpts)
+		if err != nil {
+			return runtimeObjectsList, err
+		}
+		for i := range list.Items {
+			runtimeObjectsList = append(runtimeObjectsList, &list.Items[i])
+		}
+		return runtimeObjectsList, nil
 	default:
-		return nil, fmt.Errorf("unknown action %v", action)
+		return runtimeObjectsList, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
 	}
 }
 
-// Dispose cleans up after the measurement.
-func (w *waitForControlledPodsRunningMeasurement) Dispose() {
-	if !w.isRunning {
-		return
+func getNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {
+	metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		return "", fmt.Errorf("unsupported kind when getting namespace: %v", obj)
 	}
-	w.isRunning = false
-	close(w.stopCh)
-	w.queue.Stop()
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	w.checkerMap.Dispose()
+	return metaObjectAccessor.GetObjectMeta().GetNamespace(), nil
 }
 
-// String returns a string representation of the metric.
-func (*waitForControlledPodsRunningMeasurement) String() string {
-	return waitForControlledPodsRunningName
+func getSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
+	switch typed := obj.(type) {
+	case *v1.ReplicationController:
+		return labels.SelectorFromSet(typed.Spec.Selector), nil
+	case *extensions.ReplicaSet:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	case *extensions.Deployment:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	case *extensions.DaemonSet:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	case *batch.Job:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	default:
+		return nil, fmt.Errorf("unsupported kind when getting selector: %v", obj)
+	}
 }
 
-func (w *waitForControlledPodsRunningMeasurement) start() error {
-	if w.isRunning {
-		klog.Infof("%v: wait for controlled pods measurement already running", w)
-		return nil
-	}
-	klog.Infof("%v: starting wait for controlled pods measurement...", w)
-	gv, err := schema.ParseGroupVersion(w.apiVersion)
-	if err != nil {
-		return err
-	}
-	gvk := gv.WithKind(w.kind)
-	w.gvr, _ = meta.UnsafeGuessKindToResource(gvk)
-
-	w.isRunning = true
-	w.stopCh = make(chan struct{})
-	i := informer.NewDynamicInformer(
-		w.clusterFramework.GetDynamicClients().GetClient(),
-		w.gvr,
-		w.selector,
-		func(odlObj, newObj interface{}) {
-			f := func() {
-				w.handleObject(odlObj, newObj)
-			}
-			w.queue.Add(&f)
-		},
-	)
-	return informer.StartAndSync(i, w.stopCh, informerSyncTimeout)
-}
-
-func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {
-	klog.Infof("%v: waiting for controlled pods measurement...", w)
-	if !w.isRunning {
-		return fmt.Errorf("metric %s has not been started", w)
-	}
-	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion()
-	if err != nil {
-		return err
-	}
-
-	cond := func() (bool, error) {
-		return w.opResourceVersion >= maxResourceVersion, nil
-	}
-	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
-		return fmt.Errorf("timed out while waiting for controlled pods")
-	}
-
-	w.handlingGroup.Wait()
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	var numberRunning, numberDeleted, numberTimeout, numberUnknown int
-	unknowStatusErrList := errors.NewErrorList()
-	timedOutObjects := []string{}
-	for _, checker := range w.checkerMap {
-		objChecker := checker.(*objectChecker)
-		status, err := objChecker.getStatus()
-		switch status {
-		case running:
-			numberRunning++
-		case deleted:
-			numberDeleted++
-		case timeout:
-			timedOutObjects = append(timedOutObjects, objChecker.key)
-			numberTimeout++
-		default:
-			numberUnknown++
-			if err != nil {
-				unknowStatusErrList.Append(err)
-			}
+func getReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
+	switch typed := obj.(type) {
+	case *v1.ReplicationController:
+		if typed.Spec.Replicas != nil {
+			return *typed.Spec.Replicas, nil
 		}
-	}
-	klog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
-	if numberTimeout > 0 {
-		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
-		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
-	}
-	if desiredCount != numberRunning {
-		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
-		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, desiredCount, w.kind)
-	}
-	if numberUnknown > 0 {
-		klog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
-		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
-	}
-
-	klog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
-	return nil
-}
-
-// handleObject manages checker for given controlling pod object.
-// This function does not return errors only logs them. All possible errors will be caught in gather function.
-// If this function does not executes correctly, verifying number of running pods will fail,
-// causing incorrect objects number error to be returned.
-func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj interface{}) {
-	var oldRuntimeObj runtime.Object
-	var newRuntimeObj runtime.Object
-	var ok bool
-	oldRuntimeObj, ok = oldObj.(runtime.Object)
-	if oldObj != nil && !ok {
-		klog.Errorf("%s: uncastable old object: %v", w, oldObj)
-		return
-	}
-	newRuntimeObj, ok = newObj.(runtime.Object)
-	if newObj != nil && !ok {
-		klog.Errorf("%s: uncastable new object: %v", w, newObj)
-		return
-	}
-	defer func() {
-		// We want to update version after (potentially) creating goroutine.
-		if err := w.updateOpResourceVersion(oldRuntimeObj); err != nil {
-			klog.Errorf("%s: updating resource version error: %v", w, err)
+		return 0, nil
+	case *extensions.ReplicaSet:
+		if typed.Spec.Replicas != nil {
+			return *typed.Spec.Replicas, nil
 		}
-		if err := w.updateOpResourceVersion(newRuntimeObj); err != nil {
-			klog.Errorf("%s: updating resource version error: %v", w, err)
+		return 0, nil
+	case *extensions.Deployment:
+		if typed.Spec.Replicas != nil {
+			return *typed.Spec.Replicas, nil
 		}
-	}()
-	isEqual, err := runtimeobjects.IsEqualRuntimeObjectsSpec(oldRuntimeObj, newRuntimeObj)
-	if err != nil {
-		klog.Errorf("%s: comparing specs error: %v", w, err)
-		return
-	}
-	if isEqual {
-		// Skip updates without changes in the spec.
-		return
-	}
-
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if !w.isRunning {
-		return
-	}
-
-	if err := w.deleteObjectLocked(oldRuntimeObj); err != nil {
-		klog.Errorf("%s: delete checker error: %v", w, err)
-	}
-	if err := w.handleObjectLocked(oldRuntimeObj, newRuntimeObj); err != nil {
-		klog.Errorf("%s: create checker error: %v", w, err)
-	}
-}
-
-func (w *waitForControlledPodsRunningMeasurement) checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
-	oldReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), oldObj)
-	if err != nil {
-		return false, err
-	}
-	newReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), newObj)
-	if err != nil {
-		return false, err
-	}
-
-	return newReplicas < oldReplicas, nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, newObj runtime.Object) error {
-	isObjDeleted := newObj == nil
-	isScalingDown, err := w.checkScaledown(oldObj, newObj)
-	if err != nil {
-		return fmt.Errorf("checkScaledown error: %v", err)
-	}
-
-	handledObj := newObj
-	if isObjDeleted {
-		handledObj = oldObj
-	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(handledObj)
-	if err != nil {
-		return fmt.Errorf("meta key creation error: %v", err)
-	}
-	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted)
-	if err != nil {
-		return fmt.Errorf("waiting for %v error: %v", key, err)
-	}
-
-	operationTimeout := w.operationTimeout
-	if isObjDeleted || isScalingDown {
-		// In case of deleting pods, twice as much time is required.
-		// The pod deletion throughput equals half of the pod creation throughput.
-		operationTimeout *= 2
-	}
-	time.AfterFunc(operationTimeout, func() {
-		checker.terminate(true)
-	})
-	w.checkerMap.Add(key, checker)
-	return nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(obj runtime.Object) error {
-	if obj == nil {
-		return nil
-	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
-	if err != nil {
-		return fmt.Errorf("meta key creation error: %v", err)
-	}
-	w.checkerMap.DeleteAndStop(key)
-	return nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtimeObj runtime.Object) error {
-	if runtimeObj == nil {
-		return nil
-	}
-	version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
-	if err != nil {
-		return fmt.Errorf("retriving resource version error: %v", err)
-	}
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if version > w.opResourceVersion {
-		w.opResourceVersion = version
-	}
-	return nil
-}
-
-// getObjectCountAndMaxVersion returns number of objects that satisfy measurements parameters
-// and maximal resource version of these objects.
-// These two values allow to properly handle all object operations:
-// - When create/delete operation are called we expect the exact number of objects.
-// - When objects is updated we expect to receive event referencing this specific version.
-//   Using maximum from objects resource versions assures that all updates will be processed.
-func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
-	var desiredCount int
-	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clusterFramework.GetClientSets().GetClient(),
-		w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
-	if err != nil {
-		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
-	}
-
-	for i := range objects {
-		runtimeObj, ok := objects[i].(runtime.Object)
-		if !ok {
-			klog.Errorf("%s: cannot cast to runtime.Object: %v", w, objects[i])
-			continue
+		return 0, nil
+	case *extensions.DaemonSet:
+		return 0, nil
+	case *batch.Job:
+		if typed.Spec.Parallelism != nil {
+			return *typed.Spec.Parallelism, nil
 		}
-		version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
-		if err != nil {
-			klog.Errorf("%s: retriving resource version error: %v", w, err)
-			continue
-		}
-		desiredCount++
-		if version > maxResourceVersion {
-			maxResourceVersion = version
-		}
-	}
-	return desiredCount, maxResourceVersion, nil
-}
-
-func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
-	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
-	if err != nil {
-		return nil, err
-	}
-	runtimeObjectSelector, err := runtimeobjects.GetSelectorFromRuntimeObject(obj)
-	if err != nil {
-		return nil, err
-	}
-	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), obj)
-	if err != nil {
-		return nil, err
-	}
-	if isDeleted {
-		runtimeObjectReplicas = 0
-	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
-	if err != nil {
-		return nil, fmt.Errorf("meta key creation error: %v", err)
-	}
-
-	o := newObjectChecker(key)
-	o.lock.Lock()
-	defer o.lock.Unlock()
-	w.handlingGroup.Start(func() {
-		options := &measurementutil.WaitForPodOptions{
-			Selector: &measurementutil.ObjectSelector{
-				Namespace:     runtimeObjectNamespace,
-				LabelSelector: runtimeObjectSelector.String(),
-				FieldSelector: "",
-			},
-			DesiredPodCount:     int(runtimeObjectReplicas),
-			EnableLogging:       true,
-			CallerName:          w.String(),
-			WaitForPodsInterval: defaultWaitForPodsInterval,
-		}
-		// This function sets the status (and error message) for the object checker.
-		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = measurementutil.WaitForPods(w.clusterFramework.GetClientSets().GetClient(), o.stopCh, options)
-		o.lock.Lock()
-		defer o.lock.Unlock()
-		if err != nil {
-			if o.isRunning {
-				// Log error only if checker wasn't terminated.
-				klog.Errorf("%s: error for %v: %v", w, key, err)
-				o.err = fmt.Errorf("%s: %v", key, err)
-			}
-			if o.status == timeout {
-				klog.Errorf("%s: %s timed out", w, key)
-			}
-			return
-		}
-		o.isRunning = false
-		if isDeleted {
-			o.status = deleted
-			return
-		}
-
-		o.status = running
-	})
-	return o, nil
-}
-
-type objectStatus int
-
-const (
-	unknown objectStatus = iota
-	running
-	deleted
-	timeout
-)
-
-type objectChecker struct {
-	lock      sync.Mutex
-	isRunning bool
-	stopCh    chan struct{}
-	status    objectStatus
-	err       error
-	// key of the object being checked. In the current implementation it's a namespaced name, but it
-	// may change in the future.
-	key string
-}
-
-func newObjectChecker(key string) *objectChecker {
-	return &objectChecker{
-		stopCh:    make(chan struct{}),
-		isRunning: true,
-		status:    unknown,
-		key:       key,
-	}
-}
-
-func (o *objectChecker) Stop() {
-	o.terminate(false)
-}
-
-func (o *objectChecker) getStatus() (objectStatus, error) {
-	o.lock.Lock()
-	defer o.lock.Unlock()
-	return o.status, o.err
-}
-
-func (o *objectChecker) terminate(hasTimedOut bool) {
-	o.lock.Lock()
-	defer o.lock.Unlock()
-	if o.isRunning {
-		close(o.stopCh)
-		o.isRunning = false
-		if hasTimedOut {
-			o.status = timeout
-		}
+		return 0, nil
+	default:
+		return -1, fmt.Errorf("unsupported kind when getting number of replicas: %v", obj)
 	}
 }

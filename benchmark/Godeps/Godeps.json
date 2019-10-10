@@ -1,7 +1,10 @@
 {
 	"ImportPath": "k8s.io/perf-tests/benchmark",
-	"GoVersion": "go1.11",
-	"GodepVersion": "v80",
+	"GoVersion": "go1.8",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/aclements/go-moremath/mathx",
@@ -21,13 +24,13 @@
 		},
 		{
 			"ImportPath": "k8s.io/contrib/test-utils/utils",
-			"Comment": "cluster-autoscaler-0.5.1-467-g89f6948e",
-			"Rev": "89f6948e24578fed2a90a87871b2263729f90ac3"
+			"Comment": "cluster-autoscaler-0.4.0-438-gae370bbf",
+			"Rev": "ae370bbfc9d6788f7c897da83231b609d147b3a2"
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/test/e2e/perftype",
-			"Comment": "v1.15.0-alpha.0-2230-gbb845a715a",
-			"Rev": "bb845a715abd1657deca1b9af0d3f2570adf9990"
+			"Comment": "v1.9.0-alpha.1-1525-g3ae0b84e0b",
+			"Rev": "3ae0b84e0b114692dc666d9486fb032d8a33bb58"
 		}
 	]
 }

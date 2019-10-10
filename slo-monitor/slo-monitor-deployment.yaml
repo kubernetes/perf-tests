@@ -1,6 +1,6 @@
 # Deployment config for performance monitor. To be used when deploying in on the cluster.
 # RBAC: requires view access to Pods and Events.
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: slo-monitor
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: slo-monitor
-        image: k8s.gcr.io/slo-monitor:0.12.0
+        image: gcr.io/google-containers/slo-monitor:0.10.1
         command:
           - /slo-monitor
           -  --alsologtostderr=true

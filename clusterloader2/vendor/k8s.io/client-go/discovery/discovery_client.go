@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	"github.com/googleapis/gnostic/OpenAPIv2"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,9 +60,6 @@ type DiscoveryInterface interface {
 }
 
 // CachedDiscoveryInterface is a DiscoveryInterface with cache invalidation and freshness.
-// Note that If the ServerResourcesForGroupVersion method returns a cache miss
-// error, the user needs to explicitly call Invalidate to clear the cache,
-// otherwise the same cache miss error will be returned next time.
 type CachedDiscoveryInterface interface {
 	DiscoveryInterface
 	// Fresh is supposed to tell the caller whether or not to retry if the cache
@@ -71,8 +68,7 @@ type CachedDiscoveryInterface interface {
 	// TODO: this needs to be revisited, this interface can't be locked properly
 	// and doesn't make a lot of sense.
 	Fresh() bool
-	// Invalidate enforces that no cached data that is older than the current time
-	// is used.
+	// Invalidate enforces that no cached data is used in the future that is older than the current time.
 	Invalidate()
 }
 
@@ -267,8 +263,8 @@ func ServerPreferredResources(d DiscoveryInterface) ([]*metav1.APIResourceList, 
 
 	result := []*metav1.APIResourceList{}
 	grVersions := map[schema.GroupResource]string{}                         // selected version of a GroupResource
-	grAPIResources := map[schema.GroupResource]*metav1.APIResource{}        // selected APIResource for a GroupResource
-	gvAPIResourceLists := map[schema.GroupVersion]*metav1.APIResourceList{} // blueprint for a APIResourceList for later grouping
+	grApiResources := map[schema.GroupResource]*metav1.APIResource{}        // selected APIResource for a GroupResource
+	gvApiResourceLists := map[schema.GroupVersion]*metav1.APIResourceList{} // blueprint for a APIResourceList for later grouping
 
 	for _, apiGroup := range serverGroupList.Groups {
 		for _, version := range apiGroup.Versions {
@@ -280,11 +276,11 @@ func ServerPreferredResources(d DiscoveryInterface) ([]*metav1.APIResourceList, 
 			}
 
 			// create empty list which is filled later in another loop
-			emptyAPIResourceList := metav1.APIResourceList{
+			emptyApiResourceList := metav1.APIResourceList{
 				GroupVersion: version.GroupVersion,
 			}
-			gvAPIResourceLists[groupVersion] = &emptyAPIResourceList
-			result = append(result, &emptyAPIResourceList)
+			gvApiResourceLists[groupVersion] = &emptyApiResourceList
+			result = append(result, &emptyApiResourceList)
 
 			for i := range apiResourceList.APIResources {
 				apiResource := &apiResourceList.APIResources[i]
@@ -292,21 +288,21 @@ func ServerPreferredResources(d DiscoveryInterface) ([]*metav1.APIResourceList, 
 					continue
 				}
 				gv := schema.GroupResource{Group: apiGroup.Name, Resource: apiResource.Name}
-				if _, ok := grAPIResources[gv]; ok && version.Version != apiGroup.PreferredVersion.Version {
+				if _, ok := grApiResources[gv]; ok && version.Version != apiGroup.PreferredVersion.Version {
 					// only override with preferred version
 					continue
 				}
 				grVersions[gv] = version.Version
-				grAPIResources[gv] = apiResource
+				grApiResources[gv] = apiResource
 			}
 		}
 	}
 
 	// group selected APIResources according to GroupVersion into APIResourceLists
-	for groupResource, apiResource := range grAPIResources {
+	for groupResource, apiResource := range grApiResources {
 		version := grVersions[groupResource]
 		groupVersion := schema.GroupVersion{Group: groupResource.Group, Version: version}
-		apiResourceList := gvAPIResourceLists[groupVersion]
+		apiResourceList := gvApiResourceLists[groupVersion]
 		apiResourceList.APIResources = append(apiResourceList.APIResources, *apiResource)
 	}
 
@@ -381,7 +377,7 @@ func (d *DiscoveryClient) ServerVersion() (*version.Info, error) {
 	var info version.Info
 	err = json.Unmarshal(body, &info)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse the server version: %v", err)
+		return nil, fmt.Errorf("got '%s': %v", string(body), err)
 	}
 	return &info, nil
 }
@@ -468,9 +464,9 @@ func NewDiscoveryClient(c restclient.Interface) *DiscoveryClient {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (d *DiscoveryClient) RESTClient() restclient.Interface {
-	if d == nil {
+func (c *DiscoveryClient) RESTClient() restclient.Interface {
+	if c == nil {
 		return nil
 	}
-	return d.restClient
+	return c.restClient
 }

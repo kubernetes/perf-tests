@@ -19,12 +19,10 @@ package v1
 import (
 	"fmt"
 
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	ref "k8s.io/client-go/tools/reference"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/runtime"
 )
 
 // The EventExpansion interface allows manually adding extra methods to the EventInterface.
@@ -35,7 +33,7 @@ type EventExpansion interface {
 	UpdateWithEventNamespace(event *v1.Event) (*v1.Event, error)
 	PatchWithEventNamespace(event *v1.Event, data []byte) (*v1.Event, error)
 	// Search finds events about the specified object
-	Search(scheme *runtime.Scheme, objOrRef runtime.Object) (*v1.EventList, error)
+	Search(objOrRef runtime.Object) (*v1.EventList, error)
 	// Returns the appropriate field selector based on the API version being used to communicate with the server.
 	// The returned field selector can be used with List and Watch to filter desired events.
 	GetFieldSelector(involvedObjectName, involvedObjectNamespace, involvedObjectKind, involvedObjectUID *string) fields.Selector
@@ -86,7 +84,7 @@ func (e *events) PatchWithEventNamespace(incompleteEvent *v1.Event, data []byte)
 		return nil, fmt.Errorf("can't patch an event with namespace '%v' in namespace '%v'", incompleteEvent.Namespace, e.ns)
 	}
 	result := &v1.Event{}
-	err := e.client.Patch(types.StrategicMergePatchType).
+	err := e.client.Patch(api.StrategicMergePatchType).
 		NamespaceIfScoped(incompleteEvent.Namespace, len(incompleteEvent.Namespace) > 0).
 		Resource("events").
 		Name(incompleteEvent.Name).
@@ -99,8 +97,8 @@ func (e *events) PatchWithEventNamespace(incompleteEvent *v1.Event, data []byte)
 // Search finds events about the specified object. The namespace of the
 // object must match this event's client namespace unless the event client
 // was made with the "" namespace.
-func (e *events) Search(scheme *runtime.Scheme, objOrRef runtime.Object) (*v1.EventList, error) {
-	ref, err := ref.GetReference(scheme, objOrRef)
+func (e *events) Search(objOrRef runtime.Object) (*v1.EventList, error) {
+	ref, err := api.GetReference(objOrRef)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +116,7 @@ func (e *events) Search(scheme *runtime.Scheme, objOrRef runtime.Object) (*v1.Ev
 		refUID = &stringRefUID
 	}
 	fieldSelector := e.GetFieldSelector(&ref.Name, &ref.Namespace, refKind, refUID)
-	return e.List(metav1.ListOptions{FieldSelector: fieldSelector.String()})
+	return e.List(v1.ListOptions{FieldSelector: fieldSelector.String()})
 }
 
 // Returns the appropriate field selector based on the API version being used to communicate with the server.

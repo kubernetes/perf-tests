@@ -17,25 +17,21 @@ limitations under the License.
 package schemes
 
 import (
-	"sort"
-
 	"k8s.io/perf-tests/benchmark/pkg/metricsfetcher/util"
 )
 
 // GetLastNJobRuns returns a list of run numbers of last 'n' completed runs of
 // 'job'. If it cannot find n runs, returns as many runs as it could collect.
 func GetLastNJobRuns(job string, n int, utils util.JobLogUtils) ([]int, error) {
-	buildNumbers, err := utils.GetBuildNumbersForJob(job)
+	latestRunNumber, err := utils.GetLatestBuildNumberForJob(job)
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 
 	var runs []int
-	for index := 0; index < len(buildNumbers) && len(runs) < n; index++ {
-		buildNumber := buildNumbers[index]
-		if _, err := utils.GetJobRunFinishedStatus(job, buildNumber); err == nil {
-			runs = append(runs, buildNumber)
+	for runNumber := latestRunNumber; runNumber > 0 && len(runs) < n; runNumber-- {
+		if _, err := utils.GetJobRunFinishedStatus(job, runNumber); err == nil {
+			runs = append(runs, runNumber)
 		}
 	}
 	return runs, nil

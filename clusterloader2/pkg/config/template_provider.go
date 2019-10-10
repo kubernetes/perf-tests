@@ -23,13 +23,11 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
 // TemplateProvider provides object templates. Templates in unstructured form
@@ -151,71 +149,4 @@ func (tp *TemplateProvider) TemplateToConfig(path string, mapping map[string]int
 		return nil, err
 	}
 	return convertToConfig(b)
-}
-
-// TemplateInto decodes template specified by the given path into given structure.
-func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interface{}, obj interface{}) error {
-	b, err := tp.getMappedTemplate(path, mapping)
-	if err != nil {
-		return err
-	}
-	return decodeInto(b, obj)
-}
-
-// LoadTestSuite creates test suite config from file specified by the given path.
-func LoadTestSuite(path string) (api.TestSuite, error) {
-	bin, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("test suite reading error: %v", err)
-	}
-	var testSuite api.TestSuite
-	if err = decodeInto(bin, &testSuite); err != nil {
-		return nil, err
-	}
-	if err = validateTestSuite(testSuite); err != nil {
-		return nil, err
-	}
-	return testSuite, nil
-}
-
-func validateTestSuite(suite api.TestSuite) error {
-	for _, scenario := range suite {
-		// Scenario identifiers cannot contain underscores. This is because underscores
-		// are used as separators in artifact filenames.
-		if strings.Contains(scenario.Identifier, "_") {
-			return fmt.Errorf("scenario identifiers cannot contain underscores: %q",
-				scenario.Identifier)
-		}
-	}
-	return nil
-}
-
-// LoadTestOverrides returns mapping from file specified by the given paths.
-func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
-	mapping := make(map[string]interface{})
-	for _, path := range paths {
-		bin, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("test overrides reading error: %v", err)
-		}
-		tmpMapping := make(map[string]interface{})
-		if err = decodeInto(bin, &tmpMapping); err != nil {
-			return nil, fmt.Errorf("test overrides unmarshalling error: %v", err)
-		}
-		// Merge tmpMapping into mapping.
-		for k, v := range tmpMapping {
-			mapping[k] = v
-		}
-	}
-	return mapping, nil
-}
-
-// GetMapping returns template variable mapping for the given ClusterLoaderConfig.
-func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
-	mapping, err := LoadTestOverrides(clusterLoaderConfig.TestScenario.OverridePaths)
-	if err != nil {
-		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
-	}
-	mapping["Nodes"] = clusterLoaderConfig.ClusterConfig.Nodes
-	return mapping, nil
 }

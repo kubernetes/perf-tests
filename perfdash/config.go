@@ -18,13 +18,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/ghodss/yaml"
 	"io/ioutil"
+	"k8s.io/contrib/test-utils/utils"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/ghodss/yaml"
 )
 
 // To add new e2e test support, you need to:
@@ -40,7 +40,7 @@ type TestDescription struct {
 }
 
 // TestDescriptions is a map job->component->description.
-type TestDescriptions map[string]map[string][]TestDescription
+type TestDescriptions map[string]map[string]TestDescription
 
 // Tests is a map from test label to test description.
 type Tests struct {
@@ -60,262 +60,124 @@ var (
 	// e2e test
 	performanceDescriptions = TestDescriptions{
 		"E2E": {
-			"DensityResources": []TestDescription{{
+			"DensityResources": {
 				Name:             "density",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
-			}},
-			"DensityPodStartup": []TestDescription{{
+			},
+			"DensityPodStartup": {
 				Name:             "density",
-				OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
-				Parser:           parsePerfData,
-			}},
-			"DensitySaturationPodStartup": []TestDescription{{
+				OutputFilePrefix: "PodStartupLatency",
+				Parser:           parseResponsivenessData,
+			},
+			"DensityTestPhaseTimer": {
 				Name:             "density",
-				OutputFilePrefix: "PodStartupLatency_SaturationPodStartupLatency",
-				Parser:           parsePerfData,
-			}},
-			"LoadResources": []TestDescription{{
+				OutputFilePrefix: "TestPhaseTimer",
+				Parser:           parseResponsivenessData,
+			},
+			"LoadResources": {
 				Name:             "load",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
-			}},
+			},
+			"LoadTestPhaseTimer": {
+				Name:             "load",
+				OutputFilePrefix: "TestPhaseTimer",
+				Parser:           parseResponsivenessData,
+			},
 		},
 		"APIServer": {
-			"DensityResponsiveness": []TestDescription{{
+			"DensityResponsiveness": {
 				Name:             "density",
 				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parsePerfData,
-			}},
-			"DensityRequestCount": []TestDescription{{
+				Parser:           parseResponsivenessData,
+			},
+			"DensityRequestCount": {
 				Name:             "density",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseRequestCountData,
-			}},
-			"DensityResponsiveness_Prometheus": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "APIResponsivenessPrometheus",
-				Parser:           parsePerfData,
-			}},
-			"DensityRequestCount_Prometheus": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "APIResponsivenessPrometheus",
-				Parser:           parseRequestCountData,
-			}},
-			"DensityRequestCountByClient": []TestDescription{{
+			},
+			"DensityRequestCountByClient": {
 				Name:             "density",
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
-			}},
-			"DensityInitEventsCount": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverInitEventsCount,
-			}},
-			"LoadResponsiveness": []TestDescription{{
+			},
+			"LoadResponsiveness": {
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
-				Parser:           parsePerfData,
-			}},
-			"LoadRequestCount": []TestDescription{{
+				Parser:           parseResponsivenessData,
+			},
+			"LoadRequestCount": {
 				Name:             "load",
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parseRequestCountData,
-			}},
-			"LoadResponsiveness_Prometheus": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "APIResponsivenessPrometheus",
-				Parser:           parsePerfData,
-			}},
-			"LoadRequestCount_Prometheus": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "APIResponsivenessPrometheus",
-				Parser:           parseRequestCountData,
-			}},
-			"LoadRequestCountByClient": []TestDescription{{
+			},
+			"LoadRequestCountByClient": {
 				Name:             "load",
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverRequestCount,
-			}},
-			"LoadInitEventsCount": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverInitEventsCount,
-			}},
+			},
 		},
 		"Scheduler": {
-			"SchedulingLatency": []TestDescription{{
+			"SchedulingLatency": {
 				Name:             "density",
 				OutputFilePrefix: "SchedulingMetrics",
 				Parser:           parseSchedulingLatency,
-			}},
-			"SchedulingThroughput": []TestDescription{{
+			},
+			"SchedulingThroughput": {
 				Name:             "density",
-				OutputFilePrefix: "SchedulingThroughput",
-				Parser:           parseSchedulingThroughputCL,
-			}},
+				OutputFilePrefix: "SchedulingMetrics",
+				Parser:           pareseSchedulingThroughput,
+			},
 		},
 		"Etcd": {
-			"DensityBackendCommitDuration": []TestDescription{{
+			"BackendCommitDuration": {
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("backendCommitDuration"),
-			}},
-			"DensitySnapshotSaveTotalDuration": []TestDescription{{
+			},
+			"SnapshotSaveTotalDuration": {
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
-			}},
-			"DensityPeerRoundTripTime": []TestDescription{{
+			},
+			"PeerRoundTripTime": {
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("peerRoundTripTime"),
-			}},
-			"DensityWalFsyncDuration": []TestDescription{{
+			},
+			"WalFsyncDuration": {
 				Name:             "density",
 				OutputFilePrefix: "EtcdMetrics",
 				Parser:           parseHistogramMetric("walFsyncDuration"),
-			}},
-			"LoadBackendCommitDuration": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("backendCommitDuration"),
-			}},
-			"LoadSnapshotSaveTotalDuration": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("snapshotSaveTotalDuration"),
-			}},
-			"LoadPeerRoundTripTime": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("peerRoundTripTime"),
-			}},
-			"LoadWalFsyncDuration": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "EtcdMetrics",
-				Parser:           parseHistogramMetric("walFsyncDuration"),
-			}},
-		},
-		"Network": {
-			"Load_NetworkProgrammingLatency": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "NetworkProgrammingLatency",
-				Parser:           parsePerfData,
-			}},
-
-			"Load_NetworkLatency": []TestDescription{
-				{
-					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
-					Name:             "load",
-					OutputFilePrefix: "in_cluster_network_latency",
-					Parser:           parsePerfData,
-				}, {
-					Name:             "load",
-					OutputFilePrefix: "InClusterNetworkLatency",
-					Parser:           parsePerfData,
-				}},
-
-			"Density_NetworkLatency": []TestDescription{
-				{
-					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
-					Name:             "density",
-					OutputFilePrefix: "in_cluster_network_latency",
-					Parser:           parsePerfData,
-				}, {
-					Name:             "density",
-					OutputFilePrefix: "InClusterNetworkLatency",
-					Parser:           parsePerfData,
-				}},
-		},
-		"DNS": {
-			"Load_DNSLookupLatency": []TestDescription{{
-				Name:             "load",
-				OutputFilePrefix: "DnsLookupLatency",
-				Parser:           parsePerfData,
-			}},
-			"Density_DNSLookupLatency": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "DnsLookupLatency",
-				Parser:           parsePerfData,
-			}},
+			},
 		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf
 	benchmarkDescriptions = TestDescriptions{
 		"Scheduler": {
-			"BenchmarkResults": []TestDescription{{
+			"BenchmarkResults": {
 				Name:             "benchmark",
 				OutputFilePrefix: "BenchmarkResults",
-				Parser:           parsePerfData,
-			}},
-		},
-	}
-
-	dnsBenchmarkDescriptions = TestDescriptions{
-		"dns": {
-			"Latency": []TestDescription{{
-				Name:             "dns",
-				OutputFilePrefix: "Latency",
-				Parser:           parsePerfData,
-			}},
-			"LatencyPerc": []TestDescription{{
-				Name:             "dns",
-				OutputFilePrefix: "LatencyPerc",
-				Parser:           parsePerfData,
-			}},
-			"Queries": []TestDescription{{
-				Name:             "dns",
-				OutputFilePrefix: "Queries",
-				Parser:           parsePerfData,
-			}},
-			"Qps": []TestDescription{{
-				Name:             "dns",
-				OutputFilePrefix: "Qps",
-				Parser:           parsePerfData,
-			}},
-		},
-	}
-
-	storageDescriptions = TestDescriptions{
-		"APIServer": {
-			"Responsiveness": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parsePerfData,
-				},
-			},
-			"RequestCount": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parseRequestCountData,
-				},
-			},
-		},
-		"E2E": {
-			"PodStartup": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "PodStartupLatency_PodWithVolumesStartupLatency",
-					Parser:           parsePerfData,
-				},
+				Parser:           parseResponsivenessData,
 			},
 		},
 	}
 
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance":  performanceDescriptions,
-		"benchmark":    benchmarkDescriptions,
-		"dnsBenchmark": dnsBenchmarkDescriptions,
-		"storage":      storageDescriptions,
+		"performance": performanceDescriptions,
+		"benchmark":   benchmarkDescriptions,
 	}
+
+	// TestConfig contains all the test PerfDash supports now. Downloader will download and
+	// analyze build log from all these Jobs, and parse the data from all these Test.
+	// Notice that all the tests should have different name for now.
+	TestConfig = Buckets{utils.KubekinsBucket: getProwConfigOrDie()}
 )
 
-func getProwConfigOrDie(configPaths []string) Jobs {
-	jobs, err := getProwConfig(configPaths)
+func getProwConfigOrDie() Jobs {
+	jobs, err := getProwConfig()
 	if err != nil {
 		panic(err)
 	}
@@ -331,113 +193,61 @@ type periodic struct {
 	Tags []string `json:"tags"`
 }
 
-func urlConfigRead(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func getProwConfig() (Jobs, error) {
+	fmt.Fprintf(os.Stderr, "Fetching prow config from GitHub...\n")
+	resp, err := http.Get("https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml")
 	if err != nil {
-		return nil, fmt.Errorf("error fetching prow config from %s: %v", url, err)
+		return nil, fmt.Errorf("error fetching prow config from GitHub: %v", err)
 	}
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading prow config from %s: %v", url, err)
+		return nil, fmt.Errorf("error reading prow config from GitHub: %v", err)
 	}
-	return b, nil
-}
-
-func fileConfigRead(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
-}
-
-func getProwConfig(configPaths []string) (Jobs, error) {
+	conf := &config{}
+	if err := yaml.Unmarshal(b, conf); err != nil {
+		return nil, fmt.Errorf("error unmarshaling prow config from GitHub: %v", err)
+	}
 	jobs := Jobs{}
-
-	for _, configPath := range configPaths {
-		fmt.Fprintf(os.Stderr, "Fetching config %s\n", configPath)
-		// Perfdash supports only yamls.
-		if !strings.HasSuffix(configPath, ".yaml") {
-			fmt.Fprintf(os.Stderr, "%s is not an yaml file!\n", configPath)
+	for _, periodic := range conf.Periodics {
+		var thisPeriodicConfig Tests
+		for _, tag := range periodic.Tags {
+			if strings.HasPrefix(tag, "perfDashPrefix:") {
+				split := strings.SplitN(tag, ":", 2)
+				thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
+				continue
+			}
+			if strings.HasPrefix(tag, "perfDashJobType:") {
+				split := strings.SplitN(tag, ":", 2)
+				jobType := strings.TrimSpace(split[1])
+				thisPeriodicConfig.Descriptions = jobTypeToDescriptions[jobType]
+				continue
+			}
+			if strings.HasPrefix(tag, "perfDashBuildsCount:") {
+				split := strings.SplitN(tag, ":", 2)
+				i, err := strconv.Atoi(strings.TrimSpace(split[1]))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: unparsable builds count - %v\n", split[1])
+				}
+				if i < 1 {
+					fmt.Fprintf(os.Stderr, "warning: non-positive builds count - %v\n", i)
+					continue
+				}
+				thisPeriodicConfig.BuildsCount = i
+				continue
+			}
+			if strings.HasPrefix(tag, "perfDash") {
+				fmt.Fprintf(os.Stderr, "warning: unknown perfdash tag name: %q\n", tag)
+			}
+		}
+		if thisPeriodicConfig.Prefix == "" && thisPeriodicConfig.Descriptions == nil {
 			continue
 		}
-		var content []byte
-		var err error
-		switch {
-		case strings.HasPrefix(configPath, "http://"), strings.HasPrefix(configPath, "https://"):
-			content, err = urlConfigRead(configPath)
-		default:
-			content, err = fileConfigRead(configPath)
+		if thisPeriodicConfig.Prefix == "" || thisPeriodicConfig.Descriptions == nil {
+			return nil, fmt.Errorf("invalid perfdash config of periodic %q: none or both of prefix and job type must be specified", periodic.Name)
 		}
-		if err != nil {
-			return nil, err
-		}
-		conf := &config{}
-		if err := yaml.Unmarshal(content, conf); err != nil {
-			return nil, fmt.Errorf("error unmarshaling prow config from %s: %v", configPath, err)
-		}
-		for _, periodic := range conf.Periodics {
-			config, err := parsePeriodicConfig(periodic)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to parse config of %q due to: %v\n",
-					periodic.Name, err)
-				continue
-			}
-			shouldUse, err := checkIfConfigShouldBeUsed(config)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to validate config of %q due to: %v\n",
-					periodic.Name, err)
-				continue
-			}
-			if shouldUse {
-				jobs[periodic.Name] = config
-			}
-		}
+		jobs[periodic.Name] = thisPeriodicConfig
 	}
-	fmt.Printf("Read configs with %d jobs\n", len(jobs))
+	fmt.Printf("Read config with %d jobs\n", len(jobs))
 	return jobs, nil
-}
-
-func parsePeriodicConfig(periodic periodic) (Tests, error) {
-	var thisPeriodicConfig Tests
-	for _, tag := range periodic.Tags {
-		if strings.HasPrefix(tag, "perfDashPrefix:") {
-			split := strings.SplitN(tag, ":", 2)
-			thisPeriodicConfig.Prefix = strings.TrimSpace(split[1])
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDashJobType:") {
-			split := strings.SplitN(tag, ":", 2)
-			jobType := strings.TrimSpace(split[1])
-			var exists bool
-			if thisPeriodicConfig.Descriptions, exists = jobTypeToDescriptions[jobType]; !exists {
-				return Tests{}, fmt.Errorf("unknown job type - %s", jobType)
-			}
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDashBuildsCount:") {
-			split := strings.SplitN(tag, ":", 2)
-			i, err := strconv.Atoi(strings.TrimSpace(split[1]))
-			if err != nil {
-				return Tests{}, fmt.Errorf("unparsable builds count - %v", split[1])
-			}
-			if i < 1 {
-				return Tests{}, fmt.Errorf("non-positive builds count - %v", i)
-			}
-			thisPeriodicConfig.BuildsCount = i
-			continue
-		}
-		if strings.HasPrefix(tag, "perfDash") {
-			return Tests{}, fmt.Errorf("unknown perfdash tag name: %q", tag)
-		}
-	}
-	return thisPeriodicConfig, nil
-}
-
-func checkIfConfigShouldBeUsed(config Tests) (bool, error) {
-	if config.Prefix == "" && config.Descriptions == nil {
-		// This is expected case for jobs which are not expected to be visible in perfdash.
-		return false, nil
-	}
-	if config.Prefix == "" || config.Descriptions == nil {
-		return false, fmt.Errorf("none or both of prefix and job type must be specified")
-	}
-	return true, nil
 }

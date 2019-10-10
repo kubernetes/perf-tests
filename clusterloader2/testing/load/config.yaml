@@ -13,9 +13,7 @@
 {{$MEDIUM_GROUP_SIZE := 30}}
 {{$SMALL_GROUP_SIZE := 5}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
-{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY false}}
-{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
-{{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
+
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -57,22 +55,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: reset
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: start
-  - Identifier: PodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = load
-      threshold: 1h
-  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkProgrammingLatency
-    Method: NetworkProgrammingLatency
-    Params:
-      action: start
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
@@ -111,8 +93,8 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
+      apiVersion: v1
+      kind: ReplicationController
       labelSelector: group = load
       operationTimeout: 15m
 - phases:
@@ -123,7 +105,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
@@ -135,7 +117,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
@@ -147,7 +129,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
@@ -167,7 +149,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
@@ -179,7 +161,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
@@ -191,7 +173,7 @@ steps:
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
       templateFillMap:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
@@ -211,7 +193,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: big-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -219,7 +201,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: medium-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -227,7 +209,7 @@ steps:
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: small-rc
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: rc.yaml
 - name: Deleting RCs
 - measurements:
   - Identifier: WaitForRunningRCs
@@ -267,23 +249,6 @@ steps:
     Method: APIResponsiveness
     Params:
       action: gather
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
-      enableViolations: true
-      {{end}}
-  - Identifier: PodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
-  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkProgrammingLatency
-    Method: NetworkProgrammingLatency
-    Params:
-      action: gather
-  {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

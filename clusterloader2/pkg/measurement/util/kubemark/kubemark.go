@@ -73,12 +73,12 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 		var cpu float64
 		var mem uint64
 		var etcdKind string
-		fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/etcd", &cpu, &mem)
+		fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /bin/sh -c /usr/local/bin/etcd", &cpu, &mem)
 		dataDirStart := strings.Index(scanner.Text(), "--data-dir")
 		if dataDirStart < 0 {
 			continue
 		}
-		fmt.Sscanf(scanner.Text()[dataDirStart:], "--data-dir /var/%s", &etcdKind)
+		fmt.Sscanf(scanner.Text()[dataDirStart:], "--data-dir=/var/%s", &etcdKind)
 		if etcdKind != "" {
 			// Gatherer expects pod_name/container_name format
 			fullName := "etcd/" + etcdKind

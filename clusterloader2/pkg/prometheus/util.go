@@ -18,14 +18,9 @@ package prometheus
 
 import (
 	"encoding/json"
-	"fmt"
-	"regexp"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
-
-const allTargets = -1
 
 type targetsResponse struct {
 	Data targetsData `json:"data""`
@@ -41,15 +36,9 @@ type Target struct {
 	Health string            `json:"health"`
 }
 
-// CheckAllTargetsReady returns true iff there is at least minActiveTargets matching the selector and
+// CheckTargetsReady returns true iff there is at least minExpectedTargets matching the selector and
 // all of them are ready.
-func CheckAllTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int) (bool, error) {
-	return CheckTargetsReady(k8sClient, selector, minActiveTargets, allTargets)
-}
-
-// CheckTargetsReady returns true iff there is at least minActiveTargets matching the selector and
-// at least minReadyTargets of them are ready.
-func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
+func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minExpectedTargets int) (bool, error) {
 	raw, err := k8sClient.CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
@@ -64,7 +53,6 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		return false, err // This shouldn't happen, return error.
 	}
 	nReady, nTotal := 0, 0
-	var exampleNotReadyTarget Target
 	for _, t := range response.Data.ActiveTargets {
 		if !selector(t) {
 			continue
@@ -72,34 +60,17 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		nTotal++
 		if t.Health == "up" {
 			nReady++
-			continue
 		}
-		exampleNotReadyTarget = t
 	}
-	if nTotal < minActiveTargets {
+	if nTotal < minExpectedTargets {
 		klog.Infof("Not enough active targets (%d), expected at least (%d), waiting for more to become active...",
-			nTotal, minActiveTargets)
+			nTotal, minExpectedTargets)
 		return false, nil
 	}
-	if minReadyTargets == allTargets {
-		minReadyTargets = nTotal
-	}
-	if nReady < minReadyTargets {
-		klog.Infof("%d/%d targets are ready, example not ready target: %v", nReady, minReadyTargets, exampleNotReadyTarget)
+	if nReady < nTotal {
+		klog.Infof("%d/%d targets are ready", nReady, nTotal)
 		return false, nil
 	}
-	klog.Infof("All %d expected targets are ready", minReadyTargets)
+	klog.Infof("All %d targets are ready", nTotal)
 	return true, nil
-}
-
-const snapshotNamePattern = `^(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?)$`
-
-var re = regexp.MustCompile(snapshotNamePattern)
-
-// VerifySnapshotName verifies if snapshot name statisfies snapshot name regex.
-func VerifySnapshotName(name string) error {
-	if re.MatchString(name) {
-		return nil
-	}
-	return fmt.Errorf("disk name doesn't match %v", snapshotNamePattern)
 }

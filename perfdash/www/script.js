@@ -305,7 +305,7 @@ PerfDashApp.prototype.getData = function(labels) {
         angular.forEach(items, function(item) {
             var match = true;
             angular.forEach(labels, function(label, name) {
-                if (item.labels == undefined || item.labels[name] != label) {
+                if (item.labels[name] != label) {
                     match = false;
                 }
             });

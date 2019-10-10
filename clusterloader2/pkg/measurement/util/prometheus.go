@@ -133,7 +133,6 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 			resultSamples = append(resultSamples, sample)
 		}
 	}
-	klog.V(4).Infof("Got %d samples", len(resultSamples))
 	return resultSamples, nil
 }
 

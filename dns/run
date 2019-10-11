@@ -36,7 +36,7 @@ case "$1" in
     ;;
 esac
 
-if [ "$#" -eq 3 ]; then
+if [ "$#" -ge 3 ]; then
   mkdir -p $3
   go run ./jsonify/main.go --benchmarkDirPath=${outDir}/latest --jsonDirPath=$3 --benchmarkName="dns"
 fi

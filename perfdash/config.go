@@ -102,6 +102,16 @@ var (
 				OutputFilePrefix: "APIResponsivenessPrometheus",
 				Parser:           parseRequestCountData,
 			}},
+			"DensityResponsiveness_PrometheusSimple": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+			"DensityRequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
+			}},
 			"DensityRequestCountByClient": []TestDescription{{
 				Name:             "density",
 				OutputFilePrefix: "MetricsForE2E",
@@ -130,6 +140,16 @@ var (
 			"LoadRequestCount_Prometheus": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parseRequestCountData,
+			}},
+			"LoadResponsiveness_PrometheusSimple": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+			"LoadRequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
 				Parser:           parseRequestCountData,
 			}},
 			"LoadRequestCountByClient": []TestDescription{{

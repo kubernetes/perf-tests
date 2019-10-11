@@ -240,6 +240,18 @@ var (
 				Parser:           parsePerfData,
 			}},
 		},
+		"SystemPodMetrics": {
+			"Load_SystemPodMetrics": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "SystemPodMetrics",
+				Parser:           parseSystemPodMetrics,
+			}},
+			"Density_SystemPodMetrics": []TestDescription{{
+				Name:             "density",
+				OutputFilePrefix: "SystemPodMetrics",
+				Parser:           parseSystemPodMetrics,
+			}},
+		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf

@@ -90,7 +90,7 @@ func ComputePodsStartupStatus(pods []*corev1.Pod, expected int) PodsStartupStatu
 	return startupStatus
 }
 
-type podInfo struct {
+type podDiffInfo struct {
 	oldHostname string
 	oldPhase    string
 	hostname    string
@@ -98,7 +98,7 @@ type podInfo struct {
 }
 
 // PodDiff represets diff between old and new group of pods.
-type PodDiff map[string]*podInfo
+type PodDiff map[string]*podDiffInfo
 
 // Print formats and prints the give PodDiff.
 func (p PodDiff) String(ignorePhases sets.String) string {
@@ -140,8 +140,8 @@ func (p PodDiff) String(ignorePhases sets.String) string {
 // and then disappeared.
 func (p PodDiff) DeletedPods() []string {
 	var deletedPods []string
-	for podName, podInfo := range p {
-		if podInfo.hostname == nonExist {
+	for podName, podDiffInfo := range p {
+		if podDiffInfo.hostname == nonExist {
 			deletedPods = append(deletedPods, podName)
 		}
 	}
@@ -151,8 +151,8 @@ func (p PodDiff) DeletedPods() []string {
 // AddedPods returns a slice of pods that were added.
 func (p PodDiff) AddedPods() []string {
 	var addedPods []string
-	for podName, podInfo := range p {
-		if podInfo.oldHostname == nonExist {
+	for podName, podDiffInfo := range p {
+		if podDiffInfo.oldHostname == nonExist {
 			addedPods = append(addedPods, podName)
 		}
 	}
@@ -161,20 +161,57 @@ func (p PodDiff) AddedPods() []string {
 
 // DiffPods computes a PodDiff given 2 lists of pods.
 func DiffPods(oldPods []*corev1.Pod, curPods []*corev1.Pod) PodDiff {
-	podInfoMap := PodDiff{}
+	podDiffInfoMap := PodDiff{}
 
 	// New pods will show up in the curPods list but not in oldPods. They have oldhostname/phase == nonexist.
 	for _, pod := range curPods {
-		podInfoMap[pod.Name] = &podInfo{hostname: pod.Spec.NodeName, phase: string(pod.Status.Phase), oldHostname: nonExist, oldPhase: nonExist}
+		podDiffInfoMap[pod.Name] = &podDiffInfo{hostname: pod.Spec.NodeName, phase: string(pod.Status.Phase), oldHostname: nonExist, oldPhase: nonExist}
 	}
 
 	// Deleted pods will show up in the oldPods list but not in curPods. They have a hostname/phase == nonexist.
 	for _, pod := range oldPods {
-		if info, ok := podInfoMap[pod.Name]; ok {
+		if info, ok := podDiffInfoMap[pod.Name]; ok {
 			info.oldHostname, info.oldPhase = pod.Spec.NodeName, string(pod.Status.Phase)
 		} else {
-			podInfoMap[pod.Name] = &podInfo{hostname: nonExist, phase: nonExist, oldHostname: pod.Spec.NodeName, oldPhase: string(pod.Status.Phase)}
+			podDiffInfoMap[pod.Name] = &podDiffInfo{hostname: nonExist, phase: nonExist, oldHostname: pod.Spec.NodeName, oldPhase: string(pod.Status.Phase)}
 		}
 	}
-	return podInfoMap
+	return podDiffInfoMap
+}
+
+type podInfo struct {
+	name     string
+	hostname string
+	phase    string
+}
+
+func (p *podInfo) String() string {
+	return fmt.Sprintf("{%v %v %v}", p.name, p.phase, p.hostname)
+}
+
+// PodsStatus is a collection of current pod phases and node assignments data.
+type PodsStatus struct {
+	info     []*podInfo
+	expected int
+}
+
+// ComputePodsStatus computes PodsStatus for a group of pods.
+func ComputePodsStatus(pods []*corev1.Pod, expected int) *PodsStatus {
+	ps := &PodsStatus{
+		info:     make([]*podInfo, len(pods)),
+		expected: expected,
+	}
+	for i := range pods {
+		ps.info[i] = &podInfo{
+			name:     pods[i].Name,
+			hostname: pods[i].Spec.NodeName,
+			phase:    string(pods[i].Status.Phase),
+		}
+	}
+	return ps
+}
+
+// String returns string representation of a PodsStatus.
+func (ps *PodsStatus) String() string {
+	return fmt.Sprintf("%v, expected %d", ps.info, ps.expected)
 }

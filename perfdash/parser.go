@@ -366,3 +366,47 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 		}
 	}
 }
+
+func parseSystemPodMetrics(data []byte, buildNumber int, testResult *BuildData) {
+	type containerMetrics struct {
+		Name         string `json:"name"`
+		RestartCount int32  `json:"restartCount"`
+	}
+
+	type podMetrics struct {
+		Name       string             `json:"name"`
+		Containers []containerMetrics `json:"containers"`
+	}
+
+	type systemPodsMetrics struct {
+		Pods []podMetrics `json:"pods"`
+	}
+
+	build := fmt.Sprintf("%d", buildNumber)
+	var obj systemPodsMetrics
+	if err := json.Unmarshal(data, &obj); err != nil {
+		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		return
+	}
+
+	restartCounts := make(map[string]float64)
+	for _, pod := range obj.Pods {
+		for _, container := range pod.Containers {
+			cnt := float64(container.RestartCount)
+			if v, ok := restartCounts[container.Name]; ok {
+				restartCounts[container.Name] = math.Max(v, cnt)
+			} else {
+				restartCounts[container.Name] = cnt
+			}
+		}
+	}
+
+	perfData := perftype.DataItem{
+		Unit: "",
+		Labels: map[string]string{
+			"RestartCount": "RestartCount",
+		},
+		Data: restartCounts,
+	}
+	testResult.Builds[build] = append(testResult.Builds[build], perfData)
+}

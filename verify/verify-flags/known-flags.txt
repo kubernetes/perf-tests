@@ -22,12 +22,13 @@ min-allowed-api-request-count
 min-metric-avg-for-compare
 n-hours-count
 n-runs-count
+node-preload-images
 ping-server-address
 ping-server-bind-address
 ping-sleep-duration
 prometheus-scrape-etcd
-prometheus-scrape-kubelets
 prometheus-scrape-kube-proxy
+prometheus-scrape-kubelets
 prometheus-scrape-node-exporter
 purge-after-seconds
 report-dir

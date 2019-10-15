@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: preload
+  namespace: preload
+spec:
+  selector:
+    matchLabels:
+      name: preload
+  template:
+    metadata:
+      labels:
+        name: preload
+    spec:
+      initContainers:
+      {{range $idx, $image := .Images}}
+      - name: preload-{{$idx}}
+        image: docker
+        command: ["docker", "pull", "{{$image}}"]
+        volumeMounts:
+        - name: docker
+          mountPath: /var/run
+      {{end}}
+      volumes:
+      - name: docker
+        hostPath:
+          path: /var/run
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause

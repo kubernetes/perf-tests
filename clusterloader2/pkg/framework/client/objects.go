@@ -131,6 +131,23 @@ func RetryFunction(f func() error, options ...*ApiCallOptions) wait.ConditionFun
 	}
 }
 
+// ListPodsWithOptions lists the pods using the provided options.
+func ListPodsWithOptions(c clientset.Interface, namespace string, listOpts metav1.ListOptions) ([]apiv1.Pod, error) {
+	var pods []apiv1.Pod
+	listFunc := func() error {
+		podsList, err := c.CoreV1().Pods(namespace).List(listOpts)
+		if err != nil {
+			return err
+		}
+		pods = podsList.Items
+		return nil
+	}
+	if err := RetryWithExponentialBackOff(RetryFunction(listFunc)); err != nil {
+		return pods, err
+	}
+	return pods, nil
+}
+
 // ListNodes returns list of cluster nodes.
 func ListNodes(c clientset.Interface) ([]apiv1.Node, error) {
 	return ListNodesWithOptions(c, metav1.ListOptions{})

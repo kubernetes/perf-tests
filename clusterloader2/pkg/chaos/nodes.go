@@ -23,13 +23,20 @@ import (
 	"time"
 
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+)
+
+const (
+	monitoringNamespace = "monitoring"
+	prometheusLabel     = "prometheus=k8s"
 )
 
 // NodeKiller is a utility to simulate node failures.
@@ -68,9 +75,23 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	prometheusPods, err := client.ListPodsWithOptions(k.client, monitoringNamespace, metav1.ListOptions{
+		LabelSelector: prometheusLabel,
+	})
+	if err != nil {
+		return nil, err
+	}
+	nodesHasPrometheusPod := sets.NewString()
+	for i := range prometheusPods {
+		if prometheusPods[i].Spec.NodeName != "" {
+			nodesHasPrometheusPod.Insert(prometheusPods[i].Spec.NodeName)
+		}
+	}
+
 	nodes := allNodes[:0]
 	for _, node := range allNodes {
-		if !k.killedNodes.Has(node.Name) {
+		if !nodesHasPrometheusPod.Has(node.Name) && !k.killedNodes.Has(node.Name) {
 			nodes = append(nodes, node)
 		}
 	}

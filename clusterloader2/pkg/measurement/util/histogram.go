@@ -58,5 +58,5 @@ func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 		hist = NewHistogram(labels)
 		*h = append(*h, *hist)
 	}
-	hist.Buckets[string(sample.Metric["le"])] = int(sample.Value)
+	hist.Buckets[string(sample.Metric["le"])] += int(sample.Value)
 }

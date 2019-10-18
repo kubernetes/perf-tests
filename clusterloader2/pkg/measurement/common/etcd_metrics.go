@@ -48,6 +48,7 @@ func createEtcdMetricsMeasurement() measurement.Measurement {
 }
 
 type etcdMetricsMeasurement struct {
+	sync.Mutex
 	isRunning bool
 	stopCh    chan struct{}
 	wg        *sync.WaitGroup
@@ -66,9 +67,10 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	if err != nil {
 		return nil, err
 	}
-	host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp())
-	if err != nil {
-		return nil, err
+	hosts := config.ClusterFramework.GetClusterConfig().MasterIPs
+	if len(hosts) < 1 {
+		klog.Warningf("ETCD measurements will be disabled due to no MasterIps: %v", hosts)
+		return nil, nil
 	}
 
 	switch action {
@@ -78,11 +80,15 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		if err != nil {
 			return nil, err
 		}
-		e.startCollecting(host, provider, waitTime)
+		for _, h := range hosts {
+			e.startCollecting(h, provider, waitTime)
+		}
 		return nil, nil
 	case "gather":
-		if err = e.stopAndSummarize(host, provider); err != nil {
-			return nil, err
+		for _, h := range hosts {
+			if err = e.stopAndSummarize(h, provider); err != nil {
+				return nil, err
+			}
 		}
 		content, err := util.PrettyPrintJSON(e.metrics)
 		if err != nil {
@@ -111,17 +117,29 @@ func (e *etcdMetricsMeasurement) String() string {
 func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration) {
 	e.isRunning = true
 	e.wg.Add(1)
+
+	collectEtcdDatabaseSize := func() error {
+		dbSize, err := e.getEtcdDatabaseSize(host, provider)
+		if err != nil {
+			return err
+		}
+
+		e.Lock()
+		defer e.Unlock()
+		e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
+
+		return nil
+	}
 	go func() {
 		defer e.wg.Done()
 		for {
 			select {
 			case <-time.After(interval):
-				dbSize, err := e.getEtcdDatabaseSize(host, provider)
+				err := collectEtcdDatabaseSize()
 				if err != nil {
 					klog.Errorf("%s: failed to collect etcd database size", e)
 					continue
 				}
-				e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
 			case <-e.stopCh:
 				return
 			}
@@ -136,17 +154,28 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
 	if err != nil {
 		return err
 	}
-	for _, sample := range samples {
+
+	collectEtcdMetrics := func(sample *model.Sample) {
+		var hist *measurementutil.HistogramVec
 		switch sample.Metric[model.MetricNameLabel] {
 		case "etcd_disk_backend_commit_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.BackendCommitDuration)
+			hist = &e.metrics.BackendCommitDuration
 		case "etcd_debugging_snap_save_total_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.SnapshotSaveTotalDuration)
+			hist = &e.metrics.SnapshotSaveTotalDuration
 		case "etcd_disk_wal_fsync_duration_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.WalFsyncDuration)
+			hist = &e.metrics.WalFsyncDuration
 		case "etcd_network_peer_round_trip_time_seconds_bucket":
-			measurementutil.ConvertSampleToBucket(sample, &e.metrics.PeerRoundTripTime)
+			hist = &e.metrics.PeerRoundTripTime
+		default:
+			return
 		}
+
+		e.Lock()
+		measurementutil.ConvertSampleToBucket(sample, hist)
+		e.Unlock()
+	}
+	for _, sample := range samples {
+		collectEtcdMetrics(sample)
 	}
 	return nil
 }

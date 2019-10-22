@@ -75,7 +75,7 @@ class Runner(object):
 
     if self.args.use_cluster_dns:
       _log.info('Using cluster DNS for tests')
-      self.args.dns_ip = self._get_dns_ip("kube-dns")
+      self.args.dns_ip = self._get_dns_ip(self.args.dns_server)
       self.attributes.add(ATTRIBUTE_CLUSTER_DNS)
       self.use_existing = True
     elif self.args.nodecache_ip:

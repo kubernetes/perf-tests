@@ -33,7 +33,7 @@ $ ./run kube-dns out
 or
 ``` sh
 $ mkdir out/                                        # output directory
-$ python py/run_perf.py --params params/kubedns/default.yaml --out-dir out  # run the perf test
+$ python py/run_perf.py --dns-server kube-dns --params params/kubedns/default.yaml --out-dir out  # run the perf test
 ```
 
 For node-local-dns:

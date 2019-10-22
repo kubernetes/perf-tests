@@ -26,7 +26,7 @@ pip install numpy
 
 case "$1" in
   kube-dns )
-    python py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    python py/run_perf.py --dns-server kube-dns --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   core-dns )
     python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns

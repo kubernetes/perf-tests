@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
+	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -290,8 +291,7 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (in
 		}
 		return 0, nil
 	case *appsv1.DaemonSet:
-		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
-		return getNumSchedulableNodesMatchingSelector(c, typed.Spec.Template.Spec.NodeSelector)
+		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, typed.Spec.Template.Spec.NodeSelector, typed.Spec.Template.Spec.Affinity)
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {
 			return *typed.Spec.Parallelism, nil
@@ -302,20 +302,24 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (in
 	}
 }
 
-// getNumSchedulableNodesMatchingSelector returns the number of schedulable nodes matching the provided selector.
-func getNumSchedulableNodesMatchingSelector(c clientset.Interface, nodeSelector map[string]string) (int32, error) {
+// getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
+func getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c clientset.Interface, nodeSelector map[string]string, affinity *corev1.Affinity) (int32, error) {
 	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(nodeSelector))
 	if err != nil {
 		return 0, err
 	}
 	listOpts := metav1.ListOptions{LabelSelector: selector.String()}
-	list, err := client.ListNodesWithOptions(c, listOpts)
+	nodeList, err := client.ListNodesWithOptions(c, listOpts)
 	if err != nil {
 		return 0, err
 	}
 	var numSchedulableNodes int32
-	for _, node := range list {
-		if !node.Spec.Unschedulable {
+	for i := range nodeList {
+		matched, err := podMatchesNodeAffinity(affinity, &nodeList[i])
+		if err != nil {
+			return 0, err
+		}
+		if !nodeList[i].Spec.Unschedulable && matched {
 			numSchedulableNodes++
 		}
 	}
@@ -338,8 +342,11 @@ func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[stri
 		if err != nil {
 			return 0, err
 		}
-		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
-		return getNumSchedulableNodesMatchingSelector(c, nodeSelector)
+		affinity, err := getDaemonSetAffinityFromUnstructuredSpec(spec)
+		if err != nil {
+			return 0, err
+		}
+		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, nodeSelector, affinity)
 	case "Job":
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
@@ -372,6 +379,24 @@ func getDaemonSetNodeSelectorFromUnstructuredSpec(spec map[string]interface{}) (
 	}
 	nodeSelector, found, err := unstructured.NestedStringMap(podSpec, "nodeSelector")
 	return nodeSelector, err
+}
+
+func getDaemonSetAffinityFromUnstructuredSpec(spec map[string]interface{}) (*corev1.Affinity, error) {
+	template, found, err := unstructured.NestedMap(spec, "template")
+	if err != nil || !found {
+		return nil, err
+	}
+	podSpec, found, err := unstructured.NestedMap(template, "spec")
+	if err != nil || !found {
+		return nil, err
+	}
+	unstructuredAffinity, found, err := unstructured.NestedMap(podSpec, "affinity")
+	if err != nil || !found {
+		return nil, err
+	}
+	var affinity *corev1.Affinity
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredAffinity, affinity)
+	return affinity, err
 }
 
 // IsEqualRuntimeObjectsSpec returns true if given runtime objects have identical specs.
@@ -411,4 +436,45 @@ func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resour
 	}
 	err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc))
 	return numObjects, err
+}
+
+// The pod can only schedule onto nodes that satisfy requirements in NodeAffinity.
+func podMatchesNodeAffinity(affinity *corev1.Affinity, node *corev1.Node) (bool, error) {
+	// 1. nil NodeSelector matches all nodes (i.e. does not filter out any nodes)
+	// 2. nil []NodeSelectorTerm (equivalent to non-nil empty NodeSelector) matches no nodes
+	// 3. zero-length non-nil []NodeSelectorTerm matches no nodes also, just for simplicity
+	// 4. nil []NodeSelectorRequirement (equivalent to non-nil empty NodeSelectorTerm) matches no nodes
+	// 5. zero-length non-nil []NodeSelectorRequirement matches no nodes also, just for simplicity
+	// 6. non-nil empty NodeSelectorRequirement is not allowed
+	if affinity != nil && affinity.NodeAffinity != nil {
+		nodeAffinity := affinity.NodeAffinity
+		// if no required NodeAffinity requirements, will do no-op, means select all nodes.
+		if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			return true, nil
+		}
+		nodeSelectorTerms := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+		matched, err := nodeMatchesNodeSelectorTerms(node, nodeSelectorTerms)
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// nodeMatchesNodeSelectorTerms checks if a node's labels satisfy a list of node selector terms,
+// terms are ORed, and an empty list of terms will match nothing.
+func nodeMatchesNodeSelectorTerms(node *corev1.Node, nodeSelectorTerms []corev1.NodeSelectorTerm) (bool, error) {
+	for _, req := range nodeSelectorTerms {
+		nodeSelector, err := v1helper.NodeSelectorRequirementsAsSelector(req.MatchExpressions)
+		if err != nil {
+			return false, err
+		}
+		if nodeSelector.Matches(labels.Set(node.Labels)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

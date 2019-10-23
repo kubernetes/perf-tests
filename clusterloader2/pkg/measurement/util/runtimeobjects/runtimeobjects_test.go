@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 )
@@ -39,11 +39,45 @@ var (
 	testNamespace          = "test-namespace"
 	defaultResourceVersion = "1"
 	defaultReplicas        = int32(10)
+	daemonsetReplicas      = int32(1)
 )
 
 var (
-	simpleLabel = map[string]string{"foo": "bar"}
+	simpleLabel   = map[string]string{"foo": "bar"}
+	affinityLabel = map[string]string{"foo": "bar", "affinity": "true"}
 )
+
+var node1 = corev1.Node{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "node1",
+		Labels: simpleLabel,
+	},
+}
+
+var node2 = corev1.Node{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "node2",
+		Labels: affinityLabel,
+	},
+}
+
+var affinity = &corev1.Affinity{
+	NodeAffinity: &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{
+				{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      "affinity",
+							Operator: v1.NodeSelectorOpIn,
+							Values:   []string{"ok", "true"},
+						},
+					},
+				},
+			},
+		},
+	},
+}
 
 var replicationcontroller = &corev1.ReplicationController{
 	ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +92,7 @@ var replicationcontroller = &corev1.ReplicationController{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: simpleLabel,
 			},
-			Spec: resourcePodSpec("", "50M", "0.5"),
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
 		},
 	},
 }
@@ -78,7 +112,7 @@ var replicaset = &apps.ReplicaSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: simpleLabel,
 			},
-			Spec: resourcePodSpec("", "50M", "0.5"),
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
 		},
 	},
 }
@@ -98,7 +132,7 @@ var deployment = &apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: simpleLabel,
 			},
-			Spec: resourcePodSpec("", "50M", "0.5"),
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
 		},
 	},
 }
@@ -117,7 +151,7 @@ var daemonset = &apps.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: simpleLabel,
 			},
-			Spec: resourcePodSpec("", "50M", "0.5"),
+			Spec: resourcePodSpec("", "50M", "0.5", simpleLabel, affinity),
 		},
 	},
 }
@@ -138,12 +172,12 @@ var job = &batch.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: simpleLabel,
 			},
-			Spec: resourcePodSpec("", "50M", "0.5"),
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
 		},
 	},
 }
 
-func resourcePodSpec(nodeName, memory, cpu string) v1.PodSpec {
+func resourcePodSpec(nodeName, memory, cpu string, nodeSelector map[string]string, affinity *v1.Affinity) v1.PodSpec {
 	return v1.PodSpec{
 		NodeName: nodeName,
 		Containers: []v1.Container{{
@@ -151,6 +185,8 @@ func resourcePodSpec(nodeName, memory, cpu string) v1.PodSpec {
 				Requests: allocatableResources(memory, cpu),
 			},
 		}},
+		NodeSelector: nodeSelector,
+		Affinity:     affinity,
 	}
 }
 
@@ -307,21 +343,34 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		replicaset,
 		deployment,
 		job,
+		daemonset,
 	}
 	expected := []int32{
 		defaultReplicas,
 		defaultReplicas,
 		defaultReplicas,
 		defaultReplicas,
+		daemonsetReplicas,
 	}
-	// TODO(mm4tt): Use fake client and test logic for DaemonSets
-	var client kubernetes.Interface
+
+	fakeClient := fake.NewSimpleClientset()
+	// construct node1 which match daemonset's nodeSelector.
+	_, err := fakeClient.CoreV1().Nodes().Create(&node1)
+	if err != nil {
+		t.Fatalf("construct node1 failed: %v", err)
+	}
+	// construct node2 which match daemonset's nodeSelector and nodeAffinity.
+	_, err = fakeClient.CoreV1().Nodes().Create(&node2)
+	if err != nil {
+		t.Fatalf("construct node2 failed: %v", err)
+	}
+
 	for i, obj := range objects {
 		unstructured := &unstructured.Unstructured{}
 		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
 			t.Fatalf("error converting controller to unstructured: %v", err)
 		}
-		replicas, err := runtimeobjects.GetReplicasFromRuntimeObject(client, unstructured)
+		replicas, err := runtimeobjects.GetReplicasFromRuntimeObject(fakeClient, unstructured)
 		if err != nil {
 			t.Fatalf("get replicas from runtime object failed: %v", err)
 		}

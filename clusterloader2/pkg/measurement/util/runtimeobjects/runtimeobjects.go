@@ -394,7 +394,7 @@ func getDaemonSetAffinityFromUnstructuredSpec(spec map[string]interface{}) (*cor
 	if err != nil || !found {
 		return nil, err
 	}
-	var affinity *corev1.Affinity
+	affinity := &corev1.Affinity{}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredAffinity, affinity)
 	return affinity, err
 }

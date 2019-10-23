@@ -1,0 +1,9 @@
+RESTART_COUNT_THRESHOLD_OVERRIDES:
+  # To be investigated in https://github.com/kubernetes/perf-tests/issues/872.
+  fluentd-gcp: 999
+
+  # These are ran on each node, so it might happen that we'll get a few restarts
+  # due to hardware failure for example.
+  kube-proxy: 2
+  metadata-proxy: 2
+  prometheus-to-sd-exporter: 2

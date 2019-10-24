@@ -19,6 +19,7 @@
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
+{{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
@@ -57,6 +58,8 @@ steps:
       nodeMode: {{$NODE_MODE}}
       resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 
 # Create saturation pods
 - measurements:
@@ -195,3 +198,5 @@ steps:
     Params:
       action: gather
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

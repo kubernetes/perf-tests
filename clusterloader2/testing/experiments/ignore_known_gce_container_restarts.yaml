@@ -1,4 +1,4 @@
-RESTART_COUNT_THRESHOLD_OVERRIDES:
+RESTART_COUNT_THRESHOLD_OVERRIDES: |
   # To be investigated in https://github.com/kubernetes/perf-tests/issues/872.
   fluentd-gcp: 999
 

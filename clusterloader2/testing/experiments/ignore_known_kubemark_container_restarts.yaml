@@ -1,4 +1,4 @@
-RESTART_COUNT_THRESHOLD_OVERRIDES:
+RESTART_COUNT_THRESHOLD_OVERRIDES: |
   # To be fixed by https://github.com/kubernetes/perf-tests/issues/871.
   kubernetes-dashboard: 999
 

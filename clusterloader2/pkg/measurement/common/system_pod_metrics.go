@@ -18,7 +18,9 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,9 +30,11 @@ import (
 )
 
 const (
-	systemPodMetricsName            = "SystemPodMetrics"
-	systemNamespace                 = "kube-system"
-	systemPodMetricsEnabledFlagName = "systemPodMetricsEnabled"
+	systemPodMetricsName              = "SystemPodMetrics"
+	systemNamespace                   = "kube-system"
+	systemPodMetricsEnabledFlagName   = "systemPodMetricsEnabled"
+	restartThresholdOverridesFlagName = "restartCountThresholdOverrides"
+	enableRestartCountCheckFlagName   = "enableRestartCountCheck"
 )
 
 func init() {
@@ -87,6 +91,11 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.MeasurementCon
 		return nil, err
 	}
 
+	overrides, err := getThresholdOverrides(config)
+	if err != nil {
+		return nil, err
+	}
+
 	switch action {
 	case "start":
 		m.initSnapshot = metrics
@@ -99,6 +108,9 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.MeasurementCon
 		summary, err := buildSummary(metrics)
 		if err != nil {
 			return nil, err
+		}
+		if err = validateRestartCounts(metrics, config, overrides); err != nil {
+			return summary, err
 		}
 		return summary, nil
 	default:
@@ -149,6 +161,65 @@ func subtractInitialRestartCounts(metrics *systemPodsMetrics, initMetrics *syste
 			pod.Containers[i].RestartCount -= initRestartCount
 		}
 	}
+}
+
+func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.MeasurementConfig, overrides map[string]int) error {
+	enabled, err := util.GetBoolOrDefault(config.Params, enableRestartCountCheckFlagName, false)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return nil
+	}
+
+	violations := make([]string, 0)
+	for _, p := range metrics.Pods {
+		for _, c := range p.Containers {
+			maxAllowedRestarts := getMaxAllowedRestarts(c.Name, overrides)
+			if c.RestartCount > int32(maxAllowedRestarts) {
+				violation := fmt.Sprintf("RestartCount(%v, %v)=%v, want <= %v",
+					p.Name, c.Name, c.RestartCount, maxAllowedRestarts)
+				violations = append(violations, violation)
+			}
+		}
+	}
+
+	if len(violations) == 0 {
+		return nil
+	}
+	violationsJoined := strings.Join(violations, "; ")
+	return fmt.Errorf("restart counts violation: %v", violationsJoined)
+}
+
+func getMaxAllowedRestarts(containerName string, thresholdOverrides map[string]int) int {
+	if override, ok := thresholdOverrides[containerName]; ok {
+		return int(override)
+	}
+	return 0 // default if no overrides specified
+}
+
+/*
+getThresholdOverrides deserializes restart count override flag value. The value of
+this flag is a map[string]int serialized using yaml format. Note that YamlQuote is used to ensure
+proper indentation after gotemplate execution.
+
+Alternatively, we could use yaml map as flag value, but then go templates executor would serialize it
+using golang map format (for example "map[c1:4 c2:8]"), but it would require implementation of a parser
+for such format. It would also introduce a dependency on golang map serialization format, which might break
+clusterloader if format ever changes.
+*/
+func getThresholdOverrides(config *measurement.MeasurementConfig) (map[string]int, error) {
+	serialized, err := util.GetStringOrDefault(config.Params, restartThresholdOverridesFlagName, "")
+	if err != nil {
+		return make(map[string]int), nil
+	}
+	var parsed map[string]int
+	err = yaml.Unmarshal([]byte(serialized), &parsed)
+	if err != nil {
+		return nil, err
+	}
+	klog.Infof("Loaded restart count threshold overrides: %v", parsed)
+	return parsed, nil
 }
 
 func extractMetrics(lst *v1.PodList) *systemPodsMetrics {

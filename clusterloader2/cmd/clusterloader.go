@@ -34,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -251,6 +252,9 @@ func main() {
 		if err := execservice.SetUpExecService(f); err != nil {
 			klog.Exitf("Error while setting up exec service: %v", err)
 		}
+	}
+	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
+		klog.Exitf("Error while preloading images: %v", err)
 	}
 
 	suiteSummary := &ginkgotypes.SuiteSummary{

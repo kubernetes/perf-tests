@@ -110,6 +110,8 @@ steps:
       action: start
       nodeMode: {{$NODE_MODE}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 
 - name: Creating SVCs
   phases:
@@ -765,3 +767,5 @@ steps:
     Params:
       action: gather
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

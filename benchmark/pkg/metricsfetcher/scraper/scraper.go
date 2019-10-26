@@ -28,7 +28,7 @@ import (
 
 // Path prefixes for the metrics files we want to scrape.
 const (
-	ApiCallLatencyFilePrefix    = "artifacts/APIResponsiveness_"
+	APICallLatencyFilePrefix    = "artifacts/APIResponsiveness_"
 	PodStartupLatencyFilePrefix = "artifacts/PodStartupLatency_"
 )
 
@@ -38,7 +38,7 @@ func GetMetricsFilePathsForRun(job string, run int, utils util.JobLogUtils) map[
 	latencyFiles := make([]string, 0)
 	latencyFilesForTest := make(map[string][]string)
 
-	if apiCallLatencyFiles, err := utils.ListJobRunFilesWithPrefix(job, run, ApiCallLatencyFilePrefix); err == nil {
+	if apiCallLatencyFiles, err := utils.ListJobRunFilesWithPrefix(job, run, APICallLatencyFilePrefix); err == nil {
 		latencyFiles = append(latencyFiles, apiCallLatencyFiles...)
 	} else {
 		glog.V(0).Infof("Failed to list API call latency files for run %v:%v (skipping them): %v", job, run, err)

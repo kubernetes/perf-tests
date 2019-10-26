@@ -30,9 +30,9 @@ func TestGetMetricsFilePathsForRun(t *testing.T) {
 	utils := util.MockJobLogUtils{
 		MockFilesWithPrefix: map[int]map[string][]string{
 			220: {
-				ApiCallLatencyFilePrefix: {
-					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + ApiCallLatencyFilePrefix + "_testA_xyz123.json",
-					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + ApiCallLatencyFilePrefix + "_testB_xy123c.json",
+				APICallLatencyFilePrefix: {
+					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + APICallLatencyFilePrefix + "_testA_xyz123.json",
+					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + APICallLatencyFilePrefix + "_testB_xy123c.json",
 				},
 				PodStartupLatencyFilePrefix: {
 					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + PodStartupLatencyFilePrefix + "_testA_xyz123.json",
@@ -42,8 +42,8 @@ func TestGetMetricsFilePathsForRun(t *testing.T) {
 				},
 			},
 			221: {
-				ApiCallLatencyFilePrefix: {
-					"gs://kubernetes-jenkins/logs/job/foobar/run/221/" + ApiCallLatencyFilePrefix + "_testA_xyz123.json",
+				APICallLatencyFilePrefix: {
+					"gs://kubernetes-jenkins/logs/job/foobar/run/221/" + APICallLatencyFilePrefix + "_testA_xyz123.json",
 				},
 				PodStartupLatencyFilePrefix: {
 					"gs://kubernetes-jenkins/logs/job/foobar/run/221/" + PodStartupLatencyFilePrefix + "_testA_xyz123.json",
@@ -55,11 +55,11 @@ func TestGetMetricsFilePathsForRun(t *testing.T) {
 
 	expected := map[string][]string{
 		"testA": {
-			ApiCallLatencyFilePrefix + "_testA_xyz123.json",
+			APICallLatencyFilePrefix + "_testA_xyz123.json",
 			PodStartupLatencyFilePrefix + "_testA_xyz123.json",
 		},
 		"testB": {
-			ApiCallLatencyFilePrefix + "_testB_xy123c.json",
+			APICallLatencyFilePrefix + "_testB_xy123c.json",
 		},
 	}
 
@@ -86,9 +86,9 @@ func TestGetMetricsForRun(t *testing.T) {
 	utils := util.MockJobLogUtils{
 		MockFilesWithPrefix: map[int]map[string][]string{
 			220: {
-				ApiCallLatencyFilePrefix: {
-					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + ApiCallLatencyFilePrefix + "_testA_xyz123.json",
-					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + ApiCallLatencyFilePrefix + "_testB_xy123c.json",
+				APICallLatencyFilePrefix: {
+					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + APICallLatencyFilePrefix + "_testA_xyz123.json",
+					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + APICallLatencyFilePrefix + "_testB_xy123c.json",
 				},
 				PodStartupLatencyFilePrefix: {
 					"gs://kubernetes-jenkins/logs/job/foobar/run/220/" + PodStartupLatencyFilePrefix + "_testA_xyz123.json",
@@ -97,8 +97,8 @@ func TestGetMetricsForRun(t *testing.T) {
 		},
 		MockFileContents: map[int]map[string][]byte{
 			220: {
-				(ApiCallLatencyFilePrefix + "_testA_xyz123.json"):    latencyFilesContents[0],
-				(ApiCallLatencyFilePrefix + "_testB_xy123c.json"):    latencyFilesContents[1],
+				(APICallLatencyFilePrefix + "_testA_xyz123.json"):    latencyFilesContents[0],
+				(APICallLatencyFilePrefix + "_testB_xy123c.json"):    latencyFilesContents[1],
 				(PodStartupLatencyFilePrefix + "_testA_xyz123.json"): latencyFilesContents[2],
 			},
 		},

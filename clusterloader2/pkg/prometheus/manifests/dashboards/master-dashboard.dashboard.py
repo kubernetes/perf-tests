@@ -21,11 +21,11 @@ import defaults as d
 CLUSTERLOADER_PANELS = [
     d.simple_graph(
         "Requests",
-        'sum(rate(apiserver_request_count{client="clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format"}[1m])) by (verb, resource)',
+        'sum(rate(apiserver_request_count{client="clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format", verb!="CONNECT"}[1m])) by (verb, resource)',
     ),
     d.simple_graph(
         "API call latency (1s thresholds)",
-        'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="LIST", verb!="WATCH", verb!="CONNECT"}',
+        'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!~"CONNECT|LIST|WATCH"}',
         legend="{{verb}} {{scope}}/{{resource}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),

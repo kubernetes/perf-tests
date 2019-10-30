@@ -148,13 +148,13 @@ ETCD_PANELS = [
 ]
 
 APISERVER_PANELS = [
-    d.simple_graph("goroutines", 'go_goroutines{job="apiserver"}'),
+    d.simple_graph("goroutines", 'go_goroutines{job="master", endpoint="apiserver"}'),
     d.simple_graph(
-        "gc rate", 'rate(go_gc_duration_seconds_count{job="apiserver"}[1m])'
+        "gc rate", 'rate(go_gc_duration_seconds_count{job="master", endpoint="apiserver"}[1m])'
     ),
     d.simple_graph(
         "alloc rate",
-        'rate(go_memstats_alloc_bytes_total{job="apiserver"}[1m])',
+        'rate(go_memstats_alloc_bytes_total{job="master", endpoint="apiserver"}[1m])',
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
     d.simple_graph(

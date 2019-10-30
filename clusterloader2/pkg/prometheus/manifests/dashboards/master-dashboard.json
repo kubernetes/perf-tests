@@ -2520,7 +2520,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "go_goroutines{job=\"apiserver\"}",
+              "expr": "go_goroutines{job=\"master\", endpoint=\"apiserver\"}",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -2616,7 +2616,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "rate(go_gc_duration_seconds_count{job=\"apiserver\"}[1m])",
+              "expr": "rate(go_gc_duration_seconds_count{job=\"master\", endpoint=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -2712,7 +2712,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "rate(go_memstats_alloc_bytes_total{job=\"apiserver\"}[1m])",
+              "expr": "rate(go_memstats_alloc_bytes_total{job=\"master\", endpoint=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
               "interval": "5s",

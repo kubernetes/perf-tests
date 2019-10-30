@@ -64,7 +64,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count{client=\"clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format\"}[1m])) by (verb, resource)",
+              "expr": "sum(rate(apiserver_request_count{client=\"clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format\", verb!=\"CONNECT\"}[1m])) by (verb, resource)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -160,7 +160,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!=\"LIST\", verb!=\"WATCH\", verb!=\"CONNECT\"}",
+              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!~\"CONNECT|LIST|WATCH\"}",
               "format": "time_series",
               "instant": false,
               "interval": "5s",

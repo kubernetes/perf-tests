@@ -1,7 +1,7 @@
 all: push
 
 # See pod.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.15
+TAG = 2.16
 
 REPO = gcr.io/k8s-testimages
 GODEP = CGO_ENABLED=0 GOOS=linux godep

@@ -18,7 +18,6 @@ package slos
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"time"
 
@@ -99,26 +98,7 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(sort.Reverse(metrics))
-	var badMetrics []string
-	top := 5
-	for _, apiCall := range metrics.ApiCalls {
-		latency := apiCall.Latency.Perc99
-		isBad := false
-		threshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
-		if latency > threshold {
-			isBad = true
-			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, threshold))
-		}
-		if top > 0 || isBad {
-			top--
-			prefix := ""
-			if isBad {
-				prefix = "WARNING "
-			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, apiCall, threshold)
-		}
-	}
+	badMetrics := validateAPICalls(apiResponsivenessMeasurementName, metrics)
 
 	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
 	if err != nil {

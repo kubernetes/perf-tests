@@ -79,25 +79,8 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 	}
 
 	metrics := &apiResponsiveness{ApiCalls: apiCalls}
-	sort.Sort(sort.Reverse(metrics))
-	var badMetrics []string
-	top := topToPrint
-	for _, apiCall := range metrics.ApiCalls {
-		isBad := false
-		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
-		if err := apiCall.Latency.VerifyThreshold(sloThreshold); err != nil {
-			isBad = true
-			badMetrics = append(badMetrics, err.Error())
-		}
-		if top > 0 || isBad {
-			top--
-			prefix := ""
-			if isBad {
-				prefix = "WARNING "
-			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", apiResponsivenessMeasurementName, prefix, apiCall, sloThreshold)
-		}
-	}
+
+	badMetrics := validateAPICalls(apiResponsivenessPrometheusMeasurementName, metrics)
 
 	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
 	if err != nil {
@@ -247,4 +230,28 @@ func getSLOThreshold(verb, scope string) time.Duration {
 		return clusterThreshold
 	}
 	return namespaceThreshold
+}
+
+func validateAPICalls(logPrefix string, metrics *apiResponsiveness) []string {
+	badMetrics := make([]string, 0)
+	top := topToPrint
+
+	sort.Sort(sort.Reverse(metrics))
+	for _, apiCall := range metrics.ApiCalls {
+		isBad := false
+		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
+		if err := apiCall.Latency.VerifyThreshold(sloThreshold); err != nil {
+			isBad = true
+			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, sloThreshold))
+		}
+		if top > 0 || isBad {
+			top--
+			prefix := ""
+			if isBad {
+				prefix = "WARNING "
+			}
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", logPrefix, prefix, apiCall, sloThreshold)
+		}
+	}
+	return badMetrics
 }

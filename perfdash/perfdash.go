@@ -39,7 +39,7 @@ var (
 	www    = pflag.Bool("www", false, "If true, start a web-server to server performance data")
 	wwwDir = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
 
-	storageUrl = pflag.String("storageUrl", "https://k8s-gubernator.appspot.com/build", "Name of the data bucket")
+	storageUrl = pflag.String("storageUrl", "https://prow.k8s.io/view/gcs", "Name of the data bucket")
 
 	globalConfig = make(map[string]string)
 )

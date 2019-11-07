@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -49,7 +50,7 @@ func init() {
 type profileConfig struct {
 	componentName string
 	provider      string
-	host          string
+	hosts         []string
 	kind          string
 }
 
@@ -59,9 +60,6 @@ func (p *profileMeasurement) populateProfileConfig(config *measurement.Measureme
 		return err
 	}
 	if p.config.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
-		return err
-	}
-	if p.config.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp()); err != nil {
 		return err
 	}
 	return nil
@@ -86,6 +84,11 @@ func createProfileMeasurementFactory(name, kind string) func() measurement.Measu
 }
 
 func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error {
+	p.config.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
+	if len(p.config.hosts) < 1 {
+		return errors.New("Profile measurements will be disabled due to no MasterIps")
+	}
+
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
@@ -107,13 +110,13 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummary, err := p.gatherProfile(config.ClusterFramework.GetClientSets().GetClient())
+				profileSummaries, err := p.gatherProfile(config.ClusterFramework.GetClientSets().GetClient())
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
 				}
-				if profileSummary != nil {
-					p.summaries = append(p.summaries, profileSummary)
+				if profileSummaries != nil {
+					p.summaries = append(p.summaries, profileSummaries...)
 				}
 			}
 		}
@@ -159,33 +162,43 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface) (measurement.Summary, error) {
-	profilePrefix := fmt.Sprintf("%s_%s", p.config.componentName, p.name)
-	if p.config.componentName == "kube-apiserver" {
-		body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
-		if err != nil {
-			return nil, err
-		}
-		return measurement.CreateSummary(profilePrefix, "pprof", string(body)), err
-	}
-
+func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement.Summary, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
-	// Get the profile data over SSH.
 	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, p.config.kind)
-	sshResult, err := measurementutil.SSH(getCommand, p.config.host+":22", p.config.provider)
-	if err != nil {
+
+	var summaries []measurement.Summary
+	for _, host := range p.config.hosts {
+		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
+
+		if p.config.componentName == "kube-apiserver" {
+			body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
+			if err != nil {
+				return nil, err
+			}
+			summary := measurement.CreateSummary(profilePrefix, "pprof", string(body))
+			summaries = append(summaries, summary)
+			break
+		}
+
+		// Get the profile data over SSH.
+		// Start by checking that the provider allows us to do so.
 		if p.config.provider == "gke" {
 			// Only logging error for gke. SSHing to gke master is not supported.
-			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", p.name, err)
+			klog.Warningf("%s: failed to execute curl command on master through SSH", p.name)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
+
+		sshResult, err := measurementutil.SSH(getCommand, host+":22", p.config.provider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute curl command on master node %s through SSH: %v", host, err)
+		}
+		summaries = append(summaries, measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout))
 	}
 
-	return measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout), err
+	return summaries, nil
 }
 
 func getPortForComponent(componentName string) (int, error) {

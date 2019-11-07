@@ -2,8 +2,10 @@ RESTART_COUNT_THRESHOLD_OVERRIDES: |
   # To be investigated in https://github.com/kubernetes/perf-tests/issues/872.
   fluentd-gcp: 999
 
-  # These are ran on each node, so it might happen that we'll get a few restarts
-  # due to hardware failure for example.
+  # Main purpose of this check is detection crashlooping pods.
+  # It was extended to check whether master pods were restarted even once.
+  # For components that we run multiple instances of we should be less aggressive and tolerate restarts e.g. due to node restarts.
   kube-proxy: 2
   metadata-proxy: 2
   prometheus-to-sd-exporter: 2
+  coredns: 2

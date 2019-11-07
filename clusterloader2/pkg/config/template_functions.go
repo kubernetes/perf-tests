@@ -150,6 +150,9 @@ func multiplyFloat(numbers ...interface{}) float64 {
 func divideFloat(i, j interface{}) float64 {
 	typedI := toFloat64(i)
 	typedJ := toFloat64(j)
+	if typedJ == 0 {
+		panic("division by zero")
+	}
 	return typedI / typedJ
 }
 

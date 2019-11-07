@@ -120,12 +120,7 @@ func TearDownExecService(f *framework.Framework) error {
 }
 
 // RunCommand executes given command on a pod in cluster.
-func RunCommand(cmd string) (string, error) {
-	pod, err := getPod()
-	if err != nil {
-		return "", err
-	}
-
+func RunCommand(pod *corev1.Pod, cmd string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	c := exec.Command("kubectl", "exec", fmt.Sprintf("--namespace=%v", pod.Namespace), pod.Name, "--", "/bin/sh", "-x", "-c", cmd)
 	c.Stdout, c.Stderr = &stdout, &stderr
@@ -135,7 +130,8 @@ func RunCommand(cmd string) (string, error) {
 	return stdout.String(), nil
 }
 
-func getPod() (*corev1.Pod, error) {
+// GetPod get a exec service pod in a cluster.
+func GetPod() (*corev1.Pod, error) {
 	lock.Lock()
 	defer lock.Unlock()
 	if podStore == nil {

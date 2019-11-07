@@ -79,7 +79,7 @@ type serviceCreationLatencyMeasurement struct {
 // "start" action starts observation of the services.
 // "waitForReady" waits until all services are reachable.
 // "gather" returns service created latency summary.
-// This measurement only works for services with LoadBalancer type.
+// This measurement only works for services with ClusterIP, NodePort and LoadBalancer type.
 func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	s.client = config.ClusterFramework.GetClientSets().GetClient()
 	action, err := util.GetString(config.Params, "action")
@@ -147,11 +147,15 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 
 func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 	return wait.Poll(defaultCheckInterval, s.waitTimeout, func() (bool, error) {
-		reachable := s.creationTimes.Count(reachabilityPhase)
-		ipAssigned := s.creationTimes.Count(ipAssigningPhase)
-		created := s.creationTimes.Count(creatingPhase)
-		klog.Infof("%s: %d created, %d ipAssigned, %d reachable", s, created, ipAssigned, reachable)
-		return created == reachable, nil
+		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer} {
+			reachable := s.creationTimes.Count(phaseName(reachabilityPhase, svcType))
+			created := s.creationTimes.Count(phaseName(creatingPhase, svcType))
+			klog.Infof("%s type %s: %d created, %d reachable", s, svcType, created, reachable)
+			if created != reachable {
+				return false, nil
+			}
+		}
+		return true, nil
 	})
 }
 
@@ -161,18 +165,27 @@ func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measure
 		return nil, fmt.Errorf("metric %s has not been started", s)
 	}
 
+	// NOTE: For ClusterIP or NodePort type of service, the cluster ip or node port is assigned as part of service creation API call, so the ipAssigning phase is no sense.
 	serviceCreationLatency := s.creationTimes.CalculateTransitionsLatency(map[string]measurementutil.Transition{
-		"create_to_assigned": {
-			From: creatingPhase,
-			To:   ipAssigningPhase,
+		"create_to_available_clusterip": {
+			From: phaseName(creatingPhase, corev1.ServiceTypeClusterIP),
+			To:   phaseName(reachabilityPhase, corev1.ServiceTypeClusterIP),
 		},
-		"assigned_to_available": {
-			From: ipAssigningPhase,
-			To:   reachabilityPhase,
+		"create_to_available_nodeport": {
+			From: phaseName(creatingPhase, corev1.ServiceTypeNodePort),
+			To:   phaseName(reachabilityPhase, corev1.ServiceTypeNodePort),
 		},
-		"create_to_available": {
-			From: creatingPhase,
-			To:   reachabilityPhase,
+		"create_to_assigned_loadbalancer": {
+			From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
+			To:   phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
+		},
+		"assigned_to_available_loadbalancer": {
+			From: phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
+			To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
+		},
+		"create_to_available_loadbalancer": {
+			From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
+			To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
 		},
 	})
 
@@ -230,25 +243,27 @@ func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) er
 }
 
 func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) error {
-	// This measurement only works for services with LoadBalancer type.
-	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+	// This measurement only works for services with ClusterIP, NodePort and LoadBalancer type.
+	if svc.Spec.Type != corev1.ServiceTypeClusterIP && svc.Spec.Type != corev1.ServiceTypeNodePort && svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
 		return nil
 	}
 	key, err := runtimeobjects.CreateMetaNamespaceKey(svc)
 	if err != nil {
 		return fmt.Errorf("meta key created error: %v", err)
 	}
-	if _, exists := s.creationTimes.Get(key, creatingPhase); !exists {
-		s.creationTimes.Set(key, creatingPhase, svc.CreationTimestamp.Time)
+	if _, exists := s.creationTimes.Get(key, phaseName(creatingPhase, svc.Spec.Type)); !exists {
+		s.creationTimes.Set(key, phaseName(creatingPhase, svc.Spec.Type), svc.CreationTimestamp.Time)
 	}
-	if len(svc.Status.LoadBalancer.Ingress) < 1 {
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer && len(svc.Status.LoadBalancer.Ingress) < 1 {
 		return nil
 	}
-	if _, exists := s.creationTimes.Get(key, ipAssigningPhase); exists {
-		return nil
+	// NOTE: For ClusterIP or NodePort type of service, the cluster ip or node port is assigned as part of service creation API call, so the ipAssigning phase is no sense.
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		if _, exists := s.creationTimes.Get(key, phaseName(ipAssigningPhase, svc.Spec.Type)); exists {
+			return nil
+		}
+		s.creationTimes.Set(key, phaseName(ipAssigningPhase, svc.Spec.Type), time.Now())
 	}
-	s.creationTimes.Set(key, ipAssigningPhase, time.Now())
-
 	pc := &pingChecker{
 		callerName:    s.String(),
 		svc:           svc,
@@ -259,6 +274,10 @@ func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) er
 	s.pingCheckers.Add(key, pc)
 
 	return nil
+}
+
+func phaseName(phase string, serviceType corev1.ServiceType) string {
+	return fmt.Sprintf("%s_%s", phase, serviceType)
 }
 
 type pingChecker struct {
@@ -280,13 +299,22 @@ func (p *pingChecker) run() {
 		case <-p.stopCh:
 			return
 		default:
-			if _, exists := p.creationTimes.Get(key, reachabilityPhase); exists {
+			if _, exists := p.creationTimes.Get(key, phaseName(reachabilityPhase, p.svc.Spec.Type)); exists {
 				return
 			}
-			// TODO(#679): Current implementation handles only load balancers.
 			// TODO(#685): Make ping checks less communication heavy.
-			_, err := execservice.RunCommand(
-				fmt.Sprintf("curl %s:%d", p.svc.Status.LoadBalancer.Ingress[0].IP, p.svc.Spec.Ports[0].Port))
+			pod, err := execservice.GetPod()
+			switch p.svc.Spec.Type {
+			case corev1.ServiceTypeClusterIP:
+				cmd := fmt.Sprintf("curl %s:%d", p.svc.Spec.ClusterIP, p.svc.Spec.Ports[0].Port)
+				_, err = execservice.RunCommand(pod, cmd)
+			case corev1.ServiceTypeNodePort:
+				cmd := fmt.Sprintf("curl %s:%d", pod.Status.HostIP, p.svc.Spec.Ports[0].NodePort)
+				_, err = execservice.RunCommand(pod, cmd)
+			case corev1.ServiceTypeLoadBalancer:
+				cmd := fmt.Sprintf("curl %s:%d", p.svc.Status.LoadBalancer.Ingress[0].IP, p.svc.Spec.Ports[0].Port)
+				_, err = execservice.RunCommand(pod, cmd)
+			}
 			if err != nil {
 				success = 0
 				time.Sleep(pingBackoff)
@@ -294,7 +322,7 @@ func (p *pingChecker) run() {
 			}
 			success++
 			if success == pingChecks {
-				p.creationTimes.Set(key, reachabilityPhase, time.Now())
+				p.creationTimes.Set(key, phaseName(reachabilityPhase, p.svc.Spec.Type), time.Now())
 			}
 		}
 	}

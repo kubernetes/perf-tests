@@ -209,7 +209,7 @@ func PrettyPrintJSON(data interface{}) (string, error) {
 	if err := json.Indent(formatted, output.Bytes(), "", "  "); err != nil {
 		return "", fmt.Errorf("indenting error: %v", err)
 	}
-	return string(formatted.Bytes()), nil
+	return formatted.String(), nil
 }
 
 // CopyMap copies values from one map to the other.

@@ -89,7 +89,7 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Measurem
 
 	switch action {
 	case "start":
-		if s.selector.Parse(config.Params); err != nil {
+		if err := s.selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
 		s.waitTimeout, err = util.GetDurationOrDefault(config.Params, "waitTimeout", defaultServiceCreationLatencyTimeout)

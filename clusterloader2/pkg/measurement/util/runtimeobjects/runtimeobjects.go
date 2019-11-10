@@ -377,7 +377,7 @@ func getDaemonSetNodeSelectorFromUnstructuredSpec(spec map[string]interface{}) (
 	if err != nil || !found {
 		return nil, err
 	}
-	nodeSelector, found, err := unstructured.NestedStringMap(podSpec, "nodeSelector")
+	nodeSelector, _, err := unstructured.NestedStringMap(podSpec, "nodeSelector")
 	return nodeSelector, err
 }
 

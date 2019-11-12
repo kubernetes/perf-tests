@@ -73,6 +73,12 @@
 			"revisionTime": "2019-04-14T22:11:40Z"
 		},
 		{
+			"checksumSHA1": "mpnc3OImPOYwkPvP1R8Vs3mgXqU=",
+			"path": "github.com/blang/semver",
+			"revision": "1a9109f8c4a1d669a78442f567dfe8eedf982793",
+			"revisionTime": "2019-04-14T16:59:03Z"
+		},
+		{
 			"checksumSHA1": "vAqqgKVIr65zZvO46rArgUQAeZM=",
 			"path": "github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1",
 			"revision": "29d5a424e7e6413e7dd66993de41829ed0091aa6",
@@ -431,6 +437,12 @@
 			"path": "github.com/prometheus/client_golang/prometheus/internal",
 			"revision": "f1c404231662c7e8c5cd9018246225a91321c450",
 			"revisionTime": "2019-06-26T09:56:01Z"
+		},
+		{
+			"checksumSHA1": "UcahVbxaRZ35Wh58lM9AWEbUEts=",
+			"path": "github.com/prometheus/client_golang/prometheus/promhttp",
+			"revision": "333f01cef0d61f9ef05ada3d94e00e69c8d5cdda",
+			"revisionTime": "2019-10-24T23:19:15Z"
 		},
 		{
 			"checksumSHA1": "V8xkqgmP66sq2ZW4QO5wi9a4oZE=",
@@ -2732,6 +2744,24 @@
 			"revisionTime": "2019-01-25T16:53:23Z"
 		},
 		{
+			"checksumSHA1": "AKyl0eXHwt+FfvPWvFY67lR6EUE=",
+			"path": "k8s.io/component-base/metrics",
+			"revision": "cca8f4f7ce4d55fa1dc4dd3ec01501284e5d3f98",
+			"revisionTime": "2019-11-11T05:41:41Z"
+		},
+		{
+			"checksumSHA1": "zChUrCe5SuoXFJUo9yTYg47qf3M=",
+			"path": "k8s.io/component-base/metrics/legacyregistry",
+			"revision": "cca8f4f7ce4d55fa1dc4dd3ec01501284e5d3f98",
+			"revisionTime": "2019-11-11T05:41:41Z"
+		},
+		{
+			"checksumSHA1": "BkvIW5ZCT/Cx62qq/9zdeiGYPc4=",
+			"path": "k8s.io/component-base/version",
+			"revision": "cca8f4f7ce4d55fa1dc4dd3ec01501284e5d3f98",
+			"revisionTime": "2019-11-11T05:41:41Z"
+		},
+		{
 			"checksumSHA1": "Qyglsf2V5CAw1ajMoTkMEhFIwFY=",
 			"path": "k8s.io/csi-api/pkg/apis/csi/v1alpha1",
 			"revision": "44b4e43813fb993187d8f6faab18309bb7050d3a",
@@ -2876,6 +2906,12 @@
 			"revisionTime": "2019-01-30T13:32:55Z"
 		},
 		{
+			"checksumSHA1": "pRw9f98fhBZ4m3zJ5QU9fE3UizY=",
+			"path": "k8s.io/kubernetes/pkg/controller/volume/scheduling/metrics",
+			"revision": "48ddf3be87789c92e6824c9ce536c76d008f5c19",
+			"revisionTime": "2019-11-12T09:10:07Z"
+		},
+		{
 			"checksumSHA1": "2JLkReHvcTbEWEn0Vbf/ddCvvRg=",
 			"path": "k8s.io/kubernetes/pkg/features",
 			"revision": "4253e85017d41884291be7515ae60e89f48a4519",
@@ -2912,10 +2948,10 @@
 			"revisionTime": "2019-01-30T13:32:55Z"
 		},
 		{
-			"checksumSHA1": "Eoql3mEpt/7i1a2Dcik+ta6nv6E=",
+			"checksumSHA1": "qk53SHqnC2UqDtJ5IqyX2P7kd7k=",
 			"path": "k8s.io/kubernetes/pkg/scheduler/metrics",
-			"revision": "4253e85017d41884291be7515ae60e89f48a4519",
-			"revisionTime": "2019-01-30T13:32:55Z"
+			"revision": "48ddf3be87789c92e6824c9ce536c76d008f5c19",
+			"revisionTime": "2019-11-12T09:10:07Z"
 		},
 		{
 			"checksumSHA1": "BPA+HgAgf1dzkl3tlDAnbcccl0g=",

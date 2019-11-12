@@ -36,7 +36,6 @@ const (
 	defaultPodStartupLatencyThreshold = 5 * time.Second
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
-	successfulStartupRatioThreshold   = 0.99
 
 	createPhase   = "create"
 	schedulePhase = "schedule"

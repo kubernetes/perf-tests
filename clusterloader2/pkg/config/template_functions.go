@@ -211,6 +211,9 @@ func includeFile(file interface{}) (string, error) {
 
 	path := filepath.Join(filepath.Dir(ex), fileStr)
 	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("unable to read file: %v", err)
+	}
 	return string(data), nil
 }
 

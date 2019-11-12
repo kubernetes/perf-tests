@@ -37,9 +37,10 @@ import (
 )
 
 const (
-	baseNamePlaceholder = "BaseName"
-	indexPlaceholder    = "Index"
-	namePlaceholder     = "Name"
+	baseNamePlaceholder  = "BaseName"
+	indexPlaceholder     = "Index"
+	namePlaceholder      = "Name"
+	namespacePlaceholder = "Namespace"
 )
 
 type simpleTestExecutor struct{}
@@ -260,8 +261,9 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}
 		mapping[baseNamePlaceholder] = object.Basename
-		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
+		mapping[namePlaceholder] = objName
+		mapping[namespacePlaceholder] = namespace
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))

@@ -58,6 +58,10 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
   # TODO(oxddr): figure out how many probers to run in function of cluster
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency

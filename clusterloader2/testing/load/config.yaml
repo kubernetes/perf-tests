@@ -82,6 +82,10 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:

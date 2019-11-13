@@ -41,7 +41,7 @@ type WaitForPodOptions struct {
 	WaitForPodsInterval time.Duration
 }
 
-// WaitForPods waits till disire nuber of pods is running.
+// WaitForPods waits till desired number of pods is running.
 // Pods are be specified by namespace, field and/or label selectors.
 // If stopCh is closed before all pods are running, the error will be returned.
 func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) error {

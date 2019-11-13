@@ -79,6 +79,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
 		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	case "gather":
+		klog.Infof("%s: gathering latency metrics in scheduler...", s)
 		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
@@ -183,6 +184,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 			Do().Raw()
 
 		if err != nil {
+			klog.Errorf("Send request to scheduler failed with err: %v", err)
 			return "", err
 		}
 		responseText = string(body)

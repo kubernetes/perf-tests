@@ -34,7 +34,7 @@ type WaitForPVCOptions struct {
 	WaitForPVCsInterval time.Duration
 }
 
-// WaitForPVCs waits till disire nuber of PVCs is running.
+// WaitForPVCs waits till desired number of PVCs is running.
 // PVCs are be specified by namespace, field and/or label selectors.
 // If stopCh is closed before all PVCs are running, the error will be returned.
 func WaitForPVCs(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPVCOptions) error {

@@ -34,7 +34,7 @@ type WaitForPVOptions struct {
 	WaitForPVsInterval time.Duration
 }
 
-// WaitForPVs waits till disire nuber of PVs is running.
+// WaitForPVs waits till desired number of PVs is running.
 // PVs are be specified by field and/or label selectors.
 // If stopCh is closed before all PVs are running, the error will be returned.
 func WaitForPVs(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPVOptions) error {

@@ -109,6 +109,8 @@ In case of timeout test continues to run, with error (causing marking test as fa
 This is a barrier that waits until required number of pods are running.
 Pods can be specified by label selector, field selector and namespace.
 In case of timeout test continues to run, with error (causing marking test as failed) being logged.
+- **Sleep** \
+This is a barrier that waits until requested amount of the time passes.
 
 ## Vendor
 

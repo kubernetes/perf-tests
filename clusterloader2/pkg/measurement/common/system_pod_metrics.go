@@ -57,8 +57,9 @@ type systemPodMetricsMeasurement struct {
 }
 
 type containerMetrics struct {
-	Name         string `json:"name"`
-	RestartCount int32  `json:"restartCount"`
+	Name              string `json:"name"`
+	RestartCount      int32  `json:"restartCount"`
+	LastRestartReason string `json:"lastRestartReason"`
 }
 
 type podMetrics struct {
@@ -232,10 +233,14 @@ func extractMetrics(lst *v1.PodList) *systemPodsMetrics {
 			Name:       pod.Name,
 		}
 		for _, container := range pod.Status.ContainerStatuses {
-			podMetrics.Containers = append(podMetrics.Containers, containerMetrics{
+			metrics := containerMetrics{
 				Name:         container.Name,
 				RestartCount: container.RestartCount,
-			})
+			}
+			if container.LastTerminationState.Terminated != nil {
+				metrics.LastRestartReason = container.LastTerminationState.Terminated.String()
+			}
+			podMetrics.Containers = append(podMetrics.Containers, metrics)
 		}
 		metrics.Pods = append(metrics.Pods, podMetrics)
 	}

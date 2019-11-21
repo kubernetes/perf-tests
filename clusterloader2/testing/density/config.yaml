@@ -137,6 +137,9 @@ steps:
     Method: SchedulingThroughput
     Params:
       action: gather
+      # Setting to 90 should allow us to catch regressions like
+      # https://github.com/kubernetes/kubernetes/pull/85030 while not making the tests flaky.
+      threshold: 90
 
 - name: Starting latency pod measurements
   measurements:

@@ -44,11 +44,11 @@ DNS_LATENCY_PANEL = [
         title="probe: lookup rate",
         targets=[
             g.Target(
-                expr='rate(probes_in_cluster_dns_lookup_count{namespace="probes", job="dns"}[1m])',
+                expr='sum(rate(probes_in_cluster_dns_lookup_count{namespace="probes", job="dns"}[1m]))',
                 legendFormat="lookup rate",
             ),
             g.Target(
-                expr='rate(probes_in_cluster_network_latency_error{namespace="probes", job="dns"}[1m])',
+                expr='sum(rate(probes_in_cluster_network_latency_error{namespace="probes", job="dns"}[1m]))',
                 legendFormat="error rate",
             ),
         ],

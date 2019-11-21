@@ -24,6 +24,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -73,7 +74,11 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 		s.stopCh = make(chan struct{})
 		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector)
 	case "gather":
-		return s.gather()
+		threshold, err := util.GetFloat64OrDefault(config.Params, "threshold", 0)
+		if err != nil {
+			klog.Warningf("error while getting threshold param: %v", err)
+		}
+		return s.gather(threshold)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -117,7 +122,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 	return nil
 }
 
-func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error) {
+func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measurement.Summary, error) {
 	if !s.isRunning {
 		klog.Errorf("%s: measurementis nor running", s)
 		return nil, fmt.Errorf("measurement is not running")
@@ -142,7 +147,12 @@ func (s *schedulingThroughputMeasurement) gather() ([]measurement.Summary, error
 		return nil, err
 	}
 	summary := measurement.CreateSummary(schedulingThroughputMeasurementName, "json", content)
-	return []measurement.Summary{summary}, nil
+	if threshold > 0 && throughputSummary.Perc99 < threshold {
+		err = errors.NewMetricViolationError(
+			"scheduler throughput",
+			fmt.Sprintf("actual throughput %f lower than threshold %f", throughputSummary.Perc99, threshold))
+	}
+	return []measurement.Summary{summary}, err
 }
 
 func (s *schedulingThroughputMeasurement) stop() {

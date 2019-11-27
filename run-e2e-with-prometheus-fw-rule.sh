@@ -20,7 +20,7 @@ set -o pipefail
 
 # Add firewall rule for Prometheus port (9090)
 if [[ -n "${KUBE_GKE_NETWORK:-}" ]]; then
-  if ! gcloud compute firewall-rules describe "${KUBE_GKE_NETWORK}-9090" > /dev/null; then
+  if ! gcloud compute firewall-rules describe "${KUBE_GKE_NETWORK}-9090" > /dev/null 2>&1; then
     PROMETHEUS_RULE_NAME="${KUBE_GKE_NETWORK}-9090"
     echo "Prometheus firewall rule not found, creating..."
     echo COMMAND: gcloud compute firewall-rules create --network "${KUBE_GKE_NETWORK}" --source-ranges 0.0.0.0/0 --allow tcp:9090 "${PROMETHEUS_RULE_NAME}"

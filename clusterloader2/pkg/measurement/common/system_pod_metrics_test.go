@@ -92,6 +92,21 @@ func Test_validateRestartCounts(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "override-default-used",
+			metrics: generatePodMetrics("p", "c", 3),
+			config:  buildConfig(t, true, map[string]int{"default": 3}),
+			wantErr: false,
+		},
+		{
+			name:    "override-default-not-used",
+			metrics: generatePodMetrics("p", "c", 3),
+			config: buildConfig(t, true, map[string]int{
+				"default": 5,
+				"c":       0,
+			}),
+			wantErr: true,
+		},
+		{
 			name:    "override-below-actual-count",
 			metrics: generatePodMetrics("p", "c", 3),
 			config:  buildConfig(t, true, map[string]int{"c": 2}),

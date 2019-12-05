@@ -37,26 +37,6 @@ var interestingApiServerMetricsLabels = []string{
 	"etcd_request_latencies_summary",
 }
 
-var interestingControllerManagerMetricsLabels = []string{
-	"garbage_collector_attempt_to_delete_queue_latency",
-	"garbage_collector_attempt_to_delete_work_duration",
-	"garbage_collector_attempt_to_orphan_queue_latency",
-	"garbage_collector_attempt_to_orphan_work_duration",
-	"garbage_collector_dirty_processing_latency_microseconds",
-	"garbage_collector_event_processing_latency_microseconds",
-	"garbage_collector_graph_changes_queue_latency",
-	"garbage_collector_graph_changes_work_duration",
-	"garbage_collector_orphan_processing_latency_microseconds",
-
-	"namespace_queue_latency",
-	"namespace_queue_latency_sum",
-	"namespace_queue_latency_count",
-	"namespace_retries",
-	"namespace_work_duration",
-	"namespace_work_duration_sum",
-	"namespace_work_duration_count",
-}
-
 var interestingKubeletMetricsLabels = []string{
 	"kubelet_container_manager_latency_microseconds",
 	"kubelet_docker_errors",
@@ -131,10 +111,6 @@ func filterMetrics(m *metrics.MetricsCollection) {
 	for _, metric := range interestingApiServerMetricsLabels {
 		interestingApiServerMetrics[metric] = (*m).ApiServerMetrics[metric]
 	}
-	interestingControllerManagerMetrics := make(metrics.ControllerManagerMetrics)
-	for _, metric := range interestingControllerManagerMetricsLabels {
-		interestingControllerManagerMetrics[metric] = (*m).ControllerManagerMetrics[metric]
-	}
 	interestingKubeletMetrics := make(map[string]metrics.KubeletMetrics)
 	for kubelet, grabbed := range (*m).KubeletMetrics {
 		interestingKubeletMetrics[kubelet] = make(metrics.KubeletMetrics)
@@ -143,6 +119,5 @@ func filterMetrics(m *metrics.MetricsCollection) {
 		}
 	}
 	(*m).ApiServerMetrics = interestingApiServerMetrics
-	(*m).ControllerManagerMetrics = interestingControllerManagerMetrics
 	(*m).KubeletMetrics = interestingKubeletMetrics
 }

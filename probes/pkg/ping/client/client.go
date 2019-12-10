@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/klog"
+	"k8s.io/perf-tests/probes/pkg/metrics"
 )
 
 var (
@@ -29,53 +30,41 @@ var (
 	pingSleepDuration = flag.Duration("ping-sleep-duration", 1*time.Second, "Duration of the sleep between pings")
 )
 
-// Config configures the "ping-client" probe.
-type Config struct {
+// PingClientConfig configures the "ping-client" probe.
+type PingClientConfig struct {
 	pingServerAddress string
 	pingSleepDuration time.Duration
 }
 
 // NewDefaultPingClientConfig creates a default "ping-client" config.
-func NewDefaultPingClientConfig() *Config {
+func NewDefaultPingClientConfig() *PingClientConfig {
 	if *pingServerAddress == "" {
 		klog.Fatal("--ping-server-address not set!")
 	}
-	return &Config{
+	return &PingClientConfig{
 		pingServerAddress: *pingServerAddress,
 		pingSleepDuration: *pingSleepDuration,
 	}
 }
 
 // Run runs the ping client probe that periodically pings the ping server and exports latency metric.
-func Run(config *Config) {
+func Run(config *PingClientConfig) {
 	for {
 		time.Sleep(config.pingSleepDuration)
 		klog.V(4).Infof("ping -> %s...\n", config.pingServerAddress)
 		startTime := time.Now()
-		inClusterNetworkLatencyPingCount.Inc()
 		if err := ping(config.pingServerAddress); err != nil {
 			klog.Warningf("Got error: %v", err)
-			inClusterNetworkLatencyError.Inc()
+			// TODO(mm4tt): Increment server not available gauge metric.
 			continue
 		}
 		latency := time.Since(startTime)
 		klog.V(4).Infof("Request took: %v\n", latency)
-		inClusterNetworkLatency.Observe(latency.Seconds())
+		metrics.InClusterNetworkLatency.Observe(latency.Seconds())
 	}
 }
 
 func ping(serverAddress string) error {
-	resp, err := http.Get("http://" + serverAddress)
-	if resp != nil {
-		resp.Body.Close()
-	}
+	_, err := http.Get("http://" + serverAddress)
 	return err
-}
-
-func merge(slices ...[]float64) []float64 {
-	result := make([]float64, 1)
-	for _, s := range slices {
-		result = append(result, s...)
-	}
-	return result
 }

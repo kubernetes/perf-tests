@@ -18,6 +18,7 @@ package slos
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"k8s.io/klog"
@@ -47,17 +48,13 @@ func init() {
 
 type netProgGatherer struct{}
 
-func (n *netProgGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
-	return config.CloudProvider != "kubemark"
-}
-
-func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error) {
 	latency, err := n.query(executor, startTime)
 	if err != nil {
 		return nil, err
 	}
 
-	klog.Infof("%s: got %v", netProg, latency)
+	klog.Infof("%s: percentailes of network programming latency 50: %.2f, 90: %.2f, 99: %.2f ms", netProg, latency[0], latency[1], latency[2])
 	return n.createSummary(latency)
 }
 
@@ -65,7 +62,7 @@ func (n *netProgGatherer) String() string {
 	return netProg
 }
 
-func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
+func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) ([]float64, error) {
 	end := time.Now()
 	duration := end.Sub(startTime)
 
@@ -73,21 +70,38 @@ func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (*m
 
 	samples, err := executor.Query(boundedQuery, end)
 	if err != nil {
-		return nil, err
+		return []float64{}, err
 	}
 	if len(samples) != 3 {
-		return nil, fmt.Errorf("got unexpected number of samples: %d", len(samples))
+		return []float64{}, fmt.Errorf("got unexpected number of samples: %d", len(samples))
 	}
-	return measurementutil.NewLatencyMetricPrometheus(samples)
+	latencies := make([]float64, 3)
+	for i, sample := range samples {
+		latencies[i] = float64(sample.Value) * 1000 // s -> ms
+	}
+	sort.Float64s(latencies) // put quantiles in ascending order
+	return latencies, nil
 }
 
-func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version:   metricVersion,
-		DataItems: []measurementutil.DataItem{latency.ToPerfData(netProg)},
-	})
+func (n *netProgGatherer) createSummary(p []float64) (measurement.Summary, error) {
+	content, err := util.PrettyPrintJSON(createPerfData(p))
 	if err != nil {
 		return nil, err
 	}
-	return measurement.CreateSummary(netProg, "json", content), nil
+	summary := measurement.CreateSummary(netProg, "json", content)
+	return summary, nil
+}
+
+func createPerfData(p []float64) *measurementutil.PerfData {
+	return &measurementutil.PerfData{
+		Version: metricVersion,
+		DataItems: []measurementutil.DataItem{{
+			Data: map[string]float64{
+				"Perc50": p[0],
+				"Perc90": p[1],
+				"Perc99": p[2],
+			},
+			Unit: "ms",
+		}},
+	}
 }

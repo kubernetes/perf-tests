@@ -1,0 +1,20 @@
+provider: local
+ClusterLoader:
+  delete: false
+  projects:
+    - num: 1
+      basename: clusterproject
+      tuning: default
+      pods:
+        - num: 20
+          image: k8s.gcr.io/busybox:1.24
+          basename: busybox
+          file: pod-logger.json          
+  tuningsets:
+    - name: default
+      pods:
+        stepping:
+          stepsize: 10
+          pause: 60s
+        ratelimit:
+          delay: 100ms

@@ -20,26 +20,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
-	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	baseNamePlaceholder = "BaseName"
-	indexPlaceholder    = "Index"
-	namePlaceholder     = "Name"
+	namePlaceholder  = "Name"
+	indexPlaceholder = "Index"
 )
 
 type simpleTestExecutor struct{}
@@ -89,13 +83,8 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
 			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
-			testDistinctor := ""
-			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
-				testDistinctor = "_" + ctx.GetClusterLoaderConfig().TestScenario.Identifier
-			}
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
-			fileName := strings.Join([]string{summary.SummaryName(), conf.Name + testDistinctor, summary.SummaryTime().Format(time.RFC3339)}, "_")
-			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, strings.Join([]string{fileName, summary.SummaryExt()}, "."))
+			filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, summary.SummaryName()+"_"+conf.Name+"_"+summary.SummaryTime().Format(time.RFC3339)+"."+summary.SummaryExt())
 			if err := ioutil.WriteFile(filePath, []byte(summary.SummaryContent()), 0644); err != nil {
 				errList.Append(fmt.Errorf("writing to file %v error: %v", filePath, err))
 				continue
@@ -107,9 +96,6 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
-	if step.Name != "" {
-		klog.Infof("Step %q started", step.Name)
-	}
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	if len(step.Measurements) > 0 {
@@ -137,10 +123,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 	}
 	wg.Wait()
 	if step.Name != "" {
-		klog.Infof("Step %q ended", step.Name)
-	}
-	if !errList.IsEmpty() {
-		klog.Warningf("Got errors during step execution: %v", errList)
+		klog.Infof("Step \"%s\" ended", step.Name)
 	}
 	return errList
 }
@@ -168,14 +151,9 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			}
 			instances, exists := ctx.GetState().GetNamespacesState().Get(nsName, id)
 			if !exists {
-				currentReplicaCount, err := getReplicaCountOfNewObject(ctx, nsName, &phase.ObjectBundle[j])
-				if err != nil {
-					errList.Append(err)
-					return errList
-				}
 				instances = &state.InstancesState{
 					DesiredReplicaCount: 0,
-					CurrentReplicaCount: currentReplicaCount,
+					CurrentReplicaCount: 0,
 					Object:              phase.ObjectBundle[j],
 				}
 			}
@@ -255,30 +233,27 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	var obj *unstructured.Unstructured
 	switch operation {
 	case CREATE_OBJECT, PATCH_OBJECT:
-		mapping := ctx.GetTemplateMappingCopy()
+		mapping := make(map[string]interface{})
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
 		}
-		mapping[baseNamePlaceholder] = object.Basename
 		mapping[namePlaceholder] = objName
 		mapping[indexPlaceholder] = replicaIndex
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
-		if err != nil && err != config.ErrorEmptyFile {
+		if err != nil {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case DELETE_OBJECT:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-		if err != nil && err != config.ErrorEmptyFile {
+		if err != nil {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
 	default:
 		return errors.NewErrorList(fmt.Errorf("unsupported operation %v for namespace %v object %v", operation, namespace, objName))
 	}
-	errList := errors.NewErrorList()
-	if err == config.ErrorEmptyFile {
-		return errList
-	}
 	gvk := obj.GroupVersionKind()
+
+	errList := errors.NewErrorList()
 	switch operation {
 	case CREATE_OBJECT:
 		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
@@ -314,6 +289,13 @@ func verifyBundleCorrectness(instancesStates []*state.InstancesState) error {
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
+	objName := fmt.Sprintf("%v-%d", object.Basename, 0)
+	mapping := make(map[string]interface{})
+	if object.TemplateFillMap != nil {
+		util.CopyMap(object.TemplateFillMap, mapping)
+	}
+	mapping[namePlaceholder] = objName
+	mapping[indexPlaceholder] = 0
 	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) for identifier error: %v", object.ObjectTemplatePath, err)
@@ -357,31 +339,4 @@ func cleanupResources(ctx Context) {
 		return
 	}
 	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
-}
-
-func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Object) (int32, error) {
-	if object.ListUnknownObjectOptions == nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: new object detected, will list objects in order to find num replicas", object.Basename)
-	selector, err := metav1.LabelSelectorAsSelector(object.ListUnknownObjectOptions.LabelSelector)
-	if err != nil {
-		return 0, err
-	}
-	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
-	if err != nil {
-		return 0, err
-	}
-	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-	replicaCount, err := runtimeobjects.GetNumObjectsMatchingSelector(
-		ctx.GetClusterFramework().GetDynamicClients().GetClient(),
-		namespace,
-		gvr,
-		selector)
-	if err != nil {
-		return 0, nil
-	}
-	klog.V(4).Infof("%s: found %d replicas", object.Basename, replicaCount)
-	return int32(replicaCount), nil
 }

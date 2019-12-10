@@ -50,7 +50,6 @@ type Context interface {
 	GetClusterFramework() *framework.Framework
 	GetPrometheusFramework() *framework.Framework
 	GetState() *state.State
-	GetTemplateMappingCopy() map[string]interface{}
 	GetTemplateProvider() *config.TemplateProvider
 	GetTuningSetFactory() tuningset.TuningSetFactory
 	GetMeasurementManager() *measurement.MeasurementManager

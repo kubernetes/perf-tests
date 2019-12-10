@@ -13,22 +13,22 @@
 # decreases the value of priority function in scheduler by one point.
 # This results in decreased probability of choosing the same node again.
 {{$LATENCY_POD_CPU := DefaultParam .LATENCY_POD_CPU 100}}
-{{$LATENCY_POD_MEMORY := DefaultParam .LATENCY_POD_MEMORY 350}}
+{{$LATENCY_POD_MEMORY := DefaultParam .LATENCY_POD_MEMORY 400}}
 {{$MIN_LATENCY_PODS := 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
-{{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
+{{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$podsPerNamespace := MultiplyInt $PODS_PER_NODE $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $podsPerNamespace $namespaces}}
 {{$latencyReplicas := DivideInt (MaxInt $MIN_LATENCY_PODS .Nodes) $namespaces}}
 {{$totalLatencyPods := MultiplyInt $namespaces $latencyReplicas}}
-{{$saturationDeploymentTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
-# saturationDeploymentHardTimeout must be at least 20m to make sure that ~10m node
+{{$saturationRCTimeout := DivideFloat $totalPods $DENSITY_TEST_THROUGHPUT | AddInt $MIN_SATURATION_PODS_TIMEOUT}}
+# saturationRCHardTimeout must be at least 20m to make sure that ~10m node
 # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
-{{$saturationDeploymentHardTimeout := MaxInt $saturationDeploymentTimeout 1200}}
+{{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 1200}}
 
 name: density
 automanagedNamespaces: {{$namespaces}}
@@ -45,8 +45,7 @@ chaosMonkey:
     simulatedDowntime: 10m
 {{end}}
 steps:
-- name: Starting measurements
-  measurements:
+- measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:
@@ -55,65 +54,51 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-  # TODO(oxddr): figure out how many probers to run in function of cluster
-  - Identifier: InClusterNetworkLatency
-    Method: InClusterNetworkLatency
-    Params:
-      action: start
-      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
-    Params:
-      action: start
-      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
       action: start
       nodeMode: {{$NODE_MODE}}
       resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
-
-- name: Starting saturation pod measurements
-  measurements:
+# Create saturation pods
+- measurements:
   - Identifier: SaturationPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
       labelSelector: group = saturation
-      threshold: {{$saturationDeploymentTimeout}}s
-  - Identifier: WaitForRunningSaturationDeployments
+      threshold: {{$saturationRCTimeout}}s
+- measurements:
+  - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: start
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = saturation
-      operationTimeout: {{$saturationDeploymentHardTimeout}}s
-  - Identifier: SchedulingThroughput
-    Method: SchedulingThroughput
-    Params:
-      action: start
-      labelSelector: group = saturation
-
-- name: Creating saturation pods
-  phases:
+      operationTimeout: {{$saturationRCHardTimeout}}s
+- phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 1
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: saturation-deployment
+    - basename: saturation-rc
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
         Group: saturation
         CpuRequest: 1m
         MemoryRequest: 10M
-
-- name: Collecting saturation pod measurements
-  measurements:
-  - Identifier: WaitForRunningSaturationDeployments
+- measurements:
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = saturation
+- measurements:
+  - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -127,15 +112,16 @@ steps:
     Method: SchedulingThroughput
     Params:
       action: gather
-
-- name: Starting latency pod measurements
-  measurements:
+- name: Creating saturation pods
+# Create latency pods
+- measurements:
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
       labelSelector: group = latency
-  - Identifier: WaitForRunningLatencyDeployments
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: start
@@ -143,75 +129,65 @@ steps:
       kind: Deployment
       labelSelector: group = latency
       operationTimeout: 15m
-
-- name: Creating latency pods
-  phases:
+- phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$latencyReplicas}}
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-deployment
+    - basename: latency-pod-rc
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: 1
         Group: latency
         CpuRequest: {{$LATENCY_POD_CPU}}m
         MemoryRequest: {{$LATENCY_POD_MEMORY}}M
-
-- name: Waiting for latency pods to be running
-  measurements:
-  - Identifier: WaitForRunningLatencyDeployments
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-
-- name: Deleting latency pods
-  phases:
+- name: Creating latency pods
+# Remove latency pods
+- phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: latency-deployment
+    - basename: latency-pod-rc
       objectTemplatePath: deployment.yaml
-
-- name: Waiting for latency pods to be deleted
-  measurements:
-  - Identifier: WaitForRunningLatencyDeployments
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-
-- name: Collecting pod startup latency
-  measurements:
+- measurements:
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
-
-- name: Deleting saturation pods
-  phases:
+- name: Deleting latency pods
+# Delete pods
+- phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
     tuningSet: Uniform5qps
     objectBundle:
-    - basename: saturation-deployment
+    - basename: saturation-rc
       objectTemplatePath: deployment.yaml
-
-- name: Waiting for saturation pods to be deleted
-  measurements:
-  - Identifier: WaitForRunningSaturationDeployments
+- measurements:
+  - Identifier: WaitForRunningSaturationRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-
-- name: Collecting measurements
-  measurements:
+- name: Deleting saturation pods
+# Collect measurements
+- measurements:
   - Identifier: APIResponsiveness
     Method: APIResponsiveness
     Params:
@@ -223,17 +199,6 @@ steps:
       {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
       {{end}}
-      {{if $USE_SIMPLE_LATENCY_QUERY}}
-      useSimpleLatencyQuery: true
-      {{end}}
-  - Identifier: InClusterNetworkLatency
-    Method: InClusterNetworkLatency
-    Params:
-      action: gather
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
-    Params:
-      action: gather
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

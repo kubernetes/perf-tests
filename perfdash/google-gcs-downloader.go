@@ -37,6 +37,7 @@ import (
 // GoogleGCSDownloaderOptions is an options for GoogleGCSDownloader.
 type GoogleGCSDownloaderOptions struct {
 	ConfigPaths        []string
+	GithubConfigDirs   []string
 	DefaultBuildsCount int
 	LogsBucket         string
 	LogsPath           string
@@ -66,7 +67,22 @@ func NewGoogleGCSDownloader(opt *GoogleGCSDownloaderOptions) (*GoogleGCSDownload
 
 // TODO(random-liu): Only download and update new data each time.
 func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
-	newJobs, err := getProwConfig(g.Options.ConfigPaths)
+	configPaths := make([]string, len(g.Options.ConfigPaths))
+	copy(configPaths, g.Options.ConfigPaths)
+	for _, githubUrl := range g.Options.GithubConfigDirs {
+		githubConfigPaths, err := GetConfigsFromGithub(githubUrl)
+		if err != nil {
+			return nil, err
+		}
+		configPaths = append(configPaths, githubConfigPaths...)
+	}
+
+	fmt.Printf("Config paths - %d\n", len(configPaths))
+	for i, configPath := range configPaths {
+		fmt.Printf("Config path %d: %s\n", i+1, configPath)
+	}
+
+	newJobs, err := getProwConfig(configPaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh config: %v", err)
 	}

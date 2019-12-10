@@ -18,9 +18,7 @@ run: perfdash
 		--address=0.0.0.0:8080 \
 		--builds=20 \
 		--force-builds \
-		--configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-release-blocking-jobs.yaml \
-		--configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml \
-		--configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-experimental-periodic-jobs.yaml
+		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability
 
 container: perfdash
 	docker build --pull -t $(REPO)/perfdash:$(TAG) .

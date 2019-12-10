@@ -45,9 +45,12 @@ var (
 )
 
 func initGoogleDownloaderOptions() {
-	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. This would override values defined by \"perfDashBuildsCount\" label on prow job")
+	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. "+
+		"This would override values defined by \"perfDashBuildsCount\" label on prow job")
 	pflag.IntVar(&options.DefaultBuildsCount, "builds", maxBuilds, "Total builds number")
 	pflag.StringArrayVar(&options.ConfigPaths, "configPath", []string{}, "Paths/urls to the prow config")
+	pflag.StringArrayVar(&options.GithubConfigDirs, "githubConfigDir", []string{}, "Github API url to the prow config directory, all configs from this dir will be used."+
+		"To specify more than one dir, this arg shall be specified multiple times, one time for each dir.")
 	pflag.StringVar(&options.CredentialPath, "credentialPath", "", "Path to the gcs credential json")
 	pflag.StringVar(&options.LogsBucket, "logsBucket", "kubernetes-jenkins", "Name of the data bucket")
 	pflag.StringVar(&options.LogsPath, "logsPath", "logs", "Path to the logs inside the logs bucket")
@@ -65,11 +68,6 @@ func run() error {
 	initGoogleDownloaderOptions()
 	pflag.Parse()
 	initGlobalConfig()
-
-	fmt.Printf("config paths - %d\n", len(options.ConfigPaths))
-	for i := 0; i < len(options.ConfigPaths); i++ {
-		fmt.Printf("config path %d: %s\n", i+1, (options.ConfigPaths)[i])
-	}
 
 	if options.DefaultBuildsCount > maxBuilds || options.DefaultBuildsCount < 0 {
 		fmt.Printf("Invalid number of builds: %d, setting to %d\n", options.DefaultBuildsCount, maxBuilds)

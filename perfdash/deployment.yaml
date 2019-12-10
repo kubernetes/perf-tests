@@ -23,9 +23,7 @@ spec:
           -   --dir=/www
           -   --address=0.0.0.0:8080
           -   --builds=100
-          -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-experimental-periodic-jobs.yaml
-          -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml
-          -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-release-blocking-jobs.yaml
+          -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability
         imagePullPolicy: Always
         ports:
         - name: status

@@ -21,12 +21,15 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 	"text/template"
 
+	goerrors "github.com/go-errors/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -217,5 +220,43 @@ func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}
 	mapping["Nodes"] = clusterLoaderConfig.ClusterConfig.Nodes
+	envMapping, err := LoadCL2Envs()
+	if err != nil {
+		return nil, errors.NewErrorList(goerrors.Errorf("mapping creation error: %v", err))
+	}
+	MergeMappings(mapping, envMapping)
 	return mapping, nil
+}
+
+// LoadCL2Envs returns mapping from the envs starting with CL2_ prefix.
+func LoadCL2Envs() (map[string]interface{}, error) {
+	mapping := make(map[string]interface{})
+	for _, keyValue := range os.Environ() {
+		if !strings.HasPrefix(keyValue, "CL2_") {
+			continue
+		}
+		split := strings.Split(keyValue, "=")
+		if len(split) != 2 {
+			return nil, goerrors.Errorf("unparsable string in os.Eviron(): %v", keyValue)
+		}
+		key, value := split[0], split[1]
+		mapping[key] = value
+	}
+	return mapping, nil
+}
+
+// MergeMappings modifies map b to contain all new key=value pairs from b.
+// It will return error in case of conflict, i.e. if exists key k for which a[k] != b[k]
+func MergeMappings(a, b map[string]interface{}) error {
+	for k, bv := range b {
+		av, ok := a[k]
+		if !ok {
+			a[k] = bv
+			continue
+		}
+		if !reflect.DeepEqual(av, bv) {
+			return goerrors.Errorf("merge conflict for key '%v': old value=%v, new value=%v", k, av, bv)
+		}
+	}
+	return nil
 }

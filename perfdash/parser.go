@@ -249,6 +249,7 @@ type schedulingMetrics struct {
 	PriorityEvaluationLatency   latencyMetric `json:"priorityEvaluationLatency"`
 	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              latencyMetric `json:"bindingLatency"`
+	E2eSchedulingLatency        latencyMetric `json:"e2eSchedulingLatency"`
 	ThroughputAverage           float64       `json:"throughputAverage"`
 	ThroughputPerc50            float64       `json:"throughputPerc50"`
 	ThroughputPerc90            float64       `json:"throughputPerc90"`
@@ -279,6 +280,8 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
 	binding := parseOperationLatency(obj.BindingLatency, "binding")
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
+	e2eSchedulingLatency := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
+	testResult.Builds[build] = append(testResult.Builds[build], e2eSchedulingLatency)
 }
 
 type schedulingThroughputMetric struct {

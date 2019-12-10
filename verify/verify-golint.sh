@@ -26,7 +26,7 @@ GOLINT=${GOLINT:-"golint"}
 PACKAGES=($(go list ./... | grep -v /vendor/))
 bad_files=()
 for package in "${PACKAGES[@]}"; do
-  out=$("${GOLINT}" -min_confidence=0.9 "${package}")
+  out=$("${GOLINT}" "${package}")
   if [[ -n "${out}" ]]; then
     bad_files+=("${out}")
   fi

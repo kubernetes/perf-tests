@@ -117,9 +117,13 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 		return true, nil
 	}); err != nil {
 		if queryErr != nil {
-			return nil, fmt.Errorf("query error: %v", queryErr)
+			resp := "(empty)"
+			if body != nil {
+				resp = string(body)
+			}
+			return nil, fmt.Errorf("query error: %v [body: %s]", queryErr, resp)
 		}
-		return nil, fmt.Errorf("query error: %v", err)
+		return nil, fmt.Errorf("error: %v", err)
 	}
 
 	samples, err := ExtractMetricSamples2(body)

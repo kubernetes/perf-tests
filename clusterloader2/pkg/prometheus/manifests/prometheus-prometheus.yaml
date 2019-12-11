@@ -47,3 +47,5 @@ spec:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+  query:
+    maxSamples: 100000000

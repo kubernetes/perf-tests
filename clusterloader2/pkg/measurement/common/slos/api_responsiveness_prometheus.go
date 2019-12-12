@@ -39,6 +39,14 @@ import (
 const (
 	apiResponsivenessPrometheusMeasurementName = "APIResponsivenessPrometheus"
 
+	// Thresholds for API call latency as defined in the official K8s SLO
+	// https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
+	resourceThreshold  time.Duration = 1 * time.Second
+	namespaceThreshold time.Duration = 5 * time.Second
+	clusterThreshold   time.Duration = 30 * time.Second
+
+	currentAPICallMetricsVersion = "v1"
+
 	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this
 	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|proxy|CONNECT"`
 
@@ -69,6 +77,27 @@ func init() {
 	}
 }
 
+type apiCall struct {
+	Resource    string                        `json:"resource"`
+	Subresource string                        `json:"subresource"`
+	Verb        string                        `json:"verb"`
+	Scope       string                        `json:"scope"`
+	Latency     measurementutil.LatencyMetric `json:"latency"`
+	Count       int                           `json:"count"`
+}
+
+type apiResponsiveness struct {
+	APICalls []apiCall `json:"apicalls"`
+}
+
+func (a *apiResponsiveness) Len() int { return len(a.APICalls) }
+func (a *apiResponsiveness) Swap(i, j int) {
+	a.APICalls[i], a.APICalls[j] = a.APICalls[j], a.APICalls[i]
+}
+func (a *apiResponsiveness) Less(i, j int) bool {
+	return a.APICalls[i].Latency.Perc99 < a.APICalls[j].Latency.Perc99
+}
+
 type apiResponsivenessGatherer struct{}
 
 func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
@@ -78,7 +107,7 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 		return nil, err
 	}
 
-	metrics := &apiResponsiveness{ApiCalls: apiCalls}
+	metrics := &apiResponsiveness{APICalls: apiCalls}
 
 	badMetrics := validateAPICalls(config.Identifier, metrics)
 
@@ -237,7 +266,7 @@ func validateAPICalls(identifier string, metrics *apiResponsiveness) []string {
 	top := topToPrint
 
 	sort.Sort(sort.Reverse(metrics))
-	for _, apiCall := range metrics.ApiCalls {
+	for _, apiCall := range metrics.APICalls {
 		isBad := false
 		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
 		if err := apiCall.Latency.VerifyThreshold(sloThreshold); err != nil {
@@ -254,4 +283,28 @@ func validateAPICalls(identifier string, metrics *apiResponsiveness) []string {
 		}
 	}
 	return badMetrics
+}
+
+// apiCallToPerfData transforms apiResponsiveness to PerfData.
+func apiCallToPerfData(apicalls *apiResponsiveness) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
+	for _, apicall := range apicalls.APICalls {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Perc50": float64(apicall.Latency.Perc50) / 1000000, // us -> ms
+				"Perc90": float64(apicall.Latency.Perc90) / 1000000,
+				"Perc99": float64(apicall.Latency.Perc99) / 1000000,
+			},
+			Unit: "ms",
+			Labels: map[string]string{
+				"Verb":        apicall.Verb,
+				"Resource":    apicall.Resource,
+				"Subresource": apicall.Subresource,
+				"Scope":       apicall.Scope,
+				"Count":       fmt.Sprintf("%v", apicall.Count),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
 }

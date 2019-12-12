@@ -1,0 +1,3 @@
+POD_COUNT: 80
+CONTAINER_IMAGE: gcr.io/gke-release/pause-win:1.0.0
+POD_STARTUP_LATENCY_THRESHOLD: 20m

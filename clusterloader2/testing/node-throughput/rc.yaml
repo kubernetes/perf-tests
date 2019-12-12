@@ -17,7 +17,7 @@ spec:
       # Do not automount default service account, to eliminate its impact.
       automountServiceAccountToken: false
       containers:
-      - image: k8s.gcr.io/pause:3.1
+      - image: {{.Image}}
         imagePullPolicy: IfNotPresent
         name: {{.Name}}
         ports:

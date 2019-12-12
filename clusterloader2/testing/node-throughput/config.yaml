@@ -2,8 +2,10 @@
 # - This test is designed for 1-node cluster.
 
 #Constants
-{{$POD_COUNT := 100}}
+{{$POD_COUNT := DefaultParam .POD_COUNT 100}}
 {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 2}}
+{{$CONTAINER_IMAGE := DefaultParam .CONTAINER_IMAGE "k8s.gcr.io/pause:3.1"}}
+{{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 
 name: node-throughput
 automanagedNamespaces: {{$POD_COUNT}}
@@ -22,6 +24,7 @@ steps:
     Params:
       action: start
       labelSelector: group = latency
+      threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
@@ -43,6 +46,7 @@ steps:
       templateFillMap:
         Replicas: 1
         Group: latency
+        Image: {{$CONTAINER_IMAGE}}
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning

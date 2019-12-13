@@ -1,5 +1,3 @@
-{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,9 +20,6 @@ spec:
         - --logtostderr=true
         - --config-reloader-image=gcr.io/k8s-testimages/quay.io/coreos/configmap-reload:v0.0.1
         - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/coreos/prometheus-config-reloader:v0.30.0
-        {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-        - --kubelet-service=kube-system/kubelet
-        {{end}}
         image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.30.0
         name: prometheus-operator
         ports:

@@ -12,15 +12,11 @@ spec:
   endpoints:
   {{if $PROMETHEUS_SCRAPE_ETCD}}
   - interval: 5s
-    port: etcd-2379
-  - interval: 5s
-    port: etcd-2382
+    port: etcd
   {{end}}
   {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
-  # TODO(mborsz): Debug why node-exporter is that slow and change interval back to 5s.
-  - interval: 30s
+  - interval: 5s
     port: node-exporter
-    scrapeTimeout: 20s
   {{end}}
   - interval: 5s
     port: kubelet

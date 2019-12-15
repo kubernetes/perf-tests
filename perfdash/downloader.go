@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog"
 	"net/http"
 	"sort"
 
@@ -84,13 +85,13 @@ func (j *JobToCategoryData) ServeJobNames(res http.ResponseWriter, req *http.Req
 func (j *JobToCategoryData) ServeCategoryNames(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
-		fmt.Printf("Url Param 'jobname' is missing\n")
+		klog.Warningf("Url Param 'jobname' is missing")
 		return
 	}
 
 	tests, ok := (*j)[jobname]
 	if !ok {
-		fmt.Printf("unknown jobname - %v\n", jobname)
+		klog.Infof("unknown jobname - %v", jobname)
 		return
 	}
 
@@ -106,23 +107,23 @@ func (j *JobToCategoryData) ServeCategoryNames(res http.ResponseWriter, req *htt
 func (j *JobToCategoryData) ServeMetricNames(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
-		fmt.Printf("Url Param 'jobname' is missing\n")
+		klog.Warningf("Url Param 'jobname' is missing")
 		return
 	}
 	categoryname, ok := getURLParam(req, "metriccategoryname")
 	if !ok {
-		fmt.Printf("Url Param 'metriccategoryname' is missing\n")
+		klog.Warningf("Url Param 'metriccategoryname' is missing")
 		return
 	}
 
 	categories, ok := (*j)[jobname]
 	if !ok {
-		fmt.Printf("unknown jobname - %v\n", jobname)
+		klog.Infof("unknown jobname - %v", jobname)
 		return
 	}
 	tests, ok := categories[categoryname]
 	if !ok {
-		fmt.Printf("unknown metriccategoryname - %v\n", categoryname)
+		klog.Infof("unknown metriccategoryname - %v", categoryname)
 		return
 	}
 
@@ -138,33 +139,33 @@ func (j *JobToCategoryData) ServeMetricNames(res http.ResponseWriter, req *http.
 func (j *JobToCategoryData) ServeBuildsData(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
-		fmt.Printf("Url Param 'jobname' is missing\n")
+		klog.Warningf("Url Param 'jobname' is missing")
 		return
 	}
 	categoryname, ok := getURLParam(req, "metriccategoryname")
 	if !ok {
-		fmt.Printf("Url Param 'metriccategoryname' is missing\n")
+		klog.Warningf("Url Param 'metriccategoryname' is missing")
 		return
 	}
 	metricname, ok := getURLParam(req, "metricname")
 	if !ok {
-		fmt.Printf("Url Param 'metricname' is missing\n")
+		klog.Warningf("Url Param 'metricname' is missing")
 		return
 	}
 
 	categories, ok := (*j)[jobname]
 	if !ok {
-		fmt.Printf("unknown jobname - %v\n", jobname)
+		klog.Infof("unknown jobname - %v", jobname)
 		return
 	}
 	tests, ok := categories[categoryname]
 	if !ok {
-		fmt.Printf("unknown metriccategoryname - %v\n", categoryname)
+		klog.Infof("unknown metriccategoryname - %v", categoryname)
 		return
 	}
 	builds, ok := tests[metricname]
 	if !ok {
-		fmt.Printf("unknown metricname - %v\n", metricname)
+		klog.Infof("unknown metricname - %v", metricname)
 		return
 	}
 

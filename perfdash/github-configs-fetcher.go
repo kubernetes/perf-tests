@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"k8s.io/klog"
 	"net/http"
 	"strings"
 
@@ -57,7 +58,7 @@ func GetConfigsFromGithub(url string) ([]string, error) {
 }
 
 func getGithubDirContents(url string) ([]githubDirContent, error) {
-	fmt.Printf("Downloading github spec from %v\n", url)
+	klog.Infof("Downloading github spec from %v", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("error calling github API %s: %v", url, err)

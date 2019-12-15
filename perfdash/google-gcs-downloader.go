@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
+	"k8s.io/klog"
 	"path"
 	"path/filepath"
 	"sort"
@@ -77,16 +77,16 @@ func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 		configPaths = append(configPaths, githubConfigPaths...)
 	}
 
-	fmt.Printf("Config paths - %d\n", len(configPaths))
+	klog.Infof("Config paths - %d", len(configPaths))
 	for i, configPath := range configPaths {
-		fmt.Printf("Config path %d: %s\n", i+1, configPath)
+		klog.Infof("Config path %d: %s", i+1, configPath)
 	}
 
 	newJobs, err := getProwConfig(configPaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh config: %v", err)
 	}
-	fmt.Print("Getting Data from GCS...\n")
+	klog.Infof("Getting Data from GCS...")
 	result := make(JobToCategoryData)
 	var resultLock sync.Mutex
 	var wg sync.WaitGroup
@@ -122,12 +122,12 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 	if buildsToFetch < 1 || g.Options.OverrideBuildCount {
 		buildsToFetch = g.Options.DefaultBuildsCount
 	}
-	fmt.Printf("Builds to fetch for %v: %v\n", job, buildsToFetch)
+	klog.Infof("Builds to fetch for %v: %v", job, buildsToFetch)
 
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
-		fmt.Printf("Fetching %s build %v...\n", job, buildNumber)
+		klog.Infof("Fetching %s build %v...", job, buildNumber)
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
@@ -135,7 +135,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 					searchPrefix := fmt.Sprintf("artifacts/%v", filePrefix)
 					artifacts, err := g.GoogleGCSBucketUtils.listFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
-						fmt.Printf("Error while looking for %s* in %s build %v: %v\n", searchPrefix, job, buildNumber, err)
+						klog.Errorf("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
 						continue
 					}
 					for _, artifact := range artifacts {
@@ -144,7 +144,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 						testDataResponse, err := g.GoogleGCSBucketUtils.getFileFromJenkinsGoogleBucket(job, buildNumber,
 							fmt.Sprintf("artifacts/%v", metricsFileName))
 						if err != nil {
-							fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
+							klog.Errorf("Error when reading response Body: %v", err)
 							continue
 						}
 						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
@@ -210,7 +210,7 @@ func (b *bucketUtil) getBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, 
 	var builds []int
 	ctx := context.Background()
 	jobPrefix := joinStringsAndInts(b.logPath, job) + "/"
-	fmt.Printf("%s\n", jobPrefix)
+	klog.Infof("%s", jobPrefix)
 	it := b.bucket.Objects(ctx, &storage.Query{
 		Prefix:    jobPrefix,
 		Delimiter: "/",

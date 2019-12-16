@@ -25,7 +25,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
@@ -44,7 +44,7 @@ type NodeKiller struct {
 // NewNodeKiller creates new NodeKiller.
 func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, provider string) (*NodeKiller, error) {
 	if provider != "gce" && provider != "gke" {
-		return nil, fmt.Errorf("provider %q is not supported by NodeKiller", provider)
+		return nil, fmt.Errorf("provider %q is not supported by NodeKiller")
 	}
 	return &NodeKiller{config, client, provider, sets.NewString()}, nil
 }

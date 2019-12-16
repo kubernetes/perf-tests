@@ -43,12 +43,12 @@ type QueryExecutor interface {
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
-	Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error)
-	IsEnabled(config *measurement.MeasurementConfig) bool
+	Gather(executor QueryExecutor, startTime time.Time) (measurement.Summary, error)
 	String() string
 }
 
 type prometheusMeasurement struct {
+	name     string
 	gatherer Gatherer
 
 	startTime time.Time
@@ -56,12 +56,7 @@ type prometheusMeasurement struct {
 
 func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	if config.PrometheusFramework == nil {
-		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", m)
-		return nil, nil
-	}
-
-	if !m.gatherer.IsEnabled(config) {
-		klog.Warningf("%s: disabled, skipping the measuerment!", m)
+		klog.Warningf("%s: Prometheus is disable, skipping the measurement!", m)
 		return nil, nil
 	}
 
@@ -85,7 +80,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		c := config.PrometheusFramework.GetClientSets().GetClient()
 		executor := measurementutil.NewQueryExecutor(c)
 
-		summary, err := m.gatherer.Gather(executor, m.startTime, config)
+		summary, err := m.gatherer.Gather(executor, m.startTime)
 		if err != nil {
 			if !errors.IsMetricViolationError(err) {
 				return nil, err

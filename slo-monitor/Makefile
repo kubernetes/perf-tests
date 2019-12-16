@@ -13,7 +13,7 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.12.0
+TAG = 0.11.2
 # Image should be pulled from k8s.gcr.io, which will auto-detect
 # region (us, eu, asia, ...) and pull from the closest.
 REPOSITORY?=k8s.gcr.io
@@ -36,4 +36,4 @@ test: src
 	go test ${PACKAGE}/src/... -v
 
 clean:
-	rm -rf build/
+	rm -f build/slo-monitor

@@ -36,7 +36,10 @@ import (
 )
 
 const (
-	schedulerLatencyMetricName  = "SchedulingMetrics"
+	schedulerLatencyMetricName = "SchedulingMetrics"
+
+	e2eScheduling = "e2eScheduling"
+
 	schedulingLatencyMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.SchedulingLatencyName)
 	singleRestCallTimeout       = 5 * time.Minute
 )
@@ -130,7 +133,10 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 			metric = &result.PreemptionEvaluationLatency
 		case schedulermetric.Binding:
 			metric = &result.BindingLatency
+		case e2eScheduling:
+			metric = &result.E2eSchedulingLatency
 		}
+
 		if metric == nil {
 			continue
 		}
@@ -210,4 +216,5 @@ type schedulingMetrics struct {
 	PriorityEvaluationLatency   measurementutil.LatencyMetric `json:"priorityEvaluationLatency"`
 	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              measurementutil.LatencyMetric `json:"bindingLatency"`
+	E2eSchedulingLatency        measurementutil.LatencyMetric `json:"e2eSchedulingLatency"`
 }

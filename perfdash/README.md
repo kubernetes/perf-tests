@@ -22,6 +22,15 @@ Metrics above are available for all kinds of tests divided into load and density
 Application server runs as a deployment on kubernetes cluster. It is hosted on
 *mungegithub* cluster in *k8s-mungegithub* project.
 
+## How to deploy new version of perf-dash.k8s.io
+
+* Increment TAG in the `Makefile` (for example: 2.10 -> 2.11)
+* Modify the perfdash image version in the `deplyoment.yaml` to be the same as the
+  one specified in the `Makefile`
+* Submit a PR, get required approvals and wait until it's merged
+* Run `make push` to push new image to container registry
+* Run `deploy.sh`
+
 ## Application images
 
 Images are stored in *gcr.io/k8s-testimages* project container registry.

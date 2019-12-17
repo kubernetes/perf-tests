@@ -37,11 +37,11 @@ tuningSets:
 steps:
 # Start measurements
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
-    Params:
-      action: reset
   - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
       action: start
@@ -144,10 +144,13 @@ steps:
 {{ end }}
 # Collect measurements
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:

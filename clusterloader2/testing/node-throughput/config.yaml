@@ -15,10 +15,10 @@ tuningSets:
     qps: {{$POD_THROUGHPUT}}
 steps:
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
     Params:
-      action: reset
+      action: start
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
@@ -73,7 +73,10 @@ steps:
     Params:
       action: gather
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple

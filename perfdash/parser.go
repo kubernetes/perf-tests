@@ -19,8 +19,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog"
 	"math"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -54,7 +54,7 @@ func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
 	build := fmt.Sprintf("%d", buildNumber)
 	obj := perftype.PerfData{}
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	if testResult.Version == "" {
@@ -88,7 +88,7 @@ func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData)
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj resourceUsagePercentiles
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	usage := make(podNameToUsage)
@@ -125,7 +125,7 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 	build := fmt.Sprintf("%d", buildNumber)
 	obj := perftype.PerfData{}
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	if testResult.Version == "" {
@@ -134,7 +134,7 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 	if testResult.Version == obj.Version {
 		for i := range obj.DataItems {
 			if err := createRequestCountData(&obj.DataItems[i]); err != nil {
-				fmt.Fprintf(os.Stderr, "error creating request count data in build %d dataItem %d: %v\n", buildNumber, i, err)
+				klog.Errorf("error creating request count data in build %d dataItem %d: %v", buildNumber, i, err)
 				continue
 			}
 			stripCount(&obj.DataItems[i])
@@ -151,16 +151,16 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj metrics.Collection
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	if obj.APIServerMetrics == nil {
-		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
+		klog.Errorf("no ApiServerMetrics data in build %d", buildNumber)
 		return
 	}
 	metric, ok := obj.APIServerMetrics["apiserver_request_count"]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "no apiserver_request_count metric data in build %d\n", buildNumber)
+		klog.Errorf("no apiserver_request_count metric data in build %d", buildNumber)
 		return
 	}
 	resultMap := make(map[string]*perftype.DataItem)
@@ -200,16 +200,16 @@ func parseApiserverInitEventsCount(data []byte, buildNumber int, testResult *Bui
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj metrics.Collection
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	if obj.APIServerMetrics == nil {
-		fmt.Fprintf(os.Stderr, "no ApiServerMetrics data in build %d\n", buildNumber)
+		klog.Errorf("no ApiServerMetrics data in build %d", buildNumber)
 		return
 	}
 	metric, ok := obj.APIServerMetrics["apiserver_init_events_total"]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "no apiserver_init_events_total metric data in build %d\n", buildNumber)
+		klog.Errorf("no apiserver_init_events_total metric data in build %d", buildNumber)
 		return
 	}
 	for i := range metric {
@@ -269,7 +269,7 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj schedulingMetrics
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	predicateEvaluation := parseOperationLatency(obj.PredicateEvaluationLatency, "predicate_evaluation")
@@ -296,7 +296,7 @@ func parseSchedulingThroughputCL(data []byte, buildNumber int, testResult *Build
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj schedulingThroughputMetric
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 	perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{}, Data: make(map[string]float64)}
@@ -329,7 +329,7 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 		build := fmt.Sprintf("%d", buildNumber)
 		var obj etcdMetrics
 		if err := json.Unmarshal(data, &obj); err != nil {
-			fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+			klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 			return
 		}
 
@@ -344,7 +344,7 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 		case "walFsyncDuration":
 			histogramVecMetric = obj.WalFsyncDuration
 		default:
-			fmt.Fprintf(os.Stderr, "unknown metric name: %s\n", metricName)
+			klog.Errorf("unknown metric name: %s", metricName)
 		}
 		if histogramVecMetric != nil {
 			for i := range histogramVecMetric {
@@ -352,7 +352,7 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 				delete(perfData.Labels, "__name__")
 				count, exists := histogramVecMetric[i].Buckets["+Inf"]
 				if !exists {
-					fmt.Fprintf(os.Stderr, "err in build %d: no +Inf bucket: %s\n", buildNumber, string(data))
+					klog.Errorf("err in build %d: no +Inf bucket: %s", buildNumber, string(data))
 					continue
 				}
 				for kBucket, vBucket := range histogramVecMetric[i].Buckets {
@@ -388,7 +388,7 @@ func parseSystemPodMetrics(data []byte, buildNumber int, testResult *BuildData) 
 	build := fmt.Sprintf("%d", buildNumber)
 	var obj systemPodsMetrics
 	if err := json.Unmarshal(data, &obj); err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing JSON in build %d: %v %s\n", buildNumber, err, string(data))
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
 

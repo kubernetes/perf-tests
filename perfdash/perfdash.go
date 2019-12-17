@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog"
 	"net/http"
 	"os"
 	"time"
@@ -57,9 +58,10 @@ func initGoogleDownloaderOptions() {
 }
 
 func main() {
-	fmt.Println("Starting perfdash...")
+	klog.InitFlags(nil)
+	klog.Infof("Starting perfdash...")
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		klog.Error(err)
 		os.Exit(1)
 	}
 }
@@ -70,7 +72,7 @@ func run() error {
 	initGlobalConfig()
 
 	if options.DefaultBuildsCount > maxBuilds || options.DefaultBuildsCount < 0 {
-		fmt.Printf("Invalid number of builds: %d, setting to %d\n", options.DefaultBuildsCount, maxBuilds)
+		klog.Infof("Invalid number of builds: %d, setting to %d", options.DefaultBuildsCount, maxBuilds)
 		options.DefaultBuildsCount = maxBuilds
 	}
 
@@ -89,25 +91,25 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("formatting data failed: %v", err)
 		}
-		fmt.Printf("Result: %v\n", string(prettyResult))
+		klog.Infof("Result: %v", string(prettyResult))
 		return nil
 	}
 
 	go func() {
 		for {
-			fmt.Printf("Fetching new data...\n")
+			klog.Infof("Fetching new data...")
 			result, err = downloader.getData()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error fetching data: %v\n", err)
+				klog.Errorf("Error fetching data: %v", err)
 				time.Sleep(errorDelay)
 				continue
 			}
-			fmt.Printf("Data fetched, sleeping %v...\n", pollDuration)
+			klog.Infof("Data fetched, sleeping %v...", pollDuration)
 			time.Sleep(pollDuration)
 		}
 	}()
 
-	fmt.Println("Starting server")
+	klog.Infof("Starting server...")
 	http.Handle("/", http.FileServer(http.Dir(*wwwDir)))
 	http.HandleFunc("/jobnames", result.ServeJobNames)
 	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)

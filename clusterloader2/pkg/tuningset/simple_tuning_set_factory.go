@@ -60,6 +60,8 @@ func (tf *simpleTuningSetFactory) CreateTuningSet(name string) (TuningSet, error
 		return newRandomizedTimeLimitedLoad(tuningSet.RandomizedTimeLimitedLoad), nil
 	case tuningSet.ParallelismLimitedLoad != nil:
 		return newParallelismLimitedLoad(tuningSet.ParallelismLimitedLoad), nil
+	case tuningSet.GlobalQPSLoad != nil:
+		return newGlobalQPSLoad(tuningSet.GlobalQPSLoad), nil
 	default:
 		return nil, fmt.Errorf("incorrect tuning set: %v", tuningSet)
 	}

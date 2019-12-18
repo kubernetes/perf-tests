@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Run verify* script before pushing to remote branch
+
+set -euo pipefail
+
+GIT_ROOT=$(dirname "${BASH_SOURCE[0]}")/../../
+
+cd "${GIT_ROOT}" || exit 1
+
+./verify/verify-boilerplate.sh
+./verify/verify-dashboard-format.sh
+./verify/verify-flags-underscore.py
+./verify/verify-gofmt.sh
+./verify/verify-golint.sh
+./verify/test.sh

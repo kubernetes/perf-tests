@@ -1,0 +1,162 @@
+# ASSUMPTIONS:
+# - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
+# - If using Persistent Volumes, the default storage class must have volumeBindingMode: Immediate
+
+# Cluster Variables
+  {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
+  {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+
+# Test Variales
+  {{$PODS_PER_NODE := .PODS_PER_NODE}}
+  {{$DEPLOYMENT_TEMPLATE_PATH := .DEPLOYMENT_TEMPLATE_PATH }}
+  {{$VOLUMES_PER_POD := .VOLUMES_PER_POD}}
+  {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
+  {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
+  {{$USE_CSI := DefaultParam .USE_CSI false}}
+  {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
+  {{$WAIT_FOR_PVS := DefaultParam .WAIT_FOR_PVS false}}
+  {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 10}}
+  # TODO(hantaowang): remove knob after deciding on right values
+  {{$POD_STARTUP_TIMEOUT := DefaultParam .POD_STARTUP_TIMEOUT "15m"}}
+  {{$POD_STARTUP_SLO := DefaultParam .POD_STARTUP_SLO 300}}
+
+# Computed Variables
+  {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE | MaxInt 1}}
+  {{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+  {{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
+  {{$totalVols := MultiplyInt $volumesPerNamespace $namespaces}}
+  {{$PVCBoundTime := MultiplyInt $totalVols 2 | MaxInt 60}}
+
+
+name: storage
+automanagedNamespaces: {{$namespaces}}
+tuningSets:
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$POD_THROUGHPUT}}
+steps:
+# Start measurements
+- measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: reset
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: start
+      nodeMode: {{$NODE_MODE}}
+  - Identifier: PodWithVolumesStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = volume-test
+      threshold: {{$POD_STARTUP_SLO}}s
+{{ if $PROVISION_VOLUME }}
+# Provision volumes
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$volumesPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: vol
+      objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
+      templateFillMap:
+        Group: volume-test
+        VolSize: {{$VOL_SIZE}}
+        UseCSI: {{$USE_CSI}}
+{{ end }}
+{{ if $WAIT_FOR_PVS }}
+- measurements:
+  - Identifier: WaitForPVCsToBeBound
+    Method: WaitForBoundPVCs
+    Params:
+      desiredPVCCount: {{$totalVols}}
+      apiVersion: v1
+      labelSelector: group = volume-test
+      timeout: {{$PVCBoundTime}}s
+{{ end }}
+- name: Starting measurement for waiting for deployments
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = volume-test
+      operationTimeout: {{$POD_STARTUP_TIMEOUT}}
+# Create deployments
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$podsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: deployment
+      objectTemplatePath: {{$DEPLOYMENT_TEMPLATE_PATH}}
+      templateFillMap:
+        Group: volume-test
+        VolumesPerPod: {{$VOLUMES_PER_POD}}
+- name: Waiting for deployments to be running
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Delete deployments
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: deployment
+      objectTemplatePath: {{$DEPLOYMENT_TEMPLATE_PATH}}
+{{ if $PROVISION_VOLUME }}
+# Delete volumes
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+      - basename: vol
+        objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
+{{ end }}
+{{if $WAIT_FOR_PVS }}
+- measurements:
+    - Identifier: WaitForPVsToBeDeleted
+      Method: WaitForAvailablePVs
+      Params:
+        desiredPVCount: 0
+        apiVersion: v1
+        timeout: {{$PVCBoundTime}}s
+{{ end }}
+# Collect measurements
+- measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: gather
+  - Identifier: PodWithVolumesStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather

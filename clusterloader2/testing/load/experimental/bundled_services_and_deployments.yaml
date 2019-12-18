@@ -1,0 +1,282 @@
+# This config is currently blocked by etcd performance, see https://github.com/kubernetes/perf-tests/issues/413#issuecomment-515952588
+
+# ASSUMPTIONS:
+# - Underlying cluster should have 100+ nodes.
+# - Number of nodes should be divisible by NODES_PER_NAMESPACE (default 100).
+# - The number of created SVCs is half the number of created Deployments.
+# - Only half of Deployments will be assigned 1-1 to existing SVCs.
+
+#Constants
+{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
+{{$BIG_GROUP_SIZE := 250}}
+{{$MEDIUM_GROUP_SIZE := 30}}
+{{$SMALL_GROUP_SIZE := 5}}
+{{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
+{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
+#Variables
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
+{{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
+# bigDeployments - 1/4 of namespace pods should be in big Deployments.
+{{$bigDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $BIG_GROUP_SIZE)}}
+# mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
+{{$mediumDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
+# smallDeployments - 1/2 of namespace pods should be in small Deployments.
+{{$smallDeploymentsPerNamespace := DivideInt (MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE) (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
+
+
+name: load
+automanagedNamespaces: {{$namespaces}}
+tuningSets:
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$saturationTime}}s
+- name: RandomizedScalingTimeLimited
+  RandomizedTimeLimitedLoad:
+    # The expected number of created/deleted pods is totalPods/4 when scaling,
+    # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
+    # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
+    timeLimit: {{DivideInt $saturationTime 4}}s
+{{if $ENABLE_CHAOSMONKEY}}
+chaosMonkey:
+  nodeFailure:
+    failureRate: 0.01
+    interval: 1m
+    jitterFactor: 10.0
+    simulatedDowntime: 10m
+{{end}}
+steps:
+- name: Starting measurements
+  measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: reset
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = load
+      threshold: 1h
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
+    Params:
+      action: start
+      replicasPerProbe: {{DivideInt .Nodes 100}}
+  - Identifier: DnsLookupLatency
+    Method: DnsLookupLatency
+    Params:
+      action: start
+      replicasPerProbe: {{DivideInt .Nodes 100}}
+  - Identifier: NetworkProgrammingLatency
+    Method: NetworkProgrammingLatency
+    Params:
+      action: start
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: start
+      nodeMode: {{$NODE_MODE}}
+
+- name: Starting measurement for waiting for deployments
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = load
+      operationTimeout: 15m
+
+- name: Creating objects
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: big-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        SetServiceProxyLabel: true
+    - basename: big-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{$BIG_GROUP_SIZE}}
+        ReplicasMax: {{$BIG_GROUP_SIZE}}
+        SvcName: big-service
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: medium-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        SetServiceProxyLabel: true
+    - basename: medium-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
+        ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
+        SvcName: medium-service
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: small-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        SetServiceProxyLabel: true
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{$SMALL_GROUP_SIZE}}
+        ReplicasMax: {{$SMALL_GROUP_SIZE}}
+        SvcName: small-service
+
+- name: Waiting for deployments to be running
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+- name: Scaling Deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
+    tuningSet: RandomizedScalingTimeLimited
+    objectBundle:
+    - basename: big-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
+        SvcName: big-service
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
+    tuningSet: RandomizedScalingTimeLimited
+    objectBundle:
+    - basename: medium-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+        SvcName: medium-service
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
+    tuningSet: RandomizedScalingTimeLimited
+    objectBundle:
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
+        SvcName: small-service
+
+- name: Waiting for deployments to become scaled
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+- name: Deleting objects
+  # We're deleting deployments and services together, which has some performance implications, i.e.
+  # it's much more efficient than first deleting deployment, waiting for all pods to be removed and
+  # then deleting service, as in the former kube-proxy doesn't have to process pod updates for the
+  # deleted services. We may consider changing this if we find that there is a gain in testing
+  # the latter scenario, but at this point it's a conscious decision. We don't think that deleting
+  # thousands of deployments, waiting for all pods to be deleted and only then deleting services is
+  # realistic, we don't think that this is what users normally do.
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: big-deployment
+      objectTemplatePath: deployment.yaml
+    - basename: big-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: medium-deployment
+      objectTemplatePath: deployment.yaml
+    - basename: medium-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+    - basename: small-service
+      objectTemplatePath: service.yaml
+
+- name: Waiting for Deployments to be deleted
+- measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+- name: Collecting measurements
+  measurements:
+  - Identifier: APIResponsiveness
+    Method: APIResponsiveness
+    Params:
+      action: gather
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
+      enableViolations: true
+      {{end}}
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
+    Params:
+      action: gather
+  - Identifier: DnsLookupLatency
+    Method: DnsLookupLatency
+    Params:
+      action: gather
+  - Identifier: NetworkProgrammingLatency
+    Method: NetworkProgrammingLatency
+    Params:
+      action: gather
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: gather

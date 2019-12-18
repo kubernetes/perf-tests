@@ -5,7 +5,6 @@ metadata:
   namespace: default
   labels:
     app: perfdash
-    version: "2.5"
 spec:
   selector:
     matchLabels:
@@ -17,13 +16,14 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-testimages/perfdash:2.5
+        image: gcr.io/k8s-testimages/perfdash:2.13
         command:
           - /perfdash
           -   --www=true
           -   --dir=/www
           -   --address=0.0.0.0:8080
           -   --builds=100
+          -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-experimental-periodic-jobs.yaml
           -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml
           -   --configPath=https://raw.githubusercontent.com/kubernetes/test-infra/master/config/jobs/kubernetes/sig-scalability/sig-scalability-release-blocking-jobs.yaml
         imagePullPolicy: Always
@@ -39,8 +39,8 @@ spec:
         resources:
           requests:
             cpu: 600m
-            memory: 4000Mi
+            memory: 8Gi
           limits:
             cpu: 600m
-            memory: 4000Mi
+            memory: 8Gi
       restartPolicy: Always

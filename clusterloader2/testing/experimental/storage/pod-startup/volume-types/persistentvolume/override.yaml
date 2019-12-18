@@ -1,0 +1,4 @@
+PROVISION_VOLUME: true
+WAIT_FOR_PVS: true
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/persistentvolume/deployment_with_pvc.yaml"
+VOLUME_TEMPLATE_PATH: "volume-types/persistentvolume/pvc.yaml"

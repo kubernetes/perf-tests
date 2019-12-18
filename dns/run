@@ -16,8 +16,10 @@
 # $1 - Test type.
 # $2 - Optional test output directory path. If not provided default "out" is used.
 # $3 - Optional json metrics directory path. If not provided metrics will not be created.
+# $4 - Optional NodeLocalDNS IP to test against. If not provided, it uses 169.254.20.10.
 
 outDir=${2:-"out"}
+nodeLocalIP=${4:-"169.254.20.10"}
 mkdir -p ${outDir}
 
 pip install numpy
@@ -27,7 +29,10 @@ case "$1" in
     python py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   core-dns )
-    python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir out --use-cluster-dns
+    python py/run_perf.py --dns-server coredns --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    ;;
+  node-local-dns )
+    python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
     ;;
 esac
 

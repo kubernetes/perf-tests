@@ -1,0 +1,3 @@
+PROVISION_VOLUME: true
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/configmap/deployment_with_configmap.yaml"
+VOLUME_TEMPLATE_PATH: "volume-types/configmap/configmap.yaml"

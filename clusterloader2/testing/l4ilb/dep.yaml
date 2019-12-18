@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: ilb-load
+spec:
+  replicas: {{.NumReplicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: ilb-load
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: nginx
+        ports:
+        - containerPort: 8080

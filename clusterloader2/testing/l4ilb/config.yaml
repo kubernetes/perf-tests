@@ -1,0 +1,156 @@
+#Constants
+{{$LARGE_BACKEND_SIZE := 300}}
+{{$MEDIUM_BACKEND_SIZE := 150}}
+{{$SMALL_BACKEND_SIZE := 10}}
+{{$LARGE_BACKEND_LABEL := "ilb-large"}}
+{{$MEDIUM_BACKEND_LABEL := "ilb-medium"}}
+{{$SMALL_BACKEND_LABEL := "ilb-small"}}
+# adding a fixed value for first version of the test, rate of pod creation not a concern yet.
+{{$ilbQPS := 500}}
+{{$namespaces := 1}}
+
+#Test
+name: ilbload
+automanagedNamespaces: {{$namespaces}}
+tuningSets:
+- name: ILBConstantQPS
+  qpsLoad:
+    averageQps: {{$ilbQPS}}
+steps:
+# Mesure each of the ILB services separately, this will provide insight on how long programming
+# ILB takes as a function of number of backends.
+- measurements:
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      labelSelector: size = {{$LARGE_BACKEND_LABEL}}
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      labelSelector: size = {{$MEDIUM_BACKEND_LABEL}}
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      labelSelector: size = {{$SMALL_BACKEND_LABEL}}
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = ilb-load
+      operationTimeout: 15m
+# Create ILBs
+- name: Creating ILBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: large-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: large-backends-dep
+        ILBSizeLabel: {{$LARGE_BACKEND_LABEL}}
+    - basename: large-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LARGE_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: medium-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: medium-backends-dep
+        ILBSizeLabel: {{$MEDIUM_BACKEND_LABEL}}
+    - basename: medium-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$MEDIUM_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: small-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: small-backends-dep
+        ILBSizeLabel: {{$SMALL_BACKEND_LABEL}}
+    - basename: small-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$SMALL_BACKEND_SIZE}}
+- measurements:
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Delete ILBs
+- name: Deleting ILBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: large-backends-service
+      objectTemplatePath: service.yaml
+    - basename: large-backends-dep
+      objectTemplatePath: dep.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: medium-backends-service
+      objectTemplatePath: service.yaml
+    - basename: medium-backends-dep
+      objectTemplatePath: dep.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: small-backends-service
+      objectTemplatePath: service.yaml
+    - basename: small-backends-dep
+      objectTemplatePath: dep.yaml
+- measurements:
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: gather

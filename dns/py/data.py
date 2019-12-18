@@ -100,6 +100,7 @@ class Parser(object):
 
   def _compute_derived(self):
     # Note: not very efficient, but functional
+    from functools import reduce
     histogram = reduce(
         list.__add__,
         [[rtt]*count for rtt, count in self.histogram],

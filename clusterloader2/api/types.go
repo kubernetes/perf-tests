@@ -138,6 +138,8 @@ type TuningSet struct {
 	RandomizedTimeLimitedLoad *RandomizedTimeLimitedLoad `json: randomizedTimeLimitedLoad`
 	// ParallelismLimitedLoad is a definition for ParallelismLimitedLoad tuning set.
 	ParallelismLimitedLoad *ParallelismLimitedLoad `json: parallelismLimitedLoad`
+	// GlobalQPSLoad is a definition for GlobalQPSLoad tuning set.
+	GlobalQPSLoad *GlobalQPSLoad `json: globalQPSLoad`
 }
 
 // Measurement is a structure that defines the measurement method call.
@@ -189,6 +191,15 @@ type RandomizedTimeLimitedLoad struct {
 type ParallelismLimitedLoad struct {
 	// ParallelismLimit specifies the limit of the parallelism for the action executions.
 	ParallelismLimit int32 `json: parallelismLimit`
+}
+
+// GlobalQPSLoad defines a uniform load with a given QPS.
+// The rate limiter is shared across all phases using this tuning set.
+type GlobalQPSLoad struct {
+	// QPS defines desired average rate of actions.
+	QPS float64 `json: qps`
+	// Burst defines maxumim number of actions that can happen at the same time.
+	Burst int `json: burst`
 }
 
 // ChaosMonkeyConfig descibes simulated component failures.

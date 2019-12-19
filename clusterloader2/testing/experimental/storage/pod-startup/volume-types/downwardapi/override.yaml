@@ -1,0 +1,1 @@
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/downwardapi/deployment_with_downwardapi.yaml"

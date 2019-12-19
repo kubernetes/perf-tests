@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{.Name}}
+  labels:
+    app: {{.Name}}
+    group: {{.Group}}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{ if .UseCSI }}
+  storageClassName: csi-gce-pd
+  {{ end }}
+  resources:
+    requests:
+      storage: {{.VolSize}}

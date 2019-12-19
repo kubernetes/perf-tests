@@ -23,12 +23,6 @@ PERFTEST_ROOT=$(dirname "${BASH_SOURCE}")
 echo "TOOL_NAME: $1"
 
 case "$1" in
-    #CLUSTERLOADER
-  cluster-loader )
-    cd ${PERFTEST_ROOT}/clusterloader/e2e/ && go test -c -o e2e.test
-    ./e2e.test --ginkgo.v=true --ginkgo.focus="Cluster\sLoader" --kubeconfig="${HOME}/.kube/config" --viper-config=../config/test
-    exit
-    ;;
   cluster-loader2 )
     #CLUSTERLOADER2
     echo "COMMAND: ${PERFTEST_ROOT}/clusterloader2 && ./run-e2e.sh ${@:2}"
@@ -40,17 +34,17 @@ case "$1" in
     cd ${PERFTEST_ROOT}/network/benchmarks/netperf/ && go run ./launch.go  --kubeConfig="${HOME}/.kube/config" --hostnetworking --iterations 1
     exit
     ;;
-  kube-dns|core-dns )
+  kube-dns|core-dns|node-local-dns )
     cd ${PERFTEST_ROOT}/dns
     ./run $@
     exit
     ;;
   --help | -h )
-    echo  " cluster-loader                Run Cluster Loader Test"
     echo  " cluster-loader2               Run Cluster Loader 2 Test"
     echo  " network-performance           Run Network Performance Test"
     echo  " kube-dns                      Run Kube-DNS test"
     echo  " core-dns                      Run Core-DNS test"
+    echo  " node-local-dns                Run NodeLocalDNS test"
     exit
     ;;
 esac

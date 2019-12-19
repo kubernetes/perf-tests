@@ -1,0 +1,1 @@
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/emptydir/deployment_with_emptydir.yaml"

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: ping-server
-          image: gcr.io/k8s-testimages/probes:v0.0.1
+          image: gcr.io/k8s-testimages/probes:v0.0.4
           args:
             - --metric-bind-address=0.0.0.0:8080
             - --mode=ping-server

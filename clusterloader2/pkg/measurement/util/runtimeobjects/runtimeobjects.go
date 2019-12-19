@@ -29,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
@@ -70,6 +72,18 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 	case "Deployment":
 		listFunc = func() error {
 			list, err := c.AppsV1().Deployments(namespace).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
+		}
+	case "StatefulSet":
+		listFunc = func() error {
+			list, err := c.AppsV1().StatefulSets(namespace).List(listOpts)
 			if err != nil {
 				return err
 			}
@@ -165,6 +179,8 @@ func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *appsv1.Deployment:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
+	case *appsv1.StatefulSet:
+		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *appsv1.DaemonSet:
 		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
 	case *batch.Job:
@@ -222,6 +238,8 @@ func GetSpecFromRuntimeObject(obj runtime.Object) (interface{}, error) {
 		return typed.Spec, nil
 	case *appsv1.Deployment:
 		return typed.Spec, nil
+	case *appsv1.StatefulSet:
+		return typed.Spec, nil
 	case *appsv1.DaemonSet:
 		return typed.Spec, nil
 	case *batch.Job:
@@ -244,13 +262,13 @@ func getSpecFromUnstrutured(obj *unstructured.Unstructured) (map[string]interfac
 }
 
 // GetReplicasFromRuntimeObject returns replicas number from given runtime object.
-func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
+func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (int32, error) {
 	if obj == nil {
 		return 0, nil
 	}
 	switch typed := obj.(type) {
 	case *unstructured.Unstructured:
-		return getReplicasFromUnstrutured(typed)
+		return getReplicasFromUnstrutured(c, typed)
 	case *corev1.ReplicationController:
 		if typed.Spec.Replicas != nil {
 			return *typed.Spec.Replicas, nil
@@ -266,8 +284,14 @@ func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
 			return *typed.Spec.Replicas, nil
 		}
 		return 0, nil
-	case *appsv1.DaemonSet:
+	case *appsv1.StatefulSet:
+		if typed.Spec.Replicas != nil {
+			return *typed.Spec.Replicas, nil
+		}
 		return 0, nil
+	case *appsv1.DaemonSet:
+		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
+		return getNumSchedulableNodesMatchingSelector(c, typed.Spec.Template.Spec.NodeSelector)
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {
 			return *typed.Spec.Parallelism, nil
@@ -278,20 +302,44 @@ func GetReplicasFromRuntimeObject(obj runtime.Object) (int32, error) {
 	}
 }
 
-// Note: This function assumes each controller has field Spec.Replicas, except Daemonset and Job.
-func getReplicasFromUnstrutured(obj *unstructured.Unstructured) (int32, error) {
+// getNumSchedulableNodesMatchingSelector returns the number of schedulable nodes matching the provided selector.
+func getNumSchedulableNodesMatchingSelector(c clientset.Interface, nodeSelector map[string]string) (int32, error) {
+	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(nodeSelector))
+	if err != nil {
+		return 0, err
+	}
+	listOpts := metav1.ListOptions{LabelSelector: selector.String()}
+	list, err := client.ListNodesWithOptions(c, listOpts)
+	if err != nil {
+		return 0, err
+	}
+	var numSchedulableNodes int32
+	for _, node := range list {
+		if !node.Spec.Unschedulable {
+			numSchedulableNodes++
+		}
+	}
+	return numSchedulableNodes, nil
+}
+
+// Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
+func getReplicasFromUnstrutured(c clientset.Interface, obj *unstructured.Unstructured) (int32, error) {
 	spec, err := getSpecFromUnstrutured(obj)
 	if err != nil {
 		return -1, err
 	}
-
-	return tryAcquireReplicasFromUnstructuredSpec(spec, obj.GetKind())
+	return tryAcquireReplicasFromUnstructuredSpec(c, spec, obj.GetKind())
 }
 
-func tryAcquireReplicasFromUnstructuredSpec(spec map[string]interface{}, kind string) (int32, error) {
+func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[string]interface{}, kind string) (int32, error) {
 	switch kind {
 	case "DaemonSet":
-		return 0, nil
+		nodeSelector, err := getDaemonSetNodeSelectorFromUnstructuredSpec(spec)
+		if err != nil {
+			return 0, err
+		}
+		// TODO(#790): In addition to nodeSelector the affinity should be also taken into account
+		return getNumSchedulableNodesMatchingSelector(c, nodeSelector)
 	case "Job":
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
@@ -311,6 +359,19 @@ func tryAcquireReplicasFromUnstructuredSpec(spec map[string]interface{}, kind st
 		}
 		return int32(replicas), nil
 	}
+}
+
+func getDaemonSetNodeSelectorFromUnstructuredSpec(spec map[string]interface{}) (map[string]string, error) {
+	template, found, err := unstructured.NestedMap(spec, "template")
+	if err != nil || !found {
+		return nil, err
+	}
+	podSpec, found, err := unstructured.NestedMap(template, "spec")
+	if err != nil || !found {
+		return nil, err
+	}
+	nodeSelector, found, err := unstructured.NestedStringMap(podSpec, "nodeSelector")
+	return nodeSelector, err
 }
 
 // IsEqualRuntimeObjectsSpec returns true if given runtime objects have identical specs.
@@ -338,4 +399,16 @@ func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
 		return "", fmt.Errorf("retrieving name error: %v", err)
 	}
 	return namespace + "/" + name, nil
+}
+
+// GetNumObjectsMatchingSelector returns number of objects matching the given selector.
+func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resource schema.GroupVersionResource, labelSelector labels.Selector) (int, error) {
+	var numObjects int
+	listFunc := func() error {
+		list, err := c.Resource(resource).Namespace(namespace).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+		numObjects = len(list.Items)
+		return err
+	}
+	err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc))
+	return numObjects, err
 }

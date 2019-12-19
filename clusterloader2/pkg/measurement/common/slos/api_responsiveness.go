@@ -33,19 +33,11 @@ import (
 )
 
 const (
-	bigClusterNodeCountThreshold = 500
-	// We are setting 1s threshold for apicalls even in small clusters to avoid flakes.
-	// The problem is that if long GC is happening in small clusters (where we have e.g.
-	// 1-core master machines) and tests are pretty short, it may consume significant
-	// portion of CPU and basically stop all the real work.
-	// Increasing threshold to 1s is within our SLO and should solve this problem.
-	apiCallLatencyThreshold time.Duration = 1 * time.Second
-
-	// We use a higher threshold for list apicalls if the cluster is big (i.e having > 500 nodes)
-	// as list response sizes are bigger in general for big clusters. We also use a higher threshold
-	// for list calls at cluster scope (this includes non-namespaced and all-namespaced calls).
-	apiListCallLatencyThreshold      time.Duration = 5 * time.Second
-	apiClusterScopeListCallThreshold time.Duration = 10 * time.Second
+	// Thresholds for API call latency as defined in the official K8s SLO
+	// https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
+	resourceThreshold  time.Duration = 1 * time.Second
+	namespaceThreshold time.Duration = 5 * time.Second
+	clusterThreshold   time.Duration = 30 * time.Second
 
 	currentAPICallMetricsVersion = "v1"
 
@@ -103,7 +95,6 @@ func (*apiResponsivenessMeasurement) String() string {
 }
 
 func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interface, nodeCount int) (measurement.Summary, error) {
-	isBigCluster := (nodeCount > bigClusterNodeCountThreshold)
 	metrics, err := readLatencyMetrics(c)
 	if err != nil {
 		return nil, err
@@ -111,21 +102,13 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 	sort.Sort(sort.Reverse(metrics))
 	var badMetrics []string
 	top := 5
-	for i := range metrics.ApiCalls {
-		latency := metrics.ApiCalls[i].Latency.Perc99
-		isListCall := (metrics.ApiCalls[i].Verb == "LIST")
-		isClusterScopedCall := (metrics.ApiCalls[i].Scope == "cluster")
+	for _, apiCall := range metrics.ApiCalls {
+		latency := apiCall.Latency.Perc99
 		isBad := false
-		latencyThreshold := apiCallLatencyThreshold
-		if isListCall && isBigCluster {
-			latencyThreshold = apiListCallLatencyThreshold
-			if isClusterScopedCall {
-				latencyThreshold = apiClusterScopeListCallThreshold
-			}
-		}
-		if latency > latencyThreshold {
+		threshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
+		if latency > threshold {
 			isBad = true
-			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", metrics.ApiCalls[i], latencyThreshold))
+			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, threshold))
 		}
 		if top > 0 || isBad {
 			top--
@@ -133,7 +116,7 @@ func (a *apiResponsivenessMeasurement) apiserverMetricsGather(c clientset.Interf
 			if isBad {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, metrics.ApiCalls[i], latencyThreshold)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", a, prefix, apiCall, threshold)
 		}
 	}
 

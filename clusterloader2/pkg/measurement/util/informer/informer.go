@@ -17,12 +17,17 @@ limitations under the License.
 package informer
 
 import (
+	"fmt"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 // NewInformer creates a new informer
@@ -30,14 +35,14 @@ import (
 func NewInformer(
 	c clientset.Interface,
 	kind string,
-	namespace, fieldSelector, labelSelector string,
+	selector *measurementutil.ObjectSelector,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fieldSelector
-		options.LabelSelector = labelSelector
+		options.FieldSelector = selector.FieldSelector
+		options.LabelSelector = selector.LabelSelector
 	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), kind, namespace, optionsModifier)
+	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), kind, selector.Namespace, optionsModifier)
 	informer := cache.NewSharedInformer(listerWatcher, nil, 0)
 	addEventHandler(informer, handleObj)
 
@@ -49,15 +54,15 @@ func NewInformer(
 func NewDynamicInformer(
 	c dynamic.Interface,
 	gvr schema.GroupVersionResource,
-	namespace, fieldSelector, labelSelector string,
+	selector *measurementutil.ObjectSelector,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fieldSelector
-		options.LabelSelector = labelSelector
+		options.FieldSelector = selector.FieldSelector
+		options.LabelSelector = selector.LabelSelector
 	}
 	tweakListOptions := dynamicinformer.TweakListOptionsFunc(optionsModifier)
-	dInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c, 0, namespace, tweakListOptions)
+	dInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c, 0, selector.Namespace, tweakListOptions)
 
 	informer := dInformerFactory.ForResource(gvr).Informer()
 	addEventHandler(informer, handleObj)
@@ -82,4 +87,18 @@ func addEventHandler(i cache.SharedInformer,
 			}
 		},
 	})
+}
+
+// StartAndSync starts informer and waits for it to be synced.
+func StartAndSync(i cache.SharedInformer, stopCh chan struct{}, timeout time.Duration) error {
+	go i.Run(stopCh)
+	timeoutCh := make(chan struct{})
+	timeoutTimer := time.AfterFunc(timeout, func() {
+		close(timeoutCh)
+	})
+	defer timeoutTimer.Stop()
+	if !cache.WaitForCacheSync(timeoutCh, i.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
+	}
+	return nil
 }

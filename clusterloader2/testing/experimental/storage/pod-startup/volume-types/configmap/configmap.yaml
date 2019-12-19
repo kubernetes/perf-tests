@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Name}}
+  labels:
+    app: {{.Name}}
+    group: {{.Group}}
+data:
+  TEST_KEY1: testData1

@@ -22,7 +22,9 @@ spec:
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s
-    port: etcd
+    port: etcd-2379
+  - interval: 5s
+    port: etcd-2382
   - interval: 5s
     port: kubelet
     scheme: https
@@ -39,6 +41,8 @@ spec:
   - interval: 5s
     port: kube-controller-manager
   {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
-  - interval: 5s
+  # TODO(mborsz): Debug why node-exporter is that slow and change interval back to 5s.
+  - interval: 30s
     port: node-exporter
+    scrapeTimeout: 20s
   {{end}}

@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+       feature: exec
+  template:
+    metadata:
+       labels:
+         feature: exec
+    spec:
+      containers:
+      - name: agnhost
+        image: gcr.io/kubernetes-e2e-test-images/agnhost:2.2

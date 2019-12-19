@@ -13,12 +13,9 @@ require (
 	github.com/spf13/pflag v1.0.1
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0 // indirect
 	k8s.io/api v0.0.0-20190405172450-8fc60343b75c
 	k8s.io/apimachinery v0.0.0-20190405172352-ba051b3c4d9d
-	k8s.io/autoscaler v0.0.0-20190405122119-f37329a0aa3d
 	k8s.io/client-go v0.0.0-20190405172624-a18eda0c053a
-	k8s.io/contrib v0.0.0-20190328194957-8888e4cfd537 // indirect
 	k8s.io/klog v0.2.0 // indirect
 	k8s.io/kubernetes v1.14.0
 	k8s.io/utils v0.0.0-20190308190857-21c4ce38f2a7 // indirect

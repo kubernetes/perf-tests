@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -78,28 +79,22 @@ func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 		if tests.Prefix == "" {
 			return nil, fmt.Errorf("Invalid empty Prefix for job %s", job)
 		}
-		for categoryLabel, categoryMap := range tests.Descriptions {
-			for testLabel := range categoryMap {
-				resultLock.Lock()
-				if _, found := result[tests.Prefix]; !found {
-					result[tests.Prefix] = make(CategoryToMetricData)
-				}
-				if _, found := result[tests.Prefix][categoryLabel]; !found {
-					result[tests.Prefix][categoryLabel] = make(MetricToBuildData)
-				}
-				if _, found := result[tests.Prefix][categoryLabel][testLabel]; found {
-					return result, fmt.Errorf("Duplicate name %s for %s", testLabel, tests.Prefix)
-				}
-				result[tests.Prefix][categoryLabel][testLabel] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
-				resultLock.Unlock()
-			}
-		}
 		go g.getJobData(&wg, result, &resultLock, job, tests)
 	}
 	wg.Wait()
 	return result, nil
 }
 
+/*
+getJobData fetches build numbers, reads metrics data from GCS and
+updates result with parsed metrics for a given prow job. Assumptions:
+- metric files are in /artifacts directory
+- metric file names have following prefix: {{OutputFilePrefix}}_{{Name}},
+  where OutputFilePrefix and Name are parts of test description (specified in prefdash config)
+- if there are multiple files with a given prefix, then expected format is
+  {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is prepended to the category label,
+  which allows comparing metrics across several runs in a given suite
+*/
 func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()
 	buildNumbers, err := g.GoogleGCSBucketUtils.getBuildNumbersFromJenkinsGoogleBucket(job)
@@ -120,31 +115,55 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
-					fileStem := fmt.Sprintf("artifacts/%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
-					artifacts, err := g.GoogleGCSBucketUtils.listFilesInBuild(job, buildNumber, fileStem)
+					filePrefix := fmt.Sprintf("%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
+					searchPrefix := fmt.Sprintf("artifacts/%v", filePrefix)
+					artifacts, err := g.GoogleGCSBucketUtils.listFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
-						fmt.Printf("Error while looking for %s* in %s build %v: %v\n", fileStem, job, buildNumber, err)
+						fmt.Printf("Error while looking for %s* in %s build %v: %v\n", searchPrefix, job, buildNumber, err)
 						continue
 					}
-					metricsFilename := artifacts[0][strings.LastIndex(artifacts[0], "/")+1:]
-					if len(artifacts) > 1 {
-						fmt.Printf("WARNING: found multiple %s files with data, reading only one: %s\n", fileStem, metricsFilename)
+					for _, artifact := range artifacts {
+						metricsFileName := filepath.Base(artifact)
+						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
+						testDataResponse, err := g.GoogleGCSBucketUtils.getFileFromJenkinsGoogleBucket(job, buildNumber,
+							fmt.Sprintf("artifacts/%v", metricsFileName))
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
+							continue
+						}
+						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
+						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
-
-					testDataResponse, err := g.GoogleGCSBucketUtils.getFileFromJenkinsGoogleBucket(job, buildNumber, fmt.Sprintf("artifacts/%v", metricsFilename))
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Error when reading response Body: %v\n", err)
-						continue
-					}
-					resultLock.Lock()
-					buildData := result[tests.Prefix][categoryLabel][testLabel]
-					resultLock.Unlock()
-					testDescription.Parser(testDataResponse, buildNumber, buildData)
 					break
 				}
 			}
 		}
 	}
+}
+
+func getResultCategory(metricsFileName string, filePrefix string, category string, artifacts []string) string {
+	if len(artifacts) <= 1 {
+		return category
+	}
+	// If there are more artifacts, assume that this is a test suite run.
+	trimmed := strings.TrimPrefix(metricsFileName, filePrefix+"_")
+	suiteId := strings.Split(trimmed, "_")[0]
+	return fmt.Sprintf("%v_%v", suiteId, category)
+}
+
+func getBuildData(result JobToCategoryData, prefix string, category string, label string, job string, resultLock *sync.Mutex) *BuildData {
+	resultLock.Lock()
+	defer resultLock.Unlock()
+	if _, found := result[prefix]; !found {
+		result[prefix] = make(CategoryToMetricData)
+	}
+	if _, found := result[prefix][category]; !found {
+		result[prefix][category] = make(MetricToBuildData)
+	}
+	if _, found := result[prefix][category][label]; !found {
+		result[prefix][category][label] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
+	}
+	return result[prefix][category][label]
 }
 
 type bucketUtil struct {

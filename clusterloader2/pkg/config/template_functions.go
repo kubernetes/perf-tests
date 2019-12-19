@@ -38,26 +38,31 @@ func init() {
 // GetFuncs returns map of names to functions, that are supported by template provider.
 func GetFuncs() template.FuncMap {
 	return template.FuncMap{
+		"AddFloat":      addFloat,
+		"AddInt":        addInt,
+		"DefaultParam":  defaultParam,
+		"DivideFloat":   divideFloat,
+		"DivideInt":     divideInt,
+		"IfThenElse":    ifThenElse,
+		"IncludeFile":   includeFile,
+		"MaxFloat":      maxFloat,
+		"MaxInt":        maxInt,
+		"MinFloat":      minFloat,
+		"MinInt":        minInt,
+		"Mod":           mod,
+		"MultiplyFloat": multiplyFloat,
+		"MultiplyInt":   multiplyInt,
 		"RandInt":       randInt,
 		"RandIntRange":  randIntRange,
-		"AddInt":        addInt,
-		"SubtractInt":   subtractInt,
-		"MultiplyInt":   multiplyInt,
-		"DivideInt":     divideInt,
-		"AddFloat":      addFloat,
+		"Seq":           seq,
 		"SubtractFloat": subtractFloat,
-		"MultiplyFloat": multiplyFloat,
-		"DivideFloat":   divideFloat,
-		"MaxInt":        maxInt,
-		"MinInt":        minInt,
-		"MaxFloat":      maxFloat,
-		"MinFloat":      minFloat,
-		"IsEven":        isEven,
-		"IsOdd":         isOdd,
-		"DefaultParam":  defaultParam,
-		"IncludeFile":   includeFile,
+		"SubtractInt":   subtractInt,
 		"YamlQuote":     yamlQuote,
 	}
+}
+
+func seq(size interface{}) []int {
+	return make([]int, int(toFloat64(size)))
 }
 
 func toFloat64(val interface{}) float64 {
@@ -178,12 +183,8 @@ func minFloat(numbers ...interface{}) float64 {
 	return min
 }
 
-func isEven(number interface{}) bool {
-	return int(toFloat64(number))%2 == 0
-}
-
-func isOdd(number interface{}) bool {
-	return !isEven(number)
+func mod(a interface{}, b interface{}) int {
+	return int(toFloat64(a)) % int(toFloat64(b))
 }
 
 func defaultParam(param, defaultValue interface{}) interface{} {
@@ -225,4 +226,15 @@ func yamlQuote(strInt interface{}, tabsInt interface{}) (string, error) {
 	// TODO(oxddr): change back to strings.ReplaceAll once we figure out how to compile clusterloader2
 	// with newer versions of go for tests against stable version of K8s
 	return strings.Replace(string(b), "\n", "\n"+tabsStr, -1), err
+}
+
+func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface{}) (interface{}, error) {
+	condition, ok := conditionVal.(bool)
+	if !ok {
+		return nil, fmt.Errorf("incorrect argument type: got: %T want: bool", conditionVal)
+	}
+	if condition {
+		return thenVal, nil
+	}
+	return elseVal, nil
 }

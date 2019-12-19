@@ -191,7 +191,7 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) (measurement.S
 func getPortForComponent(componentName string) (int, error) {
 	switch componentName {
 	case "etcd":
-		return 2379, nil
+		return 2382, nil
 	case "kube-scheduler":
 		return 10251, nil
 	case "kube-controller-manager":

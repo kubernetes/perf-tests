@@ -17,7 +17,6 @@ limitations under the License.
 package common
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -62,6 +61,7 @@ func (p *profileMeasurement) populateProfileConfig(config *measurement.Measureme
 	if p.config.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
 		return err
 	}
+	p.config.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
 	return nil
 }
 
@@ -84,14 +84,14 @@ func createProfileMeasurementFactory(name, kind string) func() measurement.Measu
 }
 
 func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error {
-	p.config.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
-	if len(p.config.hosts) < 1 {
-		return errors.New("Profile measurements will be disabled due to no MasterIps")
-	}
-
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
+	if len(p.config.hosts) < 1 {
+		klog.Warning("Profile measurements will be disabled due to no MasterIps")
+		return nil
+	}
+
 	p.summaries = make([]measurement.Summary, 0)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})

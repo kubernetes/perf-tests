@@ -18,6 +18,7 @@ package tuningset
 
 import (
 	"context"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -25,11 +26,31 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type globalQPSLoadFactory struct {
+	existing map[string]*globalQPSLoad
+	lock     sync.Mutex
+}
+
+func newGlobalQPSLoadFactory() *globalQPSLoadFactory {
+	return &globalQPSLoadFactory{existing: make(map[string]*globalQPSLoad), lock: sync.Mutex{}}
+}
+
+func (f *globalQPSLoadFactory) GetOrCreate(name string, params *api.GlobalQPSLoad) *globalQPSLoad {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	qps, ok := f.existing[name]
+	if !ok {
+		qps = newGlobalQPSLoad(params)
+		f.existing[name] = qps
+	}
+	return qps
+}
+
 type globalQPSLoad struct {
 	limiter *rate.Limiter
 }
 
-func newGlobalQPSLoad(params *api.GlobalQPSLoad) TuningSet {
+func newGlobalQPSLoad(params *api.GlobalQPSLoad) *globalQPSLoad {
 	return &globalQPSLoad{
 		limiter: rate.NewLimiter(rate.Limit(params.QPS), params.Burst),
 	}

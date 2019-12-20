@@ -30,6 +30,7 @@ import (
 
 var (
 	shouldSnapshotPrometheusDisk = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
+	prometheusDiskSnapshotName   = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
 func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
@@ -75,6 +76,9 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
 		return true, nil
 	}
 	snapshotName := pdName
+	if *prometheusDiskSnapshotName != "" {
+		snapshotName = *prometheusDiskSnapshotName
+	}
 	klog.Infof("Snapshotting PD '%s' into snapshot '%s' in zone '%s'", pdName, snapshotName, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()

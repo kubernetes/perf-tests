@@ -199,7 +199,7 @@ def load_exceptions(rootdir):
     for exception in exception_file.read().splitlines():
         out = exception.split(":", 1)
         if len(out) != 2:
-            print("Invalid line in exceptions file: %s" % exception)
+            printf("Invalid line in exceptions file: %s" % exception)
             continue
         filename = out[0]
         line = out[1]

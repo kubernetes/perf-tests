@@ -16,38 +16,25 @@ limitations under the License.
 
 package config
 
-import (
-	"k8s.io/perf-tests/clusterloader2/api"
-)
-
-// ClusterLoaderConfig represents all single test run parameters used by CLusterLoader.
+// ClusterLoaderConfig represents all flags used by CLusterLoader
 type ClusterLoaderConfig struct {
-	ClusterConfig     ClusterConfig
-	ReportDir         string
-	EnableExecService bool
-	TestScenario      api.TestScenario
-	PrometheusConfig  PrometheusConfig
+	ClusterConfig            ClusterConfig `json: clusterConfig`
+	ReportDir                string        `json: reportDir`
+	EnablePrometheusServer   bool          `json: enablePrometheusServer`
+	TearDownPrometheusServer bool          `json: tearDownPrometheusServer`
+	TestConfigPath           string        `json: testConfigPath`
+	TestOverridesPath        []string      `json: testOverrides`
 }
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath             string
-	Nodes                      int
-	Provider                   string
-	MasterIPs                  []string
-	MasterInternalIPs          []string
-	MasterName                 string
-	KubemarkRootKubeConfigPath string
-}
-
-// PrometheusConfig represents all flags used by prometheus.
-type PrometheusConfig struct {
-	EnableServer       bool
-	TearDownServer     bool
-	ScrapeEtcd         bool
-	ScrapeNodeExporter bool
-	ScrapeKubelets     bool
-	ScrapeKubeProxy    bool
+	KubeConfigPath             string   `json: kubeConfigPath`
+	Nodes                      int      `json: nodes`
+	Provider                   string   `json: provider`
+	MasterIPs                  []string `json: masterIPs`
+	MasterInternalIPs          []string `json: masterInternalIPs`
+	MasterName                 string   `json: masterName`
+	KubemarkRootKubeConfigPath string   `json: kubemarkRootKubeConfigPath`
 }
 
 // GetMasterIp returns the first master ip, added for backward compatibility.

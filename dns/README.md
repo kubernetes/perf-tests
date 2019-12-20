@@ -36,17 +36,6 @@ $ mkdir out/                                        # output directory
 $ python py/run_perf.py --params params/kubedns/default.yaml --out-dir out  # run the perf test
 ```
 
-For node-local-dns:
-
-``` sh
-$ ./run node-local-dns out
-```
-or
-``` sh
-$ mkdir out/                                        # output directory
-$ python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir out --nodecache-ip 169.254.20.10  # run the perf test
-```
-
 
 `run` will run a performance benchmark ranging over the parameters given in
 `--params`. The included `default.yaml` run will take several hours to run

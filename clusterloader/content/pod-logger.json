@@ -1,0 +1,53 @@
+{
+    "kind": "Pod",
+        "apiVersion": "v1",
+        "metadata": {
+            "name": "loggerpod",
+            "creationTimestamp": null,
+            "labels": {
+                "name": "loggerpod"
+            }
+        },
+        "spec": {
+            "containers": [
+            {
+                "name": "logger-busybox",
+                "image": "k8s.gcr.io/busybox:1.24",
+                "command": [
+                    "/bin/sh",
+                "-c",
+                "while true; do logger -s LOGGER_POD; sleep 1; done"
+                ],
+                "ports": [
+                {
+                    "containerPort": 8080,
+                    "protocol": "TCP"
+                }
+                ],
+                "terminationMessagePath": "/dev/termination-log",
+                "volumeMounts": [
+                {
+                    "mountPath": "/dev/log",
+                    "name": "dev-log"
+                }
+                ],
+                "imagePullPolicy": "IfNotPresent",
+                "capabilities": {},
+                "securityContext": {
+                    "capabilities": {},
+                    "privileged": true
+                }
+            }
+            ],
+            "restartPolicy": "Never",
+            "volumes": [
+            {
+                "hostPath": {
+                    "path": "/dev/log"
+                },
+                "name": "dev-log"
+            }
+            ]
+        },
+        "status": {}
+}

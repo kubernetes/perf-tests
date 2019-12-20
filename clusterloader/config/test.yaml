@@ -1,0 +1,19 @@
+ClusterLoader:
+  delete: true
+  projects:
+    - num: 1
+      basename: clusterproject
+      tuning: default
+      pods:
+        - num: 50
+          image: k8s.gcr.io/pause-amd64:3.0
+          basename: pausepods
+          file: pod-pause.json
+  tuningsets:
+    - name: default
+      pods:
+        stepping:
+          stepsize: 10
+          pause: 30s
+        ratelimit:
+          delay: 100ms

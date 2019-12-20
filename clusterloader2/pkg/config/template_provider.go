@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"text/template"
 
@@ -162,36 +161,8 @@ func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interfa
 	return decodeInto(b, obj)
 }
 
-// LoadTestSuite creates test suite config from file specified by the given path.
-func LoadTestSuite(path string) (api.TestSuite, error) {
-	bin, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("test suite reading error: %v", err)
-	}
-	var testSuite api.TestSuite
-	if err = decodeInto(bin, &testSuite); err != nil {
-		return nil, err
-	}
-	if err = validateTestSuite(testSuite); err != nil {
-		return nil, err
-	}
-	return testSuite, nil
-}
-
-func validateTestSuite(suite api.TestSuite) error {
-	for _, scenario := range suite {
-		// Scenario identifiers cannot contain underscores. This is because underscores
-		// are used as separators in artifact filenames.
-		if strings.Contains(scenario.Identifier, "_") {
-			return fmt.Errorf("scenario identifiers cannot contain underscores: %q",
-				scenario.Identifier)
-		}
-	}
-	return nil
-}
-
-// LoadTestOverrides returns mapping from file specified by the given paths.
-func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
+// GetOverridesMapping returns mapping from file specified by the given paths.
+func GetOverridesMapping(paths []string) (map[string]interface{}, error) {
 	mapping := make(map[string]interface{})
 	for _, path := range paths {
 		bin, err := ioutil.ReadFile(path)
@@ -212,7 +183,7 @@ func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
 
 // GetMapping returns template variable mapping for the given ClusterLoaderConfig.
 func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
-	mapping, err := LoadTestOverrides(clusterLoaderConfig.TestScenario.OverridePaths)
+	mapping, err := GetOverridesMapping(clusterLoaderConfig.TestOverridesPath)
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}

@@ -25,7 +25,6 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/tuningset"
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 type simpleContext struct {
@@ -33,21 +32,19 @@ type simpleContext struct {
 	clusterFramework    *framework.Framework
 	prometheusFramework *framework.Framework
 	state               *state.State
-	templateMapping     map[string]interface{}
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.TuningSetFactory
 	measurementManager  *measurement.MeasurementManager
 	chaosMonkey         *chaos.Monkey
 }
 
-func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, templateMapping map[string]interface{}) Context {
-	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestScenario.ConfigPath))
+func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State) Context {
+	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestConfigPath))
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		clusterFramework:    f,
 		prometheusFramework: p,
 		state:               s,
-		templateMapping:     util.CloneMap(templateMapping),
 		templateProvider:    templateProvider,
 		tuningSetFactory:    tuningset.NewTuningSetFactory(),
 		measurementManager:  measurement.CreateMeasurementManager(f, p, templateProvider, c),
@@ -78,11 +75,6 @@ func (sc *simpleContext) GetState() *state.State {
 // GetTemplateProvider returns template provider.
 func (sc *simpleContext) GetTemplateProvider() *config.TemplateProvider {
 	return sc.templateProvider
-}
-
-// GetTemplateMappingCopy returns a copy of template mapping.
-func (sc *simpleContext) GetTemplateMappingCopy() map[string]interface{} {
-	return util.CloneMap(sc.templateMapping)
 }
 
 // GetTickerFactory returns tuning set factory.

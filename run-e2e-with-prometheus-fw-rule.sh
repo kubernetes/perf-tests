@@ -20,14 +20,32 @@ set -o pipefail
 
 # Add firewall rule for Prometheus port (9090)
 if [[ -n "${KUBE_GKE_NETWORK:-}" ]]; then
-  PROMETHEUS_RULE_NAME="${KUBE_GKE_NETWORK}-9090"
-  if ! gcloud compute firewall-rules describe "${PROMETHEUS_RULE_NAME}" > /dev/null; then
+  if ! gcloud compute firewall-rules describe "${KUBE_GKE_NETWORK}-9090" > /dev/null 2>&1; then
+    PROMETHEUS_RULE_NAME="${KUBE_GKE_NETWORK}-9090"
     echo "Prometheus firewall rule not found, creating..."
     echo COMMAND: gcloud compute firewall-rules create --network "${KUBE_GKE_NETWORK}" --source-ranges 0.0.0.0/0 --allow tcp:9090 "${PROMETHEUS_RULE_NAME}"
     gcloud compute firewall-rules create --network "${KUBE_GKE_NETWORK}" --source-ranges 0.0.0.0/0 --allow tcp:9090 "${PROMETHEUS_RULE_NAME}"
   fi
 fi
 
-SCRIPT_DIR=$(dirname "$0")
-echo COMMAND: $SCRIPT_DIR/run-e2e.sh ${@}
-$SCRIPT_DIR/run-e2e.sh ${@}
+# Try
+set +o errexit
+(
+  set -o errexit
+  SCRIPT_DIR=$(dirname "$0")
+  echo COMMAND: $SCRIPT_DIR/run-e2e.sh ${@}
+  $SCRIPT_DIR/run-e2e.sh ${@}
+)
+
+# Catch
+ERR_CODE=$?
+set -o errexit
+echo Error code $ERR_CODE
+
+if [[ -n "${PROMETHEUS_RULE_NAME:-}" ]]; then
+  echo "Deleting Prometheus firewall rule..."
+  echo COMMAND: gcloud compute firewall-rules delete "${PROMETHEUS_RULE_NAME}"
+  gcloud compute firewall-rules delete "${PROMETHEUS_RULE_NAME}"
+fi
+
+exit $ERR_CODE

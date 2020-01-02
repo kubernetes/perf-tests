@@ -3,7 +3,7 @@
 
 #Constants
 {{$POD_COUNT := DefaultParam .POD_COUNT 100}}
-{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 2}}
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 5}}
 {{$CONTAINER_IMAGE := DefaultParam .CONTAINER_IMAGE "k8s.gcr.io/pause:3.1"}}
 {{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 

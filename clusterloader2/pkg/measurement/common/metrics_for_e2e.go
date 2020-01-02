@@ -30,13 +30,6 @@ const (
 	metricsForE2EName = "MetricsForE2E"
 )
 
-var interestingApiServerMetricsLabels = []string{
-	"apiserver_init_events_total",
-	"apiserver_request_count",
-	"apiserver_request_latencies_summary",
-	"etcd_request_latencies_summary",
-}
-
 var interestingKubeletMetricsLabels = []string{
 	"kubelet_container_manager_latency_microseconds",
 	"kubelet_docker_errors",
@@ -107,10 +100,6 @@ func (*metricsForE2EMeasurement) String() string {
 }
 
 func filterMetrics(m *metrics.MetricsCollection) {
-	interestingApiServerMetrics := make(metrics.ApiServerMetrics)
-	for _, metric := range interestingApiServerMetricsLabels {
-		interestingApiServerMetrics[metric] = (*m).ApiServerMetrics[metric]
-	}
 	interestingKubeletMetrics := make(map[string]metrics.KubeletMetrics)
 	for kubelet, grabbed := range (*m).KubeletMetrics {
 		interestingKubeletMetrics[kubelet] = make(metrics.KubeletMetrics)
@@ -118,6 +107,5 @@ func filterMetrics(m *metrics.MetricsCollection) {
 			interestingKubeletMetrics[kubelet][metric] = grabbed[metric]
 		}
 	}
-	(*m).ApiServerMetrics = interestingApiServerMetrics
 	(*m).KubeletMetrics = interestingKubeletMetrics
 }

@@ -311,22 +311,6 @@ var (
 	}
 
 	storageDescriptions = TestDescriptions{
-		"APIServer": {
-			"Responsiveness": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parsePerfData,
-				},
-			},
-			"RequestCount": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parseRequestCountData,
-				},
-			},
-		},
 		"E2E": {
 			"PodStartup": []TestDescription{
 				{
@@ -338,11 +322,24 @@ var (
 		},
 	}
 
+	throughputDescriptions = TestDescriptions{
+		"E2E": {
+			"PodStartup": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
+					Parser:           parsePerfData,
+				},
+			},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
 		"benchmark":    benchmarkDescriptions,
 		"dnsBenchmark": dnsBenchmarkDescriptions,
 		"storage":      storageDescriptions,
+		"throughput":   throughputDescriptions,
 	}
 )
 

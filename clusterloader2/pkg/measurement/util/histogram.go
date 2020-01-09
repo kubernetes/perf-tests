@@ -17,15 +17,77 @@ limitations under the License.
 package util
 
 import (
+	"math"
 	"reflect"
+	"sort"
+	"strconv"
 
 	"github.com/prometheus/common/model"
 )
+
+// Bucket of a histogram
+type bucket struct {
+	upperBound float64
+	count      float64
+}
+
+type buckets []bucket
+
+func (b buckets) Len() int           { return len(b) }
+func (b buckets) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b buckets) Less(i, j int) bool { return b[i].upperBound < b[j].upperBound }
+
+// bucketQuantile return Quantile of calculate from buckets
+// copy from https://github.com/kubernetes/kubernetes/pull/85861/files#diff-8fc16044937fc03c39b585a657b20150R179-R209
+func bucketQuantile(q float64, buckets buckets) float64 {
+	if q < 0 {
+		return math.Inf(-1)
+	}
+	if q > 1 {
+		return math.Inf(+1)
+	}
+
+	if len(buckets) < 2 {
+		return math.NaN()
+	}
+
+	rank := q * buckets[len(buckets)-1].count
+	b := sort.Search(len(buckets)-1, func(i int) bool { return buckets[i].count >= rank })
+
+	if b == 0 {
+		return buckets[0].upperBound * (rank / buckets[0].count)
+	}
+
+	// linear approximation of b-th bucket
+	brank := rank - buckets[b-1].count
+	bSize := buckets[b].upperBound - buckets[b-1].upperBound
+	bCount := buckets[b].count - buckets[b-1].count
+
+	return buckets[b-1].upperBound + bSize*(brank/bCount)
+}
 
 // Histogram is a structure that represents distribution of data.
 type Histogram struct {
 	Labels  map[string]string `json:"labels"`
 	Buckets map[string]int    `json:"buckets"`
+}
+
+// Quantile calculates the quantile 'q' based on the given buckets of Histogram.
+func (h *Histogram) Quantile(q float64) (float64, error) {
+	var b []bucket
+	for k, v := range h.Buckets {
+		upper, err := strconv.ParseFloat(k, 64)
+		if err != nil {
+			return math.MaxFloat64, err
+		}
+		b = append(b, bucket{
+			upperBound: upper,
+			count:      float64(v),
+		})
+	}
+
+	sort.Sort(buckets(b))
+	return bucketQuantile(q, b), nil
 }
 
 // HistogramVec is an array of Histograms.
@@ -43,7 +105,7 @@ func NewHistogram(labels map[string]string) *Histogram {
 func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 	labels := make(map[string]string)
 	for k, v := range sample.Metric {
-		if k != "le" {
+		if k != model.BucketLabel {
 			labels[string(k)] = string(v)
 		}
 	}
@@ -58,5 +120,18 @@ func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 		hist = NewHistogram(labels)
 		*h = append(*h, *hist)
 	}
-	hist.Buckets[string(sample.Metric["le"])] += int(sample.Value)
+	hist.Buckets[string(sample.Metric[model.BucketLabel])] += int(sample.Value)
+}
+
+// ConvertSampleToHistogram converts prometheus sample into Histogram.
+func ConvertSampleToHistogram(sample *model.Sample, h *Histogram) {
+	labels := make(map[string]string)
+	for k, v := range sample.Metric {
+		if k != model.BucketLabel {
+			labels[string(k)] = string(v)
+		}
+	}
+
+	h.Labels = labels
+	h.Buckets[string(sample.Metric[model.BucketLabel])] += int(sample.Value)
 }

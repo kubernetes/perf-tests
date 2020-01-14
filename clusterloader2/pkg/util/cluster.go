@@ -80,9 +80,9 @@ func IsNodeSchedulableAndUntainted(node *corev1.Node) bool {
 // 2) it's Ready condition is set to true
 // 3) doesn't have NetworkUnavailable condition set to true
 func isNodeSchedulable(node *corev1.Node) bool {
-	nodeReady := isNodeConditionSetAsExpected(node, corev1.NodeReady, true, false)
+	nodeReady := isNodeConditionSetAsExpected(node, corev1.NodeReady, true)
 	networkReady := isNodeConditionUnset(node, corev1.NodeNetworkUnavailable) ||
-		isNodeConditionSetAsExpected(node, corev1.NodeNetworkUnavailable, false, true)
+		isNodeConditionSetAsExpected(node, corev1.NodeNetworkUnavailable, false)
 	return !node.Spec.Unschedulable && nodeReady && networkReady
 }
 
@@ -96,7 +96,7 @@ func isNodeUntainted(node *corev1.Node) bool {
 	return true
 }
 
-func isNodeConditionSetAsExpected(node *corev1.Node, conditionType corev1.NodeConditionType, wantTrue, silent bool) bool {
+func isNodeConditionSetAsExpected(node *corev1.Node, conditionType corev1.NodeConditionType, wantTrue bool) bool {
 	// Check the node readiness condition (logging all).
 	for _, cond := range node.Status.Conditions {
 		// Ensure that the condition type and the status matches as desired.
@@ -104,16 +104,12 @@ func isNodeConditionSetAsExpected(node *corev1.Node, conditionType corev1.NodeCo
 			if wantTrue == (cond.Status == corev1.ConditionTrue) {
 				return true
 			}
-			if !silent {
-				klog.Infof("Condition %s of node %s is %v instead of %t. Reason: %v, message: %v",
-					conditionType, node.Name, cond.Status == corev1.ConditionTrue, wantTrue, cond.Reason, cond.Message)
-			}
+			klog.V(4).Infof("Condition %s of node %s is %v instead of %t. Reason: %v, message: %v",
+				conditionType, node.Name, cond.Status == corev1.ConditionTrue, wantTrue, cond.Reason, cond.Message)
 			return false
 		}
 	}
-	if !silent {
-		klog.Infof("Couldn't find condition %v on node %v", conditionType, node.Name)
-	}
+	klog.V(4).Infof("Couldn't find condition %v on node %v", conditionType, node.Name)
 	return false
 }
 

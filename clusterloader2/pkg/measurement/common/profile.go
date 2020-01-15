@@ -174,21 +174,20 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 
+		// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
+		if p.config.componentName == "kube-apiserver" {
+			body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
+			if err != nil {
+				return nil, err
+			}
+			summary := measurement.CreateSummary(profilePrefix, "pprof", string(body))
+			summaries = append(summaries, summary)
+			break
+		}
+
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
 		if p.config.provider == "gke" {
-			// SSH to master is not possible in gke, but if the component is
-			// kube-apiserver we can get the profile via k8s client.
-			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
-			if p.config.componentName == "kube-apiserver" {
-				body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
-				if err != nil {
-					return nil, err
-				}
-				summary := measurement.CreateSummary(profilePrefix, "pprof", string(body))
-				summaries = append(summaries, summary)
-				break
-			}
 			// Only logging error for gke. SSHing to gke master is not supported.
 			klog.Warningf("%s: failed to execute curl command on master through SSH", p.name)
 			return nil, nil

@@ -167,7 +167,8 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
-	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, p.config.kind)
+	profileProtocol := getProtocolForComponent(p.config.componentName)
+	getCommand := fmt.Sprintf("curl -s %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
 
 	var summaries []measurement.Summary
 	for _, host := range p.config.hosts {
@@ -215,4 +216,13 @@ func getPortForComponent(componentName string) (int, error) {
 		return 10251, nil
 	}
 	return -1, fmt.Errorf("port for component %v unknown", componentName)
+}
+
+func getProtocolForComponent(componentName string) string {
+	switch componentName {
+	case "kube-apiserver":
+		return "https://"
+	default:
+		return "http://"
+	}
 }

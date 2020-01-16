@@ -245,23 +245,36 @@ type latencyMetric struct {
 }
 
 type schedulingMetrics struct {
-	PredicateEvaluationLatency  latencyMetric `json:"predicateEvaluationLatency"`
-	PriorityEvaluationLatency   latencyMetric `json:"priorityEvaluationLatency"`
-	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
-	BindingLatency              latencyMetric `json:"bindingLatency"`
-	E2eSchedulingLatency        latencyMetric `json:"e2eSchedulingLatency"`
-	ThroughputAverage           float64       `json:"throughputAverage"`
-	ThroughputPerc50            float64       `json:"throughputPerc50"`
-	ThroughputPerc90            float64       `json:"throughputPerc90"`
-	ThroughputPerc99            float64       `json:"throughputPerc99"`
+	PredicateEvaluationLatency  histogramVec `json:"predicateEvaluationLatency"`
+	PriorityEvaluationLatency   histogramVec `json:"priorityEvaluationLatency"`
+	PreemptionEvaluationLatency histogramVec `json:"preemptionEvaluationLatency"`
+	BindingLatency              histogramVec `json:"bindingLatency"`
+	SchedulingAlgorithmLatency  histogramVec `json:"schedulingAlgorithmLatency"`
+	E2eSchedulingLatency        histogramVec `json:"e2eSchedulingLatency"`
 }
 
-func parseOperationLatency(latency latencyMetric, operationName string) perftype.DataItem {
-	perfData := perftype.DataItem{Unit: "ms", Labels: map[string]string{"Operation": operationName}, Data: make(map[string]float64)}
-	perfData.Data["Perc50"] = float64(latency.Perc50) / float64(time.Millisecond)
-	perfData.Data["Perc90"] = float64(latency.Perc90) / float64(time.Millisecond)
-	perfData.Data["Perc99"] = float64(latency.Perc99) / float64(time.Millisecond)
-	return perfData
+func parseOperationLatency(histogramVecMetric histogramVec, operationName string) perftype.DataItem {
+	for i := range histogramVecMetric {
+		perfData := perftype.DataItem{Unit: "%", Labels: histogramVecMetric[i].Labels, Data: make(map[string]float64)}
+		delete(perfData.Labels, "__name__")
+		perfData.Labels["Operation"] = operationName
+		count, exists := histogramVecMetric[i].Buckets["+Inf"]
+		if !exists {
+			klog.Errorf("err in build %d: no +Inf bucket: %s", i, operationName)
+			continue
+		}
+		for kBucket, vBucket := range histogramVecMetric[i].Buckets {
+			if kBucket != "+Inf" {
+				if count == 0 {
+					perfData.Data["<= "+kBucket+"s"] = 0
+					continue
+				}
+				perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
+			}
+		}
+		return perfData
+	}
+	return perftype.DataItem{Unit: "%", Labels: map[string]string{"Operation": operationName}, Data: make(map[string]float64)}
 }
 
 func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData) {
@@ -280,6 +293,8 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
 	binding := parseOperationLatency(obj.BindingLatency, "binding")
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
+	schedulingAlgorithmLatency := parseOperationLatency(obj.SchedulingAlgorithmLatency, "schedulingAlgorithmLatency")
+	testResult.Builds[build] = append(testResult.Builds[build], schedulingAlgorithmLatency)
 	e2eSchedulingLatency := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
 	testResult.Builds[build] = append(testResult.Builds[build], e2eSchedulingLatency)
 }

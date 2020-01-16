@@ -2912,12 +2912,6 @@
 			"revisionTime": "2019-01-30T13:32:55Z"
 		},
 		{
-			"checksumSHA1": "pRw9f98fhBZ4m3zJ5QU9fE3UizY=",
-			"path": "k8s.io/kubernetes/pkg/controller/volume/scheduling/metrics",
-			"revision": "48ddf3be87789c92e6824c9ce536c76d008f5c19",
-			"revisionTime": "2019-11-12T09:10:07Z"
-		},
-		{
 			"checksumSHA1": "2JLkReHvcTbEWEn0Vbf/ddCvvRg=",
 			"path": "k8s.io/kubernetes/pkg/features",
 			"revision": "4253e85017d41884291be7515ae60e89f48a4519",

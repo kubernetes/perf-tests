@@ -47,7 +47,7 @@ func createResourceUsageMetricMeasurement() measurement.Measurement {
 }
 
 type resourceUsageMetricMeasurement struct {
-	gatherer            *gatherers.ContainerResourceGatherer
+	gatherers           []*gatherers.ContainerResourceGatherer
 	resourceConstraints map[string]*measurementutil.ResourceConstraint
 }
 
@@ -66,10 +66,9 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if err != nil {
 			return nil, err
 		}
-		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp())
-		if err != nil {
-			return nil, err
-		}
+
+		hosts := config.ClusterFramework.GetClusterConfig().MasterIPs
+
 		nodeMode, err := util.GetStringOrDefault(config.Params, "nodeMode", "")
 		if err != nil {
 			return nil, err
@@ -104,34 +103,48 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		}
 
 		klog.Infof("%s: starting resource usage collecting...", e)
-		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, provider, gatherers.ResourceGathererOptions{
-			InKubemark:                        strings.ToLower(provider) == "kubemark",
-			Nodes:                             nodesSet,
-			ResourceDataGatheringPeriod:       60 * time.Second,
-			MasterResourceDataGatheringPeriod: 10 * time.Second,
-			PrintVerboseLogs:                  false,
-		}, nil)
-		if err != nil {
-			return nil, err
+		for _, host := range hosts {
+			gatherer, err := gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, provider, gatherers.ResourceGathererOptions{
+				InKubemark:                        strings.ToLower(provider) == "kubemark",
+				Nodes:                             nodesSet,
+				ResourceDataGatheringPeriod:       60 * time.Second,
+				MasterResourceDataGatheringPeriod: 10 * time.Second,
+				PrintVerboseLogs:                  false,
+			}, nil)
+			if err != nil {
+				return nil, err
+			}
+			e.gatherers = append(e.gatherers, gatherer)
 		}
-		go e.gatherer.StartGatheringData()
+
+		for i := range e.gatherers {
+			go e.gatherers[i].StartGatheringData()
+		}
 		return nil, nil
 	case "gather":
-		if e.gatherer == nil {
+		if e.gatherers == nil || len(e.gatherers) < 1 {
 			klog.Errorf("%s: gatherer not initialized", e)
 			return nil, nil
 		}
+
 		klog.Infof("%s: gathering resource usage...", e)
-		summary, err := e.gatherer.StopAndSummarize([]int{50, 90, 99, 100})
-		if err != nil {
-			return nil, err
+		var summaries []measurement.Summary
+		for i := range e.gatherers {
+			summary, err := e.gatherers[i].StopAndSummarize([]int{50, 90, 99, 100})
+			if err != nil {
+				return nil, err
+			}
+			content, err := util.PrettyPrintJSON(summary)
+			if err != nil {
+				return nil, err
+			}
+			resourceSummary := measurement.CreateSummary(resourceUsageMetricName, "json", content)
+			summaries = append(summaries, resourceSummary)
+			if err := e.verifySummary(summary); err != nil {
+				return nil, err
+			}
 		}
-		content, err := util.PrettyPrintJSON(summary)
-		if err != nil {
-			return nil, err
-		}
-		resourceSummary := measurement.CreateSummary(resourceUsageMetricName, "json", content)
-		return []measurement.Summary{resourceSummary}, e.verifySummary(summary)
+		return summaries, nil
 
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
@@ -140,8 +153,10 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 
 // Dispose cleans up after the measurement.
 func (e *resourceUsageMetricMeasurement) Dispose() {
-	if e.gatherer != nil {
-		e.gatherer.Dispose()
+	for i := range e.gatherers {
+		if e.gatherers[i] != nil {
+			e.gatherers[i].Dispose()
+		}
 	}
 }
 

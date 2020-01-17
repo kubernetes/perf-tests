@@ -70,6 +70,16 @@ HEALTH_PANELS = [
         "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
         legend="{{zone}}",
     ),
+    d.simple_graph(
+        "Pod creations",
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource=""}[1m])) by (client)',
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Pod bindings",
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource="binding"}[1m])) by (client)',
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
     # It's not clear which "Component restarts" shows more accurate results.
     d.simple_graph(
         "Component restarts",

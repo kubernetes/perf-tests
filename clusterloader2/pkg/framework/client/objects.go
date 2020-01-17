@@ -63,7 +63,9 @@ func RetryWithExponentialBackOff(fn wait.ConditionFunc) error {
 func IsRetryableAPIError(err error) bool {
 	// These errors may indicate a transient error that we can retry in tests.
 	if apierrs.IsInternalError(err) || apierrs.IsTimeout(err) || apierrs.IsServerTimeout(err) ||
-		apierrs.IsTooManyRequests(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) {
+		apierrs.IsTooManyRequests(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) ||
+		// Our client is using OAuth2 where 401 (unauthorized) can mean that our token has expired and we need to retry with a new one.
+		apierrs.IsUnauthorized(err) {
 		return true
 	}
 	// If the error sends the Retry-After header, we respect it as an explicit confirmation we should retry.

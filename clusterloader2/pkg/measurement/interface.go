@@ -43,7 +43,7 @@ type MeasurementConfig struct {
 
 // Measurement is an common interface for all measurements methods. It should be implemented by the user to
 // allow his/her measurement method to be registered in the measurement factory.
-// See https://github.com/kubernetes/perf-tests/blob/master/clusterloader/docs/design.md for reference.
+// See https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md for reference.
 type Measurement interface {
 	Execute(config *MeasurementConfig) ([]Summary, error)
 	Dispose()

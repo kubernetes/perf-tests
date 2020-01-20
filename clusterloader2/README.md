@@ -51,7 +51,7 @@ Parameters can be passed from the test definition to the object template
 using the ```templateFillMap``` map.
 Two always available parameters are ```{{.Name}}``` and ```{{.Index}}```
 which specifies object name and object replica index respectively. \
-Example of a template can be found here: [load rc template].
+Example of a template can be found here: [load deployment template].
 
 ### Overrides
 
@@ -120,7 +120,7 @@ Vendor is created using [govendor].
 [API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [govendor]: https://github.com/kardianos/govendor
-[load rc template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/rc.yaml
+[load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
 [overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml
 [pod startup SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md

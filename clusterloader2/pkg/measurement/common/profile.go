@@ -21,8 +21,12 @@ import (
 	"sync"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -91,6 +95,12 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 		klog.Warning("Profile measurements will be disabled due to no MasterIps")
 		return nil
 	}
+	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
+	if p.shouldExposeApiServerDebugEndpoint() {
+		if err := exposeAPIServerDebugEndpoint(k8sClient); err != nil {
+			klog.Warningf("error while exposing kube-apiserver /debug endpoint: %v", err)
+		}
+	}
 
 	p.summaries = make([]measurement.Summary, 0)
 	p.isRunning = true
@@ -110,7 +120,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := p.gatherProfile(config.ClusterFramework.GetClientSets().GetClient())
+				profileSummaries, err := p.gatherProfile(k8sClient)
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
@@ -168,7 +178,7 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
 	profileProtocol := getProtocolForComponent(p.config.componentName)
-	getCommand := fmt.Sprintf("curl -s %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
+	getCommand := fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
 
 	var summaries []measurement.Summary
 	for _, host := range p.config.hosts {
@@ -204,6 +214,10 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 	return summaries, nil
 }
 
+func (p *profileMeasurement) shouldExposeApiServerDebugEndpoint() bool {
+	return p.config.componentName == "kube-apiserver"
+}
+
 func getPortForComponent(componentName string) (int, error) {
 	switch componentName {
 	case "etcd":
@@ -225,4 +239,39 @@ func getProtocolForComponent(componentName string) string {
 	default:
 		return "http://"
 	}
+}
+
+func exposeAPIServerDebugEndpoint(c clientset.Interface) error {
+	klog.Info("Exposing kube-apiserver debug endpoint for anonymous access")
+	createClusterRole := func() error {
+		_, err := c.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-debug-viewer"},
+			Rules: []rbacv1.PolicyRule{
+				{Verbs: []string{"get"}, NonResourceURLs: []string{"/debug/*"}},
+			},
+		})
+		return err
+	}
+	createClusterRoleBinding := func() error {
+		_, err := c.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "anonymous:apiserver-debug-viewer"},
+			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-debug-viewer"},
+			Subjects: []rbacv1.Subject{
+				{Kind: "User", Name: "system:anonymous"},
+			},
+		})
+		return err
+	}
+	if err := retryCreateFunction(createClusterRole); err != nil {
+		return err
+	}
+	if err := retryCreateFunction(createClusterRoleBinding); err != nil {
+		return err
+	}
+	return nil
+}
+
+func retryCreateFunction(f func() error) error {
+	return client.RetryWithExponentialBackOff(
+		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
 }

@@ -17,19 +17,11 @@
 set -e
 set -u
 
-IGNORED_TARGETS=("k8s.io/perf-tests/util-images/access-tokens/cmd")
+DIRNAME=$(dirname "$(readlink -f "$0")")
 
-# Will be filtered based on IGNORED_TARGETS
-supported_targets=$(go list ./... | grep -v "/vendor/")
+TARGETS=("access-tokens")
 
-echo "=== Ignoring build targets [START] ===="
-for target in "${IGNORED_TARGETS[@]}"
-do
-  echo "ignoring $target"
-  supported_targets=$(echo -n "${supported_targets}" | grep -v "${target}")
+for target in "${TARGETS[@]}"; do
+  cd "${DIRNAME}/${target}"
+  make build
 done
-echo "=== Ignoring build targets [END] ======"
-echo "=== Will build [START] ================"
-echo "${supported_targets}"
-echo "=== Will build [END] =================="
-go build $(echo -n "${supported_targets}")

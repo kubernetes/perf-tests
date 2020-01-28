@@ -1,4 +1,5 @@
 apiserver-address
+access-token-dirs
 comparison-scheme
 dns-probe-interval
 dns-probe-url

@@ -1,0 +1,179 @@
+# Stress testing access token validation
+#
+# Targeting 2 000 tokens with 5 000 total QPS for 5k node cluster, so it's 2.5
+# QPS per token.
+#
+# For this test number of tokens is not changed with number of nodes.
+# By default, those 2 000 tokens are are assigned to 80 service accounts, with
+# 25 tokens each. There is 1:1 mapping between deployments and service
+# accounts, so 80 deployments is generated, each with one pod.
+#
+# For smaller cluster, we scale down lineary QPS per token to
+# 2.5 * (Number of nodes)/(5 000). This results in 1 QPS per node, if there is
+# 2 000 tokens.
+#
+# Structure and mapping:
+# * For each namespace (by default 1), we are generating service accounts and
+#   deployments (by default 80).
+# * For each service account we are generating tokens (by default 25).
+# * For each deployment we are creating pods (by default 1) and for those pods
+#   we are mounting all tokens generated from linked service account.
+# * Each pod is running a number of clients equal to number of assigned tokens.
+#
+# When defining your own parameters:
+# Number of tokens = ${namespaces} * ${serviceAccounts} * ${tokensPerServiceAccount}
+# Total QPS = Number of tokens * ${replicas} * ${qpsPerWorker}
+#
+# For default values in 5k cluster this means:
+# Number of tokens = 1 * 80 * 25 = 2000
+# Total QPS = 2000 * 1 * 2.5 = 5000
+
+# Size of test variables
+{{$namespaces := DefaultParam .CL2_ACCESS_TOKENS_NAMESPACES 1}}
+{{$serviceAccounts := DefaultParam .CL2_ACCESS_TOKENS_SERVICE_ACCOUNTS 80}}
+{{$tokensPerServiceAccount := DefaultParam .CL2_ACCESS_TOKENS_TOKENS_PER_SERVICE_ACCOUNT 25}}
+{{$replicas := DefaultParam .CL2_ACCESS_TOKENS_REPLICAS 1}}
+{{$qpsPerWorker := DefaultParam .CL2_ACCESS_TOKENS_QPS (MultiplyFloat 2.5 (DivideFloat .Nodes 5000))}}
+
+# TestMetrics measurement variables
+{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
+{{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
+{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
+{{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+
+name: access-tokens
+automanagedNamespaces: {{$namespaces}}
+tuningSets:
+  - name: Sequence
+    parallelismLimitedLoad:
+      parallelismLimit: 1
+steps:
+- name: Starting measurements
+  measurements:
+    - Identifier: APIResponsivenessPrometheus
+      Method: APIResponsivenessPrometheus
+      Params:
+        action: start
+    - Identifier: TestMetrics
+      Method: TestMetrics
+      Params:
+        action: start
+        nodeMode: {{$NODE_MODE}}
+        systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+        restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+        enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+
+- name: Creating ServiceAccounts
+  phases:
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: 1
+      tuningSet: Sequence
+      objectBundle:
+        - basename: service-account-getter
+          objectTemplatePath: role.yaml
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: {{$serviceAccounts}}
+      tuningSet: Sequence
+      objectBundle:
+        - basename: account
+          objectTemplatePath: serviceAccount.yaml
+        - basename: account
+          objectTemplatePath: roleBinding.yaml
+          templateFillMap:
+            RoleName: service-account-getter
+
+- name: Creating Tokens
+  phases:
+    {{range $i := Loop $serviceAccounts}}
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: {{$tokensPerServiceAccount}}
+      tuningSet: Sequence
+      objectBundle:
+        - basename: account-{{$i}}
+          objectTemplatePath: token.yaml
+    {{end}}
+
+
+- name: Starting measurement for waiting for pods
+  measurements:
+    - Identifier: WaitForRunningPods
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: start
+        apiVersion: apps/v1
+        kind: Deployment
+        labelSelector: group = access-tokens
+        operationTimeout: 15m
+
+- name: Creating pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$serviceAccounts}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: account
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        QpsPerWorker: {{$qpsPerWorker}}
+        Replicas: {{$replicas}}
+        Tokens: {{$tokensPerServiceAccount}}
+
+- name: Waiting for pods to be running
+  measurements:
+    - Identifier: WaitForRunningPods
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: gather
+
+- name: Wait 5min
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+
+- name: Deleting pods
+  phases:
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: 0
+      tuningSet: Sequence
+      objectBundle:
+        - basename: account
+          objectTemplatePath: deployment.yaml
+          templateFillMap:
+            QpsPerWorker: {{$qpsPerWorker}}
+            Replicas: {{$replicas}}
+            Tokens: {{$tokensPerServiceAccount}}
+
+- name: Waiting for pods to be deleted
+  measurements:
+    - Identifier: WaitForRunningPods
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: gather
+
+- name: Collecting measurements
+  measurements:
+    - Identifier: APIResponsivenessPrometheus
+      Method: APIResponsivenessPrometheus
+      Params:
+        action: gather
+        enableViolations: true
+    - Identifier: TestMetrics
+      Method: TestMetrics
+      Params:
+        action: gather
+        nodeMode: {{$NODE_MODE}}
+        systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+        restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+        enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

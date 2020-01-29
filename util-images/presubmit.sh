@@ -19,7 +19,7 @@ set -u
 
 DIRNAME=$(dirname "$(readlink -f "$0")")
 
-TARGETS=("access-tokens")
+TARGETS=("access-tokens" "probes")
 
 for target in "${TARGETS[@]}"; do
   cd "${DIRNAME}/${target}"

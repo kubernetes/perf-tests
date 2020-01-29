@@ -62,6 +62,25 @@ each reference has to be opaqued with ```DefaultParam``` function that will
 handle case if given variable doesn't exist. \
 Example of overrides can be found here: [overrides]
 
+#### Passing environment variables
+
+Instead of using overrides in file, it is possible to depend on environment
+variables. Only variables that start with `CL2_` prefix will be parsed and
+available in script.
+
+Environment variables can be used with `DefaultParam` function to provide sane
+default values.
+
+##### Setting variables in shell
+```shell
+export CL2_ACCESS_TOKENS_QPS=5
+```
+
+##### Usage from test definition
+```yaml
+{{$qpsPerToken := DefaultParam .CL2_ACCESS_TOKENS_QPS 0.1}}
+```
+
 ## Measurement
 
 Currently available measurements are:

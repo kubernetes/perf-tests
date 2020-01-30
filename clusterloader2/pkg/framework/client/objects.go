@@ -64,6 +64,8 @@ func IsRetryableAPIError(err error) bool {
 	// These errors may indicate a transient error that we can retry in tests.
 	if apierrs.IsInternalError(err) || apierrs.IsTimeout(err) || apierrs.IsServerTimeout(err) ||
 		apierrs.IsTooManyRequests(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) ||
+		// Retryable resource-quotas conflict errors may be returned in some cases, e.g. https://github.com/kubernetes/kubernetes/issues/67761
+		isResourceQuotaConflictError(err) ||
 		// Our client is using OAuth2 where 401 (unauthorized) can mean that our token has expired and we need to retry with a new one.
 		apierrs.IsUnauthorized(err) {
 		return true
@@ -73,6 +75,17 @@ func IsRetryableAPIError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isResourceQuotaConflictError(err error) bool {
+	apiErr, ok := err.(apierrs.APIStatus)
+	if !ok {
+		return false
+	}
+	if apiErr.Status().Reason != metav1.StatusReasonConflict {
+		return false
+	}
+	return apiErr.Status().Details != nil && apiErr.Status().Details.Kind == "resourcequotas"
 }
 
 // IsRetryableNetError determines whether the error is a retryable net error.

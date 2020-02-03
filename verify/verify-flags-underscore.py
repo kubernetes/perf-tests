@@ -61,8 +61,6 @@ def get_all_files(rootdir):
             dirs.remove('.git')
         if 'exceptions.txt' in files:
             files.remove('exceptions.txt')
-        if 'known-flags.txt' in files:
-            files.remove('known-flags.txt')
         if 'vendor' in dirs:
             dirs.remove('vendor')
 
@@ -79,7 +77,7 @@ def get_all_files(rootdir):
 
 def normalize_files(rootdir, files):
     newfiles = []
-    a = ['Godeps', 'vendor', 'third_party', 'exceptions.txt', 'known-flags.txt']
+    a = ['Godeps', 'vendor', 'third_party', 'exceptions.txt']
     for f in files:
         if any(x in f for x in a):
             continue
@@ -115,18 +113,8 @@ def line_has_bad_flag(line, flagre):
         return True
     return False
 
-# The list of files might not be the whole repo. If someone only changed a
-# couple of files we don't want to run all of the golang files looking for
-# flags. Instead load the list of flags from verify/verify-flags/known-flags.txt
-# If running the golang files finds a new flag not in that file, return an
-# error and tell the user to add the flag to the flag list.
+# Scan the files for the flags and check flag format
 def get_flags(rootdir, files):
-    # preload the 'known' flags
-    pathname = os.path.join(rootdir, "verify/verify-flags/known-flags.txt")
-    f = open(pathname, 'r')
-    flags = set(f.read().splitlines())
-    f.close()
-
     # preload the 'known' flags which don't follow the - standard
     pathname = os.path.join(rootdir, "verify/verify-flags/excluded-flags.txt")
     f = open(pathname, 'r')
@@ -140,7 +128,7 @@ def get_flags(rootdir, files):
                re.compile('.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
                re.compile('.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
 
-    new_flags = set()
+    flags = set()
     new_excluded_flags = set()
     # walk all the files looking for any flags being declared
     for pathname in files:
@@ -160,17 +148,11 @@ def get_flags(rootdir, files):
             if not "-" in flag:
                 continue
             if flag not in flags:
-                new_flags.add(flag)
+                flags.add(flag)
     if len(new_excluded_flags) != 0:
         print("Found a flag declared with an _ but which is not explicitly listed as a valid flag name in verify/verify-flags/excluded-flags.txt")
         print("Are you certain this flag should not have been declared with an - instead?")
         l = list(new_excluded_flags)
-        l.sort()
-        print("%s" % "\n".join(l))
-        sys.exit(1)
-    if len(new_flags) != 0:
-        print("Found flags in golang files not in the list of known flags. Please add these to verify/verify-flags/known-flags.txt")
-        l = list(new_flags)
         l.sort()
         print("%s" % "\n".join(l))
         sys.exit(1)

@@ -29,6 +29,9 @@ do
   supported_targets=$(echo -n "${supported_targets}" | grep -v "${target}")
 done
 echo "=== Ignoring build targets [END] ======"
+echo "=== Will go get [START] ================"
+go get -d $(echo -n "${supported_targets}")
+echo "=== Will go get [END] ================"
 echo "=== Will build [START] ================"
 echo "${supported_targets}"
 echo "=== Will build [END] =================="

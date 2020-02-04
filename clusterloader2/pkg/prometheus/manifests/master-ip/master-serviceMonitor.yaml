@@ -23,20 +23,24 @@ spec:
     scrapeTimeout: 20s
   {{end}}
   - interval: 5s
+    port: apiserver
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - interval: 5s
     port: kubelet
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s
     port: kubelet
-    path: metrics/cadvisor
+    path: /metrics/cadvisor
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-  jobLabel: k8s-app
-  namespaceSelector:
-    matchNames:
-    - kube-system
+  - interval: 5s
+    port: kube-scheduler
+  - interval: 5s
+    port: kube-controller-manager
   selector:
-    matchLabels:
-      k8s-app: master
+    k8s-app: master

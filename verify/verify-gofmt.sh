@@ -39,10 +39,11 @@ find_files() {
     \) -name '*.go'
 }
 
-GOFMT="gofmt -s"
-bad_files=$(find_files | xargs $GOFMT -l)
+GOFMT_CHECK="gofmt -s"
+GOFMT_REWRITE="gofmt -w -s"
+bad_files=$(find_files | xargs $GOFMT_CHECK -l)
 if [[ -n "${bad_files}" ]]; then
-  echo "!!! '$GOFMT' needs to be run on the following files: "
+  echo "!!! '$GOFMT_REWRITE' needs to be run on the following files: "
   echo "${bad_files}"
   exit 1
 fi

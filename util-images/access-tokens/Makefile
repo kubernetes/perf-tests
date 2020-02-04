@@ -1,6 +1,6 @@
 PROJECT ?= k8s-testimages
 IMG = gcr.io/$(PROJECT)/perf-tests-util/access-tokens
-TAG = v0.0.5
+TAG = v0.0.6
 
 all: push
 

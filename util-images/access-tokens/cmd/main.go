@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	certutil "k8s.io/client-go/util/cert"
+	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	"k8s.io/klog"
 )
 
@@ -68,17 +69,21 @@ func initFlagsAndKlog() {
 	flag.Parse()
 }
 
+func makeRequest(id int, client kubernetes.Interface) {
+	klog.V(4).Infof("Worker %v sends request\n", id)
+	svcAccount, err := client.CoreV1().ServiceAccounts(*namespace).Get("default", metav1.GetOptions{ResourceVersion: "0"})
+	if err != nil {
+		klog.Warningf("Got error when getting default svcAccount: %v", err)
+	} else {
+		klog.V(4).Infof("Worker %v fetched %s svcAccount in namespace %s\n", id, svcAccount.Name, svcAccount.Namespace)
+	}
+}
+
 func worker(id int, client kubernetes.Interface, qps float64) {
 	duration := time.Duration(float64(int64(time.Second)) / qps)
 	ticker := time.NewTicker(duration)
 	for {
-		klog.V(4).Infof("Worker %v sends request\n", id)
-		svcAccount, err := client.CoreV1().ServiceAccounts(*namespace).Get("default", metav1.GetOptions{})
-		if err != nil {
-			klog.Warningf("Got error when getting default svcAccount: %v", err)
-		} else {
-			klog.V(4).Infof("Worker %v fetched %s svcAccount in namespace %s\n", id, svcAccount.Name, svcAccount.Namespace)
-		}
+		go makeRequest(id, client)
 		<-ticker.C
 	}
 }
@@ -103,5 +108,7 @@ func newConfig(tokenFile, rootCAFile string) (*rest.Config, error) {
 		TLSClientConfig: tlsClientConfig,
 		BearerToken:     string(token),
 		BearerTokenFile: tokenFile,
+		// We are already rate limiting in func worker - we do not need another limiter here
+		RateLimiter: flowcontrol.NewFakeAlwaysRateLimiter(),
 	}, nil
 }

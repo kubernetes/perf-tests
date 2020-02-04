@@ -67,7 +67,7 @@ spec:
           image: gcr.io/${PROJECT}/perf-tests-util/access-tokens:latest
           args:
             - --access-token-dirs=/var/tokens/access-token
-            - --qps-per-worker=1
+            - --qps-per-worker=10
             - --namespace=access-tokens
           resources:
             limits:

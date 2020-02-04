@@ -1,29 +1,32 @@
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+{{$PROMETHEUS_SCRAPE_APISERVER_ONLY := DefaultParam .PROMETHEUS_SCRAPE_APISERVER_ONLY false}}
 
-# This service points to the Kubemark ApiServer, which runs on separate VM, outside of the main
-# cluster.The service is needed for Prometheus (discovery and monitoring in Prometheus server is
-# based on k8s services and endpoints) in order to collect metrics from the Kubemark ApiServer.
+# Service object for the kubelet running on master node.
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: kubemark
-  name: kubemark-master
+  namespace: monitoring
+  name: master
   labels:
-    instance: kubemark-master
+    k8s-app: master
 spec:
   type: ClusterIP
   clusterIP: None
   ports:
     - name: apiserver
       port: 443
-    - name: etcd
+    {{if not $PROMETHEUS_SCRAPE_APISERVER_ONLY}}
+    - name: etcd-2379
       port: 2379
+    - name: etcd-2382
+      port: 2382
     - name: kubelet
       port: 10250
     - name: kube-scheduler
       port: 10251
     - name: kube-controller-manager
       port: 10252
+    {{end}}
     {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
     - name: node-exporter
       port: 9100

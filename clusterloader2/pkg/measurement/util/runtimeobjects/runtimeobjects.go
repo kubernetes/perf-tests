@@ -37,8 +37,8 @@ import (
 )
 
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
-// TODO: using dynamic interface rather than clientset interface
-func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
+// TODO(mborsz): Use dynamic client in all cases.
+func ListRuntimeObjectsForKind(c clientset.Interface, d dynamic.Interface, gvr schema.GroupVersionResource, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
 	var runtimeObjectsList []runtime.Object
 	var listFunc func() error
 	listOpts := metav1.ListOptions{
@@ -119,7 +119,17 @@ func ListRuntimeObjectsForKind(c clientset.Interface, kind, namespace, labelSele
 			return nil
 		}
 	default:
-		return nil, fmt.Errorf("unsupported kind when getting runtime object: %v", kind)
+		listFunc = func() error {
+			list, err := d.Resource(gvr).List(listOpts)
+			if err != nil {
+				return err
+			}
+			runtimeObjectsList = make([]runtime.Object, len(list.Items))
+			for i := range list.Items {
+				runtimeObjectsList[i] = &list.Items[i]
+			}
+			return nil
+		}
 	}
 
 	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc)); err != nil {

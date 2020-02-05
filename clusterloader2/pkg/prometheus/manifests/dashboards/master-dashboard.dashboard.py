@@ -34,10 +34,6 @@ def api_call_latency(title, verb, scope, threshold):
 
 
 CLUSTERLOADER_PANELS = [
-    d.simple_graph(
-        "Requests",
-        'sum(irate(apiserver_request_total{client="clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format", verb!="CONNECT"}[1m])) by (verb, resource)',
-    ),
     api_call_latency(
         title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
         verb="GET",
@@ -72,12 +68,12 @@ HEALTH_PANELS = [
     ),
     d.simple_graph(
         "Pod creations",
-        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource=""}[1m])) by (client)',
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource=""}[1m]))',
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "Pod bindings",
-        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource="binding"}[1m])) by (client)',
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource="binding"}[1m]))',
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     # It's not clear which "Component restarts" shows more accurate results.
@@ -249,7 +245,7 @@ APISERVER_PANELS = [
     ),
     d.simple_graph(
         '"Big" LIST requests',
-        'sum(rate(apiserver_request_total{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource, client)',
+        'sum(rate(apiserver_request_total{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource)',
     ),
     d.simple_graph(
         "Traffic",

@@ -23,6 +23,9 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -66,6 +69,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	apiVersion        string
 	kind              string
 	selector          *measurementutil.ObjectSelector
+	podLabelSelector  labels.Selector
 	operationTimeout  time.Duration
 	stopCh            chan struct{}
 	isRunning         bool
@@ -109,6 +113,24 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 			return nil, err
 		}
 		return nil, w.start()
+	case "setPodLabelSelector":
+		podLabelSelector, ok, err := unstructured.NestedMap(config.Params, "selector")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get selector field from options: %v", err)
+		}
+		if !ok {
+			w.podLabelSelector = nil
+			return nil, nil
+		}
+		var selector metav1.LabelSelector
+		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(podLabelSelector, &selector); err != nil {
+			return nil, fmt.Errorf("try to parse selector failed, %v", err)
+		}
+		w.lock.Lock()
+		w.podLabelSelector, err = metav1.LabelSelectorAsSelector(&selector)
+		w.lock.Unlock()
+		return nil, err
+
 	case "gather":
 		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
 		if err != nil {
@@ -387,6 +409,27 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() 
 	return desiredCount, maxResourceVersion, nil
 }
 
+func andSelector(selector1, selector2 labels.Selector) labels.Selector {
+	if selector1 == nil {
+		return selector2
+	}
+	if selector2 == nil {
+		return selector1
+	}
+	selector := selector1.DeepCopySelector()
+
+	requirements, selectable := selector2.Requirements()
+	if !selectable {
+		// selector2 doesn't match anything.
+		return selector2
+	}
+	for _, requirement := range requirements {
+		selector = selector.Add(requirement)
+	}
+
+	return selector
+}
+
 func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
 	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
 	if err != nil {
@@ -415,7 +458,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		options := &measurementutil.WaitForPodOptions{
 			Selector: &measurementutil.ObjectSelector{
 				Namespace:     runtimeObjectNamespace,
-				LabelSelector: runtimeObjectSelector.String(),
+				LabelSelector: andSelector(w.podLabelSelector, runtimeObjectSelector).String(),
 				FieldSelector: "",
 			},
 			DesiredPodCount:     int(runtimeObjectReplicas),

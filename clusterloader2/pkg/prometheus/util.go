@@ -55,8 +55,12 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
 		DoRaw()
 	if err != nil {
+		response := "(empty)"
+		if raw != nil {
+			response = string(raw)
+		}
 		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warningf("error while calling prometheus api: %v", err)
+		klog.Warningf("error while calling prometheus api: %v, response: %q", err, response)
 		return false, nil
 	}
 	var response targetsResponse

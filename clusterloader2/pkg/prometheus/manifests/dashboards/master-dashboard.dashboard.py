@@ -18,28 +18,49 @@ from grafanalib import core as g
 import defaults as d
 
 
+def api_call_latency(title, verb, scope, threshold):
+    return d.Graph(
+        title=title,
+        targets=[
+            g.Target(expr=str(threshold), legendFormat="threshold"),
+            g.Target(
+                expr='apiserver:apiserver_request_latency_1m:histogram_quantile{quantile="0.99", verb=~"%(verb)s", scope=~"%(scope)s"}'
+                % {"verb": verb, "scope": scope},
+                legendFormat="{{verb}} {{scope}}/{{resource}}",
+            ),
+        ],
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    )
+
+
 CLUSTERLOADER_PANELS = [
     d.simple_graph(
         "Requests",
-        'sum(rate(apiserver_request_count{client="clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format", verb!="CONNECT"}[1m])) by (verb, resource)',
+        'sum(irate(apiserver_request_total{client="clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format", verb!="CONNECT"}[1m])) by (verb, resource)',
     ),
-    d.simple_graph(
-        "API call latency (1s thresholds)",
-        'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!~"CONNECT|LIST|WATCH"}',
-        legend="{{verb}} {{scope}}/{{resource}}",
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    api_call_latency(
+        title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+        verb="GET",
+        scope="namespace",
+        threshold=1,
     ),
-    d.simple_graph(
-        "API call latency aggregated (1s thresholds)",
-        'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])) by (le, resource, verb, scope, subresource))',
-        legend="{{verb}} {{scope}}/{{resource}}",
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    api_call_latency(
+        title="Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+        verb="LIST",
+        scope="namespace",
+        threshold=5,
     ),
-    d.simple_graph(
-        "API call latency aggregated (prometheus, 1s threshold)",
-        'quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~"LIST|WATCH|CONNECT|DELETECOLLECTION"}[1d])',
-        legend="{{verb}} {{scope}}/{{resource}}",
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    api_call_latency(
+        title="Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+        verb="LIST",
+        scope="cluster",
+        threshold=30,
+    ),
+    api_call_latency(
+        title="Mutating API call latency (threshold=1s)",
+        verb=d.any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
+        scope=d.any_of("namespace", "cluster"),
+        threshold=1,
     ),
 ]
 
@@ -49,6 +70,16 @@ HEALTH_PANELS = [
         "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
         legend="{{zone}}",
     ),
+    d.simple_graph(
+        "Pod creations",
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource=""}[1m])) by (client)',
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Pod bindings",
+        'sum(irate(apiserver_request_total{verb="POST", resource="pods", subresource="binding"}[1m])) by (client)',
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
     # It's not clear which "Component restarts" shows more accurate results.
     d.simple_graph(
         "Component restarts",
@@ -56,7 +87,7 @@ HEALTH_PANELS = [
     ),
     d.simple_graph(
         "Component restarts 2",
-        'sum(min_over_time(container_start_time_seconds{container_name!="",container_name!="POD"}[2m])) by (container_name)',
+        'sum(min_over_time(container_start_time_seconds{container!="",container!="POD"}[2m])) by (container)',
     ),
     d.simple_graph(
         "Active component", "sum(leader_election_master_status) by (name, instance)"
@@ -135,7 +166,11 @@ ETCD_PANELS = [
         ],
         yAxes=g.single_y_axis(format=g.MILLISECONDS_FORMAT),
     ),
-    d.simple_graph("etcd objects", "sum(etcd_object_counts) by (resource, instance)"),
+    d.simple_graph(
+        "etcd objects",
+        "sum(etcd_object_counts) by (resource, instance)",
+        legend="{{instance}}: {{resource}}",
+    ),
     d.simple_graph(
         "etcd db size",
         [
@@ -148,43 +183,57 @@ ETCD_PANELS = [
 ]
 
 APISERVER_PANELS = [
-    d.simple_graph("goroutines", 'go_goroutines{job="master", endpoint="apiserver"}'),
     d.simple_graph(
-        "gc rate", 'rate(go_gc_duration_seconds_count{job="master", endpoint="apiserver"}[1m])'
+        "goroutines",
+        'go_goroutines{job="master", endpoint="apiserver"}',
+        legend="{{instance}}",
+    ),
+    d.simple_graph(
+        "gc rate",
+        'rate(go_gc_duration_seconds_count{job="master", endpoint="apiserver"}[1m])',
+        legend="{{instance}}",
     ),
     d.simple_graph(
         "alloc rate",
         'rate(go_memstats_alloc_bytes_total{job="master", endpoint="apiserver"}[1m])',
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        legend="{{instance}}",
     ),
     d.simple_graph(
         "Number of active watches",
-        "sum(apiserver_registered_watchers) by (group, kind, instance)",
+        "sum(apiserver_registered_watchers) by (instance, group, version, kind)",
+        legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Watch events rate",
-        "sum(irate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
+        "sum(irate(apiserver_watch_events_total[1m])) by (instance, group, version, kind)",
+        legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
-        "(Experimental) Watch events traffic",
-        "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+        "Watch events traffic",
+        "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (instance, group, version, kind)",
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
+        legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Watch event avg size",
-        "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (version, kind, instance)",
+        "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (instance, group, version, kind)",
+        legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Inflight requests",
         "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
+        legend="{{instance}}: {{requestKind}}",
     ),
     d.simple_graph(
         "Request rate",
-        "sum(rate(apiserver_request_count[1m])) by (verb, resource, instance)",
+        "sum(rate(apiserver_request_total[1m])) by (verb, resource, instance)",
+        legend="{{instance}}: {{verb}} {{resource}}",
     ),
     d.simple_graph(
         "Request rate by code",
-        "sum(rate(apiserver_request_count[1m])) by (code, instance)",
+        "sum(rate(apiserver_request_total[1m])) by (code, instance)",
+        legend="{{instance}}: {{code}}",
     ),
     d.simple_graph(
         "Request latency (50th percentile)",
@@ -200,7 +249,7 @@ APISERVER_PANELS = [
     ),
     d.simple_graph(
         '"Big" LIST requests',
-        'sum(rate(apiserver_request_count{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource, client)',
+        'sum(rate(apiserver_request_total{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource, client)',
     ),
     d.simple_graph(
         "Traffic",
@@ -212,32 +261,32 @@ APISERVER_PANELS = [
 VM_PANELS = [
     d.simple_graph(
         "fs bytes reads by container",
-        "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
-        legend="{{container_name}} {{instance}}",
+        "sum(rate(container_fs_reads_bytes_total[1m])) by (container, instance)",
+        legend="{{instance}}: {{container}}",
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.simple_graph(
         "fs reads by container",
-        "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
-        legend="{{container_name}} {{instance}}",
+        "sum(rate(container_fs_reads_total[1m])) by (container, instance)",
+        legend="{{instance}}: {{container}}",
     ),
     d.simple_graph(
         "fs bytes writes by container",
-        "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
-        legend="{{container_name}} {{instance}}",
+        "sum(rate(container_fs_writes_bytes_total[1m])) by (container, instance)",
+        legend="{{instance}}: {{container}}",
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.simple_graph(
         "fs writes by container",
-        "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
-        legend="{{container_name}} {{instance}}",
+        "sum(rate(container_fs_writes_total[1m])) by (container, instance)",
+        legend="{{instance}}: {{container}}",
     ),
     d.Graph(
         title="CPU usage by container",
         targets=[
             d.Target(
                 expr='sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (container, instance)',
-                legendFormat="{{container}} {{instance}}",
+                legendFormat="{{instance}}: {{container}}",
             ),
             d.Target(expr="machine_cpu_cores", legendFormat="limit"),
         ],
@@ -247,7 +296,7 @@ VM_PANELS = [
         targets=[
             d.Target(
                 expr='sum(container_memory_usage_bytes{container!=""}) by (container, instance)',
-                legendFormat="{{container}} {{instance}}",
+                legendFormat="{{instance}}: {{container}}",
             ),
             d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
@@ -258,7 +307,7 @@ VM_PANELS = [
         targets=[
             d.Target(
                 expr='sum(container_memory_working_set_bytes{container!=""}) by (container, instance)',
-                legendFormat="{{container}} {{instance}}",
+                legendFormat="{{instance}}: {{container}}",
             ),
             d.Target(expr="machine_memory_bytes", legendFormat="limit"),
         ],
@@ -328,6 +377,7 @@ VM_PANELS = [
 # The final dashboard must be named 'dashboard' so that grafanalib will find it.
 dashboard = d.Dashboard(
     title="Master dashboard",
+    refresh="",
     rows=[
         d.Row(title="Clusterloader", panels=CLUSTERLOADER_PANELS),
         d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),

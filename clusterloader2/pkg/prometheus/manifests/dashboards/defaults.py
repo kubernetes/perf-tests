@@ -92,3 +92,7 @@ def min_max_avg(base, by, legend=""):
         )
         for f in ("min", "avg", "max")
     ]
+
+
+def any_of(*choices):
+    return "|".join(choices)

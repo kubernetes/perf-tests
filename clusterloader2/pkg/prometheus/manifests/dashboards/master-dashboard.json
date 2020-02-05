@@ -8,7 +8,7 @@
   "hideControls": false,
   "id": null,
   "links": [],
-  "refresh": "10s",
+  "refresh": "",
   "rows": [
     {
       "collapse": false,
@@ -64,7 +64,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count{client=\"clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format\", verb!=\"CONNECT\"}[1m])) by (verb, resource)",
+              "expr": "sum(irate(apiserver_request_total{client=\"clusterloader/v0.0.0 (linux/amd64) kubernetes/$Format\", verb!=\"CONNECT\"}[1m])) by (verb, resource)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -160,11 +160,24 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!~\"CONNECT|LIST|WATCH\"}",
+              "expr": "1",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "threshold",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"namespace\"}",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
@@ -174,7 +187,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "API call latency (1s thresholds)",
+          "title": "Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -256,11 +269,24 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])) by (le, resource, verb, scope, subresource))",
+              "expr": "5",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "threshold",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
@@ -270,7 +296,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "API call latency aggregated (1s thresholds)",
+          "title": "Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -352,11 +378,24 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{verb!~\"LIST|WATCH|CONNECT|DELETECOLLECTION\"}[1d])",
+              "expr": "30",
               "format": "time_series",
               "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "threshold",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
               "legendFormat": "{{verb}} {{scope}}/{{resource}}",
               "metric": "",
               "refId": "",
@@ -366,7 +405,116 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "API call latency aggregated (prometheus, 1s threshold)",
+          "title": "Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 5,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "1",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "threshold",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}",
+              "format": "time_series",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 2,
+              "legendFormat": "{{verb}} {{scope}}/{{resource}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Mutating API call latency (threshold=1s)",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -423,7 +571,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 5,
+          "id": 6,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -519,7 +667,199 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 6,
+          "id": 7,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(irate(apiserver_request_total{verb=\"POST\", resource=\"pods\", subresource=\"\"}[1m])) by (client)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Pod creations",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 8,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(irate(apiserver_request_total{verb=\"POST\", resource=\"pods\", subresource=\"binding\"}[1m])) by (client)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Pod bindings",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 9,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -615,7 +955,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 7,
+          "id": 10,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -650,7 +990,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(min_over_time(container_start_time_seconds{container_name!=\"\",container_name!=\"POD\"}[2m])) by (container_name)",
+              "expr": "sum(min_over_time(container_start_time_seconds{container!=\"\",container!=\"POD\"}[2m])) by (container)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -711,7 +1051,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 8,
+          "id": 11,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -817,7 +1157,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 9,
+          "id": 12,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -913,7 +1253,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 10,
+          "id": 13,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1009,7 +1349,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 11,
+          "id": 14,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1105,7 +1445,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 12,
+          "id": 15,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1201,7 +1541,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 13,
+          "id": 16,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1297,7 +1637,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 14,
+          "id": 17,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1393,7 +1733,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 15,
+          "id": 18,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1489,7 +1829,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 16,
+          "id": 19,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1585,7 +1925,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 17,
+          "id": 20,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1681,7 +2021,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 18,
+          "id": 21,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1777,7 +2117,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 19,
+          "id": 22,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1873,7 +2213,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 20,
+          "id": 23,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -1969,7 +2309,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 21,
+          "id": 24,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2065,7 +2405,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 22,
+          "id": 25,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2161,7 +2501,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 23,
+          "id": 26,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2257,7 +2597,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 24,
+          "id": 27,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2297,7 +2637,7 @@
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}: {{resource}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -2353,7 +2693,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 25,
+          "id": 28,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2485,7 +2825,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 26,
+          "id": 29,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -2525,7 +2865,7 @@
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -2535,294 +2875,6 @@
           "timeFrom": null,
           "timeShift": null,
           "title": "goroutines",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 27,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "rate(go_gc_duration_seconds_count{job=\"master\", endpoint=\"apiserver\"}[1m])",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "gc rate",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 28,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "rate(go_memstats_alloc_bytes_total{job=\"master\", endpoint=\"apiserver\"}[1m])",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "alloc rate",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "Bps",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 29,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(apiserver_registered_watchers) by (group, kind, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Number of active watches",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -2904,12 +2956,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(irate(apiserver_watch_events_total[1m])) by (version, kind, instance)",
+              "expr": "rate(go_gc_duration_seconds_count{job=\"master\", endpoint=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -2918,7 +2970,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Watch events rate",
+          "title": "gc rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3000,12 +3052,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (version, kind, instance)",
+              "expr": "rate(go_memstats_alloc_bytes_total{job=\"master\", endpoint=\"apiserver\"}[1m])",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3014,7 +3066,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "(Experimental) Watch events traffic",
+          "title": "alloc rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3096,12 +3148,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (version, kind, instance)",
+              "expr": "sum(apiserver_registered_watchers) by (instance, group, version, kind)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}: {{version}}.{{group}}.{{kind}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3110,7 +3162,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Watch event avg size",
+          "title": "Number of active watches",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3192,12 +3244,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
+              "expr": "sum(irate(apiserver_watch_events_total[1m])) by (instance, group, version, kind)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}: {{version}}.{{group}}.{{kind}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3206,7 +3258,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Inflight requests",
+          "title": "Watch events rate",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3288,12 +3340,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count[1m])) by (verb, resource, instance)",
+              "expr": "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (instance, group, version, kind)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}: {{version}}.{{group}}.{{kind}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3302,7 +3354,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Request rate",
+          "title": "Watch events traffic",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -3317,7 +3369,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "Bps",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -3384,12 +3436,300 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count[1m])) by (code, instance)",
+              "expr": "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (instance, group, version, kind)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "",
+              "legendFormat": "{{instance}}: {{version}}.{{group}}.{{kind}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Watch event avg size",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 36,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{requestKind}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Inflight requests",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 37,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(rate(apiserver_request_total[1m])) by (verb, resource, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{verb}} {{resource}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Request rate",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 38,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(rate(apiserver_request_total[1m])) by (code, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{code}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -3445,7 +3785,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 36,
+          "id": 39,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3541,7 +3881,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 37,
+          "id": 40,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3637,7 +3977,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 38,
+          "id": 41,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3672,7 +4012,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(apiserver_request_count{verb=\"LIST\", resource=~\"nodes|pods|services|endpoints|replicationcontrollers\"}[1m])) by (resource, client)",
+              "expr": "sum(rate(apiserver_request_total{verb=\"LIST\", resource=~\"nodes|pods|services|endpoints|replicationcontrollers\"}[1m])) by (resource, client)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -3733,7 +4073,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 39,
+          "id": 42,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3839,7 +4179,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 40,
+          "id": 43,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -3945,294 +4285,6 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 41,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs bytes reads by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 42,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_reads_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs reads by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 43,
-          "isNew": true,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "hideEmpty": false,
-            "hideZero": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "sideWidth": null,
-            "sort": null,
-            "sortDesc": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "minSpan": null,
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "repeat": null,
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "datasource": "",
-              "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container_name, instance)",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "fs bytes writes by container",
-          "tooltip": {
-            "msResolution": true,
-            "shared": true,
-            "sort": 2,
-            "value_type": "cumulative"
-          },
-          "transparent": false,
-          "type": "graph",
-          "xaxis": {
-            "show": true
-          },
-          "yaxes": [
-            {
-              "decimals": null,
-              "format": "bytes",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            },
-            {
-              "decimals": null,
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": 0,
-              "show": true
-            }
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": "$source",
-          "description": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
           "id": 44,
           "isNew": true,
           "legend": {
@@ -4268,12 +4320,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(container_fs_writes_total[1m])) by (container_name, instance)",
+              "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}} {{instance}}",
+              "legendFormat": "{{instance}}: {{container}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4282,7 +4334,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "fs writes by container",
+          "title": "fs bytes reads by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -4297,7 +4349,7 @@
           "yaxes": [
             {
               "decimals": null,
-              "format": "short",
+              "format": "bytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -4364,25 +4416,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
+              "expr": "sum(rate(container_fs_reads_total[1m])) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "machine_cpu_cores",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "limit",
+              "legendFormat": "{{instance}}: {{container}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4391,7 +4430,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "CPU usage by container",
+          "title": "fs reads by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -4473,25 +4512,12 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
+              "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
-              "metric": "",
-              "refId": "",
-              "step": 10,
-              "target": ""
-            },
-            {
-              "datasource": "",
-              "expr": "machine_memory_bytes",
-              "format": "time_series",
-              "instant": false,
-              "interval": "5s",
-              "intervalFactor": 1,
-              "legendFormat": "limit",
+              "legendFormat": "{{instance}}: {{container}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4500,7 +4526,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "memory usage by container",
+          "title": "fs bytes writes by container",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -4582,12 +4608,326 @@
           "targets": [
             {
               "datasource": "",
+              "expr": "sum(rate(container_fs_writes_total[1m])) by (container, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{container}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "fs writes by container",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 48,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{container}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "machine_cpu_cores",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "limit",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "CPU usage by container",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 49,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
+              "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "{{instance}}: {{container}}",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            },
+            {
+              "datasource": "",
+              "expr": "machine_memory_bytes",
+              "format": "time_series",
+              "instant": false,
+              "interval": "5s",
+              "intervalFactor": 1,
+              "legendFormat": "limit",
+              "metric": "",
+              "refId": "",
+              "step": 10,
+              "target": ""
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "memory usage by container",
+          "tooltip": {
+            "msResolution": true,
+            "shared": true,
+            "sort": 2,
+            "value_type": "cumulative"
+          },
+          "transparent": false,
+          "type": "graph",
+          "xaxis": {
+            "show": true
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "bytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "$source",
+          "description": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 50,
+          "isNew": true,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "sideWidth": null,
+            "sort": null,
+            "sortDesc": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "minSpan": null,
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "repeat": null,
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "datasource": "",
               "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) by (container, instance)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
               "intervalFactor": 1,
-              "legendFormat": "{{container}} {{instance}}",
+              "legendFormat": "{{instance}}: {{container}}",
               "metric": "",
               "refId": "",
               "step": 10,
@@ -4656,7 +4996,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 48,
+          "id": 51,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4765,7 +5105,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 49,
+          "id": 52,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4874,7 +5214,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 50,
+          "id": 53,
           "isNew": true,
           "legend": {
             "alignAsTable": false,
@@ -4983,7 +5323,7 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 51,
+          "id": 54,
           "isNew": true,
           "legend": {
             "alignAsTable": false,

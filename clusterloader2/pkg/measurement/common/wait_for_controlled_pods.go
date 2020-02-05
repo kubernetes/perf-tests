@@ -360,8 +360,10 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
-	objects, err := runtimeobjects.ListRuntimeObjectsForKind(w.clusterFramework.GetClientSets().GetClient(),
-		w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
+	objects, err := runtimeobjects.ListRuntimeObjectsForKind(
+		w.clusterFramework.GetClientSets().GetClient(),
+		w.clusterFramework.GetDynamicClients().GetClient(),
+		w.gvr, w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
 	if err != nil {
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}

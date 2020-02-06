@@ -1,0 +1,45 @@
+{{$name := .Name}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: access-tokens
+spec:
+  selector:
+    matchLabels:
+      group: access-tokens
+      name: {{.Name}}
+  replicas: {{.Replicas}}
+  template:
+    metadata:
+      labels:
+        group: access-tokens
+        name: {{.Name}}
+    spec:
+      imagePullPolicy: Always
+      containers:
+        - name: access-tokens
+          image: gcr.io/k8s-testimages/perf-tests-util/access-tokens:v0.0.6
+          args:
+          {{range $tokenId := Loop .Tokens}}
+            - --access-token-dirs=/var/tokens/{{$name}}-{{$tokenId}}
+          {{end}}
+            - --namespace={{.Namespace}}
+            - --qps-per-worker={{.QpsPerWorker}}
+          resources:
+            requests:
+              cpu: {{AddInt 10 (MultiplyFloat .Tokens .QpsPerWorker)}}m # 1mCpu per Token * per QPS
+              memory: {{AddInt 50 (MultiplyInt .Tokens 5)}}Mi
+          volumeMounts:
+          {{range $j := Loop .Tokens}}
+          - name: {{$name}}-{{$j}}
+            mountPath: /var/tokens/{{$name}}-{{$j}}
+          {{end}}
+      volumes:
+      {{range $j := Loop .Tokens}}
+      - name: {{$name}}-{{$j}}
+        secret:
+          secretName: {{$name}}-{{$j}}
+      {{end}}

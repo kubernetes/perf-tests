@@ -34,6 +34,7 @@ type ClusterConfig struct {
 	KubeConfigPath             string
 	Nodes                      int
 	Provider                   string
+	EtcdInsecurePort           int
 	MasterIPs                  []string
 	MasterInternalIPs          []string
 	MasterName                 string

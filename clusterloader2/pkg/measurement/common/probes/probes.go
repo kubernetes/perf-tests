@@ -229,7 +229,7 @@ func (p *probesMeasurement) checkProbesReady() (bool, error) {
 	// TODO(mm4tt): Using prometheus targets to check whether probes are up is a bit hacky.
 	//              Consider rewriting this to something more intuitive.
 	expectedTargets := p.replicasPerProbe * len(serviceMonitors.Items)
-	return prometheus.CheckTargetsReady(
+	return prometheus.CheckAllTargetsReady(
 		p.framework.GetClientSets().GetClient(), isProbeTarget, expectedTargets)
 }
 

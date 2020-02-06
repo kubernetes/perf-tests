@@ -24,6 +24,7 @@ type ClusterLoaderConfig struct {
 	TearDownPrometheusServer bool          `json: tearDownPrometheusServer`
 	TestConfigPath           string        `json: testConfigPath`
 	TestOverridesPath        []string      `json: testOverrides`
+	PrometheusConfig         PrometheusConfig
 }
 
 // ClusterConfig is a structure that represents cluster description.
@@ -35,6 +36,16 @@ type ClusterConfig struct {
 	MasterInternalIPs          []string `json: masterInternalIPs`
 	MasterName                 string   `json: masterName`
 	KubemarkRootKubeConfigPath string   `json: kubemarkRootKubeConfigPath`
+}
+
+// PrometheusConfig represents all flags used by prometheus.
+type PrometheusConfig struct {
+	EnableServer       bool
+	TearDownServer     bool
+	ScrapeEtcd         bool
+	ScrapeNodeExporter bool
+	ScrapeKubelets     bool
+	ScrapeKubeProxy    bool
 }
 
 // GetMasterIp returns the first master ip, added for backward compatibility.

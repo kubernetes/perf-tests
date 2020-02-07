@@ -111,7 +111,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 				return
 			case <-time.After(defaultWaitForPodsInterval):
 				pods := ps.List()
-				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0)
+				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */)
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(defaultWaitForPodsInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
 				lastScheduledCount = podsStatus.Scheduled

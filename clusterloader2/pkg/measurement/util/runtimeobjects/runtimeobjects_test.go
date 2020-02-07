@@ -45,6 +45,7 @@ var (
 var (
 	simpleLabel   = map[string]string{"foo": "bar"}
 	affinityLabel = map[string]string{"foo": "bar", "affinity": "true"}
+	image         = "gcr.io/some-project/some-image"
 )
 
 var node1 = corev1.Node{
@@ -177,6 +178,26 @@ var job = &batch.Job{
 	},
 }
 
+// pod is a sample pod that can be created for replicationcontroller,
+// replicaset, deployment, job (NOT daemonset).
+var pod = &corev1.Pod{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName + "-abcd",
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: alterPodSpec(resourcePodSpec("", "50M", "0.5", nil, nil)),
+}
+
+var daemonsetPod = &corev1.Pod{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName + "-abcd",
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: alterPodSpec(resourcePodSpec("", "50M", "0.5", simpleLabel, affinity)),
+}
+
 func resourcePodSpec(nodeName, memory, cpu string, nodeSelector map[string]string, affinity *v1.Affinity) v1.PodSpec {
 	return v1.PodSpec{
 		NodeName: nodeName,
@@ -184,10 +205,53 @@ func resourcePodSpec(nodeName, memory, cpu string, nodeSelector map[string]strin
 			Resources: v1.ResourceRequirements{
 				Requests: allocatableResources(memory, cpu),
 			},
+			Image: image,
+			Env: []v1.EnvVar{
+				{
+					Name:  "env1",
+					Value: "val1",
+				},
+			},
 		}},
 		NodeSelector: nodeSelector,
 		Affinity:     affinity,
+		Tolerations: []v1.Toleration{
+			{
+				Key:    "default-toleration",
+				Value:  "default-value",
+				Effect: v1.TaintEffectNoSchedule,
+			},
+		},
 	}
+}
+
+// alterPodSpec changees podSpec to simulate possible differences between template and final pod.
+func alterPodSpec(in v1.PodSpec) v1.PodSpec {
+	out := in.DeepCopy()
+	// append some tolerations
+	out.Tolerations = append(out.Tolerations, v1.Toleration{
+		Key:    "test",
+		Value:  "value",
+		Effect: v1.TaintEffectNoExecute,
+	})
+	// set some defaults
+	i := int64(30)
+	out.TerminationGracePeriodSeconds = &i
+	out.ActiveDeadlineSeconds = &i
+
+	// Simulate schedule
+	if out.NodeName == "" {
+		out.NodeName = node1.Name
+	}
+
+	// Copy resources
+	for i := range out.Containers {
+		c := &out.Containers[i]
+		if c.Resources.Requests == nil {
+			c.Resources.Requests = c.Resources.Limits.DeepCopy()
+		}
+	}
+	return *out
 }
 
 func allocatableResources(memory, cpu string) v1.ResourceList {
@@ -334,6 +398,109 @@ func TestGetSpecFromRuntimeObject(t *testing.T) {
 		if !reflect.DeepEqual(target, spec) {
 			t.Fatalf("Unexpected spec from runtime object, expected: %v, actual: %v", expected[i], spec)
 		}
+	}
+}
+
+func changeImage(in *v1.Pod) *v1.Pod {
+	out := in.DeepCopy()
+
+	for i := range out.Spec.Containers {
+		c := &out.Spec.Containers[i]
+		c.Image = c.Image + "-diff"
+	}
+
+	return out
+}
+
+func changeEnv(in *v1.Pod) *v1.Pod {
+	out := in.DeepCopy()
+
+	for i := range out.Spec.Containers {
+		c := &out.Spec.Containers[i]
+		for j := range c.Env {
+			e := &c.Env[j]
+			e.Value = e.Value + "-diff"
+		}
+	}
+
+	return out
+}
+
+func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
+	testCases := []struct {
+		name    string
+		obj     runtime.Object
+		pod     *corev1.Pod
+		wantErr bool
+		want    bool
+	}{
+		{
+			name: "deployment, positive",
+			obj:  deployment,
+			pod:  pod,
+			want: true,
+		},
+		{
+			name: "deployment, different env",
+			obj:  deployment,
+			pod:  changeEnv(pod),
+			want: false,
+		},
+		{
+			name: "deployment, different image",
+			obj:  deployment,
+			pod:  changeImage(pod),
+			want: false,
+		},
+		{
+			name: "replicaset, positive",
+			obj:  replicaset,
+			pod:  pod,
+			want: true,
+		},
+		{
+			name: "replicationcontroller, positive",
+			obj:  replicationcontroller,
+			pod:  pod,
+			want: true,
+		},
+		{
+			name: "daemonset, positive",
+			obj:  daemonset,
+			pod:  daemonsetPod,
+			want: true,
+		},
+		{
+			name: "job, positive",
+			obj:  job,
+			pod:  pod,
+			want: true,
+		},
+		{
+			name:    "no spec.template",
+			obj:     pod, // pod has no spec.template field.
+			pod:     pod,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unstructured := &unstructured.Unstructured{}
+			if err := scheme.Scheme.Convert(tc.obj, unstructured, nil); err != nil {
+				t.Fatalf("error converting controller to unstructured: %v", err)
+			}
+			pred, err := runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(unstructured)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("unexpected error; want: %v; got %v", tc.wantErr, err)
+			}
+			if err != nil {
+				return
+			}
+			if got := pred(tc.pod); got != tc.want {
+				t.Errorf("pred(tc.pod) = %v; want %v", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -1,5 +1,7 @@
 {{$EnableConfigMaps := DefaultParam .ENABLE_CONFIGMAPS false}}
 {{$EnableSecrets := DefaultParam .ENABLE_SECRETS false}}
+{{$CpuRequest := DefaultParam .CpuRequest "10m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -25,8 +27,8 @@ spec:
         name: {{.Name}}
         resources:
           requests:
-            cpu: 10m
-            memory: "10M"
+            cpu: {{$CpuRequest}}
+            memory: {{$MemoryRequest}}
         volumeMounts:
           {{if and $EnableConfigMaps (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
           - name: configmap

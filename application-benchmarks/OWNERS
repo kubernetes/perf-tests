@@ -1,0 +1,7 @@
+reviewers:
+- sig-scalability-reviewers
+
+approvers:
+- sig-scalability-approvers
+- jberkus
+- wojtek-t

@@ -39,11 +39,17 @@ spec:
         - mountPath: /etc/grafana/provisioning/dashboards
           name: grafana-dashboards
           readOnly: false
-        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-network-programming-latency
-          name: grafana-dashboard-network-programming-latency
+        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-network
+          name: grafana-dashboard-network
+          readOnly: false
+        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-dns
+          name: grafana-dashboard-dns
           readOnly: false
         - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-master-dashboard
           name: grafana-dashboard-master-dashboard
+          readOnly: false
+        - mountPath: /grafana-dashboard-definitions/0/grafana-dashboard-slo
+          name: grafana-dashboard-slo
           readOnly: false
         env:
           - name: GF_AUTH_ANONYMOUS_ENABLED
@@ -66,8 +72,14 @@ spec:
           name: grafana-dashboards
         name: grafana-dashboards
       - configMap:
-          name: grafana-dashboard-network-programming-latency
-        name: grafana-dashboard-network-programming-latency
+          name: grafana-dashboard-network
+        name: grafana-dashboard-network
+      - configMap:
+          name: grafana-dashboard-dns
+        name: grafana-dashboard-dns
       - configMap:
           name: grafana-dashboard-master-dashboard
         name: grafana-dashboard-master-dashboard
+      - configMap:
+          name: grafana-dashboard-slo
+        name: grafana-dashboard-slo

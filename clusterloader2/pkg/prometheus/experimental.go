@@ -28,31 +28,45 @@ import (
 	"k8s.io/klog"
 )
 
+type prometheusDiskMetadata struct {
+	name string
+	zone string
+}
+
 var (
 	shouldSnapshotPrometheusDisk = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
 	prometheusDiskSnapshotName   = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
-func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
+func (pc *PrometheusController) isEnabled() (bool, error) {
 	if !*shouldSnapshotPrometheusDisk {
-		return nil
+		return false, nil
 	}
 	if pc.provider != "gce" && pc.provider != "gke" && pc.provider != "kubemark" {
-		return fmt.Errorf(
+		return false, fmt.Errorf(
 			"snapshotting Prometheus' disk only available for GCP providers (gce, gke, kubemark), provider is: %s", pc.provider)
+	}
+	return true, nil
+}
+
+func (pc *PrometheusController) cachePrometheusDiskMetadataIfEnabled() error {
+	if enabled, err := pc.isEnabled(); !enabled {
+		return err
 	}
 	return wait.Poll(
 		10*time.Second,
 		2*time.Minute,
-		pc.trySnapshotPrometheusDisk)
+		pc.tryRetrievePrometheusDiskMetadata)
 }
 
-func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
-	klog.Info("Trying to snapshot Prometheus' persistent disk...")
+func (pc *PrometheusController) tryRetrievePrometheusDiskMetadata() (bool, error) {
+	klog.Info("Retrieving Prometheus' persistent disk metadata...")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	list, err := k8sClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
 	if err != nil {
-		return false, err
+		klog.Errorf("Listing PVs failed: %v", err)
+		// Poll() stops on error so returning nil
+		return false, nil
 	}
 	var pdName, zone string
 	for _, pv := range list.Items {
@@ -75,13 +89,54 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk() (bool, error) {
 		klog.Info(string(s))
 		return true, nil
 	}
-	snapshotName := pdName
-	if *prometheusDiskSnapshotName != "" {
-		snapshotName = *prometheusDiskSnapshotName
+	pc.diskMetadata.name = pdName
+	pc.diskMetadata.zone = zone
+	return true, nil
+}
+
+func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
+	if enabled, err := pc.isEnabled(); !enabled {
+		return err
 	}
-	klog.Infof("Snapshotting PD '%s' into snapshot '%s' in zone '%s'", pdName, snapshotName, zone)
+	// Update cache of Prometheus disk metadata
+	err := wait.Poll(
+		10*time.Second,
+		2*time.Minute,
+		pc.tryRetrievePrometheusDiskMetadata)
+	if pc.diskMetadata.name == "" || pc.diskMetadata.zone == "" {
+		klog.Errorf("Missing zone or PD name, aborting snapshot")
+		klog.Infof("PD name=%s, zone=%s", pc.diskMetadata.name, pc.diskMetadata.zone)
+		return err
+	}
+	// Select snapshot name
+	snapshotName := pc.diskMetadata.name
+	if *prometheusDiskSnapshotName != "" {
+		if err := VerifySnapshotName(*prometheusDiskSnapshotName); err == nil {
+			snapshotName = *prometheusDiskSnapshotName
+		} else {
+			klog.Warningf("Incorrect disk name %v: %v. Using default name: %v", *prometheusDiskSnapshotName, err, snapshotName)
+		}
+	}
+	// Snapshot Prometheus disk
+	return wait.Poll(
+		20*time.Second,
+		10*time.Minute,
+		func() (bool, error) {
+			err := pc.trySnapshotPrometheusDisk(pc.diskMetadata.name, snapshotName, pc.diskMetadata.zone)
+			// Poll() stops on error so returning nil
+			return err == nil, nil
+		})
+}
+
+func (pc *PrometheusController) trySnapshotPrometheusDisk(pdName, snapshotName, zone string) error {
+	klog.Info("Trying to snapshot Prometheus' persistent disk...")
+	klog.Infof("Snapshotting PD %q into snapshot %q in zone %q", pdName, snapshotName, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()
-	klog.Infof("Creating disk snapshot finished with: %q\nError is: %v", string(output), err)
-	return true, err
+	if err != nil {
+		klog.Errorf("Creating disk snapshot failed: %v\nCommand output: %q", err, string(output))
+	} else {
+		klog.Infof("Creating disk snapshot finished with: %q", string(output))
+	}
+	return err
 }

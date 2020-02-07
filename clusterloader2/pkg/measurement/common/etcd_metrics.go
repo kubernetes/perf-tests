@@ -204,8 +204,10 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int)
 
 func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*model.Sample, error) {
 	sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
-	if err != nil || sshResult.Code != 0 {
+	if err != nil {
 		return nil, fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
+	} else if sshResult.Code != 0 {
+		return nil, fmt.Errorf("failed running command: %s on the host: %s", cmd, host)
 	}
 	data := sshResult.Stdout
 

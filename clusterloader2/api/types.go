@@ -110,7 +110,7 @@ type ListUnknownObjectOptions struct {
 type NamespaceRange struct {
 	// Min is the lower index of namespace range.
 	Min int32 `json: min`
-	// Min is the upper index of namespace range.
+	// Max is the upper index of namespace range.
 	Max int32 `json: max`
 	// Basename defines the group of selected namespaces.
 	// All of the namespaces, with name "<Basename>-<i>"

@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -199,7 +200,15 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int)
 
 	// Use old endpoint if new one fails, "2379" is hard-coded here as well, it is kept as is since
 	// we don't want to bloat the cluster config only for a fall-back attempt.
-	return e.sshEtcdMetrics("curl http://localhost:2379/metrics", host, provider)
+	etcdCert, etcdKey := os.Getenv("ETCD_CERTIFICATE"), os.Getenv("ETCD_KEY")
+	if etcdCert == "" || etcdKey == "" {
+		klog.Warning("empty etcd cert or key, using http")
+		cmd = "curl http://localhost:2379/metrics"
+	} else {
+		cmd = fmt.Sprintf("curl -k --cert %s --key %s https://localhost:2379/metrics", etcdCert, etcdKey)
+	}
+
+	return e.sshEtcdMetrics(cmd, host, provider)
 }
 
 func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*model.Sample, error) {

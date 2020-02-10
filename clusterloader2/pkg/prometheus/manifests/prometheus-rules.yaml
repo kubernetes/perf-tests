@@ -75,18 +75,18 @@ spec:
       labels:
         quantile: "0.50"
     - expr: |
-        histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, endpoint))
-      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_endpoint
+        histogram_quantile(0.99, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, pod))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_pod
       labels:
         quantile: "0.99"
     - expr: |
-        histogram_quantile(0.90, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, endpoint))
-      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_endpoint
+        histogram_quantile(0.90, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, pod))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_pod
       labels:
         quantile: "0.90"
     - expr: |
-        histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, endpoint))
-      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_endpoint
+        histogram_quantile(0.50, sum(rate(kubeproxy_network_programming_duration_seconds_bucket[5m])) by (le, pod))
+      record: kubeproxy:kubeproxy_network_programming_duration:histogram_quantile_by_pod
       labels:
         quantile: "0.50"
   - name: apiserver.1m.rules

@@ -24,9 +24,18 @@ def api_call_latency(title, verb, scope, threshold):
         targets=[
             g.Target(expr=str(threshold), legendFormat="threshold"),
             g.Target(
-                expr='apiserver:apiserver_request_latency_1m:histogram_quantile{quantile="0.99", verb=~"%(verb)s", scope=~"%(scope)s"}'
-                % {"verb": verb, "scope": scope},
-                legendFormat="{{verb}} {{scope}}/{{resource}}",
+                expr=d.one_line(
+                    """
+apiserver:apiserver_request_latency_1m:histogram_quantile{
+  quantile="0.99",
+  verb=~"%(verb)s",
+  scope=~"%(scope)s",
+  resource=~"${resource:regex}s*",
+}"""
+                    % {"verb": verb, "scope": scope}
+                ),
+                # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
+                # legendFormat="{{verb}} {{scope}}/{{resource}}",
             ),
         ],
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
@@ -229,23 +238,56 @@ APISERVER_PANELS = [
     ),
     d.simple_graph(
         "Number of active watches",
-        "sum(apiserver_registered_watchers) by (instance, group, version, kind)",
+        'sum(apiserver_registered_watchers{kind=~"(?i:(${resource:regex}))s*"}) by (instance, group, version, kind)',
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Watch events rate",
-        "sum(irate(apiserver_watch_events_total[1m])) by (instance, group, version, kind)",
+        d.one_line(
+            """
+sum(
+  irate(
+    apiserver_watch_events_total{
+      kind=~"(?i:(${resource:regex}))s*"
+    }[1m]
+  )
+) by (instance, group, version, kind)"""
+        ),
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Watch events traffic",
-        "sum(irate(apiserver_watch_events_sizes_sum[1m])) by (instance, group, version, kind)",
+        d.one_line(
+            """
+sum(
+  irate(
+    apiserver_watch_events_sizes_sum{
+      kind=~"(?i:(${resource:regex}))s*"
+   }[1m]
+  )
+) by (instance, group, version, kind)"""
+        ),
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
         "Watch event avg size",
-        "sum(rate(apiserver_watch_events_sizes_sum[1m]) / rate(apiserver_watch_events_sizes_count[1m])) by (instance, group, version, kind)",
+        d.one_line(
+            """
+sum(
+  rate(
+    apiserver_watch_events_sizes_sum{
+      kind=~"(?i:(${resource:regex}))s*"
+    }[1m]
+  )
+  /
+  rate(
+    apiserver_watch_events_sizes_count{
+      kind=~"(?i:(${resource:regex}))s*"
+    }[1m]
+  )
+) by (instance, group, version, kind)"""
+        ),
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
@@ -255,8 +297,19 @@ APISERVER_PANELS = [
     ),
     d.simple_graph(
         "Request rate",
-        "sum(rate(apiserver_request_total[1m])) by (verb, resource, instance)",
-        legend="{{instance}}: {{verb}} {{resource}}",
+        d.one_line(
+            """
+sum(
+  rate(
+    apiserver_request_total{
+      verb=~"${verb:regex}",
+      resource=~"${resource:regex}s*"
+    }[1m]
+  )
+) by (verb, resource, subresource, instance)"""
+        ),
+        # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
+        # legend="{{instance}}: {{verb}} {{resource}}",
     ),
     d.simple_graph(
         "Request rate by code",
@@ -264,24 +317,49 @@ APISERVER_PANELS = [
         legend="{{instance}}: {{code}}",
     ),
     d.simple_graph(
-        "Request latency (50th percentile)",
-        'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.50", verb!="WATCH"}',
-        legend="{{verb}} {{scope}}/{{resource}}",
+        "Request latency (50th percentile) (excl. WATCH)",
+        d.one_line(
+            """
+apiserver:apiserver_request_latency:histogram_quantile{
+  quantile="0.50",
+  verb!="WATCH",
+  verb=~"${verb:regex}",
+  resource=~"${resource:regex}s*"
+}"""
+        ),
+        # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
+        # legend="{{verb}} {{scope}}/{{resource}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
-        "Request latency (99th percentile)",
-        'apiserver:apiserver_request_latency:histogram_quantile{quantile="0.99", verb!="WATCH"}',
-        legend="{{verb}} {{scope}}/{{resource}}",
+        "Request latency (99th percentile) (excl. WATCH)",
+        d.one_line(
+            """
+apiserver:apiserver_request_latency:histogram_quantile{
+  quantile="0.99",
+  verb!="WATCH",
+  verb=~"${verb:regex}",
+   resource=~"${resource:regex}s*"
+}"""
+        ),
+        # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
+        # legend="{{verb}} {{scope}}/{{resource}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
-        '"Big" LIST requests',
-        'sum(rate(apiserver_request_total{verb="LIST", resource=~"nodes|pods|services|endpoints|replicationcontrollers"}[1m])) by (resource)',
-    ),
-    d.simple_graph(
-        "Traffic",
-        'sum(rate(apiserver_response_sizes_sum{verb!="WATCH"}[1m])) by (verb, version, resource, scope, instance)',
+        "Traffic (excl. WATCH)",
+        d.one_line(
+            """
+sum(
+  rate(
+    apiserver_response_sizes_sum{
+      verb!="WATCH",
+      verb=~"${verb:regex}",
+      resource=~"${resource:regex}s*"
+    }[1m]
+  )
+) by (verb, version, resource, subresource, scope, instance)"""
+        ),
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
 ]
@@ -441,6 +519,23 @@ dashboard = d.Dashboard(
                 type="query",
                 dataSource="$source",
                 query="label_values(etcd_request_duration_seconds_count, operation)",
+                multi=True,
+                includeAll=True,
+            ),
+            g.Template(
+                name="verb",
+                type="query",
+                dataSource="$source",
+                query="label_values(apiserver_request_duration_seconds_count, verb)",
+                multi=True,
+                includeAll=True,
+            ),
+            g.Template(
+                name="resource",
+                type="query",
+                dataSource="$source",
+                regex="(.*)s",
+                query="label_values(apiserver_request_duration_seconds_count, resource)",
                 multi=True,
                 includeAll=True,
             ),

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import attr
 from grafanalib import core as g
 
@@ -21,18 +22,14 @@ DECREASING_ORDER_TOOLTIP = g.Tooltip(sort=g.SORT_DESC)
 PANEL_HEIGHT = g.Pixels(300)
 QUANTILES = [0.99, 0.9, 0.5]
 
+SOURCE_TEMPLATE = g.Template(name="source", type="datasource", query="prometheus")
+
 
 @attr.s
 class Dashboard(g.Dashboard):
     time = attr.ib(default=g.Time("now-30d", "now"))
-    templating = attr.ib(
-        default=g.Templating(
-            list=[
-                # Make it possible to use $source as a source.
-                g.Template(name="source", type="datasource", query="prometheus")
-            ]
-        )
-    )
+    # Make it possible to use $source as a source.
+    templating = attr.ib(default=g.Templating(list=[SOURCE_TEMPLATE]))
 
 
 # Graph is a g.Graph with reasonable defaults applied.
@@ -96,3 +93,18 @@ def min_max_avg(base, by, legend=""):
 
 def any_of(*choices):
     return "|".join(choices)
+
+
+def one_line(text):
+    """Turns multiline PromQL string into a one line.
+
+    Useful to keep sane diffs for generated (*.json) dashboards.
+    """
+    tokens = text.split('"')
+    for i, item in enumerate(tokens):
+        if not i % 2:
+            item = re.sub(r"\s+", "", item)
+            item = re.sub(",", ", ", item)
+            item = re.sub(r"\)by\(", ") by (", item)
+            tokens[i] = item
+    return '"'.join(tokens)

@@ -86,7 +86,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			}
 			addedPods := diff.AddedPods()
 			if scaling != up && len(addedPods) > 0 {
-				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(deletedPods), strings.Join(deletedPods, ", "))
+				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
 			if options.EnableLogging {
 				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())

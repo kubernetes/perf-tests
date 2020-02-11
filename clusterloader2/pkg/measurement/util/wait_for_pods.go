@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -39,6 +40,10 @@ type WaitForPodOptions struct {
 	EnableLogging       bool
 	CallerName          string
 	WaitForPodsInterval time.Duration
+
+	// IsPodUpdated can be used to detect which pods have been already updated.
+	// nil value means all pods are updated.
+	IsPodUpdated func(*v1.Pod) bool
 }
 
 // WaitForPods waits till desired number of pods is running.
@@ -72,7 +77,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				options.DesiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.Running)
 		case <-time.After(options.WaitForPodsInterval):
 			pods := ps.List()
-			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount)
+			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount, options.IsPodUpdated)
 
 			diff := DiffPods(oldPods, pods)
 			deletedPods := diff.DeletedPods()
@@ -88,7 +93,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
-			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == options.DesiredPodCount {
+			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == options.DesiredPodCount {
 				return nil
 			}
 			oldPods = pods

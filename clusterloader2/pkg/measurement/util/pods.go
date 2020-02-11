@@ -39,16 +39,17 @@ type PodsStartupStatus struct {
 	Unknown            int
 	Inactive           int
 	Created            int
+	RunningUpdated     int
 }
 
 // String returns string representation for podsStartupStatus.
 func (s *PodsStartupStatus) String() string {
-	return fmt.Sprintf("Pods: %d out of %d created, %d running, %d pending scheduled, %d not scheduled, %d inactive, %d terminating, %d unknown, %d runningButNotReady ",
-		s.Created, s.Expected, s.Running, s.Pending, s.Waiting, s.Inactive, s.Terminating, s.Unknown, s.RunningButNotReady)
+	return fmt.Sprintf("Pods: %d out of %d created, %d running (%d updated), %d pending scheduled, %d not scheduled, %d inactive, %d terminating, %d unknown, %d runningButNotReady ",
+		s.Created, s.Expected, s.Running, s.RunningUpdated, s.Pending, s.Waiting, s.Inactive, s.Terminating, s.Unknown, s.RunningButNotReady)
 }
 
 // ComputePodsStartupStatus computes PodsStartupStatus for a group of pods.
-func ComputePodsStartupStatus(pods []*corev1.Pod, expected int) PodsStartupStatus {
+func ComputePodsStartupStatus(pods []*corev1.Pod, expected int, isPodUpdated func(*corev1.Pod) bool) PodsStartupStatus {
 	startupStatus := PodsStartupStatus{
 		Expected: expected,
 	}
@@ -69,6 +70,9 @@ func ComputePodsStartupStatus(pods []*corev1.Pod, expected int) PodsStartupStatu
 			if ready {
 				// Only count a pod is running when it is also ready.
 				startupStatus.Running++
+				if isPodUpdated == nil || isPodUpdated(p) {
+					startupStatus.RunningUpdated++
+				}
 			} else {
 				startupStatus.RunningButNotReady++
 			}

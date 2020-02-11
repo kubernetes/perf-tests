@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -63,19 +64,20 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 }
 
 type waitForControlledPodsRunningMeasurement struct {
-	apiVersion        string
-	kind              string
-	selector          *measurementutil.ObjectSelector
-	operationTimeout  time.Duration
-	stopCh            chan struct{}
-	isRunning         bool
-	queue             workerqueue.Interface
-	handlingGroup     wait.Group
-	lock              sync.Mutex
-	opResourceVersion uint64
-	gvr               schema.GroupVersionResource
-	checkerMap        checker.CheckerMap
-	clusterFramework  *framework.Framework
+	apiVersion            string
+	kind                  string
+	selector              *measurementutil.ObjectSelector
+	operationTimeout      time.Duration
+	stopCh                chan struct{}
+	isRunning             bool
+	queue                 workerqueue.Interface
+	handlingGroup         wait.Group
+	lock                  sync.Mutex
+	opResourceVersion     uint64
+	gvr                   schema.GroupVersionResource
+	checkerMap            checker.CheckerMap
+	clusterFramework      *framework.Framework
+	checkIfPodsAreUpdated bool
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -105,6 +107,11 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 			return nil, err
 		}
 		w.operationTimeout, err = util.GetDurationOrDefault(config.Params, "operationTimeout", defaultOperationTimeout)
+		if err != nil {
+			return nil, err
+		}
+		// TODO(mborsz): Change default to true.
+		w.checkIfPodsAreUpdated, err = util.GetBoolOrDefault(config.Params, "checkIfPodsAreUpdated", false)
 		if err != nil {
 			return nil, err
 		}
@@ -400,6 +407,13 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	if err != nil {
 		return nil, err
 	}
+	var isPodUpdated func(*v1.Pod) bool
+	if w.checkIfPodsAreUpdated {
+		isPodUpdated, err = runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(obj)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if isDeleted {
 		runtimeObjectReplicas = 0
 	}
@@ -422,6 +436,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			EnableLogging:       true,
 			CallerName:          w.String(),
 			WaitForPodsInterval: defaultWaitForPodsInterval,
+			IsPodUpdated:        isPodUpdated,
 		}
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.

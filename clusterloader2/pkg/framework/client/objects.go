@@ -277,7 +277,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch, metav1.UpdateOptions{})
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.MergePatchType, patch, metav1.UpdateOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(updateFunc, options...))
@@ -324,6 +324,9 @@ func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
 	}
 	preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
 		mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
-	// TODO(krzysied): Figure out way to pass original object or figure out way to use CreateTwoWayMergePatch.
-	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil, modifiedJson, currentJson, preconditions...)
+	// We are passing nil as original object to CreateThreeWayJSONMergePatch which has a drawback that
+	// if some field has been deleted between `original` and `modified` object
+	// (e.g. by removing field in object's yaml), we will never remove that field from 'current'.
+	// TODO(mborsz): Pass here the original object.
+	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil /* original */, modifiedJson, currentJson, preconditions...)
 }

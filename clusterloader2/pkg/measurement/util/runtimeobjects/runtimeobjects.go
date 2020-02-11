@@ -38,99 +38,23 @@ import (
 )
 
 // ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
-// TODO(mborsz): Use dynamic client in all cases.
-func ListRuntimeObjectsForKind(c clientset.Interface, d dynamic.Interface, gvr schema.GroupVersionResource, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
+func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResource, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
 	var runtimeObjectsList []runtime.Object
 	var listFunc func() error
 	listOpts := metav1.ListOptions{
 		LabelSelector: labelSelector,
 		FieldSelector: fieldSelector,
 	}
-	switch kind {
-	case "ReplicationController":
-		listFunc = func() error {
-			list, err := c.CoreV1().ReplicationControllers(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
+	listFunc = func() error {
+		list, err := d.Resource(gvr).List(listOpts)
+		if err != nil {
+			return err
 		}
-	case "ReplicaSet":
-		listFunc = func() error {
-			list, err := c.AppsV1().ReplicaSets(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
+		runtimeObjectsList = make([]runtime.Object, len(list.Items))
+		for i := range list.Items {
+			runtimeObjectsList[i] = &list.Items[i]
 		}
-	case "Deployment":
-		listFunc = func() error {
-			list, err := c.AppsV1().Deployments(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
-		}
-	case "StatefulSet":
-		listFunc = func() error {
-			list, err := c.AppsV1().StatefulSets(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
-		}
-	case "DaemonSet":
-		listFunc = func() error {
-			list, err := c.AppsV1().DaemonSets(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
-		}
-	case "Job":
-		listFunc = func() error {
-			list, err := c.BatchV1().Jobs(namespace).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
-		}
-	default:
-		listFunc = func() error {
-			list, err := d.Resource(gvr).List(listOpts)
-			if err != nil {
-				return err
-			}
-			runtimeObjectsList = make([]runtime.Object, len(list.Items))
-			for i := range list.Items {
-				runtimeObjectsList[i] = &list.Items[i]
-			}
-			return nil
-		}
+		return nil
 	}
 
 	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc)); err != nil {

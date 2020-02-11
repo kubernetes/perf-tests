@@ -368,7 +368,6 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() 
 	var desiredCount int
 	var maxResourceVersion uint64
 	objects, err := runtimeobjects.ListRuntimeObjectsForKind(
-		w.clusterFramework.GetClientSets().GetClient(),
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr, w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
 	if err != nil {

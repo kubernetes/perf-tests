@@ -91,35 +91,67 @@ HEALTH_PANELS = [
 ]
 
 ETCD_PANELS = [
-    d.simple_graph("etcd leader", "etcd_server_is_leader"),
+    d.simple_graph("etcd leader", "etcd_server_is_leader", legend="{{instance}}"),
     d.simple_graph(
         "etcd bytes sent",
         "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
-    ),
-    d.simple_graph(
-        "etcd lists rate",
-        'sum(rate(etcd_request_duration_seconds_count{operation="list"}[1m])) by (type)',
-        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+        legend="{{instance}}",
     ),
     d.simple_graph(
         "etcd operations rate",
-        "sum(rate(etcd_request_duration_seconds_count[1m])) by (operation, type)",
+        d.one_line(
+            """
+sum(
+  rate(
+    etcd_request_duration_seconds_count{
+      operation=~"${etcd_operation:regex}",
+      type=~".*(${etcd_type:pipe})"
+    }[1m]
+  )
+) by (operation, type)
+"""
+        ),
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
-    ),
-    d.simple_graph(
-        "etcd get lease latency by instance (99th percentile)",
-        'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get", type="*coordination.Lease"}[1m])) by (le, type, instance))',
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+        legend="{{operation}} {{type}}",
     ),
     d.simple_graph(
         "etcd get latency by type (99th percentile)",
-        'histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
+        d.one_line(
+            """
+histogram_quantile(
+  0.99,
+  sum(
+    rate(
+      etcd_request_duration_seconds_bucket{
+        operation=~"${etcd_operation:regex}",
+        type=~".*(${etcd_type:pipe})"
+      }[1m]
+    )
+  ) by (le, operation, type, instance)
+)
+"""
+        ),
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+        legend="{{operation}} {{type}} on {{instance}}",
     ),
     d.simple_graph(
         "etcd get latency by type (50th percentile)",
-        'histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation="get"}[1m])) by (le, type))',
+        d.one_line(
+            """
+histogram_quantile(
+  0.50,
+  sum(
+    rate(
+      etcd_request_duration_seconds_bucket{
+        operation=~"${etcd_operation:regex}",
+        type=~".*(${etcd_type:pipe})"
+      }[1m]
+    )
+  ) by (le, operation, type, instance)
+)
+"""
+        ),
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph("etcd instance id", "sum(etcd_server_id) by (instance, server_id)"),
@@ -392,4 +424,26 @@ dashboard = d.Dashboard(
         ),
         d.Row(title="Master VM", panels=VM_PANELS, collapse=True),
     ],
+    templating=g.Templating(
+        list=[
+            d.SOURCE_TEMPLATE,
+            g.Template(
+                name="etcd_type",
+                type="query",
+                dataSource="$source",
+                regex=r"\*\[+\]+(.*)",
+                query="label_values(etcd_request_duration_seconds_count, type)",
+                multi=True,
+                includeAll=True,
+            ),
+            g.Template(
+                name="etcd_operation",
+                type="query",
+                dataSource="$source",
+                query="label_values(etcd_request_duration_seconds_count, operation)",
+                multi=True,
+                includeAll=True,
+            ),
+        ]
+    ),
 ).auto_panel_ids()

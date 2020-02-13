@@ -40,6 +40,7 @@ type ClusterConfig struct {
 	MasterInternalIPs          []string
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
+	DeleteStaleNamespaces      bool
 }
 
 // ModifierConfig represent all flags used by test modification

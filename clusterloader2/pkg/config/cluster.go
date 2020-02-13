@@ -39,6 +39,7 @@ type ClusterConfig struct {
 	MasterInternalIPs          []string
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
+	DeleteStaleNamespaces      bool
 }
 
 // PrometheusConfig represents all flags used by prometheus.

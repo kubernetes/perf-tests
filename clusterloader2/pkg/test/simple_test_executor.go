@@ -60,13 +60,21 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	if err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh); err != nil {
 		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
 	}
-	automanagedNamespacesList, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
+	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
 	}
 	if len(automanagedNamespacesList) > 0 {
 		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
+	var deleteStaleNS = ctx.GetClusterFramework().GetClusterConfig().DeleteStaleNamespaces
+	if len(staleNamespaces) > 0 && deleteStaleNS {
+		klog.Warning("stale automanaged namespaces found")
+		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
+			klog.Errorf("stale automanaged namespaces cleanup error: %v", errList.String())
+		}
+	}
+
 	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))

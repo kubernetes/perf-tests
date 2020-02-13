@@ -513,6 +513,7 @@ dashboard = d.Dashboard(
                 query="label_values(etcd_request_duration_seconds_count, type)",
                 multi=True,
                 includeAll=True,
+                refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,
             ),
             g.Template(
                 name="etcd_operation",
@@ -521,6 +522,7 @@ dashboard = d.Dashboard(
                 query="label_values(etcd_request_duration_seconds_count, operation)",
                 multi=True,
                 includeAll=True,
+                refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,
             ),
             g.Template(
                 name="verb",
@@ -529,6 +531,7 @@ dashboard = d.Dashboard(
                 query="label_values(apiserver_request_duration_seconds_count, verb)",
                 multi=True,
                 includeAll=True,
+                refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,
             ),
             g.Template(
                 name="resource",
@@ -538,6 +541,7 @@ dashboard = d.Dashboard(
                 query="label_values(apiserver_request_duration_seconds_count, resource)",
                 multi=True,
                 includeAll=True,
+                refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,
             ),
         ]
     ),

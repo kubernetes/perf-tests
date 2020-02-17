@@ -18,6 +18,9 @@ package common
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -186,7 +189,7 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
-		if p.config.provider == "gke" {
+		if p.config.provider == "gke" || shouldGetAPIServerByK8sClient(p.config.componentName) {
 			// SSH to master is not possible in gke, but if the component is
 			// kube-apiserver we can get the profile via k8s client.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
@@ -216,6 +219,17 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 
 func (p *profileMeasurement) shouldExposeApiServerDebugEndpoint() bool {
 	return p.config.componentName == "kube-apiserver"
+}
+
+func shouldGetAPIServerByK8sClient(componentName string) bool {
+	// In some cases the kube-apiserver cannot be reached by curl.
+	// We add a config here as a walkaround.
+	getAPIServerByK8sClient, err := strconv.ParseBool(os.Getenv("GET_APISERVER_PPROF_BY_K8S_CLIENT"))
+	if err != nil {
+		klog.Warning("GET_APISERVER_PPROF_BY_K8S_CLIENT not set, using curl by default")
+	}
+
+	return getAPIServerByK8sClient && strings.EqualFold("kube-apiserver", componentName)
 }
 
 func getPortForComponent(componentName string) (int, error) {

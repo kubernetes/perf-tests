@@ -18,15 +18,11 @@ from grafanalib import core as g
 import defaults as d
 
 
-def any_of(*choices):
-    return "|".join(choices)
-
-
-def api_call_latency(title, metric, verb, scope, limit):
+def api_call_latency(title, metric, verb, scope, threshold):
     return d.Graph(
         title=title,
         targets=[
-            g.Target(expr=str(limit), legendFormat="limit"),
+            g.Target(expr=str(threshold), legendFormat="threshold"),
             g.Target(
                 expr='quantile_over_time(0.99, %(metric)s{quantile="0.99", verb=~"%(verb)s", scope=~"%(scope)s"}[12h])'
                 % {"metric": metric, "verb": verb, "scope": scope}
@@ -39,32 +35,32 @@ def api_call_latency(title, metric, verb, scope, limit):
 def create_slo_panel(metric="apiserver:apiserver_request_latency:histogram_quantile"):
     return [
         api_call_latency(
-            title="Read-only API call latency (scope=resource, limit=1s)",
+            title="Read-only API call latency (scope=resource, threshold=1s)",
             metric=metric,
             verb="GET",
             scope="namespace",
-            limit=1,
+            threshold=1,
         ),
         api_call_latency(
-            title="Read-only API call latency (scope=namespace, limit=5s)",
+            title="Read-only API call latency (scope=namespace, threshold=5s)",
             metric=metric,
             verb="LIST",
             scope="namespace",
-            limit=5,
+            threshold=5,
         ),
         api_call_latency(
-            title="Read-only API call latency (scope=cluster, limit=30s)",
+            title="Read-only API call latency (scope=cluster, threshold=30s)",
             metric=metric,
             verb="LIST",
             scope="cluster",
-            limit=30,
+            threshold=30,
         ),
         api_call_latency(
-            title="Mutating API call latency (limit=1s)",
+            title="Mutating API call latency (threshold=1s)",
             metric=metric,
-            verb=any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
-            scope=any_of("namespace", "cluster"),
-            limit=1,
+            verb=d.any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
+            scope=d.any_of("namespace", "cluster"),
+            threshold=1,
         ),
     ]
 
@@ -74,12 +70,6 @@ dashboard = d.Dashboard(
     title="SLO",
     rows=[
         d.Row(title="SLO", panels=create_slo_panel()),
-        d.Row(
-            title="Experimental: SLO (window 30s)",
-            panels=create_slo_panel(
-                metric="apiserver:apiserver_request_latency_30s:histogram_quantile"
-            ),
-        ),
         d.Row(
             title="Experimental: SLO (window 1m)",
             panels=create_slo_panel(

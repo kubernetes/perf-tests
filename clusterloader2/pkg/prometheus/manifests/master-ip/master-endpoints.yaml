@@ -1,13 +1,14 @@
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+{{$PROMETHEUS_SCRAPE_APISERVER_ONLY := DefaultParam .PROMETHEUS_SCRAPE_APISERVER_ONLY false}}
 
-# Endpoints object for the kubemark/kube-apiserver service. For details, see the service object yaml
+# Endpoints object for the kubelet running on master node.
 apiVersion: v1
 kind: Endpoints
 metadata:
-  namespace: kubemark
-  name: kubemark-master
+  namespace: monitoring
+  name: master
   labels:
-    instance: kubemark-master
+    k8s-app: master
 subsets:
   - addresses:
     {{range .MasterIps}}
@@ -16,6 +17,7 @@ subsets:
     ports:
       - name: apiserver
         port: 443
+      {{if not $PROMETHEUS_SCRAPE_APISERVER_ONLY}}
       - name: etcd-2379
         port: 2379
       - name: etcd-2382
@@ -26,6 +28,7 @@ subsets:
         port: 10251
       - name: kube-controller-manager
         port: 10252
+      {{end}}
       {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
       - name: node-exporter
         port: 9100

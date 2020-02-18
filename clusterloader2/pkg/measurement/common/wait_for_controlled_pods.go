@@ -110,8 +110,7 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Me
 		if err != nil {
 			return nil, err
 		}
-		// TODO(mborsz): Change default to true.
-		w.checkIfPodsAreUpdated, err = util.GetBoolOrDefault(config.Params, "checkIfPodsAreUpdated", false)
+		w.checkIfPodsAreUpdated, err = util.GetBoolOrDefault(config.Params, "checkIfPodsAreUpdated", true)
 		if err != nil {
 			return nil, err
 		}

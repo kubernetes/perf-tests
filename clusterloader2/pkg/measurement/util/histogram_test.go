@@ -90,3 +90,63 @@ func TestConvertSampleToBucket(t *testing.T) {
 		}
 	}
 }
+
+// TestHistogramQuantile makes sure sorted/unsorted list of samples
+// gives the same percentiles
+func TestHistogramQuantile(t *testing.T) {
+	tests := []struct {
+		histogram Histogram
+		q50       float64
+		q90       float64
+		q99       float64
+	}{
+		// unsorted sequence
+		{
+			histogram: Histogram{
+				Buckets: map[string]int{
+					"4": 10,
+					"8": 20,
+					"1": 20,
+					"2": 10,
+				},
+			},
+			q50: 0.5,
+			q90: 7.2,
+			q99: 7.92,
+		},
+		// unsorted sequence
+		{
+			histogram: Histogram{
+				Buckets: map[string]int{
+					"1": 20,
+					"2": 10,
+					"4": 10,
+					"8": 20,
+				},
+			},
+			q50: 0.5,
+			q90: 7.2,
+			q99: 7.92,
+		},
+	}
+
+	for _, test := range tests {
+		if q50, err := test.histogram.Quantile(0.5); err != nil {
+			t.Errorf("Unexpected error for q50: %v", err)
+		} else if q50 != test.q50 {
+			t.Errorf("Expected q50 to be %v, got %v instead", test.q50, q50)
+		}
+
+		if q90, err := test.histogram.Quantile(0.9); err != nil {
+			t.Errorf("Unexpected error for q90: %v", err)
+		} else if q90 != test.q90 {
+			t.Errorf("Expected q90 to be %v, got %v instead", test.q90, q90)
+		}
+
+		if q99, err := test.histogram.Quantile(0.99); err != nil {
+			t.Errorf("Unexpected error for q99: %v", err)
+		} else if q99 != test.q99 {
+			t.Errorf("Expected q99 to be %v, got %v instead", test.q99, q99)
+		}
+	}
+}

@@ -22,49 +22,11 @@ import (
 	"sort"
 	"strconv"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
+
+	"k8s.io/component-base/metrics/testutil"
 )
-
-// Bucket of a histogram
-type bucket struct {
-	upperBound float64
-	count      float64
-}
-
-type buckets []bucket
-
-func (b buckets) Len() int           { return len(b) }
-func (b buckets) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b buckets) Less(i, j int) bool { return b[i].upperBound < b[j].upperBound }
-
-// bucketQuantile return Quantile of calculate from buckets
-// copy from https://github.com/kubernetes/kubernetes/pull/85861/files#diff-8fc16044937fc03c39b585a657b20150R179-R209
-func bucketQuantile(q float64, buckets buckets) float64 {
-	if q < 0 {
-		return math.Inf(-1)
-	}
-	if q > 1 {
-		return math.Inf(+1)
-	}
-
-	if len(buckets) < 2 {
-		return math.NaN()
-	}
-
-	rank := q * buckets[len(buckets)-1].count
-	b := sort.Search(len(buckets)-1, func(i int) bool { return buckets[i].count >= rank })
-
-	if b == 0 {
-		return buckets[0].upperBound * (rank / buckets[0].count)
-	}
-
-	// linear approximation of b-th bucket
-	brank := rank - buckets[b-1].count
-	bSize := buckets[b].upperBound - buckets[b-1].upperBound
-	bCount := buckets[b].count - buckets[b-1].count
-
-	return buckets[b-1].upperBound + bSize*(brank/bCount)
-}
 
 // Histogram is a structure that represents distribution of data.
 type Histogram struct {
@@ -74,20 +36,31 @@ type Histogram struct {
 
 // Quantile calculates the quantile 'q' based on the given buckets of Histogram.
 func (h *Histogram) Quantile(q float64) (float64, error) {
-	var b []bucket
+	hist := testutil.Histogram{
+		&dto.Histogram{
+			Bucket: []*dto.Bucket{},
+		},
+	}
+
 	for k, v := range h.Buckets {
 		upper, err := strconv.ParseFloat(k, 64)
 		if err != nil {
 			return math.MaxFloat64, err
 		}
-		b = append(b, bucket{
-			upperBound: upper,
-			count:      float64(v),
+
+		cumulativeCount := uint64(v)
+		hist.Bucket = append(hist.Bucket, &dto.Bucket{
+			CumulativeCount: &cumulativeCount,
+			UpperBound:      &upper,
 		})
 	}
 
-	sort.Sort(buckets(b))
-	return bucketQuantile(q, b), nil
+	// hist.Quantile expected a slice of Buckets ordered by UpperBound
+	sort.Slice(hist.Bucket, func(i, j int) bool {
+		return *hist.Bucket[i].UpperBound < *hist.Bucket[j].UpperBound
+	})
+
+	return hist.Quantile(q), nil
 }
 
 // HistogramVec is an array of Histograms.

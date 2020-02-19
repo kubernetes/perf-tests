@@ -38,7 +38,7 @@ import (
 const (
 	schedulerLatencyMetricName = "SchedulingMetrics"
 
-	e2eSchedulingMetricName = "e2e_scheduling_duration_seconds_bucket"
+	e2eSchedulingMetricName = "scheduler_e2e_scheduling_duration_seconds_bucket"
 
 	schedulingLatencyMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.SchedulingLatencyName)
 	singleRestCallTimeout       = 5 * time.Minute

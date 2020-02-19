@@ -8,11 +8,6 @@ metadata:
   name: k8s
   namespace: monitoring
 spec:
-  alerting:
-    alertmanagers:
-    - name: alertmanager-main
-      namespace: monitoring
-      port: web
   baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
   nodeSelector:
     beta.kubernetes.io/os: linux
@@ -29,7 +24,6 @@ spec:
   ruleSelector:
     matchLabels:
       prometheus: k8s
-      role: alert-rules
   securityContext:
     fsGroup: 2000
     runAsNonRoot: true

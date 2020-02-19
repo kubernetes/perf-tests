@@ -51,7 +51,7 @@ Parameters can be passed from the test definition to the object template
 using the ```templateFillMap``` map.
 Two always available parameters are ```{{.Name}}``` and ```{{.Index}}```
 which specifies object name and object replica index respectively. \
-Example of a template can be found here: [load rc template].
+Example of a template can be found here: [load deployment template].
 
 ### Overrides
 
@@ -61,6 +61,25 @@ that potentially will be provided by the test framework. Cause input parameters 
 each reference has to be opaqued with ```DefaultParam``` function that will
 handle case if given variable doesn't exist. \
 Example of overrides can be found here: [overrides]
+
+#### Passing environment variables
+
+Instead of using overrides in file, it is possible to depend on environment
+variables. Only variables that start with `CL2_` prefix will be parsed and
+available in script.
+
+Environment variables can be used with `DefaultParam` function to provide sane
+default values.
+
+##### Setting variables in shell
+```shell
+export CL2_ACCESS_TOKENS_QPS=5
+```
+
+##### Usage from test definition
+```yaml
+{{$qpsPerToken := DefaultParam .CL2_ACCESS_TOKENS_QPS 0.1}}
+```
 
 ## Measurement
 
@@ -120,7 +139,7 @@ Vendor is created using [govendor].
 [API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [govendor]: https://github.com/kardianos/govendor
-[load rc template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/rc.yaml
+[load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
 [overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml
 [pod startup SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md

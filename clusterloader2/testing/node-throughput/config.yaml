@@ -3,9 +3,11 @@
 
 #Constants
 {{$POD_COUNT := DefaultParam .POD_COUNT 100}}
-{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 2}}
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 5}}
 {{$CONTAINER_IMAGE := DefaultParam .CONTAINER_IMAGE "k8s.gcr.io/pause:3.1"}}
 {{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$OPERATION_TIMEOUT := DefaultParam .OPERATION_TIMEOUT "15m"}}
+{{$WINDOWS_NODE_TEST := DefaultParam .WINDOWS_NODE_TEST false}}
 
 name: node-throughput
 automanagedNamespaces: {{$POD_COUNT}}
@@ -15,10 +17,10 @@ tuningSets:
     qps: {{$POD_THROUGHPUT}}
 steps:
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
     Params:
-      action: reset
+      action: start
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
@@ -33,7 +35,7 @@ steps:
       apiVersion: v1
       kind: ReplicationController
       labelSelector: group = latency
-      operationTimeout: 15m
+      operationTimeout: {{$OPERATION_TIMEOUT}}
 - phases:
   - namespaceRange:
       min: 1
@@ -47,6 +49,7 @@ steps:
         Replicas: 1
         Group: latency
         Image: {{$CONTAINER_IMAGE}}
+        WindowsNodeTest: {{$WINDOWS_NODE_TEST}}
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
@@ -73,7 +76,10 @@ steps:
     Params:
       action: gather
 - measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple

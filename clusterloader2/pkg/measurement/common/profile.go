@@ -18,11 +18,18 @@ package common
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -49,7 +56,7 @@ func init() {
 type profileConfig struct {
 	componentName string
 	provider      string
-	host          string
+	hosts         []string
 	kind          string
 }
 
@@ -61,9 +68,7 @@ func (p *profileMeasurement) populateProfileConfig(config *measurement.Measureme
 	if p.config.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
 		return err
 	}
-	if p.config.host, err = util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp()); err != nil {
-		return err
-	}
+	p.config.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
 	return nil
 }
 
@@ -89,6 +94,17 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
+	if len(p.config.hosts) < 1 {
+		klog.Warning("Profile measurements will be disabled due to no MasterIps")
+		return nil
+	}
+	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
+	if p.shouldExposeApiServerDebugEndpoint() {
+		if err := exposeAPIServerDebugEndpoint(k8sClient); err != nil {
+			klog.Warningf("error while exposing kube-apiserver /debug endpoint: %v", err)
+		}
+	}
+
 	p.summaries = make([]measurement.Summary, 0)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
@@ -107,13 +123,13 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummary, err := p.gatherProfile(config.ClusterFramework.GetClientSets().GetClient())
+				profileSummaries, err := p.gatherProfile(k8sClient)
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
 				}
-				if profileSummary != nil {
-					p.summaries = append(p.summaries, profileSummary)
+				if profileSummaries != nil {
+					p.summaries = append(p.summaries, profileSummaries...)
 				}
 			}
 		}
@@ -159,43 +175,117 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface) (measurement.Summary, error) {
-	profilePrefix := fmt.Sprintf("%s_%s", p.config.componentName, p.name)
-	if p.config.componentName == "kube-apiserver" {
-		body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
-		if err != nil {
-			return nil, err
-		}
-		return measurement.CreateSummary(profilePrefix, "pprof", string(body)), err
-	}
-
+func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement.Summary, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
 	}
-	// Get the profile data over SSH.
-	getCommand := fmt.Sprintf("curl -s localhost:%v/debug/pprof/%s", profilePort, p.config.kind)
-	sshResult, err := measurementutil.SSH(getCommand, p.config.host+":22", p.config.provider)
-	if err != nil {
-		if p.config.provider == "gke" {
+	profileProtocol := getProtocolForComponent(p.config.componentName)
+	getCommand := fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
+
+	var summaries []measurement.Summary
+	for _, host := range p.config.hosts {
+		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
+
+		// Get the profile data over SSH.
+		// Start by checking that the provider allows us to do so.
+		if p.config.provider == "gke" || shouldGetAPIServerByK8sClient(p.config.componentName) {
+			// SSH to master is not possible in gke, but if the component is
+			// kube-apiserver we can get the profile via k8s client.
+			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
+			if p.config.componentName == "kube-apiserver" {
+				body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
+				if err != nil {
+					return nil, err
+				}
+				summary := measurement.CreateSummary(profilePrefix, "pprof", string(body))
+				summaries = append(summaries, summary)
+				break
+			}
 			// Only logging error for gke. SSHing to gke master is not supported.
-			klog.Errorf("%s: failed to execute curl command on master through SSH: %v", p.name, err)
+			klog.Warningf("%s: failed to execute curl command on master through SSH", p.name)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to execute curl command on master through SSH: %v", err)
+
+		sshResult, err := measurementutil.SSH(getCommand, host+":22", p.config.provider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute curl command on master node %s through SSH: %v", host, err)
+		}
+		summaries = append(summaries, measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout))
 	}
 
-	return measurement.CreateSummary(profilePrefix, "pprof", sshResult.Stdout), err
+	return summaries, nil
+}
+
+func (p *profileMeasurement) shouldExposeApiServerDebugEndpoint() bool {
+	return p.config.componentName == "kube-apiserver"
+}
+
+func shouldGetAPIServerByK8sClient(componentName string) bool {
+	// In some cases the kube-apiserver cannot be reached by curl.
+	// We add a config here as a walkaround.
+	getAPIServerByK8sClient, err := strconv.ParseBool(os.Getenv("GET_APISERVER_PPROF_BY_K8S_CLIENT"))
+	if err != nil {
+		klog.Warning("GET_APISERVER_PPROF_BY_K8S_CLIENT not set, using curl by default")
+	}
+
+	return getAPIServerByK8sClient && strings.EqualFold("kube-apiserver", componentName)
 }
 
 func getPortForComponent(componentName string) (int, error) {
 	switch componentName {
 	case "etcd":
 		return 2379, nil
-	case "kube-scheduler":
-		return 10251, nil
+	case "kube-apiserver":
+		return 443, nil
 	case "kube-controller-manager":
 		return 10252, nil
+	case "kube-scheduler":
+		return 10251, nil
 	}
 	return -1, fmt.Errorf("port for component %v unknown", componentName)
+}
+
+func getProtocolForComponent(componentName string) string {
+	switch componentName {
+	case "kube-apiserver":
+		return "https://"
+	default:
+		return "http://"
+	}
+}
+
+func exposeAPIServerDebugEndpoint(c clientset.Interface) error {
+	klog.Info("Exposing kube-apiserver debug endpoint for anonymous access")
+	createClusterRole := func() error {
+		_, err := c.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-debug-viewer"},
+			Rules: []rbacv1.PolicyRule{
+				{Verbs: []string{"get"}, NonResourceURLs: []string{"/debug/*"}},
+			},
+		})
+		return err
+	}
+	createClusterRoleBinding := func() error {
+		_, err := c.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "anonymous:apiserver-debug-viewer"},
+			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-debug-viewer"},
+			Subjects: []rbacv1.Subject{
+				{Kind: "User", Name: "system:anonymous"},
+			},
+		})
+		return err
+	}
+	if err := retryCreateFunction(createClusterRole); err != nil {
+		return err
+	}
+	if err := retryCreateFunction(createClusterRoleBinding); err != nil {
+		return err
+	}
+	return nil
+}
+
+func retryCreateFunction(f func() error) error {
+	return client.RetryWithExponentialBackOff(
+		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
 }

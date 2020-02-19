@@ -63,7 +63,11 @@ func RetryWithExponentialBackOff(fn wait.ConditionFunc) error {
 func IsRetryableAPIError(err error) bool {
 	// These errors may indicate a transient error that we can retry in tests.
 	if apierrs.IsInternalError(err) || apierrs.IsTimeout(err) || apierrs.IsServerTimeout(err) ||
-		apierrs.IsTooManyRequests(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) {
+		apierrs.IsTooManyRequests(err) || utilnet.IsProbableEOF(err) || utilnet.IsConnectionReset(err) ||
+		// Retryable resource-quotas conflict errors may be returned in some cases, e.g. https://github.com/kubernetes/kubernetes/issues/67761
+		isResourceQuotaConflictError(err) ||
+		// Our client is using OAuth2 where 401 (unauthorized) can mean that our token has expired and we need to retry with a new one.
+		apierrs.IsUnauthorized(err) {
 		return true
 	}
 	// If the error sends the Retry-After header, we respect it as an explicit confirmation we should retry.
@@ -71,6 +75,17 @@ func IsRetryableAPIError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isResourceQuotaConflictError(err error) bool {
+	apiErr, ok := err.(apierrs.APIStatus)
+	if !ok {
+		return false
+	}
+	if apiErr.Status().Reason != metav1.StatusReasonConflict {
+		return false
+	}
+	return apiErr.Status().Details != nil && apiErr.Status().Details.Kind == "resourcequotas"
 }
 
 // IsRetryableNetError determines whether the error is a retryable net error.
@@ -262,7 +277,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.StrategicMergePatchType, patch, metav1.UpdateOptions{})
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.MergePatchType, patch, metav1.UpdateOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(updateFunc, options...))
@@ -309,6 +324,9 @@ func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
 	}
 	preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
 		mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
-	// TODO(krzysied): Figure out way to pass original object or figure out way to use CreateTwoWayMergePatch.
-	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil, modifiedJson, currentJson, preconditions...)
+	// We are passing nil as original object to CreateThreeWayJSONMergePatch which has a drawback that
+	// if some field has been deleted between `original` and `modified` object
+	// (e.g. by removing field in object's yaml), we will never remove that field from 'current'.
+	// TODO(mborsz): Pass here the original object.
+	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil /* original */, modifiedJson, currentJson, preconditions...)
 }

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/klog"
 )
 
 func init() {
@@ -45,6 +46,7 @@ func GetFuncs() template.FuncMap {
 		"DivideInt":     divideInt,
 		"IfThenElse":    ifThenElse,
 		"IncludeFile":   includeFile,
+		"Loop":          loop,
 		"MaxFloat":      maxFloat,
 		"MaxInt":        maxInt,
 		"MinFloat":      minFloat,
@@ -55,14 +57,18 @@ func GetFuncs() template.FuncMap {
 		"RandInt":       randInt,
 		"RandIntRange":  randIntRange,
 		"Seq":           seq,
+		"SliceOfZeros":  sliceOfZeros,
 		"SubtractFloat": subtractFloat,
 		"SubtractInt":   subtractInt,
 		"YamlQuote":     yamlQuote,
 	}
 }
 
+// seq returns a slice of size 'size' filled with zeros.
+// Deprecated: Naming generates confusion. Please use 'SliceOfZeros' for explicit zero values or 'Loop' for incremential integer generation.
 func seq(size interface{}) []int {
-	return make([]int, int(toFloat64(size)))
+	klog.Warningf("Seq is deprecated. Instead please use 'SliceOfZeros' to replicate current behaviour or 'Loop' for simple incremential integer generation.")
+	return sliceOfZeros(size)
 }
 
 func toFloat64(val interface{}) float64 {
@@ -243,4 +249,21 @@ func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface
 		return thenVal, nil
 	}
 	return elseVal, nil
+}
+
+// sliceOfZeros returns a slice of a constant size all filed with zero.
+//
+// In-place replacement for deprecated 'Seq'.
+func sliceOfZeros(size interface{}) []int {
+	return make([]int, int(toFloat64(size)))
+}
+
+// loop returns a slice with incremential values starting from zero.
+func loop(size interface{}) []int {
+	sizeInt := int(toFloat64(size))
+	slice := make([]int, sizeInt)
+	for i := range slice {
+		slice[i] = i
+	}
+	return slice
 }

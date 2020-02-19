@@ -177,3 +177,39 @@ func (s *PVStore) List() []*v1.PersistentVolume {
 	}
 	return pvs
 }
+
+// NodeStore is a convenient wrapper around cache.Store.
+type NodeStore struct {
+	*ObjectStore
+}
+
+// NewNodeStore creates NodeStore based on a given object selector.
+func NewNodeStore(c clientset.Interface, selector *ObjectSelector) (*NodeStore, error) {
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().Nodes().List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = selector.LabelSelector
+			options.FieldSelector = selector.FieldSelector
+			return c.CoreV1().Nodes().Watch(options)
+		},
+	}
+	objectStore, err := newObjectStore(&v1.Node{}, lw, selector)
+	if err != nil {
+		return nil, err
+	}
+	return &NodeStore{ObjectStore: objectStore}, nil
+}
+
+// List returns list of nodes that satisfy conditions provided to NewNodeStore.
+func (s *NodeStore) List() []*v1.Node {
+	objects := s.Store.List()
+	nodes := make([]*v1.Node, 0, len(objects))
+	for _, o := range objects {
+		nodes = append(nodes, o.(*v1.Node))
+	}
+	return nodes
+}

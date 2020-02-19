@@ -19,8 +19,8 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"k8s.io/klog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -311,22 +311,6 @@ var (
 	}
 
 	storageDescriptions = TestDescriptions{
-		"APIServer": {
-			"Responsiveness": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parsePerfData,
-				},
-			},
-			"RequestCount": []TestDescription{
-				{
-					Name:             "storage",
-					OutputFilePrefix: "APIResponsiveness",
-					Parser:           parseRequestCountData,
-				},
-			},
-		},
 		"E2E": {
 			"PodStartup": []TestDescription{
 				{
@@ -338,11 +322,24 @@ var (
 		},
 	}
 
+	throughputDescriptions = TestDescriptions{
+		"E2E": {
+			"PodStartup": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
+					Parser:           parsePerfData,
+				},
+			},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
 		"benchmark":    benchmarkDescriptions,
 		"dnsBenchmark": dnsBenchmarkDescriptions,
 		"storage":      storageDescriptions,
+		"throughput":   throughputDescriptions,
 	}
 )
 
@@ -384,10 +381,10 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 	jobs := Jobs{}
 
 	for _, configPath := range configPaths {
-		fmt.Fprintf(os.Stderr, "Fetching config %s\n", configPath)
+		klog.Infof("Fetching config %s", configPath)
 		// Perfdash supports only yamls.
 		if !strings.HasSuffix(configPath, ".yaml") {
-			fmt.Fprintf(os.Stderr, "%s is not an yaml file!\n", configPath)
+			klog.Warningf("%s is not an yaml file!", configPath)
 			continue
 		}
 		var content []byte
@@ -408,13 +405,13 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 		for _, periodic := range conf.Periodics {
 			config, err := parsePeriodicConfig(periodic)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to parse config of %q due to: %v\n",
+				klog.Errorf("warning: failed to parse config of %q due to: %v",
 					periodic.Name, err)
 				continue
 			}
 			shouldUse, err := checkIfConfigShouldBeUsed(config)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to validate config of %q due to: %v\n",
+				klog.Errorf("warning: failed to validate config of %q due to: %v",
 					periodic.Name, err)
 				continue
 			}
@@ -423,7 +420,7 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 			}
 		}
 	}
-	fmt.Printf("Read configs with %d jobs\n", len(jobs))
+	klog.Infof("Read configs with %d jobs", len(jobs))
 	return jobs, nil
 }
 

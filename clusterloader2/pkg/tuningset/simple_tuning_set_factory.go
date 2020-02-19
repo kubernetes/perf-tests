@@ -23,13 +23,15 @@ import (
 )
 
 type simpleTuningSetFactory struct {
-	tuningSetMap map[string]*api.TuningSet
+	tuningSetMap         map[string]*api.TuningSet
+	globalQPSLoadFactory *globalQPSLoadFactory
 }
 
 // NewTuningSetFactory creates new ticker factory.
 func NewTuningSetFactory() TuningSetFactory {
 	return &simpleTuningSetFactory{
-		tuningSetMap: make(map[string]*api.TuningSet),
+		tuningSetMap:         make(map[string]*api.TuningSet),
+		globalQPSLoadFactory: newGlobalQPSLoadFactory(),
 	}
 }
 
@@ -60,6 +62,8 @@ func (tf *simpleTuningSetFactory) CreateTuningSet(name string) (TuningSet, error
 		return newRandomizedTimeLimitedLoad(tuningSet.RandomizedTimeLimitedLoad), nil
 	case tuningSet.ParallelismLimitedLoad != nil:
 		return newParallelismLimitedLoad(tuningSet.ParallelismLimitedLoad), nil
+	case tuningSet.GlobalQPSLoad != nil:
+		return tf.globalQPSLoadFactory.GetOrCreate(name, tuningSet.GlobalQPSLoad), nil
 	default:
 		return nil, fmt.Errorf("incorrect tuning set: %v", tuningSet)
 	}

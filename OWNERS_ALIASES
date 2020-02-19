@@ -1,0 +1,9 @@
+aliases:
+  sig-scalability-reviewers:
+    - mm4tt
+    - shyamjvs
+    - wojtek-t
+  sig-scalability-approvers:
+    - mm4tt
+    - shyamjvs
+    - wojtek-t

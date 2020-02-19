@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -73,6 +74,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 		return nil, nil
 	}
 
+	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
 	switch action {
 	case "start":
 		klog.Infof("%s: starting etcd metrics collecting...", e)
@@ -81,12 +83,12 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 			return nil, err
 		}
 		for _, h := range hosts {
-			e.startCollecting(h, provider, waitTime)
+			e.startCollecting(h, provider, waitTime, etcdInsecurePort)
 		}
 		return nil, nil
 	case "gather":
 		for _, h := range hosts {
-			if err = e.stopAndSummarize(h, provider); err != nil {
+			if err = e.stopAndSummarize(h, provider, etcdInsecurePort); err != nil {
 				return nil, err
 			}
 		}
@@ -114,12 +116,12 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration) {
+func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int) {
 	e.isRunning = true
 	e.wg.Add(1)
 
 	collectEtcdDatabaseSize := func() error {
-		dbSize, err := e.getEtcdDatabaseSize(host, provider)
+		dbSize, err := e.getEtcdDatabaseSize(host, provider, port)
 		if err != nil {
 			return err
 		}
@@ -147,10 +149,10 @@ func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(host, provider)
+	samples, err := e.getEtcdMetrics(host, provider, port)
 	if err != nil {
 		return err
 	}
@@ -180,7 +182,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string) error {
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if provider == "gke" {
 		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for gke", e)
@@ -188,28 +190,41 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string) ([]*model
 	}
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
-	// http://localhost:2382 is specified to bypass TLS credential requirement when checking
-	// etcd /metrics and /health.
-	if samples, err := e.sshEtcdMetrics("curl http://localhost:2382/metrics", host, provider); err == nil {
+	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you
+	// need to provide the insecure http port number to access etcd, http://localhost:2382 for
+	// example.
+	cmd := fmt.Sprintf("curl http://localhost:%d/metrics", port)
+	if samples, err := e.sshEtcdMetrics(cmd, host, provider); err == nil {
 		return samples, nil
 	}
 
-	// Use old endpoint if new one fails.
-	return e.sshEtcdMetrics("curl http://localhost:2379/metrics", host, provider)
+	// Use old endpoint if new one fails, "2379" is hard-coded here as well, it is kept as is since
+	// we don't want to bloat the cluster config only for a fall-back attempt.
+	etcdCert, etcdKey := os.Getenv("ETCD_CERTIFICATE"), os.Getenv("ETCD_KEY")
+	if etcdCert == "" || etcdKey == "" {
+		klog.Warning("empty etcd cert or key, using http")
+		cmd = "curl http://localhost:2379/metrics"
+	} else {
+		cmd = fmt.Sprintf("curl -k --cert %s --key %s https://localhost:2379/metrics", etcdCert, etcdKey)
+	}
+
+	return e.sshEtcdMetrics(cmd, host, provider)
 }
 
 func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*model.Sample, error) {
 	sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
-	if err != nil || sshResult.Code != 0 {
+	if err != nil {
 		return nil, fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
+	} else if sshResult.Code != 0 {
+		return nil, fmt.Errorf("failed running command: %s on the host: %s", cmd, host)
 	}
 	data := sshResult.Stdout
 
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string) (float64, error) {
-	samples, err := e.getEtcdMetrics(host, provider)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider, port)
 	if err != nil {
 		return 0, err
 	}

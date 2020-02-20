@@ -22,12 +22,12 @@ spec:
         image: k8s.gcr.io/pause:3.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
-        {{ range $volumeIndex, $vol := Seq .VolumesPerPod }}
+        {{ range $volumeIndex := Loop .VolumesPerPod }}
         - name: vol-{{$volumeIndex}}
           mountPath: /usr/share/{{$volumeIndex}}
         {{ end }}
       volumes:
-      {{ range $volumeIndex, $vol := Seq .VolumesPerPod }}
+      {{ range $volumeIndex := Loop .VolumesPerPod }}
       - name: vol-{{$volumeIndex}}
         downwardAPI:
           items:

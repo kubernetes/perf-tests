@@ -629,7 +629,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-      {{range $ssIndex := Seq $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+      {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-small-statefulset-{{$ssIndex}}
         objectTemplatePath: pvc.yaml
         listUnknownObjectOptions:
@@ -643,7 +643,7 @@ steps:
     replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
-      {{range $ssIndex := Seq $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+      {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-medium-statefulset-{{$ssIndex}}
         objectTemplatePath: pvc.yaml
         listUnknownObjectOptions:

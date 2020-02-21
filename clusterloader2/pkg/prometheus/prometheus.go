@@ -44,7 +44,6 @@ const (
 	coreManifests                = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml"
 	defaultServiceMonitors       = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/*.yaml"
 	masterIPServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/master-ip/*.yaml"
-	kubemarkServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/kubemark/*.yaml"
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
@@ -142,15 +141,12 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 			return err
 		}
 	}
-	if pc.isKubemark() {
-		if err := pc.applyManifests(kubemarkServiceMonitors); err != nil {
-			return err
-		}
-	} else {
+	if !pc.isKubemark() {
 		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
 			return err
 		}
 	}
+
 	if _, ok := pc.templateMapping["MasterIps"]; ok {
 		if err := pc.exposeAPIServerMetrics(); err != nil {
 			return err
@@ -312,13 +308,13 @@ func (pc *PrometheusController) isPrometheusReady() (bool, error) {
 		expectedTargets)
 }
 
-func (pc *PrometheusController) isKubemark() bool {
-	return pc.provider == "kubemark"
-}
-
 func retryCreateFunction(f func() error) error {
 	return client.RetryWithExponentialBackOff(
 		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
+}
+
+func (pc *PrometheusController) isKubemark() bool {
+	return pc.provider == "kubemark"
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {

@@ -1,0 +1,12 @@
+{{$WINDOWS_NODE_NAME := DefaultParam .WINDOWS_NODE_NAME ""}}
+
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: monitoring
+  name: windows-scrape-configs
+stringData:
+  windows-scrape-configs.yaml: |-
+    - job_name: "monitoring/windows_static"
+      static_configs:
+      - targets: ["{{$WINDOWS_NODE_NAME}}:5000"]

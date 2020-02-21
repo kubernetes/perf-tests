@@ -118,6 +118,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"].(bool)
 	}
 	mapping["PROMETHEUS_SCRAPE_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets
+
 	pc.templateMapping = mapping
 
 	return pc, nil
@@ -132,6 +133,12 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 	klog.Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
+	}
+	// If enabled scraping windows node, need to setup windows node and template mapping
+	if isWindowsNodeScrapingEnabled(pc.templateMapping, pc.clusterLoaderConfig) {
+		if err := setUpWindowsNodeAndTemplate(k8sClient, pc.templateMapping); err != nil {
+			return err
+		}
 	}
 	if err := pc.applyManifests(coreManifests); err != nil {
 		return err

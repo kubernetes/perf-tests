@@ -4,3 +4,5 @@ POD_THROUGHPUT: 0.03
 CONTAINER_IMAGE: gcr.io/gke-release/pause-win:1.1.0
 OPERATION_TIMEOUT: 90m
 POD_STARTUP_LATENCY_THRESHOLD: 60m
+WMI_EXPORTER_URL: "https://github.com/martinlindhe/wmi_exporter/releases/download/v0.10.1/wmi_exporter-0.10.1-amd64.msi"
+WMI_EXPORTER_ENABLED_COLLECTORS: "process,cs"

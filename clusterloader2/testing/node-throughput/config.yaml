@@ -17,6 +17,12 @@ tuningSets:
     qps: {{$POD_THROUGHPUT}}
 steps:
 - measurements:
+  {{if $WINDOWS_NODE_TEST}}
+  - Identifier: WindowsResourceUsagePrometheus
+    Method: WindowsResourceUsagePrometheus
+    Params:
+      action: start
+  {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
@@ -55,6 +61,12 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+  {{if $WINDOWS_NODE_TEST}}
+  - Identifier: WindowsResourceUsagePrometheus
+    Method: WindowsResourceUsagePrometheus
+    Params:
+      action: gather
+  {{end}}
 - phases:
   - namespaceRange:
       min: 1

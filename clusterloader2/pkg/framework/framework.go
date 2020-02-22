@@ -143,20 +143,27 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
 	return automanagedNamespacesList, staleNamespaces, nil
 }
 
+func (f *Framework) deleteNamespace(namespace string) error {
+	clientSet := f.clientSets.GetClient()
+	if err := client.DeleteNamespace(clientSet, namespace); err != nil {
+		return err
+	}
+	if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
 func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for i := 1; i <= f.automanagedNamespaceCount; i++ {
-		clientSet := f.clientSets.GetClient()
 		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
 		wg.Start(func() {
-			if err := client.DeleteNamespace(clientSet, name); err != nil {
+			if err := f.deleteNamespace(name); err != nil {
 				errList.Append(err)
 				return
-			}
-			if err := client.WaitForDeleteNamespace(clientSet, name); err != nil {
-				errList.Append(err)
 			}
 		})
 	}
@@ -170,14 +177,11 @@ func (f *Framework) DeleteNamespaces(namespaces []string) *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for _, namespace := range namespaces {
-		clientSet := f.clientSets.GetClient()
+		namespace := namespace
 		wg.Start(func() {
-			if err := client.DeleteNamespace(clientSet, namespace); err != nil {
+			if err := f.deleteNamespace(namespace); err != nil {
 				errList.Append(err)
 				return
-			}
-			if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
-				errList.Append(err)
 			}
 		})
 	}

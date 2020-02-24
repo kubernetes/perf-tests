@@ -113,6 +113,8 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		return nil, err
 	}
 
+	result.Str = data
+
 	samples, err := measurementutil.ExtractMetricSamples(data)
 	if err != nil {
 		return nil, err
@@ -120,6 +122,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 
 	hist := measurementutil.NewHistogram(nil)
 	for _, sample := range samples {
+		result.Str += fmt.Sprintf("\nsample: %#v\n", sample)
 		if sample.Metric[model.MetricNameLabel] == e2eSchedulingMetricName {
 			measurementutil.ConvertSampleToHistogram(sample, hist)
 			continue
@@ -238,4 +241,5 @@ type schedulingMetrics struct {
 	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              measurementutil.LatencyMetric `json:"bindingLatency"`
 	E2eSchedulingLatency        measurementutil.LatencyMetric `json:"e2eSchedulingLatency"`
+	Str                         string                        `json:"str"`
 }

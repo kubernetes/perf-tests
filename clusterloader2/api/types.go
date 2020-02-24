@@ -142,15 +142,31 @@ type TuningSet struct {
 	GlobalQPSLoad *GlobalQPSLoad `json: globalQPSLoad`
 }
 
+// MeasurementInstanceConfig is a structure that contains the Instance for wrapper measurements along with optional params.
+type MeasurementInstanceConfig struct {
+	// Identifier is a string that identifies a single instance of measurement within a wrapper measurement
+	Identifier string `json: identifier`
+	// Params is an optional map which is specific to the measurement instance defined above by the identifier.
+	// In case the Measurement level params also contain the same configs as defined in this, then while executing that
+	// particular Measurement Instance, the params defined here would be given higher priority.
+	Params map[string]interface{} `json: params`
+}
+
 // Measurement is a structure that defines the measurement method call.
 // This method call will either start or stop process of collecting specific data samples.
 type Measurement struct {
 	// Method is a name of a method registered in the ClusterLoader factory.
 	Method string `json: method`
-	// Identifier is a string that differentiates measurement instances of the same method.
-	Identifier string `json: identifier`
 	// Params is a map of {name: value} pairs which will be passed to the measurement method - allowing for injection of arbitrary parameters to it.
 	Params map[string]interface{} `json: params`
+
+	// Exactly one of Identifier or Instances must be supplied.
+	// Identifier is for single measurements while Instances is for wrapper measurements.
+	// Identifier is a string that differentiates measurement instances of the same method.
+	Identifier string `json: identifier`
+	// MeasurementInstanceConfig contains the Identifier and Params of the measurement.
+	// It shouldn't be set when Identifier is set.
+	Instances []MeasurementInstanceConfig
 }
 
 // QpsLoad defines a uniform load with a given QPS.

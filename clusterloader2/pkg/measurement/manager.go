@@ -23,7 +23,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
 
-// MeasurementManager manages all measurement executions.
+// measurementManager manages all measurement executions.
 type measurementManager struct {
 	clusterFramework    *framework.Framework
 	clusterLoaderConfig *config.ClusterLoaderConfig

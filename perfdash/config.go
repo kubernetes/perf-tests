@@ -19,10 +19,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"k8s.io/klog"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"k8s.io/klog"
 
 	"github.com/ghodss/yaml"
 )
@@ -79,6 +80,21 @@ var (
 				Name:             "load",
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,
+			}},
+			"LoadCreatePhasePodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "PodStartupLatency_CreatePhasePodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadHighThroughputPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "PodStartupLatency_HighThroughputPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "PodStartupLatency_PodStartupLatency",
+				Parser:           parsePerfData,
 			}},
 		},
 		"APIServer": {

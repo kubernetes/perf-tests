@@ -19,13 +19,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/klog"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/klog"
 
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
 	"k8s.io/kubernetes/test/e2e/perftype"
@@ -280,8 +281,8 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
 	binding := parseOperationLatency(obj.BindingLatency, "binding")
 	testResult.Builds[build] = append(testResult.Builds[build], binding)
-	e2eSchedulingLatency := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
-	testResult.Builds[build] = append(testResult.Builds[build], e2eSchedulingLatency)
+	e2eScheduling := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
+	testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
 }
 
 type schedulingThroughputMetric struct {

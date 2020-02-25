@@ -17,15 +17,50 @@ limitations under the License.
 package util
 
 import (
+	"math"
 	"reflect"
+	"sort"
+	"strconv"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
+
+	"k8s.io/component-base/metrics/testutil"
 )
 
 // Histogram is a structure that represents distribution of data.
 type Histogram struct {
 	Labels  map[string]string `json:"labels"`
 	Buckets map[string]int    `json:"buckets"`
+}
+
+// Quantile calculates the quantile 'q' based on the given buckets of Histogram.
+func (h *Histogram) Quantile(q float64) (float64, error) {
+	hist := testutil.Histogram{
+		&dto.Histogram{
+			Bucket: []*dto.Bucket{},
+		},
+	}
+
+	for k, v := range h.Buckets {
+		upper, err := strconv.ParseFloat(k, 64)
+		if err != nil {
+			return math.MaxFloat64, err
+		}
+
+		cumulativeCount := uint64(v)
+		hist.Bucket = append(hist.Bucket, &dto.Bucket{
+			CumulativeCount: &cumulativeCount,
+			UpperBound:      &upper,
+		})
+	}
+
+	// hist.Quantile expected a slice of Buckets ordered by UpperBound
+	sort.Slice(hist.Bucket, func(i, j int) bool {
+		return *hist.Bucket[i].UpperBound < *hist.Bucket[j].UpperBound
+	})
+
+	return hist.Quantile(q), nil
 }
 
 // HistogramVec is an array of Histograms.
@@ -43,7 +78,7 @@ func NewHistogram(labels map[string]string) *Histogram {
 func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 	labels := make(map[string]string)
 	for k, v := range sample.Metric {
-		if k != "le" {
+		if k != model.BucketLabel {
 			labels[string(k)] = string(v)
 		}
 	}
@@ -58,5 +93,18 @@ func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 		hist = NewHistogram(labels)
 		*h = append(*h, *hist)
 	}
-	hist.Buckets[string(sample.Metric["le"])] += int(sample.Value)
+	hist.Buckets[string(sample.Metric[model.BucketLabel])] += int(sample.Value)
+}
+
+// ConvertSampleToHistogram converts prometheus sample into Histogram.
+func ConvertSampleToHistogram(sample *model.Sample, h *Histogram) {
+	labels := make(map[string]string)
+	for k, v := range sample.Metric {
+		if k != model.BucketLabel {
+			labels[string(k)] = string(v)
+		}
+	}
+
+	h.Labels = labels
+	h.Buckets[string(sample.Metric[model.BucketLabel])] += int(sample.Value)
 }

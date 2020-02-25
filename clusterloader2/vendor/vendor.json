@@ -451,6 +451,12 @@
 			"revisionTime": "2019-10-24T23:19:15Z"
 		},
 		{
+			"checksumSHA1": "EAhQCPkxsCTsMjop9OyvMfVlk9k=",
+			"path": "github.com/prometheus/client_golang/prometheus/testutil",
+			"revision": "b25ce2693a6de99c3ea1a1471cd8f873301a452f",
+			"revisionTime": "2020-02-14T15:41:32Z"
+		},
+		{
 			"checksumSHA1": "V8xkqgmP66sq2ZW4QO5wi9a4oZE=",
 			"path": "github.com/prometheus/client_model/go",
 			"revision": "fd36f4220a901265f90734c3183c5f0c91daa0b8",
@@ -2750,16 +2756,22 @@
 			"revisionTime": "2019-01-25T16:53:23Z"
 		},
 		{
-			"checksumSHA1": "AKyl0eXHwt+FfvPWvFY67lR6EUE=",
+			"checksumSHA1": "IdfshAPq68gyqG40xX9lpCMWb6A=",
 			"path": "k8s.io/component-base/metrics",
-			"revision": "cca8f4f7ce4d55fa1dc4dd3ec01501284e5d3f98",
-			"revisionTime": "2019-11-11T05:41:41Z"
+			"revision": "52da27f0465b85ae877364eda9b9195cbc9d5d2c",
+			"revisionTime": "2020-02-13T22:13:11Z"
 		},
 		{
-			"checksumSHA1": "zChUrCe5SuoXFJUo9yTYg47qf3M=",
+			"checksumSHA1": "a2d2Hmorf4syVysRtz8hzLmqt5g=",
 			"path": "k8s.io/component-base/metrics/legacyregistry",
-			"revision": "cca8f4f7ce4d55fa1dc4dd3ec01501284e5d3f98",
-			"revisionTime": "2019-11-11T05:41:41Z"
+			"revision": "52da27f0465b85ae877364eda9b9195cbc9d5d2c",
+			"revisionTime": "2020-02-13T22:13:11Z"
+		},
+		{
+			"checksumSHA1": "PZpJx8QjvJ+8AaJk7X75grYjdbo=",
+			"path": "k8s.io/component-base/metrics/testutil",
+			"revision": "52da27f0465b85ae877364eda9b9195cbc9d5d2c",
+			"revisionTime": "2020-02-13T22:13:11Z"
 		},
 		{
 			"checksumSHA1": "BkvIW5ZCT/Cx62qq/9zdeiGYPc4=",

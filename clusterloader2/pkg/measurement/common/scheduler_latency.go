@@ -38,7 +38,7 @@ import (
 const (
 	schedulerLatencyMetricName = "SchedulingMetrics"
 
-	e2eScheduling = "e2eScheduling"
+	e2eSchedulingMetricName = "scheduler_e2e_scheduling_duration_seconds_bucket"
 
 	schedulingLatencyMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.SchedulingLatencyName)
 	singleRestCallTimeout       = 5 * time.Minute
@@ -118,7 +118,12 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		return nil, err
 	}
 
+	hist := measurementutil.NewHistogram(nil)
 	for _, sample := range samples {
+		if sample.Metric[model.MetricNameLabel] == e2eSchedulingMetricName {
+			measurementutil.ConvertSampleToHistogram(sample, hist)
+			continue
+		}
 		if sample.Metric[model.MetricNameLabel] != schedulingLatencyMetricName {
 			continue
 		}
@@ -133,8 +138,6 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 			metric = &result.PreemptionEvaluationLatency
 		case schedulermetric.Binding:
 			metric = &result.BindingLatency
-		case e2eScheduling:
-			metric = &result.E2eSchedulingLatency
 		}
 
 		if metric == nil {
@@ -148,12 +151,30 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		metric.SetQuantile(quantile, time.Duration(int64(float64(sample.Value)*float64(time.Second))))
 	}
 
+	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, hist); err != nil {
+		return nil, err
+	}
+
 	content, err := util.PrettyPrintJSON(result)
 	if err != nil {
 		return nil, err
 	}
 	summary := measurement.CreateSummary(schedulerLatencyMetricName, "json", content)
 	return []measurement.Summary{summary}, nil
+}
+
+// Set quantile of LatencyMetric from Histogram
+func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measurementutil.Histogram) error {
+	quantiles := []float64{0.5, 0.9, 0.99}
+	for _, quantile := range quantiles {
+		histQuantile, err := hist.Quantile(quantile)
+		if err != nil {
+			return err
+		}
+		metric.SetQuantile(quantile, time.Duration(int64(histQuantile*float64(time.Second))))
+	}
+
+	return nil
 }
 
 // Sends request to kube scheduler metrics

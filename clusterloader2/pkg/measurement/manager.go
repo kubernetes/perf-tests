@@ -41,7 +41,6 @@ type MeasurementManager interface {
 	Execute(methodName string, identifier string, params map[string]interface{}) error
 	GetSummaries() []Summary
 	Dispose()
-	GetMeasurementInstance(methodName string, identifier string) (Measurement, error)
 }
 
 // CreateMeasurementManager creates new instance of measurementManager.
@@ -58,7 +57,7 @@ func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.F
 
 // Execute executes measurement based on provided identifier, methodName and params.
 func (mm *measurementManager) Execute(methodName string, identifier string, params map[string]interface{}) error {
-	measurementInstance, err := mm.GetMeasurementInstance(methodName, identifier)
+	measurementInstance, err := mm.getMeasurementInstance(methodName, identifier)
 	if err != nil {
 		return err
 	}
@@ -90,7 +89,7 @@ func (mm *measurementManager) Dispose() {
 	}
 }
 
-func (mm *measurementManager) GetMeasurementInstance(methodName string, identifier string) (Measurement, error) {
+func (mm *measurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()
 	if _, exists := mm.measurements[methodName]; !exists {

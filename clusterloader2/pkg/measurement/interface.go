@@ -35,7 +35,6 @@ type MeasurementConfig struct {
 	// TemplateProvider provides templated objects.
 	TemplateProvider    *config.TemplateProvider
 	ClusterLoaderConfig *config.ClusterLoaderConfig
-	MeasurementManager  MeasurementManager
 
 	// Identifier identifies this instance of measurement.
 	Identifier    string

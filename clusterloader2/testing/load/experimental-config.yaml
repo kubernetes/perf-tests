@@ -113,7 +113,7 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-  - Identifier: LoadPodStartupLatency
+  - Identifier: CreatePhasePodStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
@@ -403,7 +403,7 @@ steps:
 # BEGIN scheduler throughput
 - name: Creating scheduler throughput measurements
   measurements:
-  - Identifier: HighThroughputStartupLatency
+  - Identifier: HighThroughputPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: start
@@ -447,7 +447,7 @@ steps:
       action: gather
 - name: Collecting scheduler throughput measurements
   measurements:
-  - Identifier: HighThroughputStartupLatency
+  - Identifier: HighThroughputPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
@@ -916,7 +916,7 @@ steps:
     Params:
       action: gather
   {{end}}
-  - Identifier: LoadPodStartupLatency
+  - Identifier: CreatePhasePodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather

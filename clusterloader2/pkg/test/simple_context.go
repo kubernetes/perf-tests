@@ -36,7 +36,7 @@ type simpleContext struct {
 	templateMapping     map[string]interface{}
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.TuningSetFactory
-	measurementManager  *measurement.MeasurementManager
+	measurementManager  measurement.MeasurementManager
 	chaosMonkey         *chaos.Monkey
 }
 
@@ -91,7 +91,7 @@ func (sc *simpleContext) GetTuningSetFactory() tuningset.TuningSetFactory {
 }
 
 // GetMeasurementManager returns measurement manager.
-func (sc *simpleContext) GetMeasurementManager() *measurement.MeasurementManager {
+func (sc *simpleContext) GetMeasurementManager() measurement.MeasurementManager {
 	return sc.measurementManager
 }
 

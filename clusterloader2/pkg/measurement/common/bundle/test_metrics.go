@@ -19,6 +19,7 @@ package bundle
 import (
 	"fmt"
 
+	goerrors "github.com/go-errors/errors"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -155,60 +156,60 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 	switch action {
 	case "start":
 		summary, err := execute(t.etcdMetrics, actionStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMetrics.String(), action, err))
 		summary, err = execute(t.schedulingMetrics, actionResetConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulingMetrics.String(), action, err))
 		summary, err = execute(t.resourceUsageSummary, actionStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.resourceUsageSummary.String(), action, err))
 		summary, err = execute(t.etcdCPUProfile, etcdStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdCPUProfile.String(), action, err))
 		summary, err = execute(t.etcdMemoryProfile, etcdStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdMutexProfile, etcdStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverMemoryProfile.String(), action, err))
 		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerMemoryProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerCPUProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerStartConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMetrics.String(), action, err))
 		summary, err = execute(t.schedulingMetrics, actionGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulingMetrics.String(), action, err))
 		summary, err = execute(t.metricsForE2E, config)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.metricsForE2E.String(), action, err))
 		summary, err = execute(t.resourceUsageSummary, actionGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.resourceUsageSummary.String(), action, err))
 		summary, err = execute(t.etcdCPUProfile, etcdGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdCPUProfile.String(), action, err))
 		summary, err = execute(t.etcdMemoryProfile, etcdGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdMutexProfile, etcdGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerMemoryProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerCPUProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerGatherConfig)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
-		appendResults(&summaries, errList, summary, err)
+		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}
@@ -271,4 +272,11 @@ func appendResults(summaries *[]measurement.Summary, errList *errors.ErrorList, 
 		errList.Append(errResult)
 	}
 	*summaries = append(*summaries, summaryResults...)
+}
+
+func executeError(measurement, action string, err error) error {
+	if err != nil {
+		return goerrors.Errorf("action %s failed for %s measurement: %v", action, measurement, err)
+	}
+	return nil
 }

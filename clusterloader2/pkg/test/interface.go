@@ -53,7 +53,7 @@ type Context interface {
 	GetTemplateMappingCopy() map[string]interface{}
 	GetTemplateProvider() *config.TemplateProvider
 	GetTuningSetFactory() tuningset.TuningSetFactory
-	GetMeasurementManager() *measurement.MeasurementManager
+	GetMeasurementManager() measurement.MeasurementManager
 	GetChaosMonkey() *chaos.Monkey
 }
 

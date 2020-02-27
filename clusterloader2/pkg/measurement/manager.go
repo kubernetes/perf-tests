@@ -24,7 +24,7 @@ import (
 )
 
 // MeasurementManager manages all measurement executions.
-type MeasurementManager struct {
+type measurementManager struct {
 	clusterFramework    *framework.Framework
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	prometheusFramework *framework.Framework
@@ -36,10 +36,16 @@ type MeasurementManager struct {
 	summaries    []Summary
 }
 
-// CreateMeasurementManager creates new instance of MeasurementManager.
-func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework,
-	templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) *MeasurementManager {
-	return &MeasurementManager{
+// MeasurementManager provides the interface for measurementManager
+type MeasurementManager interface {
+	Execute(methodName string, identifier string, params map[string]interface{}) error
+	GetSummaries() []Summary
+	Dispose()
+}
+
+// CreateMeasurementManager creates new instance of measurementManager.
+func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework, templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) MeasurementManager {
+	return &measurementManager{
 		clusterFramework:    clusterFramework,
 		clusterLoaderConfig: config,
 		prometheusFramework: prometheusFramework,
@@ -50,7 +56,7 @@ func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.F
 }
 
 // Execute executes measurement based on provided identifier, methodName and params.
-func (mm *MeasurementManager) Execute(methodName string, identifier string, params map[string]interface{}) error {
+func (mm *measurementManager) Execute(methodName string, identifier string, params map[string]interface{}) error {
 	measurementInstance, err := mm.getMeasurementInstance(methodName, identifier)
 	if err != nil {
 		return err
@@ -70,12 +76,12 @@ func (mm *MeasurementManager) Execute(methodName string, identifier string, para
 }
 
 // GetSummaries returns collected summaries.
-func (mm *MeasurementManager) GetSummaries() []Summary {
+func (mm *measurementManager) GetSummaries() []Summary {
 	return mm.summaries
 }
 
 // Dispose disposes measurement instances.
-func (mm *MeasurementManager) Dispose() {
+func (mm *measurementManager) Dispose() {
 	for _, instances := range mm.measurements {
 		for _, measurement := range instances {
 			measurement.Dispose()
@@ -83,7 +89,7 @@ func (mm *MeasurementManager) Dispose() {
 	}
 }
 
-func (mm *MeasurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {
+func (mm *measurementManager) getMeasurementInstance(methodName string, identifier string) (Measurement, error) {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()
 	if _, exists := mm.measurements[methodName]; !exists {

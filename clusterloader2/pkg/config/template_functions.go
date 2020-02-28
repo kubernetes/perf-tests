@@ -45,6 +45,7 @@ func GetFuncs() template.FuncMap {
 		"DivideInt":     divideInt,
 		"IfThenElse":    ifThenElse,
 		"IncludeFile":   includeFile,
+		"Loop":          loop,
 		"MaxFloat":      maxFloat,
 		"MaxInt":        maxInt,
 		"MinFloat":      minFloat,
@@ -237,4 +238,14 @@ func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface
 		return thenVal, nil
 	}
 	return elseVal, nil
+}
+
+// loop returns a slice with incremential values starting from zero.
+func loop(size interface{}) []int {
+	sizeInt := int(toFloat64(size))
+	slice := make([]int, sizeInt)
+	for i := range slice {
+		slice[i] = i
+	}
+	return slice
 }

@@ -38,9 +38,10 @@ import (
 const (
 	schedulerLatencyMetricName = "SchedulingMetrics"
 
-	e2eSchedulingMetricName = "scheduler_e2e_scheduling_duration_seconds_bucket"
+	e2eSchedulingDurationMetricName       = model.LabelValue(schedulermetric.SchedulerSubsystem + "_e2e_scheduling_duration_seconds_bucket")
+	schedulingAlgorithmDurationMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_duration_seconds_bucket")
 
-	schedulingLatencyMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.SchedulingLatencyName)
+	schedulingLatencyMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.DeprecatedSchedulingDurationName)
 	singleRestCallTimeout       = 5 * time.Minute
 )
 
@@ -118,10 +119,15 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		return nil, err
 	}
 
-	hist := measurementutil.NewHistogram(nil)
+	e2eSchedulingMetricHist := measurementutil.NewHistogram(nil)
+	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
 	for _, sample := range samples {
-		if sample.Metric[model.MetricNameLabel] == e2eSchedulingMetricName {
-			measurementutil.ConvertSampleToHistogram(sample, hist)
+		if sample.Metric[model.MetricNameLabel] == e2eSchedulingDurationMetricName {
+			measurementutil.ConvertSampleToHistogram(sample, e2eSchedulingMetricHist)
+			continue
+		}
+		if sample.Metric[model.MetricNameLabel] == schedulingAlgorithmDurationMetricName {
+			measurementutil.ConvertSampleToHistogram(sample, schedulingAlgorithmDurationHist)
 			continue
 		}
 		if sample.Metric[model.MetricNameLabel] != schedulingLatencyMetricName {
@@ -151,7 +157,10 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		metric.SetQuantile(quantile, time.Duration(int64(float64(sample.Value)*float64(time.Second))))
 	}
 
-	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, hist); err != nil {
+	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, e2eSchedulingMetricHist); err != nil {
+		return nil, err
+	}
+	if err := s.setQuantileFromHistogram(&result.SchedulingLatency, schedulingAlgorithmDurationHist); err != nil {
 		return nil, err
 	}
 
@@ -238,4 +247,7 @@ type schedulingMetrics struct {
 	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
 	BindingLatency              measurementutil.LatencyMetric `json:"bindingLatency"`
 	E2eSchedulingLatency        measurementutil.LatencyMetric `json:"e2eSchedulingLatency"`
+
+	// To track scheduling latency without binding, this allows to easier present the ceiling of the scheduler throughput.
+	SchedulingLatency measurementutil.LatencyMetric `json:"schedulingLatency"`
 }

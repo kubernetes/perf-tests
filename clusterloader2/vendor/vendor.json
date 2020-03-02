@@ -2966,10 +2966,10 @@
 			"revisionTime": "2019-01-30T13:32:55Z"
 		},
 		{
-			"checksumSHA1": "qk53SHqnC2UqDtJ5IqyX2P7kd7k=",
+			"checksumSHA1": "itPwGUss3QQORDq9CuLllvHtjl0=",
 			"path": "k8s.io/kubernetes/pkg/scheduler/metrics",
-			"revision": "48ddf3be87789c92e6824c9ce536c76d008f5c19",
-			"revisionTime": "2019-11-12T09:10:07Z"
+			"revision": "aaca31c35e6f3ff66c24c22ce759eca0863efd51",
+			"revisionTime": "2020-02-27T08:15:46Z"
 		},
 		{
 			"checksumSHA1": "BPA+HgAgf1dzkl3tlDAnbcccl0g=",

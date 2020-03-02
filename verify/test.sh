@@ -31,7 +31,7 @@ find_test_dirs() {
         -o -path './clusterloader/vendor/*' \
         -o -path './compare/vendor/*' \
         -o -path './network/vendor/*' \
-        -o -path './perfdash/vendor/*' \
+        -o -path './perfdash/*' \
         -o -path './slo-monitor/vendor/*' \
         -o -path './_logviewer/*' \
       \) -prune \
@@ -40,3 +40,7 @@ find_test_dirs() {
 }
 
 GO111MODULE=off go test $(find_test_dirs)
+(
+  cd "${KUBE_ROOT}/perfdash/"
+  go test ./...
+)

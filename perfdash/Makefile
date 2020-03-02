@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.19
+TAG = 2.20
 
 REPO = gcr.io/k8s-testimages
 GODEP = CGO_ENABLED=0 GOOS=linux godep

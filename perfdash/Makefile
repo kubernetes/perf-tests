@@ -4,13 +4,12 @@ all: push
 TAG = 2.25
 
 REPO = gcr.io/k8s-testimages
-GODEP = CGO_ENABLED=0 GOOS=linux GO111MODULE=off godep
 
 test: perfdash.go parser.go config.go downloader.go google-gcs-downloader.go
-	${GODEP} go test
+	go test
 
 perfdash: test
-	${GODEP} go build -a -installsuffix cgo -ldflags '-w' -o perfdash
+	go build -a -installsuffix cgo -ldflags '-w' -o perfdash
 
 run: perfdash
 	./perfdash \

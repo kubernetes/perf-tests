@@ -14,14 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euxo pipefail
+set -euo pipefail
+set -x
 
-KUBECONFIG=$HOME/.kube/config-tmp-mungegithub-$(date +%F_%H_%M_%S)
+tmp_kube=$(mktemp -d -t "kube-$(date +%F_%H-%M-%S)_XXXX")
+
+KUBECONFIG="$tmp_kube/config"
 export KUBECONFIG
 
-gcloud container --verbosity=debug \
-    clusters get-credentials mungegithub --zone us-central1-b \
-   --project k8s-mungegithub
+gcloud container clusters get-credentials \
+	mungegithub \
+	--zone us-central1-b \
+	--project k8s-mungegithub \
+	--verbosity=debug
 
-kubectl apply -f "${GOPATH}"/src/k8s.io/perf-tests/perfdash/deployment.yaml
-rm "${KUBECONFIG}"
+kubectl apply -f "${GOPATH}/src/k8s.io/perf-tests/perfdash/deployment.yaml"
+rm -rf "$tmp_kube"

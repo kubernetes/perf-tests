@@ -424,6 +424,7 @@ steps:
     Params:
       action: start
       labelSelector: group = scheduler-throughput
+      measurmentInterval: 1s
 - name: Creating scheduler throughput pods
   phases:
   - namespaceRange:

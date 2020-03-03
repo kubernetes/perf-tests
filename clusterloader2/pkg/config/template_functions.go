@@ -48,6 +48,9 @@ func GetFuncs() template.FuncMap {
 		"SubtractFloat": subtractFloat,
 		"MultiplyFloat": multiplyFloat,
 		"DivideFloat":   divideFloat,
+		"IfThenElse":    ifThenElse,
+		"IncludeFile":   includeFile,
+		"Loop":          loop,
 		"MaxInt":        maxInt,
 		"MinInt":        minInt,
 		"MaxFloat":      maxFloat,
@@ -55,7 +58,6 @@ func GetFuncs() template.FuncMap {
 		"IsEven":        isEven,
 		"IsOdd":         isOdd,
 		"DefaultParam":  defaultParam,
-		"IncludeFile":   includeFile,
 		"YamlQuote":     yamlQuote,
 	}
 }
@@ -225,4 +227,25 @@ func yamlQuote(strInt interface{}, tabsInt interface{}) (string, error) {
 	// TODO(oxddr): change back to strings.ReplaceAll once we figure out how to compile clusterloader2
 	// with newer versions of go for tests against stable version of K8s
 	return strings.Replace(string(b), "\n", "\n"+tabsStr, -1), err
+}
+
+func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface{}) (interface{}, error) {
+	condition, ok := conditionVal.(bool)
+	if !ok {
+		return nil, fmt.Errorf("incorrect argument type: got: %T want: bool", conditionVal)
+	}
+	if condition {
+		return thenVal, nil
+	}
+	return elseVal, nil
+}
+
+// loop returns a slice with incremential values starting from zero.
+func loop(size interface{}) []int {
+	sizeInt := int(toFloat64(size))
+	slice := make([]int, sizeInt)
+	for i := range slice {
+		slice[i] = i
+	}
+	return slice
 }

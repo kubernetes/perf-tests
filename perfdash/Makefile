@@ -4,7 +4,7 @@ all: push
 TAG = 2.20
 
 REPO = gcr.io/k8s-testimages
-GODEP = CGO_ENABLED=0 GOOS=linux godep
+GODEP = CGO_ENABLED=0 GOOS=linux GO111MODULE=off godep
 
 test: perfdash.go parser.go config.go downloader.go google-gcs-downloader.go
 	${GODEP} go test

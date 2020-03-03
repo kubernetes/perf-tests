@@ -13,20 +13,20 @@
 # limitations under the License.
 
 ARCH ?= amd64
-TAG ?= 1.0
+TAG ?= 2.0
 REGISTRY ?= staging-k8s.gcr.io
 DOCKER ?= docker
 
 BUILD_IMAGE := kube-dns-perf-client-build
 IMAGE := $(REGISTRY)/kube-dns-perf-client-$(ARCH):$(TAG)
-DNSPERF_URL := ftp://ftp.nominum.com/pub/nominum/dnsperf/2.1.0.0/dnsperf-src-2.1.0.0-1.tar.gz
+DNSPERF_URL := https://www.dns-oarc.net/files/dnsperf/dnsperf-2.3.0.tar.gz
 
 all: image
 
 build/src.stamp:
 	cd build/ && curl $(DNSPERF_URL) | tar -zxf -
-	mv build/dnsperf-src-* build/src
-	cd build/src && patch < ../../histogram.patch
+	mv build/dnsperf-* build/src
+	cd build/src
 	touch $@
 
 build/build-image.stamp: Dockerfile.build
@@ -35,7 +35,7 @@ build/build-image.stamp: Dockerfile.build
 
 build/src/dnsperf: build/src.stamp build/build-image.stamp
 	docker run --rm -v `pwd`/build/src:/src $(BUILD_IMAGE) \
-		/bin/sh -c "cd /src && ./configure && make -j"
+		/bin/sh -c "cd /src && ./configure && make install && cp /usr/local/bin/*perf /src/."
 
 build/image.stamp: Dockerfile.image build/src/dnsperf
 	docker build -t $(IMAGE) -f Dockerfile.image .

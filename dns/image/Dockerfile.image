@@ -2,7 +2,7 @@ FROM alpine:3.7
 
 RUN \
 	apk update && \
-	apk add bind-libs bind-tools libcap libcrypto1.0
+	apk add bind-libs bind-dev bind-tools libcap libcrypto1.0 openssl-dev libressl2.6-libcrypto
 
-COPY build/src/dnsperf /dnsperf
-COPY build/src/resperf /resperf
+COPY build/src/dnsperf /bin/dnsperf
+COPY build/src/resperf /bin/resperf

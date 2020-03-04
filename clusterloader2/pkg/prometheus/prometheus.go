@@ -194,8 +194,11 @@ func (pc *PrometheusController) applyManifests(manifestGlob string) error {
 
 // exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
 func (pc *PrometheusController) exposeAPIServerMetrics() error {
-	klog.Info("Exposing kube-apiserver metrics in kubemark cluster")
-	// This has to be done in the kubemark cluster, thus we need to create a new client.
+	klog.Info("Exposing kube-apiserver metrics in the cluster")
+	// We need to get a client to the cluster where the test is being executed on,
+	// not the cluster that the prometheus is running in. Usually, there is only
+	// once cluster, but in case of kubemark we have two and thus we need to
+	// create a new client here.
 	clientSet, err := framework.NewMultiClientSet(
 		pc.clusterLoaderConfig.ClusterConfig.KubeConfigPath, numK8sClients)
 	if err != nil {

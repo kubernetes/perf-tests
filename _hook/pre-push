@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-GIT_ROOT=$(dirname "${BASH_SOURCE[0]}")/../../
+GIT_ROOT=$(dirname "${BASH_SOURCE[0]}")/../
 
 cd "${GIT_ROOT}" || exit 1
 

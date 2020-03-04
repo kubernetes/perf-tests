@@ -39,4 +39,4 @@ find_test_dirs() {
   )
 }
 
-go test $(find_test_dirs)
+GO111MODULE=off go test $(find_test_dirs)

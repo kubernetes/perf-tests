@@ -3,7 +3,6 @@ kind: PrometheusRule
 metadata:
   labels:
     prometheus: k8s
-    role: alert-rules
   name: prometheus-k8s-rules
   namespace: monitoring
 spec:

@@ -18,6 +18,7 @@ package chaos
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -86,6 +87,7 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	for i := range prometheusPods {
 		if prometheusPods[i].Spec.NodeName != "" {
 			nodesHasPrometheusPod.Insert(prometheusPods[i].Spec.NodeName)
+			klog.Infof("%s: Node %s removed from killing. Runs pod %s", k, prometheusPods[i].Spec.NodeName, prometheusPods[i].Name)
 		}
 	}
 
@@ -98,9 +100,13 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	rand.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})
-	numNodes := int(k.config.FailureRate * float64(len(nodes)))
+	numNodes := int(math.Ceil(k.config.FailureRate * float64(len(nodes))))
+	klog.Infof("%s: %d nodes available, wants to fail %d nodes", k, len(nodes), numNodes)
 	if len(nodes) > numNodes {
-		return nodes[:numNodes], nil
+		nodes = nodes[:numNodes]
+	}
+	for _, node := range nodes {
+		klog.Infof("%s: Node %q schedule for failure", k, node.Name)
 	}
 	return nodes, nil
 }

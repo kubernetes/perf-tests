@@ -86,6 +86,9 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Measurem
 	if err != nil {
 		return nil, err
 	}
+	if !config.ClusterLoaderConfig.EnableExecService {
+		return nil, fmt.Errorf("enable-exec-service flag not enabled")
+	}
 
 	switch action {
 	case "start":
@@ -304,6 +307,12 @@ func (p *pingChecker) run() {
 			}
 			// TODO(#685): Make ping checks less communication heavy.
 			pod, err := execservice.GetPod()
+			if err != nil {
+				klog.Warningf("call to execservice.GetPod() ended with error: %v", err)
+				success = 0
+				time.Sleep(pingBackoff)
+				continue
+			}
 			switch p.svc.Spec.Type {
 			case corev1.ServiceTypeClusterIP:
 				cmd := fmt.Sprintf("curl %s:%d", p.svc.Spec.ClusterIP, p.svc.Spec.Ports[0].Port)

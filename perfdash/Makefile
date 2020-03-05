@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.20
+TAG = 2.21
 
 REPO = gcr.io/k8s-testimages
 GODEP = CGO_ENABLED=0 GOOS=linux GO111MODULE=off godep
@@ -27,7 +27,7 @@ container: perfdash
 push: container
 	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
 
-deploy: container
+deploy: push
 	./deploy.sh
 
 clean:

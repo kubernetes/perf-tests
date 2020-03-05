@@ -298,6 +298,15 @@ var (
 				OutputFilePrefix: "BenchmarkResults",
 				Parser:           parsePerfData,
 			}},
+			"BenchmarkPerfResults": []TestDescription{{
+				// Expected file prefix string is constructed as
+				// OutputFilePrefix+"_"+Name. Given we currently generate
+				// file prefixed with "BenchmarkPerfScheduling_" followed by a date,
+				// set the Name to an empty string.
+				Name:             "",
+				OutputFilePrefix: "BenchmarkPerfScheduling",
+				Parser:           parsePerfData,
+			}},
 		},
 	}
 

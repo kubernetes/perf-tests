@@ -66,6 +66,47 @@ cluster DNS as they cannot be changed. The run script will skip these
 parameters when running in this mode. (See `params.Param.is_relevant()` for
 details).
 
+### Comparing cluster DNS and NodeLocal DNSCache
+
+You can compare the performance of the existing cluster DNS with NodeLocal
+DNSCache on a cluster that has NodeLocal DNSCache enabled.
+
+You can run the following test to get the NodeLocal DNSCache data.
+
+``` sh
+$ mkdir out/
+$ python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir out --nodecache-ip <listen-ip>
+```
+
+If you have configured NodeLocal DNSCache to listen on kube-dns service IP,
+then use that same service ip as `<listen-ip>`. Otherwise, use the IP address
+that NodeLocal DNSCache is listening on requests for. (169.254.20.10 or any
+custom IP that you selected).
+
+You can run the following test to get the clusterDNS data. Using the same params
+as the nodelocaldns test makes the comparison easier.
+
+``` sh
+$ mkdir out/
+$ python py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir out --dns-ip <dns-service-ip>
+```
+
+If NodeLocal DNSCache is listening on the kube-dns service IP, use the IP
+address of `kube-dns-upstream` service as `<dns-service-ip>` in this test.
+This will be the service IP that node-local-dns pods use as upstream on a cache
+miss.
+Otherwise, use the kube-dns service IP as the `<dns-service-ip>`.
+
+http://perf-dash.k8s.io/#/?jobname=node-local-dns%20benchmark shows the results
+from periodic runs of NodeLocal DNSCache test.
+
+http://perf-dash.k8s.io/#/?jobname=kube-dns%20benchmark shows the results from
+periodic runs of the kube-dns test. This test runs on a cluster that uses kube-dns as cluster DNS.
+
+The source for the scalability jobs is at: 
+https://github.com/kubernetes/test-infra/blob/27a0743d7806eb0095188352841c2eadd46d2e9b/config/jobs/kubernetes/sig-scalability/sig-scalability-periodic-jobs.yaml#L414
+
+
 ## Analyzing results
 
 Use the `ingest` script to parse the results of the runs into a sqlite3

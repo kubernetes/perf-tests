@@ -103,6 +103,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 			}
 		}
 	}
+	klog.Infof(ctx.GetChaosMonkey().Summary())
 	return errList
 }
 

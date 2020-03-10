@@ -17,6 +17,9 @@ limitations under the License.
 package chaos
 
 import (
+	"fmt"
+	"strings"
+
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/api"
 )
@@ -46,4 +49,14 @@ func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) erro
 	}
 
 	return nil
+}
+
+// Summary logs Monkey execution
+func (m *Monkey) Summary() string {
+	var sb strings.Builder
+	if m.nodeKiller != nil {
+		sb.WriteString(fmt.Sprintf("Summary of Chaos Monkey execution\n"))
+		sb.WriteString(m.nodeKiller.Summary())
+	}
+	return sb.String()
 }

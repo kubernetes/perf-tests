@@ -18,18 +18,27 @@ package chaos
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+)
+
+const (
+	monitoringNamespace = "monitoring"
+	prometheusLabel     = "prometheus=k8s"
 )
 
 // NodeKiller is a utility to simulate node failures.
@@ -39,6 +48,36 @@ type NodeKiller struct {
 	provider string
 	// killedNodes stores names of the nodes that have been killed by NodeKiller.
 	killedNodes sets.String
+	recorder    *eventRecorder
+}
+
+type nodeAction string
+
+const (
+	stopServices nodeAction = "stopService"
+	rebootNode              = "rebootNode"
+)
+
+type event struct {
+	time     time.Time
+	action   nodeAction
+	nodeName string
+}
+
+type eventRecorder struct {
+	events []event
+	mux    sync.Mutex
+}
+
+func newEventRecorder() *eventRecorder {
+	return &eventRecorder{[]event{}, sync.Mutex{}}
+}
+
+func (r *eventRecorder) record(a nodeAction, nodeName string) {
+	e := event{time.Now(), a, nodeName}
+	r.mux.Lock()
+	r.events = append(r.events, e)
+	r.mux.Unlock()
 }
 
 // NewNodeKiller creates new NodeKiller.
@@ -46,7 +85,7 @@ func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, pro
 	if provider != "gce" && provider != "gke" {
 		return nil, fmt.Errorf("provider %q is not supported by NodeKiller", provider)
 	}
-	return &NodeKiller{config, client, provider, sets.NewString()}, nil
+	return &NodeKiller{config, client, provider, sets.NewString(), newEventRecorder()}, nil
 }
 
 // Run starts NodeKiller until stopCh is closed.
@@ -68,18 +107,37 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	prometheusPods, err := client.ListPodsWithOptions(k.client, monitoringNamespace, metav1.ListOptions{
+		LabelSelector: prometheusLabel,
+	})
+	if err != nil {
+		return nil, err
+	}
+	nodesHasPrometheusPod := sets.NewString()
+	for i := range prometheusPods {
+		if prometheusPods[i].Spec.NodeName != "" {
+			nodesHasPrometheusPod.Insert(prometheusPods[i].Spec.NodeName)
+			klog.Infof("%s: Node %s removed from killing. Runs pod %s", k, prometheusPods[i].Spec.NodeName, prometheusPods[i].Name)
+		}
+	}
+
 	nodes := allNodes[:0]
 	for _, node := range allNodes {
-		if !k.killedNodes.Has(node.Name) {
+		if !nodesHasPrometheusPod.Has(node.Name) && !k.killedNodes.Has(node.Name) {
 			nodes = append(nodes, node)
 		}
 	}
 	rand.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})
-	numNodes := int(k.config.FailureRate * float64(len(nodes)))
+	numNodes := int(math.Ceil(k.config.FailureRate * float64(len(nodes))))
+	klog.Infof("%s: %d nodes available, wants to fail %d nodes", k, len(nodes), numNodes)
 	if len(nodes) > numNodes {
-		return nodes[:numNodes], nil
+		nodes = nodes[:numNodes]
+	}
+	for _, node := range nodes {
+		klog.Infof("%s: Node %q schedule for failure", k, node.Name)
 	}
 	return nodes, nil
 }
@@ -94,6 +152,7 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 			defer wg.Done()
 
 			klog.Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
+			k.addStopServicesEvent(node.Name)
 			err := util.SSH("sudo systemctl stop docker kubelet", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: ERROR while stopping node %q: %v", k, node.Name, err)
@@ -103,7 +162,19 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 			time.Sleep(time.Duration(k.config.SimulatedDowntime))
 
 			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
-			err = util.SSH("sudo reboot", &node, nil)
+			// Scheduling a reboot in one second, then disconnecting.
+			//
+			// Bash command explanation:
+			// 'nohup' - Making sure that end of SSH connection signal will not break sudo
+			// 'sudo' - Elevated priviliages, required by 'shutdown'
+			// 'shutdown' - Control machine power
+			// '-r' - Making 'shutdown' to reboot, instead of power-off
+			// '+1s' - Parameter to 'reboot', to wait 1 second before rebooting.
+			// '> /dev/null 2> /dev/null < /dev/null' - File descriptor redirect, all three I/O to avoid ssh hanging,
+			//                                          see https://web.archive.org/web/20090429074212/http://www.openssh.com/faq.html#3.10
+			// '&' - Execute command in background, end without waiting for result
+			k.addRebootEvent(node.Name)
+			err = util.SSH("nohup sudo shutdown -r +1s > /dev/null 2> /dev/null < /dev/null &", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: Error while rebooting node %q: %v", k, node.Name, err)
 				return
@@ -111,6 +182,24 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 		}()
 	}
 	wg.Wait()
+}
+
+func (k *NodeKiller) addStopServicesEvent(nodeName string) {
+	k.recorder.record(stopServices, nodeName)
+}
+
+func (k *NodeKiller) addRebootEvent(nodeName string) {
+	k.recorder.record(rebootNode, nodeName)
+}
+
+// Summary logs NodeKiller execution
+func (k *NodeKiller) Summary() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%s: Recorded following events\n", k))
+	for _, e := range k.recorder.events {
+		sb.WriteString(fmt.Sprintf("%s: At %v %v happend for node %s\n", k, e.time.Format(time.UnixDate), e.action, e.nodeName))
+	}
+	return sb.String()
 }
 
 func (k *NodeKiller) String() string {

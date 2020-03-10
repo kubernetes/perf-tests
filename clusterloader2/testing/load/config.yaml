@@ -67,8 +67,8 @@ tuningSets:
 chaosMonkey:
   nodeFailure:
     failureRate: 0.01
-    interval: 1m
-    jitterFactor: 10.0
+    interval: 5m
+    jitterFactor: 2.0
     simulatedDowntime: 10m
 {{end}}
 steps:

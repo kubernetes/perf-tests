@@ -21,19 +21,26 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-FROM debian:jessie
+FROM golang:1.14 AS builder
+RUN mkdir /app
+ADD nptest /app/
+WORKDIR /app
+RUN make clean
+RUN make nptests
+
+FROM debian:stable-slim
 
 MAINTAINER Girish Kalele <gkalele@google.com>
 # install binary and remove cache
 RUN apt-get update \
     && apt-get install -y iperf3 curl wget net-tools gcc make \
     && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /tmp
 
 # Download and build netperf from sources
 RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
-RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
+RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin --build=alpha && make && make install
+RUN rm /netperf* -rf
 
-COPY nptests /usr/bin/
+COPY --from=builder /app/nptests /usr/bin/
 
 ENTRYPOINT ["nptests"]

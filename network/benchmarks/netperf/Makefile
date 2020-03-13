@@ -16,17 +16,19 @@ all: docker nptests push launch runtests
 
 DOCKERREPO       := girishkalele/netperf-latest
 
-docker: nptests launch
-	mkdir -p Dockerbuild && \
-	cp -f Dockerfile Dockerbuild/ && \
-	cp -f nptest/nptests Dockerbuild/ &&\
-	docker build -t $(DOCKERREPO) Dockerbuild/ 
+# build with buildx
+PLATFORMS?=linux/amd64,linux/arm64
+OUTPUT=
 
+docker: launch ensure-buildx
+	docker buildx build --platform=${PLATFORMS} $(OUTPUT) -t $(DOCKERREPO) --pull .
+
+# push the cross built image
+push: OUTPUT=--push
 push: docker
-	gcloud docker push $(DOCKERREPO)
 
 nptests: nptest/nptest.go
-	cd nptest; GOOS=linux GOARCH=amd64 make nptests
+	cd nptest; GOOS=linux make nptests
 
 clean:
 	@rm -f Dockerbuild/*
@@ -45,4 +47,7 @@ runtests: launch
 	cp netperf-latest.csv plotperf && cd plotperf; make plot && mv *png .. && mv *svg ..
 	@echo Results file netperf-latest.csv and SVG/PNG graphs generated successfully
 
-
+# enable buildx
+DOCKER_CLI_EXPERIMENTAL=enabled
+ensure-buildx:
+	./../../../hack/build/init-buildx.sh

@@ -187,6 +187,11 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 
+		// ssh to collect profile metrics not supported on aks masters
+		if p.config.provider == "aks" {
+			return nil, nil
+		}
+
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
 		if p.config.provider == "gke" || shouldGetAPIServerByK8sClient(p.config.componentName) {

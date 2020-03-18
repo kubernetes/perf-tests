@@ -226,7 +226,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		responseText = string(body)
 	} else {
 		// If master is not registered fall back to old method of using SSH.
-		if provider == "gke" {
+		if provider == "gke" || provider == "aks" {
 			klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
 			return "", nil
 		}

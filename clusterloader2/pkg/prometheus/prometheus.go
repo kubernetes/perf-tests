@@ -96,7 +96,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		delete(mapping, "MasterIps")
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"]; !exists {
-		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider == "gke"
+		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider == "gke" || clusterLoaderConfig.ClusterConfig.Provider == "aks"
 	}
 	// TODO: Change to pure assignments when overrides are not used.
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ETCD"]; !exists {

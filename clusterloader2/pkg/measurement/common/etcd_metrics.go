@@ -184,7 +184,8 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 
 func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
-	if provider == "gke" {
+	// TODO(ace): --managed flag instead of provider switch?
+	if provider == "gke" || provider == "aks" {
 		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for gke", e)
 		return nil, nil
 	}

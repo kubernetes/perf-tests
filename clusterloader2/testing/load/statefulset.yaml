@@ -1,4 +1,4 @@
-{{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
+{{$EnablePVs := DefaultParam .CL2_ENABLE_PVS false}}
 
 apiVersion: apps/v1
 kind: StatefulSet

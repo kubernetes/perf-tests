@@ -115,7 +115,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 	// We may want to revisit ot adjust it in the future.
 	numNodes := config.ClusterFramework.GetClusterConfig().Nodes
 	profileFrequency := time.Duration(5+numNodes/250) * time.Minute
-	isSSHSupported := config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported
+	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
 	go func() {
 		defer p.wg.Done()
 		for {

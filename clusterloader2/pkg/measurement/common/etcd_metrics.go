@@ -75,7 +75,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	}
 
 	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
-	isSSHSupported := config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported
+	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
 	switch action {
 	case "start":
 		klog.Infof("%s: starting etcd metrics collecting...", e)
@@ -186,7 +186,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int, isSSHSupported bool) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if isSSHSupported {
-		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for provider", e, provider)
+		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for provider, %s", e, provider)
 		return nil, nil
 	}
 

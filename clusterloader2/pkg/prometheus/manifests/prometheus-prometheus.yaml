@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -47,3 +48,8 @@ spec:
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
   query:
     maxSamples: 100000000
+  {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}
+  additionalScrapeConfigs:
+    name: windows-scrape-configs
+    key: windows-scrape-configs.yaml
+  {{end}}

@@ -75,6 +75,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	}
 
 	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
+	isSSHSupported := config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported
 	switch action {
 	case "start":
 		klog.Infof("%s: starting etcd metrics collecting...", e)
@@ -83,12 +84,12 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 			return nil, err
 		}
 		for _, h := range hosts {
-			e.startCollecting(h, provider, waitTime, etcdInsecurePort)
+			e.startCollecting(h, provider, waitTime, etcdInsecurePort, isSSHSupported)
 		}
 		return nil, nil
 	case "gather":
 		for _, h := range hosts {
-			if err = e.stopAndSummarize(h, provider, etcdInsecurePort); err != nil {
+			if err = e.stopAndSummarize(h, provider, etcdInsecurePort, isSSHSupported); err != nil {
 				return nil, err
 			}
 		}
@@ -116,12 +117,12 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int) {
+func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int, isSSHSupported bool) {
 	e.isRunning = true
 	e.wg.Add(1)
 
 	collectEtcdDatabaseSize := func() error {
-		dbSize, err := e.getEtcdDatabaseSize(host, provider, port)
+		dbSize, err := e.getEtcdDatabaseSize(host, provider, port, isSSHSupported)
 		if err != nil {
 			return err
 		}
@@ -149,10 +150,10 @@ func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int, isSSHSupported bool) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(host, provider, port)
+	samples, err := e.getEtcdMetrics(host, provider, port, isSSHSupported)
 	if err != nil {
 		return err
 	}
@@ -182,11 +183,10 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int, isSSHSupported bool) ([]*model.Sample, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
-	// TODO(ace): --managed flag instead of provider switch?
-	if provider == "gke" || provider == "aks" {
-		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for gke", e)
+	if isSSHSupported {
+		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for provider", e, provider)
 		return nil, nil
 	}
 
@@ -224,8 +224,8 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int) (float64, error) {
-	samples, err := e.getEtcdMetrics(host, provider, port)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int, isSSHSupported bool) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider, port, isSSHSupported)
 	if err != nil {
 		return 0, err
 	}

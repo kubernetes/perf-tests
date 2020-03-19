@@ -81,10 +81,10 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
+		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported)
 	case "gather":
 		klog.Infof("%s: gathering latency metrics in scheduler...", s)
-		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
+		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -98,8 +98,8 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string) error {
-	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName)
+func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string, isSSHSupported bool) error {
+	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName, isSSHSupported)
 	if err != nil {
 		return err
 	}
@@ -107,9 +107,9 @@ func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interfac
 }
 
 // Retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string, isSSHSupported bool) ([]measurement.Summary, error) {
 	result := schedulingMetrics{}
-	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName)
+	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, isSSHSupported)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measureme
 }
 
 // Sends request to kube scheduler metrics
-func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string) (string, error) {
+func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string, isSSHSupported bool) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")
@@ -226,7 +226,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		responseText = string(body)
 	} else {
 		// If master is not registered fall back to old method of using SSH.
-		if provider == "gke" || provider == "aks" {
+		if !isSSHSupported {
 			klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
 			return "", nil
 		}

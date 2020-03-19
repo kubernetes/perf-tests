@@ -40,6 +40,7 @@ type ClusterConfig struct {
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
 	DeleteStaleNamespaces      bool
+	IsSSHSupported             bool
 }
 
 // PrometheusConfig represents all flags used by prometheus.

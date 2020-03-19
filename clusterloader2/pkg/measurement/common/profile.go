@@ -115,7 +115,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 	// We may want to revisit ot adjust it in the future.
 	numNodes := config.ClusterFramework.GetClusterConfig().Nodes
 	profileFrequency := time.Duration(5+numNodes/250) * time.Minute
-
+	isSSHSupported := config.ClusterLoaderConfig.ClusterConfig.IsSSHSupported
 	go func() {
 		defer p.wg.Done()
 		for {
@@ -123,7 +123,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := p.gatherProfile(k8sClient)
+				profileSummaries, err := p.gatherProfile(k8sClient, isSSHSupported)
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
@@ -175,7 +175,7 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement.Summary, error) {
+func (p *profileMeasurement) gatherProfile(c clientset.Interface, isSSHSupported bool) ([]measurement.Summary, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
@@ -187,15 +187,10 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface) ([]measurement
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 
-		// ssh to collect profile metrics not supported on aks masters
-		if p.config.provider == "aks" {
-			return nil, nil
-		}
-
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
-		if p.config.provider == "gke" || shouldGetAPIServerByK8sClient(p.config.componentName) {
-			// SSH to master is not possible in gke, but if the component is
+		if !isSSHSupported || shouldGetAPIServerByK8sClient(p.config.componentName) {
+			// SSH to master is not possible in gke/ or ks, but if the component is
 			// kube-apiserver we can get the profile via k8s client.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
 			if p.config.componentName == "kube-apiserver" {

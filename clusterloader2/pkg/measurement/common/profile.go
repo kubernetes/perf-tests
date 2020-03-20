@@ -187,10 +187,15 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, isSSHSupported
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 
+		if p.config.provider == "aks" {
+			klog.Warningf("%s: fetching profile data from AKS is not possible.", p.name)
+			return nil, nil
+		}
+
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
 		if !isSSHSupported || shouldGetAPIServerByK8sClient(p.config.componentName) {
-			// SSH to master is not possible in gke/ or ks, but if the component is
+			// SSH to master is not possible, but if the component is
 			// kube-apiserver we can get the profile via k8s client.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
 			if p.config.componentName == "kube-apiserver" {

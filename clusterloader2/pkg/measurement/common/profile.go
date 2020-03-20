@@ -90,7 +90,7 @@ func createProfileMeasurementFactory(name, kind string) func() measurement.Measu
 	}
 }
 
-func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error {
+func (p *profileMeasurement) start(config *measurement.MeasurementConfig, isSSHSupported bool) error {
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
@@ -115,7 +115,6 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig) error 
 	// We may want to revisit ot adjust it in the future.
 	numNodes := config.ClusterFramework.GetClusterConfig().Nodes
 	profileFrequency := time.Duration(5+numNodes/250) * time.Minute
-	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
 	go func() {
 		defer p.wg.Done()
 		for {
@@ -147,6 +146,14 @@ func (p *profileMeasurement) stop() {
 
 // Execute gathers memory profile of a given component.
 func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
+	isPprofSupported := config.ClusterFramework.GetClusterConfig().IsPprofSupported
+
+	if !isSSHSupported && !isPprofSupported {
+		klog.Warningf("fetching profile data from is not possible from provider: %s", p.config.provider)
+		return nil, nil
+	}
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -158,7 +165,7 @@ func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]m
 			klog.Infof("%s: measurement already running", p)
 			return nil, nil
 		}
-		return nil, p.start(config)
+		return nil, p.start(config, isSSHSupported)
 	case "gather":
 		p.stop()
 		return p.summaries, nil
@@ -187,16 +194,11 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, isSSHSupported
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 
-		if p.config.provider == "aks" {
-			klog.Warningf("%s: fetching profile data from AKS is not possible.", p.name)
-			return nil, nil
-		}
-
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
 		if !isSSHSupported || shouldGetAPIServerByK8sClient(p.config.componentName) {
-			// SSH to master is not possible, but if the component is
-			// kube-apiserver we can get the profile via k8s client.
+			// SSH to master for this provider is not possible.
+			// For kube-apiserver, we can still fetch the profile using a RESTClient and pprof.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
 			if p.config.componentName == "kube-apiserver" {
 				body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()

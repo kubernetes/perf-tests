@@ -60,6 +60,13 @@ type etcdMetricsMeasurement struct {
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
+	// Etcd is only exposed on localhost level. We are using ssh method
+	if isSSHSupported {
+		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider)
+		return nil, nil
+	}
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -75,7 +82,6 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 	}
 
 	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
-	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
 	switch action {
 	case "start":
 		klog.Infof("%s: starting etcd metrics collecting...", e)
@@ -84,12 +90,12 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) 
 			return nil, err
 		}
 		for _, h := range hosts {
-			e.startCollecting(h, provider, waitTime, etcdInsecurePort, isSSHSupported)
+			e.startCollecting(h, provider, waitTime, etcdInsecurePort)
 		}
 		return nil, nil
 	case "gather":
 		for _, h := range hosts {
-			if err = e.stopAndSummarize(h, provider, etcdInsecurePort, isSSHSupported); err != nil {
+			if err = e.stopAndSummarize(h, provider, etcdInsecurePort); err != nil {
 				return nil, err
 			}
 		}
@@ -117,12 +123,12 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int, isSSHSupported bool) {
+func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int) {
 	e.isRunning = true
 	e.wg.Add(1)
 
 	collectEtcdDatabaseSize := func() error {
-		dbSize, err := e.getEtcdDatabaseSize(host, provider, port, isSSHSupported)
+		dbSize, err := e.getEtcdDatabaseSize(host, provider, port)
 		if err != nil {
 			return err
 		}
@@ -150,10 +156,10 @@ func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int, isSSHSupported bool) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(host, provider, port, isSSHSupported)
+	samples, err := e.getEtcdMetrics(host, provider, port)
 	if err != nil {
 		return err
 	}
@@ -183,12 +189,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int, isSSHSupported bool) ([]*model.Sample, error) {
-	// Etcd is only exposed on localhost level. We are using ssh method
-	if isSSHSupported {
-		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for provider, %s", e, provider)
-		return nil, nil
-	}
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
 	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you
@@ -224,8 +225,8 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int, isSSHSupported bool) (float64, error) {
-	samples, err := e.getEtcdMetrics(host, provider, port, isSSHSupported)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider, port)
 	if err != nil {
 		return 0, err
 	}

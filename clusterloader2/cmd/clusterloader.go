@@ -143,8 +143,11 @@ func completeConfig(m *framework.MultiClientSet) error {
 			klog.Errorf("Getting master internal ip error: %v", err)
 		}
 	}
-	if clusterLoaderConfig.ClusterConfig.Provider == "aks" || clusterLoaderConfig.ClusterConfig.Provider == "gke" {
-		clusterLoaderConfig.ClusterConfig.IsSSHSupported = false
+	if clusterLoaderConfig.ClusterConfig.Provider != "aks" || clusterLoaderConfig.ClusterConfig.Provider != "gke" {
+		clusterLoaderConfig.ClusterConfig.IsSSHSupported = true
+	}
+	if clusterLoaderConfig.ClusterConfig.Provider != "aks" {
+		clusterLoaderConfig.ClusterConfig.IsPprofSupported = true
 	}
 	return nil
 }

@@ -8,5 +8,7 @@ metadata:
 stringData:
   windows-scrape-configs.yaml: |-
     - job_name: "monitoring/windows_static"
+      scrape_interval: {{DefaultParam .CL2_WINDOWS_SCRAPE_INTERVAL "130s"}}
+      scrape_timeout: {{DefaultParam .CL2_WINDOWS_SCRAPE_TIMEOUT "120s"}}
       static_configs:
       - targets: ["{{$WINDOWS_NODE_NAME}}:5000"]

@@ -30,7 +30,7 @@ import (
 const (
 	windowsResourceUsagePrometheusMeasurementName = "WindowsResourceUsagePrometheus"
 	// get top 10 non-system processes with highest cpu usage within 1min query window size
-	cpuUsageQueryTop10                        = `topk(10, sum by (process) (rate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[1m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
+	cpuUsageQueryTop10                        = `topk(10, sum by (process) (irate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 

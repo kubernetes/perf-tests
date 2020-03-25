@@ -33,5 +33,12 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
    kubectl wait pods -l app=gcp-compute-persistent-disk-csi-driver --for condition=Ready --timeout=300s
 fi
 
+# DO NOT SUBMIT
+# This change is to test something
+echo "Getting kubeconfig using application default credentials..."
+gcloud config set container/use_application_default_credentials true
+gcloud beta container clusters get-credentials gke-1-15-small-cluster --zone=us-central1-f
+echo "Getting kubeconfig using application default credentials - DONE"
+
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr "$@"

@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	goerrors "github.com/go-errors/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +123,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, IsSSHT
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := p.gatherProfile(k8sClient, IsSSHToMasterSupported)
+				profileSummaries, err := p.gatherProfile(k8sClient, IsSSHToMasterSupported, config)
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
@@ -182,13 +183,11 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface, IsSSHToMasterSupported bool) ([]measurement.Summary, error) {
-	profilePort, err := getPortForComponent(p.config.componentName)
+func (p *profileMeasurement) gatherProfile(c clientset.Interface, IsSSHToMasterSupported bool, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	getCommand, err := p.getProfileCommand(config)
 	if err != nil {
-		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
+		return nil, goerrors.Errorf("profile gathering failed during retrieving profile command: %v", err)
 	}
-	profileProtocol := getProtocolForComponent(p.config.componentName)
-	getCommand := fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
 
 	var summaries []measurement.Summary
 	for _, host := range p.config.hosts {
@@ -228,6 +227,25 @@ func (p *profileMeasurement) shouldExposeApiServerDebugEndpoint() bool {
 	return p.config.componentName == "kube-apiserver"
 }
 
+func (p *profileMeasurement) getProfileCommand(config *measurement.MeasurementConfig) (string, error) {
+	profilePort, err := getPortForComponent(p.config.componentName)
+	if err != nil {
+		return "", goerrors.Errorf("get profile command failed finding component port: %v", err)
+	}
+	profileProtocol := getProtocolForComponent(p.config.componentName)
+
+	var command string
+	if p.config.componentName == "etcd" {
+		etcdCert := config.ClusterFramework.GetClusterConfig().EtcdCertificatePath
+		etcdKey := config.ClusterFramework.GetClusterConfig().EtcdKeyPath
+		command = fmt.Sprintf("curl -s -k --cert %s --key %s %slocalhost:%v/debug/pprof/%s", etcdCert, etcdKey, profileProtocol, profilePort, p.config.kind)
+	} else {
+		command = fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
+	}
+
+	return command, nil
+}
+
 func shouldGetAPIServerByK8sClient(componentName string) bool {
 	// In some cases the kube-apiserver cannot be reached by curl.
 	// We add a config here as a walkaround.
@@ -255,6 +273,8 @@ func getPortForComponent(componentName string) (int, error) {
 
 func getProtocolForComponent(componentName string) string {
 	switch componentName {
+	case "etcd":
+		return "https://"
 	case "kube-apiserver":
 		return "https://"
 	default:

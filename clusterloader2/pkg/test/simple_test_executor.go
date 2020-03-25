@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -55,46 +56,16 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
 	defer cleanupResources(ctx)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	if err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh); err != nil {
-		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
-	}
-	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
-	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
-	}
-	if len(automanagedNamespacesList) > 0 {
-		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
-	}
-	var deleteStaleNS = ctx.GetClusterFramework().GetClusterConfig().DeleteStaleNamespaces
-	if len(staleNamespaces) > 0 && deleteStaleNS {
-		klog.Warning("stale automanaged namespaces found")
-		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
-			klog.Errorf("stale automanaged namespaces cleanup error: %v", errList.String())
-		}
-	}
+	errList, chaosMonkeyWaitGroup := ste.ExecuteTestSteps(ctx, conf)
 
-	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
-	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
-	}
-
-	errList := errors.NewErrorList()
-	for i := range conf.Steps {
-		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); !stepErrList.IsEmpty() {
-			errList.Concat(stepErrList)
-			if isErrsCritical(stepErrList) {
-				return errList
-			}
-		}
+	if chaosMonkeyWaitGroup != nil {
+		// Wait for the Chaos Monkey subroutine to end
+		klog.Info("Waiting for the chaos monkey subroutine to end...")
+		chaosMonkeyWaitGroup.Wait()
+		klog.Info("Chaos monkey ended.")
 	}
 
 	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
-		if err != nil {
-			errList.Append(fmt.Errorf("printing summary %s error: %v", summary.SummaryName(), err))
-			continue
-		}
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
 			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
@@ -113,6 +84,46 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 	}
 	klog.Infof(ctx.GetChaosMonkey().Summary())
 	return errList
+}
+
+// ExecuteTestSteps executes all test steps provided in configuration
+func (ste *simpleTestExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) (*errors.ErrorList, *sync.WaitGroup) {
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	err, wg := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh)
+	if err != nil {
+		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err)), wg
+	}
+	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
+	if err != nil {
+		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err)), wg
+	}
+	if len(automanagedNamespacesList) > 0 {
+		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found")), wg
+	}
+	var deleteStaleNS = ctx.GetClusterFramework().GetClusterConfig().DeleteStaleNamespaces
+	if len(staleNamespaces) > 0 && deleteStaleNS {
+		klog.Warning("stale automanaged namespaces found")
+		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
+			klog.Errorf("stale automanaged namespaces cleanup error: %v", errList.String())
+		}
+	}
+
+	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
+	if err != nil {
+		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err)), wg
+	}
+
+	errList := errors.NewErrorList()
+	for i := range conf.Steps {
+		if stepErrList := ste.ExecuteStep(ctx, &conf.Steps[i]); !stepErrList.IsEmpty() {
+			errList.Concat(stepErrList)
+			if isErrsCritical(stepErrList) {
+				return errList, wg
+			}
+		}
+	}
+	return errList, wg
 }
 
 // ExecuteStep executes single test step based on provided step configuration.

@@ -61,7 +61,7 @@ type schedulerLatencyMeasurement struct{}
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
 func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
+	IsSSHToMasterSupported := config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported
 
 	c := config.ClusterFramework.GetClientSets().GetClient()
 	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -81,7 +81,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 		return nil, err
 	}
 
-	if !isSSHSupported || !masterRegistered {
+	if !IsSSHToMasterSupported || !masterRegistered {
 		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider)
 		return nil, nil
 	}

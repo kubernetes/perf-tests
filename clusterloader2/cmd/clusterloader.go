@@ -144,10 +144,10 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if clusterLoaderConfig.ClusterConfig.Provider != "aks" || clusterLoaderConfig.ClusterConfig.Provider != "gke" {
-		clusterLoaderConfig.ClusterConfig.IsSSHSupported = true
+		clusterLoaderConfig.ClusterConfig.IsSSHToMasterSupported = true
 	}
 	if clusterLoaderConfig.ClusterConfig.Provider != "aks" {
-		clusterLoaderConfig.ClusterConfig.IsPprofSupported = true
+		clusterLoaderConfig.ClusterConfig.IsAPIServerPprofExposed = true
 	}
 	return nil
 }

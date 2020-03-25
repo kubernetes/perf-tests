@@ -40,8 +40,12 @@ type ClusterConfig struct {
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
 	DeleteStaleNamespaces      bool
-	IsSSHSupported             bool
-	IsPprofSupported           bool
+	// IsSSHToMasterSupported is false on some managed providers.
+	// Clusterloader will not attempt operations requiring SSH when this value is false, such as some metrics collection routines.
+	IsSSHToMasterSupported bool
+	// IsAPIServerPprofExposed is false for some managed providers.
+	// When IsAPIServerPprofExposed is false, clusterloader will avoid using using pprof to collect metrics.
+	IsAPIServerPprofExposed bool
 }
 
 // PrometheusConfig represents all flags used by prometheus.

@@ -90,7 +90,7 @@ func createProfileMeasurementFactory(name, kind string) func() measurement.Measu
 	}
 }
 
-func (p *profileMeasurement) start(config *measurement.MeasurementConfig, isSSHSupported bool) error {
+func (p *profileMeasurement) start(config *measurement.MeasurementConfig, IsSSHToMasterSupported bool) error {
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, isSSHS
 			case <-p.stopCh:
 				return
 			case <-time.After(profileFrequency):
-				profileSummaries, err := p.gatherProfile(k8sClient, isSSHSupported)
+				profileSummaries, err := p.gatherProfile(k8sClient, IsSSHToMasterSupported)
 				if err != nil {
 					klog.Errorf("failed to gather profile for %#v: %v", *p.config, err)
 					continue
@@ -146,10 +146,10 @@ func (p *profileMeasurement) stop() {
 
 // Execute gathers memory profile of a given component.
 func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	isSSHSupported := config.ClusterFramework.GetClusterConfig().IsSSHSupported
-	isPprofSupported := config.ClusterFramework.GetClusterConfig().IsPprofSupported
+	IsSSHToMasterSupported := config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported
+	IsAPIServerPprofExposed := config.ClusterFramework.GetClusterConfig().IsAPIServerPprofExposed
 
-	if !isSSHSupported && !isPprofSupported {
+	if !IsSSHToMasterSupported && !IsAPIServerPprofExposed {
 		klog.Warningf("fetching profile data from is not possible from provider: %s", p.config.provider)
 		return nil, nil
 	}
@@ -165,7 +165,7 @@ func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]m
 			klog.Infof("%s: measurement already running", p)
 			return nil, nil
 		}
-		return nil, p.start(config, isSSHSupported)
+		return nil, p.start(config, IsSSHToMasterSupported)
 	case "gather":
 		p.stop()
 		return p.summaries, nil
@@ -182,7 +182,7 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface, isSSHSupported bool) ([]measurement.Summary, error) {
+func (p *profileMeasurement) gatherProfile(c clientset.Interface, IsSSHToMasterSupported bool) ([]measurement.Summary, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return nil, fmt.Errorf("profile gathering failed finding component port: %v", err)
@@ -196,7 +196,7 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, isSSHSupported
 
 		// Get the profile data over SSH.
 		// Start by checking that the provider allows us to do so.
-		if !isSSHSupported || shouldGetAPIServerByK8sClient(p.config.componentName) {
+		if !IsSSHToMasterSupported || shouldGetAPIServerByK8sClient(p.config.componentName) {
 			// SSH to master for this provider is not possible.
 			// For kube-apiserver, we can still fetch the profile using a RESTClient and pprof.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.

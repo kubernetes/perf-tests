@@ -19,6 +19,7 @@ package chaos
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -38,17 +39,19 @@ func NewMonkey(client clientset.Interface, provider string) *Monkey {
 
 // Init initializes Monkey with given config.
 // When stopCh is closed, the Monkey will stop simulating failures.
-func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) error {
+func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) (*sync.WaitGroup, error) {
+	wg := sync.WaitGroup{}
 	if config.NodeFailure != nil {
 		nodeKiller, err := NewNodeKiller(*config.NodeFailure, m.client, m.provider)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		m.nodeKiller = nodeKiller
-		go m.nodeKiller.Run(stopCh)
+		wg.Add(1)
+		go m.nodeKiller.Run(stopCh, &wg)
 	}
 
-	return nil
+	return &wg, nil
 }
 
 // Summary logs Monkey execution

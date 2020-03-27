@@ -89,16 +89,17 @@ func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, pro
 }
 
 // Run starts NodeKiller until stopCh is closed.
-func (k *NodeKiller) Run(stopCh <-chan struct{}) {
+func (k *NodeKiller) Run(stopCh <-chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
 	// wait.JitterUntil starts work immediately, so wait first.
-	time.Sleep(wait.Jitter(time.Duration(k.config.Interval), k.config.JitterFactor))
+	sleepInterrupt(wait.Jitter(time.Duration(k.config.Interval), k.config.JitterFactor), stopCh)
 	wait.JitterUntil(func() {
 		nodes, err := k.pickNodes()
 		if err != nil {
 			klog.Errorf("%s: Unable to pick nodes to kill: %v", k, err)
 			return
 		}
-		k.kill(nodes)
+		k.kill(nodes, stopCh)
 	}, time.Duration(k.config.Interval), k.config.JitterFactor, true, stopCh)
 }
 
@@ -142,7 +143,7 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	return nodes, nil
 }
 
-func (k *NodeKiller) kill(nodes []v1.Node) {
+func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(nodes))
 	for _, node := range nodes {
@@ -159,7 +160,8 @@ func (k *NodeKiller) kill(nodes []v1.Node) {
 				return
 			}
 
-			time.Sleep(time.Duration(k.config.SimulatedDowntime))
+			// Listening for interruptions on stopCh or wait for the simulated downtime
+			sleepInterrupt(time.Duration(k.config.SimulatedDowntime), stopCh)
 
 			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
 			// Scheduling a reboot in one second, then disconnecting.
@@ -204,4 +206,15 @@ func (k *NodeKiller) Summary() string {
 
 func (k *NodeKiller) String() string {
 	return "NodeKiller"
+}
+
+// Utility method to put the current routine to sleep or break the sleep if stopCh closes
+// Note of warning: if stopCh is already closed the process may not sleep at all.
+func sleepInterrupt(duration time.Duration, stopCh <-chan struct{}) {
+	select {
+	case <-stopCh:
+		break
+	case <-time.After(duration):
+		break
+	}
 }

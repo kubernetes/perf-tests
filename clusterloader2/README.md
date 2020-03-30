@@ -37,7 +37,7 @@ If not specified, summaries are printed to standard log.
 ### Test definition
 
 Test definition is an instantiation of this [api] (in json or yaml).
-The motivation and description of the API can be find in [design doc].
+The motivation and description of the API can be found in [design doc].
 Definitions of test as well as definitions of individual objects support templating.
 Templates for test definition come with one predefined value - ```{{.Nodes}}```,
 which represents the number of schedulable nodes in the cluster. \

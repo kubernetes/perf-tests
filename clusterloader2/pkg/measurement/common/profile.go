@@ -147,9 +147,9 @@ func (p *profileMeasurement) stop() {
 // Execute gathers memory profile of a given component.
 func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	IsSSHToMasterSupported := config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported
-	IsAPIServerPprofExposed := config.ClusterFramework.GetClusterConfig().IsAPIServerPprofExposed
+	IsAPIServerPprofEnabled := config.ClusterFramework.GetClusterConfig().IsAPIServerPprofEnabled
 
-	if !IsSSHToMasterSupported && !IsAPIServerPprofExposed {
+	if !IsSSHToMasterSupported && !IsAPIServerPprofEnabled {
 		klog.Warningf("fetching profile data from is not possible from provider: %s", p.config.provider)
 		return nil, nil
 	}

@@ -147,7 +147,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		clusterLoaderConfig.ClusterConfig.IsSSHToMasterSupported = true
 	}
 	if clusterLoaderConfig.ClusterConfig.Provider != "aks" {
-		clusterLoaderConfig.ClusterConfig.IsAPIServerPprofExposed = true
+		clusterLoaderConfig.ClusterConfig.IsAPIServerPprofEnabled = true
 	}
 	return nil
 }

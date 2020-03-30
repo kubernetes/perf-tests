@@ -43,9 +43,9 @@ type ClusterConfig struct {
 	// IsSSHToMasterSupported is false on some managed providers.
 	// Clusterloader will not attempt operations requiring SSH when this value is false, such as some metrics collection routines.
 	IsSSHToMasterSupported bool
-	// IsAPIServerPprofExposed is false for some managed providers.
-	// When IsAPIServerPprofExposed is false, clusterloader will avoid using using pprof to collect metrics.
-	IsAPIServerPprofExposed bool
+	// IsAPIServerPprofEnabled is false for some managed providers.
+	// When IsAPIServerPprofEnabled is false, clusterloader will avoid collecting kube-apiserver pprofs.
+	IsAPIServerPprofEnabled bool
 }
 
 // PrometheusConfig represents all flags used by prometheus.

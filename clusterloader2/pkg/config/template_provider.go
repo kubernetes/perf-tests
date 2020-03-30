@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -240,9 +241,22 @@ func LoadCL2Envs() (map[string]interface{}, error) {
 			return nil, goerrors.Errorf("unparsable string in os.Eviron(): %v", keyValue)
 		}
 		key, value := split[0], split[1]
-		mapping[key] = value
+		mapping[key] = unpackStringValue(value)
 	}
 	return mapping, nil
+}
+
+func unpackStringValue(str string) interface{} {
+	if v, err := strconv.ParseBool(str); err == nil {
+		return v
+	}
+	if v, err := strconv.ParseInt(str, 10, 64); err == nil {
+		return v
+	}
+	if v, err := strconv.ParseFloat(str, 64); err == nil {
+		return v
+	}
+	return str
 }
 
 // MergeMappings modifies map b to contain all new key=value pairs from b.

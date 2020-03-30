@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{.Group}}
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: {{.Group}}
+    spec:
+      # Do not automount default service account, to eliminate its impact.
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: windows
+      containers:
+      - image: {{.Image}}
+        imagePullPolicy: IfNotPresent
+        name: {{.Name}}
+        ports:
+        - containerPort: 80
+      tolerations:
+      - key: "node.kubernetes.io/os"
+        operator: "Exists"
+        effect: "NoSchedule"
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900

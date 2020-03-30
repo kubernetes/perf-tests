@@ -1,0 +1,91 @@
+# ASSUMPTIONS:
+# - This test is designed for 1-node cluster.
+
+#Constants
+{{$POD_COUNT := DefaultParam .CL2_POD_COUNT 80}}
+{{$POD_THROUGHPUT := DefaultParam .CL2_POD_THROUGHPUT 0.03}}
+{{$CONTAINER_IMAGE := DefaultParam .CL2_CONTAINER_IMAGE "gcr.io/gke-release/pause-win:1.2.0"}}
+{{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "60m"}}
+{{$OPERATION_TIMEOUT := DefaultParam .CL2_OPERATION_TIMEOUT "90m"}}
+
+name: node-throughput
+automanagedNamespaces: {{$POD_COUNT}}
+tuningSets:
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$POD_THROUGHPUT}}
+steps:
+- measurements:
+  - Identifier: WindowsResourceUsagePrometheus
+    Method: WindowsResourceUsagePrometheus
+    Params:
+      action: start
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = latency
+      threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: v1
+      kind: ReplicationController
+      labelSelector: group = latency
+      operationTimeout: {{$OPERATION_TIMEOUT}}
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$POD_COUNT}}
+    replicasPerNamespace: 1
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+        Image: {{$CONTAINER_IMAGE}}
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+  - Identifier: WindowsResourceUsagePrometheus
+    Method: WindowsResourceUsagePrometheus
+    Params:
+      action: gather
+- phases:
+  - namespaceRange:
+      min: 1
+      max: {{$POD_COUNT}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+- measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Collect measurements
+- measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+- measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple

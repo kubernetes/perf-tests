@@ -17,6 +17,7 @@ limitations under the License.
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -270,6 +271,15 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 	return errList
 }
 
+func prettify(obj interface{}) string {
+	s, err := json.MarshalIndent(obj, "" /*=prefix*/, "  " /*=indent*/)
+	if err != nil {
+		klog.Warningf("Error while marshalling response %v: %v", obj, err)
+		return ""
+	}
+	return string(s)
+}
+
 // ExecuteObject executes single test object operation based on provided object configuration.
 func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
@@ -286,6 +296,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		mapping[namePlaceholder] = objName
 		mapping[namespacePlaceholder] = namespace
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
+		klog.Info("[mm4tt] Loading template: %s, mapping is: %v\nobj is: %v", object.ObjectTemplatePath, prettify(mapping), prettify(obj))
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}

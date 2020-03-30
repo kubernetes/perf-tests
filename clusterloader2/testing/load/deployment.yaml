@@ -28,14 +28,10 @@ spec:
             cpu: {{$CpuRequest}}
             memory: {{$MemoryRequest}}
         volumeMounts:
-          {{if (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
           - name: configmap
             mountPath: /var/configmap
-          {{end}}
-          {{if (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
           - name: secret
             mountPath: /var/secret
-          {{end}}
       dnsPolicy: Default
       terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
@@ -50,14 +46,10 @@ spec:
         effect: "NoExecute"
         tolerationSeconds: 900
       volumes:
-        {{if (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
         - name: configmap
           configMap:
             name: {{.BaseName}}-{{.Index}}
-        {{end}}
-        {{if (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
         - name: secret
           secret:
             secretName: {{.BaseName}}-{{.Index}}
-        {{end}}
 

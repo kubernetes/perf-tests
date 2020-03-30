@@ -542,17 +542,7 @@ func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 // isIPv6: Determines if an address is an IPv6 address
 func isIPv6(address string) bool {
 	x := net.ParseIP(address)
-	if x != nil {
-		// The net package does not have a good way to determine if an address
-		// is definitely an IPv6 address.  The best it can do at the moment is
-		// tell if it cleanly converts to an IPv4 value so we are going to
-		// assume that if it parsed as an address and wasn't an IPv4 address
-		// then it must be an IPv6 address.
-		if x.To4() == nil {
-			return true
-		}
-	}
-	return false
+	return x != nil && x.To4() == nil && x.To16() != nil
 }
 
 // startWork : Entry point to the worker infinite loop

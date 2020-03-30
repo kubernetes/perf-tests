@@ -60,6 +60,12 @@ type etcdMetricsMeasurement struct {
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+	// Etcd is only exposed on localhost level. We are using ssh method
+	if !config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported {
+		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider)
+		return nil, nil
+	}
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -183,11 +189,6 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 }
 
 func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
-	// Etcd is only exposed on localhost level. We are using ssh method
-	if provider == "gke" {
-		klog.Infof("%s: not grabbing etcd metrics through master SSH: unsupported for gke", e)
-		return nil, nil
-	}
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
 	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you

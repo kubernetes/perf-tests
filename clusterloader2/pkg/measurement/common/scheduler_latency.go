@@ -61,11 +61,32 @@ type schedulerLatencyMeasurement struct{}
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
 func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	action, err := util.GetString(config.Params, "action")
+	IsSSHToMasterSupported := config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported
+
+	c := config.ClusterFramework.GetClientSets().GetClient()
+	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
+
+	var masterRegistered = false
+	for _, node := range nodes.Items {
+		if system.IsMasterNode(node.Name) {
+			masterRegistered = true
+		}
+	}
+
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
+	if err != nil {
+		return nil, err
+	}
+
+	if !IsSSHToMasterSupported || !masterRegistered {
+		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider)
+		return nil, nil
+	}
+
+	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +102,10 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	switch action {
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
+		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	case "gather":
 		klog.Infof("%s: gathering latency metrics in scheduler...", s)
-		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName)
+		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -98,8 +119,8 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string) error {
-	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName)
+func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
+	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName, masterRegistered)
 	if err != nil {
 		return err
 	}
@@ -107,9 +128,9 @@ func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interfac
 }
 
 // Retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
 	result := schedulingMetrics{}
-	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName)
+	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, masterRegistered)
 	if err != nil {
 		return nil, err
 	}
@@ -187,22 +208,10 @@ func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measureme
 }
 
 // Sends request to kube scheduler metrics
-func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string) (string, error) {
+func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string, masterRegistered bool) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")
-	}
-
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	var masterRegistered = false
-	for _, node := range nodes.Items {
-		if system.IsMasterNode(node.Name) {
-			masterRegistered = true
-		}
 	}
 
 	var responseText string
@@ -225,12 +234,6 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		}
 		responseText = string(body)
 	} else {
-		// If master is not registered fall back to old method of using SSH.
-		if provider == "gke" {
-			klog.Infof("%s: not grabbing scheduler metrics through master SSH: unsupported for gke", s)
-			return "", nil
-		}
-
 		cmd := "curl -X " + opUpper + " http://localhost:10251/metrics"
 		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 		if err != nil || sshResult.Code != 0 {

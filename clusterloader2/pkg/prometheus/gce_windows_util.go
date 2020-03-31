@@ -59,11 +59,11 @@ func isWindowsNodeScrapingEnabled(mapping map[string]interface{}, clusterLoaderC
 }
 
 func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, mapping map[string]interface{}) error {
-	wmiExporterURL, ok := mapping["WMI_EXPORTER_URL"]
+	wmiExporterURL, ok := mapping["CL2_WMI_EXPORTER_URL"]
 	if !ok {
 		return fmt.Errorf("missing setting up wmi exporter download url")
 	}
-	wmiExporterCollectors, ok := mapping["WMI_EXPORTER_ENABLED_COLLECTORS"]
+	wmiExporterCollectors, ok := mapping["CL2_WMI_EXPORTER_ENABLED_COLLECTORS"]
 	if !ok {
 		return fmt.Errorf("missing setting up wmi exporter enabled collectors")
 	}
@@ -71,7 +71,7 @@ func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, ma
 	// 		invoke-webrequest : Win32 internal error "Access is denied" 0x5 occurred while reading the console output buffer.
 	// 		Contact Microsoft Customer Support Services.
 	// After wrap it up in script block, it works well, also support timeout setting.
-	installWmiCmdTemplate := `Start-Job -Name InstallWmiExporter -ScriptBlock {invoke-webrequest -uri %s -outfile C:\wmi_exporter.msi; Start-Process msiexec.exe -Wait -ArgumentList '/I C:\wmi_exporter.msi ENABLED_COLLECTORS=%s LISTEN_PORT=5000 /quiet'}; Wait-Job -Timeout 300 -Name InstallWmiExporter`
+	installWmiCmdTemplate := `Start-Job -Name InstallWmiExporter -ScriptBlock {invoke-webrequest -uri %s -outfile C:\wmi_exporter.exe; New-Service -Name wmi_exporter -BinaryPathName 'C:\wmi_exporter.exe --collectors.enabled="%s" --telemetry.addr=":5000"'; Start-Service wmi_exporter}; Wait-Job -Timeout 300 -Name InstallWmiExporter`
 	installWmiExporterCmd := fmt.Sprintf(installWmiCmdTemplate, wmiExporterURL, wmiExporterCollectors)
 	powershellCmd := fmt.Sprintf(`powershell.exe -Command "%s"`, installWmiExporterCmd)
 	if windowsNode == nil {

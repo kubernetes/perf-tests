@@ -163,9 +163,20 @@ func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 			// Listening for interruptions on stopCh or wait for the simulated downtime
 			sleepInterrupt(time.Duration(k.config.SimulatedDowntime), stopCh)
 
-			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
 			k.addRebootEvent(node.Name)
-			err = util.SSH("sudo reboot", &node, nil)
+			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
+			// Scheduling a reboot in three seconds, then disconnecting.
+			//
+			// Bash command explanation:
+			// 'nohup' - Making sure that end of SSH connection signal will not break executed commands
+			// 'sh' - Create shell in another process to execute mini script
+			// 'sleep 3s' - Wait 3 seconds
+			// 'sudo' - Elevated priviliages, required by 'reboot'
+			// 'reboot' - Reboot machine
+			// '> /dev/null 2> /dev/null < /dev/null' - File descriptor redirect, all three I/O to avoid ssh hanging,
+			//                                          see https://web.archive.org/web/20090429074212/http://www.openssh.com/faq.html#3.10
+			// '&' - Execute command in background, end without waiting for result
+			err = util.SSH("nohup sh -c \"sleep 3s ; sudo reboot\" > /dev/null 2> /dev/null < /dev/null &", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: Error while rebooting node %q: %v", k, node.Name, err)
 				return

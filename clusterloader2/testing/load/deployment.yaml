@@ -1,5 +1,5 @@
-{{$EnableConfigMaps := DefaultParam .CL2_ENABLE_CONFIGMAPS false}}
-{{$EnableSecrets := DefaultParam .CL2_ENABLE_SECRETS false}}
+{{$EnableConfigMaps := DefaultParam .CL2_ENABLE_CONFIGMAPS true}}
+{{$EnableSecrets := DefaultParam .CL2_ENABLE_SECRETS true}}
 {{$CpuRequest := DefaultParam .CpuRequest "10m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
 

@@ -31,3 +31,6 @@ clusterloader2/clusterloader
 
 # Vscode files
 .vscode
+
+# GoLand files
+.idea

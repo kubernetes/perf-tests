@@ -49,6 +49,7 @@ type NodeKiller struct {
 	// killedNodes stores names of the nodes that have been killed by NodeKiller.
 	killedNodes sets.String
 	recorder    *eventRecorder
+	ssh         util.SSHExecutor
 }
 
 type nodeAction string
@@ -85,7 +86,8 @@ func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, pro
 	if provider != "gce" && provider != "gke" {
 		return nil, fmt.Errorf("provider %q is not supported by NodeKiller", provider)
 	}
-	return &NodeKiller{config, client, provider, sets.NewString(), newEventRecorder()}, nil
+	sshExecutor := &util.GCloudSSHExecutor{}
+	return &NodeKiller{config, client, provider, sets.NewString(), newEventRecorder(), sshExecutor}, nil
 }
 
 // Run starts NodeKiller until stopCh is closed.
@@ -154,7 +156,7 @@ func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 
 			klog.Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
 			k.addStopServicesEvent(node.Name)
-			err := util.SSH("sudo systemctl stop docker kubelet", &node, nil)
+			err := k.ssh.Exec("sudo systemctl stop docker kubelet", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: ERROR while stopping node %q: %v", k, node.Name, err)
 				return
@@ -165,7 +167,7 @@ func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 
 			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
 			k.addRebootEvent(node.Name)
-			err = util.SSH("sudo reboot", &node, nil)
+			err = k.ssh.Exec("sudo reboot", &node, nil)
 			if err != nil {
 				klog.Errorf("%s: Error while rebooting node %q: %v", k, node.Name, err)
 				return

@@ -7,7 +7,6 @@
 {{$CONTAINER_IMAGE := DefaultParam .CONTAINER_IMAGE "k8s.gcr.io/pause:3.1"}}
 {{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 {{$OPERATION_TIMEOUT := DefaultParam .OPERATION_TIMEOUT "15m"}}
-{{$WINDOWS_NODE_TEST := DefaultParam .WINDOWS_NODE_TEST false}}
 
 name: node-throughput
 automanagedNamespaces: {{$POD_COUNT}}
@@ -17,12 +16,6 @@ tuningSets:
     qps: {{$POD_THROUGHPUT}}
 steps:
 - measurements:
-  {{if $WINDOWS_NODE_TEST}}
-  - Identifier: WindowsResourceUsagePrometheus
-    Method: WindowsResourceUsagePrometheus
-    Params:
-      action: start
-  {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
@@ -55,18 +48,11 @@ steps:
         Replicas: 1
         Group: latency
         Image: {{$CONTAINER_IMAGE}}
-        WindowsNodeTest: {{$WINDOWS_NODE_TEST}}
 - measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-  {{if $WINDOWS_NODE_TEST}}
-  - Identifier: WindowsResourceUsagePrometheus
-    Method: WindowsResourceUsagePrometheus
-    Params:
-      action: gather
-  {{end}}
 - phases:
   - namespaceRange:
       min: 1

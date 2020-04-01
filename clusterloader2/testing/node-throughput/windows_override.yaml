@@ -1,9 +1,0 @@
-WINDOWS_NODE_TEST: true
-POD_COUNT: 80
-POD_THROUGHPUT: 0.03
-CONTAINER_IMAGE: gcr.io/gke-release/pause-win:1.2.1
-OPERATION_TIMEOUT: 90m
-POD_STARTUP_LATENCY_THRESHOLD: 60m
-# TODO: Will update it once the offical version is released.
-WMI_EXPORTER_URL: "https://github.com/YangLu1031/wmi_exporter/releases/download/v0.10.3-alpha/wmi_exporter.exe"
-WMI_EXPORTER_ENABLED_COLLECTORS: "process,cs"

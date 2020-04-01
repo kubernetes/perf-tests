@@ -25,9 +25,17 @@ import (
 	"k8s.io/klog"
 )
 
+// SSHExecutor interface can run commands in cluster nodes via SSH
+type SSHExecutor interface {
+	Exec(command string, node *v1.Node, stdin io.Reader) error
+}
+
+// GCloudSSHExecutor runs commands in GCloud cluster nodes
+type GCloudSSHExecutor struct{}
+
 // SSH executes command on a given node with stdin provided.
 // If stdin is nil, the process reads from null device.
-func SSH(command string, node *v1.Node, stdin io.Reader) error {
+func (e *GCloudSSHExecutor) Exec(command string, node *v1.Node, stdin io.Reader) error {
 	zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
 	if !ok {
 		return fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)

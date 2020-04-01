@@ -42,12 +42,12 @@ type ClusterConfig struct {
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
 	DeleteStaleNamespaces      bool
-	// IsSSHToMasterSupported is false on some managed providers.
-	// Clusterloader will not attempt operations requiring SSH when this value is false, such as some metrics collection routines.
-	IsSSHToMasterSupported bool
-	// IsAPIServerPprofEnabled is false for some managed providers.
-	// When IsAPIServerPprofEnabled is false, clusterloader will avoid collecting kube-apiserver pprofs.
-	IsAPIServerPprofEnabled bool
+	// SSHToMasterSupported determines whether SSH access to master machines is possible.
+	// If false (impossible for many  providers), ClusterLoader will skip operations requiring it.
+	SSHToMasterSupported bool
+	// APIServerPprofByClientEnabled determines whether kube-apiserver pprof endpoint can be accessed
+	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
+	APIServerPprofByClientEnabled bool
 }
 
 // PrometheusConfig represents all flags used by prometheus.

@@ -33,7 +33,7 @@ type SSHExecutor interface {
 // GCloudSSHExecutor runs commands in GCloud cluster nodes
 type GCloudSSHExecutor struct{}
 
-// SSH executes command on a given node with stdin provided.
+// Exec executes command on a given node with stdin provided.
 // If stdin is nil, the process reads from null device.
 func (e *GCloudSSHExecutor) Exec(command string, node *v1.Node, stdin io.Reader) error {
 	zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]

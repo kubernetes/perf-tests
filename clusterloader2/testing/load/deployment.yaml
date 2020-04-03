@@ -1,5 +1,3 @@
-{{$EnableConfigMaps := DefaultParam .CL2_ENABLE_CONFIGMAPS true}}
-{{$EnableSecrets := DefaultParam .CL2_ENABLE_SECRETS true}}
 {{$CpuRequest := DefaultParam .CpuRequest "10m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
 
@@ -30,11 +28,11 @@ spec:
             cpu: {{$CpuRequest}}
             memory: {{$MemoryRequest}}
         volumeMounts:
-          {{if and $EnableConfigMaps (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
+          {{if (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
           - name: configmap
             mountPath: /var/configmap
           {{end}}
-          {{if and $EnableSecrets (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
+          {{if (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
           - name: secret
             mountPath: /var/secret
           {{end}}
@@ -52,12 +50,12 @@ spec:
         effect: "NoExecute"
         tolerationSeconds: 900
       volumes:
-        {{if and $EnableConfigMaps (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
+        {{if (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - 10% deployments will have ConfigMap
         - name: configmap
           configMap:
             name: {{.BaseName}}-{{.Index}}
         {{end}}
-        {{if and $EnableSecrets (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
+        {{if (eq (Mod .Index 20) 10 19) }} # .Index % 20 in {10,19} - 10% deployments will have Secret
         - name: secret
           secret:
             secretName: {{.BaseName}}-{{.Index}}

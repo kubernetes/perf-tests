@@ -61,7 +61,7 @@ type etcdMetricsMeasurement struct {
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	// Etcd is only exposed on localhost level. We are using ssh method
-	if !config.ClusterFramework.GetClusterConfig().IsSSHToMasterSupported {
+	if !config.ClusterFramework.GetClusterConfig().SSHToMasterSupported {
 		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider)
 		return nil, nil
 	}

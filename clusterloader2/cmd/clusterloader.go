@@ -71,6 +71,7 @@ func initClusterFlags() {
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
+	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
 }
 
 func validateClusterFlags() *errors.ErrorList {
@@ -146,10 +147,10 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if clusterLoaderConfig.ClusterConfig.Provider != "aks" || clusterLoaderConfig.ClusterConfig.Provider != "gke" {
-		clusterLoaderConfig.ClusterConfig.IsSSHToMasterSupported = true
+		clusterLoaderConfig.ClusterConfig.SSHToMasterSupported = true
 	}
-	if clusterLoaderConfig.ClusterConfig.Provider != "aks" {
-		clusterLoaderConfig.ClusterConfig.IsAPIServerPprofEnabled = true
+	if clusterLoaderConfig.ClusterConfig.Provider == "aks" {
+		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
 	}
 	return nil
 }

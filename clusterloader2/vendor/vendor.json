@@ -2768,10 +2768,10 @@
 			"revisionTime": "2020-02-13T22:13:11Z"
 		},
 		{
-			"checksumSHA1": "PZpJx8QjvJ+8AaJk7X75grYjdbo=",
+			"checksumSHA1": "tYhijn6reqc1ZeBGfT6Gz5a8u4Q=",
 			"path": "k8s.io/component-base/metrics/testutil",
-			"revision": "52da27f0465b85ae877364eda9b9195cbc9d5d2c",
-			"revisionTime": "2020-02-13T22:13:11Z"
+			"revision": "be09e7a8fe3f71c28d3e9acfb11578cda8ad1d64",
+			"revisionTime": "2020-04-02T03:50:37Z"
 		},
 		{
 			"checksumSHA1": "BkvIW5ZCT/Cx62qq/9zdeiGYPc4=",

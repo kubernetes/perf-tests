@@ -32,6 +32,21 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
+var (
+	extentionsPoints = []string{
+		"PreFilter",
+		"Filter",
+		"PreScore",
+		"Score",
+		"PreBind",
+		"Bind",
+		"PostBind",
+		"Reserve",
+		"Unreserve",
+		"Permit",
+	}
+)
+
 func stripCount(data *perftype.DataItem) {
 	delete(data.Labels, "Count")
 }
@@ -256,6 +271,8 @@ type schedulingMetrics struct {
 	ThroughputPerc50            float64       `json:"throughputPerc50"`
 	ThroughputPerc90            float64       `json:"throughputPerc90"`
 	ThroughputPerc99            float64       `json:"throughputPerc99"`
+
+	FrameworkExtensionPointDuration map[string]latencyMetric `json:"frameworkExtensionPointDuration"`
 }
 
 func parseOperationLatency(latency latencyMetric, operationName string) perftype.DataItem {
@@ -286,6 +303,11 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 	testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
 	scheduling := parseOperationLatency(obj.SchedulingLatency, "scheduling")
 	testResult.Builds[build] = append(testResult.Builds[build], scheduling)
+
+	for _, ePoint := range extentionsPoints {
+		frameworkExtensionPointDuration := parseOperationLatency(obj.FrameworkExtensionPointDuration[ePoint], fmt.Sprintf("extension_point_duration_%v_latency", strings.ToLower(ePoint)))
+		testResult.Builds[build] = append(testResult.Builds[build], frameworkExtensionPointDuration)
+	}
 }
 
 type schedulingThroughputMetric struct {

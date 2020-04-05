@@ -124,8 +124,9 @@ class ResultDb(object):
 CREATE TABLE IF NOT EXISTS runs (
   run_id,
   run_subid,
+  pod_name,
   {params},
-  primary key (run_id, run_subid)
+  primary key (run_id, run_subid, pod_name)
 )""".format(params=',\n  '.join([param.name for param in PARAMETERS]))
     self.c.execute(sql)
     _log.debug('%s', sql)
@@ -134,8 +135,9 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS results (
   run_id,
   run_subid,
+  pod_name,
   {results},
-  primary key (run_id, run_subid)
+  primary key (run_id, run_subid, pod_name)
 )""".format(results=',\n  '.join([r.name for r in RESULTS]))
     _log.debug('%s', sql)
     self.c.execute(sql)
@@ -144,6 +146,7 @@ CREATE TABLE IF NOT EXISTS results (
 CREATE TABLE IF NOT EXISTS histograms (
   run_id,
   run_subid,
+  pod_name,
   rtt_ms,
   rtt_ms_count
 )
@@ -154,15 +157,15 @@ CREATE TABLE IF NOT EXISTS histograms (
     _log.info('Using DB %s', dbfile)
 
   def put(self, results, ignore_if_dup=True):
-    key = [results['params']['run_id'], results['params']['run_subid']]
+    key = [results['params']['run_id'], results['params']['run_subid'], results['params']['pod_name']]
     if self._exists(key) and ignore_if_dup:
       _log.info('Ignoring duplicate results %s', key)
       return
 
-    sql = ('INSERT INTO runs (run_id, run_subid, '
+    sql = ('INSERT INTO runs (run_id, run_subid, pod_name,'
            + ','.join([p.name for p in PARAMETERS])
            + ') VALUES ('
-           + ','.join(['?'] * (2 + len(PARAMETERS)))
+           + ','.join(['?'] * (3 + len(PARAMETERS)))
            + ')')
     _log.debug('runs sql -- %s', sql)
     self.c.execute(sql, key + [
@@ -170,10 +173,10 @@ CREATE TABLE IF NOT EXISTS histograms (
         for p in PARAMETERS
     ])
 
-    sql = ('INSERT INTO results (run_id, run_subid, '
+    sql = ('INSERT INTO results (run_id, run_subid, pod_name,'
            + ','.join([r.name for r in RESULTS])
            + ') VALUES ('
-           + ','.join(['?'] * (2 + len(RESULTS)))
+           + ','.join(['?'] * (3 + len(RESULTS)))
            + ')')
     _log.debug('results sql -- %s', sql)
     self.c.execute(sql, key +
@@ -197,15 +200,15 @@ CREATE TABLE IF NOT EXISTS histograms (
 
   def get_results(self, run_id, run_subid):
     sql = ('SELECT ' + ','.join([r.name for r in RESULTS])
-           + ' FROM results WHERE run_id = ? and run_subid = ?')
+           + ' FROM results WHERE run_id = ? and run_subid = ? and pod_name = ?')
     _log.debug('%s', sql)
-    self.c.execute(sql, (run_id, run_subid))
+    self.c.execute(sql, (run_id, run_subid, pod_name))
     rows = self.c.fetchall()
     return dict(zip([r.name for r in RESULTS], rows[0])) if rows else None
 
   def _exists(self, key):
     self.c.execute(
-        'SELECT COUNT(*) FROM runs WHERE run_id = ? and run_subid = ?', key)
+        'SELECT COUNT(*) FROM runs WHERE run_id = ? and run_subid = ? and pod_name = ?', key)
     count = self.c.fetchall()[0][0]
     return count != 0
 

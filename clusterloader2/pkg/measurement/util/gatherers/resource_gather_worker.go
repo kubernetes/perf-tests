@@ -40,6 +40,7 @@ type resourceGatherWorker struct {
 	resourceDataGatheringPeriod time.Duration
 	printVerboseLogs            bool
 	host                        string
+	port                        int
 	provider                    string
 }
 
@@ -58,7 +59,7 @@ func (w *resourceGatherWorker) singleProbe() {
 			}
 		}
 	} else {
-		nodeUsage, err := kubelet.GetOneTimeResourceUsageOnNode(w.c, w.nodeName, func() []string { return w.containerIDs })
+		nodeUsage, err := kubelet.GetOneTimeResourceUsageOnNode(w.c, w.nodeName, w.port, func() []string { return w.containerIDs })
 		if err != nil {
 			klog.Errorf("error while reading data from %v: %v", w.nodeName, err)
 			return

@@ -24,7 +24,6 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	stats "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
-	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -34,9 +33,9 @@ const (
 
 // GetOneTimeResourceUsageOnNode queries the node's /stats/summary endpoint
 // and returns the resource usage of all containerNames returned by the containerNames function.
-func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, containerNames func() []string) (util.ResourceUsagePerContainer, error) {
+func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port int, containerNames func() []string) (util.ResourceUsagePerContainer, error) {
 	// Get information of all containers on the node.
-	summary, err := getStatsSummary(c, nodeName)
+	summary, err := getStatsSummary(c, nodeName, port)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +78,7 @@ func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, conta
 }
 
 // getStatsSummary contacts kubelet for the container information.
-func getStatsSummary(c clientset.Interface, nodeName string) (*stats.Summary, error) {
+func getStatsSummary(c clientset.Interface, nodeName string, port int) (*stats.Summary, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), singleCallTimeout)
 	defer cancel()
 
@@ -87,7 +86,7 @@ func getStatsSummary(c clientset.Interface, nodeName string) (*stats.Summary, er
 		Context(ctx).
 		Resource("nodes").
 		SubResource("proxy").
-		Name(fmt.Sprintf("%v:%v", nodeName, ports.KubeletPort)).
+		Name(fmt.Sprintf("%v:%v", nodeName, port)).
 		Suffix("stats/summary").
 		Do().Raw()
 

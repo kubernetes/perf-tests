@@ -48,6 +48,7 @@ type ClusterConfig struct {
 	// APIServerPprofByClientEnabled determines whether kube-apiserver pprof endpoint can be accessed
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
 	APIServerPprofByClientEnabled bool
+	KubeletPort                   int
 }
 
 // PrometheusConfig represents all flags used by prometheus.

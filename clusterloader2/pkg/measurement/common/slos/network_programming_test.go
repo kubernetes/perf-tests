@@ -52,7 +52,7 @@ func TestGather(t *testing.T) {
 
 func testGatherer(t *testing.T, executor QueryExecutor, wantData *measurementutil.PerfData, wantError error) {
 	g := &netProgGatherer{}
-	summary, err := g.Gather(executor, time.Now(), nil)
+	summaries, err := g.Gather(executor, time.Now(), nil)
 	if err != nil {
 		if wantError != nil {
 			assert.Equal(t, wantError, err)
@@ -60,13 +60,16 @@ func testGatherer(t *testing.T, executor QueryExecutor, wantData *measurementuti
 		}
 		t.Errorf("Unexpected error:  %v", err)
 	}
-	assert.Equal(t, netProg, summary.SummaryName())
-	assert.Equal(t, "json", summary.SummaryExt())
-	assert.NotNil(t, summary.SummaryTime())
+	if len(summaries) != 1 {
+		t.Errorf("Should have only one summary")
+	}
+	assert.Equal(t, netProg, summaries[0].SummaryName())
+	assert.Equal(t, "json", summaries[0].SummaryExt())
+	assert.NotNil(t, summaries[0].SummaryTime())
 
 	var data measurementutil.PerfData
-	if err := json.Unmarshal([]byte(summary.SummaryContent()), &data); err != nil {
-		t.Errorf("Error while decoding summary: %v. Summary: %v", err, summary.SummaryContent())
+	if err := json.Unmarshal([]byte(summaries[0].SummaryContent()), &data); err != nil {
+		t.Errorf("Error while decoding summary: %v. Summary: %v", err, summaries[0].SummaryContent())
 
 	}
 	assert.Equal(t, wantData, &data)

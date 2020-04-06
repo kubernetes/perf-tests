@@ -21,7 +21,7 @@ run: perfdash
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability \
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
 
-container:
+container: perfdash
 	docker build --pull -t $(REPO)/perfdash:$(TAG) .
 
 push: container

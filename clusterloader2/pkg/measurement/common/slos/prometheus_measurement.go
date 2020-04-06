@@ -43,7 +43,7 @@ type QueryExecutor interface {
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
-	Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error)
+	Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error)
 	IsEnabled(config *measurement.MeasurementConfig) bool
 	String() string
 }
@@ -94,7 +94,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 				err = nil
 			}
 		}
-		return []measurement.Summary{summary}, err
+		return summary, err
 	default:
 		return nil, fmt.Errorf("unknown action: %v", action)
 	}

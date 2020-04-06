@@ -100,7 +100,7 @@ func (a *apiResponsiveness) Less(i, j int) bool {
 
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
 	if err != nil {
 		klog.Errorf("%s: samples gathering error: %v", config.Identifier, err)
@@ -122,10 +122,11 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 	}
 
 	summary := measurement.CreateSummary(summaryName, "json", content)
+	summaries := []measurement.Summary{summary}
 	if len(badMetrics) > 0 {
-		return summary, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+		return summaries, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
-	return summary, nil
+	return summaries, nil
 }
 
 func (a *apiResponsivenessGatherer) String() string {

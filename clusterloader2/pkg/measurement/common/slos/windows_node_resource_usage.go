@@ -69,7 +69,7 @@ func convertToPerfData(samples []*model.Sample) *measurementutil.PerfData {
 }
 
 // Gather gathers the metrics and convert to json summary
-func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	samples, err := executor.Query(cpuUsageQueryTop10, time.Now())
 	if err != nil {
 		return nil, err
@@ -83,5 +83,5 @@ func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime 
 		return nil, err
 	}
 	summary := measurement.CreateSummary(summaryName, "json", content)
-	return summary, nil
+	return []measurement.Summary{summary}, nil
 }

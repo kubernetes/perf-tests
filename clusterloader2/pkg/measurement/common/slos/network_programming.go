@@ -55,14 +55,15 @@ func (n *netProgGatherer) IsEnabled(config *measurement.MeasurementConfig) bool 
 	return config.CloudProvider != "kubemark"
 }
 
-func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	latency, err := n.query(executor, startTime)
 	if err != nil {
 		return nil, err
 	}
 
 	klog.Infof("%s: got %v", netProg, latency)
-	return n.createSummary(latency)
+	summary, err := n.createSummary(latency)
+	return []measurement.Summary{summary}, err
 }
 
 func (n *netProgGatherer) String() string {

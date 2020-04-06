@@ -30,10 +30,17 @@ import (
 const (
 	windowsResourceUsagePrometheusMeasurementName = "WindowsResourceUsagePrometheus"
 	// get top 10 non-system processes with highest cpu usage within 1min query window size
-	cpuUsageQueryTop10                        = `topk(10, sum by (process) (irate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
+	cpuUsageQueryTop10 = `topk(10, sum by (process) (irate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
+	// cpu usage metrics file name prefix
+	cpuUsageMetricsName = "WindowsCPUUsagePrometheus"
+	// get top 10 non-system processes with highest memory usage
+	memoryUsageQueryTop10 = `topk(10, sum(wmi_process_working_set{process!~"Idle|Total|System"}) by (process))`
+	// memory usage metrics file name prefix
+	memoryUsageMetricsName                    = "WindowsMemoryUsagePrometheus"
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 
+type convertFunc func([]*model.Sample) *measurementutil.PerfData
 type windowsResourceUsageGatherer struct{}
 
 func (w *windowsResourceUsageGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
@@ -51,7 +58,7 @@ func init() {
 	}
 }
 
-func convertToPerfData(samples []*model.Sample) *measurementutil.PerfData {
+func convertToCPUPerfData(samples []*model.Sample) *measurementutil.PerfData {
 	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
 	for _, sample := range samples {
 		item := measurementutil.DataItem{
@@ -68,20 +75,48 @@ func convertToPerfData(samples []*model.Sample) *measurementutil.PerfData {
 	return perfData
 }
 
+func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Memory_Usage": math.Round(float64(sample.Value)*100/(1024*1024)) / 100,
+			},
+			Unit: "MB",
+			Labels: map[string]string{
+				"Process": string(sample.Metric["process"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func getSummary(query string, converter convertFunc, metricsName string, executor QueryExecutor, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+	samples, err := executor.Query(query, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	content, err := util.PrettyPrintJSON(converter(samples))
+	if err != nil {
+		return nil, err
+	}
+	summaryName, err := util.GetStringOrDefault(config.Params, "summaryName", metricsName)
+	if err != nil {
+		return nil, err
+	}
+	return measurement.CreateSummary(summaryName, "json", content), nil
+}
+
 // Gather gathers the metrics and convert to json summary
 func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
-	samples, err := executor.Query(cpuUsageQueryTop10, time.Now())
+	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, executor, config)
 	if err != nil {
 		return nil, err
 	}
-	content, err := util.PrettyPrintJSON(convertToPerfData(samples))
+	memorySummary, err := getSummary(memoryUsageQueryTop10, convertToMemoryPerfData, memoryUsageMetricsName, executor, config)
 	if err != nil {
 		return nil, err
 	}
-	summaryName, err := util.GetStringOrDefault(config.Params, "summaryName", windowsResourceUsagePrometheusMeasurementName)
-	if err != nil {
-		return nil, err
-	}
-	summary := measurement.CreateSummary(summaryName, "json", content)
-	return []measurement.Summary{summary}, nil
+	return []measurement.Summary{cpuSummary, memorySummary}, nil
 }

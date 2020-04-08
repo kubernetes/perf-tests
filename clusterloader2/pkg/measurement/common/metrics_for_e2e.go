@@ -99,7 +99,7 @@ func (*metricsForE2EMeasurement) String() string {
 	return metricsForE2EName
 }
 
-func filterMetrics(m *metrics.MetricsCollection) {
+func filterMetrics(m *metrics.Collection) {
 	interestingKubeletMetrics := make(map[string]metrics.KubeletMetrics)
 	for kubelet, grabbed := range (*m).KubeletMetrics {
 		interestingKubeletMetrics[kubelet] = make(metrics.KubeletMetrics)

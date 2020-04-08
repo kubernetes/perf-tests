@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{.Name}}
+  labels:
+    group: logging
+spec:
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: logging
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: log-generator
+        image: gcr.io/loburm-kubernetes-images/log-generator:1.5
+        command:
+        - /main
+        - --amount=200
+        - --log_lines=50
+        - --logtostderr
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+      terminationGracePeriodSeconds: 1

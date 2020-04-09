@@ -40,46 +40,46 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	var metrics testMetrics
 	var err error
 	if metrics.etcdMetrics, err = measurement.CreateMeasurement("EtcdMetrics"); err != nil {
-		klog.Errorf("%s: etcdMetrics creation error: %v", metrics, err)
+		klog.Errorf("%v: etcdMetrics creation error: %v", metrics, err)
 	}
 	if metrics.schedulingMetrics, err = measurement.CreateMeasurement("SchedulingMetrics"); err != nil {
-		klog.Errorf("%s: schedulingMetrics creation error: %v", metrics, err)
+		klog.Errorf("%v: schedulingMetrics creation error: %v", metrics, err)
 	}
 	if metrics.metricsForE2E, err = measurement.CreateMeasurement("MetricsForE2E"); err != nil {
-		klog.Errorf("%s: metricsForE2E creation error: %v", metrics, err)
+		klog.Errorf("%v: metricsForE2E creation error: %v", metrics, err)
 	}
 	if metrics.resourceUsageSummary, err = measurement.CreateMeasurement("ResourceUsageSummary"); err != nil {
-		klog.Errorf("%s: resourceUsageSummary creation error: %v", metrics, err)
+		klog.Errorf("%v: resourceUsageSummary creation error: %v", metrics, err)
 	}
 	if metrics.etcdCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		klog.Errorf("%s: etcdCPUProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: etcdCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.etcdMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		klog.Errorf("%s: etcdMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: etcdMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.etcdMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
-		klog.Errorf("%s: etcdMutexProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: etcdMutexProfile creation error: %v", metrics, err)
 	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		klog.Errorf("%s: apiserverCPUProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: apiserverCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.apiserverMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		klog.Errorf("%s: apiserverMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: apiserverMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.schedulerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		klog.Errorf("%s: schedulerCPUProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: schedulerCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.schedulerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		klog.Errorf("%s: schedulerMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: schedulerMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.controllerManagerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
-		klog.Errorf("%s: controllerManagerCPUProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: controllerManagerCPUProfile creation error: %v", metrics, err)
 	}
 	if metrics.controllerManagerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
-		klog.Errorf("%s: controllerManagerMemoryProfile creation error: %v", metrics, err)
+		klog.Errorf("%v: controllerManagerMemoryProfile creation error: %v", metrics, err)
 	}
 	if metrics.systemPodMetrics, err = measurement.CreateMeasurement("SystemPodMetrics"); err != nil {
-		klog.Errorf("%s: systemPodMetrics creation error: %v", metrics, err)
+		klog.Errorf("%v: systemPodMetrics creation error: %v", metrics, err)
 	}
 	return &metrics
 }

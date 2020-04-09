@@ -72,7 +72,7 @@ type ResourceGathererOptions struct {
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
-func NewResourceUsageGatherer(c clientset.Interface, host, provider string, options ResourceGathererOptions, pods *corev1.PodList) (*ContainerResourceGatherer, error) {
+func NewResourceUsageGatherer(c clientset.Interface, host string, port int, provider string, options ResourceGathererOptions, pods *corev1.PodList) (*ContainerResourceGatherer, error) {
 	g := ContainerResourceGatherer{
 		client:       c,
 		isRunning:    true,
@@ -91,6 +91,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 			resourceDataGatheringPeriod: options.ResourceDataGatheringPeriod,
 			printVerboseLogs:            options.PrintVerboseLogs,
 			host:                        host,
+			port:                        port,
 			provider:                    provider,
 		})
 	} else {
@@ -142,6 +143,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 					inKubemark:                  false,
 					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
 					printVerboseLogs:            options.PrintVerboseLogs,
+					port:                        port,
 				})
 				if options.Nodes == MasterNodes {
 					break

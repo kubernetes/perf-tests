@@ -104,13 +104,14 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		}
 
 		klog.Infof("%s: starting resource usage collecting...", e)
-		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, provider, gatherers.ResourceGathererOptions{
-			InKubemark:                        strings.ToLower(provider) == "kubemark",
-			Nodes:                             nodesSet,
-			ResourceDataGatheringPeriod:       60 * time.Second,
-			MasterResourceDataGatheringPeriod: 10 * time.Second,
-			PrintVerboseLogs:                  false,
-		}, nil)
+		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, config.ClusterFramework.GetClusterConfig().KubeletPort,
+			provider, gatherers.ResourceGathererOptions{
+				InKubemark:                        strings.ToLower(provider) == "kubemark",
+				Nodes:                             nodesSet,
+				ResourceDataGatheringPeriod:       60 * time.Second,
+				MasterResourceDataGatheringPeriod: 10 * time.Second,
+				PrintVerboseLogs:                  false,
+			}, nil)
 		if err != nil {
 			return nil, err
 		}

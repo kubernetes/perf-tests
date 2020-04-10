@@ -31,17 +31,18 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath             string
-	Nodes                      int
-	Provider                   string
-	EtcdCertificatePath        string
-	EtcdKeyPath                string
-	EtcdInsecurePort           int
-	MasterIPs                  []string
-	MasterInternalIPs          []string
-	MasterName                 string
-	KubemarkRootKubeConfigPath string
-	DeleteStaleNamespaces      bool
+	KubeConfigPath              string
+	Nodes                       int
+	Provider                    string
+	EtcdCertificatePath         string
+	EtcdKeyPath                 string
+	EtcdInsecurePort            int
+	MasterIPs                   []string
+	MasterInternalIPs           []string
+	MasterName                  string
+	KubemarkRootKubeConfigPath  string
+	DeleteStaleNamespaces       bool
+	DeleteAutomanagedNamespaces bool
 	// SSHToMasterSupported determines whether SSH access to master machines is possible.
 	// If false (impossible for many  providers), ClusterLoader will skip operations requiring it.
 	SSHToMasterSupported bool

@@ -32,15 +32,16 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath             string
-	Nodes                      int
-	Provider                   string
-	EtcdInsecurePort           int
-	MasterIPs                  []string
-	MasterInternalIPs          []string
-	MasterName                 string
-	KubemarkRootKubeConfigPath string
-	DeleteStaleNamespaces      bool
+	KubeConfigPath              string
+	Nodes                       int
+	Provider                    string
+	EtcdInsecurePort            int
+	MasterIPs                   []string
+	MasterInternalIPs           []string
+	MasterName                  string
+	KubemarkRootKubeConfigPath  string
+	DeleteStaleNamespaces       bool
+	DeleteAutomanagedNamespaces bool
 }
 
 // ModifierConfig represent all flags used by test modification

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
@@ -42,7 +41,7 @@ const (
 	e2eSchedulingDurationMetricName           = model.LabelValue(schedulermetric.SchedulerSubsystem + "_e2e_scheduling_duration_seconds_bucket")
 	schedulingAlgorithmDurationMetricName     = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_duration_seconds_bucket")
 	frameworkExtensionPointDurationMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_framework_extension_point_duration_seconds_bucket")
-	schedulingLatencyMetricName               = model.LabelValue(schedulermetric.SchedulerSubsystem + "_" + schedulermetric.DeprecatedSchedulingDurationName)
+	preemptionEvaluationMetricName            = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_preemption_evaluation_seconds_bucket")
 
 	singleRestCallTimeout = 5 * time.Minute
 )
@@ -161,6 +160,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 
 	e2eSchedulingDurationHist := measurementutil.NewHistogram(nil)
 	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
+	preemptionEvaluationHist := measurementutil.NewHistogram(nil)
 
 	frameworkExtensionPointDurationHist := make(map[string]*measurementutil.Histogram)
 	for _, ePoint := range extentionsPoints {
@@ -179,25 +179,8 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 			if _, exists := frameworkExtensionPointDurationHist[ePoint]; exists {
 				measurementutil.ConvertSampleToHistogram(sample, frameworkExtensionPointDurationHist[ePoint])
 			}
-		case schedulingLatencyMetricName:
-			var metric *measurementutil.LatencyMetric
-			switch sample.Metric[schedulermetric.OperationLabel] {
-			case schedulermetric.PredicateEvaluation:
-				metric = &result.PredicateEvaluationLatency
-			case schedulermetric.PriorityEvaluation:
-				metric = &result.PriorityEvaluationLatency
-			case schedulermetric.PreemptionEvaluation:
-				metric = &result.PreemptionEvaluationLatency
-			case schedulermetric.Binding:
-				metric = &result.BindingLatency
-			}
-			if metric != nil {
-				quantile, err := strconv.ParseFloat(string(sample.Metric[model.QuantileLabel]), 64)
-				if err != nil {
-					return nil, err
-				}
-				metric.SetQuantile(quantile, time.Duration(int64(float64(sample.Value)*float64(time.Second))))
-			}
+		case preemptionEvaluationMetricName:
+			measurementutil.ConvertSampleToHistogram(sample, preemptionEvaluationHist)
 		}
 	}
 
@@ -212,6 +195,10 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 		if err := s.setQuantileFromHistogram(result.FrameworkExtensionPointDuration[ePoint], frameworkExtensionPointDurationHist[ePoint]); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := s.setQuantileFromHistogram(&result.PreemptionEvaluationLatency, preemptionEvaluationHist); err != nil {
+		return nil, err
 	}
 
 	content, err := util.PrettyPrintJSON(result)
@@ -278,14 +265,9 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 }
 
 type schedulingMetrics struct {
-	PredicateEvaluationLatency measurementutil.LatencyMetric `json:"predicateEvaluationLatency"`
-	PriorityEvaluationLatency  measurementutil.LatencyMetric `json:"priorityEvaluationLatency"`
-	BindingLatency             measurementutil.LatencyMetric `json:"bindingLatency"`
-
 	FrameworkExtensionPointDuration map[string]*measurementutil.LatencyMetric `json:"frameworkExtensionPointDuration"`
-
-	PreemptionEvaluationLatency measurementutil.LatencyMetric `json:"preemptionEvaluationLatency"`
-	E2eSchedulingLatency        measurementutil.LatencyMetric `json:"e2eSchedulingLatency"`
+	PreemptionEvaluationLatency     measurementutil.LatencyMetric             `json:"preemptionEvaluationLatency"`
+	E2eSchedulingLatency            measurementutil.LatencyMetric             `json:"e2eSchedulingLatency"`
 
 	// To track scheduling latency without binding, this allows to easier present the ceiling of the scheduler throughput.
 	SchedulingLatency measurementutil.LatencyMetric `json:"schedulingLatency"`

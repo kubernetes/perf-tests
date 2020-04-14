@@ -41,8 +41,11 @@ type TestScenario struct {
 type Config struct {
 	// Name of the test case.
 	Name string `json: name`
-	// AutomanagedNamespaces is a number of automanaged namespaces.
-	AutomanagedNamespaces int32 `json: automanagedNamespaces`
+	// Deprecated: a number of automanaged namespaces.
+	// Use Namespace.Number instead.
+	AutomanagedNamespaces int32 `json: automanagedNamespaces,omitempty`
+	// Namespace is a structure for namespace configuration.
+	Namespace NamespaceConfig `json: namespace`
 	// Steps is a sequence of test steps executed in serial.
 	Steps []Step `json: steps`
 	// TuningSets is a collection of tuning sets that can be used by steps.
@@ -104,6 +107,19 @@ type Object struct {
 // ListUnknownObjectOptions struct specifies options for listing unknown objects.
 type ListUnknownObjectOptions struct {
 	LabelSelector *metav1.LabelSelector `json: labelSelector`
+}
+
+// NamespaceConfig defines namespace parameters.
+type NamespaceConfig struct {
+	// Number is a number of automanaged namespaces.
+	Number int32 `json: number,omitempty`
+	// NamePrefix is the name prefix of automanaged namespaces.
+	// It's optional, if set CL will use it, otherwise generate one with random string.
+	Prefix string `json: prefix,omitempty`
+	// DeleteStaleNamespaces specifies whether or not delete stale namepaces
+	DeleteStaleNamespaces *bool `json: deleteStaleNamespaces,omitempty`
+	// DeleteAutomanangedNamespaces specifies whether or not delete namepaces after a test
+	DeleteAutomanagedNamespaces *bool `json: deleteAutomanagedNamespaces,omitempty`
 }
 
 // NamespaceRange specifies the range of namespaces [Min, Max].

@@ -44,7 +44,8 @@
 {{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
 
 name: load
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

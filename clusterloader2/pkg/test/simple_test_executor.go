@@ -52,9 +52,10 @@ func createSimpleTestExecutor() TestExecutor {
 
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
-	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(fmt.Sprintf("test-%s", util.RandomDNS1123String(6)))
+	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(conf.Namespace.Prefix)
 	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
-	defer cleanupResources(ctx)
+
+	defer cleanupResources(ctx, conf)
 	ctx.GetTuningSetFactory().Init(conf.TuningSets)
 
 	stopCh := make(chan struct{})
@@ -103,7 +104,7 @@ func (ste *simpleTestExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *
 	if len(automanagedNamespacesList) > 0 {
 		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
 	}
-	var deleteStaleNS = ctx.GetClusterFramework().GetClusterConfig().DeleteStaleNamespaces
+	var deleteStaleNS = *conf.Namespace.DeleteStaleNamespaces
 	if len(staleNamespaces) > 0 && deleteStaleNS {
 		klog.Warning("stale automanaged namespaces found")
 		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
@@ -111,7 +112,7 @@ func (ste *simpleTestExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *
 		}
 	}
 
-	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.AutomanagedNamespaces))
+	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.Namespace.Number))
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
 	}
@@ -371,10 +372,10 @@ func isErrsCritical(*errors.ErrorList) bool {
 	return false
 }
 
-func cleanupResources(ctx Context) {
+func cleanupResources(ctx Context, conf *api.Config) {
 	cleanupStartTime := time.Now()
 	ctx.GetMeasurementManager().Dispose()
-	if ctx.GetClusterFramework().GetClusterConfig().DeleteAutomanagedNamespaces {
+	if *conf.Namespace.DeleteAutomanagedNamespaces {
 		if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
 			klog.Errorf("Resource cleanup error: %v", errList.String())
 			return

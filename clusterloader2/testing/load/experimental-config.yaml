@@ -71,7 +71,8 @@
 # END pod-startup-latency section
 
 name: load
-automanagedNamespaces: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+namespace:
+  number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

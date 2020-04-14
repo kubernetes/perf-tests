@@ -11,7 +11,8 @@
 
 #Test
 name: ilbload
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: ILBConstantQPS
   qpsLoad:

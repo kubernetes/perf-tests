@@ -27,7 +27,8 @@
 
 
 name: load
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

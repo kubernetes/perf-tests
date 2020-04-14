@@ -29,7 +29,8 @@
 
 
 name: storage
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: UniformQPS
   qpsLoad:

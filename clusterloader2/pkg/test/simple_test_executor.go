@@ -374,9 +374,11 @@ func isErrsCritical(*errors.ErrorList) bool {
 func cleanupResources(ctx Context) {
 	cleanupStartTime := time.Now()
 	ctx.GetMeasurementManager().Dispose()
-	if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
-		klog.Errorf("Resource cleanup error: %v", errList.String())
-		return
+	if ctx.GetClusterFramework().GetClusterConfig().DeleteAutomanagedNamespaces {
+		if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
+			klog.Errorf("Resource cleanup error: %v", errList.String())
+			return
+		}
 	}
 	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
 }

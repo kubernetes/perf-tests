@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: perfdash
-  namespace: default
   labels:
     app: perfdash
 spec:

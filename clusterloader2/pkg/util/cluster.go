@@ -18,11 +18,11 @@ package util
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -129,7 +129,7 @@ func GetMasterName(c clientset.Interface) (string, error) {
 		return "", err
 	}
 	for i := range nodeList {
-		if system.IsMasterNode(nodeList[i].Name) {
+		if LegacyIsMasterNode(nodeList[i].Name) {
 			return nodeList[i].Name, nil
 		}
 	}
@@ -144,7 +144,7 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 	}
 	var ips []string
 	for i := range nodeList {
-		if system.IsMasterNode(nodeList[i].Name) {
+		if LegacyIsMasterNode(nodeList[i].Name) {
 			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == addressType && address.Address != "" {
 					ips = append(ips, address.Address)
@@ -157,4 +157,24 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 		return nil, fmt.Errorf("didn't find any %s master IPs", addressType)
 	}
 	return ips, nil
+}
+
+// LegacyIsMasterNode returns true if given node is a registered master according
+// to the logic historically used for this function. This code path is deprecated
+// and the node disruption exclusion label should be used in the future.
+// This code will not be allowed to update to use the node-role label, since
+// node-roles may not be used for feature enablement.
+// DEPRECATED: this will be removed in Kubernetes 1.19
+func LegacyIsMasterNode(nodeName string) bool {
+	// We are trying to capture "master(-...)?$" regexp.
+	// However, using regexp.MatchString() results even in more than 35%
+	// of all space allocations in ControllerManager spent in this function.
+	// That's why we are trying to be a bit smarter.
+	if strings.HasSuffix(nodeName, "master") {
+		return true
+	}
+	if len(nodeName) >= 10 {
+		return strings.HasSuffix(nodeName[:len(nodeName)-3], "master-")
+	}
+	return false
 }

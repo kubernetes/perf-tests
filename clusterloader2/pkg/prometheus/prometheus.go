@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -263,7 +262,7 @@ func (pc *PrometheusController) runNodeExporter() error {
 	numMasters := 0
 	for _, node := range nodes {
 		node := node
-		if system.IsMasterNode(node.Name) {
+		if util.LegacyIsMasterNode(node.Name) {
 			numMasters++
 			g.Go(func() error {
 				f, err := os.Open(os.ExpandEnv(nodeExporterPod))

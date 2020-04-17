@@ -27,8 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/system"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	pkgutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // NodesSet is a flag defining the node set range.
@@ -105,10 +105,10 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		}
 		dnsNodes := make(map[string]bool)
 		for _, pod := range pods.Items {
-			if (options.Nodes == MasterNodes) && !system.IsMasterNode(pod.Spec.NodeName) {
+			if (options.Nodes == MasterNodes) && !pkgutil.LegacyIsMasterNode(pod.Spec.NodeName) {
 				continue
 			}
-			if (options.Nodes == MasterAndDNSNodes) && !system.IsMasterNode(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
+			if (options.Nodes == MasterAndDNSNodes) && !pkgutil.LegacyIsMasterNode(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
 				continue
 			}
 			for _, container := range pod.Status.InitContainerStatuses {
@@ -127,10 +127,10 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		}
 
 		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || dnsNodes[node.Name] {
+			if options.Nodes == AllNodes || pkgutil.LegacyIsMasterNode(node.Name) || dnsNodes[node.Name] {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
-				if system.IsMasterNode(node.Name) {
+				if pkgutil.LegacyIsMasterNode(node.Name) {
 					resourceDataGatheringPeriod = options.MasterResourceDataGatheringPeriod
 				}
 				g.workers = append(g.workers, resourceGatherWorker{

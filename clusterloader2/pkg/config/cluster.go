@@ -46,6 +46,7 @@ type PrometheusConfig struct {
 	ScrapeNodeExporter bool
 	ScrapeKubelets     bool
 	ScrapeKubeProxy    bool
+	SnapshotProject    string
 }
 
 // GetMasterIp returns the first master ip, added for backward compatibility.

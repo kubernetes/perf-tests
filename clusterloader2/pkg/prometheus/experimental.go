@@ -130,8 +130,14 @@ func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
 
 func (pc *PrometheusController) trySnapshotPrometheusDisk(pdName, snapshotName, zone string) error {
 	klog.Info("Trying to snapshot Prometheus' persistent disk...")
-	klog.Infof("Snapshotting PD %q into snapshot %q in zone %q", pdName, snapshotName, zone)
-	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--zone", zone, "--snapshot-names", snapshotName)
+	project := pc.clusterLoaderConfig.PrometheusConfig.SnapshotProject
+	if project == "" {
+		// This should never happen when run from kubetest with a GCE/GKE Kubernetes
+		// provider - kubetest always propagates PROJECT env var in such situations.
+		return fmt.Errorf("unknown project - please set --experimental-snapshot-project flag")
+	}
+	klog.Infof("Snapshotting PD %q into snapshot %q in project %q in zone %q", pdName, snapshotName, project, zone)
+	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--project", project, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("Creating disk snapshot failed: %v\nCommand output: %q", err, string(output))

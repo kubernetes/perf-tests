@@ -32,21 +32,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
-var (
-	extentionsPoints = []string{
-		"PreFilter",
-		"Filter",
-		"PreScore",
-		"Score",
-		"PreBind",
-		"Bind",
-		"PostBind",
-		"Reserve",
-		"Unreserve",
-		"Permit",
-	}
-)
-
 func stripCount(data *perftype.DataItem) {
 	delete(data.Labels, "Count")
 }
@@ -261,10 +246,7 @@ type latencyMetric struct {
 }
 
 type schedulingMetrics struct {
-	PredicateEvaluationLatency  latencyMetric `json:"predicateEvaluationLatency"`
-	PriorityEvaluationLatency   latencyMetric `json:"priorityEvaluationLatency"`
 	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
-	BindingLatency              latencyMetric `json:"bindingLatency"`
 	E2eSchedulingLatency        latencyMetric `json:"e2eSchedulingLatency"`
 	SchedulingLatency           latencyMetric `json:"schedulingLatency"`
 	ThroughputAverage           float64       `json:"throughputAverage"`
@@ -291,21 +273,15 @@ func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData)
 		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
-	predicateEvaluation := parseOperationLatency(obj.PredicateEvaluationLatency, "predicate_evaluation")
-	testResult.Builds[build] = append(testResult.Builds[build], predicateEvaluation)
-	priorityEvaluation := parseOperationLatency(obj.PriorityEvaluationLatency, "priority_evaluation")
-	testResult.Builds[build] = append(testResult.Builds[build], priorityEvaluation)
 	preemptionEvaluation := parseOperationLatency(obj.PreemptionEvaluationLatency, "preemption_evaluation")
 	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
-	binding := parseOperationLatency(obj.BindingLatency, "binding")
-	testResult.Builds[build] = append(testResult.Builds[build], binding)
 	e2eScheduling := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
 	testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
 	scheduling := parseOperationLatency(obj.SchedulingLatency, "scheduling")
 	testResult.Builds[build] = append(testResult.Builds[build], scheduling)
 
-	for _, ePoint := range extentionsPoints {
-		frameworkExtensionPointDuration := parseOperationLatency(obj.FrameworkExtensionPointDuration[ePoint], fmt.Sprintf("extension_point_duration_%v_latency", strings.ToLower(ePoint)))
+	for name, metric := range obj.FrameworkExtensionPointDuration {
+		frameworkExtensionPointDuration := parseOperationLatency(metric, name)
 		testResult.Builds[build] = append(testResult.Builds[build], frameworkExtensionPointDuration)
 	}
 }

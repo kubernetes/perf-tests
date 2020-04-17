@@ -34,6 +34,9 @@
 # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
 {{$saturationDeploymentHardTimeout := MaxInt $saturationDeploymentTimeout 1200}}
 
+# Probe measurements shared parameter
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
+
 name: density
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
@@ -64,11 +67,13 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: start
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:
       action: start
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: TestMetrics
     Method: TestMetrics

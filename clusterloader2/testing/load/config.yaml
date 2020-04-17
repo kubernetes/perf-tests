@@ -43,6 +43,9 @@
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace 1}}
 {{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
 
+# Probe measurements shared parameter
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
+
 name: load
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
@@ -87,11 +90,13 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: start
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   - Identifier: DnsLookupLatency
     Method: DnsLookupLatency
     Params:
       action: start
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency

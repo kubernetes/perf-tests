@@ -31,6 +31,7 @@ If not specified, summaries are printed to standard log.
  - mastername - Name of the master node
  - masterip - DNS Name / IP of the master node
  - testoverrides - path to file with overrides.
+ - kubelet-port - Port of the kubelet to use (*default: 10250*)
 
 ## Tests
 
@@ -133,12 +134,12 @@ This is a barrier that waits until requested amount of the time passes.
 
 ## Vendor
 
-Vendor is created using [govendor].
+Vendor is created using [Go modules].
 
 [api]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/api/types.go
 [API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
-[govendor]: https://github.com/kardianos/govendor
+[Go modules]: https://blog.golang.org/using-go-modules
 [load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
 [overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml

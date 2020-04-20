@@ -116,10 +116,12 @@ type NamespaceConfig struct {
 	// NamePrefix is the name prefix of automanaged namespaces.
 	// It's optional, if set CL will use it, otherwise generate one with random string.
 	Prefix string `json: prefix,omitempty`
-	// DeleteStaleNamespaces specifies whether or not delete stale namepaces
+	// DeleteStaleNamespaces specifies whether or not delete stale namespaces.
 	DeleteStaleNamespaces *bool `json: deleteStaleNamespaces,omitempty`
-	// DeleteAutomanangedNamespaces specifies whether or not delete namepaces after a test
+	// DeleteAutomanangedNamespaces specifies whether or not delete namespaces after a test.
 	DeleteAutomanagedNamespaces *bool `json: deleteAutomanagedNamespaces,omitempty`
+	// EnableExistingNamespaces enables to use pre-created namespaces in a test.
+	EnableExistingNamespaces *bool `json: enableExistingNamespaces,omitempty`
 }
 
 // NamespaceRange specifies the range of namespaces [Min, Max].

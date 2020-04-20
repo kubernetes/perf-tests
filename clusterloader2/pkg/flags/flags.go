@@ -114,6 +114,11 @@ func Parse() error {
 	return nil
 }
 
+// MarkDeprecated indicates that a flag is deprecated
+func MarkDeprecated(name string, usageMessage string) error {
+	return pflag.CommandLine.MarkDeprecated(name, usageMessage)
+}
+
 func parseEnvString(s *string, envVariable, defaultValue string) error {
 	*s = defaultValue
 	if envVariable != "" {

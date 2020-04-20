@@ -38,7 +38,8 @@
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
 
 name: density
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: Uniform5qps
   qpsLoad:

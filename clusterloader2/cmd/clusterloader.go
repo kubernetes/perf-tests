@@ -66,8 +66,10 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdCertificatePath, "etcd-certificate", "ETCD_CERTIFICATE", "/etc/srv/kubernetes/pki/etcd-apiserver-server.crt", "Path to the etcd certificate on the master machine")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdInsecurePort, "etcd-insecure-port", "ETCD_INSECURE_PORT", 2382, "Inscure http port")
-	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteStaleNamespaces, "delete-stale-namespaces", "DELETE_STALE_NAMESPACES", false, "Whether to delete all stale namespaces before the test execution.")
-	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteAutomanagedNamespaces, "delete-automanaged-namespaces", "DELETE_AUTOMANAGED_NAMESPACES", true, "Whether to delete all automanaged namespaces after the test execution.")
+	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteStaleNamespaces, "delete-stale-namespaces", "DELETE_STALE_NAMESPACES", false, "DEPRECATED: Whether to delete all stale namespaces before the test execution.")
+	flags.MarkDeprecated("delete-stale-namespaces", "specify deleteStaleNamespaces in testconfig file instead.")
+	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteAutomanagedNamespaces, "delete-automanaged-namespaces", "DELETE_AUTOMANAGED_NAMESPACES", true, "DEPRECATED: Whether to delete all automanaged namespaces after the test execution.")
+	flags.MarkDeprecated("delete-automanaged-namespaces", "specify deleteAutomanagedNamespaces in testconfig file instead.")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
 	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")

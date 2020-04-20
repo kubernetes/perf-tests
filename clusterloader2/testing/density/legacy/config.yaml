@@ -29,7 +29,8 @@
 {{$saturationRCHardTimeout := MaxInt $saturationRCTimeout 1200}}
 
 name: density
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: Uniform5qps
   qpsLoad:

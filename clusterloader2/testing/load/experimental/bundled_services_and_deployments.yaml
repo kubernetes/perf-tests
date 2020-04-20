@@ -29,7 +29,8 @@
 
 
 name: load
-automanagedNamespaces: {{$namespaces}}
+namespace:
+  number: {{$namespaces}}
 tuningSets:
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:

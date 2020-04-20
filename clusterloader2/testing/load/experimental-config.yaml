@@ -74,7 +74,8 @@
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
 
 name: load
-automanagedNamespaces: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+namespace:
+  number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

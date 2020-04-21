@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: log-generator
-        image: gcr.io/loburm-kubernetes-images/log-generator:1.5
+        image: {{.Image}}
         command:
         - /main
         - --amount=200

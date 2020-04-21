@@ -101,6 +101,8 @@ steps:
     objectBundle:
     - basename: daemonset
       objectTemplatePath: daemonset.yaml
+      templateFillMap:
+        Image: {{.CL2_DAEMONSET_TEST_IMAGE}}
 - name: Waiting for daemonset to be running
   measurements:
   - Identifier: WaitForRunningDaemonSets

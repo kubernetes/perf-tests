@@ -11,4 +11,4 @@ spec:
   - name: status
     port: 80
     targetPort: status
-  type: LoadBalancer
+  type: NodePort

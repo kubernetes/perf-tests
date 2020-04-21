@@ -50,4 +50,9 @@ func (ns *NamespaceConfig) SetDefaults() {
 	if ns.DeleteAutomanagedNamespaces == nil {
 		ns.DeleteAutomanagedNamespaces = &defaultDeleteAutoNS
 	}
+
+	defaultEnableExistingNS := false
+	if ns.EnableExistingNamespaces == nil {
+		ns.EnableExistingNamespaces = &defaultEnableExistingNS
+	}
 }

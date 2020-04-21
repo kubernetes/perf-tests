@@ -106,10 +106,23 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 	if f.automanagedNamespaceCount != 0 {
 		return fmt.Errorf("automanaged namespaces already created")
 	}
+
+	// get all pre-created namespaces and store in a hash set
+	namespacesList, err := client.ListNamespaces(f.clientSets.GetClient())
+	if err != nil {
+		return err
+	}
+	existingNamespaceSet := make(map[string]bool)
+	for _, ns := range namespacesList {
+		existingNamespaceSet[ns.Name] = true
+	}
+
 	for i := 1; i <= namespaceCount; i++ {
 		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
-		if err := client.CreateNamespace(f.clientSets.GetClient(), name); err != nil {
-			return err
+		if _, created := existingNamespaceSet[name]; !created {
+			if err := client.CreateNamespace(f.clientSets.GetClient(), name); err != nil {
+				return err
+			}
 		}
 		f.automanagedNamespaceCount++
 	}

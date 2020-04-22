@@ -79,7 +79,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 	SSHToMasterSupported := config.ClusterFramework.GetClusterConfig().SSHToMasterSupported
 
 	c := config.ClusterFramework.GetClientSets().GetClient()
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -239,13 +239,12 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		defer cancel()
 
 		body, err := c.CoreV1().RESTClient().Verb(opUpper).
-			Context(ctx).
 			Namespace(metav1.NamespaceSystem).
 			Resource("pods").
 			Name(fmt.Sprintf("kube-scheduler-%v:%v", masterName, ports.InsecureSchedulerPort)).
 			SubResource("proxy").
 			Suffix("metrics").
-			Do().Raw()
+			Do(ctx).Raw()
 
 		if err != nil {
 			klog.Errorf("Send request to scheduler failed with err: %v", err)

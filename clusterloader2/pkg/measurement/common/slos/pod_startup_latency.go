@@ -17,6 +17,7 @@ limitations under the License.
 package slos
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -181,7 +182,7 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 		"source":              corev1.DefaultSchedulerName,
 	}.AsSelector().String()
 	options := metav1.ListOptions{FieldSelector: selector}
-	schedEvents, err := c.CoreV1().Events(p.selector.Namespace).List(options)
+	schedEvents, err := c.CoreV1().Events(p.selector.Namespace).List(context.TODO(), options)
 	if err != nil {
 		return err
 	}

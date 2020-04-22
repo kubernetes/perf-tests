@@ -22,6 +22,7 @@ with slight changes regarding labelSelector and flagSelector applied.
 package util
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -81,12 +82,12 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().Pods(selector.Namespace).List(options)
+			return c.CoreV1().Pods(selector.Namespace).List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().Pods(selector.Namespace).Watch(options)
+			return c.CoreV1().Pods(selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
 	objectStore, err := newObjectStore(&v1.Pod{}, lw, selector)
@@ -117,12 +118,12 @@ func NewPVCStore(c clientset.Interface, selector *ObjectSelector) (*PVCStore, er
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).List(options)
+			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).Watch(options)
+			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
 	objectStore, err := newObjectStore(&v1.PersistentVolumeClaim{}, lw, selector)
@@ -153,12 +154,12 @@ func NewPVStore(c clientset.Interface, selector *ObjectSelector) (*PVStore, erro
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().PersistentVolumes().List(options)
+			return c.CoreV1().PersistentVolumes().List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().PersistentVolumes().Watch(options)
+			return c.CoreV1().PersistentVolumes().Watch(context.TODO(), options)
 		},
 	}
 	objectStore, err := newObjectStore(&v1.PersistentVolume{}, lw, selector)
@@ -189,12 +190,12 @@ func NewNodeStore(c clientset.Interface, selector *ObjectSelector) (*NodeStore, 
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().Nodes().List(options)
+			return c.CoreV1().Nodes().List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = selector.LabelSelector
 			options.FieldSelector = selector.FieldSelector
-			return c.CoreV1().Nodes().Watch(options)
+			return c.CoreV1().Nodes().Watch(context.TODO(), options)
 		},
 	}
 	objectStore, err := newObjectStore(&v1.Node{}, lw, selector)

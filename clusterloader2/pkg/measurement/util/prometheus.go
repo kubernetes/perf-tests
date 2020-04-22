@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,7 +111,7 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 		body, queryErr = e.client.CoreV1().
 			Services("monitoring").
 			ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
-			DoRaw()
+			DoRaw(context.TODO())
 		if queryErr != nil {
 			return false, nil
 		}

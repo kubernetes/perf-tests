@@ -17,6 +17,7 @@ limitations under the License.
 package gatherers
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -99,13 +100,13 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		// Tracks kube-system pods if no valid PodList is passed in.
 		var err error
 		if pods == nil {
-			pods, err = c.CoreV1().Pods("kube-system").List(metav1.ListOptions{})
+			pods, err = c.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("listing pods error: %v", err)
 			}
 		}
 
-		nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("listing nodes error: %v", err)
 		}

@@ -17,6 +17,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -69,7 +70,7 @@ func (pc *Controller) cachePrometheusDiskMetadataIfEnabled() error {
 func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	klog.Info("Retrieving Prometheus' persistent disk metadata...")
 	k8sClient := pc.framework.GetClientSets().GetClient()
-	list, err := k8sClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
+	list, err := k8sClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Listing PVs failed: %v", err)
 		// Poll() stops on error so returning nil

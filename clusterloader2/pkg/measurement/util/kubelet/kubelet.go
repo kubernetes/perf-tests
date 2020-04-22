@@ -83,12 +83,11 @@ func getStatsSummary(c clientset.Interface, nodeName string, port int) (*stats.S
 	defer cancel()
 
 	data, err := c.CoreV1().RESTClient().Get().
-		Context(ctx).
 		Resource("nodes").
 		SubResource("proxy").
 		Name(fmt.Sprintf("%v:%v", nodeName, port)).
 		Suffix("stats/summary").
-		Do().Raw()
+		Do(ctx).Raw()
 
 	if err != nil {
 		return nil, err

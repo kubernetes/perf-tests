@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -150,7 +151,7 @@ func RetryFunction(f func() error, options ...*APICallOptions) wait.ConditionFun
 func ListPodsWithOptions(c clientset.Interface, namespace string, listOpts metav1.ListOptions) ([]apiv1.Pod, error) {
 	var pods []apiv1.Pod
 	listFunc := func() error {
-		podsList, err := c.CoreV1().Pods(namespace).List(listOpts)
+		podsList, err := c.CoreV1().Pods(namespace).List(context.TODO(), listOpts)
 		if err != nil {
 			return err
 		}
@@ -172,7 +173,7 @@ func ListNodes(c clientset.Interface) ([]apiv1.Node, error) {
 func ListNodesWithOptions(c clientset.Interface, listOpts metav1.ListOptions) ([]apiv1.Node, error) {
 	var nodes []apiv1.Node
 	listFunc := func() error {
-		nodesList, err := c.CoreV1().Nodes().List(listOpts)
+		nodesList, err := c.CoreV1().Nodes().List(context.TODO(), listOpts)
 		if err != nil {
 			return err
 		}
@@ -188,7 +189,7 @@ func ListNodesWithOptions(c clientset.Interface, listOpts metav1.ListOptions) ([
 // CreateNamespace creates a single namespace with given name.
 func CreateNamespace(c clientset.Interface, namespace string) error {
 	createFunc := func() error {
-		_, err := c.CoreV1().Namespaces().Create(&apiv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
+		_, err := c.CoreV1().Namespaces().Create(context.TODO(), &apiv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}, metav1.CreateOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(createFunc, Allow(apierrs.IsAlreadyExists)))
@@ -197,7 +198,7 @@ func CreateNamespace(c clientset.Interface, namespace string) error {
 // DeleteNamespace deletes namespace with given name.
 func DeleteNamespace(c clientset.Interface, namespace string) error {
 	deleteFunc := func() error {
-		return c.CoreV1().Namespaces().Delete(namespace, nil)
+		return c.CoreV1().Namespaces().Delete(context.TODO(), namespace, metav1.DeleteOptions{})
 	}
 	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, Allow(apierrs.IsNotFound)))
 }
@@ -206,7 +207,7 @@ func DeleteNamespace(c clientset.Interface, namespace string) error {
 func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 	var namespaces []apiv1.Namespace
 	listFunc := func() error {
-		namespacesList, err := c.CoreV1().Namespaces().List(metav1.ListOptions{})
+		namespacesList, err := c.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -222,7 +223,7 @@ func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 // WaitForDeleteNamespace waits untils namespace is terminated.
 func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 	retryWaitFunc := func() (bool, error) {
-		_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+		_, err := c.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				return true, nil
@@ -239,7 +240,7 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 // ListEvents retrieves events for the object with the given name.
 func ListEvents(c clientset.Interface, namespace string, name string, options ...*APICallOptions) (obj *apiv1.EventList, err error) {
 	getFunc := func() error {
-		obj, err = c.CoreV1().Events(namespace).List(metav1.ListOptions{
+		obj, err = c.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
 			FieldSelector: "involvedObject.name=" + name,
 		})
 		return err
@@ -253,7 +254,7 @@ func ListEvents(c clientset.Interface, namespace string, name string, options ..
 // DeleteStorageClass deletes storage class with given name.
 func DeleteStorageClass(c clientset.Interface, name string) error {
 	deleteFunc := func() error {
-		return c.StorageV1().StorageClasses().Delete(name, nil)
+		return c.StorageV1().StorageClasses().Delete(context.TODO(), name, metav1.DeleteOptions{})
 	}
 	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, Allow(apierrs.IsNotFound)))
 }
@@ -264,7 +265,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
 	createFunc := func() error {
-		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(obj, metav1.CreateOptions{})
+		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(context.TODO(), obj, metav1.CreateOptions{})
 		return err
 	}
 	options = append(options, Allow(apierrs.IsAlreadyExists))
@@ -277,7 +278,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
 	updateFunc := func() error {
-		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -285,7 +286,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 		if err != nil {
 			return fmt.Errorf("creating patch diff error: %v", err)
 		}
-		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(obj.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		_, err = dynamicClient.Resource(gvr).Namespace(namespace).Patch(context.TODO(), obj.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 		return err
 	}
 	return RetryWithExponentialBackOff(RetryFunction(updateFunc, options...))
@@ -297,8 +298,8 @@ func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, 
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
 		falseVar := false
-		deleteOption := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(name, deleteOption)
+		deleteOption := metav1.DeleteOptions{OrphanDependents: &falseVar}
+		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(context.TODO(), name, deleteOption)
 	}
 	options = append(options, Allow(apierrs.IsNotFound))
 	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, options...))
@@ -312,7 +313,7 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 		var err error
 		// TODO(krzysied): Check in which cases IncludeUninitialized=true option is required -
 		// implement additional handling if needed.
-		obj, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+		obj, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		return err
 	}
 	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {

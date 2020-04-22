@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -130,7 +131,7 @@ func getPodMetrics(config *measurement.Config) (*systemPodsMetrics, error) {
 }
 
 func getPodList(client kubernetes.Interface) (*v1.PodList, error) {
-	lst, err := client.CoreV1().Pods(systemNamespace).List(metav1.ListOptions{
+	lst, err := client.CoreV1().Pods(systemNamespace).List(context.TODO(), metav1.ListOptions{
 		ResourceVersion: "0", // to read from cache
 	})
 	if err != nil {

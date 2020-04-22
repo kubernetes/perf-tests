@@ -1192,7 +1192,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
+              "expr": "rate(etcd_network_client_grpc_sent_bytes_total[1m])",
               "format": "time_series",
               "instant": false,
               "interval": "5s",

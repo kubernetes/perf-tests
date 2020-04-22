@@ -103,7 +103,7 @@ ETCD_PANELS = [
     d.simple_graph("etcd leader", "etcd_server_is_leader", legend="{{instance}}"),
     d.simple_graph(
         "etcd bytes sent",
-        "irate(etcd_network_client_grpc_sent_bytes_total[1m])",
+        "rate(etcd_network_client_grpc_sent_bytes_total[1m])",
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
         legend="{{instance}}",
     ),

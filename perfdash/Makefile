@@ -27,8 +27,5 @@ container: perfdash
 push: container
 	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
 
-deploy: push
-	./deploy.sh
-
 clean:
 	rm -f perfdash

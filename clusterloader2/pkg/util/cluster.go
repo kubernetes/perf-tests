@@ -26,6 +26,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
+const keyMasterNodeLabel = "node-role.kubernetes.io/master"
+
 // GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
 func GetSchedulableUntainedNodesNumber(c clientset.Interface) (int, error) {
 	nodes, err := GetSchedulableUntainedNodes(c)
@@ -129,7 +131,7 @@ func GetMasterName(c clientset.Interface) (string, error) {
 		return "", err
 	}
 	for i := range nodeList {
-		if LegacyIsMasterNode(nodeList[i].Name) {
+		if LegacyIsMasterNode(&nodeList[i]) {
 			return nodeList[i].Name, nil
 		}
 	}
@@ -144,7 +146,7 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 	}
 	var ips []string
 	for i := range nodeList {
-		if LegacyIsMasterNode(nodeList[i].Name) {
+		if LegacyIsMasterNode(&nodeList[i]) {
 			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == addressType && address.Address != "" {
 					ips = append(ips, address.Address)
@@ -165,11 +167,18 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 // This code will not be allowed to update to use the node-role label, since
 // node-roles may not be used for feature enablement.
 // DEPRECATED: this will be removed in Kubernetes 1.19
-func LegacyIsMasterNode(nodeName string) bool {
+func LegacyIsMasterNode(node *corev1.Node) bool {
+	for key, val := range node.GetLabels() {
+		if key == keyMasterNodeLabel {
+			return strings.ToLower(val) == "true"
+		}
+	}
+
 	// We are trying to capture "master(-...)?$" regexp.
 	// However, using regexp.MatchString() results even in more than 35%
 	// of all space allocations in ControllerManager spent in this function.
 	// That's why we are trying to be a bit smarter.
+	nodeName := node.GetName()
 	if strings.HasSuffix(nodeName, "master") {
 		return true
 	}

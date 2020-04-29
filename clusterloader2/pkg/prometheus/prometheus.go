@@ -41,6 +41,7 @@ import (
 
 const (
 	namespace                    = "monitoring"
+	storageClass                 = "ssd"
 	coreManifests                = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml"
 	defaultServiceMonitors       = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/*.yaml"
 	masterIPServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/master-ip/*.yaml"
@@ -120,6 +121,8 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"].(bool)
 	}
 	mapping["PROMETHEUS_SCRAPE_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets
+	snapshotEnabled, _ := pc.isEnabled()
+	mapping["RetainPD"] = snapshotEnabled
 	pc.templateMapping = mapping
 
 	return pc, nil
@@ -133,6 +136,10 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 
 	klog.Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
+		return err
+	}
+	// Removing Storage Class as Reclaim Policy cannot be changed
+	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
 		return err
 	}
 	if err := pc.applyManifests(coreManifests); err != nil {
@@ -173,8 +180,9 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 
 // TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
 func (pc *PrometheusController) TearDownPrometheusStack() error {
-	if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
-		klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+	// Get disk metadata again to be sure
+	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
+		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
 	}
 	klog.Info("Tearing down prometheus stack")
 	k8sClient := pc.framework.GetClientSets().GetClient()
@@ -183,6 +191,12 @@ func (pc *PrometheusController) TearDownPrometheusStack() error {
 	}
 	if err := client.WaitForDeleteNamespace(k8sClient, namespace); err != nil {
 		return err
+	}
+	if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
+		klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+	}
+	if err := pc.deletePrometheusDiskIfEnabled(); err != nil {
+		klog.Warningf("Error while deleting prometheus disk: %v", err)
 	}
 	return nil
 }

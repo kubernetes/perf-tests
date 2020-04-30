@@ -56,6 +56,7 @@ var podname string
 var workerStateMap map[string]*workerState
 
 var iperfTCPOutputRegexp *regexp.Regexp
+var iperfSCTPOutputRegexp *regexp.Regexp
 var iperfUDPOutputRegexp *regexp.Regexp
 var netperfOutputRegexp *regexp.Regexp
 var iperfCPUOutputRegexp *regexp.Regexp
@@ -69,7 +70,7 @@ var globalLock sync.Mutex
 const (
 	workerMode           = "worker"
 	orchestratorMode     = "orchestrator"
-	iperf3Path           = "/usr/bin/iperf3"
+	iperf3Path           = "/usr/local/bin/iperf3"
 	netperfPath          = "/usr/local/bin/netperf"
 	netperfServerPath    = "/usr/local/bin/netserver"
 	outputCaptureFile    = "/tmp/output.txt"
@@ -82,9 +83,10 @@ const (
 )
 
 const (
-	iperfTcpTest = iota
-	iperfUdpTest = iota
-	netperfTest  = iota
+	iperfTcpTest  = iota
+	iperfUdpTest  = iota
+	iperfSctpTest = iota
+	netperfTest   = iota
 )
 
 // NetPerfRpc service that exposes RegisterClient and ReceiveOutput for clients
@@ -161,20 +163,26 @@ func init() {
 		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "3 iperf TCP. Remote VM using Pod IP", Type: iperfTcpTest, ClusterIP: false, MSS: mssMin},
 		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "4 iperf TCP. Remote VM using Virtual IP", Type: iperfTcpTest, ClusterIP: true, MSS: mssMin},
 		{SourceNode: "netperf-w2", DestinationNode: "netperf-w2", Label: "5 iperf TCP. Hairpin Pod to own Virtual IP", Type: iperfTcpTest, ClusterIP: true, MSS: mssMin},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "6 iperf UDP. Same VM using Pod IP", Type: iperfUdpTest, ClusterIP: false, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "7 iperf UDP. Same VM using Virtual IP", Type: iperfUdpTest, ClusterIP: true, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "8 iperf UDP. Remote VM using Pod IP", Type: iperfUdpTest, ClusterIP: false, MSS: mssMax},
-		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "9 iperf UDP. Remote VM using Virtual IP", Type: iperfUdpTest, ClusterIP: true, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "10 netperf. Same VM using Pod IP", Type: netperfTest, ClusterIP: false},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "11 netperf. Same VM using Virtual IP", Type: netperfTest, ClusterIP: true},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "12 netperf. Remote VM using Pod IP", Type: netperfTest, ClusterIP: false},
-		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "13 netperf. Remote VM using Virtual IP", Type: netperfTest, ClusterIP: true},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "6 iperf SCTP. Same VM using Pod IP", Type: iperfSctpTest, ClusterIP: false, MSS: mssMin},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "7 iperf SCTP. Same VM using Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "8 iperf SCTP. Remote VM using Pod IP", Type: iperfSctpTest, ClusterIP: false, MSS: mssMin},
+		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "9 iperf SCTP. Remote VM using Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
+		{SourceNode: "netperf-w2", DestinationNode: "netperf-w2", Label: "10 iperf SCTP. Hairpin Pod to own Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "11 iperf UDP. Same VM using Pod IP", Type: iperfUdpTest, ClusterIP: false, MSS: mssMax},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "12 iperf UDP. Same VM using Virtual IP", Type: iperfUdpTest, ClusterIP: true, MSS: mssMax},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "13 iperf UDP. Remote VM using Pod IP", Type: iperfUdpTest, ClusterIP: false, MSS: mssMax},
+		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "14 iperf UDP. Remote VM using Virtual IP", Type: iperfUdpTest, ClusterIP: true, MSS: mssMax},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "15 netperf. Same VM using Pod IP", Type: netperfTest, ClusterIP: false},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "16 netperf. Same VM using Virtual IP", Type: netperfTest, ClusterIP: true},
+		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "17 netperf. Remote VM using Pod IP", Type: netperfTest, ClusterIP: false},
+		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "18 netperf. Remote VM using Virtual IP", Type: netperfTest, ClusterIP: true},
 	}
 
 	currentJobIndex = 0
 
-	// Regexes to parse the Mbits/sec out of iperf TCP, UDP and netperf output
+	// Regexes to parse the Mbits/sec out of iperf TCP, SCTP, UDP and netperf output
 	iperfTCPOutputRegexp = regexp.MustCompile("SUM.*\\s+(\\d+)\\sMbits/sec\\s+receiver")
+	iperfSCTPOutputRegexp = regexp.MustCompile("SUM.*\\s+(\\d+)\\sMbits/sec\\s+receiver")
 	iperfUDPOutputRegexp = regexp.MustCompile("\\s+(\\S+)\\sMbits/sec\\s+\\S+\\s+ms\\s+")
 	netperfOutputRegexp = regexp.MustCompile("\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+(\\S+)\\s+")
 	iperfCPUOutputRegexp = regexp.MustCompile(`local/sender\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\),\sremote/receiver\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\)`)
@@ -282,7 +290,7 @@ func allocateWorkToClient(workerS *workerState, reply *WorkItem) {
 		}
 
 		switch {
-		case v.Type == iperfTcpTest || v.Type == iperfUdpTest:
+		case v.Type == iperfTcpTest || v.Type == iperfUdpTest || v.Type == iperfSctpTest:
 			reply.ClientItem.Port = "5201"
 			reply.ClientItem.MSS = v.MSS
 
@@ -404,6 +412,15 @@ func parseIperfTcpBandwidth(output string) string {
 	return "0"
 }
 
+func parseIperfSctpBandwidth(output string) string {
+	// Parses the output of iperf3 and grabs the group Mbits/sec from the output
+	match := iperfSCTPOutputRegexp.FindStringSubmatch(output)
+	if match != nil && len(match) > 1 {
+		return match[1]
+	}
+	return "0"
+}
+
 func parseIperfUdpBandwidth(output string) string {
 	// Parses the output of iperf3 (UDP mode) and grabs the Mbits/sec from the output
 	match := iperfUDPOutputRegexp.FindStringSubmatch(output)
@@ -453,6 +470,15 @@ func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 		cpuSender, cpuReceiver = parseIperfCpuUsage(data.Output)
 		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
 
+	case iperfSctpTest:
+		mss := testcases[currentJobIndex].MSS - mssStepSize
+		outputLog = outputLog + fmt.Sprintln("Received SCTP output from worker", data.Worker, "for test", testcase.Label,
+			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MSS:", mss) + data.Output
+		writeOutputFile(outputCaptureFile, outputLog)
+		bw = parseIperfSctpBandwidth(data.Output)
+		cpuSender, cpuReceiver = parseIperfCpuUsage(data.Output)
+		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
+
 	case iperfUdpTest:
 		mss := testcases[currentJobIndex].MSS - mssStepSize
 		outputLog = outputLog + fmt.Sprintln("Received UDP output from worker", data.Worker, "for test", testcase.Label,
@@ -472,7 +498,7 @@ func (t *NetPerfRpc) ReceiveOutput(data *WorkerOutput, reply *int) error {
 	}
 
 	switch data.Type {
-	case iperfTcpTest:
+	case iperfTcpTest, iperfSctpTest:
 		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec. CPU usage sender was", cpuSender, "%. CPU usage receiver was", cpuReceiver, "%.")
 	default:
 		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
@@ -526,7 +552,7 @@ func getMyIP() string {
 func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 	fmt.Println("Orchestrator requests worker run item Type:", workItem.ClientItem.Type)
 	switch {
-	case workItem.ClientItem.Type == iperfTcpTest || workItem.ClientItem.Type == iperfUdpTest:
+	case workItem.ClientItem.Type == iperfTcpTest || workItem.ClientItem.Type == iperfUdpTest || workItem.ClientItem.Type == iperfSctpTest:
 		outputString := iperfClient(workItem.ClientItem.Host, workItem.ClientItem.Port, workItem.ClientItem.MSS, workItem.ClientItem.Type)
 		var reply int
 		client.Call("NetPerfRpc.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
@@ -606,6 +632,12 @@ func iperfClient(serverHost, serverPort string, mss int, workItemType int) (rv s
 	switch {
 	case workItemType == iperfTcpTest:
 		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
+		if success {
+			rv = output
+		}
+
+	case workItemType == iperfSctpTest:
+		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss), "--sctp"}, 15)
 		if success {
 			rv = output
 		}

@@ -187,6 +187,12 @@ func createServices(c *kubernetes.Clientset) bool {
 					TargetPort: intstr.FromInt(iperf3Port),
 				},
 				{
+					Name:       "netperf-w2-sctp",
+					Protocol:   api.ProtocolSCTP,
+					Port:       iperf3Port,
+					TargetPort: intstr.FromInt(iperf3Port),
+				},
+				{
 					Name:       "netperf-w2-udp",
 					Protocol:   api.ProtocolUDP,
 					Port:       iperf3Port,
@@ -259,6 +265,7 @@ func createRCs(c *kubernetes.Clientset) bool {
 		if i > 1 {
 			// Worker W1 is a client-only pod - no ports are exposed
 			portSpec = append(portSpec, api.ContainerPort{ContainerPort: iperf3Port, Protocol: api.ProtocolTCP})
+			portSpec = append(portSpec, api.ContainerPort{ContainerPort: iperf3Port, Protocol: api.ProtocolSCTP})
 		}
 
 		workerEnv := []api.EnvVar{

@@ -51,12 +51,13 @@ const (
 )
 
 var (
-	iterations     int
-	hostnetworking bool
-	tag            string
-	kubeConfig     string
-	netperfImage   string
-	cleanupOnly    bool
+	iterations      int
+	hostnetworking  bool
+	tag             string
+	kubeConfig      string
+	netperfImage    string
+	imagePullPolicy string
+	cleanupOnly     bool
 
 	everythingSelector metav1.ListOptions = metav1.ListOptions{}
 
@@ -71,6 +72,7 @@ func init() {
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&imagePullPolicy, "pull-policy", "Always", "Docker image pull policy")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 	flag.BoolVar(&cleanupOnly, "cleanup", false,
@@ -244,7 +246,7 @@ func createRCs(c *kubernetes.Clientset) bool {
 							Image:           netperfImage,
 							Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
 							Args:            []string{"--mode=orchestrator"},
-							ImagePullPolicy: "Always",
+							ImagePullPolicy: api.PullPolicy(imagePullPolicy),
 						},
 					},
 					TerminationGracePeriodSeconds: new(int64),
@@ -299,7 +301,7 @@ func createRCs(c *kubernetes.Clientset) bool {
 								Ports:           portSpec,
 								Args:            []string{"--mode=worker"},
 								Env:             workerEnv,
-								ImagePullPolicy: "Always",
+								ImagePullPolicy: api.PullPolicy(imagePullPolicy),
 							},
 						},
 						TerminationGracePeriodSeconds: new(int64),

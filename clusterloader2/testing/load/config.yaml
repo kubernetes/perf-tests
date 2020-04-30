@@ -23,6 +23,7 @@
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$ENABLE_MUTATING_ADMISSION_WEBHOOKS := DefaultParam .CL2_ENABLE_MUTATING_ADMISSION_WEBHOOKS false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -183,6 +184,21 @@ steps:
       kind: Job
       labelSelector: group = load
       operationTimeout: 15m
+
+{{if $ENABLE_MUTATING_ADMISSION_WEBHOOKS}}
+- name: Creating mutating admission webhooks
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: mutating-admission-webhook
+      objectTemplatePath: mutating_admission_webhooks.yaml
+{{end}}
+
+# TODO: need to wait for the webhooks pods to be ready
 
 - name: Creating objects
   phases:
@@ -653,6 +669,19 @@ steps:
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
+
+{{if $ENABLE_MUTATING_ADMISSION_WEBHOOKS}}
+- name: Deleting mutating admission webhooks
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: mutating-admission-webhook
+      objectTemplatePath: mutating_admission_webhooks.yaml
+{{end}}
 
 - name: Collecting measurements
   measurements:

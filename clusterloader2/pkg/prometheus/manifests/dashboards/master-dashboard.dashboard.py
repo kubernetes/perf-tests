@@ -14,60 +14,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 from grafanalib import core as g
 import defaults as d
 
 
-def api_call_latency(title, verb, scope, threshold):
-    return d.Graph(
-        title=title,
-        targets=[
-            g.Target(expr=str(threshold), legendFormat="threshold"),
-            g.Target(
-                expr=d.one_line(
-                    """
+def api_call_latency_panel(expression):
+    def api_call_latency(title, verb, scope, threshold):
+        return d.Graph(
+            title=title,
+            targets=[
+                g.Target(expr=str(threshold), legendFormat="threshold"),
+                g.Target(
+                    expr=d.one_line(expression % {"verb": verb, "scope": scope}
+                                    ),
+                    # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
+                    # legendFormat="{{verb}} {{scope}}/{{resource}}",
+                ),
+            ],
+            yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+        )
+
+    return [
+        api_call_latency(
+            title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+            verb="GET",
+            scope="namespace",
+            threshold=1,
+        ),
+        api_call_latency(
+            title="Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+            verb="LIST",
+            scope="namespace",
+            threshold=5,
+        ),
+        api_call_latency(
+            title="Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+            verb="LIST",
+            scope="cluster",
+            threshold=30,
+        ),
+        api_call_latency(
+            title="Mutating API call latency (threshold=1s)",
+            verb=d.any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
+            scope=d.any_of("namespace", "cluster"),
+            threshold=1,
+        ),
+    ]
+
+API_CALL_LATENCY_PANELS = api_call_latency_panel("""
 apiserver:apiserver_request_latency_1m:histogram_quantile{
   quantile="0.99",
   verb=~"%(verb)s",
   scope=~"%(scope)s",
   resource=~"${resource:regex}s*",
-}"""
-                    % {"verb": verb, "scope": scope}
-                ),
-                # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
-                # legendFormat="{{verb}} {{scope}}/{{resource}}",
-            ),
-        ],
-        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
-    )
+}""")
 
-
-CLUSTERLOADER_PANELS = [
-    api_call_latency(
-        title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
-        verb="GET",
-        scope="namespace",
-        threshold=1,
-    ),
-    api_call_latency(
-        title="Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
-        verb="LIST",
-        scope="namespace",
-        threshold=5,
-    ),
-    api_call_latency(
-        title="Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
-        verb="LIST",
-        scope="cluster",
-        threshold=30,
-    ),
-    api_call_latency(
-        title="Mutating API call latency (threshold=1s)",
-        verb=d.any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
-        scope=d.any_of("namespace", "cluster"),
-        threshold=1,
-    ),
-]
+QUANTILE_API_CALL_LATENCY_PANELS = api_call_latency_panel("""
+quantile_over_time(0.99,
+apiserver:apiserver_request_latency_1m:histogram_quantile{
+  quantile="0.99",
+  verb=~"%(verb)s",
+  scope=~"%(scope)s",
+  resource=~"${resource:regex}s*",
+}[5d])""")
 
 HEALTH_PANELS = [
     d.simple_graph(
@@ -485,7 +495,8 @@ dashboard = d.Dashboard(
     title="Master dashboard",
     refresh="",
     rows=[
-        d.Row(title="Clusterloader", panels=CLUSTERLOADER_PANELS),
+        d.Row(title="API call latency", panels=API_CALL_LATENCY_PANELS),
+        d.Row(title="API call latency aggregated with quantile", panels=QUANTILE_API_CALL_LATENCY_PANELS, collapse=True),
         d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
         d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
         d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),

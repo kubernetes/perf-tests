@@ -14,7 +14,7 @@
 
 all: docker nptests push launch runtests
 
-DOCKERREPO       := girishkalele/netperf-latest
+DOCKERREPO       ?= girishkalele/netperf-latest
 
 docker: nptests launch
 	mkdir -p Dockerbuild && \

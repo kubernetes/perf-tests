@@ -277,7 +277,7 @@ func (pc *PrometheusController) runNodeExporter() error {
 	numMasters := 0
 	for _, node := range nodes {
 		node := node
-		if util.LegacyIsMasterNode(node.Name) {
+		if util.LegacyIsMasterNode(&node) {
 			numMasters++
 			g.Go(func() error {
 				f, err := os.Open(os.ExpandEnv(nodeExporterPod))

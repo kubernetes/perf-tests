@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -103,12 +104,25 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 				return nil, fmt.Errorf("listing pods error: %v", err)
 			}
 		}
+
+		nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("listing nodes error: %v", err)
+		}
+
+		masterNodes := sets.NewString()
+		for _, node := range nodeList.Items {
+			if pkgutil.LegacyIsMasterNode(&node) {
+				masterNodes.Insert(node.Name)
+			}
+		}
+
 		dnsNodes := make(map[string]bool)
 		for _, pod := range pods.Items {
-			if (options.Nodes == MasterNodes) && !pkgutil.LegacyIsMasterNode(pod.Spec.NodeName) {
+			if (options.Nodes == MasterNodes) && !masterNodes.Has(pod.Spec.NodeName) {
 				continue
 			}
-			if (options.Nodes == MasterAndDNSNodes) && !pkgutil.LegacyIsMasterNode(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
+			if (options.Nodes == MasterAndDNSNodes) && !masterNodes.Has(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
 				continue
 			}
 			for _, container := range pod.Status.InitContainerStatuses {
@@ -121,16 +135,12 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 				dnsNodes[pod.Spec.NodeName] = true
 			}
 		}
-		nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("listing nodes error: %v", err)
-		}
 
 		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || pkgutil.LegacyIsMasterNode(node.Name) || dnsNodes[node.Name] {
+			if options.Nodes == AllNodes || masterNodes.Has(node.Name) || dnsNodes[node.Name] {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
-				if pkgutil.LegacyIsMasterNode(node.Name) {
+				if masterNodes.Has(node.Name) {
 					resourceDataGatheringPeriod = options.MasterResourceDataGatheringPeriod
 				}
 				g.workers = append(g.workers, resourceGatherWorker{

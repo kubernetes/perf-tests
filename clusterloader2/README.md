@@ -85,10 +85,11 @@ export CL2_ACCESS_TOKENS_QPS=5
 ## Measurement
 
 Currently available measurements are:
-- **APIResponsiveness** \
-This measurement creates summary for latency and number for server api calls.
+- **APIResponsivenessPrometheusSimple** \
+This measurement creates percentiles of latency and number for server api calls based on the data collected by the prometheus server. 
 Api calls are divided by resource, subresource, verb and scope. \
 This measurement verifies if [API call latencies SLO] is satisfied.
+If prometheus server is not available, the measurement will be skipped.
 - **APIResponsivenessPrometheus** \
 This measurement creates summary for latency and number for server api calls
 based on the data collected by the prometheus server.

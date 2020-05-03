@@ -221,6 +221,7 @@ query_file: ["nx-domain.txt", "outside.txt", "pod-ip.txt", "service.txt"]
 CREATE TABLE runs (
   run_id,
   run_subid,
+  pod_name,
   run_length_seconds,
   dnsmasq_cpu,
   dnsmasq_cache,
@@ -233,6 +234,7 @@ CREATE TABLE runs (
 CREATE TABLE results (
   run_id,
   run_subid,
+  pod_name,
   queries_sent,
   queries_completed,
   queries_lost,

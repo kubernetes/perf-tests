@@ -211,9 +211,10 @@ class MaxQPS(DnsperfCmdlineParam):
 
 
 class TestCase(object):
-  def __init__(self, run_id, run_subid, pv):
+  def __init__(self, run_id, run_subid, pod_name, pv):
     self.run_id = run_id
     self.run_subid = run_subid
+    self.pod_name = pod_name
     self.pv = pv
 
   def __repr__(self):
@@ -223,6 +224,7 @@ class TestCase(object):
     fields = {
         'run_id': self.run_id,
         'run_subid': self.run_subid,
+        'pod_name': self.pod_name,
     }
     for param, value in self.pv:
       fields[param.name] = value
@@ -261,7 +263,7 @@ class TestCases(object):
     def iterate(remaining, pv):
       if len(remaining) == 0:
         run_subid = len(cases)
-        return cases.append(TestCase(run_id, run_subid, pv))
+        return cases.append(TestCase(run_id, run_subid, "", pv))
 
       param = remaining[0]
       if param.name not in self.values or \

@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import copy
 import json
 import logging
 import os
@@ -67,7 +67,6 @@ class Runner(object):
 
 
     self.server_node = None
-    self.client_node = None
     self.use_existing = False
     self.db = ResultDb(self.args.db) if self.args.db else None
 
@@ -99,7 +98,8 @@ class Runner(object):
 
     try:
       self._ensure_out_dir(test_cases[0].run_id)
-      self._reset_client()
+      client_pods=self._reset_client()
+      _log.info('Starting creation of test services')
       self._create_test_services()
 
       last_deploy_yaml = None
@@ -125,8 +125,17 @@ class Runner(object):
             if self.configmap_yaml is not None:
               self._create(self.configmap_yaml)
             self._wait_for_status(True)
-
-          self._run_perf(test_case, inputs)
+          test_threads=[]
+          #Spawn off a thread to run the test case in each client pod simultaneously.
+          for podname in client_pods:
+            _log.debug('Running test in pod %s', podname)
+            tc = copy.copy(test_case)
+            tc.pod_name = podname
+            dt = threading.Thread(target=self._run_perf,args=[tc,inputs, podname])
+            test_threads.append(dt)
+            dt.start()
+          for thread in test_threads:
+            thread.join()
           last_deploy_yaml = inputs.deployment_yaml
           last_config_yaml = inputs.configmap_yaml
 
@@ -217,11 +226,11 @@ class Runner(object):
     output_q.put(max_kubedns_cpu)
     output_q.put(max_kubedns_mem)
 
-  def _run_perf(self, test_case, inputs):
+  def _run_perf(self, test_case, inputs, podname):
     _log.info('Running test case: %s', test_case)
 
-    output_file = '%s/run-%s/result-%s.out' % \
-      (self.args.out_dir, test_case.run_id, test_case.run_subid)
+    output_file = '%s/run-%s/result-%s-%s.out' % \
+      (self.args.out_dir, test_case.run_id, test_case.run_subid, test_case.pod_name)
     _log.info('Writing to output file %s', output_file)
     res_usage = Queue.Queue()
     dt = threading.Thread(target=self._run_top,args=[res_usage])
@@ -238,12 +247,12 @@ class Runner(object):
       fh.write(header)
       cmdline = inputs.dnsperf_cmdline
       code, out, err = self._kubectl(
-          *([None, 'exec', _client_podname, '--'] + [str(x) for x in cmdline]))
+          *([None, 'exec', podname, '--'] + [str(x) for x in cmdline]))
       fh.write('%s\n' % add_prefix('out | ', out))
       fh.write('%s\n' % add_prefix('err | ', err))
 
       if code != 0:
-        raise Exception('error running dnsperf')
+        raise Exception('error running dnsperf - %s, podname %s', err, podname)
 
     dt.join()
 
@@ -303,18 +312,6 @@ class Runner(object):
     if len(nodes) < 2 and not self.args.single_node:
       raise Exception('you need 2 or more worker nodes to run the perf test')
 
-    if self.args.client_node:
-      if self.args.client_node not in nodes:
-        raise Exception('%s is not a valid node' % self.args.client_node)
-      _log.info('Manually selected client_node')
-      self.client_node = self.args.client_node
-    elif self.args.single_node:
-      self.client_node = nodes[0]
-    else:
-      self.client_node = nodes[1]
-
-    _log.info('Client node is %s', self.client_node)
-
     if self.use_existing:
       return
 
@@ -360,26 +357,37 @@ class Runner(object):
   def _reset_client(self):
     self._teardown_client()
 
-    self.dnsperf_yaml['spec']['nodeName'] = self.client_node
     self._create(self.dnsperf_yaml)
+    client_pods=[]
     while True:
-      code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
-      if code == 0:
+      code, pending, err = self._kubectl(None, 'get','deploy', 'dns-perf-client','--no-headers', '-o', 'custom-columns=:status.unavailableReplicas')
+      if pending.rstrip() != "<none>":
+        #Deployment not ready yet
+        _log.info("pending replicas in client deployment - '%s'", pending.rstrip())
+        time.sleep(5)
+        continue
+      code, client_pods, err = self._kubectl(None, 'get','pods', '-l', 'app=dns-perf-client', '--no-headers', '-o', 'custom-columns=:metadata.name')
+      if code != 0:
+        _log.error('Error: stderr\n%s', add_prefix('err | ', err))
+        raise Exception('error getting pod information: %d', code)
+      client_pods=client_pods.rstrip().split('\n')
+      _log.info('got client pods "%s"', client_pods)
+      if len(client_pods) > 0:
         break
-      _log.info('Waiting for client pod to start on %s', self.client_node)
-      time.sleep(1)
-    _log.info('Client pod to started on %s', self.client_node)
+      _log.debug('waiting for client pods')
 
-    while True:
-      code, _, _ = self._kubectl(
-          None, 'exec', '-i', _client_podname, '--', 'echo')
-      if code == 0:
-        break
-      time.sleep(1)
-    _log.info('Client pod ready for execution')
-    self._copy_query_files()
+    for podname in client_pods:
+      while True:
+        code, _, _ = self._kubectl(
+            None, 'exec', '-i', podname, '--', 'echo')
+        if code == 0:
+          break
+        time.sleep(1)
+      _log.info('Client pod ready for execution')
+      self._copy_query_files(podname)
+    return client_pods
 
-  def _copy_query_files(self):
+  def _copy_query_files(self, podname):
     if self.args.run_large_queries:
       try:
         _log.info('Downloading large query file')
@@ -394,19 +402,19 @@ class Runner(object):
           _log.info('Exception caught when downloading query files %s',
                     traceback.format_exc())
 
-    _log.info('Copying query files to client')
+    _log.info('Copying query files to client %s', podname)
     tarfile_contents = subprocess.check_output(
         ['tar', '-czf', '-', self.args.query_dir])
     code, _, _ = self._kubectl(
         tarfile_contents,
-        'exec', '-i', _client_podname, '--', 'tar', '-xzf', '-')
+        'exec', '-i', podname, '--', 'tar', '-xzf', '-')
     if code != 0:
       raise Exception('error copying query files to client: %d' % code)
     _log.info('Query files copied')
 
   def _teardown_client(self):
     _log.info('Starting client teardown')
-    self._kubectl(None, 'delete', 'pod/dns-perf-client')
+    self._kubectl(None, 'delete', 'deployment/dns-perf-client')
 
     while True:
       code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)

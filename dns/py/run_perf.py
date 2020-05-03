@@ -47,7 +47,7 @@ def parse_args():
       '--configmap-yaml', type=str, default='',
       help='yaml for the dns server configmap')
   parser.add_argument(
-      '--dnsperf-yaml', type=str, default='cluster/dnsperf.yaml',
+      '--dnsperf-yaml', type=str, default='cluster/dnsperf-deploy.yaml',
       help='yaml for the dnsperf client')
   parser.add_argument(
       '--query-dir', type=str, default='queries/',

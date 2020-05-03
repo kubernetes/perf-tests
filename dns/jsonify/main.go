@@ -65,6 +65,7 @@ type BenchmarkParams struct {
 	DnsmasqCpu       *float64 `yaml:"dnsmasq_cpu"`
 	DnsmasqCache     *float64 `yaml:"dnsmasq_cache"`
 	MaxQps           *float64 `yaml:"max_qps"`
+	PodName          string   `yaml:"pod_name"`
 }
 
 func main() {

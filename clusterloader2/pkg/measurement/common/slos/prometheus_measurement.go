@@ -88,6 +88,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		summary, err := m.gatherer.Gather(executor, m.startTime, config)
 		if err != nil {
 			if !errors.IsMetricViolationError(err) {
+				klog.Errorf("%s gathering error: %v", config.Identifier, err)
 				return nil, err
 			}
 			if !enableViolations {

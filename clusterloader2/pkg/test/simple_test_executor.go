@@ -44,19 +44,19 @@ const (
 	namespacePlaceholder = "Namespace"
 )
 
-type simpleTestExecutor struct{}
+type simpleExecutor struct{}
 
-func createSimpleTestExecutor() TestExecutor {
-	return &simpleTestExecutor{}
+func createSimpleExecutor() Executor {
+	return &simpleExecutor{}
 }
 
 // ExecuteTest executes test based on provided configuration.
-func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
+func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
 	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(conf.Namespace.Prefix)
 	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
 
 	defer cleanupResources(ctx, conf)
-	ctx.GetTuningSetFactory().Init(conf.TuningSets)
+	ctx.GetFactory().Init(conf.TuningSets)
 
 	stopCh := make(chan struct{})
 	chaosMonkeyWaitGroup, err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh)
@@ -74,7 +74,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 		klog.Info("Chaos monkey ended.")
 	}
 
-	for _, summary := range ctx.GetMeasurementManager().GetSummaries() {
+	for _, summary := range ctx.GetManager().GetSummaries() {
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
 			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
@@ -96,7 +96,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 }
 
 // ExecuteTestSteps executes all test steps provided in configuration
-func (ste *simpleTestExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *errors.ErrorList {
+func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *errors.ErrorList {
 	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
@@ -130,7 +130,7 @@ func (ste *simpleTestExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *
 }
 
 // ExecuteStep executes single test step based on provided step configuration.
-func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
+func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
 	if step.Name != "" {
 		klog.Infof("Step %q started", step.Name)
 	}
@@ -141,7 +141,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				err := measurement.Execute(ctx.GetMeasurementManager(), &step.Measurements[index])
+				err := measurement.Execute(ctx.GetManager(), &step.Measurements[index])
 				if err != nil {
 					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}
@@ -168,11 +168,11 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.
-func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
+func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
 	// TODO: add tuning set
 	errList := errors.NewErrorList()
 	nsList := createNamespacesList(ctx, phase.NamespaceRange)
-	tuningSet, err := ctx.GetTuningSetFactory().CreateTuningSet(phase.TuningSet)
+	tuningSet, err := ctx.GetFactory().CreateTuningSet(phase.TuningSet)
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))
 	}
@@ -218,7 +218,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			actions = append(actions, func() {
 				for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 					if replicaIndex < instancesStates[j].CurrentReplicaCount {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, DELETE_OBJECT); !objectErrList.IsEmpty() {
+						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, deleteObject); !objectErrList.IsEmpty() {
 							errList.Concat(objectErrList)
 						}
 					}
@@ -232,7 +232,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 				replicaIndex := replicaCounter
 				actions = append(actions, func() {
 					for j := range phase.ObjectBundle {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, PATCH_OBJECT); !objectErrList.IsEmpty() {
+						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, patchObject); !objectErrList.IsEmpty() {
 							errList.Concat(objectErrList)
 							// If error then skip this bundle
 							break
@@ -247,7 +247,7 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 			replicaIndex := replicaCounter
 			actions = append(actions, func() {
 				for j := range phase.ObjectBundle {
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, CREATE_OBJECT); !objectErrList.IsEmpty() {
+					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, createObject); !objectErrList.IsEmpty() {
 						errList.Concat(objectErrList)
 						// If error then skip this bundle
 						break
@@ -271,12 +271,12 @@ func (ste *simpleTestExecutor) ExecutePhase(ctx Context, phase *api.Phase) *erro
 }
 
 // ExecuteObject executes single test object operation based on provided object configuration.
-func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
+func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 	var err error
 	var obj *unstructured.Unstructured
 	switch operation {
-	case CREATE_OBJECT, PATCH_OBJECT:
+	case createObject, patchObject:
 		mapping := ctx.GetTemplateMappingCopy()
 		if object.TemplateFillMap != nil {
 			util.CopyMap(object.TemplateFillMap, mapping)
@@ -289,7 +289,7 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
-	case DELETE_OBJECT:
+	case deleteObject:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
@@ -303,15 +303,15 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	}
 	gvk := obj.GroupVersionKind()
 	switch operation {
-	case CREATE_OBJECT:
+	case createObject:
 		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
 		}
-	case PATCH_OBJECT:
+	case patchObject:
 		if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
 		}
-	case DELETE_OBJECT:
+	case deleteObject:
 		if err := ctx.GetClusterFramework().DeleteObject(gvk, namespace, objName); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
 		}
@@ -345,7 +345,7 @@ func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, 
 	return state.InstancesIdentifier{
 		Basename:   object.Basename,
 		ObjectKind: gvk.Kind,
-		ApiGroup:   gvk.Group,
+		APIGroup:   gvk.Group,
 	}, nil
 }
 
@@ -374,7 +374,7 @@ func isErrsCritical(*errors.ErrorList) bool {
 
 func cleanupResources(ctx Context, conf *api.Config) {
 	cleanupStartTime := time.Now()
-	ctx.GetMeasurementManager().Dispose()
+	ctx.GetManager().Dispose()
 	if *conf.Namespace.DeleteAutomanagedNamespaces {
 		if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
 			klog.Errorf("Resource cleanup error: %v", errList.String())

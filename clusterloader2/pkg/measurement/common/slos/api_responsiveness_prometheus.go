@@ -100,7 +100,7 @@ func (a *apiResponsiveness) Less(i, j int) bool {
 
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
 	if err != nil {
 		klog.Errorf("%s: samples gathering error: %v", config.Identifier, err)
@@ -133,11 +133,11 @@ func (a *apiResponsivenessGatherer) String() string {
 	return apiResponsivenessPrometheusMeasurementName
 }
 
-func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
+func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
-func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]apiCall, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
 

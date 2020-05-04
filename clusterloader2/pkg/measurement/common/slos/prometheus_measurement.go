@@ -43,8 +43,8 @@ type QueryExecutor interface {
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).
 type Gatherer interface {
-	Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error)
-	IsEnabled(config *measurement.MeasurementConfig) bool
+	Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error)
+	IsEnabled(config *measurement.Config) bool
 	String() string
 }
 
@@ -54,7 +54,7 @@ type prometheusMeasurement struct {
 	startTime time.Time
 }
 
-func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (m *prometheusMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	if config.PrometheusFramework == nil {
 		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", config.Identifier)
 		return nil, nil

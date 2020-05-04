@@ -34,13 +34,13 @@ type CreatContextFunc func(c *config.ClusterLoaderConfig, f *framework.Framework
 type OperationType int
 
 const (
-	// CREATE_OBJECT is create object operation.
-	CREATE_OBJECT = OperationType(0)
-	// PATCH_OBJECT is update object (using patch) operation.
+	// createObject is create object operation.
+	createObject = OperationType(0)
+	// patchObject is update object (using patch) operation.
 	// TODO(krzysied): Figure out how to implement UPDATE_OBJECT operation.
-	PATCH_OBJECT = OperationType(1)
-	// DELETE_OBJECT is delete object operation.
-	DELETE_OBJECT = OperationType(2)
+	patchObject = OperationType(1)
+	// deleteObject is delete object operation.
+	deleteObject = OperationType(2)
 )
 
 // Context is an interface for test context.
@@ -52,13 +52,13 @@ type Context interface {
 	GetState() *state.State
 	GetTemplateMappingCopy() map[string]interface{}
 	GetTemplateProvider() *config.TemplateProvider
-	GetTuningSetFactory() tuningset.TuningSetFactory
-	GetMeasurementManager() measurement.MeasurementManager
+	GetFactory() tuningset.Factory
+	GetManager() measurement.Manager
 	GetChaosMonkey() *chaos.Monkey
 }
 
-// TestExecutor is an interface for test executing object.
-type TestExecutor interface {
+// Executor is an interface for test executing object.
+type Executor interface {
 	ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList
 	ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList
 	ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList

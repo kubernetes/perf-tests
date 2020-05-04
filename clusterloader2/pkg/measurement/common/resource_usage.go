@@ -54,7 +54,7 @@ type resourceUsageMetricMeasurement struct {
 // Execute supports two actions:
 // - start - Starts resource metrics collecting.
 // - gather - Gathers and prints current resource usage metrics.
-func (e *resourceUsageMetricMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Measurement
 		if err != nil {
 			return nil, err
 		}
-		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIp())
+		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIP())
 		if err != nil {
 			return nil, err
 		}
@@ -156,12 +156,12 @@ func (e *resourceUsageMetricMeasurement) verifySummary(summary *gatherers.Resour
 	for _, containerSummary := range summary.Get("99") {
 		containerName := strings.Split(containerSummary.Name, "/")[1]
 		if constraint, ok := e.resourceConstraints[containerName]; ok {
-			if containerSummary.Cpu > constraint.CPUConstraint {
+			if containerSummary.CPU > constraint.CPUConstraint {
 				violatedConstraints = append(
 					violatedConstraints,
 					fmt.Sprintf("container %v is using %v/%v CPU",
 						containerSummary.Name,
-						containerSummary.Cpu,
+						containerSummary.CPU,
 						constraint.CPUConstraint,
 					),
 				)

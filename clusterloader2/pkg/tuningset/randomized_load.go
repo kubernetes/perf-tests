@@ -38,12 +38,12 @@ func (rl *randomizedLoad) Execute(actions []func()) {
 	var wg wait.Group
 	for i := range actions {
 		wg.Start(actions[i])
-		time.Sleep(sleepDuration(rl.params.AverageQps))
+		time.Sleep(sleepDuration(rl.params.AverageQPS))
 	}
 	wg.Wait()
 }
 
-func sleepDuration(avgQps float64) time.Duration {
+func sleepDuration(avgQPS float64) time.Duration {
 	randomFactor := 2 * rand.Float64()
-	return time.Duration(int(randomFactor * float64(time.Second) / avgQps))
+	return time.Duration(int(randomFactor * float64(time.Second) / avgQPS))
 }

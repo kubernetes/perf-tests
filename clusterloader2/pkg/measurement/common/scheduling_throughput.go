@@ -56,7 +56,7 @@ type schedulingThroughputMeasurement struct {
 //   Pods can be specified by field and/or label selectors.
 //   If namespace is not passed by parameter, all-namespace scope is assumed.
 // - gather - creates summary for observed values.
-func (s *schedulingThroughputMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err

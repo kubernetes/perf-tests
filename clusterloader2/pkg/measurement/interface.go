@@ -23,8 +23,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
 
-// MeasurementConfig provides client and parameters required for the measurement execution.
-type MeasurementConfig struct {
+// Config provides client and parameters required for the measurement execution.
+type Config struct {
 	// ClusterFramework returns cluster framework.
 	ClusterFramework *framework.Framework
 	// PrometheusFramework returns prometheus framework.
@@ -45,7 +45,7 @@ type MeasurementConfig struct {
 // allow his/her measurement method to be registered in the measurement factory.
 // See https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md for reference.
 type Measurement interface {
-	Execute(config *MeasurementConfig) ([]Summary, error)
+	Execute(config *Config) ([]Summary, error)
 	Dispose()
 	String() string
 }

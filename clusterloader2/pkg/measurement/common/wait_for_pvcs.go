@@ -46,7 +46,7 @@ type waitForBoundPVCsMeasurement struct{}
 // Execute waits until desired number of PVCs are bound or until timeout happens.
 // PVCs can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
-func (w *waitForBoundPVCsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *waitForBoundPVCsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	desiredPVCCount, err := util.GetInt(config.Params, "desiredPVCCount")
 	if err != nil {
 		return nil, err

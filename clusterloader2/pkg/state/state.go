@@ -19,8 +19,8 @@ package state
 // State is a state of the cluster.
 // It is composed of namespaces state and resources versions state.
 type State struct {
-	namespacesState       *namespacesState
-	resourcesVersionState *resourcesVersionsState
+	namespacesState       *NamespacesState
+	resourcesVersionState *ResourcesVersionsState
 }
 
 // NewState creates new State instance.
@@ -32,11 +32,11 @@ func NewState() *State {
 }
 
 // GetNamespacesState returns namespaces state.
-func (s *State) GetNamespacesState() *namespacesState {
+func (s *State) GetNamespacesState() *NamespacesState {
 	return s.namespacesState
 }
 
 // GetResourcesVersionState returns resources versions state.
-func (s *State) GetResourcesVersionState() *resourcesVersionsState {
+func (s *State) GetResourcesVersionState() *ResourcesVersionsState {
 	return s.resourcesVersionState
 }

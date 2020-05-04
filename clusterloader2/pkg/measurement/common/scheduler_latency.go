@@ -75,7 +75,7 @@ type schedulerLatencyMeasurement struct{}
 // Execute supports two actions:
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
-func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	SSHToMasterSupported := config.ClusterFramework.GetClusterConfig().SSHToMasterSupported
 
 	c := config.ClusterFramework.GetClientSets().GetClient()
@@ -105,7 +105,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.MeasurementCon
 	if err != nil {
 		return nil, err
 	}
-	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().GetMasterIp())
+	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().GetMasterIP())
 	if err != nil {
 		return nil, err
 	}

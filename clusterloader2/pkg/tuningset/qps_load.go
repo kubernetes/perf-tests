@@ -24,17 +24,17 @@ import (
 )
 
 type qpsLoad struct {
-	params *api.QpsLoad
+	params *api.QPSLoad
 }
 
-func newQpsLoad(params *api.QpsLoad) TuningSet {
+func newQPSLoad(params *api.QPSLoad) TuningSet {
 	return &qpsLoad{
 		params: params,
 	}
 }
 
 func (ql *qpsLoad) Execute(actions []func()) {
-	sleepDuration := time.Duration(int(float64(time.Second) / ql.params.Qps))
+	sleepDuration := time.Duration(int(float64(time.Second) / ql.params.QPS))
 	var wg wait.Group
 	for i := range actions {
 		wg.Start(actions[i])

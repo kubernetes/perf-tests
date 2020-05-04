@@ -96,25 +96,25 @@ func IsRetryableNetError(err error) bool {
 	return false
 }
 
-// ApiCallOptions describes how api call errors should be treated, i.e. which errors should be
+// APICallOptions describes how api call errors should be treated, i.e. which errors should be
 // allowed (ignored) and which should be retried.
-type ApiCallOptions struct {
+type APICallOptions struct {
 	shouldAllowError func(error) bool
 	shouldRetryError func(error) bool
 }
 
-// Allow creates an ApiCallOptions that allows (ignores) errors matching the given predicate.
-func Allow(allowErrorPredicate func(error) bool) *ApiCallOptions {
-	return &ApiCallOptions{shouldAllowError: allowErrorPredicate}
+// Allow creates an APICallOptions that allows (ignores) errors matching the given predicate.
+func Allow(allowErrorPredicate func(error) bool) *APICallOptions {
+	return &APICallOptions{shouldAllowError: allowErrorPredicate}
 }
 
-// Retry creates an ApiCallOptions that retries errors matching the given predicate.
-func Retry(retryErrorPredicate func(error) bool) *ApiCallOptions {
-	return &ApiCallOptions{shouldRetryError: retryErrorPredicate}
+// Retry creates an APICallOptions that retries errors matching the given predicate.
+func Retry(retryErrorPredicate func(error) bool) *APICallOptions {
+	return &APICallOptions{shouldRetryError: retryErrorPredicate}
 }
 
 // RetryFunction opaques given function into retryable function.
-func RetryFunction(f func() error, options ...*ApiCallOptions) wait.ConditionFunc {
+func RetryFunction(f func() error, options ...*APICallOptions) wait.ConditionFunc {
 	var shouldAllowErrorFuncs, shouldRetryErrorFuncs []func(error) bool
 	for _, option := range options {
 		if option.shouldAllowError != nil {
@@ -237,7 +237,7 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 }
 
 // ListEvents retrieves events for the object with the given name.
-func ListEvents(c clientset.Interface, namespace string, name string, options ...*ApiCallOptions) (obj *apiv1.EventList, err error) {
+func ListEvents(c clientset.Interface, namespace string, name string, options ...*APICallOptions) (obj *apiv1.EventList, err error) {
 	getFunc := func() error {
 		obj, err = c.CoreV1().Events(namespace).List(metav1.ListOptions{
 			FieldSelector: "involvedObject.name=" + name,
@@ -259,7 +259,7 @@ func DeleteStorageClass(c clientset.Interface, name string) error {
 }
 
 // CreateObject creates object based on given object description.
-func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
+func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -272,7 +272,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 }
 
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
-func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
+func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
@@ -292,7 +292,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 }
 
 // DeleteObject deletes object with given name, group, version and kind.
-func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) error {
+func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*APICallOptions) error {
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
@@ -305,7 +305,7 @@ func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, 
 }
 
 // GetObject retrieves object with given name, group, version and kind.
-func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*ApiCallOptions) (*unstructured.Unstructured, error) {
+func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*APICallOptions) (*unstructured.Unstructured, error) {
 	var obj *unstructured.Unstructured
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	getFunc := func() error {
@@ -322,11 +322,11 @@ func GetObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, nam
 }
 
 func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
-	currentJson, err := current.MarshalJSON()
+	currentJSON, err := current.MarshalJSON()
 	if err != nil {
 		return []byte{}, err
 	}
-	modifiedJson, err := modified.MarshalJSON()
+	modifiedJSON, err := modified.MarshalJSON()
 	if err != nil {
 		return []byte{}, err
 	}
@@ -336,5 +336,5 @@ func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
 	// if some field has been deleted between `original` and `modified` object
 	// (e.g. by removing field in object's yaml), we will never remove that field from 'current'.
 	// TODO(mborsz): Pass here the original object.
-	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil /* original */, modifiedJson, currentJson, preconditions...)
+	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil /* original */, modifiedJSON, currentJSON, preconditions...)
 }

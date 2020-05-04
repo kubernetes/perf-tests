@@ -25,8 +25,8 @@ type TuningSet interface {
 	Execute(actions []func())
 }
 
-// TuningSetFactory is a factory that creates tuning sets.
-type TuningSetFactory interface {
+// Factory is a factory that creates tuning sets.
+type Factory interface {
 	Init(tuningSets []api.TuningSet)
 	CreateTuningSet(name string) (TuningSet, error)
 }

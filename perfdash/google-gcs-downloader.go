@@ -69,8 +69,8 @@ func NewGoogleGCSDownloader(opt *GoogleGCSDownloaderOptions) (*GoogleGCSDownload
 func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
 	configPaths := make([]string, len(g.Options.ConfigPaths))
 	copy(configPaths, g.Options.ConfigPaths)
-	for _, githubUrl := range g.Options.GithubConfigDirs {
-		githubConfigPaths, err := GetConfigsFromGithub(githubUrl)
+	for _, githubURL := range g.Options.GithubConfigDirs {
+		githubConfigPaths, err := GetConfigsFromGithub(githubURL)
 		if err != nil {
 			return nil, err
 		}
@@ -163,8 +163,8 @@ func getResultCategory(metricsFileName string, filePrefix string, category strin
 	}
 	// If there are more artifacts, assume that this is a test suite run.
 	trimmed := strings.TrimPrefix(metricsFileName, filePrefix+"_")
-	suiteId := strings.Split(trimmed, "_")[0]
-	return fmt.Sprintf("%v_%v", suiteId, category)
+	suiteID := strings.Split(trimmed, "_")[0]
+	return fmt.Sprintf("%v_%v", suiteID, category)
 }
 
 func getBuildData(result JobToCategoryData, prefix string, category string, label string, job string, resultLock *sync.Mutex) *BuildData {

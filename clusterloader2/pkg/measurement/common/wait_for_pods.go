@@ -46,7 +46,7 @@ type waitForRunningPodsMeasurement struct{}
 // Execute waits until desired number of pods are running or until timeout happens.
 // Pods can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
-func (w *waitForRunningPodsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
 	if err != nil {
 		return nil, err

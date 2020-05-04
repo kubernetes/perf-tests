@@ -32,8 +32,8 @@ var (
 	CreateContext = createSimpleContext
 
 	// Test is a singleton for test execution object.
-	// This object should be set by TestExecutor implementation.
-	Test = createSimpleTestExecutor()
+	// This object should be set by Executor implementation.
+	Test = createSimpleExecutor()
 )
 
 // RunTest runs test based on provided test configuration.

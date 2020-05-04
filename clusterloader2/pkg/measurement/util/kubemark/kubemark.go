@@ -25,8 +25,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
-// KubemarkResourceUsage represents resources used by the kubemark.
-type KubemarkResourceUsage struct {
+// ResourceUsage represents resources used by the kubemark.
+type ResourceUsage struct {
 	Name                    string
 	MemoryWorkingSetInBytes uint64
 	CPUUsageInCores         float64
@@ -42,8 +42,8 @@ func getMasterUsageByPrefix(host, provider, prefix string) (string, error) {
 
 // GetKubemarkMasterComponentsResourceUsage returns resource usage of the kubemark components.
 // TODO: figure out how to move this to kubemark directory (need to factor test SSH out of e2e framework)
-func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]*KubemarkResourceUsage {
-	result := make(map[string]*KubemarkResourceUsage)
+func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]*ResourceUsage {
+	result := make(map[string]*ResourceUsage)
 	// Get kubernetes component resource usage
 	sshResult, err := getMasterUsageByPrefix(host, provider, "kube")
 	if err != nil {
@@ -59,7 +59,7 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 		if name != "" {
 			// Gatherer expects pod_name/container_name format
 			fullName := name + "/" + name
-			result[fullName] = &KubemarkResourceUsage{Name: fullName, MemoryWorkingSetInBytes: mem * 1024, CPUUsageInCores: cpu / 100}
+			result[fullName] = &ResourceUsage{Name: fullName, MemoryWorkingSetInBytes: mem * 1024, CPUUsageInCores: cpu / 100}
 		}
 	}
 	// Get etcd resource usage
@@ -82,7 +82,7 @@ func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]
 		if etcdKind != "" {
 			// Gatherer expects pod_name/container_name format
 			fullName := "etcd/" + etcdKind
-			result[fullName] = &KubemarkResourceUsage{Name: fullName, MemoryWorkingSetInBytes: mem * 1024, CPUUsageInCores: cpu / 100}
+			result[fullName] = &ResourceUsage{Name: fullName, MemoryWorkingSetInBytes: mem * 1024, CPUUsageInCores: cpu / 100}
 		}
 	}
 	return result

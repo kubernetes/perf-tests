@@ -34,28 +34,28 @@ type InstancesState struct {
 type InstancesIdentifier struct {
 	Basename   string
 	ObjectKind string
-	ApiGroup   string
+	APIGroup   string
 }
 
 // namespaceState represents state of a single namespace.
 type namespaceState map[InstancesIdentifier]*InstancesState
 
-// namespacesState represents state of all used namespaces.
-type namespacesState struct {
+// NamespacesState represents state of all used namespaces.
+type NamespacesState struct {
 	lock            sync.RWMutex
 	namespaceStates map[string]namespaceState
 }
 
 // newNamespacesState creates new namespaces state.
-func newNamespacesState() *namespacesState {
-	return &namespacesState{
+func newNamespacesState() *NamespacesState {
+	return &NamespacesState{
 		namespaceStates: make(map[string]namespaceState),
 	}
 }
 
 // Get returns state of object instances -
 // number of existing replicas and its configuration.
-func (ns *namespacesState) Get(namespace string, identifier InstancesIdentifier) (*InstancesState, bool) {
+func (ns *NamespacesState) Get(namespace string, identifier InstancesIdentifier) (*InstancesState, bool) {
 	ns.lock.RLock()
 	defer ns.lock.RUnlock()
 	namespaceState, exists := ns.namespaceStates[namespace]
@@ -68,7 +68,7 @@ func (ns *namespacesState) Get(namespace string, identifier InstancesIdentifier)
 
 // Set stores information about object instances state
 // to test state.
-func (ns *namespacesState) Set(namespace string, identifier InstancesIdentifier, instances *InstancesState) {
+func (ns *NamespacesState) Set(namespace string, identifier InstancesIdentifier, instances *InstancesState) {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 	_, exists := ns.namespaceStates[namespace]
@@ -81,7 +81,7 @@ func (ns *namespacesState) Set(namespace string, identifier InstancesIdentifier,
 // Delete removes information about given instances.
 // It there is no information for given object it is assumed that
 // there are no object replicas.
-func (ns *namespacesState) Delete(namespace string, identifier InstancesIdentifier) error {
+func (ns *NamespacesState) Delete(namespace string, identifier InstancesIdentifier) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 	namespaceState, exists := ns.namespaceStates[namespace]

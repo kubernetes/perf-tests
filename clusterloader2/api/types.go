@@ -144,8 +144,8 @@ type TuningSet struct {
 	Name string `json: name`
 	// InitialDelay specifies the waiting time before starting phase execution.
 	InitialDelay Duration `json: initialDelay`
-	// QpsLoad is a definition for QpsLoad tuning set.
-	QpsLoad *QpsLoad `json: qpsLoad`
+	// QPSLoad is a definition for QPSLoad tuning set.
+	QPSLoad *QPSLoad `json: qpsLoad`
 	// RandomizedLoad is a definition for RandomizedLoad tuning set.
 	RandomizedLoad *RandomizedLoad `json: randomizedLoad`
 	// SteppedLoad is a definition for SteppedLoad tuning set.
@@ -187,17 +187,17 @@ type Measurement struct {
 	Instances []MeasurementInstanceConfig
 }
 
-// QpsLoad defines a uniform load with a given QPS.
-type QpsLoad struct {
-	// Qps specifies requested qps.
-	Qps float64 `json: qps`
+// QPSLoad defines a uniform load with a given QPS.
+type QPSLoad struct {
+	// QPS specifies requested qps.
+	QPS float64 `json: qps`
 }
 
 // RandomizedLoad defines a load that is spread randomly
 // across a given total time.
 type RandomizedLoad struct {
-	// AverageQps specifies the expected average qps.
-	AverageQps float64 `json: averageQps`
+	// AverageQPS specifies the expected average qps.
+	AverageQPS float64 `json: averageQps`
 }
 
 // SteppedLoad defines a load that generates a burst of

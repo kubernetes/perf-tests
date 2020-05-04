@@ -25,26 +25,26 @@ import (
 // ResourceTypeIdentifier is a unique identifier for a resource type.
 type ResourceTypeIdentifier struct {
 	ObjectKind string
-	ApiGroup   string
+	APIGroup   string
 }
 
-// resourcesVersionsState represents most recent resources versions for a given object types.
+// ResourcesVersionsState represents most recent resources versions for a given object types.
 // These versions are available only for resource types of objects that were create/updated
 // by the clusterloader.
-type resourcesVersionsState struct {
+type ResourcesVersionsState struct {
 	lock              sync.RWMutex
 	resourcesVersions map[ResourceTypeIdentifier]uint64
 }
 
 // newResourcesVersionState creates new resources versions state.
-func newResourcesVersionsState() *resourcesVersionsState {
-	return &resourcesVersionsState{
+func newResourcesVersionsState() *ResourcesVersionsState {
+	return &ResourcesVersionsState{
 		resourcesVersions: make(map[ResourceTypeIdentifier]uint64),
 	}
 }
 
 // Get returns state of current resource version.
-func (rs *resourcesVersionsState) Get(identifier ResourceTypeIdentifier) (string, bool) {
+func (rs *ResourcesVersionsState) Get(identifier ResourceTypeIdentifier) (string, bool) {
 	rs.lock.RLock()
 	defer rs.lock.RUnlock()
 	version, exists := rs.resourcesVersions[identifier]
@@ -55,7 +55,7 @@ func (rs *resourcesVersionsState) Get(identifier ResourceTypeIdentifier) (string
 }
 
 // Set stores information about current resource version.
-func (rs *resourcesVersionsState) Set(identifier ResourceTypeIdentifier, resourceVersion string) error {
+func (rs *ResourcesVersionsState) Set(identifier ResourceTypeIdentifier, resourceVersion string) error {
 	rs.lock.Lock()
 	defer rs.lock.Unlock()
 	version, err := strconv.ParseUint(resourceVersion, 10, 64)

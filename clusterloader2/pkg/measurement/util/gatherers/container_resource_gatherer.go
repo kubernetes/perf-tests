@@ -226,7 +226,7 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*Resour
 			usage := data[perc][name]
 			summary[strconv.Itoa(perc)] = append(summary[strconv.Itoa(perc)], util.SingleContainerSummary{
 				Name: name,
-				Cpu:  usage.CPUUsageInCores,
+				CPU:  usage.CPUUsageInCores,
 				Mem:  usage.MemoryWorkingSetInBytes,
 			})
 		}

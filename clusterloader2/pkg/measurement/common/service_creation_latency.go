@@ -58,7 +58,7 @@ func createServiceCreationLatencyMeasurement() measurement.Measurement {
 		selector:      measurementutil.NewObjectSelector(),
 		queue:         workerqueue.NewWorkerQueue(serviceCreationLatencyWorkers),
 		creationTimes: measurementutil.NewObjectTransitionTimes(serviceCreationLatencyName),
-		pingCheckers:  checker.NewCheckerMap(),
+		pingCheckers:  checker.NewMap(),
 	}
 }
 
@@ -70,7 +70,7 @@ type serviceCreationLatencyMeasurement struct {
 	queue         workerqueue.Interface
 	client        clientset.Interface
 	creationTimes *measurementutil.ObjectTransitionTimes
-	pingCheckers  checker.CheckerMap
+	pingCheckers  checker.Map
 }
 
 // Execute executes service startup latency measurement actions.
@@ -80,7 +80,7 @@ type serviceCreationLatencyMeasurement struct {
 // "waitForReady" waits until all services are reachable.
 // "gather" returns service created latency summary.
 // This measurement only works for services with ClusterIP, NodePort and LoadBalancer type.
-func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	s.client = config.ClusterFramework.GetClientSets().GetClient()
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {

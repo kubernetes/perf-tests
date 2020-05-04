@@ -97,7 +97,7 @@ type probesMeasurement struct {
 // Execute supports two actions:
 // - start - starts probes and sets up monitoring
 // - gather - Gathers and prints metrics.
-func (p *probesMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	if config.CloudProvider == "kubemark" {
 		klog.Infof("%s: Probes cannot work in Kubemark, skipping the measurement!", p)
 		return nil, nil
@@ -146,7 +146,7 @@ func (p *probesMeasurement) String() string {
 	return p.config.Name
 }
 
-func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) error {
+func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	replicasPerProbe, err := util.GetInt(config.Params, "replicasPerProbe")
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func (p *probesMeasurement) initialize(config *measurement.MeasurementConfig) er
 	return nil
 }
 
-func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
+func (p *probesMeasurement) start(config *measurement.Config) error {
 	klog.Infof("Starting %s probe...", p)
 	if !p.startTime.IsZero() {
 		return fmt.Errorf("measurement %s cannot be started twice", p)
@@ -224,7 +224,7 @@ func (p *probesMeasurement) createProbesObjects() error {
 	return p.framework.ApplyTemplatedManifests(path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
 }
 
-func (p *probesMeasurement) waitForProbesReady(config *measurement.MeasurementConfig) error {
+func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error {
 	klog.Infof("Waiting for Probe %s to become ready...", p)
 	checkProbesReadyTimeout, err := util.GetDurationOrDefault(config.Params, "checkProbesReadyTimeout", defaultCheckProbesReadyTimeout)
 	if err != nil {

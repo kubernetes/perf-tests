@@ -203,28 +203,28 @@ func (f *Framework) DeleteNamespaces(namespaces []string) *errors.ErrorList {
 }
 
 // CreateObject creates object base on given object description.
-func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.ApiCallOptions) error {
+func (f *Framework) CreateObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.APICallOptions) error {
 	return client.CreateObject(f.dynamicClients.GetClient(), namespace, name, obj, options...)
 }
 
 // PatchObject updates object (using patch) with given name using given object description.
-func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.ApiCallOptions) error {
+func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.APICallOptions) error {
 	return client.PatchObject(f.dynamicClients.GetClient(), namespace, name, obj)
 }
 
 // DeleteObject deletes object with given name and group-version-kind.
-func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.ApiCallOptions) error {
+func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.APICallOptions) error {
 	return client.DeleteObject(f.dynamicClients.GetClient(), gvk, namespace, name)
 }
 
 // GetObject retrieves object with given name and group-version-kind.
-func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.ApiCallOptions) (*unstructured.Unstructured, error) {
+func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.APICallOptions) (*unstructured.Unstructured, error) {
 	return client.GetObject(f.dynamicClients.GetClient(), gvk, namespace, name)
 }
 
 // ApplyTemplatedManifests finds and applies all manifest template files matching the provided
 // manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.ApiCallOptions) error {
+func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	manifestGlob = os.ExpandEnv(manifestGlob)
 	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))

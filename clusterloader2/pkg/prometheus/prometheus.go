@@ -61,9 +61,9 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 }
 
-// PrometheusController is a util for managing (setting up / tearing down) the prometheus stack in
+// Controller is a util for managing (setting up / tearing down) the prometheus stack in
 // the cluster.
-type PrometheusController struct {
+type Controller struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	// provider is the cloud provider derived from the --provider flag.
 	provider string
@@ -78,9 +78,9 @@ type PrometheusController struct {
 	ssh util.SSHExecutor
 }
 
-// NewPrometheusController creates a new instance of PrometheusController for the given config.
-func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *PrometheusController, err error) {
-	pc = &PrometheusController{
+// NewController creates a new instance of Controller for the given config.
+func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Controller, err error) {
+	pc = &Controller{
 		clusterLoaderConfig: clusterLoaderConfig,
 		provider:            clusterLoaderConfig.ClusterConfig.Provider,
 	}
@@ -134,7 +134,7 @@ func NewPrometheusController(clusterLoaderConfig *config.ClusterLoaderConfig) (p
 // SetUpPrometheusStack sets up prometheus stack in the cluster.
 // This method is idempotent, if the prometheus stack is already set up applying the manifests
 // again will be no-op.
-func (pc *PrometheusController) SetUpPrometheusStack() error {
+func (pc *Controller) SetUpPrometheusStack() error {
 	k8sClient := pc.framework.GetClientSets().GetClient()
 
 	klog.Info("Setting up prometheus stack")
@@ -185,7 +185,7 @@ func (pc *PrometheusController) SetUpPrometheusStack() error {
 }
 
 // TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
-func (pc *PrometheusController) TearDownPrometheusStack() error {
+func (pc *Controller) TearDownPrometheusStack() error {
 	// Get disk metadata again to be sure
 	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
 		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
@@ -208,17 +208,17 @@ func (pc *PrometheusController) TearDownPrometheusStack() error {
 }
 
 // GetFramework returns prometheus framework.
-func (pc *PrometheusController) GetFramework() *framework.Framework {
+func (pc *Controller) GetFramework() *framework.Framework {
 	return pc.framework
 }
 
-func (pc *PrometheusController) applyManifests(manifestGlob string) error {
+func (pc *Controller) applyManifests(manifestGlob string) error {
 	return pc.framework.ApplyTemplatedManifests(
 		manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
 }
 
 // exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
-func (pc *PrometheusController) exposeAPIServerMetrics() error {
+func (pc *Controller) exposeAPIServerMetrics() error {
 	klog.Info("Exposing kube-apiserver metrics in the cluster")
 	// We need to get a client to the cluster where the test is being executed on,
 	// not the cluster that the prometheus is running in. Usually, there is only
@@ -260,7 +260,7 @@ func (pc *PrometheusController) exposeAPIServerMetrics() error {
 // runNodeExporter adds node-exporter as master's static manifest pod.
 // TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
 // when master nodes have configured networking.
-func (pc *PrometheusController) runNodeExporter() error {
+func (pc *Controller) runNodeExporter() error {
 	klog.Infof("Starting node-exporter on master nodes.")
 	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
 	if err != nil {
@@ -297,7 +297,7 @@ func (pc *PrometheusController) runNodeExporter() error {
 	return g.Wait()
 }
 
-func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
+func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	klog.Info("Waiting for Prometheus stack to become healthy...")
 	return wait.Poll(
 		checkPrometheusReadyInterval,
@@ -305,7 +305,7 @@ func (pc *PrometheusController) waitForPrometheusToBeHealthy() error {
 		pc.isPrometheusReady)
 }
 
-func (pc *PrometheusController) isPrometheusReady() (bool, error) {
+func (pc *Controller) isPrometheusReady() (bool, error) {
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -341,7 +341,7 @@ func retryCreateFunction(f func() error) error {
 		client.RetryFunction(f, client.Allow(apierrs.IsAlreadyExists)))
 }
 
-func (pc *PrometheusController) isKubemark() bool {
+func (pc *Controller) isKubemark() bool {
 	return pc.provider == "kubemark"
 }
 

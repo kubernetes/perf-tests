@@ -41,7 +41,7 @@ func createSleepMeasurement() measurement.Measurement {
 
 type sleepMeasurement struct{}
 
-func (s *sleepMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (s *sleepMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	durationStr, err := util.GetString(config.Params, "duration")
 	if err != nil {
 		return nil, err

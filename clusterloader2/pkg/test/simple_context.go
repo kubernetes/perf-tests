@@ -35,8 +35,8 @@ type simpleContext struct {
 	state               *state.State
 	templateMapping     map[string]interface{}
 	templateProvider    *config.TemplateProvider
-	tuningSetFactory    tuningset.TuningSetFactory
-	measurementManager  measurement.MeasurementManager
+	tuningSetFactory    tuningset.Factory
+	measurementManager  measurement.Manager
 	chaosMonkey         *chaos.Monkey
 }
 
@@ -49,8 +49,8 @@ func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framewor
 		state:               s,
 		templateMapping:     util.CloneMap(templateMapping),
 		templateProvider:    templateProvider,
-		tuningSetFactory:    tuningset.NewTuningSetFactory(),
-		measurementManager:  measurement.CreateMeasurementManager(f, p, templateProvider, c),
+		tuningSetFactory:    tuningset.NewFactory(),
+		measurementManager:  measurement.CreateManager(f, p, templateProvider, c),
 		chaosMonkey:         chaos.NewMonkey(f.GetClientSets().GetClient(), c.ClusterConfig.Provider),
 	}
 }
@@ -86,12 +86,12 @@ func (sc *simpleContext) GetTemplateMappingCopy() map[string]interface{} {
 }
 
 // GetTickerFactory returns tuning set factory.
-func (sc *simpleContext) GetTuningSetFactory() tuningset.TuningSetFactory {
+func (sc *simpleContext) GetFactory() tuningset.Factory {
 	return sc.tuningSetFactory
 }
 
-// GetMeasurementManager returns measurement manager.
-func (sc *simpleContext) GetMeasurementManager() measurement.MeasurementManager {
+// GetManager returns measurement manager.
+func (sc *simpleContext) GetManager() measurement.Manager {
 	return sc.measurementManager
 }
 

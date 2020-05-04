@@ -22,21 +22,21 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
-type simpleTuningSetFactory struct {
+type simpleFactory struct {
 	tuningSetMap         map[string]*api.TuningSet
 	globalQPSLoadFactory *globalQPSLoadFactory
 }
 
-// NewTuningSetFactory creates new ticker factory.
-func NewTuningSetFactory() TuningSetFactory {
-	return &simpleTuningSetFactory{
+// NewFactory creates new ticker factory.
+func NewFactory() Factory {
+	return &simpleFactory{
 		tuningSetMap:         make(map[string]*api.TuningSet),
 		globalQPSLoadFactory: newGlobalQPSLoadFactory(),
 	}
 }
 
 // Init sets available tuning sets.
-func (tf *simpleTuningSetFactory) Init(tuningSets []api.TuningSet) {
+func (tf *simpleFactory) Init(tuningSets []api.TuningSet) {
 	tf.tuningSetMap = make(map[string]*api.TuningSet)
 	for i := range tuningSets {
 		tf.tuningSetMap[tuningSets[i].Name] = &tuningSets[i]
@@ -44,14 +44,14 @@ func (tf *simpleTuningSetFactory) Init(tuningSets []api.TuningSet) {
 }
 
 // CreateTuningSet creates new tuning set based on provided tuning set name.
-func (tf *simpleTuningSetFactory) CreateTuningSet(name string) (TuningSet, error) {
+func (tf *simpleFactory) CreateTuningSet(name string) (TuningSet, error) {
 	tuningSet, exists := tf.tuningSetMap[name]
 	if !exists {
 		return nil, fmt.Errorf("tuningset %s not found", name)
 	}
 	switch {
-	case tuningSet.QpsLoad != nil:
-		return newQpsLoad(tuningSet.QpsLoad), nil
+	case tuningSet.QPSLoad != nil:
+		return newQPSLoad(tuningSet.QPSLoad), nil
 	case tuningSet.RandomizedLoad != nil:
 		return newRandomizedLoad(tuningSet.RandomizedLoad), nil
 	case tuningSet.SteppedLoad != nil:

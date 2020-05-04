@@ -36,15 +36,15 @@ type measurementManager struct {
 	summaries    []Summary
 }
 
-// MeasurementManager provides the interface for measurementManager
-type MeasurementManager interface {
+// Manager provides the interface for measurementManager
+type Manager interface {
 	Execute(methodName string, identifier string, params map[string]interface{}) error
 	GetSummaries() []Summary
 	Dispose()
 }
 
-// CreateMeasurementManager creates new instance of measurementManager.
-func CreateMeasurementManager(clusterFramework, prometheusFramework *framework.Framework, templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) MeasurementManager {
+// CreateManager creates new instance of measurementManager.
+func CreateManager(clusterFramework, prometheusFramework *framework.Framework, templateProvider *config.TemplateProvider, config *config.ClusterLoaderConfig) Manager {
 	return &measurementManager{
 		clusterFramework:    clusterFramework,
 		clusterLoaderConfig: config,
@@ -61,7 +61,7 @@ func (mm *measurementManager) Execute(methodName string, identifier string, para
 	if err != nil {
 		return err
 	}
-	config := &MeasurementConfig{
+	config := &Config{
 		ClusterFramework:    mm.clusterFramework,
 		PrometheusFramework: mm.prometheusFramework,
 		Params:              params,

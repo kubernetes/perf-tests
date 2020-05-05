@@ -128,6 +128,7 @@ func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
 		snapshotRetryTimeout,
 		func() (bool, error) {
 			err := pc.trySnapshotPrometheusDisk(pc.diskMetadata.name, snapshotName, pc.diskMetadata.zone)
+			klog.Error(err)
 			// Poll() stops on error so returning nil
 			return err == nil, nil
 		})
@@ -167,6 +168,7 @@ func (pc *PrometheusController) deletePrometheusDiskIfEnabled() error {
 		deleteRetryTimeout,
 		func() (bool, error) {
 			err := pc.tryDeletePrometheusDisk(pc.diskMetadata.name, pc.diskMetadata.zone)
+			klog.Error(err)
 			// Poll() stops on error so returning nil
 			return err == nil, nil
 		})

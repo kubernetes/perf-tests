@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
@@ -39,6 +40,7 @@ type sample struct {
 	scope       string
 	latency     float64
 	count       int
+	slowCount   int
 }
 type summaryEntry struct {
 	resource    string
@@ -49,6 +51,7 @@ type summaryEntry struct {
 	p90         float64
 	p99         float64
 	count       string
+	slowCount   string
 }
 
 type fakeQueryExecutor struct {
@@ -67,7 +70,7 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 			},
 		}
 
-		if strings.HasPrefix(query, "sum") {
+		if strings.HasPrefix(query, "sum(increase") {
 			// countQuery
 			sample.Value = model.SampleValue(s.count)
 		} else if strings.HasPrefix(query, "histogram_quantile") {
@@ -77,6 +80,12 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 			// latencyQuery
 			sample.Metric["quantile"] = ".99"
 			sample.Value = model.SampleValue(s.latency)
+		} else if strings.HasPrefix(query, "sum(rate") {
+			// countSlowQuery
+			// This is query is called 3 times, but to avoid complex fake
+			// the same value is returned every time. The logic can handle
+			// duplicates well, so this shouldn't be an issue.
+			sample.Value = model.SampleValue(s.slowCount)
 		}
 		samples = append(samples, sample)
 	}
@@ -85,10 +94,11 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 
 func TestAPIResponsivenessSLOFailures(t *testing.T) {
 	cases := []struct {
-		name      string
-		samples   []*sample
-		useSimple bool
-		hasError  bool
+		name        string
+		samples     []*sample
+		useSimple   bool
+		allowedSlow int
+		hasError    bool
 	}{
 		{
 			name:     "slo_pass",
@@ -120,6 +130,35 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "below_slow_count_pass",
+			hasError:    false,
+			allowedSlow: 1,
+			samples: []*sample{
+				{
+					resource:  "r1",
+					verb:      "POST",
+					scope:     "namespace",
+					latency:   1.5,
+					slowCount: 1,
+				},
+			},
+		},
+		{
+			name:        "above_slow_count_failure",
+			hasError:    true,
+			allowedSlow: 1,
+			samples: []*sample{
+				{
+					resource:  "r1",
+					verb:      "POST",
+					scope:     "namespace",
+					latency:   1.5,
+					slowCount: 2,
+				},
+			},
+		},
+
 		{
 			name:     "mutating_slo_failure",
 			hasError: true,
@@ -260,6 +299,7 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 			config := &measurement.MeasurementConfig{
 				Params: map[string]interface{}{
 					"useSimpleLatencyQuery": tc.useSimple,
+					"allowedSlowCalls":      tc.allowedSlow,
 				},
 			}
 
@@ -275,28 +315,56 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 
 func TestAPIResponsivenessSummary(t *testing.T) {
 	cases := []struct {
-		name    string
-		samples []*sample
-		summary []*summaryEntry
+		name        string
+		samples     []*sample
+		summary     []*summaryEntry
+		allowedSlow int
 	}{
 		{
-			name: "single_entry",
+			name:        "single_entry",
+			allowedSlow: 0,
 			samples: []*sample{
 				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  1.2,
-					count:    123,
+					resource:  "pod",
+					verb:      "POST",
+					scope:     "namespace",
+					latency:   1.2,
+					count:     123,
+					slowCount: 5,
 				},
 			},
 			summary: []*summaryEntry{
 				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					p99:      1200.,
-					count:    "123",
+					resource:  "pod",
+					verb:      "POST",
+					scope:     "namespace",
+					p99:       1200.,
+					count:     "123",
+					slowCount: "0",
+				},
+			},
+		},
+		{
+			name:        "single_entry_with_slow_calls_enabled",
+			allowedSlow: 1,
+			samples: []*sample{
+				{
+					resource:  "pod",
+					verb:      "POST",
+					scope:     "namespace",
+					latency:   1.2,
+					count:     123,
+					slowCount: 5,
+				},
+			},
+			summary: []*summaryEntry{
+				{
+					resource:  "pod",
+					verb:      "POST",
+					scope:     "namespace",
+					p99:       1200.,
+					count:     "123",
+					slowCount: "5",
 				},
 			},
 		},
@@ -306,9 +374,16 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			executor := &fakeQueryExecutor{samples: tc.samples}
 			gatherer := &apiResponsivenessGatherer{}
-			config := &measurement.MeasurementConfig{}
+			config := &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"allowedSlowCalls": tc.allowedSlow,
+				},
+			}
 
-			summary, _ := gatherer.Gather(executor, time.Now(), config)
+			summary, err := gatherer.Gather(executor, time.Now(), config)
+			if !errors.IsMetricViolationError(err) {
+				t.Fatal("unexpected error: ", err)
+			}
 			checkSummary(t, summary, tc.summary)
 		})
 	}
@@ -347,6 +422,7 @@ func checkSummary(t *testing.T, got measurement.Summary, wanted []*summaryEntry)
 		assert.Equal(t, entry.p90, item.Data["Perc90"])
 		assert.Equal(t, entry.p99, item.Data["Perc99"])
 		assert.Equal(t, entry.count, item.Labels["Count"])
+		assert.Equal(t, entry.slowCount, item.Labels["SlowCount"])
 	}
 }
 

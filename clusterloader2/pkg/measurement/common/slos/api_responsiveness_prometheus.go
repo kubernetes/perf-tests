@@ -59,6 +59,15 @@ const (
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
 	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
+	countSlowQuery = "sum(rate(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
+
+	// exclude all buckets of 1s and shorter
+	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT", le!~"0.\\d+|1"`
+	// exclude all buckets below or equal 5s
+	filterNamespaceList = `scope!="cluster", verb="LIST", le!~"[01234](.\\d+)?|5"`
+	// exclude all buckets below or equal 30s
+	filterClusterList = `scope="cluster", verb="LIST", le!~"[12]?[0-9](.\\d+)?|30"`
+
 	latencyWindowSize = 5 * time.Minute
 
 	// Number of metrics with highest latency to print. If the latency exceeeds SLO threshold, a metric is printed regardless.
@@ -79,7 +88,7 @@ type apiCallMetric struct {
 	Scope       string                        `json:"scope"`
 	Latency     measurementutil.LatencyMetric `json:"latency"`
 	Count       int                           `json:"count"`
-	FailedCount int                           `json:"failedCount"`
+	SlowCount   int                           `json:"slowCount"`
 }
 
 type apiCallMetrics struct {
@@ -106,7 +115,12 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 		measurement.CreateSummary(summaryName, "json", content),
 	}
 
-	badMetrics := a.validateAPICalls(config.Identifier, apiCalls)
+	allowedSlowCalls, err := util.GetIntOrDefault(config.Params, "allowedSlowCalls", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls)
 	if len(badMetrics) > 0 {
 		err = errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
@@ -124,6 +138,7 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
+	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 
 	useSimple, err := util.GetBoolOrDefault(config.Params, "useSimpleLatencyQuery", false)
 	if err != nil {
@@ -132,7 +147,6 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 
 	var latencySamples []*model.Sample
 	if useSimple {
-		promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 		quantiles := []float64{0.5, 0.9, 0.99}
 		for _, q := range quantiles {
 			query := fmt.Sprintf(simpleLatencyQuery, q, filters, promDuration)
@@ -153,30 +167,50 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 		if latencyMeasurementDuration < time.Minute {
 			latencyMeasurementDuration = time.Minute
 		}
-		promDuration := measurementutil.ToPrometheusTime(latencyMeasurementDuration)
+		duration := measurementutil.ToPrometheusTime(latencyMeasurementDuration)
 
-		query := fmt.Sprintf(latencyQuery, filters, promDuration)
+		query := fmt.Sprintf(latencyQuery, filters, duration)
 		latencySamples, err = executor.Query(query, measurementEnd)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	timeBoundedCountQuery := fmt.Sprintf(countQuery, filters, measurementutil.ToPrometheusTime(measurementDuration))
-	countSamples, err := executor.Query(timeBoundedCountQuery, measurementEnd)
+	query := fmt.Sprintf(countQuery, filters, promDuration)
+	countSamples, err := executor.Query(query, measurementEnd)
 	if err != nil {
 		return nil, err
 	}
-	return newFromSamples(latencySamples, countSamples)
+
+	allowedSlowCalls, err := util.GetIntOrDefault(config.Params, "allowedSlowCalls", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	countSlowSamples := make([]*model.Sample, 0)
+	// TODO(oxddr): remove this guard once it's stable
+	if allowedSlowCalls != 0 {
+		filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
+		for _, filter := range filters {
+			query := fmt.Sprintf(countSlowQuery, filter, promDuration)
+			samples, err := executor.Query(query, measurementEnd)
+			if err != nil {
+				return nil, err
+			}
+			countSlowSamples = append(countSlowSamples, samples...)
+		}
+	}
+
+	return newFromSamples(latencySamples, countSamples, countSlowSamples)
 }
 
-func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, metrics *apiCallMetrics) []error {
+func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics) []error {
 	badMetrics := make([]error, 0)
 	top := topToPrint
 
 	for _, apiCall := range metrics.sorted() {
 		var err error
-		if err = apiCall.Validate(); err != nil {
+		if err = apiCall.Validate(allowedSlowCalls); err != nil {
 			badMetrics = append(badMetrics, err)
 		}
 		if top > 0 || err != nil {
@@ -191,14 +225,15 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, metrics 
 	return badMetrics
 }
 
-func newFromSamples(latencySamples, countSamples []*model.Sample) (*apiCallMetrics, error) {
+func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Sample) (*apiCallMetrics, error) {
+	extractCommon := func(sample *model.Sample) (string, string, string, string) {
+		return string(sample.Metric["resource"]), string(sample.Metric["subresource"]), string(sample.Metric["verb"]), string(sample.Metric["scope"])
+	}
+
 	m := &apiCallMetrics{metrics: make(map[string]*apiCallMetric)}
 
 	for _, sample := range latencySamples {
-		resource := string(sample.Metric["resource"])
-		subresource := string(sample.Metric["subresource"])
-		verb := string(sample.Metric["verb"])
-		scope := string(sample.Metric["scope"])
+		resource, subresource, verb, scope := extractCommon(sample)
 		quantile, err := strconv.ParseFloat(string(sample.Metric["quantile"]), 64)
 		if err != nil {
 			return nil, err
@@ -209,13 +244,15 @@ func newFromSamples(latencySamples, countSamples []*model.Sample) (*apiCallMetri
 	}
 
 	for _, sample := range countSamples {
-		resource := string(sample.Metric["resource"])
-		subresource := string(sample.Metric["subresource"])
-		verb := string(sample.Metric["verb"])
-		scope := string(sample.Metric["scope"])
-
+		resource, subresource, verb, scope := extractCommon(sample)
 		count := int(math.Round(float64(sample.Value)))
 		m.SetCount(resource, subresource, verb, scope, count)
+	}
+
+	for _, sample := range countSlowSamples {
+		resource, subresource, verb, scope := extractCommon(sample)
+		failedCount := int(math.Round(float64(sample.Value)))
+		m.SetSlowCount(resource, subresource, verb, scope, failedCount)
 	}
 
 	return m, nil
@@ -249,6 +286,14 @@ func (m *apiCallMetrics) SetCount(resource, subresource, verb, scope string, cou
 	call.Count = count
 }
 
+func (m *apiCallMetrics) SetSlowCount(resource, subresource, verb, scope string, count int) {
+	if count == 0 {
+		return
+	}
+	call := m.getAPICall(resource, subresource, verb, scope)
+	call.SlowCount = count
+}
+
 func (m *apiCallMetrics) ToPerfData() *measurementutil.PerfData {
 	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
 	for _, apicall := range m.sorted() {
@@ -265,6 +310,7 @@ func (m *apiCallMetrics) ToPerfData() *measurementutil.PerfData {
 				"Subresource": apicall.Subresource,
 				"Scope":       apicall.Scope,
 				"Count":       fmt.Sprintf("%v", apicall.Count),
+				"SlowCount":   fmt.Sprintf("%v", apicall.SlowCount),
 			},
 		}
 		perfData.DataItems = append(perfData.DataItems, item)
@@ -287,9 +333,13 @@ func (m *apiCallMetrics) buildKey(resource, subresource, verb, scope string) str
 	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
 }
 
-func (ap *apiCallMetric) Validate() error {
+func (ap *apiCallMetric) Validate(allowedSlowCalls int) error {
 	threshold := ap.getSLOThreshold()
 	if err := ap.Latency.VerifyThreshold(threshold); err != nil {
+		// TODO(oxddr): remove allowedSlowCalls guard once it's stable
+		if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
+			return nil
+		}
 		return fmt.Errorf("got: %+v; expected perc99 <= %v", ap, threshold)
 	}
 	return nil

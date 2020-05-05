@@ -128,6 +128,9 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
 		snapshotRetryTimeout,
 		func() (bool, error) {
 			err := pc.trySnapshotPrometheusDisk(pc.diskMetadata.name, snapshotName, pc.diskMetadata.zone)
+			if err != nil {
+				klog.Errorf("Trying to snapshot prometheus disk failed: %v", err)
+			}
 			// Poll() stops on error so returning nil
 			return err == nil, nil
 		})
@@ -145,11 +148,10 @@ func (pc *Controller) trySnapshotPrometheusDisk(pdName, snapshotName, zone strin
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--project", project, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		klog.Errorf("Creating disk snapshot failed: %v\nCommand output: %q", err, string(output))
-	} else {
-		klog.Infof("Creating disk snapshot finished with: %q", string(output))
+		return fmt.Errorf("creating disk snapshot failed: %v\nCommand output: %q", err, string(output))
 	}
-	return err
+	klog.Infof("Creating disk snapshot finished with: %q", string(output))
+	return nil
 }
 
 func (pc *Controller) deletePrometheusDiskIfEnabled() error {
@@ -167,6 +169,9 @@ func (pc *Controller) deletePrometheusDiskIfEnabled() error {
 		deleteRetryTimeout,
 		func() (bool, error) {
 			err := pc.tryDeletePrometheusDisk(pc.diskMetadata.name, pc.diskMetadata.zone)
+			if err != nil {
+				klog.Errorf("Trying to delete prometheus disk failed: %v", err)
+			}
 			// Poll() stops on error so returning nil
 			return err == nil, nil
 		})
@@ -184,9 +189,8 @@ func (pc *Controller) tryDeletePrometheusDisk(pdName, zone string) error {
 	cmd := exec.Command("gcloud", "compute", "disks", "delete", pdName, "--project", project, "--zone", zone)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		klog.Errorf("Deleting disk failed: %v\nCommand output: %q", err, string(output))
-	} else {
-		klog.Infof("Deleting disk finished with: %q", string(output))
+		return fmt.Errorf("deleting disk failed: %v\nCommand output: %q", err, string(output))
 	}
-	return err
+	klog.Infof("Deleting disk finished with: %q", string(output))
+	return nil
 }

@@ -103,7 +103,7 @@ type testMetrics struct {
 
 // Execute supports two actions. start - which sets up all metrics.
 // stop - which stops all metrics and collects all measurements.
-func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	var summaries []measurement.Summary
 	errList := errors.NewErrorList()
 	action, err := util.GetString(config.Params, "action")
@@ -243,7 +243,7 @@ func (*testMetrics) String() string {
 	return testMetricsMeasurementName
 }
 
-func createConfig(config *measurement.MeasurementConfig, overrides map[string]interface{}) *measurement.MeasurementConfig {
+func createConfig(config *measurement.Config, overrides map[string]interface{}) *measurement.Config {
 	params := make(map[string]interface{})
 	for k, v := range config.Params {
 		params[k] = v
@@ -251,7 +251,7 @@ func createConfig(config *measurement.MeasurementConfig, overrides map[string]in
 	for k, v := range overrides {
 		params[k] = v
 	}
-	return &measurement.MeasurementConfig{
+	return &measurement.Config{
 		ClusterFramework:    config.ClusterFramework,
 		PrometheusFramework: config.PrometheusFramework,
 		Params:              params,
@@ -260,7 +260,7 @@ func createConfig(config *measurement.MeasurementConfig, overrides map[string]in
 	}
 }
 
-func execute(m measurement.Measurement, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func execute(m measurement.Measurement, config *measurement.Config) ([]measurement.Summary, error) {
 	if m == nil {
 		return nil, fmt.Errorf("uninitialized metric")
 	}

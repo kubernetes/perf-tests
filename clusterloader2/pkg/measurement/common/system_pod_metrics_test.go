@@ -64,7 +64,7 @@ func Test_validateRestartCounts(t *testing.T) {
 	tests := []struct {
 		name    string
 		metrics *systemPodsMetrics
-		config  *measurement.MeasurementConfig
+		config  *measurement.Config
 		wantErr bool
 	}{
 		{
@@ -147,12 +147,12 @@ func generatePodMetrics(podName string, contName string, restartCount int32) *sy
 	}
 }
 
-func buildConfig(t *testing.T, checkEnabled bool, thresholdOverrides map[string]int) *measurement.MeasurementConfig {
+func buildConfig(t *testing.T, checkEnabled bool, thresholdOverrides map[string]int) *measurement.Config {
 	serializedOverrides, err := yaml.Marshal(thresholdOverrides)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &measurement.MeasurementConfig{
+	return &measurement.Config{
 		Params: map[string]interface{}{
 			"enableRestartCountCheck":        checkEnabled,
 			"restartCountThresholdOverrides": string(serializedOverrides),

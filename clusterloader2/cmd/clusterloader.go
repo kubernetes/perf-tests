@@ -251,12 +251,12 @@ func main() {
 		klog.Exitf("Framework creation error: %v", err)
 	}
 
-	var prometheusController *prometheus.PrometheusController
+	var prometheusController *prometheus.Controller
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		// Pass overrides to prometheus controller
 		clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
-		if prometheusController, err = prometheus.NewPrometheusController(&clusterLoaderConfig); err != nil {
+		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
 		prometheusFramework = prometheusController.GetFramework()
@@ -320,28 +320,28 @@ func runSingleTest(
 	junitReporter *ginkgoreporters.JUnitReporter,
 	suiteSummary *ginkgotypes.SuiteSummary,
 ) {
-	testId := getTestId(clusterLoaderConfig.TestScenario)
+	testID := getTestID(clusterLoaderConfig.TestScenario)
 	testStart := time.Now()
 	specSummary := &ginkgotypes.SpecSummary{
-		ComponentTexts: []string{suiteSummary.SuiteDescription, testId},
+		ComponentTexts: []string{suiteSummary.SuiteDescription, testID},
 	}
-	printTestStart(testId)
+	printTestStart(testID)
 	if errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig); !errList.IsEmpty() {
 		suiteSummary.NumberOfFailedSpecs++
 		specSummary.State = ginkgotypes.SpecStateFailed
 		specSummary.Failure = ginkgotypes.SpecFailure{
 			Message: errList.String(),
 		}
-		printTestResult(testId, "Fail", errList.String())
+		printTestResult(testID, "Fail", errList.String())
 	} else {
 		specSummary.State = ginkgotypes.SpecStatePassed
-		printTestResult(testId, "Success", "")
+		printTestResult(testID, "Success", "")
 	}
 	specSummary.RunTime = time.Since(testStart)
 	junitReporter.SpecDidComplete(specSummary)
 }
 
-func getTestId(ts api.TestScenario) string {
+func getTestID(ts api.TestScenario) string {
 	if ts.Identifier != "" {
 		return fmt.Sprintf("%s(%s)", ts.Identifier, ts.ConfigPath)
 	}

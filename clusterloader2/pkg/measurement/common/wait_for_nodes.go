@@ -46,7 +46,7 @@ type waitForNodesMeasurement struct{}
 // Execute waits until desired number of Nodes are ready or until a
 // timeout happens. Nodes can be optionally specified by field and/or label
 // selectors.
-func (w *waitForNodesMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	minNodeCount, maxNodeCount, err := getMinMaxDesiredNodeCount(config.Params)
 	if err != nil {
 		return nil, err

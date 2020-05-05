@@ -59,7 +59,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
 		selector:   measurementutil.NewObjectSelector(),
 		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
-		checkerMap: checker.NewCheckerMap(),
+		checkerMap: checker.NewMap(),
 	}
 }
 
@@ -75,7 +75,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	lock                  sync.Mutex
 	opResourceVersion     uint64
 	gvr                   schema.GroupVersionResource
-	checkerMap            checker.CheckerMap
+	checkerMap            checker.Map
 	clusterFramework      *framework.Framework
 	checkIfPodsAreUpdated bool
 }
@@ -85,7 +85,7 @@ type waitForControlledPodsRunningMeasurement struct {
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 // "Start" action starts observation of the controlling objects, while "gather" waits for until
 // specified number of controlling objects have all pods running.
-func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	w.clusterFramework = config.ClusterFramework
 
 	action, err := util.GetString(config.Params, "action")

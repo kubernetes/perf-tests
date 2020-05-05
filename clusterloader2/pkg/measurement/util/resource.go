@@ -39,7 +39,7 @@ type ResourceUsagePerContainer map[string]*ContainerResourceUsage
 
 // UsageDataPerContainer contains resource usage data series.
 type UsageDataPerContainer struct {
-	CpuData        []float64
+	CPUData        []float64
 	MemUseData     []uint64
 	MemWorkSetData []uint64
 }
@@ -53,7 +53,7 @@ type ResourceConstraint struct {
 // SingleContainerSummary is a resource usage summary for a single container.
 type SingleContainerSummary struct {
 	Name string
-	Cpu  float64
+	CPU  float64
 	Mem  uint64
 }
 
@@ -73,18 +73,18 @@ func ComputePercentiles(timeSeries []ResourceUsagePerContainer, percentilesToCom
 		for name, data := range timeSeries[i] {
 			if dataMap[name] == nil {
 				dataMap[name] = &UsageDataPerContainer{
-					CpuData:        make([]float64, 0, len(timeSeries)),
+					CPUData:        make([]float64, 0, len(timeSeries)),
 					MemUseData:     make([]uint64, 0, len(timeSeries)),
 					MemWorkSetData: make([]uint64, 0, len(timeSeries)),
 				}
 			}
-			dataMap[name].CpuData = append(dataMap[name].CpuData, data.CPUUsageInCores)
+			dataMap[name].CPUData = append(dataMap[name].CPUData, data.CPUUsageInCores)
 			dataMap[name].MemUseData = append(dataMap[name].MemUseData, data.MemoryUsageInBytes)
 			dataMap[name].MemWorkSetData = append(dataMap[name].MemWorkSetData, data.MemoryWorkingSetInBytes)
 		}
 	}
 	for _, v := range dataMap {
-		sort.Float64s(v.CpuData)
+		sort.Float64s(v.CPUData)
 		sort.Sort(uint64arr(v.MemUseData))
 		sort.Sort(uint64arr(v.MemWorkSetData))
 	}
@@ -93,10 +93,10 @@ func ComputePercentiles(timeSeries []ResourceUsagePerContainer, percentilesToCom
 	for _, perc := range percentilesToCompute {
 		data := make(ResourceUsagePerContainer)
 		for k, v := range dataMap {
-			percentileIndex := int(math.Ceil(float64(len(v.CpuData)*perc)/100)) - 1
+			percentileIndex := int(math.Ceil(float64(len(v.CPUData)*perc)/100)) - 1
 			data[k] = &ContainerResourceUsage{
 				Name:                    k,
-				CPUUsageInCores:         v.CpuData[percentileIndex],
+				CPUUsageInCores:         v.CPUData[percentileIndex],
 				MemoryUsageInBytes:      v.MemUseData[percentileIndex],
 				MemoryWorkingSetInBytes: v.MemWorkSetData[percentileIndex],
 			}

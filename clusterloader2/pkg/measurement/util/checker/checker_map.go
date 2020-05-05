@@ -21,16 +21,16 @@ type Checker interface {
 	Stop()
 }
 
-// CheckerMap is a map of Checkers.
-type CheckerMap map[string]Checker
+// Map is a map of Checkers.
+type Map map[string]Checker
 
-// NewCheckerMap creates new checker map.
-func NewCheckerMap() CheckerMap {
+// NewMap creates new checker map.
+func NewMap() Map {
 	return make(map[string]Checker)
 }
 
 // Dispose stops all checkers and cleans up the map.
-func (cm CheckerMap) Dispose() {
+func (cm Map) Dispose() {
 	for _, c := range cm {
 		c.Stop()
 	}
@@ -38,7 +38,7 @@ func (cm CheckerMap) Dispose() {
 }
 
 // Add adds checker to the checker map.
-func (cm CheckerMap) Add(key string, c Checker) {
+func (cm Map) Add(key string, c Checker) {
 	if old, exists := cm[key]; exists {
 		old.Stop()
 	}
@@ -46,7 +46,7 @@ func (cm CheckerMap) Add(key string, c Checker) {
 }
 
 // DeleteAndStop stops checker and deletes it if exists.
-func (cm CheckerMap) DeleteAndStop(key string) bool {
+func (cm Map) DeleteAndStop(key string) bool {
 	if old, exists := cm[key]; exists {
 		old.Stop()
 		delete(cm, key)

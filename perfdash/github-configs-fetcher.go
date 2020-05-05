@@ -29,9 +29,9 @@ import (
 type githubDirContent struct {
 	Name        string `yaml:"name"`
 	Path        string `yaml:"path"`
-	DownloadUrl string `yaml:"download_url"`
+	DownloadURL string `yaml:"download_url"`
 	Type        string `yaml:"type"`
-	Url         string `yaml:"url"`
+	URL         string `yaml:"url"`
 }
 
 // GetConfigsFromGithub gets config paths from github directory. It uses github API,
@@ -51,7 +51,7 @@ func GetConfigsFromGithub(url string) ([]string, error) {
 		// Dirs and non-yaml files are ignored; this means that there is no
 		// recursive search, it should be good enough for now.
 		if c.Type == "file" && strings.HasSuffix(c.Name, ".yaml") {
-			result = append(result, c.DownloadUrl)
+			result = append(result, c.DownloadURL)
 		}
 	}
 	return result, nil

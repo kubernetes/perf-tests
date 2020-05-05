@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	// S_TO_MS is a second to millisecond ratio.
-	S_TO_MS = float64((time.Second) / time.Millisecond)
+	// secToMsec is a second to millisecond ratio.
+	secToMsec = float64((time.Second) / time.Millisecond)
 )
 
 // BenchmarkResult is a dns benchmark results structure.
@@ -51,7 +51,7 @@ type BenchmarkData struct {
 	AvgLatency          float64 `yaml:"avg_latency"`
 	MaxLatency          float64 `yaml:"max_latency"`
 	MinLatency          float64 `yaml:"min_latency"`
-	Qps                 float64 `yaml:"qps"`
+	QPS                 float64 `yaml:"qps"`
 	QueriesCompleted    float64 `yaml:"queries_completed"`
 	QueriesLost         float64 `yaml:"queries_lost"`
 	QueriesSent         float64 `yaml:"queries_sent"`
@@ -61,10 +61,10 @@ type BenchmarkData struct {
 type BenchmarkParams struct {
 	RunLengthSeconds float64  `yaml:"run_length_seconds"`
 	QueryFile        string   `yaml:"query_file"`
-	KubednsCpu       *float64 `yaml:"kubedns_cpu"`
-	DnsmasqCpu       *float64 `yaml:"dnsmasq_cpu"`
+	KubednsCPU       *float64 `yaml:"kubedns_cpu"`
+	DnsmasqCPU       *float64 `yaml:"dnsmasq_cpu"`
 	DnsmasqCache     *float64 `yaml:"dnsmasq_cache"`
-	MaxQps           *float64 `yaml:"max_qps"`
+	MaxQPS           *float64 `yaml:"max_qps"`
 	PodName          string   `yaml:"pod_name"`
 }
 
@@ -111,7 +111,7 @@ func run() error {
 		latency.DataItems = appendLatency(latency.DataItems, labels, result)
 		latencyPerc.DataItems = appendLatencyPerc(latencyPerc.DataItems, labels, result)
 		queries.DataItems = appendQueries(queries.DataItems, labels, result)
-		qps.DataItems = appendQps(qps.DataItems, labels, result)
+		qps.DataItems = appendQPS(qps.DataItems, labels, result)
 	}
 
 	timeString := time.Now().Format(time.RFC3339)
@@ -124,7 +124,7 @@ func run() error {
 	if err = saveMetric(&queries, filepath.Join(jsonDirPath, "Queries_"+benchmarkName+"_"+timeString+".json")); err != nil {
 		return err
 	}
-	if err = saveMetric(&qps, filepath.Join(jsonDirPath, "Qps_"+benchmarkName+"_"+timeString+".json")); err != nil {
+	if err = saveMetric(&qps, filepath.Join(jsonDirPath, "QPS_"+benchmarkName+"_"+timeString+".json")); err != nil {
 		return err
 	}
 
@@ -171,10 +171,10 @@ func createLabels(params *BenchmarkParams) map[string]string {
 	labels := make(map[string]string)
 	labels["run_length_seconds"] = fmt.Sprintf("%v", params.RunLengthSeconds)
 	labels["query_file"] = params.QueryFile
-	labels["kubedns_cpu"] = toString(params.KubednsCpu)
-	labels["dnsmasq_cpu"] = toString(params.DnsmasqCpu)
+	labels["kubedns_cpu"] = toString(params.KubednsCPU)
+	labels["dnsmasq_cpu"] = toString(params.DnsmasqCPU)
 	labels["dnsmasq_cache"] = toString(params.DnsmasqCache)
-	labels["max_qps"] = toString(params.MaxQps)
+	labels["max_qps"] = toString(params.MaxQPS)
 	return labels
 
 }
@@ -184,9 +184,9 @@ func appendLatency(items []perftype.DataItem, labels map[string]string, result *
 		Unit:   "ms",
 		Labels: labels,
 		Data: map[string]float64{
-			"max_latency": result.Data.MaxLatency * S_TO_MS,
-			"avg_latency": result.Data.AvgLatency * S_TO_MS,
-			"min_latency": result.Data.MinLatency * S_TO_MS,
+			"max_latency": result.Data.MaxLatency * secToMsec,
+			"avg_latency": result.Data.AvgLatency * secToMsec,
+			"min_latency": result.Data.MinLatency * secToMsec,
 		},
 	})
 }
@@ -215,12 +215,12 @@ func appendQueries(items []perftype.DataItem, labels map[string]string, result *
 	})
 }
 
-func appendQps(items []perftype.DataItem, labels map[string]string, result *BenchmarkResult) []perftype.DataItem {
+func appendQPS(items []perftype.DataItem, labels map[string]string, result *BenchmarkResult) []perftype.DataItem {
 	return append(items, perftype.DataItem{
 		Unit:   "1/s",
 		Labels: labels,
 		Data: map[string]float64{
-			"qps": result.Data.Qps,
+			"qps": result.Data.QPS,
 		},
 	})
 }

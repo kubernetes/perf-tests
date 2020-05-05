@@ -54,7 +54,7 @@ func createmetricsForE2EMeasurement() measurement.Measurement {
 type metricsForE2EMeasurement struct{}
 
 // Execute gathers and prints e2e metrics data.
-func (m *metricsForE2EMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (m *metricsForE2EMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
 	if err != nil {
 		return nil, err

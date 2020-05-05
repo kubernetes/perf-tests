@@ -25,7 +25,7 @@ import (
 
 // Execute executes a measurement, which can be a single measurement or a wrapper for multiple measurements.
 // It throws an error if both identifier and Instances has been supplied in the config.
-func Execute(mm MeasurementManager, m *api.Measurement) error {
+func Execute(mm Manager, m *api.Measurement) error {
 	if len(m.Instances) != 0 && m.Identifier != "" {
 		return fmt.Errorf("only one of instances or identifier must be supplied. Measurement method - %s, identifier - %s, instances - %v", m.Identifier, m.Method, m.Instances)
 	}
@@ -35,7 +35,7 @@ func Execute(mm MeasurementManager, m *api.Measurement) error {
 	return executeWrapperMeasurement(mm, m)
 }
 
-func executeWrapperMeasurement(mm MeasurementManager, m *api.Measurement) error {
+func executeWrapperMeasurement(mm Manager, m *api.Measurement) error {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for i := range m.Instances {

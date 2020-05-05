@@ -45,7 +45,7 @@ var (
 	prometheusDiskSnapshotName   = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
-func (pc *PrometheusController) isEnabled() (bool, error) {
+func (pc *Controller) isEnabled() (bool, error) {
 	if !*shouldSnapshotPrometheusDisk {
 		return false, nil
 	}
@@ -56,7 +56,7 @@ func (pc *PrometheusController) isEnabled() (bool, error) {
 	return true, nil
 }
 
-func (pc *PrometheusController) cachePrometheusDiskMetadataIfEnabled() error {
+func (pc *Controller) cachePrometheusDiskMetadataIfEnabled() error {
 	if enabled, err := pc.isEnabled(); !enabled {
 		return err
 	}
@@ -66,7 +66,7 @@ func (pc *PrometheusController) cachePrometheusDiskMetadataIfEnabled() error {
 		pc.tryRetrievePrometheusDiskMetadata)
 }
 
-func (pc *PrometheusController) tryRetrievePrometheusDiskMetadata() (bool, error) {
+func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	klog.Info("Retrieving Prometheus' persistent disk metadata...")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	list, err := k8sClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
@@ -104,7 +104,7 @@ func (pc *PrometheusController) tryRetrievePrometheusDiskMetadata() (bool, error
 	return true, nil
 }
 
-func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
+func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
 	if enabled, err := pc.isEnabled(); !enabled {
 		return err
 	}
@@ -133,7 +133,7 @@ func (pc *PrometheusController) snapshotPrometheusDiskIfEnabled() error {
 		})
 }
 
-func (pc *PrometheusController) trySnapshotPrometheusDisk(pdName, snapshotName, zone string) error {
+func (pc *Controller) trySnapshotPrometheusDisk(pdName, snapshotName, zone string) error {
 	klog.Info("Trying to snapshot Prometheus' persistent disk...")
 	project := pc.clusterLoaderConfig.PrometheusConfig.SnapshotProject
 	if project == "" {
@@ -152,7 +152,7 @@ func (pc *PrometheusController) trySnapshotPrometheusDisk(pdName, snapshotName, 
 	return err
 }
 
-func (pc *PrometheusController) deletePrometheusDiskIfEnabled() error {
+func (pc *Controller) deletePrometheusDiskIfEnabled() error {
 	if enabled, err := pc.isEnabled(); !enabled {
 		return err
 	}
@@ -172,7 +172,7 @@ func (pc *PrometheusController) deletePrometheusDiskIfEnabled() error {
 		})
 }
 
-func (pc *PrometheusController) tryDeletePrometheusDisk(pdName, zone string) error {
+func (pc *Controller) tryDeletePrometheusDisk(pdName, zone string) error {
 	klog.Info("Trying to delete Prometheus' persistent disk...")
 	project := pc.clusterLoaderConfig.PrometheusConfig.SnapshotProject
 	if project == "" {

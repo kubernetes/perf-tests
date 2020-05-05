@@ -73,12 +73,12 @@ type resourceUsagePercentiles map[string][]resourceUsages
 
 type resourceUsages struct {
 	Name   string  `json:"Name"`
-	Cpu    float64 `json:"Cpu"`
+	CPU    float64 `json:"CPU"`
 	Memory int     `json:"Mem"`
 }
 
 type resourceUsage struct {
-	Cpu    float64
+	CPU    float64
 	Memory float64
 }
 type usageAtPercentiles map[string]resourceUsage
@@ -99,12 +99,12 @@ func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData)
 			if _, ok := usage[name]; !ok {
 				usage[name] = make(usageAtPercentiles)
 			}
-			cpu, memory := float64(item.Cpu), float64(item.Memory)
+			cpu, memory := float64(item.CPU), float64(item.Memory)
 			if otherUsage, ok := usage[name][percentile]; ok {
 				// Note that we take max of each resource separately, potentially manufacturing a
 				// "franken-sample" which was never seen in the wild. We do this hoping that such result
 				// will be more stable across runs.
-				cpu = math.Max(cpu, otherUsage.Cpu)
+				cpu = math.Max(cpu, otherUsage.CPU)
 				memory = math.Max(memory, otherUsage.Memory)
 			}
 			usage[name][percentile] = resourceUsage{cpu, memory}
@@ -114,7 +114,7 @@ func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData)
 		cpu := perftype.DataItem{Unit: "cores", Labels: map[string]string{"PodName": podName, "Resource": "CPU"}, Data: make(map[string]float64)}
 		memory := perftype.DataItem{Unit: "MiB", Labels: map[string]string{"PodName": podName, "Resource": "memory"}, Data: make(map[string]float64)}
 		for percentile, usage := range usageAtPercentiles {
-			cpu.Data[percentile] = usage.Cpu
+			cpu.Data[percentile] = usage.CPU
 			memory.Data[percentile] = usage.Memory / (1024 * 1024)
 		}
 		testResult.Builds[build] = append(testResult.Builds[build], cpu)
@@ -186,7 +186,7 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 			perfData.Labels["client"] = newClient
 		}
 		perfData.Data[dataLabel] = float64(metric[i].Value)
-		key := createMapId(perfData.Labels)
+		key := createMapID(perfData.Labels)
 		if result, exists := resultMap[key]; exists {
 			result.Data[dataLabel] += perfData.Data[dataLabel]
 			continue
@@ -224,7 +224,7 @@ func parseApiserverInitEventsCount(data []byte, buildNumber int, testResult *Bui
 	}
 }
 
-func createMapId(m map[string]string) string {
+func createMapID(m map[string]string) string {
 	var keys []string
 	for key := range m {
 		keys = append(keys, key)

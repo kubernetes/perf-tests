@@ -47,7 +47,7 @@ func main() {
 	case "ping-client":
 		pingclient.Run(pingclient.NewDefaultPingClientConfig())
 	case "ping-server":
-		pingserver.Run(pingserver.NewDefaultPingServerConfig())
+		pingserver.Run(pingserver.NewDefaultConfig())
 	case "dns":
 		dns.Run()
 	default:

@@ -73,7 +73,7 @@ type systemPodsMetrics struct {
 }
 
 // Execute gathers and prints system pod metrics.
-func (m *systemPodMetricsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	systemPodMetricsEnabled, err := util.GetBoolOrDefault(config.Params, systemPodMetricsEnabledFlagName, false)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.MeasurementCon
 	}
 }
 
-func getPodMetrics(config *measurement.MeasurementConfig) (*systemPodsMetrics, error) {
+func getPodMetrics(config *measurement.Config) (*systemPodsMetrics, error) {
 	klog.Info("collecting system pod metrics...")
 	lst, err := getPodList(config.ClusterFramework.GetClientSets().GetClient())
 	if err != nil {
@@ -165,7 +165,7 @@ func subtractInitialRestartCounts(metrics *systemPodsMetrics, initMetrics *syste
 	}
 }
 
-func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.MeasurementConfig, overrides map[string]int) error {
+func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Config, overrides map[string]int) error {
 	enabled, err := util.GetBoolOrDefault(config.Params, enableRestartCountCheckFlagName, false)
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ using golang map format (for example "map[c1:4 c2:8]"), but it would require imp
 for such format. It would also introduce a dependency on golang map serialization format, which might break
 clusterloader if format ever changes.
 */
-func getThresholdOverrides(config *measurement.MeasurementConfig) (map[string]int, error) {
+func getThresholdOverrides(config *measurement.Config) (map[string]int, error) {
 	serialized, err := util.GetStringOrDefault(config.Params, restartThresholdOverridesFlagName, "")
 	if err != nil {
 		return make(map[string]int), nil

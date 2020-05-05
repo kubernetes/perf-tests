@@ -67,7 +67,7 @@ type podStartupLatencyMeasurement struct {
 // - gather - Gathers and prints current pod latency data.
 // Does NOT support concurrency. Multiple calls to this measurement
 // shouldn't be done within one step.
-func (p *podStartupLatencyMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err

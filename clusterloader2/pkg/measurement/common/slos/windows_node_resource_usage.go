@@ -43,7 +43,7 @@ const (
 type convertFunc func([]*model.Sample) *measurementutil.PerfData
 type windowsResourceUsageGatherer struct{}
 
-func (w *windowsResourceUsageGatherer) IsEnabled(config *measurement.MeasurementConfig) bool {
+func (w *windowsResourceUsageGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
@@ -92,7 +92,7 @@ func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData 
 	return perfData
 }
 
-func getSummary(query string, converter convertFunc, metricsName string, executor QueryExecutor, config *measurement.MeasurementConfig) (measurement.Summary, error) {
+func getSummary(query string, converter convertFunc, metricsName string, executor QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, time.Now())
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func getSummary(query string, converter convertFunc, metricsName string, executo
 }
 
 // Gather gathers the metrics and convert to json summary
-func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, executor, config)
 	if err != nil {
 		return nil, err

@@ -28,11 +28,11 @@ import (
 
 // GetMasterHost turns host name (without prefix and port).
 func GetMasterHost(host string) (string, error) {
-	masterUrl, err := url.Parse(host)
+	masterURL, err := url.Parse(host)
 	if err != nil {
 		return "", err
 	}
-	return masterUrl.Hostname(), nil
+	return masterURL.Hostname(), nil
 }
 
 // SSHResult represents result of ssh command.

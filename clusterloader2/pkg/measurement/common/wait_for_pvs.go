@@ -45,7 +45,7 @@ type waitForAvailablePVsMeasurement struct{}
 
 // Execute waits until desired number of PVs are Available or until timeout happens.
 // PVs can be specified by field and/or label selectors.
-func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	desiredPVCount, err := util.GetInt(config.Params, "desiredPVCount")
 	if err != nil {
 		return nil, err

@@ -58,7 +58,7 @@ type profileConfig struct {
 	kind          string
 }
 
-func (p *profileMeasurement) populateProfileConfig(config *measurement.MeasurementConfig) error {
+func (p *profileMeasurement) populateProfileConfig(config *measurement.Config) error {
 	var err error
 	if p.config.componentName, err = util.GetString(config.Params, "componentName"); err != nil {
 		return err
@@ -88,7 +88,7 @@ func createProfileMeasurementFactory(name, kind string) func() measurement.Measu
 	}
 }
 
-func (p *profileMeasurement) start(config *measurement.MeasurementConfig, SSHToMasterSupported bool) error {
+func (p *profileMeasurement) start(config *measurement.Config, SSHToMasterSupported bool) error {
 	if err := p.populateProfileConfig(config); err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (p *profileMeasurement) start(config *measurement.MeasurementConfig, SSHToM
 		return nil
 	}
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
-	if p.shouldExposeApiServerDebugEndpoint() {
+	if p.shouldExposeAPIServerDebugEndpoint() {
 		if err := exposeAPIServerDebugEndpoint(k8sClient); err != nil {
 			klog.Warningf("error while exposing kube-apiserver /debug endpoint: %v", err)
 		}
@@ -143,7 +143,7 @@ func (p *profileMeasurement) stop() {
 }
 
 // Execute gathers memory profile of a given component.
-func (p *profileMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (p *profileMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	SSHToMasterSupported := config.ClusterFramework.GetClusterConfig().SSHToMasterSupported
 	APIServerPprofEnabled := config.ClusterFramework.GetClusterConfig().APIServerPprofByClientEnabled
 
@@ -180,7 +180,7 @@ func (p *profileMeasurement) String() string {
 	return p.name
 }
 
-func (p *profileMeasurement) gatherProfile(c clientset.Interface, SSHToMasterSupported bool, config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (p *profileMeasurement) gatherProfile(c clientset.Interface, SSHToMasterSupported bool, config *measurement.Config) ([]measurement.Summary, error) {
 	getCommand, err := p.getProfileCommand(config)
 	if err != nil {
 		return nil, goerrors.Errorf("profile gathering failed during retrieving profile command: %v", err)
@@ -220,11 +220,11 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, SSHToMasterSup
 	return summaries, nil
 }
 
-func (p *profileMeasurement) shouldExposeApiServerDebugEndpoint() bool {
+func (p *profileMeasurement) shouldExposeAPIServerDebugEndpoint() bool {
 	return p.config.componentName == "kube-apiserver"
 }
 
-func (p *profileMeasurement) getProfileCommand(config *measurement.MeasurementConfig) (string, error) {
+func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (string, error) {
 	profilePort, err := getPortForComponent(p.config.componentName)
 	if err != nil {
 		return "", goerrors.Errorf("get profile command failed finding component port: %v", err)

@@ -27,23 +27,23 @@ var (
 	pingServerBindAddress = flag.String("ping-server-bind-address", "", "The address to bind for the ping server")
 )
 
-// PingServerConfig configures the "ping-server" probe.
-type PingServerConfig struct {
+// Config configures the "ping-server" probe.
+type Config struct {
 	pingServerBindAddress string
 }
 
-// NewDefaultPingServerConfig creates a default "ping-server" config.
-func NewDefaultPingServerConfig() *PingServerConfig {
+// NewDefaultConfig creates a default "ping-server" config.
+func NewDefaultConfig() *Config {
 	if *pingServerBindAddress == "" {
 		klog.Fatal("--ping-server-bind-address not set!")
 	}
-	return &PingServerConfig{
+	return &Config{
 		pingServerBindAddress: *pingServerBindAddress,
 	}
 }
 
 // Run runs the ping server.
-func Run(config *PingServerConfig) {
+func Run(config *Config) {
 	klog.Infof("Listening on %s \n", config.pingServerBindAddress)
 	http.HandleFunc("/", pong)
 	klog.Fatal(http.ListenAndServe(config.pingServerBindAddress, nil))

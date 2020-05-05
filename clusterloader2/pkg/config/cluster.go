@@ -65,18 +65,18 @@ type PrometheusConfig struct {
 	SnapshotProject    string
 }
 
-// GetMasterIp returns the first master ip, added for backward compatibility.
+// GetMasterIP returns the first master ip, added for backward compatibility.
 // TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
-func (c *ClusterConfig) GetMasterIp() string {
+func (c *ClusterConfig) GetMasterIP() string {
 	if len(c.MasterIPs) > 0 {
 		return c.MasterIPs[0]
 	}
 	return ""
 }
 
-// GetMasterInternalIp returns the first internal master ip, added for backward compatibility.
+// GetMasterInternalIP returns the first internal master ip, added for backward compatibility.
 // TODO(mmatt): Remove this method once all the codebase is migrated to support multiple masters.
-func (c *ClusterConfig) GetMasterInternalIp() string {
+func (c *ClusterConfig) GetMasterInternalIP() string {
 	if len(c.MasterInternalIPs) > 0 {
 		return c.MasterInternalIPs[0]
 	}

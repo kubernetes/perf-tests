@@ -54,7 +54,7 @@ type timer struct {
 // and collects time duration between start and stop.
 // Both start and stop actions require label parameter to be provided.
 // Gather action logs a measurement for all collected phases durations.
-func (t *timer) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
+func (t *timer) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err

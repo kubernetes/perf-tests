@@ -235,6 +235,14 @@ func ListEvents(c clientset.Interface, namespace string, name string, options ..
 	return obj, nil
 }
 
+// DeleteStorageClass deletes storage class with given name.
+func DeleteStorageClass(c clientset.Interface, name string) error {
+	deleteFunc := func() error {
+		return c.StorageV1().StorageClasses().Delete(name, nil)
+	}
+	return RetryWithExponentialBackOff(RetryFunction(deleteFunc, Allow(apierrs.IsNotFound)))
+}
+
 // CreateObject creates object based on given object description.
 func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*ApiCallOptions) error {
 	gvk := obj.GroupVersionKind()

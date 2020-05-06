@@ -232,6 +232,9 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 	if err != nil {
 		return err
 	}
+	if manifests == nil {
+		klog.Warningf("There is no matching file for pattern %v.\n", manifestGlob)
+	}
 	for _, manifest := range manifests {
 		klog.Infof("Applying %s\n", manifest)
 		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), templateMapping)

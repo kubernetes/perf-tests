@@ -17,7 +17,7 @@
 from grafanalib import core as g
 import defaults as d
 
-DNS_LATENCY_PANEL = [
+PROBER_PANEL = [
     d.Graph(
         title="In-cluster DNS latency SLI",
         targets=d.show_quantiles(
@@ -74,18 +74,18 @@ DNS_LATENCY_PANEL = [
     ),
 ]
 
-COREDNS_PANELS = [
+SERVICE_PANELS = [
     d.Graph(
-        title="coredns: # running",
+        title="Service: # running",
         targets=[
             d.Target(
-                expr='count(container_memory_usage_bytes{namespace="kube-system", container="coredns"}) by (container, namespace)'
+                expr='count(process_resident_memory_bytes{namespace="kube-system", job="kube-dns"}) by (job, namespace)'
             )
         ],
         nullPointMode="null",
     ),
     d.Graph(
-        title="coredns: memory usage",
+        title="Service: memory usage",
         targets=d.min_max_avg(
             base='process_resident_memory_bytes{namespace="kube-system", job="kube-dns"}',
             by=["job", "namespace"],
@@ -99,7 +99,7 @@ COREDNS_PANELS = [
 dashboard = d.Dashboard(
     title="DNS",
     rows=[
-        d.Row(title="In-cluster DNS latency", panels=DNS_LATENCY_PANEL),
-        d.Row(title="CoreDNS", panels=COREDNS_PANELS),
+        d.Row(title="In-cluster DNS prober", panels=PROBER_PANEL),
+        d.Row(title="In-cluster DNS service", panels=SERVICE_PANELS),
     ],
 ).auto_panel_ids()

@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/kubernetes/pkg/master/ports"
 	"os"
 	"path"
 	"time"
+
+	"k8s.io/kubernetes/pkg/master/ports"
 
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
@@ -157,6 +158,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.Provider == "aks" {
 		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
 	}
+	prometheus.CompleteConfig(&clusterLoaderConfig.PrometheusConfig)
 	return nil
 }
 

@@ -18,6 +18,7 @@ export GCS_BUCKET?=k8s-scale-golang-build
 export GO_COMPILER_PKG?=go1.14.2.linux-amd64.tar.gz
 export GO_COMPILER_URL?=https://dl.google.com/go/$(GO_COMPILER_PKG)
 # Additional mandatory env variables:
+# K8S_RELEASE_COMMIT
 # K8S_COMMIT
 
 all: push

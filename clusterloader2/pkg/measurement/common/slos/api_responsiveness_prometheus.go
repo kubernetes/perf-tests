@@ -14,10 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-TODO(krzysied): This measurement should replace api_responsiveness.go.
-*/
-
 package slos
 
 import (
@@ -47,8 +43,7 @@ const (
 
 	currentAPICallMetricsVersion = "v1"
 
-	// TODO(krzysied): figure out why we're getting non-capitalized proxy and fix this
-	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|proxy|CONNECT"`
+	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|CONNECT"`
 
 	// latencyQuery matches description of the API call latency SLI and measure 99th percentaile over 5m windows
 	//
@@ -77,25 +72,18 @@ func init() {
 	}
 }
 
-type apiCall struct {
+type apiCallMetric struct {
 	Resource    string                        `json:"resource"`
 	Subresource string                        `json:"subresource"`
 	Verb        string                        `json:"verb"`
 	Scope       string                        `json:"scope"`
 	Latency     measurementutil.LatencyMetric `json:"latency"`
 	Count       int                           `json:"count"`
+	FailedCount int                           `json:"failedCount"`
 }
 
-type apiResponsiveness struct {
-	APICalls []apiCall `json:"apicalls"`
-}
-
-func (a *apiResponsiveness) Len() int { return len(a.APICalls) }
-func (a *apiResponsiveness) Swap(i, j int) {
-	a.APICalls[i], a.APICalls[j] = a.APICalls[j], a.APICalls[i]
-}
-func (a *apiResponsiveness) Less(i, j int) bool {
-	return a.APICalls[i].Latency.Perc99 < a.APICalls[j].Latency.Perc99
+type apiCallMetrics struct {
+	metrics map[string]*apiCallMetric
 }
 
 type apiResponsivenessGatherer struct{}
@@ -103,30 +91,26 @@ type apiResponsivenessGatherer struct{}
 func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
 	if err != nil {
-		klog.Errorf("%s: samples gathering error: %v", config.Identifier, err)
 		return nil, err
 	}
 
-	metrics := &apiResponsiveness{APICalls: apiCalls}
-
-	badMetrics := validateAPICalls(config.Identifier, metrics)
-
-	content, err := util.PrettyPrintJSON(apiCallToPerfData(metrics))
+	content, err := util.PrettyPrintJSON(apiCalls.ToPerfData())
 	if err != nil {
 		return nil, err
 	}
-
-	summaryName, err := util.GetStringOrDefault(config.Params, "summaryName", apiResponsivenessPrometheusMeasurementName)
+	summaryName, err := util.GetStringOrDefault(config.Params, "summaryName", a.String())
 	if err != nil {
 		return nil, err
 	}
+	summaries := []measurement.Summary{
+		measurement.CreateSummary(summaryName, "json", content),
+	}
 
-	summary := measurement.CreateSummary(summaryName, "json", content)
-	summaries := []measurement.Summary{summary}
+	badMetrics := a.validateAPICalls(config.Identifier, apiCalls)
 	if len(badMetrics) > 0 {
-		return summaries, errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
+		err = errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
-	return summaries, nil
+	return summaries, err
 }
 
 func (a *apiResponsivenessGatherer) String() string {
@@ -137,7 +121,7 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
-func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]apiCall, error) {
+func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
 
@@ -183,11 +167,32 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 	if err != nil {
 		return nil, err
 	}
-	return a.convertToAPICalls(latencySamples, countSamples)
+	return newFromSamples(latencySamples, countSamples)
 }
 
-func (a *apiResponsivenessGatherer) convertToAPICalls(latencySamples, countSamples []*model.Sample) ([]apiCall, error) {
-	apiCalls := make(map[string]*apiCall)
+func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, metrics *apiCallMetrics) []error {
+	badMetrics := make([]error, 0)
+	top := topToPrint
+
+	for _, apiCall := range metrics.sorted() {
+		var err error
+		if err = apiCall.Validate(); err != nil {
+			badMetrics = append(badMetrics, err)
+		}
+		if top > 0 || err != nil {
+			top--
+			prefix := ""
+			if err != nil {
+				prefix = "WARNING "
+			}
+			klog.Infof("%s: %vTop latency metric: %v", identifier, prefix, apiCall)
+		}
+	}
+	return badMetrics
+}
+
+func newFromSamples(latencySamples, countSamples []*model.Sample) (*apiCallMetrics, error) {
+	m := &apiCallMetrics{metrics: make(map[string]*apiCallMetric)}
 
 	for _, sample := range latencySamples {
 		resource := string(sample.Metric["resource"])
@@ -200,7 +205,7 @@ func (a *apiResponsivenessGatherer) convertToAPICalls(latencySamples, countSampl
 		}
 
 		latency := time.Duration(float64(sample.Value) * float64(time.Second))
-		addLatency(apiCalls, resource, subresource, verb, scope, quantile, latency)
+		m.SetLatency(resource, subresource, verb, scope, quantile, latency)
 	}
 
 	for _, sample := range countSamples {
@@ -210,86 +215,43 @@ func (a *apiResponsivenessGatherer) convertToAPICalls(latencySamples, countSampl
 		scope := string(sample.Metric["scope"])
 
 		count := int(math.Round(float64(sample.Value)))
-		addCount(apiCalls, resource, subresource, verb, scope, count)
+		m.SetCount(resource, subresource, verb, scope, count)
 	}
 
-	var result []apiCall
-	for _, call := range apiCalls {
-		result = append(result, *call)
-	}
-	return result, nil
+	return m, nil
 }
 
-func getAPICall(apiCalls map[string]*apiCall, resource, subresource, verb, scope string) *apiCall {
-	key := getMetricKey(resource, subresource, verb, scope)
-	call, exists := apiCalls[key]
+func (m *apiCallMetrics) getAPICall(resource, subresource, verb, scope string) *apiCallMetric {
+	key := m.buildKey(resource, subresource, verb, scope)
+	call, exists := m.metrics[key]
 	if !exists {
-		call = &apiCall{
+		call = &apiCallMetric{
 			Resource:    resource,
 			Subresource: subresource,
 			Verb:        verb,
 			Scope:       scope,
 		}
-		apiCalls[key] = call
+		m.metrics[key] = call
 	}
 	return call
 }
 
-func addLatency(apiCalls map[string]*apiCall, resource, subresource, verb, scope string, quantile float64, latency time.Duration) {
-	call := getAPICall(apiCalls, resource, subresource, verb, scope)
+func (m *apiCallMetrics) SetLatency(resource, subresource, verb, scope string, quantile float64, latency time.Duration) {
+	call := m.getAPICall(resource, subresource, verb, scope)
 	call.Latency.SetQuantile(quantile, latency)
 }
 
-func addCount(apiCalls map[string]*apiCall, resource, subresource, verb, scope string, count int) {
+func (m *apiCallMetrics) SetCount(resource, subresource, verb, scope string, count int) {
 	if count == 0 {
 		return
 	}
-	call := getAPICall(apiCalls, resource, subresource, verb, scope)
+	call := m.getAPICall(resource, subresource, verb, scope)
 	call.Count = count
 }
 
-func getMetricKey(resource, subresource, verb, scope string) string {
-	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
-}
-
-func getSLOThreshold(verb, scope string) time.Duration {
-	if verb != "LIST" {
-		return resourceThreshold
-	}
-	if scope == "cluster" {
-		return clusterThreshold
-	}
-	return namespaceThreshold
-}
-
-func validateAPICalls(identifier string, metrics *apiResponsiveness) []string {
-	badMetrics := make([]string, 0)
-	top := topToPrint
-
-	sort.Sort(sort.Reverse(metrics))
-	for _, apiCall := range metrics.APICalls {
-		isBad := false
-		sloThreshold := getSLOThreshold(apiCall.Verb, apiCall.Scope)
-		if err := apiCall.Latency.VerifyThreshold(sloThreshold); err != nil {
-			isBad = true
-			badMetrics = append(badMetrics, fmt.Sprintf("got: %+v; expected perc99 <= %v", apiCall, sloThreshold))
-		}
-		if top > 0 || isBad {
-			top--
-			prefix := ""
-			if isBad {
-				prefix = "WARNING "
-			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", identifier, prefix, apiCall, sloThreshold)
-		}
-	}
-	return badMetrics
-}
-
-// apiCallToPerfData transforms apiResponsiveness to PerfData.
-func apiCallToPerfData(apicalls *apiResponsiveness) *measurementutil.PerfData {
+func (m *apiCallMetrics) ToPerfData() *measurementutil.PerfData {
 	perfData := &measurementutil.PerfData{Version: currentAPICallMetricsVersion}
-	for _, apicall := range apicalls.APICalls {
+	for _, apicall := range m.sorted() {
 		item := measurementutil.DataItem{
 			Data: map[string]float64{
 				"Perc50": float64(apicall.Latency.Perc50) / 1000000, // us -> ms
@@ -308,4 +270,41 @@ func apiCallToPerfData(apicalls *apiResponsiveness) *measurementutil.PerfData {
 		perfData.DataItems = append(perfData.DataItems, item)
 	}
 	return perfData
+}
+
+func (m *apiCallMetrics) sorted() []*apiCallMetric {
+	all := make([]*apiCallMetric, 0)
+	for _, v := range m.metrics {
+		all = append(all, v)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Latency.Perc99 < all[j].Latency.Perc99
+	})
+	return all
+}
+
+func (m *apiCallMetrics) buildKey(resource, subresource, verb, scope string) string {
+	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
+}
+
+func (ap *apiCallMetric) Validate() error {
+	threshold := ap.getSLOThreshold()
+	if err := ap.Latency.VerifyThreshold(threshold); err != nil {
+		return fmt.Errorf("got: %+v; expected perc99 <= %v", ap, threshold)
+	}
+	return nil
+}
+
+func (ap *apiCallMetric) getSLOThreshold() time.Duration {
+	if ap.Verb != "LIST" {
+		return resourceThreshold
+	}
+	if ap.Scope == "cluster" {
+		return clusterThreshold
+	}
+	return namespaceThreshold
+}
+
+func (ap *apiCallMetric) String() string {
+	return fmt.Sprintf("%+v; threshold: %v", *ap, ap.getSLOThreshold())
 }

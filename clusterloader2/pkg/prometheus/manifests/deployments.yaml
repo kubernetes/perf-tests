@@ -1,0 +1,524 @@
+apiVersion: apps/v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "0"
+    name: proxy-perf-0
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "0"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "0"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-0
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "1"
+    name: proxy-perf-1
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "1"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "1"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-1
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "2"
+    name: proxy-perf-2
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "2"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "2"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-2
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "3"
+    name: proxy-perf-3
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "3"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "3"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-3
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "4"
+    name: proxy-perf-4
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "4"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "4"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-4
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "5"
+    name: proxy-perf-5
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "5"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "5"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-5
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "6"
+    name: proxy-perf-6
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "6"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "6"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-6
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "7"
+    name: proxy-perf-7
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "7"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "7"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-7
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "8"
+    name: proxy-perf-8
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "8"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "8"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-8
+  status: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      index: "9"
+    name: proxy-perf-9
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        index: "9"
+    strategy:
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          index: "9"
+      spec:
+        containers:
+        - args:
+          - webhook
+          - --tls-cert-file=/webhook.local.config/certificates/tls.crt
+          - --tls-private-key-file=/webhook.local.config/certificates/tls.key
+          - --alsologtostderr
+          - -v=4
+          - --port=8444
+          image: gcr.io/chao1-149704/agnhost:2.10
+          imagePullPolicy: Always
+          name: sample-webhook
+          ports:
+          - containerPort: 8444
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /readyz
+              port: 8444
+              scheme: HTTPS
+            periodSeconds: 1
+            successThreshold: 1
+          resources: {}
+          volumeMounts:
+          - mountPath: /webhook.local.config/certificates
+            name: webhook-certs
+            readOnly: true
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: webhook-certs
+          secret:
+            secretName: proxy-perf-9
+  status: {}
+kind: DeploymentList
+metadata: {}

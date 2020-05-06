@@ -35,6 +35,7 @@ const (
 	systemPodMetricsEnabledFlagName   = "systemPodMetricsEnabled"
 	restartThresholdOverridesFlagName = "restartCountThresholdOverrides"
 	enableRestartCountCheckFlagName   = "enableRestartCountCheck"
+	defaultRestartCountThresholdKey   = "default"
 )
 
 func init() {
@@ -194,9 +195,14 @@ func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Measu
 
 func getMaxAllowedRestarts(containerName string, thresholdOverrides map[string]int) int {
 	if override, ok := thresholdOverrides[containerName]; ok {
-		return int(override)
+		return override
 	}
-	return 0 // default if no overrides specified
+	// This allows setting default threshold, which will be used for containers
+	// not present in the thresholdOverrides map.
+	if override, ok := thresholdOverrides[defaultRestartCountThresholdKey]; ok {
+		return override
+	}
+	return 0 // do not allow any restarts if no override and no default specified
 }
 
 /*

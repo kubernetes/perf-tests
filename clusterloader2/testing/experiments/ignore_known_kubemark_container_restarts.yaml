@@ -1,0 +1,7 @@
+RESTART_COUNT_THRESHOLD_OVERRIDES: |
+  # To be fixed by https://github.com/kubernetes/perf-tests/issues/871.
+  kubernetes-dashboard: 999
+
+  # To be fixed by https://github.com/kubernetes/perf-tests/issues/874.
+  kube-scheduler: 5
+  kube-controller-manager: 5

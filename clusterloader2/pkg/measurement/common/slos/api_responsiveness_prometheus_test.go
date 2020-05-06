@@ -17,7 +17,9 @@ limitations under the License.
 package slos
 
 import (
+	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
@@ -251,20 +254,22 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		executor := &fakeQueryExecutor{samples: tc.samples}
-		gatherer := &apiResponsivenessGatherer{}
-		config := &measurement.MeasurementConfig{
-			Params: map[string]interface{}{
-				"useSimpleLatencyQuery": tc.useSimple,
-			},
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			executor := &fakeQueryExecutor{samples: tc.samples}
+			gatherer := &apiResponsivenessGatherer{}
+			config := &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"useSimpleLatencyQuery": tc.useSimple,
+				},
+			}
 
-		_, err := gatherer.Gather(executor, time.Now(), config)
-		if tc.hasError {
-			assert.NotNil(t, err, "%s: wanted error, but got none", tc.name)
-		} else {
-			assert.Nil(t, err, "%s: wanted no error, but got %v", tc.name, err)
-		}
+			_, err := gatherer.Gather(executor, time.Now(), config)
+			if tc.hasError {
+				assert.NotNil(t, err, "wanted error, but got none")
+			} else {
+				assert.Nil(t, err, "wanted no error, but got %v", err)
+			}
+		})
 	}
 }
 
@@ -298,16 +303,18 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		executor := &fakeQueryExecutor{samples: tc.samples}
-		gatherer := &apiResponsivenessGatherer{}
-		config := &measurement.MeasurementConfig{}
+		t.Run(tc.name, func(t *testing.T) {
+			executor := &fakeQueryExecutor{samples: tc.samples}
+			gatherer := &apiResponsivenessGatherer{}
+			config := &measurement.MeasurementConfig{}
 
-		summary, _ := gatherer.Gather(executor, time.Now(), config)
-		checkSummary(t, tc.name, summary, tc.summary)
+			summary, _ := gatherer.Gather(executor, time.Now(), config)
+			checkSummary(t, summary, tc.summary)
+		})
 	}
 }
 
-func checkSummary(t *testing.T, tc string, got measurement.Summary, wanted []*summaryEntry) {
+func checkSummary(t *testing.T, got measurement.Summary, wanted []*summaryEntry) {
 	var perfData measurementutil.PerfData
 	if err := json.Unmarshal([]byte(got.SummaryContent()), &perfData); err != nil {
 		t.Errorf("unable to unmarshal summary: %v", err)
@@ -332,7 +339,7 @@ func checkSummary(t *testing.T, tc string, got measurement.Summary, wanted []*su
 	for _, entry := range wanted {
 		item, ok := items[toKey(entry.resource, entry.subresource, entry.verb, entry.scope)]
 		if !ok {
-			t.Errorf("%s, %s in %s: %s %s wanted, but not found", tc, entry.verb, entry.scope, entry.resource, entry.subresource)
+			t.Errorf("%s in %s: %s %s wanted, but not found", entry.verb, entry.scope, entry.resource, entry.subresource)
 			continue
 		}
 		assert.Equal(t, "ms", item.Unit)
@@ -340,5 +347,136 @@ func checkSummary(t *testing.T, tc string, got measurement.Summary, wanted []*su
 		assert.Equal(t, entry.p90, item.Data["Perc90"])
 		assert.Equal(t, entry.p99, item.Data["Perc99"])
 		assert.Equal(t, entry.count, item.Labels["Count"])
+	}
+}
+
+func TestLogging(t *testing.T) {
+	cases := []struct {
+		name               string
+		samples            []*sample
+		expectedMessages   []string
+		unexpectedMessages []string
+	}{
+		{
+			name: "print_5_warnings",
+			samples: []*sample{
+				{
+					resource: "r1",
+					verb:     "POST",
+					latency:  1.2,
+				},
+				{
+					resource: "r2",
+					verb:     "POST",
+					latency:  .9,
+				},
+				{
+					resource: "r3",
+					verb:     "POST",
+					latency:  .8,
+				},
+				{
+					resource: "r4",
+					verb:     "POST",
+					latency:  .7,
+				},
+				{
+					resource: "r5",
+					verb:     "POST",
+					latency:  .6,
+				},
+				{
+					resource: "r6",
+					verb:     "POST",
+					latency:  .5,
+				},
+			},
+			expectedMessages: []string{
+				": WARNING Top latency metric: {Resource:r1",
+				": Top latency metric: {Resource:r2",
+				": Top latency metric: {Resource:r3",
+				": Top latency metric: {Resource:r4",
+				": Top latency metric: {Resource:r5",
+			},
+			unexpectedMessages: []string{
+				"Resource:r6",
+			},
+		},
+		{
+			name: "print_all_violations",
+			samples: []*sample{
+				{
+					resource: "r1",
+					verb:     "POST",
+					latency:  1.2,
+				},
+				{
+					resource: "r2",
+					verb:     "POST",
+					latency:  1.9,
+				},
+				{
+					resource: "r3",
+					verb:     "POST",
+					latency:  1.8,
+				},
+				{
+					resource: "r4",
+					verb:     "POST",
+					latency:  1.7,
+				},
+				{
+					resource: "r5",
+					verb:     "POST",
+					latency:  1.6,
+				},
+				{
+					resource: "r6",
+					verb:     "POST",
+					latency:  1.5,
+				},
+				{
+					resource: "r7",
+					verb:     "POST",
+					latency:  .5,
+				},
+			},
+			expectedMessages: []string{
+				": WARNING Top latency metric: {Resource:r1",
+				": WARNING Top latency metric: {Resource:r2",
+				": WARNING Top latency metric: {Resource:r3",
+				": WARNING Top latency metric: {Resource:r4",
+				": WARNING Top latency metric: {Resource:r5",
+				": WARNING Top latency metric: {Resource:r6",
+			},
+			unexpectedMessages: []string{
+				"Resource:r7",
+			},
+		},
+	}
+
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "false")
+	flag.Parse()
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := bytes.NewBuffer(nil)
+			klog.SetOutput(buf)
+
+			executor := &fakeQueryExecutor{samples: tc.samples}
+			gatherer := &apiResponsivenessGatherer{}
+			config := &measurement.MeasurementConfig{}
+
+			gatherer.Gather(executor, time.Now(), config)
+			klog.Flush()
+
+			for _, msg := range tc.expectedMessages {
+				assert.Contains(t, buf.String(), msg)
+			}
+			for _, msg := range tc.unexpectedMessages {
+				assert.NotContains(t, buf.String(), msg)
+			}
+		})
 	}
 }

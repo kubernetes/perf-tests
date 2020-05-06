@@ -278,7 +278,7 @@ func (m *apiCallMetrics) sorted() []*apiCallMetric {
 		all = append(all, v)
 	}
 	sort.Slice(all, func(i, j int) bool {
-		return all[i].Latency.Perc99 < all[j].Latency.Perc99
+		return all[i].Latency.Perc99 > all[j].Latency.Perc99
 	})
 	return all
 }

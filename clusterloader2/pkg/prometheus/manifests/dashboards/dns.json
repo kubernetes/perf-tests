@@ -589,7 +589,7 @@
       ],
       "repeat": null,
       "showTitle": true,
-      "title": "In-cluster DNS latency"
+      "title": "In-cluster DNS prober"
     },
     {
       "collapse": false,
@@ -645,7 +645,7 @@
           "targets": [
             {
               "datasource": "",
-              "expr": "count(container_memory_usage_bytes{namespace=\"kube-system\", container=\"coredns\"}) by (container, namespace)",
+              "expr": "count(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
               "format": "time_series",
               "instant": false,
               "interval": "5s",
@@ -659,7 +659,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "coredns: # running",
+          "title": "Service: # running",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -781,7 +781,7 @@
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "coredns: memory usage",
+          "title": "Service: memory usage",
           "tooltip": {
             "msResolution": true,
             "shared": true,
@@ -817,7 +817,7 @@
       ],
       "repeat": null,
       "showTitle": true,
-      "title": "CoreDNS"
+      "title": "In-cluster DNS service"
     }
   ],
   "schemaVersion": 12,

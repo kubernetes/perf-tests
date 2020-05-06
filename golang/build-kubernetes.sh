@@ -26,6 +26,8 @@ function init {
 
 function clone_release {
   git clone https://github.com/kubernetes/release.git /go/src/k8s.io/release
+  cd /go/src/k8s.io/release
+  git checkout $K8S_RELEASE_COMMIT
   # Note that you can't really move the tool itself around since it has
   # references to binaries that live relative to its GOROOT.
   # This is solved by copying the whole GOROOT directory below.

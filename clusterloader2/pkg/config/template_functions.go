@@ -32,6 +32,8 @@ import (
 	"k8s.io/klog"
 )
 
+const defaultIncludeFilepath = "$GOPATH/src/k8s.io/perf-tests/clusterloader2"
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -203,20 +205,18 @@ func defaultParam(param, defaultValue interface{}) interface{} {
 	return param
 }
 
-// includeFile reads file. 'file' is relative to ./clusterloader2 binary.
+// includeFile reads file. If the path is not absolute, 'file' is relative to
+// clusterloader source file path "$GOPATH/src/k8s.io/perf-tests/clusterloader2"
 func includeFile(file interface{}) (string, error) {
 	fileStr, ok := file.(string)
 	if !ok {
 		return "", fmt.Errorf("incorrect argument type: got: %T want: string", file)
 	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("unable to determine executable path: %v", err)
+	if !filepath.IsAbs(fileStr) {
+		fileStr = filepath.Join(defaultIncludeFilepath, fileStr)
 	}
-
-	path := filepath.Join(filepath.Dir(ex), fileStr)
-	data, err := ioutil.ReadFile(path)
+	fileStr = os.ExpandEnv(fileStr)
+	data, err := ioutil.ReadFile(fileStr)
 	if err != nil {
 		return "", fmt.Errorf("unable to read file: %v", err)
 	}

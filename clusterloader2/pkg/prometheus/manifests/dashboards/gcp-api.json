@@ -1,4 +1,3 @@
-// TODO(oxddr): grafanalib doesn't support Stackdriver graphs at the moment.
 {
     "annotations": {
         "list": [
@@ -22,8 +21,7 @@
     "links": [],
     "panels": [
         {
-            "aliasColors": {
-            },
+            "aliasColors": {},
             "bars": false,
             "dashLength": 10,
             "dashes": false,
@@ -51,8 +49,7 @@
             "linewidth": 1,
             "links": [],
             "nullPointMode": "null",
-            "options": {
-            },
+            "options": {},
             "percentage": false,
             "pointradius": 2,
             "points": false,

@@ -21,22 +21,36 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 KUBE_GO_PACKAGE="k8s.io/perf-tests"
 
-find_test_dirs() {
-  (
-    cd ${KUBE_ROOT}
-    find -L . -not \( \
-      \( \
-        -path './benchmark/vendor/*' \
-        -o -path './clusterloader/e2e/*' \
-        -o -path './clusterloader/vendor/*' \
-        -o -path './compare/vendor/*' \
-        -o -path './network/vendor/*' \
-        -o -path './perfdash/vendor/*' \
-        -o -path './slo-monitor/vendor/*' \
-        -o -path './_logviewer/*' \
-      \) -prune \
-    \) -name '*_test.go' -print0 | xargs -0n1 dirname | sed "s|^\./|${KUBE_GO_PACKAGE}/|" | LC_ALL=C sort -u
-  )
-}
+# Find all directories with go.mod file,
+# exluding go.mod from vendor/ and _logviewer
+MODULE_BASED=$(find . -type d -name vendor -prune \
+  -o -type f -name go.mod -printf "%h\n" \
+  | grep -v "_logviewer" \
+  | sort -u)
 
-GO111MODULE=off go test $(find_test_dirs)
+# Find all directrories with vendor/ directory
+VENDOR_BASED=$(find . -type d -name vendor -printf "%h\n" | sort -u)
+
+# There might be an overlap between $MODULE_BASED and $VENDOR_BASED.
+# Find vendor only
+VENDOR_ONLY=$(comm -13 \
+  <(echo $MODULE_BASED | tr " " "\n") \
+  <(echo $VENDOR_BASED | tr " " "\n"))
+
+echo "Running tests with GO111MODULE=off..."
+targets=$(echo $VENDOR_ONLY | tr " " "\n" \
+  | sed -e "s|^\.|${KUBE_GO_PACKAGE}|" \
+  | sed -e "s/$/.../")
+set +x
+status=0
+GO111MODULE=off go test $targets || status=1
+
+echo "Running tests with GO111MODULE=on..."
+for mod in $MODULE_BASED; do
+  (
+    cd "${KUBE_ROOT}/${mod}"
+    GO111MODULE=on go test ./...
+  ) || status=1
+done
+
+exit $status

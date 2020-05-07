@@ -24,6 +24,7 @@ verify-all: test verify-boilerplate verify-dashboard verify-flags verify-gofmt
 
 .PHONY: test
 test:
+	# TODO(oxddr): allow tests to fail, until we get confidence in the new presubmit
 	verify/test.sh
 
 .PHONY: verify-boilerplate

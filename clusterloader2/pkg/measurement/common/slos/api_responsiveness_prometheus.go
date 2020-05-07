@@ -43,7 +43,7 @@ const (
 
 	currentAPICallMetricsVersion = "v1"
 
-	filters = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|CONNECT"`
+	filters = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT"`
 
 	// latencyQuery matches description of the API call latency SLI and measure 99th percentaile over 5m windows
 	//

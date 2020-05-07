@@ -17,6 +17,7 @@ limitations under the License.
 package runtimeobjects
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -46,7 +47,7 @@ func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResou
 		FieldSelector: fieldSelector,
 	}
 	listFunc = func() error {
-		list, err := d.Resource(gvr).List(listOpts)
+		list, err := d.Resource(gvr).List(context.TODO(), listOpts)
 		if err != nil {
 			return err
 		}
@@ -394,7 +395,7 @@ func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
 func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resource schema.GroupVersionResource, labelSelector labels.Selector) (int, error) {
 	var numObjects int
 	listFunc := func() error {
-		list, err := c.Resource(resource).Namespace(namespace).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+		list, err := c.Resource(resource).Namespace(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 		numObjects = len(list.Items)
 		return err
 	}

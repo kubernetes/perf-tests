@@ -17,6 +17,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -90,7 +91,7 @@ func getGceWindowsNodeFromKubernetesService(k8sClient kubernetes.Interface) (*gc
 	var nodeList *corev1.NodeList
 	f := func() error {
 		var err error
-		nodeList, err = k8sClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kubernetes.io/os=windows"})
+		nodeList, err = k8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "kubernetes.io/os=windows"})
 		return err
 	}
 

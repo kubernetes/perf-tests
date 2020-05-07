@@ -17,6 +17,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -230,22 +231,22 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 		return err
 	}
 	createClusterRole := func() error {
-		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
 			Rules: []rbacv1.PolicyRule{
 				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
 			},
-		})
+		}, metav1.CreateOptions{})
 		return err
 	}
 	createClusterRoleBinding := func() error {
-		_, err := clientSet.GetClient().RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+		_, err := clientSet.GetClient().RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "system:anonymous"},
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "User", Name: "system:anonymous"},
 			},
-		})
+		}, metav1.CreateOptions{})
 		return err
 	}
 	if err := retryCreateFunction(createClusterRole); err != nil {
@@ -385,7 +386,7 @@ func getMasterIpsFromKubernetesService(clusterConfig config.ClusterConfig) ([]st
 	var endpoints *corev1.Endpoints
 	f := func() error {
 		var err error
-		endpoints, err = clientSet.GetClient().CoreV1().Endpoints("default").Get("kubernetes", metav1.GetOptions{})
+		endpoints, err = clientSet.GetClient().CoreV1().Endpoints("default").Get(context.TODO(), "kubernetes", metav1.GetOptions{})
 		return err
 	}
 

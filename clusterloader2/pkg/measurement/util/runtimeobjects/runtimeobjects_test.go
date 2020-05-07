@@ -17,6 +17,7 @@ limitations under the License.
 package runtimeobjects_test
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -522,12 +523,12 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 
 	fakeClient := fake.NewSimpleClientset()
 	// construct node1 which match daemonset's nodeSelector.
-	_, err := fakeClient.CoreV1().Nodes().Create(&node1)
+	_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), &node1, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("construct node1 failed: %v", err)
 	}
 	// construct node2 which match daemonset's nodeSelector and nodeAffinity.
-	_, err = fakeClient.CoreV1().Nodes().Create(&node2)
+	_, err = fakeClient.CoreV1().Nodes().Create(context.TODO(), &node2, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("construct node2 failed: %v", err)
 	}

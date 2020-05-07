@@ -17,6 +17,7 @@ limitations under the License.
 package prometheus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -53,7 +54,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 	raw, err := k8sClient.CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
-		DoRaw()
+		DoRaw(context.TODO())
 	if err != nil {
 		response := "(empty)"
 		if raw != nil {

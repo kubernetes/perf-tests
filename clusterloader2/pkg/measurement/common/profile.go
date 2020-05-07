@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -197,7 +198,7 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, SSHToMasterSup
 			// For kube-apiserver, we can still fetch the profile using a RESTClient and pprof.
 			// TODO(#246): This will connect to a random master in HA (multi-master) clusters, fix it.
 			if p.config.componentName == "kube-apiserver" {
-				body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw()
+				body, err := c.CoreV1().RESTClient().Get().AbsPath("/debug/pprof/" + p.config.kind).DoRaw(context.TODO())
 				if err != nil {
 					return nil, err
 				}
@@ -271,22 +272,22 @@ func getProtocolForComponent(componentName string) string {
 func exposeAPIServerDebugEndpoint(c clientset.Interface) error {
 	klog.Info("Exposing kube-apiserver debug endpoint for anonymous access")
 	createClusterRole := func() error {
-		_, err := c.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+		_, err := c.RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-debug-viewer"},
 			Rules: []rbacv1.PolicyRule{
 				{Verbs: []string{"get"}, NonResourceURLs: []string{"/debug/*"}},
 			},
-		})
+		}, metav1.CreateOptions{})
 		return err
 	}
 	createClusterRoleBinding := func() error {
-		_, err := c.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+		_, err := c.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "anonymous:apiserver-debug-viewer"},
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-debug-viewer"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "User", Name: "system:anonymous"},
 			},
-		})
+		}, metav1.CreateOptions{})
 		return err
 	}
 	if err := retryCreateFunction(createClusterRole); err != nil {

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2014 The Kubernetes Authors.
+# Copyright 2020 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+set -euo pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
-GO_VERSION=($(go version))
+cd "$KUBE_ROOT"
 
-go get -u golang.org/x/lint/golint
-go get -u github.com/tools/godep
+source "verify/lib/gopkg.sh"
 
-# ex: ts=2 sw=2 et filetype=sh
+set +e
+status=0
+targets=$(echo $VENDOR_ONLY | tr " " "\n" \
+  | sed -e "s/$/.../")
+GO111MODULE=off golangci-lint run $targets || status=1
+
+for mod in $MODULE_BASED; do
+  (
+    cd "${mod}"
+    GO111MODULE=on golangci-lint run ./...
+  ) || status=1
+done
+
+exit $status

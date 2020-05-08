@@ -19,23 +19,11 @@ set -o nounset
 set -o pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "$KUBE_ROOT"
+
+source "verify/lib/gopkg.sh"
+
 KUBE_GO_PACKAGE="k8s.io/perf-tests"
-
-# Find all directories with go.mod file,
-# exluding go.mod from vendor/ and _logviewer
-MODULE_BASED=$(find . -type d -name vendor -prune \
-  -o -type f -name go.mod -printf "%h\n" \
-  | grep -v "_logviewer" \
-  | sort -u)
-
-# Find all directrories with vendor/ directory
-VENDOR_BASED=$(find . -type d -name vendor -printf "%h\n" | sort -u)
-
-# There might be an overlap between $MODULE_BASED and $VENDOR_BASED.
-# Find vendor only
-VENDOR_ONLY=$(comm -13 \
-  <(echo $MODULE_BASED | tr " " "\n") \
-  <(echo $VENDOR_BASED | tr " " "\n"))
 
 echo "Running tests with GO111MODULE=off..."
 targets=$(echo $VENDOR_ONLY | tr " " "\n" \

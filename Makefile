@@ -15,7 +15,12 @@
 # limitations under the License.
 
 .PHONY: verify-all
-verify-all: test verify-boilerplate verify-flags verify-gofmt
+verify-all: test verify-boilerplate verify-flags
+
+# verify-lint-dev is convenience target for developers to run all checks
+# at once locally
+.PHONY: verify-all-dev
+verify-all-dev: verify-all verify-dashboard verify-lint
 
 # TODO(oxddr): go-build.sh doesn't work at the moment decide whether we need this at all
 # .PHONY: build
@@ -39,13 +44,6 @@ verify-dashboard:
 verify-flags:
 	verify/verify-flags-underscore.py
 
-# TODO(oxddr): use golintci-lint instead of gofmt
-.PHONY: verify-gofmt
-verify-gofmt:
-	verify/verify-gofmt.sh
-
-# TODO(oxddr): use golintci-lint instead of gofmt
-# TODO(oxddr): it doesn't work at HEAD
-# .PHONY: verify-golint
-# verify-golint:
-# 	verify/verify-golint.sh
+.PHONY: verify-lint
+verify-lint:
+	verify/verify-lint.sh

@@ -1,0 +1,11 @@
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - golint
+    # TODO(oxddr): enable more checkers
+    # - deadcode
+    # - errcheck

@@ -15,7 +15,7 @@
 # limitations under the License.
 
 .PHONY: verify-all
-verify-all: test verify-boilerplate verify-dashboard verify-flags verify-gofmt
+verify-all: test verify-boilerplate verify-flags verify-gofmt
 
 # TODO(oxddr): go-build.sh doesn't work at the moment decide whether we need this at all
 # .PHONY: build

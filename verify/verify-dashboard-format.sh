@@ -19,10 +19,12 @@ DASHBOARD_DIR="clusterloader2/pkg/prometheus/manifests/dashboards"
 
 cd "${KUBE_ROOT}"
 
+FORMATTER="python3 -m json.tool"
+
 find_bad_files() {
   tmpfile=$(mktemp /tmp/formatted.XXXXXX)
   for file in $DASHBOARD_DIR/*.json ; do
-    jq -M . "$file" > "$tmpfile"
+    $FORMATTER "$file" > "$tmpfile"
     diff -q "$file" "$tmpfile" > /dev/null || echo "$file"
   done
   rm "$tmpfile"
@@ -30,7 +32,7 @@ find_bad_files() {
 
 fix_file() {
   tmpfile=$(mktemp /tmp/formatted.XXXXXX)
-  jq -M . "$1" > "$tmpfile" && mv "$tmpfile" "$1"
+  $FORMATTER "$1" > "$tmpfile" && mv "$tmpfile" "$1"
   echo "Formatted: $1"
 }
 
@@ -40,6 +42,7 @@ if [[ "${1}" == "--fix" ]]; then
     fix_file "$file"
   done
 elif [[ -n "${bad_files}" ]]; then
-  echo "!!! ./verify-dashboard-format.sh --fix need to be run to format dashboards. "
+  echo "!!! ./verify/verify-dashboard-format.sh --fix need to be run to format dashboards. "
   echo "Following dashboards are not formatted correctly: $bad_files"
+  exit 1
 fi

@@ -1,5 +1,8 @@
 build
 
+# Binaries
+network/launch
+
 # OSX leaves these everywhere on SMB shares
 ._*
 

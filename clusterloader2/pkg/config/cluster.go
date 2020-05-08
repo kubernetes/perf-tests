@@ -56,13 +56,18 @@ type ClusterConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
-	EnableServer       bool
-	TearDownServer     bool
-	ScrapeEtcd         bool
-	ScrapeNodeExporter bool
-	ScrapeKubelets     bool
-	ScrapeKubeProxy    bool
-	SnapshotProject    string
+	EnableServer            bool
+	TearDownServer          bool
+	ScrapeEtcd              bool
+	ScrapeNodeExporter      bool
+	ScrapeKubelets          bool
+	ScrapeKubeProxy         bool
+	SnapshotProject         string
+	ManifestPath            string
+	CoreManifests           string
+	DefaultServiceMonitors  string
+	MasterIPServiceMonitors string
+	NodeExporterPod         string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

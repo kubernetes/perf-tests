@@ -42,13 +42,9 @@ import (
 const (
 	namespace                    = "monitoring"
 	storageClass                 = "ssd"
-	coreManifests                = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/*.yaml"
-	defaultServiceMonitors       = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/default/*.yaml"
-	masterIPServiceMonitors      = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/master-ip/*.yaml"
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
-	nodeExporterPod              = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/exporters/node-exporter.yaml"
 )
 
 // InitFlags initializes prometheus flags.
@@ -60,6 +56,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
+	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
 }
 
 // Controller is a util for managing (setting up / tearing down) the prometheus stack in
@@ -77,6 +74,14 @@ type Controller struct {
 	diskMetadata prometheusDiskMetadata
 	// ssh executor to run commands in cluster nodes via ssh
 	ssh util.SSHExecutor
+}
+
+// CompleteConfig completes Prometheus manifest file path config
+func CompleteConfig(p *config.PrometheusConfig) {
+	p.CoreManifests = p.ManifestPath + "/*.yaml"
+	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
+	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
+	p.NodeExporterPod = p.ManifestPath + "/exporters/node-exporter.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -152,7 +157,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
 		return err
 	}
-	if err := pc.applyManifests(coreManifests); err != nil {
+	if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.CoreManifests); err != nil {
 		return err
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
@@ -161,7 +166,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if !pc.isKubemark() {
-		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.DefaultServiceMonitors); err != nil {
 			return err
 		}
 	}
@@ -170,7 +175,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		if err := pc.exposeAPIServerMetrics(); err != nil {
 			return err
 		}
-		if err := pc.applyManifests(masterIPServiceMonitors); err != nil {
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MasterIPServiceMonitors); err != nil {
 			return err
 		}
 	}
@@ -281,7 +286,7 @@ func (pc *Controller) runNodeExporter() error {
 		if util.LegacyIsMasterNode(&node) {
 			numMasters++
 			g.Go(func() error {
-				f, err := os.Open(os.ExpandEnv(nodeExporterPod))
+				f, err := os.Open(os.ExpandEnv(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterPod))
 				if err != nil {
 					return fmt.Errorf("Unable to open manifest file: %v", err)
 				}

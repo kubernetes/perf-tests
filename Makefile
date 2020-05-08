@@ -49,3 +49,7 @@ verify-gofmt:
 # .PHONY: verify-golint
 # verify-golint:
 # 	verify/verify-golint.sh
+
+.PHONY: verify-shellcheck
+verify-shellcheck:
+	find . -type d -name vendor -prune -o -type f -name '*.sh' -print | xargs shellcheck

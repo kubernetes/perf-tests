@@ -154,7 +154,8 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 					inKubemark:                  false,
 					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
 					printVerboseLogs:            options.PrintVerboseLogs,
-					port:                        port,
+					//port:                        port,
+					port:                        int(node.Status.DaemonEndpoints.KubeletEndpoint.Port),
 				})
 				if options.Nodes == MasterNodes {
 					break

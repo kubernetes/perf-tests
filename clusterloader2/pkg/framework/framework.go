@@ -252,7 +252,7 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 		}
 		for _, item := range objList {
 			if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
-				return fmt.Errorf("error while applying (%s): %v", manifest, err)
+				return fmt.Errorf("error while applying (%s), object %v\n: %v", manifest, item, err)
 			}
 		}
 

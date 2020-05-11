@@ -7,6 +7,7 @@ items:
     labels:
       index: "0"
     name: proxy-perf-0
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -59,6 +60,7 @@ items:
     labels:
       index: "1"
     name: proxy-perf-1
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -111,6 +113,7 @@ items:
     labels:
       index: "2"
     name: proxy-perf-2
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -163,6 +166,7 @@ items:
     labels:
       index: "3"
     name: proxy-perf-3
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -215,6 +219,7 @@ items:
     labels:
       index: "4"
     name: proxy-perf-4
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -267,6 +272,7 @@ items:
     labels:
       index: "5"
     name: proxy-perf-5
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -319,6 +325,7 @@ items:
     labels:
       index: "6"
     name: proxy-perf-6
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -371,6 +378,7 @@ items:
     labels:
       index: "7"
     name: proxy-perf-7
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -423,6 +431,7 @@ items:
     labels:
       index: "8"
     name: proxy-perf-8
+    namespace: default
   spec:
     replicas: 1
     selector:
@@ -475,6 +484,7 @@ items:
     labels:
       index: "9"
     name: proxy-perf-9
+    namespace: default
   spec:
     replicas: 1
     selector:

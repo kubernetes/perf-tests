@@ -113,6 +113,7 @@ func validateFlags() *errors.ErrorList {
 		errList.Append(fmt.Errorf("test config path and test suite path cannot be provided at the same time"))
 	}
 	errList.Concat(validateClusterFlags())
+	errList.Concat(prometheus.ValidatePrometheusFlags(&clusterLoaderConfig.PrometheusConfig))
 	return errList
 }
 

@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"os"
 	"path"
 	"time"
@@ -91,6 +92,7 @@ func initFlags() {
 	flags.StringArrayVar(&testOverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	initClusterFlags()
+	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
 }
 

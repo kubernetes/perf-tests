@@ -18,6 +18,7 @@ package test
 
 import (
 	"fmt"
+	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"path/filepath"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -61,6 +62,7 @@ func RunTest(clusterFramework, prometheusFramework *framework.Framework, cluster
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
+	modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig)
 
 	// TODO: remove them after the deprecated command options are removed.
 	if testConfig.Namespace.DeleteStaleNamespaces == nil {

@@ -26,6 +26,7 @@ type ClusterLoaderConfig struct {
 	ReportDir         string
 	EnableExecService bool
 	TestScenario      api.TestScenario
+	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
 }
 
@@ -38,6 +39,12 @@ type ClusterConfig struct {
 	MasterInternalIPs          []string
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
+}
+
+// ModifierConfig represent all flags used by test modification
+type ModifierConfig struct {
+	// A list of names of steps that should be ignored when executing test run
+	SkipSteps []string
 }
 
 // PrometheusConfig represents all flags used by prometheus.

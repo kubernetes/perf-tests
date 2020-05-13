@@ -431,8 +431,11 @@ func GetNumObjectsMatchingSelector(c dynamic.Interface, namespace string, resour
 	var numObjects int
 	listFunc := func() error {
 		list, err := c.Resource(resource).Namespace(namespace).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+		if err != nil {
+			return err
+		}
 		numObjects = len(list.Items)
-		return err
+		return nil
 	}
 	err := client.RetryWithExponentialBackOff(client.RetryFunction(listFunc))
 	return numObjects, err

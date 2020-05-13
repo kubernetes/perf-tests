@@ -64,6 +64,11 @@ function build_kubernetes {
   cd /go/src/k8s.io/kubernetes/build/build-image
   git checkout $K8S_COMMIT
 
+  # The git cherry-pick command below takes a commit from k8s v1.19 that
+  # artifically increases Kubemark cluster nodes objects.
+  # TODO: Get rid of this cherry-pick once we start testing aginst k8s v1.19+.
+  git cherry-pick fc2c410a5a37aba7ab0a3635c6b1195245b77e2b
+
   # Change the base image of kube-build to our own kube-cross image.
   sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:'"$TAG"'#' Dockerfile
 

@@ -375,8 +375,8 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 // - wait until set of objects in local cache is equal to the one returned from LIST call
 //   Note, that we can't compare whole objects, as in the meantime local cache may have
 //   gone ahead of the original LIST (e.g. due to status updates of existing objects).
-// - equal set of objects guarantees that all deletions are already reflected in our local
-//   cache, and at that point we know that its resource version is fresh enough - this
+//   Equal set of objects guarantees that all deletions are already reflected in out local
+//   cache, and at this point we know that is resource version is fresh enough - this
 //   solves the deletions case
 //   Note that the fact that the store is synced doesn't mean that all handlers were already
 //   fired, so we still need to wait for them.
@@ -419,6 +419,11 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(sy
 	cond := func() (bool, error) {
 		currentKeys := w.informer.GetStore().ListKeys()
 		sort.Strings(currentKeys)
+		// The following check means that we are not resistant to situations
+		// if something will create/delete objects. However, this can't be
+		// clusterloader, as measurements don't interfere with phases, so
+		// it can only be independent users/controllers. We're fine with
+		// accepting this risk.
 		return reflect.DeepEqual(objectKeys, currentKeys), nil
 	}
 	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {

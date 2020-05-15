@@ -16,12 +16,14 @@
 
 set -euxo pipefail
 
-# Initialize necessary environment variables.
+# Initialize necessary environment variables and git identity.
 function init {
   cd go
   export GOROOT=/go/src/k8s.io/perf-tests/golang/go
   export TAG=$(date +v%Y%m%d)-$(git rev-parse --short HEAD)
   cd ..
+  git config --global user.email "scalability@k8s.io"
+  git config --global user.name "k8s scalability"
 }
 
 function clone_release {
@@ -75,8 +77,6 @@ function build_kubernetes {
   cd /go/src/k8s.io/kubernetes
   # Commit changes - needed to not create a "dirty" build, so we can push the
   # build to <bucket>/ci directory and update latest.txt file.
-  git config user.email "scalability@k8s.io"
-  git config user.name "k8s scalability"
   git commit -am "Upgrade cross Dockerfile to use kube-cross with newest golang"
   # Build Kubernetes using our kube-cross image.
   make quick-release

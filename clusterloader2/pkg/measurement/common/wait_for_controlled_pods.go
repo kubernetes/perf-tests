@@ -18,9 +18,6 @@ package common
 
 import (
 	"fmt"
-	"reflect"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -74,7 +70,6 @@ type waitForControlledPodsRunningMeasurement struct {
 	operationTimeout      time.Duration
 	stopCh                chan struct{}
 	isRunning             bool
-	informer              cache.SharedInformer
 	queue                 workerqueue.Interface
 	handlingGroup         wait.Group
 	lock                  sync.Mutex
@@ -175,7 +170,6 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 			w.queue.Add(&f)
 		},
 	)
-	w.informer = i
 	return informer.StartAndSync(i, w.stopCh, informerSyncTimeout)
 }
 
@@ -184,7 +178,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	if !w.isRunning {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
-	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion(syncTimeout)
+	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion()
 	if err != nil {
 		return err
 	}
@@ -364,24 +358,12 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtim
 }
 
 // getObjectCountAndMaxVersion returns number of objects that satisfy measurements parameters
-// and upper bound for maximal resource version of these objects.
-//
-// We can't guarantee exact value fo maximal resource version, as deletions are problematic.
-// When the object is deleted, by definition it will not be returned by the LIST request,
-// and thus we cannot infer resource version of the deletion itself.
-// To solve this problem, we:
-// - take maximum from resource versions of returned objects - this solves the creations
-//   updates case
-// - wait until set of objects in local cache is equal to the one returned from LIST call
-//   Note, that we can't compare whole objects, as in the meantime local cache may have
-//   gone ahead of the original LIST (e.g. due to status updates of existing objects).
-//   Equal set of objects guarantees that all deletions are already reflected in out local
-//   cache, and at this point we know that is resource version is fresh enough - this
-//   solves the deletions case
-//   Note that the fact that the store is synced doesn't mean that all handlers were already
-//   fired, so we still need to wait for them.
-// - return maximum from those wo values
-func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(syncTimeout time.Duration) (int, uint64, error) {
+// and maximal resource version of these objects.
+// These two values allow to properly handle all object operations:
+// - When create/delete operation are called we expect the exact number of objects.
+// - When objects is updated we expect to receive event referencing this specific version.
+//   Using maximum from objects resource versions assures that all updates will be processed.
+func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
 	var desiredCount int
 	var maxResourceVersion uint64
 	objects, err := runtimeobjects.ListRuntimeObjectsForKind(
@@ -391,7 +373,6 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(sy
 		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
 	}
 
-	objectKeys := make([]string, 0, len(objects))
 	for i := range objects {
 		runtimeObj, ok := objects[i].(runtime.Object)
 		if !ok {
@@ -403,40 +384,11 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion(sy
 			klog.Errorf("%s: retriving resource version error: %v", w, err)
 			continue
 		}
-		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(runtimeObj)
-		if err != nil {
-			klog.Errorf("%s: retrieving key error: %v", w, err)
-			continue
-		}
-		objectKeys = append(objectKeys, key)
 		desiredCount++
 		if version > maxResourceVersion {
 			maxResourceVersion = version
 		}
 	}
-	sort.Strings(objectKeys)
-
-	cond := func() (bool, error) {
-		currentKeys := w.informer.GetStore().ListKeys()
-		sort.Strings(currentKeys)
-		// The following check means that we are not resistant to situations
-		// if something will create/delete objects. However, this can't be
-		// clusterloader, as measurements don't interfere with phases, so
-		// it can only be independent users/controllers. We're fine with
-		// accepting this risk.
-		return reflect.DeepEqual(objectKeys, currentKeys), nil
-	}
-	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
-		return desiredCount, maxResourceVersion, fmt.Errorf("failed waiting for informer sync: %v", err)
-	}
-	version, err := strconv.ParseUint(w.informer.LastSyncResourceVersion(), 10, 64)
-	if err != nil {
-		return desiredCount, maxResourceVersion, fmt.Errorf("failed gathering informer resource version: %v", err)
-	}
-	if version > maxResourceVersion {
-		maxResourceVersion = version
-	}
-
 	return desiredCount, maxResourceVersion, nil
 }
 

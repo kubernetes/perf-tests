@@ -46,7 +46,14 @@ const (
 	checkControlledPodsInterval      = 5 * time.Second
 	informerSyncTimeout              = time.Minute
 	waitForControlledPodsRunningName = "WaitForControlledPodsRunning"
-	waitForControlledPodsWorkers     = 10
+
+	// In this measurement, we rely on the fact that handlers are being
+	// processed in order - in particular gather() is checking if all
+	// objects up to a given resource version has already been processed.
+	// To guarantee processing order we can't have more than a single
+	// worker. Fortunately it doesn't change much, because almost all
+	// handler function is happening under lock.
+	waitForControlledPodsWorkers = 1
 )
 
 func init() {

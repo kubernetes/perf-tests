@@ -78,12 +78,10 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
@@ -666,11 +664,13 @@ steps:
       enableViolations: true
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   {{if not $USE_SIMPLE_LATENCY_QUERY}}
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   {{end}}
   - Identifier: PodStartupLatency
     Method: PodStartupLatency

@@ -90,12 +90,14 @@ func TestLoadCL2Envs(t *testing.T) {
 				"CL2_MY_PARAM2": "true",
 				"CL2_MY_PARAM3": "99.99",
 				"CL2_MY_PARAM4": "XXX",
+				"CL2_MY_PARAM5": "1",
 			},
 			wantedMapping: map[string]interface{}{
 				"CL2_MY_PARAM1": int64(100),
 				"CL2_MY_PARAM2": true,
 				"CL2_MY_PARAM3": 99.99,
 				"CL2_MY_PARAM4": "XXX",
+				"CL2_MY_PARAM5": int64(1),
 			},
 		},
 		{

@@ -246,13 +246,13 @@ func LoadCL2Envs() (map[string]interface{}, error) {
 }
 
 func unpackStringValue(str string) interface{} {
-	if v, err := strconv.ParseBool(str); err == nil {
-		return v
-	}
 	if v, err := strconv.ParseInt(str, 10, 64); err == nil {
 		return v
 	}
 	if v, err := strconv.ParseFloat(str, 64); err == nil {
+		return v
+	}
+	if v, err := strconv.ParseBool(str); err == nil {
 		return v
 	}
 	return str

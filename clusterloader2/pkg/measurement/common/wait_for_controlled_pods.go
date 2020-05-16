@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -59,6 +61,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
 		selector:   measurementutil.NewObjectSelector(),
 		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
+		objectKeys: sets.NewString(),
 		checkerMap: checker.NewMap(),
 	}
 }
@@ -73,6 +76,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	queue                 workerqueue.Interface
 	handlingGroup         wait.Group
 	lock                  sync.Mutex
+	objectKeys            sets.String
 	opResourceVersion     uint64
 	gvr                   schema.GroupVersionResource
 	checkerMap            checker.Map
@@ -178,13 +182,31 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	if !w.isRunning {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
-	desiredCount, maxResourceVersion, err := w.getObjectCountAndMaxVersion()
+	objectKeys, maxResourceVersion, err := w.getObjectKeysAndMaxVersion()
 	if err != nil {
 		return err
 	}
 
+	// Wait until checkers for all objects are registered:
+	// - when object is created/updated, it's enough to wait for its resourceVersion to
+	//   be processed by our handler; thus we wait until all events up to maxResourceVersion
+	//   are processed before proceeding
+	// - when object is deleted, by definition it will not be returned by the LIST request,
+	//   thus resourceVersion of the deletion may be higher than the maxResourceVersion;
+	//   we solve that by waiting until list of currently existing objects (that we propagate
+	//   via our handler) is equal to the expected one;
+	//   NOTE: we're not resiliant to situations where an object will be created/deleted
+	//   after the LIST call happened. But given measurement and phases don't infer with
+	//   each other, it can't be clusterloader that deleted it. Thus we accept this limitation.
+	//   NOTE: we could try waiting for the informer state to be the same and use the
+	//   resourceVersion from there, but then existence of bookmarks and the fact that our
+	//   informer doesn't necessary follow all objects of a given type can break that.
+	//   See #1259 for more details.
+
 	cond := func() (bool, error) {
-		return w.opResourceVersion >= maxResourceVersion, nil
+		w.lock.Lock()
+		defer w.lock.Unlock()
+		return w.opResourceVersion >= maxResourceVersion && objectKeys.Equal(w.objectKeys), nil
 	}
 	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
 		return fmt.Errorf("timed out while waiting for controlled pods")
@@ -219,16 +241,16 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
 	}
-	if desiredCount != numberRunning {
-		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
-		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, desiredCount, w.kind)
+	if objectKeys.Len() != numberRunning {
+		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
+		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
 	}
 	if numberUnknown > 0 {
 		klog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
 		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
 	}
 
-	klog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, desiredCount, w.kind)
+	klog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
 	return nil
 }
 
@@ -250,15 +272,18 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj in
 		klog.Errorf("%s: uncastable new object: %v", w, newObj)
 		return
 	}
+
+	// Acquire the lock before defining defered function to ensure it
+	// will be called under the same lock.
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
 	defer func() {
-		// We want to update version after (potentially) creating goroutine.
-		if err := w.updateOpResourceVersion(oldRuntimeObj); err != nil {
-			klog.Errorf("%s: updating resource version error: %v", w, err)
-		}
-		if err := w.updateOpResourceVersion(newRuntimeObj); err != nil {
-			klog.Errorf("%s: updating resource version error: %v", w, err)
+		if err := w.updateCacheLocked(oldRuntimeObj, newRuntimeObj); err != nil {
+			klog.Errorf("%s: error when updating cache: %v", w, err)
 		}
 	}()
+
 	isEqual, err := runtimeobjects.IsEqualRuntimeObjectsSpec(oldRuntimeObj, newRuntimeObj)
 	if err != nil {
 		klog.Errorf("%s: comparing specs error: %v", w, err)
@@ -269,8 +294,6 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj in
 		return
 	}
 
-	w.lock.Lock()
-	defer w.lock.Unlock()
 	if !w.isRunning {
 		return
 	}
@@ -341,38 +364,61 @@ func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(obj runtime
 	return nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersion(runtimeObj runtime.Object) error {
-	if runtimeObj == nil {
+func (w *waitForControlledPodsRunningMeasurement) updateCacheLocked(oldObj, newObj runtime.Object) error {
+	errList := errors.NewErrorList()
+
+	if oldObj != nil {
+		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(oldObj)
+		if err != nil {
+			errList.Append(fmt.Errorf("%s: retrieving key error: %v", w, err))
+		} else {
+			w.objectKeys.Delete(key)
+		}
+		if err := w.updateOpResourceVersionLocked(oldObj); err != nil {
+			errList.Append(err)
+		}
+	}
+	if newObj != nil {
+		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(newObj)
+		if err != nil {
+			errList.Append(fmt.Errorf("%s: retrieving key error: %v", w, err))
+		} else {
+			w.objectKeys.Insert(key)
+		}
+		if err := w.updateOpResourceVersionLocked(newObj); err != nil {
+			errList.Append(err)
+		}
+	}
+
+	if errList.IsEmpty() {
 		return nil
 	}
+	return fmt.Errorf(errList.Error())
+}
+
+func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersionLocked(runtimeObj runtime.Object) error {
 	version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
 	if err != nil {
 		return fmt.Errorf("retriving resource version error: %v", err)
 	}
-	w.lock.Lock()
-	defer w.lock.Unlock()
 	if version > w.opResourceVersion {
 		w.opResourceVersion = version
 	}
 	return nil
 }
 
-// getObjectCountAndMaxVersion returns number of objects that satisfy measurements parameters
-// and maximal resource version of these objects.
-// These two values allow to properly handle all object operations:
-// - When create/delete operation are called we expect the exact number of objects.
-// - When objects is updated we expect to receive event referencing this specific version.
-//   Using maximum from objects resource versions assures that all updates will be processed.
-func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() (int, uint64, error) {
-	var desiredCount int
-	var maxResourceVersion uint64
+// getObjectKeysAndMaxVersion returns keys of objects that satisfy measurement parameters
+// and the maximal resource version of these objects.
+func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (sets.String, uint64, error) {
 	objects, err := runtimeobjects.ListRuntimeObjectsForKind(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr, w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
 	if err != nil {
-		return desiredCount, maxResourceVersion, fmt.Errorf("listing objects error: %v", err)
+		return nil, 0, fmt.Errorf("listing objects error: %v", err)
 	}
 
+	objectKeys := sets.NewString()
+	var maxResourceVersion uint64
 	for i := range objects {
 		runtimeObj, ok := objects[i].(runtime.Object)
 		if !ok {
@@ -384,12 +430,17 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectCountAndMaxVersion() 
 			klog.Errorf("%s: retriving resource version error: %v", w, err)
 			continue
 		}
-		desiredCount++
+		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(runtimeObj)
+		if err != nil {
+			klog.Errorf("%s: retrieving key error: %v", w, err)
+			continue
+		}
+		objectKeys.Insert(key)
 		if version > maxResourceVersion {
 			maxResourceVersion = version
 		}
 	}
-	return desiredCount, maxResourceVersion, nil
+	return objectKeys, maxResourceVersion, nil
 }
 
 func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {

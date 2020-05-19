@@ -90,9 +90,13 @@ func initializeWithDefaults(config *restclient.Config) error {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 	})
+	config.WrapTransport = transportConfig.WrapTransport
+	config.Dial = transportConfig.Dial
 	// Overwrite TLS-related fields from config to avoid collision with
 	// Transport field.
 	config.TLSClientConfig = restclient.TLSClientConfig{}
+	config.AuthProvider = nil
+	config.ExecProvider = nil
 
 	return nil
 }

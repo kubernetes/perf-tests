@@ -76,7 +76,7 @@ func WaitForPVCs(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				klog.Errorf("%s: %s: %d PVCs appeared: %v", options.CallerName, options.Selector.String(), len(deletedPVCs), strings.Join(deletedPVCs, ", "))
 			}
 			if options.EnableLogging {
-				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvcsStatus.String())
+				klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvcsStatus.String())
 			}
 			// We wait until there is a desired number of PVCs bound and all other PVCs are pending.
 			if len(pvcs) == (pvcsStatus.Bound+pvcsStatus.Pending) && pvcsStatus.Bound == options.DesiredPVCCount {

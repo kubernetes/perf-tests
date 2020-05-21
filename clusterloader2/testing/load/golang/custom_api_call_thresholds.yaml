@@ -1,0 +1,11 @@
+CUSTOM_API_CALL_THRESHOLDS: |
+  - verb: PUT
+    resource: leases
+    subresource: ''
+    scope: namespace
+    threshold: 500ms
+  - verb: DELETE
+    resource: pods
+    subresource: ''
+    scope: namespace
+    threshold: 700ms

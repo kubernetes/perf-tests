@@ -54,7 +54,7 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 		case <-time.After(options.WaitForNodesInterval):
 			nodeCount = getNumReadyNodes(ps.List())
 			if options.EnableLogging {
-				klog.Infof("%s: node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
+				klog.V(2).Infof("%s: node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
 			}
 			if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
 				return nil

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -89,7 +89,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
 			if options.EnableLogging {
-				klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
+				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
 			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.

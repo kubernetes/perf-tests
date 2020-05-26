@@ -70,7 +70,7 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 		Selector:             selector,
 		MinDesiredNodeCount:  minNodeCount,
 		MaxDesiredNodeCount:  maxNodeCount,
-		EnableLogging:        true,
+		EnableLogging:        config.ClusterLoaderConfig.ClusterConfig.EnableMeasurementLogging,
 		CallerName:           w.String(),
 		WaitForNodesInterval: defaultWaitForNodesInterval,
 	}

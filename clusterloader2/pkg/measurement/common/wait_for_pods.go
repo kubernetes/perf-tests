@@ -67,7 +67,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	options := &measurementutil.WaitForPodOptions{
 		Selector:            selector,
 		DesiredPodCount:     desiredPodCount,
-		EnableLogging:       true,
+		EnableLogging:       config.ClusterLoaderConfig.ClusterConfig.EnableMeasurementLogging,
 		CallerName:          w.String(),
 		WaitForPodsInterval: defaultWaitForPodsInterval,
 	}

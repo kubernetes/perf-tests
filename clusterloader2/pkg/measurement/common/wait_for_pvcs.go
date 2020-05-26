@@ -67,7 +67,7 @@ func (w *waitForBoundPVCsMeasurement) Execute(config *measurement.Config) ([]mea
 	options := &measurementutil.WaitForPVCOptions{
 		Selector:            selector,
 		DesiredPVCCount:     desiredPVCCount,
-		EnableLogging:       true,
+		EnableLogging:       config.ClusterLoaderConfig.ClusterConfig.EnableMeasurementLogging,
 		CallerName:          w.String(),
 		WaitForPVCsInterval: defaultWaitForPVCsInterval,
 	}

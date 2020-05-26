@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"os"
 	"path"
 	"time"
+
+	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 
 	"k8s.io/kubernetes/pkg/master/ports"
 
@@ -79,6 +80,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
+	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.EnableMeasurementLogging, "enable-measurement-logging", "ENABLE_MEASUREMENT_LOGGING", true, "Whether to enable detailed measurement logging.")
 }
 
 func validateClusterFlags() *errors.ErrorList {

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -481,6 +481,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o := newObjectChecker(key)
 	o.lock.Lock()
 	defer o.lock.Unlock()
+	enableLogging := w.clusterFramework.GetClusterConfig().EnableMeasurementLogging
 	w.handlingGroup.Start(func() {
 		options := &measurementutil.WaitForPodOptions{
 			Selector: &measurementutil.ObjectSelector{
@@ -489,7 +490,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 				FieldSelector: "",
 			},
 			DesiredPodCount:     int(runtimeObjectReplicas),
-			EnableLogging:       true,
+			EnableLogging:       enableLogging,
 			CallerName:          w.String(),
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,

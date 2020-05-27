@@ -99,6 +99,8 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 			nodesSet = gatherers.MasterNodes
 		case "masteranddns":
 			nodesSet = gatherers.MasterAndDNSNodes
+		case "masterandnondaemons":
+			nodesSet = gatherers.MasterAndNonDaemons
 		default:
 			nodesSet = gatherers.AllNodes
 		}

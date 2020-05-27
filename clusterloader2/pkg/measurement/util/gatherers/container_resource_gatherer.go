@@ -43,6 +43,8 @@ const (
 	MasterNodes NodesSet = 1
 	// MasterAndDNSNodes - all containers on Master nodes and DNS containers on other nodes
 	MasterAndDNSNodes NodesSet = 2
+	// MasterAndNonDaemons - all containers on Master nodes and non-daemons on other nodes.
+	MasterAndNonDaemons NodesSet = 3
 )
 
 // ResourceUsageSummary represents summary of resource usage per container.
@@ -71,6 +73,15 @@ type ResourceGathererOptions struct {
 	ResourceDataGatheringPeriod       time.Duration
 	MasterResourceDataGatheringPeriod time.Duration
 	PrintVerboseLogs                  bool
+}
+
+func isDaemonPod(pod *corev1.Pod) bool {
+	controller := metav1.GetControllerOf(pod)
+	if controller == nil {
+		// If controller is unset, assume it's not a daemon pod.
+		return false
+	}
+	return controller.Kind == "DaemonSet" || controller.Kind == "Node"
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
@@ -124,6 +135,9 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 				continue
 			}
 			if (options.Nodes == MasterAndDNSNodes) && !masterNodes.Has(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
+				continue
+			}
+			if (options.Nodes == MasterAndNonDaemons) && !masterNodes.Has(pod.Spec.NodeName) && isDaemonPod(&pod) {
 				continue
 			}
 			for _, container := range pod.Status.InitContainerStatuses {

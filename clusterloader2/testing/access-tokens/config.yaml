@@ -41,8 +41,17 @@
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 
+# Check if custom namespace prefix is set
+{{$NAMESPACE_PREFIX := DefaultParam .CL2_NAMESPACE_PREFIX ""}}
+
 name: access-tokens
 namespace:
+{{if $NAMESPACE_PREFIX}}
+  deleteStaleNamespaces: false
+  deleteAutomanagedNamespaces: false
+  enableExistingNamespaces: true
+  prefix: {{$NAMESPACE_PREFIX}}
+{{end}}
   number: {{$namespaces}}
 tuningSets:
   - name: Sequence

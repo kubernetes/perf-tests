@@ -38,8 +38,17 @@
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
 
+# Check if custom namespace prefix is set
+{{$NAMESPACE_PREFIX := DefaultParam .CL2_NAMESPACE_PREFIX ""}}
+
 name: density
 namespace:
+{{if $NAMESPACE_PREFIX}}
+  deleteStaleNamespaces: false
+  deleteAutomanagedNamespaces: false
+  enableExistingNamespaces: true
+  prefix: {{$NAMESPACE_PREFIX}}
+{{end}}
   number: {{$namespaces}}
 tuningSets:
 - name: Uniform5qps

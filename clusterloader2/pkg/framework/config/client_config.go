@@ -36,8 +36,13 @@ const (
 )
 
 // PrepareConfig creates and initializes client config.
-func PrepareConfig(path string) (*restclient.Config, error) {
-	config, err := loadConfig(path)
+// If kubeconfig path is empty, creates in-cluster client configuration.
+func PrepareConfig(path string) (config *restclient.Config, err error) {
+	if path != "" {
+		config, err = loadConfig(path)
+	} else {
+		config, err = restclient.InClusterConfig()
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -34,6 +34,7 @@ import (
 
 func stripCount(data *perftype.DataItem) {
 	delete(data.Labels, "Count")
+	delete(data.Labels, "SlowCount")
 }
 
 func createRequestCountData(data *perftype.DataItem) error {

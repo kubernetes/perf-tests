@@ -34,6 +34,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+var namespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
+
 // Framework allows for interacting with Kubernetes cluster via
 // official Kubernetes client.
 type Framework struct {
@@ -115,22 +117,30 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 }
 
 // ListAutomanagedNamespaces returns all existing automanged namespace names.
-func (f *Framework) ListAutomanagedNamespaces() ([]string, error) {
-	var automanagedNamespacesList []string
+func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
+	var automanagedNamespacesList, staleNamespaces []string
 	namespacesList, err := client.ListNamespaces(f.clientSets.GetClient())
 	if err != nil {
-		return automanagedNamespacesList, err
+		return automanagedNamespacesList, staleNamespaces, err
 	}
 	for _, namespace := range namespacesList {
 		matched, err := f.isAutomanagedNamespace(namespace.Name)
 		if err != nil {
-			return automanagedNamespacesList, err
+			return automanagedNamespacesList, staleNamespaces, err
 		}
 		if matched {
 			automanagedNamespacesList = append(automanagedNamespacesList, namespace.Name)
+		} else {
+			// check further whether the namespace is a automanaged namespace created in previous test execution.
+			// this could happen when the execution is aborted abornamlly, and the resource is not able to be
+			// clean up.
+			matched := f.isStaleAutomanagedNamespace(namespace.Name)
+			if matched {
+				staleNamespaces = append(staleNamespaces, namespace.Name)
+			}
 		}
 	}
-	return automanagedNamespacesList, nil
+	return automanagedNamespacesList, staleNamespaces, nil
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
@@ -152,6 +162,26 @@ func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 	}
 	wg.Wait()
 	f.automanagedNamespaceCount = 0
+	return errList
+}
+
+// DeleteNamespaces deletes the list of namespaces.
+func (f *Framework) DeleteNamespaces(namespaces []string) *errors.ErrorList {
+	var wg wait.Group
+	errList := errors.NewErrorList()
+	for _, namespace := range namespaces {
+		clientSet := f.clientSets.GetClient()
+		wg.Start(func() {
+			if err := client.DeleteNamespace(clientSet, namespace); err != nil {
+				errList.Append(err)
+				return
+			}
+			if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
+				errList.Append(err)
+			}
+		})
+	}
+	wg.Wait()
 	return errList
 }
 
@@ -215,4 +245,8 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 
 func (f *Framework) isAutomanagedNamespace(name string) (bool, error) {
 	return regexp.MatchString(f.automanagedNamespacePrefix+"-[1-9][0-9]*", name)
+}
+
+func (f *Framework) isStaleAutomanagedNamespace(name string) bool {
+	return namespaceID.MatchString(name)
 }

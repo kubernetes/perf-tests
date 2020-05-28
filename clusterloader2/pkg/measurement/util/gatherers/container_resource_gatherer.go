@@ -129,7 +129,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			}
 		}
 
-		dnsNodes := make(map[string]bool)
+		nodesToConsider := make(map[string]bool)
 		for _, pod := range pods.Items {
 			if (options.Nodes == MasterNodes) && !masterNodes.Has(pod.Spec.NodeName) {
 				continue
@@ -146,13 +146,13 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			for _, container := range pod.Status.ContainerStatuses {
 				g.containerIDs = append(g.containerIDs, container.Name)
 			}
-			if options.Nodes == MasterAndDNSNodes {
-				dnsNodes[pod.Spec.NodeName] = true
+			if options.Nodes == MasterAndDNSNodes || options.Nodes == MasterAndNonDaemons {
+				nodesToConsider[pod.Spec.NodeName] = true
 			}
 		}
 
 		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || masterNodes.Has(node.Name) || dnsNodes[node.Name] {
+			if options.Nodes == AllNodes || masterNodes.Has(node.Name) || nodesToConsider[node.Name] {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
 				if masterNodes.Has(node.Name) {
@@ -170,9 +170,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 					printVerboseLogs:            options.PrintVerboseLogs,
 					port:                        port,
 				})
-				if options.Nodes == MasterNodes {
-					break
-				}
 			}
 		}
 	}

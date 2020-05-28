@@ -113,7 +113,8 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 				return nil, fmt.Errorf("listing pods error: %v", err)
 			}
 		}
-		dnsNodes := make(map[string]bool)
+		nodesToConsider := make(map[string]bool)
+
 		for _, pod := range pods.Items {
 			if (options.Nodes == MasterNodes) && !system.IsMasterNode(pod.Spec.NodeName) {
 				continue
@@ -130,8 +131,8 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 			for _, container := range pod.Status.ContainerStatuses {
 				g.containerIDs = append(g.containerIDs, container.Name)
 			}
-			if options.Nodes == MasterAndDNSNodes {
-				dnsNodes[pod.Spec.NodeName] = true
+			if options.Nodes == MasterAndDNSNodes || options.Nodes == MasterAndNonDaemons {
+				nodesToConsider[pod.Spec.NodeName] = true
 			}
 		}
 		nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -140,7 +141,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 		}
 
 		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || dnsNodes[node.Name] {
+			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || nodesToConsider[node.Name] {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
 				if system.IsMasterNode(node.Name) {
@@ -157,9 +158,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
 					printVerboseLogs:            options.PrintVerboseLogs,
 				})
-				if options.Nodes == MasterNodes {
-					break
-				}
 			}
 		}
 	}

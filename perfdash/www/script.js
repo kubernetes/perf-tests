@@ -43,7 +43,7 @@ PerfDashApp.prototype.onClickInternal_ = function(data, evt, chart) {
     this.setURLParameters();
     this.http.get("config")
             .success(function(config) {
-                     window.open(config["storageUrl"] + "/" +
+                     window.open(config["storageURL"] + "/" +
                               config["logsBucket"]  + "/" +
                               config["logsPath"] + "/" +
                               this.job + "/" +

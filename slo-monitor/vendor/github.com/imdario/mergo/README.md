@@ -79,7 +79,6 @@ If Mergo is useful to you, consider buying me a coffee, a beer or making a month
 - [elwinar/rambler](https://github.com/elwinar/rambler)
 - [tmaiaroto/gopartman](https://github.com/tmaiaroto/gopartman)
 - [jfbus/impressionist](https://github.com/jfbus/impressionist)
-- [Jmeyering/zealot](https://github.com/Jmeyering/zealot)
 - [godep-migrator/rigger-host](https://github.com/godep-migrator/rigger-host)
 - [Dronevery/MultiwaySwitch-Go](https://github.com/Dronevery/MultiwaySwitch-Go)
 - [thoas/picfit](https://github.com/thoas/picfit)

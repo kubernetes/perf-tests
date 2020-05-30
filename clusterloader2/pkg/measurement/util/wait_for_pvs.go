@@ -29,7 +29,6 @@ import (
 type WaitForPVOptions struct {
 	Selector           *ObjectSelector
 	DesiredPVCount     int
-	EnableLogging      bool
 	CallerName         string
 	WaitForPVsInterval time.Duration
 }
@@ -75,9 +74,7 @@ func WaitForPVs(clientSet clientset.Interface, stopCh <-chan struct{}, options *
 			if scaling != up && len(addedPVs) > 0 {
 				klog.Errorf("%s: %s: %d PVs appeared: %v", options.CallerName, options.Selector.String(), len(deletedPVs), strings.Join(deletedPVs, ", "))
 			}
-			if options.EnableLogging {
-				klog.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvStatus.String())
-			}
+			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvStatus.String())
 			// We wait until there is a desired number of PVs provisioned and all other PVs are pending.
 			if len(pvs) == (pvStatus.Bound+pvStatus.Available+pvStatus.Pending) && pvStatus.Bound+pvStatus.Available == options.DesiredPVCount {
 				return nil

@@ -58,7 +58,6 @@ If Mergo is useful to you, consider buying me a coffee, a beer or making a month
 - [go-task/task](https://github.com/go-task/task)
 - [sensu/uchiwa](https://github.com/sensu/uchiwa)
 - [ory/hydra](https://github.com/ory/hydra)
-- [sisatech/vcli](https://github.com/sisatech/vcli)
 - [dairycart/dairycart](https://github.com/dairycart/dairycart)
 - [projectcalico/felix](https://github.com/projectcalico/felix)
 - [resin-os/balena](https://github.com/resin-os/balena)

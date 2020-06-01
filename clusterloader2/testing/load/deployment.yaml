@@ -34,6 +34,9 @@ spec:
             mountPath: /var/secret
       dnsPolicy: Default
       terminationGracePeriodSeconds: 1
+{{if Chance (DefaultParam .CL2_DEPLOYMENTS_DISABLE_SERVICE_ACCOUNT_CHANCE 0)}}
+      automountServiceAccountToken: false
+{{- end}}
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:
@@ -52,4 +55,3 @@ spec:
         - name: secret
           secret:
             secretName: {{.BaseName}}-{{.Index}}
-

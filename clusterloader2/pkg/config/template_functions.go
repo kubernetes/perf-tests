@@ -43,6 +43,7 @@ func GetFuncs() template.FuncMap {
 	return template.FuncMap{
 		"AddFloat":      addFloat,
 		"AddInt":        addInt,
+		"Chance":        chance,
 		"DefaultParam":  defaultParam,
 		"DivideFloat":   divideFloat,
 		"DivideInt":     divideInt,
@@ -98,6 +99,11 @@ func toFloat64(val interface{}) float64 {
 		}
 	}
 	panic(fmt.Sprintf("cannot cast %v to float64", val))
+}
+
+// chance returns true/false with some probability for true
+func chance(i interface{}) bool {
+	return rand.Float64() < toFloat64(i)
 }
 
 // randInt returns pseudo-random int in [0, i].

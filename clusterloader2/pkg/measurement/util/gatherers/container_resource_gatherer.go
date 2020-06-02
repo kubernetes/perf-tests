@@ -72,7 +72,6 @@ type ResourceGathererOptions struct {
 	Nodes                             NodesSet
 	ResourceDataGatheringPeriod       time.Duration
 	MasterResourceDataGatheringPeriod time.Duration
-	PrintVerboseLogs                  bool
 }
 
 func isDaemonPod(pod *corev1.Pod) bool {
@@ -102,7 +101,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			wg:                          &g.workerWg,
 			finished:                    false,
 			resourceDataGatheringPeriod: options.ResourceDataGatheringPeriod,
-			printVerboseLogs:            options.PrintVerboseLogs,
 			host:                        host,
 			port:                        port,
 			provider:                    provider,
@@ -167,7 +165,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 					finished:                    false,
 					inKubemark:                  false,
 					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
-					printVerboseLogs:            options.PrintVerboseLogs,
 					port:                        port,
 				})
 			}

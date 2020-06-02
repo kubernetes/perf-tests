@@ -38,7 +38,6 @@ type resourceGatherWorker struct {
 	finished                    bool
 	inKubemark                  bool
 	resourceDataGatheringPeriod time.Duration
-	printVerboseLogs            bool
 	host                        string
 	port                        int
 	provider                    string
@@ -66,9 +65,7 @@ func (w *resourceGatherWorker) singleProbe() {
 		}
 		for k, v := range nodeUsage {
 			data[k] = v
-			if w.printVerboseLogs {
-				klog.Infof("Get container %v usage on node %v. CPUUsageInCores: %v, MemoryUsageInBytes: %v, MemoryWorkingSetInBytes: %v", k, w.nodeName, v.CPUUsageInCores, v.MemoryUsageInBytes, v.MemoryWorkingSetInBytes)
-			}
+			klog.V(3).Infof("Get container %v usage on node %v. CPUUsageInCores: %v, MemoryUsageInBytes: %v, MemoryWorkingSetInBytes: %v", k, w.nodeName, v.CPUUsageInCores, v.MemoryUsageInBytes, v.MemoryWorkingSetInBytes)
 		}
 	}
 	w.dataSeries = append(w.dataSeries, data)

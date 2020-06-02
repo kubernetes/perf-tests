@@ -33,6 +33,7 @@ type ClusterLoaderConfig struct {
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
 	KubeConfigPath             string
+	RunFromCluster             bool
 	Nodes                      int
 	Provider                   string
 	EtcdCertificatePath        string

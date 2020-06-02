@@ -18,12 +18,9 @@ package main
 
 import (
 	"fmt"
-	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"os"
 	"path"
 	"time"
-
-	"k8s.io/kubernetes/pkg/master/ports"
 
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
@@ -31,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -38,6 +36,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
+	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -61,7 +60,8 @@ var (
 )
 
 func initClusterFlags() {
-	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "KUBECONFIG", "", "Path to the kubeconfig file")
+	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "KUBECONFIG", "", "Path to the kubeconfig file (if not empty, --run-from-cluster must be false)")
+	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.RunFromCluster, "run-from-cluster", "RUN_FROM_CLUSTER", false, "Whether to use in-cluster client-config to create a client, --kubeconfig must be unset")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.KubeletPort, "kubelet-port", "KUBELET_PORT", ports.KubeletPort, "Port of the kubelet to use")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
@@ -83,9 +83,20 @@ func initClusterFlags() {
 
 func validateClusterFlags() *errors.ErrorList {
 	errList := errors.NewErrorList()
-	if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
-		errList.Append(fmt.Errorf("no kubeconfig path specified"))
+
+	// if '--run-from-cluster=true', create in-cluster config and validate kubeconfig is unset
+	// if '--run-from-cluster=false', use kubeconfig (and validate it is set)
+	switch clusterLoaderConfig.ClusterConfig.RunFromCluster {
+	case true:
+		if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" {
+			errList.Append(fmt.Errorf("unexpected kubeconfig path specified %q when --run-from-cluster is set", clusterLoaderConfig.ClusterConfig.KubeConfigPath))
+		}
+	case false:
+		if clusterLoaderConfig.ClusterConfig.KubeConfigPath == "" {
+			errList.Append(fmt.Errorf("no kubeconfig path specified when --run-from-cluster is unset"))
+		}
 	}
+
 	if clusterLoaderConfig.ClusterConfig.Provider == "kubemark" &&
 		clusterLoaderConfig.PrometheusConfig.EnableServer &&
 		clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath == "" {

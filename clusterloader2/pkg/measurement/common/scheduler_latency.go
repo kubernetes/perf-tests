@@ -270,7 +270,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
                 }
                 resp, err := client.Do(req)
                 if err != nil {
-                        return "", fmt.Errorf("unexpected error in http connection to master: %#v", err)
+                        return "", fmt.Errorf("unexpected error in http connection to scheduler master: %#v", err)
                 }
                 defer resp.Body.Close()
                 body, _ := ioutil.ReadAll(resp.Body)

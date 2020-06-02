@@ -34,4 +34,4 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
 fi
 
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
-./clusterloader --alsologtostderr "$@"
+./clusterloader --alsologtostderr --v=2 "$@"

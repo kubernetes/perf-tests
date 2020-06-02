@@ -55,7 +55,7 @@ func LogClusterNodes(c clientset.Interface) error {
 	if err != nil {
 		return err
 	}
-	klog.Infof("Listing cluster nodes:")
+	klog.V(2).Infof("Listing cluster nodes:")
 	for i := range nodeList {
 		var internalIP, externalIP string
 		isSchedulable := isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i])
@@ -67,7 +67,7 @@ func LogClusterNodes(c clientset.Interface) error {
 				externalIP = address.Address
 			}
 		}
-		klog.Infof("Name: %v, clusterIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
+		klog.V(2).Infof("Name: %v, clusterIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
 	}
 	return nil
 }

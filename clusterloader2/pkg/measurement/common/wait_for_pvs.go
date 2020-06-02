@@ -66,7 +66,6 @@ func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.Config) ([]
 	options := &measurementutil.WaitForPVOptions{
 		Selector:           selector,
 		DesiredPVCount:     desiredPVCount,
-		EnableLogging:      true,
 		CallerName:         w.String(),
 		WaitForPVsInterval: defaultWaitForPVsInterval,
 	}

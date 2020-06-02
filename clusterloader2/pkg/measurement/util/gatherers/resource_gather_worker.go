@@ -77,7 +77,7 @@ func (w *resourceGatherWorker) singleProbe() {
 func (w *resourceGatherWorker) gather(initialSleep time.Duration) {
 	defer utilruntime.HandleCrash()
 	defer w.wg.Done()
-	defer klog.Infof("Closing worker for %v", w.nodeName)
+	defer klog.V(2).Infof("Closing worker for %v", w.nodeName)
 	defer func() { w.finished = true }()
 	select {
 	case <-time.After(initialSleep):

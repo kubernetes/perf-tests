@@ -86,7 +86,6 @@ func SetUpExecService(f *framework.Framework) error {
 	options := &measurementutil.WaitForPodOptions{
 		Selector:            selector,
 		DesiredPodCount:     execPodReplicas,
-		EnableLogging:       true,
 		CallerName:          execServiceName,
 		WaitForPodsInterval: execPodCheckInterval,
 	}

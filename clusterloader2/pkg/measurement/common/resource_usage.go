@@ -112,7 +112,6 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 				Nodes:                             nodesSet,
 				ResourceDataGatheringPeriod:       60 * time.Second,
 				MasterResourceDataGatheringPeriod: 10 * time.Second,
-				PrintVerboseLogs:                  false,
 			}, nil)
 		if err != nil {
 			return nil, err

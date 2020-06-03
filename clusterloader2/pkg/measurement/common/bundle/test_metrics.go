@@ -80,6 +80,9 @@ func createTestMetricsMeasurment() measurement.Measurement {
 	if metrics.systemPodMetrics, err = measurement.CreateMeasurement("SystemPodMetrics"); err != nil {
 		klog.Errorf("%s: systemPodMetrics creation error: %v", metrics, err)
 	}
+	if metrics.clusterOOMsTracker, err = measurement.CreateMeasurement("ClusterOOMsTracker"); err != nil {
+		klog.Errorf("%v: clusterOOMsTracker creation error: %v", metrics, err)
+	}
 	return &metrics
 }
 
@@ -98,6 +101,7 @@ type testMetrics struct {
 	controllerManagerCPUProfile    measurement.Measurement
 	controllerManagerMemoryProfile measurement.Measurement
 	systemPodMetrics               measurement.Measurement
+	clusterOOMsTracker             measurement.Measurement
 }
 
 // Execute supports two actions. start - which sets up all metrics.
@@ -180,6 +184,8 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.clusterOOMsTracker, config)
+		appendResults(&summaries, errList, summary, err)
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
 		appendResults(&summaries, errList, summary, err)
@@ -208,6 +214,8 @@ func (t *testMetrics) Execute(config *measurement.MeasurementConfig) ([]measurem
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, err)
 		summary, err = execute(t.systemPodMetrics, config)
+		appendResults(&summaries, errList, summary, err)
+		summary, err = execute(t.clusterOOMsTracker, config)
 		appendResults(&summaries, errList, summary, err)
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)

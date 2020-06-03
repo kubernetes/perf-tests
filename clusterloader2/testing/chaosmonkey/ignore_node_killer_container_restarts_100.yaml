@@ -1,6 +1,6 @@
 RESTART_COUNT_THRESHOLD_OVERRIDES: |
   # Main purpose of this check is detection crashlooping pods.
-  # With enabled node killer pods runing on a killed node crash, and this is expected
+  # With enabled node killer pods running on a killed node crash, and this is expected
   coredns: 1
   fluentd-gcp: 1
   kube-proxy: 1

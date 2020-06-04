@@ -22,8 +22,6 @@ import (
 	"math"
 	"strings"
 	"time"
-        "net/http"
-        "io/ioutil"
 
 	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -257,24 +255,9 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		cmd := "curl -X " + opUpper + " http://localhost:10251/metrics"
 		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 		if err != nil || sshResult.Code != 0 {
-                        klog.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
-                } else {
-                        responseText = sshResult.Stdout
-                        return responseText, nil
+                        return "", fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
                 }
-                client := &http.Client{Timeout: 5 * time.Second}
-                cmd = fmt.Sprintf("http://%v:%v/metrics", masterName, ports.InsecureSchedulerPort)
-                req, err := http.NewRequest(opUpper, cmd, nil)
-                if err != nil {
-                        return "", err
-                }
-                resp, err := client.Do(req)
-                if err != nil {
-                        return "", fmt.Errorf("unexpected error in http connection to master: %#v", err)
-                }
-                defer resp.Body.Close()
-                body, _ := ioutil.ReadAll(resp.Body)
-                responseText = string(body)
+                responseText = sshResult.Stdout
         }
 	return responseText, nil
 }

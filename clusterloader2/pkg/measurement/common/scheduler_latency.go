@@ -255,10 +255,10 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		cmd := "curl -X " + opUpper + " http://localhost:10251/metrics"
 		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 		if err != nil || sshResult.Code != 0 {
-                        return "", fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
-                }
-                responseText = sshResult.Stdout
-        }
+			return "", fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
+		}
+		responseText = sshResult.Stdout
+	}
 	return responseText, nil
 }
 

@@ -80,8 +80,27 @@ func TestModifyOverwrite(t *testing.T) {
 				}},
 		},
 		{
+			overwrite: []string{"Namespace.Number=42"},
+			expected: &api.Config{
+				Name: "test-modifier",
+				Steps: []api.Step{{
+					Name: "eternal",
+				}},
+				Namespace: api.NamespaceConfig{
+					Number: 42,
+				}},
+		},
+		{
+			overwrite: []string{"Namespace.Number=214748364800"},
+			err:       "test config overwrite error: Cannot parse '214748364800' for key 'Namespace.Number' to int: strconv.ParseInt: parsing \"214748364800\": value out of range",
+		},
+		{
 			overwrite: []string{"NotExistingParameter=123"},
 			err:       "cannot overwrite config for key 'NotExistingParameter'. Path does not exist",
+		},
+		{
+			overwrite: []string{"NotAPair"},
+			err:       "not a key=value pair: 'NotAPair'",
 		},
 	}
 	for _, d := range testCase {

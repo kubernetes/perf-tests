@@ -58,6 +58,8 @@ type ClusterConfig struct {
 
 // ModifierConfig represent all flags used by test modification
 type ModifierConfig struct {
+	// A list of overwrites applied to each test config
+	OverwriteTestConfig []string
 	// A list of names of steps that should be ignored when executing test run
 	SkipSteps []string
 }

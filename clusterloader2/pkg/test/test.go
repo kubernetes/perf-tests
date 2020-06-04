@@ -62,7 +62,10 @@ func RunTest(clusterFramework, prometheusFramework *framework.Framework, cluster
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
-	modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig)
+
+	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
+		return errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
+	}
 
 	// TODO: remove them after the deprecated command options are removed.
 	if testConfig.Namespace.DeleteStaleNamespaces == nil {

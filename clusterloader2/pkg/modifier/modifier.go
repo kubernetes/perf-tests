@@ -17,7 +17,6 @@ limitations under the License.
 package modifier
 
 import (
-	"errors"
 	"fmt"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -54,8 +53,7 @@ var _ Modifier = &simpleModifier{}
 
 func (m *simpleModifier) ChangeTest(c *api.Config) error {
 	m.modifySkipSteps(c)
-	err := m.modifyOverwrite(c)
-	return err
+	return m.modifyOverwrite(c)
 }
 
 func (m *simpleModifier) modifySkipSteps(c *api.Config) {
@@ -80,9 +78,7 @@ func (m *simpleModifier) modifyOverwrite(c *api.Config) error {
 	for _, o := range m.overwriteTestConfig {
 		kv := strings.Split(o, "=")
 		if len(kv) != 2 {
-			errMsg := fmt.Sprintf("Not a key=value pair: %s", o)
-			klog.Error(errMsg)
-			return errors.New(errMsg)
+			return fmt.Errorf("not a key=value pair: '%s'", o)
 		}
 		k, v := kv[0], kv[1]
 
@@ -104,9 +100,9 @@ func (m *simpleModifier) modifyOverwrite(c *api.Config) error {
 				curValue = curValue.Elem()
 			}
 		}
-		e := m.overwriteValue(curValue, v, k)
-		if e != nil {
-			return e
+		err := m.overwriteValue(curValue, v, k)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -117,9 +113,7 @@ func (m *simpleModifier) overwriteValue(node reflect.Value, v, k string) error {
 	case reflect.Bool:
 		boolV, err := strconv.ParseBool(v)
 		if err != nil {
-			errMsg := fmt.Sprintf("test config overwrite error: Cannot parse '%s' for key '%s' to bool: %v", v, k, err)
-			klog.Error(errMsg)
-			return errors.New(errMsg)
+			return fmt.Errorf("test config overwrite error: Cannot parse '%s' for key '%s' to bool: %v", v, k, err)
 		}
 		klog.Infof("Setting bool value '%t' for key '%s'", boolV, k)
 		node.SetBool(boolV)
@@ -127,17 +121,14 @@ func (m *simpleModifier) overwriteValue(node reflect.Value, v, k string) error {
 		klog.Infof("Setting string value '%s' for key '%s'", v, k)
 		node.SetString(v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		intV, err := strconv.ParseInt(v, 10, 64)
+		intV, err := strconv.ParseInt(v, 10, node.Type().Bits())
 		if err != nil {
-			errMsg := fmt.Sprintf("test config overwrite error: Cannot parse '%s' for key '%s' to int: %v", v, k, err)
-			klog.Error(errMsg)
-			return errors.New(errMsg)
+			return fmt.Errorf("test config overwrite error: Cannot parse '%s' for key '%s' to int: %v", v, k, err)
 		}
 		klog.Infof("Setting int value '%d' for key '%s'", intV, k)
+		node.SetInt(intV)
 	default:
-		errMsg := fmt.Sprintf("Unsupported kind: %v for key %s", node.Kind(), k)
-		klog.Error(errMsg)
-		return errors.New(errMsg)
+		return fmt.Errorf("unsupported kind: %v for key %s", node.Kind(), k)
 	}
 	return nil
 }

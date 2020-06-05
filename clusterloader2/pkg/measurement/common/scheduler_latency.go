@@ -96,7 +96,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 		return nil, err
 	}
 
-	if !SSHToMasterSupported || !masterRegistered {
+	if !SSHToMasterSupported && !masterRegistered {
 		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider)
 		return nil, nil
 	}

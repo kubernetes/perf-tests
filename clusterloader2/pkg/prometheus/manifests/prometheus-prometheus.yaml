@@ -21,10 +21,10 @@ spec:
     requests:
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
       # TODO(oxddr): figure out memory limit
-      memory: 10Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      memory: 50Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
       {{else}}
       # Start with 2Gi and add 2Gi for each 2K nodes.
-      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      memory: 50Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
       {{end}}
   ruleSelector:
     matchLabels:
@@ -52,4 +52,4 @@ spec:
             # Start with 10Gi, add 10Gi for each 1K nodes.
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
   query:
-    maxSamples: 100000000
+    maxSamples: 1000000000

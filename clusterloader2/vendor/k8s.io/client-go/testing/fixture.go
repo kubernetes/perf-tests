@@ -18,9 +18,11 @@ package testing
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
-	"github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,7 +140,12 @@ func ObjectReaction(tracker ObjectTracker) ReactionFunc {
 			if err != nil {
 				return true, nil, err
 			}
-			// Only supports strategic merge patch and JSONPatch as coded.
+
+			// reset the object in preparation to unmarshal, since unmarshal does not guarantee that fields
+			// in obj that are removed by patch are cleared
+			value := reflect.ValueOf(obj)
+			value.Elem().Set(reflect.New(value.Type().Elem()).Elem())
+
 			switch action.GetPatchType() {
 			case types.JSONPatchType:
 				patch, err := jsonpatch.DecodePatch(action.GetPatch())
@@ -149,7 +156,17 @@ func ObjectReaction(tracker ObjectTracker) ReactionFunc {
 				if err != nil {
 					return true, nil, err
 				}
+
 				if err = json.Unmarshal(modified, obj); err != nil {
+					return true, nil, err
+				}
+			case types.MergePatchType:
+				modified, err := jsonpatch.MergePatch(old, action.GetPatch())
+				if err != nil {
+					return true, nil, err
+				}
+
+				if err := json.Unmarshal(modified, obj); err != nil {
 					return true, nil, err
 				}
 			case types.StrategicMergePatchType:
@@ -231,7 +248,7 @@ func (t *tracker) List(gvr schema.GroupVersionResource, gvk schema.GroupVersionK
 		return list, nil
 	}
 
-	matchingObjs, err := filterByNamespaceAndName(objs, ns, "")
+	matchingObjs, err := filterByNamespace(objs, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -265,9 +282,19 @@ func (t *tracker) Get(gvr schema.GroupVersionResource, ns, name string) (runtime
 		return nil, errNotFound
 	}
 
-	matchingObjs, err := filterByNamespaceAndName(objs, ns, name)
-	if err != nil {
-		return nil, err
+	var matchingObjs []runtime.Object
+	for _, obj := range objs {
+		acc, err := meta.Accessor(obj)
+		if err != nil {
+			return nil, err
+		}
+		if acc.GetNamespace() != ns {
+			continue
+		}
+		if acc.GetName() != name {
+			continue
+		}
+		matchingObjs = append(matchingObjs, obj)
 	}
 	if len(matchingObjs) == 0 {
 		return nil, errNotFound
@@ -301,6 +328,11 @@ func (t *tracker) Add(obj runtime.Object) error {
 	if err != nil {
 		return err
 	}
+
+	if partial, ok := obj.(*metav1.PartialObjectMetadata); ok && len(partial.TypeMeta.APIVersion) > 0 {
+		gvks = []schema.GroupVersionKind{partial.TypeMeta.GroupVersionKind()}
+	}
+
 	if len(gvks) == 0 {
 		return fmt.Errorf("no registered kinds for %v", obj)
 	}
@@ -450,10 +482,10 @@ func (t *tracker) Delete(gvr schema.GroupVersionResource, ns, name string) error
 	return errors.NewNotFound(gvr.GroupResource(), name)
 }
 
-// filterByNamespaceAndName returns all objects in the collection that
-// match provided namespace and name. Empty namespace matches
+// filterByNamespace returns all objects in the collection that
+// match provided namespace. Empty namespace matches
 // non-namespaced objects.
-func filterByNamespaceAndName(objs []runtime.Object, ns, name string) ([]runtime.Object, error) {
+func filterByNamespace(objs []runtime.Object, ns string) ([]runtime.Object, error) {
 	var res []runtime.Object
 
 	for _, obj := range objs {
@@ -462,9 +494,6 @@ func filterByNamespaceAndName(objs []runtime.Object, ns, name string) ([]runtime
 			return nil, err
 		}
 		if ns != "" && acc.GetNamespace() != ns {
-			continue
-		}
-		if name != "" && acc.GetName() != name {
 			continue
 		}
 		res = append(res, obj)

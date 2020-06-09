@@ -102,7 +102,15 @@ func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transit
 				klog.V(4).Infof("%s: failed to find %v time for %v", o.name, transition.To, key)
 				continue
 			}
-			lag = append(lag, latencyData{key: key, latency: toPhaseTime.Sub(fromPhaseTime)})
+			latencyTime := toPhaseTime.Sub(fromPhaseTime)
+			// latencyTime should be always larger than zero, however, in some cases, it might be a
+			// negative value due to the precision of timestamp can only get to the level of second,
+			// the microsecond and nanosecond have been discarded purposely in kubelet, this is
+			// because apiserver does not support RFC339NANO.
+			if latencyTime < 0 {
+				latencyTime = 0
+			}
+			lag = append(lag, latencyData{key: key, latency: latencyTime})
 		}
 
 		sort.Sort(LatencySlice(lag))

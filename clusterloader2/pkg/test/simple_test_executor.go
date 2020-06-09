@@ -19,10 +19,11 @@ package test
 import (
 	"fmt"
 	"io/ioutil"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"path"
 	"strings"
 	"time"
+
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -304,8 +305,13 @@ func (ste *simpleTestExecutor) ExecuteObject(ctx Context, object *api.Object, na
 	gvk := obj.GroupVersionKind()
 	switch operation {
 	case CREATE_OBJECT:
+		start := time.Now()
 		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
 			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+		}
+		if obj.GetKind() == "ConfigMap" {
+			elapsed := time.Since(start)
+			klog.Infof("CHAO: creating configmap %s cost %v", objName, elapsed)
 		}
 	case PATCH_OBJECT:
 		if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {

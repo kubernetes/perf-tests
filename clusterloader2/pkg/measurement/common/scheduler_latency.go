@@ -120,9 +120,12 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 	}
 
 	switch action {
+	case "start":
+		klog.Infof("%s: start collecting latency metrics in scheduler...", s)
+		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	case "reset":
 		klog.Infof("%s: resetting latency metrics in scheduler...", s)
-		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return nil, s.resetSchedulerMetrics(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	case "gather":
 		klog.Infof("%s: gathering latency metrics in scheduler...", s)
 		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)

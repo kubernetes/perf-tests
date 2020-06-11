@@ -143,6 +143,13 @@ func (*schedulerLatencyMeasurement) String() string {
 }
 
 func (s *schedulerLatencyMeasurement) resetSchedulerMetrics(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
+	s.e2eSchedulingDurationInitHist = measurementutil.NewHistogram(nil)
+	s.schedulingAlgorithmDurationInitHist = measurementutil.NewHistogram(nil)
+	s.preemptionEvaluationInitHist = measurementutil.NewHistogram(nil)
+	s.frameworkExtensionPointDurationInitHist = make(map[string]*measurementutil.Histogram)
+	for _, ePoint := range extentionsPoints {
+		s.frameworkExtensionPointDurationInitHist[ePoint] = measurementutil.NewHistogram(nil)
+	}
 	_, err := s.sendRequestToScheduler(c, "DELETE", host, provider, masterName, masterRegistered)
 	if err != nil {
 		return err

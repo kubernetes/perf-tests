@@ -81,6 +81,9 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.systemPodMetrics, err = measurement.CreateMeasurement("SystemPodMetrics"); err != nil {
 		klog.Errorf("%v: systemPodMetrics creation error: %v", metrics, err)
 	}
+	if metrics.clusterOOMsTracker, err = measurement.CreateMeasurement("ClusterOOMsTracker"); err != nil {
+		klog.Errorf("%v: clusterOOMsTracker creation error: %v", metrics, err)
+	}
 	return &metrics
 }
 
@@ -99,6 +102,7 @@ type testMetrics struct {
 	controllerManagerCPUProfile    measurement.Measurement
 	controllerManagerMemoryProfile measurement.Measurement
 	systemPodMetrics               measurement.Measurement
+	clusterOOMsTracker             measurement.Measurement
 }
 
 // Execute supports two actions. start - which sets up all metrics.
@@ -181,6 +185,8 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
+		summary, err = execute(t.clusterOOMsTracker, config)
+		appendResults(&summaries, errList, summary, executeError(t.clusterOOMsTracker.String(), action, err))
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdMetrics.String(), action, err))
@@ -210,6 +216,8 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
+		summary, err = execute(t.clusterOOMsTracker, config)
+		appendResults(&summaries, errList, summary, executeError(t.clusterOOMsTracker.String(), action, err))
 	default:
 		return summaries, fmt.Errorf("unknown action %v", action)
 	}

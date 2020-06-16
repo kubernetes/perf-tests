@@ -49,6 +49,9 @@
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 {{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+
 name: load
 automanagedNamespaces: {{$namespaces}}
 tuningSets:
@@ -367,6 +370,18 @@ steps:
     Params:
       action: gather
   {{end}}
+
+{{if $EXEC_COMMAND}}
+- name: Exec command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+{{end}}
 
 - name: Scaling and updating objects
   phases:

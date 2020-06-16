@@ -343,6 +343,29 @@ steps:
       action: gather
   {{end}}
 
+- name: Rolling upgrade
+  measurements:
+  - Identifier: Exec
+    Method: Exec
+    Params:
+      name: gcloud
+      args:
+      - container
+      - clusters
+      - upgrade
+      - --master
+      - --cluster-version=${CLUSTER_API_VERSION}
+      - --region=${REGION}
+      - -q
+      - ${CLUSTER_NAME}
+
+- name: Sleep
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 15m
+
 - name: Collecting measurements
   measurements:
   - Identifier: APIResponsivenessPrometheusSimple

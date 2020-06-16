@@ -22,9 +22,10 @@ spec:
     port: node-exporter
     scrapeTimeout: 20s
   {{end}}
-  - interval: 5s
+  - interval: 30s
     port: apiserver
     scheme: https
+    scrapeTimeout: 30s
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s

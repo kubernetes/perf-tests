@@ -70,15 +70,15 @@ func createSchedulerLatencyMeasurement() measurement.Measurement {
 	return &schedulerLatencyMeasurement{}
 }
 
-type schedulerLatencyMeasurement struct{
+type schedulerLatencyMeasurement struct {
 	initialLatency schedulerLatencyMetrics
 }
 
 type schedulerLatencyMetrics struct {
-	e2eSchedulingDurationHist  *measurementutil.Histogram
-	schedulingAlgorithmDurationHist  *measurementutil.Histogram
-	preemptionEvaluationHist  *measurementutil.Histogram
-	frameworkExtensionPointDurationHist  map[string]*measurementutil.Histogram
+	e2eSchedulingDurationHist           *measurementutil.Histogram
+	schedulingAlgorithmDurationHist     *measurementutil.Histogram
+	preemptionEvaluationHist            *measurementutil.Histogram
+	frameworkExtensionPointDurationHist map[string]*measurementutil.Histogram
 }
 
 // Execute supports two actions:
@@ -145,48 +145,49 @@ func (*schedulerLatencyMeasurement) String() string {
 
 // Retrieves scheduler latency metrics.
 func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
-	var scheduleMetrics schedulerLatencyMetrics
+	var schedulerMetrics schedulerLatencyMetrics
 	result := schedulingMetrics{
 		FrameworkExtensionPointDuration: make(map[string]*measurementutil.LatencyMetric),
 	}
 	for _, ePoint := range extentionsPoints {
 		result.FrameworkExtensionPointDuration[ePoint] = &measurementutil.LatencyMetric{}
 	}
-	scheduleMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
+
+	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
 	if err != nil {
 		return nil, err
 	}
 
-	for b,c := range scheduleMetrics.preemptionEvaluationHist.Buckets {
-		scheduleMetrics.preemptionEvaluationHist.Buckets[b] = c - s.initialLatency.e2eSchedulingDurationHist.Buckets[b]
+	for b, c := range schedulerMetrics.preemptionEvaluationHist.Buckets {
+		schedulerMetrics.preemptionEvaluationHist.Buckets[b] = c - s.initialLatency.e2eSchedulingDurationHist.Buckets[b]
 	}
-	for b,c := range scheduleMetrics.schedulingAlgorithmDurationHist.Buckets {
-		scheduleMetrics.schedulingAlgorithmDurationHist.Buckets[b] = c - s.initialLatency.schedulingAlgorithmDurationHist.Buckets[b]
+	for b, c := range schedulerMetrics.schedulingAlgorithmDurationHist.Buckets {
+		schedulerMetrics.schedulingAlgorithmDurationHist.Buckets[b] = c - s.initialLatency.schedulingAlgorithmDurationHist.Buckets[b]
 	}
-	for b,c := range scheduleMetrics.e2eSchedulingDurationHist.Buckets {
-		scheduleMetrics.e2eSchedulingDurationHist.Buckets[b] = c - s.initialLatency.e2eSchedulingDurationHist.Buckets[b]
+	for b, c := range schedulerMetrics.e2eSchedulingDurationHist.Buckets {
+		schedulerMetrics.e2eSchedulingDurationHist.Buckets[b] = c - s.initialLatency.e2eSchedulingDurationHist.Buckets[b]
 	}
 
 	for _, ep := range extentionsPoints {
-		for k, c := range scheduleMetrics.frameworkExtensionPointDurationHist[ep].Buckets {
-			scheduleMetrics.frameworkExtensionPointDurationHist[ep].Buckets[k] = c - s.initialLatency.frameworkExtensionPointDurationHist[ep].Buckets[k]
+		for k, c := range schedulerMetrics.frameworkExtensionPointDurationHist[ep].Buckets {
+			schedulerMetrics.frameworkExtensionPointDurationHist[ep].Buckets[k] = c - s.initialLatency.frameworkExtensionPointDurationHist[ep].Buckets[k]
 		}
 	}
 
-	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, scheduleMetrics.e2eSchedulingDurationHist); err != nil {
+	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, schedulerMetrics.e2eSchedulingDurationHist); err != nil {
 		return nil, err
 	}
-	if err := s.setQuantileFromHistogram(&result.SchedulingLatency, scheduleMetrics.schedulingAlgorithmDurationHist); err != nil {
+	if err := s.setQuantileFromHistogram(&result.SchedulingLatency, schedulerMetrics.schedulingAlgorithmDurationHist); err != nil {
 		return nil, err
 	}
 
 	for _, ePoint := range extentionsPoints {
-		if err := s.setQuantileFromHistogram(result.FrameworkExtensionPointDuration[ePoint], scheduleMetrics.frameworkExtensionPointDurationHist[ePoint]); err != nil {
+		if err := s.setQuantileFromHistogram(result.FrameworkExtensionPointDuration[ePoint], schedulerMetrics.frameworkExtensionPointDurationHist[ePoint]); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := s.setQuantileFromHistogram(&result.PreemptionEvaluationLatency, scheduleMetrics.preemptionEvaluationHist); err != nil {
+	if err := s.setQuantileFromHistogram(&result.PreemptionEvaluationLatency, schedulerMetrics.preemptionEvaluationHist); err != nil {
 		return nil, err
 	}
 
@@ -199,7 +200,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 }
 
 // Retrieves initial values of scheduler latency
-func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) (error) {
+func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
 	var err error
 	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
 	if err != nil {
@@ -210,40 +211,40 @@ func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.In
 
 // Get scheduler latency metrics
 func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host, provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
-	var scheduleMetrics schedulerLatencyMetrics
+	var schedulerMetrics schedulerLatencyMetrics
 	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, masterRegistered)
 	if err != nil {
-		return scheduleMetrics, err
+		return schedulerMetrics, err
 	}
 	samples, err := measurementutil.ExtractMetricSamples(data)
 	if err != nil {
-		return scheduleMetrics, err
+		return schedulerMetrics, err
 	}
 
-	scheduleMetrics.e2eSchedulingDurationHist = measurementutil.NewHistogram(nil)
-	scheduleMetrics.schedulingAlgorithmDurationHist = measurementutil.NewHistogram(nil)
-	scheduleMetrics.preemptionEvaluationHist = measurementutil.NewHistogram(nil)
-	scheduleMetrics.frameworkExtensionPointDurationHist = make(map[string]*measurementutil.Histogram)
+	schedulerMetrics.e2eSchedulingDurationHist = measurementutil.NewHistogram(nil)
+	schedulerMetrics.schedulingAlgorithmDurationHist = measurementutil.NewHistogram(nil)
+	schedulerMetrics.preemptionEvaluationHist = measurementutil.NewHistogram(nil)
+	schedulerMetrics.frameworkExtensionPointDurationHist = make(map[string]*measurementutil.Histogram)
 	for _, ePoint := range extentionsPoints {
-		scheduleMetrics.frameworkExtensionPointDurationHist[ePoint] = measurementutil.NewHistogram(nil)
+		schedulerMetrics.frameworkExtensionPointDurationHist[ePoint] = measurementutil.NewHistogram(nil)
 	}
 
 	for _, sample := range samples {
 		switch sample.Metric[model.MetricNameLabel] {
 		case e2eSchedulingDurationMetricName:
-			measurementutil.ConvertSampleToHistogram(sample, scheduleMetrics.e2eSchedulingDurationHist)
+			measurementutil.ConvertSampleToHistogram(sample, schedulerMetrics.e2eSchedulingDurationHist)
 		case schedulingAlgorithmDurationMetricName:
-			measurementutil.ConvertSampleToHistogram(sample, scheduleMetrics.schedulingAlgorithmDurationHist)
+			measurementutil.ConvertSampleToHistogram(sample, schedulerMetrics.schedulingAlgorithmDurationHist)
 		case frameworkExtensionPointDurationMetricName:
 			ePoint := string(sample.Metric["extension_point"])
-			if _, exists := scheduleMetrics.frameworkExtensionPointDurationHist[ePoint]; exists {
-				measurementutil.ConvertSampleToHistogram(sample, scheduleMetrics.frameworkExtensionPointDurationHist[ePoint])
+			if _, exists := schedulerMetrics.frameworkExtensionPointDurationHist[ePoint]; exists {
+				measurementutil.ConvertSampleToHistogram(sample, schedulerMetrics.frameworkExtensionPointDurationHist[ePoint])
 			}
 		case preemptionEvaluationMetricName:
-			measurementutil.ConvertSampleToHistogram(sample, scheduleMetrics.preemptionEvaluationHist)
+			measurementutil.ConvertSampleToHistogram(sample, schedulerMetrics.preemptionEvaluationHist)
 		}
 	}
-	return scheduleMetrics, nil
+	return schedulerMetrics, nil
 }
 
 // Set quantile of LatencyMetric from Histogram

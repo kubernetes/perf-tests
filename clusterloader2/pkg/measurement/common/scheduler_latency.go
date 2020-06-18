@@ -199,7 +199,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 	return []measurement.Summary{summary}, nil
 }
 
-// Retrieves initial values of scheduler latency
+// Retrieves initial values of scheduler latency metrics
 func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
 	var err error
 	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)

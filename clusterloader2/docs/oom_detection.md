@@ -10,6 +10,9 @@ Given that `ClusterOOMsTracker` is based on Kubernetes events and events are
 best effort by their nature, the reported summary is not guaranteed to
 accurately describe what really happened - some of the OOMs may be missed.
 
+In Kubemark tests cluster nodes are hollow and `node-problem-detector` is
+faked, so this will only track OOMs occuring in master components.
+
 ## Enabling OOMs tracking
 
 Firstly, ensure that the `TestMetrics` measurement is added to `Starting

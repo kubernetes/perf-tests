@@ -71,6 +71,11 @@ func GetMap(dict map[string]interface{}, key string) (map[string]interface{}, er
 	return getMap(dict, key)
 }
 
+// GetStringArray tries to return value from map of type map. If value doesn't exist, error is returned.
+func GetStringArray(dict map[string]interface{}, key string) ([]string, error) {
+	return getStringArray(dict, key)
+}
+
 // GetStringOrDefault tries to return value from map cast to string type. If value doesn't exist default value is used.
 func GetStringOrDefault(dict map[string]interface{}, key string, defaultValue string) (string, error) {
 	value, err := getString(dict, key)
@@ -127,6 +132,28 @@ func getMap(dict map[string]interface{}, key string) (map[string]interface{}, er
 		return nil, fmt.Errorf("type assertion error: %v is not a string", value)
 	}
 	return mapValue, nil
+}
+
+func getStringArray(dict map[string]interface{}, key string) ([]string, error) {
+	value, exists := dict[key]
+	if !exists || value == nil {
+		return nil, &ErrKeyNotFound{key}
+	}
+
+	sliceValue, ok := value.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("type assertion error: %v (%T) is not a []string", value, value)
+	}
+
+	var res []string
+	for _, val := range sliceValue {
+		valStr, ok := val.(string)
+		if !ok {
+			return nil, fmt.Errorf("type assertion error: %v is not a string", val)
+		}
+		res = append(res, valStr)
+	}
+	return res, nil
 }
 
 func getString(dict map[string]interface{}, key string) (string, error) {

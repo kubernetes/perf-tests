@@ -50,6 +50,9 @@
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
 
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+
 name: load
 namespace:
   number: {{$namespaces}}
@@ -339,6 +342,18 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+
+{{if $EXEC_COMMAND}}
+- name: Exec command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+{{end}}
 
 - name: Scaling and updating objects
   phases:

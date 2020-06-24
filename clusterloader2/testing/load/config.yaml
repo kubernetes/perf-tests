@@ -50,7 +50,7 @@
 {{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 
 # Command to be executed
-{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXEC_COMMAND := DefaultParam .CL2ARRAY_EXEC_COMMAND nil}}
 
 name: load
 automanagedNamespaces: {{$namespaces}}

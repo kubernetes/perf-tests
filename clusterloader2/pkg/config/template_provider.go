@@ -242,6 +242,17 @@ func LoadCL2Envs() (map[string]interface{}, error) {
 		key, value := split[0], split[1]
 		mapping[key] = value
 	}
+	for _, keyValue := range os.Environ() {
+		if !strings.HasPrefix(keyValue, "CL2ARRAY_") {
+			continue
+		}
+		split := strings.Split(keyValue, "=")
+		if len(split) != 2 {
+			return nil, goerrors.Errorf("unparsable string in os.Eviron(): %v", keyValue)
+		}
+		key, value := split[0], split[1]
+		mapping[key] = strings.Split(value, "?")
+	}
 	return mapping, nil
 }
 

@@ -58,6 +58,7 @@ type clusterOOMsTrackerMeasurement struct {
 	selector  *measurementutil.ObjectSelector
 	msgRegex  *regexp.Regexp
 	isRunning bool
+	startTime time.Time
 	stopCh    chan struct{}
 	oomsLock  sync.Mutex
 	ooms      []oomEvent
@@ -137,6 +138,7 @@ func (m *clusterOOMsTrackerMeasurement) start(c clientset.Interface) error {
 
 func (m *clusterOOMsTrackerMeasurement) initFields() {
 	m.isRunning = true
+	m.startTime = time.Now()
 	m.stopCh = make(chan struct{})
 	m.ooms = make([]oomEvent, 0)
 	m.selector = &measurementutil.ObjectSelector{
@@ -198,6 +200,10 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 		oom.Time = event.EventTime.Time
 	} else {
 		oom.Time = event.FirstTimestamp.Time
+	}
+	if m.startTime.After(oom.Time) {
+		// Do not record OOMs happening before test execution
+		return
 	}
 
 	if match := m.msgRegex.FindStringSubmatch(event.Message); len(match) == 4 {

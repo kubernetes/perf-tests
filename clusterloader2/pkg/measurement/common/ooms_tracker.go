@@ -19,13 +19,13 @@ package common
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -34,10 +34,11 @@ import (
 )
 
 const (
-	clusterOOMsTrackerEnabledParamName = "clusterOOMsTrackerEnabled"
-	clusterOOMsTrackerName             = "ClusterOOMsTracker"
-	informerTimeout                    = time.Minute
-	oomEventReason                     = "OOMKilling"
+	clusterOOMsTrackerEnabledParamName   = "clusterOOMsTrackerEnabled"
+	clusterOOMsTrackerName               = "ClusterOOMsTracker"
+	clusterOOMsIgnoredProcessesParamName = "clusterOOMsIgnoredProcesses"
+	informerTimeout                      = time.Minute
+	oomEventReason                       = "OOMKilling"
 )
 
 var (
@@ -55,12 +56,13 @@ func createClusterOOMsTrackerMeasurement() measurement.Measurement {
 }
 
 type clusterOOMsTrackerMeasurement struct {
-	msgRegex  *regexp.Regexp
-	isRunning bool
-	startTime time.Time
-	stopCh    chan struct{}
-	oomsLock  sync.Mutex
-	ooms      []oomEvent
+	msgRegex       *regexp.Regexp
+	isRunning      bool
+	startTime      time.Time
+	stopCh         chan struct{}
+	processIgnored map[string]bool
+	oomsLock       sync.Mutex
+	ooms           []oomEvent
 }
 
 // TODO: Reevaluate if we can add new fields here when node-problem-detector
@@ -90,18 +92,14 @@ func (m *clusterOOMsTrackerMeasurement) Execute(config *measurement.MeasurementC
 
 	switch action {
 	case "start":
-		if err = m.start(config.ClusterFramework.GetClientSets().GetClient()); err != nil {
+		if err = m.start(config); err != nil {
 			return nil, fmt.Errorf("starting cluster OOMs measurement problem: %w", err)
 		}
 		return nil, nil
 	case "gather":
 		m.oomsLock.Lock()
 		defer m.oomsLock.Unlock()
-		summary, err := m.gather()
-		if err != nil {
-			return nil, fmt.Errorf("gathering cluster OOMs measurement problem: %w", err)
-		}
-		return summary, m.validate()
+		return m.gather()
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -115,16 +113,18 @@ func (m *clusterOOMsTrackerMeasurement) String() string {
 	return clusterOOMsTrackerName
 }
 
-func (m *clusterOOMsTrackerMeasurement) start(c clientset.Interface) error {
+func (m *clusterOOMsTrackerMeasurement) start(config *measurement.MeasurementConfig) error {
 	if m.isRunning {
 		klog.Infof("%s: cluster OOMs tracking measurement already running", m)
 		return nil
 	}
 	klog.Infof("%s: starting cluster OOMs tracking measurement...", m)
-	m.initFields()
+	if err := m.initFields(config); err != nil {
+		return fmt.Errorf("problem with OOMs tracking measurement fields initialization: %w", err)
+	}
 	// Watching for OOM events from node-problem-detector below.
 	i := informer.NewInformer(
-		c,
+		config.ClusterFramework.GetClientSets().GetClient(),
 		"events",
 		metav1.NamespaceAll,
 		fields.Set{"reason": oomEventReason}.AsSelector().String(),
@@ -144,12 +144,24 @@ func (m *clusterOOMsTrackerMeasurement) start(c clientset.Interface) error {
 	return nil
 }
 
-func (m *clusterOOMsTrackerMeasurement) initFields() {
+func (m *clusterOOMsTrackerMeasurement) initFields(config *measurement.MeasurementConfig) error {
 	m.isRunning = true
 	m.startTime = time.Now()
 	m.stopCh = make(chan struct{})
-	m.ooms = make([]oomEvent, 0)
 	m.msgRegex = oomEventMsgRegex
+
+	ignoredProcessesString, err := util.GetStringOrDefault(config.Params, clusterOOMsIgnoredProcessesParamName, "")
+	if err != nil {
+		return err
+	}
+	m.processIgnored = make(map[string]bool)
+	if ignoredProcessesString != "" {
+		processNames := strings.Split(ignoredProcessesString, ",")
+		for _, processName := range processNames {
+			m.processIgnored[processName] = true
+		}
+	}
+	return nil
 }
 
 func (m *clusterOOMsTrackerMeasurement) stop() {
@@ -167,25 +179,33 @@ func (m *clusterOOMsTrackerMeasurement) gather() ([]measurement.Summary, error) 
 
 	m.stop()
 
-	content, err := util.PrettyPrintJSON(struct {
-		Ooms []oomEvent `json:"ooms"`
-	}{
-		Ooms: m.ooms,
-	})
+	oomData := make(map[string][]oomEvent)
+	oomData["failures"] = make([]oomEvent, 0)
+	oomData["past"] = make([]oomEvent, 0)
+	oomData["ignored"] = make([]oomEvent, 0)
 
+	for _, oom := range m.ooms {
+		if m.startTime.After(oom.Time) {
+			oomData["past"] = append(oomData["past"], oom)
+			continue
+		}
+		if m.processIgnored[oom.Process] {
+			oomData["ignored"] = append(oomData["ignored"], oom)
+			continue
+		}
+		oomData["failures"] = append(oomData["failures"], oom)
+	}
+
+	content, err := util.PrettyPrintJSON(oomData)
 	if err != nil {
 		return nil, fmt.Errorf("OOMs PrettyPrintJSON problem: %w", err)
 	}
 
 	summary := measurement.CreateSummary(clusterOOMsTrackerName, "json", content)
-	return []measurement.Summary{summary}, nil
-}
-
-func (m *clusterOOMsTrackerMeasurement) validate() error {
-	if len(m.ooms) == 0 {
-		return nil
+	if oomFailures := oomData["failures"]; len(oomFailures) > 0 {
+		err = fmt.Errorf("OOMs recorded: %+v", oomFailures)
 	}
-	return fmt.Errorf("OOMs recorded: %+v", m.ooms)
+	return []measurement.Summary{summary}, err
 }
 
 func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
@@ -204,10 +224,6 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 		oom.Time = event.EventTime.Time
 	} else {
 		oom.Time = event.FirstTimestamp.Time
-	}
-	if m.startTime.After(oom.Time) {
-		// Do not record OOMs happening before test execution
-		return
 	}
 
 	if match := m.msgRegex.FindStringSubmatch(event.Message); len(match) == 4 {

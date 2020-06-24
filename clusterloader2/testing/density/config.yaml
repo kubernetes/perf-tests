@@ -21,6 +21,7 @@
 {{$ENABLE_PROBES := DefaultParam .ENABLE_PROBES false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .ENABLE_CLUSTER_OOMS_TRACKER false}}
+{{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CLUSTER_OOMS_IGNORED_PROCESSES ""}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 #Variables
@@ -66,6 +67,7 @@ steps:
       resourceConstraints: {{$DENSITY_RESOURCE_CONSTRAINTS_FILE}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 

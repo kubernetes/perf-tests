@@ -31,6 +31,7 @@ Sample configuration in `Starting measurements` step:
       Params:
         action: start
         clusterOOMsTrackerEnabled: true
+        clusterOOMsIgnoredProcesses: ""
 ```
 
 Sample configuration in `Collecting measurements` step:
@@ -45,6 +46,12 @@ Sample configuration in `Collecting measurements` step:
         action: gather
         clusterOOMsTrackerEnabled: true
 ```
+
+In order to prevent certain OOMs from failing a clusterloader2 test, one can
+ignore certain processes reported by the `node-problem-detector`. To do so,
+set the value of `clusterOOMsIgnoredProcesses` TestMetrics parameter to a
+sequence of comma-separated processes names. The OOMs from the mentioned
+processes will still be included in the measurement summary.
 
 ## Further debugging steps
 

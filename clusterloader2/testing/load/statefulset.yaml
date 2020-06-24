@@ -1,3 +1,4 @@
+{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
 
 apiVersion: apps/v1
@@ -20,6 +21,7 @@ spec:
         group: load
         name: {{.Name}}
     spec:
+      hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}
         image: k8s.gcr.io/pause:3.1

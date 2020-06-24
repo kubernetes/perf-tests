@@ -1,3 +1,5 @@
+{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,6 +18,7 @@ spec:
         group: load
         name: {{.Name}}
     spec:
+      hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}
         # TODO(#799): We should test the "run-to-completion" workflow and hence don't use pause pods.

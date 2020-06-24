@@ -146,7 +146,7 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-// Helper function to substract two histograms
+// histogramSub is a helper function to substract two histograms
 func histogramSub(finalHist, initialHist *measurementutil.Histogram) *measurementutil.Histogram {
 	for k := range finalHist.Buckets {
 		finalHist.Buckets[k] = finalHist.Buckets[k] - initialHist.Buckets[k]
@@ -198,7 +198,7 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 	return result, nil
 }
 
-// Retrieves scheduler latency metrics.
+// getSchedulingLatency retrieves scheduler latency metrics.
 func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
 	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
 	if err != nil {
@@ -217,7 +217,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 	return []measurement.Summary{summary}, nil
 }
 
-// Retrieves initial values of scheduler latency metrics
+// getSchedulingInitialLatency retrieves initial values of scheduler latency metrics
 func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
 	var err error
 	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
@@ -227,7 +227,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.In
 	return nil
 }
 
-// Get scheduler latency metrics
+// getSchedulingMetrics gets scheduler latency metrics
 func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host, provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
 	e2eSchedulingDurationHist := measurementutil.NewHistogram(nil)
 	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
@@ -270,7 +270,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface
 	return latencyMetrics, nil
 }
 
-// Set quantile of LatencyMetric from Histogram
+// setQuantileFromHistogram sets quantile of LatencyMetric from Histogram
 func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measurementutil.Histogram) error {
 	quantiles := []float64{0.5, 0.9, 0.99}
 	for _, quantile := range quantiles {
@@ -288,7 +288,7 @@ func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measureme
 	return nil
 }
 
-// Sends request to kube scheduler metrics
+// sendRequestToScheduler sends request to kube scheduler metrics
 func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string, masterRegistered bool) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {

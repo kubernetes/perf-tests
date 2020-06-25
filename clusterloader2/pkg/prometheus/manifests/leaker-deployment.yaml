@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaker
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leaker
+  template:
+    metadata:
+      labels:
+        app: leaker
+    spec:
+      containers:
+      - image: gcr.io/k8s-testimages/leaker:v0.3
+        name: leaker
+        resources:
+          limits:
+            memory: 25Mi
+      nodeSelector:
+        beta.kubernetes.io/os: linux

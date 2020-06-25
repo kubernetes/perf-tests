@@ -55,8 +55,8 @@ func NewFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Fram
 // For clusters other than kubemark there is no difference between NewRootFramework and NewFramework.
 func NewRootFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*Framework, error) {
 	kubeConfigPath := clusterConfig.KubeConfigPath
-	if clusterConfig.Provider == "kubemark" {
-		kubeConfigPath = clusterConfig.KubemarkRootKubeConfigPath
+	if override := clusterConfig.Provider.GetConfig().RootFrameworkKubeConfigOverride(); override != "" {
+		kubeConfigPath = override
 	}
 	return newFramework(clusterConfig, clientsNumber, kubeConfigPath)
 }

@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 // ResourceUsage represents resources used by the kubemark.
@@ -32,7 +33,7 @@ type ResourceUsage struct {
 	CPUUsageInCores         float64
 }
 
-func getMasterUsageByPrefix(host, provider, prefix string) (string, error) {
+func getMasterUsageByPrefix(host string, provider provider.Provider, prefix string) (string, error) {
 	sshResult, err := util.SSH(fmt.Sprintf("ps ax -o %%cpu,rss,command | tail -n +2 | grep %v | sed 's/\\s+/ /g'", prefix), host+":22", provider)
 	if err != nil {
 		return "", err
@@ -42,7 +43,7 @@ func getMasterUsageByPrefix(host, provider, prefix string) (string, error) {
 
 // GetKubemarkMasterComponentsResourceUsage returns resource usage of the kubemark components.
 // TODO: figure out how to move this to kubemark directory (need to factor test SSH out of e2e framework)
-func GetKubemarkMasterComponentsResourceUsage(host, provider string) map[string]*ResourceUsage {
+func GetKubemarkMasterComponentsResourceUsage(host string, provider provider.Provider) map[string]*ResourceUsage {
 	result := make(map[string]*ResourceUsage)
 	// Get kubernetes component resource usage
 	sshResult, err := getMasterUsageByPrefix(host, provider, "kube")

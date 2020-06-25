@@ -31,6 +31,7 @@ import (
 	schedulermetric "k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -85,7 +86,8 @@ type schedulerLatencyMetrics struct {
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
 func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	SSHToMasterSupported := config.ClusterFramework.GetClusterConfig().SSHToMasterSupported
+	provider := config.ClusterFramework.GetClusterConfig().Provider
+	SSHToMasterSupported := provider.Features().SupportSSHToMaster
 
 	c := config.ClusterFramework.GetClientSets().GetClient()
 	nodes, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
@@ -100,13 +102,8 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 		}
 	}
 
-	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
-	if err != nil {
-		return nil, err
-	}
-
 	if !SSHToMasterSupported && !masterRegistered {
-		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider)
+		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider.Name())
 		return nil, nil
 	}
 
@@ -199,7 +196,7 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 }
 
 // getSchedulingLatency retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
 	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
 	if err != nil {
 		return nil, err
@@ -218,7 +215,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 }
 
 // getSchedulingInitialLatency retrieves initial values of scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host, provider, masterName string, masterRegistered bool) error {
+func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) error {
 	var err error
 	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
 	if err != nil {
@@ -228,7 +225,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.In
 }
 
 // getSchedulingMetrics gets scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host, provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
 	e2eSchedulingDurationHist := measurementutil.NewHistogram(nil)
 	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
 	preemptionEvaluationHist := measurementutil.NewHistogram(nil)
@@ -289,7 +286,7 @@ func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measureme
 }
 
 // sendRequestToScheduler sends request to kube scheduler metrics
-func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host, provider, masterName string, masterRegistered bool) (string, error) {
+func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host string, provider provider.Provider, masterName string, masterRegistered bool) (string, error) {
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")

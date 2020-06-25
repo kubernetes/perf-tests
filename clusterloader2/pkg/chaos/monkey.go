@@ -23,17 +23,18 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 // Monkey simulates kubernetes component failures
 type Monkey struct {
 	client     clientset.Interface
-	provider   string
+	provider   provider.Provider
 	nodeKiller *NodeKiller
 }
 
 // NewMonkey constructs a new Monkey object.
-func NewMonkey(client clientset.Interface, provider string) *Monkey {
+func NewMonkey(client clientset.Interface, provider provider.Provider) *Monkey {
 	return &Monkey{client: client, provider: provider}
 }
 

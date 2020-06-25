@@ -50,9 +50,9 @@ func (pc *Controller) isEnabled() (bool, error) {
 	if !*shouldSnapshotPrometheusDisk {
 		return false, nil
 	}
-	if pc.provider != "gce" && pc.provider != "gke" && pc.provider != "kubemark" {
+	if !pc.provider.Features().SupportSnapshotPrometheusDisk {
 		return false, fmt.Errorf(
-			"snapshotting Prometheus' disk only available for GCP providers (gce, gke, kubemark), provider is: %s", pc.provider)
+			"snapshotting Prometheus' disk only available for GCP providers (gce, gke, kubemark), provider is: %s", pc.provider.Name())
 	}
 	return true, nil
 }

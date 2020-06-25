@@ -18,6 +18,7 @@ package config
 
 import (
 	"k8s.io/perf-tests/clusterloader2/api"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 // ClusterLoaderConfig represents all single test run parameters used by CLusterLoader.
@@ -32,24 +33,20 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath             string
-	RunFromCluster             bool
-	Nodes                      int
-	Provider                   string
-	EtcdCertificatePath        string
-	EtcdKeyPath                string
-	EtcdInsecurePort           int
-	MasterIPs                  []string
-	MasterInternalIPs          []string
-	MasterName                 string
-	KubemarkRootKubeConfigPath string
+	KubeConfigPath      string
+	RunFromCluster      bool
+	Nodes               int
+	Provider            provider.Provider
+	EtcdCertificatePath string
+	EtcdKeyPath         string
+	EtcdInsecurePort    int
+	MasterIPs           []string
+	MasterInternalIPs   []string
+	MasterName          string
 	// Deprecated: use NamespaceConfig.DeleteStaleNamespaces instead.
 	DeleteStaleNamespaces bool
 	// Deprecated: use NamespaceConfig.DeleteAutomanagedNamespaces instead.
 	DeleteAutomanagedNamespaces bool
-	// SSHToMasterSupported determines whether SSH access to master machines is possible.
-	// If false (impossible for many  providers), ClusterLoader will skip operations requiring it.
-	SSHToMasterSupported bool
 	// APIServerPprofByClientEnabled determines whether kube-apiserver pprof endpoint can be accessed
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
 	APIServerPprofByClientEnabled bool

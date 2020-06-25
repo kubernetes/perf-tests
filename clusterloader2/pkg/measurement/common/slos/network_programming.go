@@ -52,7 +52,8 @@ func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	if !config.ClusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy {
 		return false
 	}
-	return config.CloudProvider != "kubemark"
+	// TODO(#1399): remove the dependency of provider name.
+	return config.CloudProvider.Name() != "kubemark"
 }
 
 func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {

@@ -18,7 +18,6 @@ package common
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
@@ -55,16 +54,13 @@ type metricsForE2EMeasurement struct{}
 
 // Execute gathers and prints e2e metrics data.
 func (m *metricsForE2EMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
-	if err != nil {
-		return nil, err
-	}
+	provider := config.ClusterFramework.GetClusterConfig().Provider
 
 	grabMetricsFromKubelets, err := util.GetBoolOrDefault(config.Params, "gatherKubeletsMetrics", false)
 	if err != nil {
 		return nil, err
 	}
-	grabMetricsFromKubelets = grabMetricsFromKubelets && strings.ToLower(provider) != "kubemark"
+	grabMetricsFromKubelets = grabMetricsFromKubelets && provider.Features().SupportGrabMetricsFromKubelets
 
 	grabber, err := metrics.NewMetricsGrabber(
 		config.ClusterFramework.GetClientSets().GetClient(),

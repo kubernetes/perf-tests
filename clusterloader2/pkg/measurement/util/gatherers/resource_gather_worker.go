@@ -26,6 +26,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubelet"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubemark"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 type resourceGatherWorker struct {
@@ -40,7 +41,7 @@ type resourceGatherWorker struct {
 	resourceDataGatheringPeriod time.Duration
 	host                        string
 	port                        int
-	provider                    string
+	provider                    provider.Provider
 }
 
 func (w *resourceGatherWorker) singleProbe() {

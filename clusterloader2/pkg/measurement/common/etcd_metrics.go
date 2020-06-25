@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -60,9 +61,10 @@ type etcdMetricsMeasurement struct {
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
 func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	provider := config.ClusterFramework.GetClusterConfig().Provider
 	// Etcd is only exposed on localhost level. We are using ssh method
-	if !config.ClusterFramework.GetClusterConfig().SSHToMasterSupported {
-		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider)
+	if !provider.Features().SupportSSHToMaster {
+		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider.Name())
 		return nil, nil
 	}
 
@@ -70,10 +72,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 	if err != nil {
 		return nil, err
 	}
-	provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
-	if err != nil {
-		return nil, err
-	}
+
 	hosts := config.ClusterFramework.GetClusterConfig().MasterIPs
 	if len(hosts) < 1 {
 		klog.Warningf("ETCD measurements will be disabled due to no MasterIps: %v", hosts)
@@ -122,7 +121,7 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval time.Duration, port int) {
+func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.Provider, interval time.Duration, port int) {
 	e.isRunning = true
 	e.wg.Add(1)
 
@@ -155,7 +154,7 @@ func (e *etcdMetricsMeasurement) startCollecting(host, provider string, interval
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port int) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider.Provider, port int) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
 	samples, err := e.getEtcdMetrics(host, provider, port)
@@ -188,7 +187,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host, provider string, port in
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.Provider, port int) ([]*model.Sample, error) {
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
 	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you
@@ -212,7 +211,7 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host, provider string, port int)
 	return e.sshEtcdMetrics(cmd, host, provider)
 }
 
-func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host string, provider provider.Provider) ([]*model.Sample, error) {
 	sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
@@ -224,7 +223,7 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host, provider string) ([]*
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host, provider string, port int) (float64, error) {
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provider.Provider, port int) (float64, error) {
 	samples, err := e.getEtcdMetrics(host, provider, port)
 	if err != nil {
 		return 0, err

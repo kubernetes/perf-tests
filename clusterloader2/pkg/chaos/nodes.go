@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 const (
@@ -43,9 +44,8 @@ const (
 
 // NodeKiller is a utility to simulate node failures.
 type NodeKiller struct {
-	config   api.NodeFailureConfig
-	client   clientset.Interface
-	provider string
+	config api.NodeFailureConfig
+	client clientset.Interface
 	// killedNodes stores names of the nodes that have been killed by NodeKiller.
 	killedNodes sets.String
 	recorder    *eventRecorder
@@ -82,12 +82,13 @@ func (r *eventRecorder) record(a nodeAction, nodeName string) {
 }
 
 // NewNodeKiller creates new NodeKiller.
-func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, provider string) (*NodeKiller, error) {
-	if provider != "gce" && provider != "gke" {
+func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, provider provider.Provider) (*NodeKiller, error) {
+	// TODO(#1399): node-killing code is provider specific, move it into provider
+	if !provider.Features().SupportNodeKiller {
 		return nil, fmt.Errorf("provider %q is not supported by NodeKiller", provider)
 	}
 	sshExecutor := &util.GCloudSSHExecutor{}
-	return &NodeKiller{config, client, provider, sets.NewString(), newEventRecorder(), sshExecutor}, nil
+	return &NodeKiller{config, client, sets.NewString(), newEventRecorder(), sshExecutor}, nil
 }
 
 // Run starts NodeKiller until stopCh is closed.

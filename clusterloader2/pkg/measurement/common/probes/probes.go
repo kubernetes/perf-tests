@@ -173,6 +173,13 @@ func (p *probesMeasurement) start(config *measurement.Config) error {
 		return err
 	}
 	if err := p.waitForProbesReady(config); err != nil {
+		if err.Error() == wait.ErrWaitTimeout.Error() {
+			// Start the measurement nonetheless as timing out during waiting for
+			// probe pods to be ready is almost always because of a small fraction
+			// of pods not visible via Prometheus.
+			p.startTime = time.Now()
+			return fmt.Errorf("%w (most probable reason: not all probe pods are visible via Prometheus)", err)
+		}
 		return err
 	}
 	p.startTime = time.Now()

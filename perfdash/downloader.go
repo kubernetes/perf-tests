@@ -26,11 +26,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
-// Downloader is the interface that gets a data from a predefined source.
-type Downloader interface {
-	getData() (MetricToBuildData, error)
-}
-
 // BuildData contains job name and a map from build number to perf data.
 type BuildData struct {
 	Builds  map[string][]perftype.DataItem `json:"builds"`
@@ -53,12 +48,12 @@ func serveHTTPObject(res http.ResponseWriter, req *http.Request, obj interface{}
 	if err != nil {
 		res.Header().Set("Content-type", "text/html")
 		res.WriteHeader(http.StatusInternalServerError)
-		res.Write([]byte(fmt.Sprintf("<h3>Internal Error</h3><p>%v", err)))
+		fmt.Fprintln(res, "<h3>Internal Error</h3><p>%v", err)
 		return
 	}
 	res.Header().Set("Content-type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(data)
+	fmt.Fprintln(res, data)
 }
 
 func getURLParam(req *http.Request, name string) (string, bool) {

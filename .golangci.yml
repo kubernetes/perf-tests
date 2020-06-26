@@ -6,6 +6,5 @@ linters:
   enable:
     - gofmt
     - golint
-    # TODO(oxddr): enable more checkers
-    # - deadcode
-    # - errcheck
+    - deadcode
+    - errcheck

@@ -232,5 +232,6 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 
 	m.oomsLock.Lock()
 	defer m.oomsLock.Unlock()
+	klog.Infof("OOM detected: %v", event)
 	m.ooms = append(m.ooms, oom)
 }

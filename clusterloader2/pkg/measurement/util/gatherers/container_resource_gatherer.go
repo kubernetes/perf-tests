@@ -41,6 +41,8 @@ const (
 	MasterNodes NodesSet = 1
 	// MasterAndDNSNodes - all containers on Master nodes and DNS containers on other nodes
 	MasterAndDNSNodes NodesSet = 2
+	// MasterAndNonDaemons - all containers on Master nodes and non-daemons on other nodes.
+	MasterAndNonDaemons NodesSet = 3
 )
 
 // ResourceUsageSummary represents summary of resource usage per container.
@@ -69,6 +71,15 @@ type ResourceGathererOptions struct {
 	ResourceDataGatheringPeriod time.Duration
 	ProbeDuration               time.Duration
 	PrintVerboseLogs            bool
+}
+
+func isDaemonPod(pod *corev1.Pod) bool {
+	controller := metav1.GetControllerOf(pod)
+	if controller == nil {
+		// If controller is unset, assume it's not a daemon pod.
+		return false
+	}
+	return controller.Kind == "DaemonSet" || controller.Kind == "Node"
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
@@ -103,12 +114,16 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 				return nil, fmt.Errorf("listing pods error: %v", err)
 			}
 		}
-		dnsNodes := make(map[string]bool)
+		nodesToConsider := make(map[string]bool)
+
 		for _, pod := range pods.Items {
 			if (options.Nodes == MasterNodes) && !system.IsMasterNode(pod.Spec.NodeName) {
 				continue
 			}
 			if (options.Nodes == MasterAndDNSNodes) && !system.IsMasterNode(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
+				continue
+			}
+			if (options.Nodes == MasterAndNonDaemons) && !system.IsMasterNode(pod.Spec.NodeName) && isDaemonPod(&pod) {
 				continue
 			}
 			for _, container := range pod.Status.InitContainerStatuses {
@@ -117,8 +132,8 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 			for _, container := range pod.Status.ContainerStatuses {
 				g.containerIDs = append(g.containerIDs, container.Name)
 			}
-			if options.Nodes == MasterAndDNSNodes {
-				dnsNodes[pod.Spec.NodeName] = true
+			if options.Nodes == MasterAndDNSNodes || options.Nodes == MasterAndNonDaemons {
+				nodesToConsider[pod.Spec.NodeName] = true
 			}
 		}
 		nodeList, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -127,7 +142,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 		}
 
 		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || dnsNodes[node.Name] {
+			if options.Nodes == AllNodes || system.IsMasterNode(node.Name) || nodesToConsider[node.Name] {
 				g.workerWg.Add(1)
 				g.workers = append(g.workers, resourceGatherWorker{
 					c:                           c,
@@ -141,9 +156,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host, provider string, opti
 					probeDuration:               options.ProbeDuration,
 					printVerboseLogs:            options.PrintVerboseLogs,
 				})
-				if options.Nodes == MasterNodes {
-					break
-				}
 			}
 		}
 	}

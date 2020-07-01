@@ -25,8 +25,6 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	ginkgoreporters "github.com/onsi/ginkgo/reporters"
 	ginkgotypes "github.com/onsi/ginkgo/types"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -50,6 +48,8 @@ import (
 const (
 	dashLine        = "--------------------------------------------------------------------------------"
 	nodesPerClients = 100
+	NodeExternalIP  = "ExternalIP"
+	NodeInternalIP  = "InternalIP"
 )
 
 var (
@@ -149,7 +149,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if len(clusterLoaderConfig.ClusterConfig.MasterIPs) == 0 {
-		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeExternalIP)
+		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeExternalIP) //NodeExternalIP
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIPs = masterIPs
 			klog.Infof("ClusterConfig.MasterIP set to %v", masterIPs)
@@ -158,7 +158,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if len(clusterLoaderConfig.ClusterConfig.MasterInternalIPs) == 0 {
-		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeInternalIP)
+		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeInternalIP) //NodeInternalIP
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterInternalIPs = masterIPs
 			klog.Infof("ClusterConfig.MasterInternalIP set to %v", masterIPs)
@@ -178,8 +178,8 @@ func completeConfig(m *framework.MultiClientSet) error {
 	return nil
 }
 
-func verifyCluster(c kubernetes.Interface) error {
-	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c)
+func verifyCluster(c *framework.MultiClientSet) error { //c kubernetes.Interface
+	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c.GetClient())
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func main() {
 		klog.Errorf("Nodes info logging error: %v", err)
 	}
 
-	if err = verifyCluster(mclient.GetClient()); err != nil {
+	if err = verifyCluster(mclient); err != nil {
 		klog.Exitf("Cluster verification error: %v", err)
 	}
 

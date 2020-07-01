@@ -5,14 +5,7 @@ linters:
   disable-all: true
   enable:
     - gofmt
-#    - gosimple
-#    - govet
-#    - ineffassign
-#    - staticcheck
-#    - structcheck
-    - typecheck
-#    - unused
-#    - varcheck
-#    - golint
-#    - deadcode
-#    - errcheck
+    # TODO(oxddr): enable more checkers
+    # - golint
+    # - deadcode
+    # - errcheck

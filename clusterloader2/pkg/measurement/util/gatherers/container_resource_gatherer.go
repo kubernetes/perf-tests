@@ -84,7 +84,7 @@ func isDaemonPod(pod *corev1.Pod) bool {
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
-func NewResourceUsageGatherer(c clientset.Interface, host string, port int, provider string, options ResourceGathererOptions, pods *corev1.PodList) (*ContainerResourceGatherer, error) {
+func NewResourceUsageGatherer(c clientset.Interface, host string, port int, provider string, options ResourceGathererOptions, namespace string) (*ContainerResourceGatherer, error) {
 	g := ContainerResourceGatherer{
 		client:       c,
 		isRunning:    true,
@@ -106,13 +106,9 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			provider:                    provider,
 		})
 	} else {
-		// Tracks kube-system pods if no valid PodList is passed in.
-		var err error
-		if pods == nil {
-			pods, err = c.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("listing pods error: %v", err)
-			}
+		pods, err := c.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("listing pods error: %v", err)
 		}
 
 		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})

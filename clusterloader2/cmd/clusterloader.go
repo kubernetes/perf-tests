@@ -149,7 +149,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if len(clusterLoaderConfig.ClusterConfig.MasterIPs) == 0 {
-		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeExternalIP) //NodeExternalIP
+		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeExternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIPs = masterIPs
 			klog.Infof("ClusterConfig.MasterIP set to %v", masterIPs)
@@ -158,7 +158,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		}
 	}
 	if len(clusterLoaderConfig.ClusterConfig.MasterInternalIPs) == 0 {
-		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeInternalIP) //NodeInternalIP
+		masterIPs, err := util.GetMasterIPs(m.GetClient(), NodeInternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterInternalIPs = masterIPs
 			klog.Infof("ClusterConfig.MasterInternalIP set to %v", masterIPs)
@@ -178,7 +178,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 	return nil
 }
 
-func verifyCluster(c *framework.MultiClientSet) error { //c kubernetes.Interface
+func verifyCluster(c *framework.MultiClientSet) error {
 	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c.GetClient())
 	if err != nil {
 		return err

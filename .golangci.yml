@@ -5,6 +5,14 @@ linters:
   disable-all: true
   enable:
     - gofmt
-    - golint
-    - deadcode
-    - errcheck
+#    - gosimple
+#    - govet
+#    - ineffassign
+#    - staticcheck
+#    - structcheck
+    - typecheck
+#    - unused
+#    - varcheck
+#    - golint
+#    - deadcode
+#    - errcheck

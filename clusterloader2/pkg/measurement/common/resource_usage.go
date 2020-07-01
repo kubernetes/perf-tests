@@ -74,6 +74,10 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		if err != nil {
 			return nil, err
 		}
+		namespace, err := util.GetStringOrDefault(config.Params, "namespace", "kube-system")
+		if err != nil {
+			return nil, err
+		}
 		constraintsPath, err := util.GetStringOrDefault(config.Params, "resourceConstraints", "")
 		if err != nil {
 			return nil, err
@@ -112,7 +116,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 				Nodes:                             nodesSet,
 				ResourceDataGatheringPeriod:       60 * time.Second,
 				MasterResourceDataGatheringPeriod: 10 * time.Second,
-			}, nil)
+			}, namespace)
 		if err != nil {
 			return nil, err
 		}

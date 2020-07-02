@@ -56,14 +56,15 @@ func createClusterOOMsTrackerMeasurement() measurement.Measurement {
 }
 
 type clusterOOMsTrackerMeasurement struct {
-	selector       *measurementutil.ObjectSelector
-	msgRegex       *regexp.Regexp
-	isRunning      bool
-	startTime      time.Time
-	stopCh         chan struct{}
-	processIgnored map[string]bool
-	oomsLock       sync.Mutex
-	ooms           []oomEvent
+	selector                *measurementutil.ObjectSelector
+	msgRegex                *regexp.Regexp
+	isRunning               bool
+	startTime               time.Time
+	stopCh                  chan struct{}
+	lock                    sync.Mutex
+	processIgnored          map[string]bool
+	resourceVersionRecorded map[string]bool
+	ooms                    []oomEvent
 }
 
 // TODO: Reevaluate if we can add new fields here when node-problem-detector
@@ -98,8 +99,8 @@ func (m *clusterOOMsTrackerMeasurement) Execute(config *measurement.MeasurementC
 		}
 		return nil, nil
 	case "gather":
-		m.oomsLock.Lock()
-		defer m.oomsLock.Unlock()
+		m.lock.Lock()
+		defer m.lock.Unlock()
 		return m.gather()
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
@@ -145,6 +146,7 @@ func (m *clusterOOMsTrackerMeasurement) initFields(config *measurement.Measureme
 		Namespace:     metav1.NamespaceAll,
 	}
 	m.msgRegex = oomEventMsgRegex
+	m.resourceVersionRecorded = make(map[string]bool)
 
 	ignoredProcessesString, err := util.GetStringOrDefault(config.Params, clusterOOMsIgnoredProcessesParamName, "")
 	if err != nil {
@@ -213,6 +215,18 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 		return
 	}
 
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if m.resourceVersionRecorded[event.ObjectMeta.ResourceVersion] {
+		// We are catching an OOM event with already recorded resource
+		// version which may happen on relisting the events when a watch
+		// breaks. Because of that, we do not want to register that
+		// OOM more than once.
+		return
+	}
+	m.resourceVersionRecorded[event.ObjectMeta.ResourceVersion] = true
+
 	oom := oomEvent{
 		Node: event.InvolvedObject.Name,
 	}
@@ -230,7 +244,5 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 		klog.Warningf(`unrecognized OOM event message pattern; event message contents: "%v"`, event.Message)
 	}
 
-	m.oomsLock.Lock()
-	defer m.oomsLock.Unlock()
 	m.ooms = append(m.ooms, oom)
 }

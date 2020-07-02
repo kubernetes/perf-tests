@@ -372,6 +372,12 @@ sum(
         ),
         yAxes=g.single_y_axis(format=g.BYTES_PER_SEC_FORMAT),
     ),
+    d.simple_graph(
+        "Webhook admission duration (99th percentile)",
+        "histogram_quantile(0.99, sum(rate(apiserver_admission_webhook_admission_duration_seconds_bucket[1m])) by (le, type, name))",
+        legend="{{type}}: {{name}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
 ]
 
 VM_PANELS = [

@@ -510,17 +510,19 @@ func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, reply *int) error {
 func serveRPCRequests(port string) {
 	baseObject := new(NetPerfRPC)
 	err := rpc.Register(baseObject)
-	if err == nil {
-		rpc.HandleHTTP()
-		listener, e := net.Listen("tcp", ":"+port)
-		if e != nil {
-			log.Fatal("listen error:", e)
-		}
-		err = http.Serve(listener, nil)
-		if err != nil {
-			log.Fatal("listen error:", err)
-		}
+	if err != nil {
+		log.Fatal("rpc register error:", err)
 	}
+	rpc.HandleHTTP()
+	listener, e := net.Listen("tcp", ":"+port)
+	if e != nil {
+		log.Fatal("listen error:", e)
+	}
+	err = http.Serve(listener, nil)
+	if err != nil {
+		log.Fatal("listen error:", err)
+	}
+
 }
 
 // Blocking RPC server start - only runs on the orchestrator

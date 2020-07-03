@@ -18,7 +18,7 @@ package tuningset
 
 import (
 	"context"
-	"log"
+	"k8s.io/klog"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,7 +62,7 @@ func (ql *globalQPSLoad) Execute(actions []func()) {
 	for i := range actions {
 		err := ql.limiter.Wait(context.TODO())
 		if err != nil {
-			log.Fatal("QPS load exec error ", err)
+			klog.Errorf("QPS load exec error: %v", err)
 		}
 		wg.Start(actions[i])
 	}

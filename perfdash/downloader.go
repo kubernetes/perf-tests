@@ -48,7 +48,7 @@ func serveHTTPObject(res http.ResponseWriter, req *http.Request, obj interface{}
 	if err != nil {
 		res.Header().Set("Content-type", "text/html")
 		res.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(res, "<h3>Internal Error</h3><p>%v", err)
+		fmt.Fprintln(res, "<h3>Internal Error</h3><p>", err)
 		return
 	}
 	res.Header().Set("Content-type", "application/json")

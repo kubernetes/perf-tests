@@ -56,12 +56,12 @@ type prometheusMeasurement struct {
 
 func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) ([]measurement.Summary, error) {
 	if config.PrometheusFramework == nil {
-		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", m)
+		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", config.Identifier)
 		return nil, nil
 	}
 
 	if !m.gatherer.IsEnabled(config) {
-		klog.Warningf("%s: disabled, skipping the measuerment!", m)
+		klog.Warningf("%s: disabled, skipping the measuerment!", config.Identifier)
 		return nil, nil
 	}
 
@@ -72,11 +72,11 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 
 	switch action {
 	case "start":
-		klog.Infof("%s has started", m)
+		klog.Infof("%s has started", config.Identifier)
 		m.startTime = time.Now()
 		return nil, nil
 	case "gather":
-		klog.Infof("%s gathering results", m)
+		klog.Infof("%s gathering results", config.Identifier)
 		enableViolations, err := util.GetBoolOrDefault(config.Params, "enableViolations", false)
 		if err != nil {
 			return nil, err
@@ -88,6 +88,7 @@ func (m *prometheusMeasurement) Execute(config *measurement.MeasurementConfig) (
 		summary, err := m.gatherer.Gather(executor, m.startTime, config)
 		if err != nil {
 			if !errors.IsMetricViolationError(err) {
+				klog.Errorf("%s gathering error: %v", config.Identifier, err)
 				return nil, err
 			}
 			if !enableViolations {

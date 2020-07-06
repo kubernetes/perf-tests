@@ -30,6 +30,7 @@
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$ALLOWED_SLOW_API_CALLS := DefaultParam .ALLOWED_SLOW_API_CALLS 0}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -76,10 +77,6 @@ chaosMonkey:
 steps:
 - name: Starting measurements
   measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
-    Params:
-      action: reset
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:
@@ -733,24 +730,20 @@ steps:
 
 - name: Collecting measurements
   measurements:
-  - Identifier: APIResponsiveness
-    Method: APIResponsiveness
-    Params:
-      action: gather
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
-      {{if $ENABLE_PROMETHEUS_API_RESPONSIVENESS}}
       enableViolations: true
-      {{end}}
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   {{if not $USE_SIMPLE_LATENCY_QUERY}}
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
   {{end}}
   - Identifier: PodStartupLatency
     Method: PodStartupLatency

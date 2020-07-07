@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"k8s.io/klog"
 	"net/http"
+	"os"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -59,7 +60,15 @@ func GetConfigsFromGithub(url string) ([]string, error) {
 
 func getGithubDirContents(url string) ([]githubDirContent, error) {
 	klog.Infof("Downloading github spec from %v", url)
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if token := os.Getenv("GITHUB_TOKEN"); len(token) != 0 {
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer: %s", token))
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error calling github API %s: %v", url, err)
 	}

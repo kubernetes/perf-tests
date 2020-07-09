@@ -10,37 +10,52 @@ metadata:
   namespace: monitoring
 spec:
   endpoints:
-  {{if $PROMETHEUS_SCRAPE_ETCD}}
   - interval: 5s
-    port: etcd-2379
-  - interval: 5s
-    port: etcd-2382
-  {{end}}
+    port: apiserver
+    path: /metrics/proxy/etcd-2379
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  # - interval: 5s
+  #   port: apiserver
+  #   path: /metrics/proxy/etcd-2382
+  #   scheme: https
+  #   tlsConfig:
+  #     insecureSkipVerify: true
   {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
   # TODO(mborsz): Debug why node-exporter is that slow and change interval back to 5s.
   - interval: 30s
     port: node-exporter
     scrapeTimeout: 20s
   {{end}}
-  - interval: 5s
+  - interval: 30s
     port: apiserver
     scheme: https
+    scrapeTimeout: 30s
     tlsConfig:
       insecureSkipVerify: true
+  # - interval: 5s
+  #   port: kubelet
+  #   scheme: https
+  #   tlsConfig:
+  #     insecureSkipVerify: true
+  # - interval: 5s
+  #   port: kubelet
+  #   path: /metrics/cadvisor
+  #   scheme: https
+  #   tlsConfig:
+  #     insecureSkipVerify: true
   - interval: 5s
-    port: kubelet
+    port: apiserver
+    path: /metrics/proxy/kube-scheduler
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
   - interval: 5s
-    port: kubelet
-    path: /metrics/cadvisor
+    port: apiserver
+    path: /metrics/proxy/kube-controller-manager
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-  - interval: 5s
-    port: kube-scheduler
-  - interval: 5s
-    port: kube-controller-manager
   selector:
     k8s-app: master

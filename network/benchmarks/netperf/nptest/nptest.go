@@ -565,6 +565,12 @@ func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 	time.Sleep(10 * time.Second)
 }
 
+// isIPv6: Determines if an address is an IPv6 address
+func isIPv6(address string) bool {
+	x := net.ParseIP(address)
+	return x != nil && x.To4() == nil && x.To16() != nil
+}
+
 // startWork : Entry point to the worker infinite loop
 func startWork() {
 	for true {
@@ -572,10 +578,15 @@ func startWork() {
 		var client *rpc.Client
 		var err error
 
+		address := host
+		if isIPv6(address) {
+			address = "[" + address + "]"
+		}
+
 		timeout = 5
 		for true {
 			fmt.Println("Attempting to connect to orchestrator at", host)
-			client, err = rpc.DialHTTP("tcp", host+":"+port)
+			client, err = rpc.DialHTTP("tcp", address+":"+port)
 			if err == nil {
 				break
 			}

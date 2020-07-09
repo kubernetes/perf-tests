@@ -224,7 +224,7 @@ func (pc *PrometheusController) exposeAPIServerMetrics() error {
 		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
 			Rules: []rbacv1.PolicyRule{
-				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
+				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics", "/metrics/*"}},
 			},
 		})
 		return err

@@ -34,39 +34,32 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
-// GoogleGCSDownloaderOptions is an options for GoogleGCSDownloader.
-type GoogleGCSDownloaderOptions struct {
+// DownloaderOptions is an options for Downloader.
+type DownloaderOptions struct {
 	ConfigPaths        []string
 	GithubConfigDirs   []string
 	DefaultBuildsCount int
-	LogsBucket         string
-	LogsPath           string
-	CredentialPath     string
 	// Development-only flag.
 	// Overrides build count from "perfDashBuildsCount" label with DefaultBuildsCount.
 	OverrideBuildCount bool
 }
 
-// GoogleGCSDownloader that gets data about Google results from the GCS repository.
-type GoogleGCSDownloader struct {
-	GoogleGCSBucketUtils *bucketUtil
-	Options              *GoogleGCSDownloaderOptions
+// Downloader that gets data about results from a storage service (GCS) repository.
+type Downloader struct {
+	MetricsBkt     MetricsBucket
+	Options        *DownloaderOptions
 }
 
-// NewGoogleGCSDownloader creates a new GoogleGCSDownloader.
-func NewGoogleGCSDownloader(opt *GoogleGCSDownloaderOptions) (*GoogleGCSDownloader, error) {
-	b, err := newBucketUtil(opt.LogsBucket, opt.LogsPath, opt.CredentialPath)
-	if err != nil {
-		return nil, err
+// NewDownloader creates a new Downloader.
+func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket) *Downloader {
+	return &Downloader{
+		MetricsBkt: bkt,
+		Options:    opt,
 	}
-	return &GoogleGCSDownloader{
-		GoogleGCSBucketUtils: b,
-		Options:              opt,
-	}, nil
 }
 
 // TODO(random-liu): Only download and update new data each time.
-func (g *GoogleGCSDownloader) getData() (JobToCategoryData, error) {
+func (g *Downloader) getData() (JobToCategoryData, error) {
 	configPaths := make([]string, len(g.Options.ConfigPaths))
 	copy(configPaths, g.Options.ConfigPaths)
 	for _, githubURL := range g.Options.GithubConfigDirs {
@@ -111,9 +104,9 @@ updates result with parsed metrics for a given prow job. Assumptions:
   {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is prepended to the category label,
   which allows comparing metrics across several runs in a given suite
 */
-func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
+func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()
-	buildNumbers, err := g.GoogleGCSBucketUtils.getBuildNumbersFromJenkinsGoogleBucket(job)
+	buildNumbers, err := g.MetricsBkt.GetBuildNumbers(job)
 	if err != nil {
 		panic(err)
 	}
@@ -133,7 +126,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 				for _, testDescription := range testDescriptions {
 					filePrefix := fmt.Sprintf("%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
 					searchPrefix := fmt.Sprintf("artifacts/%v", filePrefix)
-					artifacts, err := g.GoogleGCSBucketUtils.listFilesInBuild(job, buildNumber, searchPrefix)
+					artifacts, err := g.MetricsBkt.ListFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
 						klog.Errorf("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
 						continue
@@ -141,7 +134,7 @@ func (g *GoogleGCSDownloader) getJobData(wg *sync.WaitGroup, result JobToCategor
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
 						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
-						testDataResponse, err := g.GoogleGCSBucketUtils.getFileFromJenkinsGoogleBucket(job, buildNumber,
+						testDataResponse, err := g.MetricsBkt.GetFile(job, buildNumber,
 							fmt.Sprintf("artifacts/%v", metricsFileName))
 						if err != nil {
 							klog.Errorf("Error when reading response Body: %v", err)
@@ -182,13 +175,22 @@ func getBuildData(result JobToCategoryData, prefix string, category string, labe
 	return result[prefix][category][label]
 }
 
-type bucketUtil struct {
+// MetricsBucket is the interface that fetches data from a storage service.
+type MetricsBucket interface {
+	GetBuildNumbers(job string) ([]int, error)
+	ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error)
+	GetFile(job string, buildNumber int, path string) ([]byte, error)
+}
+
+// GCSMetricsBucket that creates a Google Cloud Storage client to fetch data.
+type GCSMetricsBucket struct {
 	client  *storage.Client
 	bucket  *storage.BucketHandle
 	logPath string
 }
 
-func newBucketUtil(bucket, path, credentialPath string) (*bucketUtil, error) {
+// NewGCSMetricsBucket creates a new GCSMetricsBucket.
+func NewGCSMetricsBucket(bucket, path, credentialPath string) (MetricsBucket, error) {
 	ctx := context.Background()
 	authOpt := option.WithoutAuthentication()
 	if credentialPath != "" {
@@ -199,14 +201,15 @@ func newBucketUtil(bucket, path, credentialPath string) (*bucketUtil, error) {
 		return nil, err
 	}
 	b := c.Bucket(bucket)
-	return &bucketUtil{
+	return &GCSMetricsBucket{
 		client:  c,
 		bucket:  b,
 		logPath: path,
 	}, nil
 }
 
-func (b *bucketUtil) getBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, error) {
+// GetBuildNumbers fetches the build numbers from a GCS Bucket.
+func (b *GCSMetricsBucket) GetBuildNumbers(job string) ([]int, error) {
 	var builds []int
 	ctx := context.Background()
 	jobPrefix := joinStringsAndInts(b.logPath, job) + "/"
@@ -237,7 +240,8 @@ func (b *bucketUtil) getBuildNumbersFromJenkinsGoogleBucket(job string) ([]int, 
 	return builds, nil
 }
 
-func (b *bucketUtil) listFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
+// ListFilesInBuild fetches the files in the build from GCS.
+func (b *GCSMetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
 	var files []string
 	ctx := context.Background()
 	jobPrefix := joinStringsAndInts(b.logPath, job, buildNumber, prefix)
@@ -258,7 +262,8 @@ func (b *bucketUtil) listFilesInBuild(job string, buildNumber int, prefix string
 	return files, nil
 }
 
-func (b *bucketUtil) getFileFromJenkinsGoogleBucket(job string, buildNumber int, path string) ([]byte, error) {
+// GetFile fetches the file from the GCS bucket.
+func (b *GCSMetricsBucket) GetFile(job string, buildNumber int, path string) ([]byte, error) {
 	ctx := context.Background()
 	filePath := joinStringsAndInts(b.logPath, job, buildNumber, path)
 	rc, err := b.bucket.Object(filePath).NewReader(ctx)

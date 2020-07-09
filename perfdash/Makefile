@@ -5,7 +5,7 @@ TAG = 2.25
 
 REPO = gcr.io/k8s-testimages
 
-test: perfdash.go parser.go config.go downloader.go google-gcs-downloader.go
+test: perfdash.go parser.go config.go metrics-downloader-helper.go metrics-downloader.go
 	go test
 
 perfdash: test
@@ -28,3 +28,4 @@ push: container
 
 clean:
 	rm -f perfdash
+

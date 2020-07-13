@@ -117,33 +117,6 @@ steps:
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 
-- name: Creating SVCs
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
-    tuningSet: Sequence
-    objectBundle:
-    - basename: big-service
-      objectTemplatePath: service.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
-    tuningSet: Sequence
-    objectBundle:
-    - basename: medium-service
-      objectTemplatePath: service.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
-    tuningSet: Sequence
-    objectBundle:
-    - basename: small-service
-      objectTemplatePath: service.yaml
-
 {{if $ENABLE_DAEMONSETS}}
 - name: Creating PriorityClass for DaemonSets
   phases:
@@ -699,33 +672,6 @@ steps:
         - basename: daemonset-priorityclass
           objectTemplatePath: daemonset-priorityclass.yaml
 {{end}}
-
-- name: Deleting SVCs
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Sequence
-    objectBundle:
-    - basename: big-service
-      objectTemplatePath: service.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Sequence
-    objectBundle:
-    - basename: medium-service
-      objectTemplatePath: service.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Sequence
-    objectBundle:
-    - basename: small-service
-      objectTemplatePath: service.yaml
 
 - name: Collecting measurements
   measurements:

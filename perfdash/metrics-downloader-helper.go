@@ -26,11 +26,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
-// Downloader is the interface that gets a data from a predefined source.
-type Downloader interface {
-	getData() (MetricToBuildData, error)
-}
-
 // BuildData contains job name and a map from build number to perf data.
 type BuildData struct {
 	Builds  map[string][]perftype.DataItem `json:"builds"`

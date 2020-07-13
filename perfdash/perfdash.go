@@ -33,7 +33,7 @@ const (
 	maxBuilds    = 100
 )
 
-var options = &GoogleGCSDownloaderOptions{}
+var options = &DownloaderOptions{}
 
 var (
 	addr   = pflag.String("address", ":8080", "The address to serve web data on")
@@ -43,18 +43,22 @@ var (
 	storageURL = pflag.String("storageURL", "https://prow.k8s.io/view/gcs", "Name of the data bucket")
 
 	globalConfig = make(map[string]string)
+
+	// Storage Service Bucket and Path flags
+	logsBucket = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
+	logsPath = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
+
+	// Google GCS Specific flags
+	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")
 )
 
-func initGoogleDownloaderOptions() {
+func initDownloaderOptions() {
 	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. "+
 		"This would override values defined by \"perfDashBuildsCount\" label on prow job")
 	pflag.IntVar(&options.DefaultBuildsCount, "builds", maxBuilds, "Total builds number")
 	pflag.StringArrayVar(&options.ConfigPaths, "configPath", []string{}, "Paths/urls to the prow config")
 	pflag.StringArrayVar(&options.GithubConfigDirs, "githubConfigDir", []string{}, "Github API url to the prow config directory, all configs from this dir will be used."+
 		"To specify more than one dir, this arg shall be specified multiple times, one time for each dir.")
-	pflag.StringVar(&options.CredentialPath, "credentialPath", "", "Path to the gcs credential json")
-	pflag.StringVar(&options.LogsBucket, "logsBucket", "kubernetes-jenkins", "Name of the data bucket")
-	pflag.StringVar(&options.LogsPath, "logsPath", "logs", "Path to the logs inside the logs bucket")
 }
 
 func main() {
@@ -67,7 +71,7 @@ func main() {
 }
 
 func run() error {
-	initGoogleDownloaderOptions()
+	initDownloaderOptions()
 	pflag.Parse()
 	initGlobalConfig()
 
@@ -76,10 +80,12 @@ func run() error {
 		options.DefaultBuildsCount = maxBuilds
 	}
 
-	downloader, err := NewGoogleGCSDownloader(options)
+	gcs, err := NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath)
 	if err != nil {
 		panic(err)
 	}
+
+	downloader := NewDownloader(options, gcs)
 	result := make(JobToCategoryData)
 
 	if !*www {
@@ -120,8 +126,8 @@ func run() error {
 }
 
 func initGlobalConfig() {
-	globalConfig["logsBucket"] = options.LogsBucket
-	globalConfig["logsPath"] = options.LogsPath
+	globalConfig["logsBucket"] = *logsBucket
+	globalConfig["logsPath"] = *logsPath
 	globalConfig["storageURL"] = *storageURL
 }
 

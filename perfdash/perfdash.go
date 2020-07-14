@@ -23,15 +23,17 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/klog"
-
 	"github.com/spf13/pflag"
+	"k8s.io/klog"
 )
 
 const (
 	pollDuration = 10 * time.Minute
 	errorDelay   = 10 * time.Second
 	maxBuilds    = 100
+
+	s3Mode  = "s3"
+	gcsMode = "gcs"
 )
 
 var options = &DownloaderOptions{}
@@ -51,9 +53,13 @@ var (
 
 	// Google GCS Specific flags
 	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")
+
+	// AWS S3 Specific flags
+	awsRegion = pflag.String("aws-region", "us-west-2", "AWS region of the S3 bucket")
 )
 
 func initDownloaderOptions() {
+	pflag.StringVar(&options.Mode, "mode", gcsMode, "Storage provider from which to download metrics from. Options are 's3' or 'gcs'. The default is 'gcs'.")
 	pflag.BoolVar(&options.OverrideBuildCount, "force-builds", false, "Whether to enforce number of builds to process as passed via --builds flag. "+
 		"This would override values defined by \"perfDashBuildsCount\" label on prow job")
 	pflag.IntVar(&options.DefaultBuildsCount, "builds", maxBuilds, "Total builds number")
@@ -81,12 +87,23 @@ func run() error {
 		options.DefaultBuildsCount = maxBuilds
 	}
 
-	gcs, err := NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath)
-	if err != nil {
-		panic(err)
+	var metricsBucket MetricsBucket
+	var err error
+
+	switch options.Mode {
+	case gcsMode:
+		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath)
+	case s3Mode:
+		metricsBucket, err = NewS3MetricsBucket(*logsBucket, *logsPath, *awsRegion)
+	default:
+		return fmt.Errorf("unexpected mode: %s", options.Mode)
 	}
 
-	downloader := NewDownloader(options, gcs)
+	if err != nil {
+		return fmt.Errorf("Error creating metrics bucket downloader: %v", err)
+	}
+
+	downloader := NewDownloader(options, metricsBucket)
 	result := make(JobToCategoryData)
 
 	if !*www {

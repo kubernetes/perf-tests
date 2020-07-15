@@ -116,6 +116,9 @@ steps:
       clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+  - Identifier: ObjectsPeriodicUpdates
+    Method: ObjectsPeriodicUpdates
+    Params: {}
 
 - name: Creating SVCs
   phases:

@@ -41,8 +41,6 @@ Images are stored in *gcr.io/k8s-testimages* project container registry.
 
 ## Local development
 
-First, ensure godep is installed using `go install github.com/tools/godep`.
-
 To test your changes locally, execute `make run`. It will build the binary and
 start perfdash website at <http://localhost:8080>. Note that it might take a
 short while for perfdash to start since it needs to fetch the job artifacts first.

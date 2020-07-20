@@ -19,10 +19,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/klog"
 	"net/http"
 	"os"
 	"time"
+
+	"k8s.io/klog"
 
 	"github.com/spf13/pflag"
 )
@@ -46,7 +47,7 @@ var (
 
 	// Storage Service Bucket and Path flags
 	logsBucket = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
-	logsPath = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
+	logsPath   = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
 
 	// Google GCS Specific flags
 	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")

@@ -20,13 +20,14 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/klog"
 	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"k8s.io/klog"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
@@ -46,8 +47,8 @@ type DownloaderOptions struct {
 
 // Downloader that gets data about results from a storage service (GCS) repository.
 type Downloader struct {
-	MetricsBkt     MetricsBucket
-	Options        *DownloaderOptions
+	MetricsBkt MetricsBucket
+	Options    *DownloaderOptions
 }
 
 // NewDownloader creates a new Downloader.

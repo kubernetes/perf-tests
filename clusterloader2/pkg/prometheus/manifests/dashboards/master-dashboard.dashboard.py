@@ -194,7 +194,7 @@ histogram_quantile(
     ),
     d.simple_graph(
         "etcd_disk_backend_commit_duration_seconds",
-        "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
+        "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[1m])) by (le, instance))",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(

@@ -2502,7 +2502,7 @@
                     "targets": [
                         {
                             "datasource": "",
-                            "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds[1m])) by (le, instance))",
+                            "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[1m])) by (le, instance))",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",

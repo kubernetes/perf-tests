@@ -104,10 +104,10 @@ func (p *podStartupLatencyMeasurement) String() string {
 
 func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	if p.isRunning {
-		klog.Infof("%s: pod startup latancy measurement already running", p)
+		klog.V(2).Infof("%s: pod startup latancy measurement already running", p)
 		return nil
 	}
-	klog.Infof("%s: starting pod startup latency measurement...", p)
+	klog.V(2).Infof("%s: starting pod startup latency measurement...", p)
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	i := informer.NewInformer(
@@ -127,7 +127,7 @@ func (p *podStartupLatencyMeasurement) stop() {
 }
 
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
-	klog.Infof("%s: gathering pod startup latency measurement...", p)
+	klog.V(2).Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
 	}

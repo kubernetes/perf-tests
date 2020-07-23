@@ -64,7 +64,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 	provider := config.ClusterFramework.GetClusterConfig().Provider
 	// Etcd is only exposed on localhost level. We are using ssh method
 	if !provider.Features().SupportSSHToMaster {
-		klog.Infof("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider.Name())
+		klog.Warningf("not grabbing etcd metrics through master SSH: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider.Name())
 		return nil, nil
 	}
 
@@ -82,7 +82,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
 	switch action {
 	case "start":
-		klog.Infof("%s: starting etcd metrics collecting...", e)
+		klog.V(2).Infof("%s: starting etcd metrics collecting...", e)
 		waitTime, err := util.GetDurationOrDefault(config.Params, "waitTime", time.Minute)
 		if err != nil {
 			return nil, err

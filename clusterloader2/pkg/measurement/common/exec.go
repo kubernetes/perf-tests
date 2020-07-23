@@ -68,12 +68,12 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 	for i := range command {
 		command[i] = os.ExpandEnv(command[i])
 	}
-	klog.Infof("Running %v with timeout %v", command, timeout)
+	klog.V(2).Infof("Running %v with timeout %v", command, timeout)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	out, err := cmd.CombinedOutput()
-	klog.Infof("output: %v", string(out))
+	klog.V(3).Infof("output: %v", string(out))
 	if err != nil {
 		return nil, fmt.Errorf("command %v failed: %v", command, err)
 	}

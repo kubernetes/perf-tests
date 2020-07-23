@@ -64,7 +64,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([
 	switch action {
 	case "start":
 		if s.isRunning {
-			klog.Infof("%s: measurement already running", s)
+			klog.V(3).Infof("%s: measurement already running", s)
 			return nil, nil
 		}
 		selector := measurementutil.NewObjectSelector()
@@ -104,7 +104,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
 	s.isRunning = true
-	klog.Infof("%s: starting collecting throughput data", s)
+	klog.V(2).Infof("%s: starting collecting throughput data", s)
 
 	go func() {
 		defer ps.Stop()
@@ -119,7 +119,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(measurmentInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
 				lastScheduledCount = podsStatus.Scheduled
-				klog.Infof("%v: %s: %d pods scheduled", s, selector.String(), lastScheduledCount)
+				klog.V(3).Infof("%v: %s: %d pods scheduled", s, selector.String(), lastScheduledCount)
 			}
 		}
 	}()
@@ -132,7 +132,7 @@ func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measureme
 		return nil, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
-	klog.Infof("%s: gathering data", s)
+	klog.V(2).Infof("%s: gathering data", s)
 
 	throughputSummary := &schedulingThroughput{}
 	if length := len(s.schedulingThroughputs); length > 0 {

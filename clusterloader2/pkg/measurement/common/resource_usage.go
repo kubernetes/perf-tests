@@ -106,7 +106,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 			nodesSet = gatherers.AllNodes
 		}
 
-		klog.Infof("%s: starting resource usage collecting...", e)
+		klog.V(2).Infof("%s: starting resource usage collecting...", e)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, config.ClusterFramework.GetClusterConfig().KubeletPort,
 			provider, gatherers.ResourceGathererOptions{
 				InKubemark:                        provider.Name() == "kubemark",
@@ -124,7 +124,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 			klog.Errorf("%s: gatherer not initialized", e)
 			return nil, nil
 		}
-		klog.Infof("%s: gathering resource usage...", e)
+		klog.V(2).Infof("%s: gathering resource usage...", e)
 		summary, err := e.gatherer.StopAndSummarize([]int{50, 90, 99, 100})
 		if err != nil {
 			return nil, err

@@ -103,7 +103,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 	}
 
 	if !SSHToMasterSupported && !masterRegistered {
-		klog.Infof("unable to fetch scheduler metrics for provider: %s", provider.Name())
+		klog.Warningf("unable to fetch scheduler metrics for provider: %s", provider.Name())
 		return nil, nil
 	}
 
@@ -122,13 +122,13 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 
 	switch action {
 	case "reset":
-		klog.Infof("%s: start collecting latency initial metrics in scheduler...", s)
+		klog.V(2).Infof("%s: start collecting latency initial metrics in scheduler...", s)
 		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	case "start":
-		klog.Infof("%s: start collecting latency metrics in scheduler...", s)
+		klog.V(2).Infof("%s: start collecting latency metrics in scheduler...", s)
 		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	case "gather":
-		klog.Infof("%s: gathering latency metrics in scheduler...", s)
+		klog.V(2).Infof("%s: gathering latency metrics in scheduler...", s)
 		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)

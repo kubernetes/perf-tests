@@ -154,7 +154,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 func (pc *Controller) SetUpPrometheusStack() error {
 	k8sClient := pc.framework.GetClientSets().GetClient()
 
-	klog.Info("Setting up prometheus stack")
+	klog.V(2).Info("Setting up prometheus stack")
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient)
 		return err
 	}
-	klog.Info("Prometheus stack set up successfully")
+	klog.V(2).Info("Prometheus stack set up successfully")
 	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
 		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
 	}
@@ -207,7 +207,7 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
 		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
 	}
-	klog.Info("Tearing down prometheus stack")
+	klog.V(2).Info("Tearing down prometheus stack")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
 		return err
@@ -236,7 +236,7 @@ func (pc *Controller) applyManifests(manifestGlob string) error {
 
 // exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
 func (pc *Controller) exposeAPIServerMetrics() error {
-	klog.Info("Exposing kube-apiserver metrics in the cluster")
+	klog.V(2).Info("Exposing kube-apiserver metrics in the cluster")
 	// We need to get a client to the cluster where the test is being executed on,
 	// not the cluster that the prometheus is running in. Usually, there is only
 	// once cluster, but in case of kubemark we have two and thus we need to
@@ -278,7 +278,7 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 // TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
 // when master nodes have configured networking.
 func (pc *Controller) runNodeExporter() error {
-	klog.Infof("Starting node-exporter on master nodes.")
+	klog.V(2).Infof("Starting node-exporter on master nodes.")
 	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
 	if err != nil {
 		return err
@@ -315,7 +315,7 @@ func (pc *Controller) runNodeExporter() error {
 }
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {
-	klog.Info("Waiting for Prometheus stack to become healthy...")
+	klog.V(2).Info("Waiting for Prometheus stack to become healthy...")
 	return wait.Poll(
 		checkPrometheusReadyInterval,
 		checkPrometheusReadyTimeout,
@@ -364,7 +364,7 @@ func (pc *Controller) isKubemark() bool {
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {
-	klog.Info("Dumping monitoring/prometheus-k8s events...")
+	klog.V(2).Info("Dumping monitoring/prometheus-k8s events...")
 	list, err := client.ListEvents(k8sClient, namespace, "prometheus-k8s")
 	if err != nil {
 		klog.Warningf("Error while listing monitoring/prometheus-k8s events: %v", err)
@@ -375,21 +375,21 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 		klog.Warningf("Error while marshalling response %v: %v", list, err)
 		return
 	}
-	klog.Info(string(s))
+	klog.V(2).Info(string(s))
 }
 
 func getMasterIps(clusterConfig config.ClusterConfig) ([]string, error) {
 	if len(clusterConfig.MasterInternalIPs) != 0 {
-		klog.Infof("Using internal master ips (%s) to monitor master's components", clusterConfig.MasterInternalIPs)
+		klog.V(2).Infof("Using internal master ips (%s) to monitor master's components", clusterConfig.MasterInternalIPs)
 		return clusterConfig.MasterInternalIPs, nil
 	}
-	klog.Infof("Unable to determine master ips from flags or registered nodes. Will fallback to default/kubernetes service, which can be inaccurate in HA environments.")
+	klog.V(1).Infof("Unable to determine master ips from flags or registered nodes. Will fallback to default/kubernetes service, which can be inaccurate in HA environments.")
 	ips, err := getMasterIpsFromKubernetesService(clusterConfig)
 	if err != nil {
 		klog.Warningf("Failed to translate default/kubernetes service to IP: %v", err)
 		return nil, fmt.Errorf("no ips are set, fallback to default/kubernetes service failed due to: %v", err)
 	}
-	klog.Infof("default/kubernetes service translated to: %v", ips)
+	klog.V(2).Infof("default/kubernetes service translated to: %v", ips)
 	return ips, nil
 }
 

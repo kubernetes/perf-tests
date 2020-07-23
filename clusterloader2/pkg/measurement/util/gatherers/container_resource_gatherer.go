@@ -189,7 +189,7 @@ func (g *ContainerResourceGatherer) StartGatheringData() {
 // generates resource summary for the passed-in percentiles, and returns the summary.
 func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*ResourceUsageSummary, error) {
 	g.stop()
-	klog.Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
+	klog.V(2).Infof("Closed stop channel. Waiting for %v workers", len(g.workers))
 	finished := make(chan struct{})
 	go func() {
 		g.workerWg.Wait()
@@ -197,7 +197,7 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*Resour
 	}()
 	select {
 	case <-finished:
-		klog.Infof("Waitgroup finished.")
+		klog.V(2).Infof("Waitgroup finished.")
 	case <-time.After(2 * time.Minute):
 		unfinished := make([]string, 0)
 		for i := range g.workers {
@@ -205,11 +205,11 @@ func (g *ContainerResourceGatherer) StopAndSummarize(percentiles []int) (*Resour
 				unfinished = append(unfinished, g.workers[i].nodeName)
 			}
 		}
-		klog.Infof("Timed out while waiting for waitgroup, some workers failed to finish: %v", unfinished)
+		klog.V(1).Infof("Timed out while waiting for waitgroup, some workers failed to finish: %v", unfinished)
 	}
 
 	if len(percentiles) == 0 {
-		klog.Infof("Warning! Empty percentile list for stopAndPrintData.")
+		klog.Warningf("Empty percentile list for stopAndPrintData.")
 		return &ResourceUsageSummary{}, fmt.Errorf("failed to get any resource usage data")
 	}
 	data := make(map[int]util.ResourceUsagePerContainer)

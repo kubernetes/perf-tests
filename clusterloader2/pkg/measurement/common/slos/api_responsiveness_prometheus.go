@@ -241,7 +241,7 @@ func getCustomThresholds(config *measurement.Config, metrics *apiCallMetrics) (c
 		}
 		key := entry.getKey()
 		if _, ok := metrics.metrics[key]; !ok {
-			klog.Infof("WARNING: unrecognized custom threshold API call key: %v", key)
+			klog.V(1).Infof("WARNING: unrecognized custom threshold API call key: %v", key)
 		} else {
 			customThresholds[key] = entry.Threshold
 		}
@@ -270,7 +270,7 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedS
 			if err != nil {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", identifier, prefix, *apiCall, threshold)
+			klog.V(2).Infof("%s: %vTop latency metric: %+v; threshold: %v", identifier, prefix, *apiCall, threshold)
 		}
 	}
 	return badMetrics

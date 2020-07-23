@@ -83,7 +83,7 @@ func (m *clusterOOMsTrackerMeasurement) Execute(config *measurement.Config) ([]m
 		return nil, fmt.Errorf("problem with getting %s param: %w", clusterOOMsTrackerEnabledParamName, err)
 	}
 	if !clusterOOMsTrackerEnabled {
-		klog.Info("skipping tracking of OOMs in the cluster")
+		klog.V(1).Info("skipping tracking of OOMs in the cluster")
 		return nil, nil
 	}
 
@@ -117,10 +117,10 @@ func (m *clusterOOMsTrackerMeasurement) String() string {
 
 func (m *clusterOOMsTrackerMeasurement) start(config *measurement.Config) error {
 	if m.isRunning {
-		klog.Infof("%s: cluster OOMs tracking measurement already running", m)
+		klog.V(2).Infof("%s: cluster OOMs tracking measurement already running", m)
 		return nil
 	}
-	klog.Infof("%s: starting cluster OOMs tracking measurement...", m)
+	klog.V(2).Infof("%s: starting cluster OOMs tracking measurement...", m)
 	if err := m.initFields(config); err != nil {
 		return fmt.Errorf("problem with OOMs tracking measurement fields initialization: %w", err)
 	}
@@ -170,7 +170,7 @@ func (m *clusterOOMsTrackerMeasurement) stop() {
 }
 
 func (m *clusterOOMsTrackerMeasurement) gather() ([]measurement.Summary, error) {
-	klog.Infof("%s: gathering cluster OOMs tracking measurement", clusterOOMsTrackerName)
+	klog.V(2).Infof("%s: gathering cluster OOMs tracking measurement", clusterOOMsTrackerName)
 	if !m.isRunning {
 		return nil, fmt.Errorf("measurement %s has not been started", clusterOOMsTrackerName)
 	}

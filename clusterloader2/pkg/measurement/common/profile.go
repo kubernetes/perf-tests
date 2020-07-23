@@ -161,7 +161,7 @@ func (p *profileMeasurement) Execute(config *measurement.Config) ([]measurement.
 	switch action {
 	case "start":
 		if p.isRunning {
-			klog.Infof("%s: measurement already running", p)
+			klog.V(2).Infof("%s: measurement already running", p)
 			return nil, nil
 		}
 		return nil, p.start(config, SSHToMasterSupported)
@@ -244,7 +244,7 @@ func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (stri
 }
 
 func exposeAPIServerDebugEndpoint(c clientset.Interface) error {
-	klog.Info("Exposing kube-apiserver debug endpoint for anonymous access")
+	klog.V(2).Info("Exposing kube-apiserver debug endpoint for anonymous access")
 	createClusterRole := func() error {
 		_, err := c.RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-debug-viewer"},

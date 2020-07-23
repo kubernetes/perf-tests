@@ -57,9 +57,9 @@ func SetUpExecService(f *framework.Framework) error {
 	lock.Lock()
 	defer lock.Unlock()
 	if podStore != nil {
-		klog.Infof("%s: service already running!", execServiceName)
+		klog.V(3).Infof("%s: service already running!", execServiceName)
 	}
-	klog.Infof("%v: setting up service!", execServiceName)
+	klog.V(2).Infof("%v: setting up service!", execServiceName)
 	mapping := make(map[string]interface{})
 	mapping["Name"] = execDeploymentName
 	mapping["Namespace"] = execDeploymentNamespace
@@ -96,7 +96,7 @@ func SetUpExecService(f *framework.Framework) error {
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
-	klog.Infof("%v: service set up successfully!", execServiceName)
+	klog.V(2).Infof("%v: service set up successfully!", execServiceName)
 	return nil
 }
 
@@ -104,7 +104,7 @@ func SetUpExecService(f *framework.Framework) error {
 func TearDownExecService(f *framework.Framework) error {
 	lock.Lock()
 	defer lock.Unlock()
-	klog.Infof("%v: tearing down service", execServiceName)
+	klog.V(2).Infof("%v: tearing down service", execServiceName)
 	if podStore != nil {
 		podStore.Stop()
 		podStore = nil

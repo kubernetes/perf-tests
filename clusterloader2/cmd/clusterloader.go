@@ -140,13 +140,13 @@ func completeConfig(m *framework.MultiClientSet) error {
 			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
 		clusterLoaderConfig.ClusterConfig.Nodes = nodes
-		klog.Infof("ClusterConfig.Nodes set to %v", nodes)
+		klog.V(0).Infof("ClusterConfig.Nodes set to %v", nodes)
 	}
 	if clusterLoaderConfig.ClusterConfig.MasterName == "" {
 		masterName, err := util.GetMasterName(m.GetClient())
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterName = masterName
-			klog.Infof("ClusterConfig.MasterName set to %v", masterName)
+			klog.V(0).Infof("ClusterConfig.MasterName set to %v", masterName)
 		} else {
 			klog.Errorf("Getting master name error: %v", err)
 		}
@@ -155,7 +155,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeExternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterIPs = masterIPs
-			klog.Infof("ClusterConfig.MasterIP set to %v", masterIPs)
+			klog.V(0).Infof("ClusterConfig.MasterIP set to %v", masterIPs)
 		} else {
 			klog.Errorf("Getting master external ip error: %v", err)
 		}
@@ -164,7 +164,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 		masterIPs, err := util.GetMasterIPs(m.GetClient(), corev1.NodeInternalIP)
 		if err == nil {
 			clusterLoaderConfig.ClusterConfig.MasterInternalIPs = masterIPs
-			klog.Infof("ClusterConfig.MasterInternalIP set to %v", masterIPs)
+			klog.V(0).Infof("ClusterConfig.MasterInternalIP set to %v", masterIPs)
 		} else {
 			klog.Errorf("Getting master internal ip error: %v", err)
 		}
@@ -207,13 +207,13 @@ func createReportDir() error {
 }
 
 func printTestStart(name string) {
-	klog.Infof(dashLine)
-	klog.Infof("Running %v", name)
-	klog.Infof(dashLine)
+	klog.V(0).Infof(dashLine)
+	klog.V(0).Infof("Running %v", name)
+	klog.V(0).Infof(dashLine)
 }
 
 func printTestResult(name, status, errors string) {
-	logf := klog.Infof
+	logf := klog.V(0).Infof
 	if errors != "" {
 		logf = klog.Errorf
 	}
@@ -253,7 +253,7 @@ func main() {
 		klog.Exitf("Config completing error: %v", err)
 	}
 
-	klog.Infof("Using config: %+v", clusterLoaderConfig)
+	klog.V(0).Infof("Using config: %+v", clusterLoaderConfig)
 
 	if err = createReportDir(); err != nil {
 		klog.Exitf("Cannot create report directory: %v", err)

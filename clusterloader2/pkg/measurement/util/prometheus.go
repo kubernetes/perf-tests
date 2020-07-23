@@ -106,7 +106,7 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 		"query": query,
 		"time":  queryTime.Format(time.RFC3339),
 	}
-	klog.Infof("Executing %q at %v", query, queryTime.Format(time.RFC3339))
+	klog.V(2).Infof("Executing %q at %v", query, queryTime.Format(time.RFC3339))
 	if err := wait.PollImmediate(queryInterval, queryTimeout, func() (bool, error) {
 		body, queryErr = e.client.CoreV1().
 			Services("monitoring").

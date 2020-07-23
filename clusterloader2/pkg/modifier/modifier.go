@@ -64,7 +64,7 @@ func (m *simpleModifier) modifySkipSteps(c *api.Config) {
 		for _, i := range m.skipSteps {
 			if i == s.Name {
 				ignored = true
-				klog.Infof("Ignoring step %s", s.Name)
+				klog.V(3).Infof("Ignoring step %s", s.Name)
 				break
 			}
 		}
@@ -115,17 +115,17 @@ func (m *simpleModifier) overwriteValue(node reflect.Value, v, k string) error {
 		if err != nil {
 			return fmt.Errorf("test config overwrite error: Cannot parse '%s' for key '%s' to bool: %v", v, k, err)
 		}
-		klog.Infof("Setting bool value '%t' for key '%s'", boolV, k)
+		klog.V(2).Infof("Setting bool value '%t' for key '%s'", boolV, k)
 		node.SetBool(boolV)
 	case reflect.String:
-		klog.Infof("Setting string value '%s' for key '%s'", v, k)
+		klog.V(2).Infof("Setting string value '%s' for key '%s'", v, k)
 		node.SetString(v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intV, err := strconv.ParseInt(v, 10, node.Type().Bits())
 		if err != nil {
 			return fmt.Errorf("test config overwrite error: Cannot parse '%s' for key '%s' to int: %v", v, k, err)
 		}
-		klog.Infof("Setting int value '%d' for key '%s'", intV, k)
+		klog.V(2).Infof("Setting int value '%d' for key '%s'", intV, k)
 		node.SetInt(intV)
 	default:
 		return fmt.Errorf("unsupported kind: %v for key %s", node.Kind(), k)

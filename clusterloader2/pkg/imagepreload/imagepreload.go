@@ -86,8 +86,8 @@ func (c *controller) PreloadImages() error {
 		klog.Warning("No images specified. Skipping image preloading")
 		return nil
 	}
-	if c.config.ClusterConfig.Provider == "kubemark" {
-		klog.Warning("Image preloading is disabled in kubemark")
+	if !c.config.ClusterConfig.Provider.Features().SupportImagePreload {
+		klog.Warningf("Image preloading is disabled in provider: %s", c.config.ClusterConfig.Provider.Name())
 		return nil
 	}
 

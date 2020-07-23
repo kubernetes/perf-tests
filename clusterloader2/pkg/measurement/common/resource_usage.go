@@ -62,10 +62,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 
 	switch action {
 	case "start":
-		provider, err := util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider)
-		if err != nil {
-			return nil, err
-		}
+		provider := config.ClusterFramework.GetClusterConfig().Provider
 		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIP())
 		if err != nil {
 			return nil, err
@@ -112,7 +109,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		klog.Infof("%s: starting resource usage collecting...", e)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, config.ClusterFramework.GetClusterConfig().KubeletPort,
 			provider, gatherers.ResourceGathererOptions{
-				InKubemark:                        strings.ToLower(provider) == "kubemark",
+				InKubemark:                        provider.Name() == "kubemark",
 				Nodes:                             nodesSet,
 				ResourceDataGatheringPeriod:       60 * time.Second,
 				MasterResourceDataGatheringPeriod: 10 * time.Second,

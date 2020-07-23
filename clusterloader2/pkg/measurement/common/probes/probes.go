@@ -98,8 +98,8 @@ type probesMeasurement struct {
 // - start - starts probes and sets up monitoring
 // - gather - Gathers and prints metrics.
 func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	if config.CloudProvider == "kubemark" {
-		klog.Infof("%s: Probes cannot work in Kubemark, skipping the measurement!", p)
+	if !config.CloudProvider.Features().SupportProbe {
+		klog.Infof("%s: Probes cannot work in %s, skipping the measurement!", p, config.CloudProvider.Name())
 		return nil, nil
 	}
 	if config.PrometheusFramework == nil {

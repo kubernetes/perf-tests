@@ -31,6 +31,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -54,7 +55,7 @@ func init() {
 
 type profileConfig struct {
 	componentName string
-	provider      string
+	provider      provider.Provider
 	hosts         []string
 	kind          string
 }
@@ -64,9 +65,7 @@ func (p *profileMeasurement) populateProfileConfig(config *measurement.Config) e
 	if p.config.componentName, err = util.GetString(config.Params, "componentName"); err != nil {
 		return err
 	}
-	if p.config.provider, err = util.GetStringOrDefault(config.Params, "provider", config.ClusterFramework.GetClusterConfig().Provider); err != nil {
-		return err
-	}
+	p.config.provider = config.ClusterFramework.GetClusterConfig().Provider
 	p.config.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
 	return nil
 }
@@ -145,11 +144,12 @@ func (p *profileMeasurement) stop() {
 
 // Execute gathers memory profile of a given component.
 func (p *profileMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	SSHToMasterSupported := config.ClusterFramework.GetClusterConfig().SSHToMasterSupported
+	provider := config.ClusterFramework.GetClusterConfig().Provider
+	SSHToMasterSupported := provider.Features().SupportSSHToMaster
 	APIServerPprofEnabled := config.ClusterFramework.GetClusterConfig().APIServerPprofByClientEnabled
 
 	if !SSHToMasterSupported && APIServerPprofEnabled {
-		klog.Warningf("fetching profile data from is not possible from provider: %s", p.config.provider)
+		klog.Warningf("fetching profile data from is not possible from provider: %s", provider.Name())
 		return nil, nil
 	}
 
@@ -226,11 +226,10 @@ func (p *profileMeasurement) shouldExposeAPIServerDebugEndpoint() bool {
 }
 
 func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (string, error) {
-	profilePort, err := getPortForComponent(p.config.componentName)
+	profileProtocol, profilePort, err := config.ClusterFramework.GetClusterConfig().Provider.GetComponentProtocolAndPort(p.config.componentName)
 	if err != nil {
-		return "", goerrors.Errorf("get profile command failed finding component port: %v", err)
+		return "", goerrors.Errorf("get profile command failed finding component protocol/port: %v", err)
 	}
-	profileProtocol := getProtocolForComponent(p.config.componentName)
 
 	var command string
 	if p.config.componentName == "etcd" {
@@ -242,31 +241,6 @@ func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (stri
 	}
 
 	return command, nil
-}
-
-func getPortForComponent(componentName string) (int, error) {
-	switch componentName {
-	case "etcd":
-		return 2379, nil
-	case "kube-apiserver":
-		return 443, nil
-	case "kube-controller-manager":
-		return 10252, nil
-	case "kube-scheduler":
-		return 10251, nil
-	}
-	return -1, fmt.Errorf("port for component %v unknown", componentName)
-}
-
-func getProtocolForComponent(componentName string) string {
-	switch componentName {
-	case "etcd":
-		return "https://"
-	case "kube-apiserver":
-		return "https://"
-	default:
-		return "http://"
-	}
 }
 
 func exposeAPIServerDebugEndpoint(c clientset.Interface) error {

@@ -37,6 +37,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -74,7 +75,7 @@ func ValidatePrometheusFlags(p *config.PrometheusConfig) *clerrors.ErrorList {
 type Controller struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	// provider is the cloud provider derived from the --provider flag.
-	provider string
+	provider provider.Provider
 	// framework associated with the cluster where the prometheus stack should be set up.
 	// For kubemark it's the root cluster, otherwise it's the main (and only) cluster.
 	framework *framework.Framework
@@ -115,7 +116,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		delete(mapping, "MasterIps")
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"]; !exists {
-		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider == "gke" || clusterLoaderConfig.ClusterConfig.Provider == "aks"
+		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
 	}
 	// TODO: Change to pure assignments when overrides are not used.
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ETCD"]; !exists {
@@ -358,7 +359,8 @@ func retryCreateFunction(f func() error) error {
 }
 
 func (pc *Controller) isKubemark() bool {
-	return pc.provider == "kubemark"
+	// TODO(#1399): we should not depend on provider name
+	return pc.provider.Name() == "kubemark"
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {

@@ -53,7 +53,7 @@ func setUpWindowsNodeAndTemplate(k8sClient kubernetes.Interface, mapping map[str
 }
 
 func isWindowsNodeScrapingEnabled(mapping map[string]interface{}, clusterLoaderConfig *config.ClusterLoaderConfig) bool {
-	if windowsNodeTest, exists := mapping["WINDOWS_NODE_TEST"]; exists && windowsNodeTest.(bool) && clusterLoaderConfig.ClusterConfig.Provider == "gce" {
+	if windowsNodeTest, exists := mapping["WINDOWS_NODE_TEST"]; exists && windowsNodeTest.(bool) && clusterLoaderConfig.ClusterConfig.Provider.Features().SupportWindowsNodeScraping {
 		return true
 	}
 	return false

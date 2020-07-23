@@ -38,6 +38,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
 	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
@@ -54,6 +55,7 @@ const (
 
 var (
 	clusterLoaderConfig config.ClusterLoaderConfig
+	providerInitOptions provider.InitOptions
 	testConfigPaths     []string
 	testOverridePaths   []string
 	testSuiteConfigPath string
@@ -64,7 +66,6 @@ func initClusterFlags() {
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.RunFromCluster, "run-from-cluster", "RUN_FROM_CLUSTER", false, "Whether to use in-cluster client-config to create a client, --kubeconfig must be unset")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.KubeletPort, "kubelet-port", "KUBELET_PORT", ports.KubeletPort, "Port of the kubelet to use")
-	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.Provider, "provider", "PROVIDER", "", "Cluster provider")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdCertificatePath, "etcd-certificate", "ETCD_CERTIFICATE", "/etc/srv/kubernetes/pki/etcd-apiserver-server.crt", "Path to the etcd certificate on the master machine")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdInsecurePort, "etcd-insecure-port", "ETCD_INSECURE_PORT", 2382, "Inscure http port")
@@ -76,9 +77,12 @@ func initClusterFlags() {
 	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
-	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
-		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
+
+	flags.StringEnvVar(&providerInitOptions.ProviderName, "provider", "PROVIDER", "", "Cluster provider name")
+	flags.StringSliceEnvVar(&providerInitOptions.ProviderConfigs, "provider-configs", "PROVIDER_CONFIGS", nil, "Cluster provider configurations")
+	flags.StringEnvVar(&providerInitOptions.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
+		"DEPRECATED: Please use provider-config=\"ROOT_KUBECONFIG=<value>\". Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 }
 
 func validateClusterFlags() *errors.ErrorList {
@@ -96,11 +100,10 @@ func validateClusterFlags() *errors.ErrorList {
 			errList.Append(fmt.Errorf("no kubeconfig path specified when --run-from-cluster is unset"))
 		}
 	}
-
-	if clusterLoaderConfig.ClusterConfig.Provider == "kubemark" &&
-		clusterLoaderConfig.PrometheusConfig.EnableServer &&
-		clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath == "" {
-		errList.Append(fmt.Errorf("no kubemark-root-kubeconfig path specified"))
+	if clusterLoaderConfig.PrometheusConfig.EnableServer {
+		if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportEnablePrometheusServer {
+			errList.Append(fmt.Errorf("cannot enable prometheus server for provider %s", clusterLoaderConfig.ClusterConfig.Provider.Name()))
+		}
 	}
 	return errList
 }
@@ -166,12 +169,8 @@ func completeConfig(m *framework.MultiClientSet) error {
 			klog.Errorf("Getting master internal ip error: %v", err)
 		}
 	}
-	if clusterLoaderConfig.ClusterConfig.Provider != "aks" &&
-		clusterLoaderConfig.ClusterConfig.Provider != "gke" &&
-		clusterLoaderConfig.ClusterConfig.Provider != "eks" {
-		clusterLoaderConfig.ClusterConfig.SSHToMasterSupported = true
-	}
-	if clusterLoaderConfig.ClusterConfig.Provider == "aks" {
+
+	if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportAccessAPIServerPprofEndpoint {
 		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
 	}
 	prometheus.CompleteConfig(&clusterLoaderConfig.PrometheusConfig)
@@ -234,6 +233,13 @@ func main() {
 	if err := flags.Parse(); err != nil {
 		klog.Exitf("Flag parse failed: %v", err)
 	}
+
+	provider, err := provider.NewProvider(&providerInitOptions)
+	if err != nil {
+		klog.Exitf("Error init provider: %v", err)
+	}
+	clusterLoaderConfig.ClusterConfig.Provider = provider
+
 	if errList := validateFlags(); !errList.IsEmpty() {
 		klog.Exitf("Parsing flags error: %v", errList.String())
 	}

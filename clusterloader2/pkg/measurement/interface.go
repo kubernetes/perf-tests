@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 // Config provides client and parameters required for the measurement execution.
@@ -38,7 +39,7 @@ type Config struct {
 
 	// Identifier identifies this instance of measurement.
 	Identifier    string
-	CloudProvider string
+	CloudProvider provider.Provider
 }
 
 // Measurement is an common interface for all measurements methods. It should be implemented by the user to

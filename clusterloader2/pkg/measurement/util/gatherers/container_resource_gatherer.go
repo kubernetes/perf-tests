@@ -30,6 +30,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	pkgutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -84,7 +85,7 @@ func isDaemonPod(pod *corev1.Pod) bool {
 }
 
 // NewResourceUsageGatherer creates new instance of ContainerResourceGatherer
-func NewResourceUsageGatherer(c clientset.Interface, host string, port int, provider string, options ResourceGathererOptions, namespace string) (*ContainerResourceGatherer, error) {
+func NewResourceUsageGatherer(c clientset.Interface, host string, port int, provider provider.Provider, options ResourceGathererOptions, namespace string) (*ContainerResourceGatherer, error) {
 	g := ContainerResourceGatherer{
 		client:       c,
 		isRunning:    true,

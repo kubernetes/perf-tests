@@ -78,7 +78,21 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 		if err != nil {
 			klog.Warningf("error while getting threshold param: %v", err)
 		}
-		return s.gather(threshold)
+		enableViolations, err := util.GetBoolOrDefault(config.Params, "enableViolations", true)
+		if err != nil {
+			klog.Warningf("error while getting enableViolations param: %v", err)
+		}
+		summary, err := s.gather(threshold)
+		if err != nil {
+			if !errors.IsMetricViolationError(err) {
+				klog.Errorf("%s gathering error: %v", config.Identifier, err)
+				return nil, err
+			}
+			if !enableViolations {
+				err = nil
+			}
+		}
+		return summary, err
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -124,7 +138,7 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 
 func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measurement.Summary, error) {
 	if !s.isRunning {
-		klog.Errorf("%s: measurementis nor running", s)
+		klog.Errorf("%s: measurement is not running", s)
 		return nil, fmt.Errorf("measurement is not running")
 	}
 	s.stop()

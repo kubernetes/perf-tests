@@ -46,8 +46,8 @@ type DownloaderOptions struct {
 
 // Downloader that gets data about results from a storage service (GCS) repository.
 type Downloader struct {
-	MetricsBkt     MetricsBucket
-	Options        *DownloaderOptions
+	MetricsBkt MetricsBucket
+	Options    *DownloaderOptions
 }
 
 // NewDownloader creates a new Downloader.

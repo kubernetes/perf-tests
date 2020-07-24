@@ -46,7 +46,7 @@ var (
 
 	// Storage Service Bucket and Path flags
 	logsBucket = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
-	logsPath = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
+	logsPath   = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
 
 	// Google GCS Specific flags
 	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")

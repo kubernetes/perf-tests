@@ -72,11 +72,11 @@ func (m *prometheusMeasurement) Execute(config *measurement.Config) ([]measureme
 
 	switch action {
 	case "start":
-		klog.Infof("%s has started", config.Identifier)
+		klog.V(2).Infof("%s has started", config.Identifier)
 		m.startTime = time.Now()
 		return nil, nil
 	case "gather":
-		klog.Infof("%s gathering results", config.Identifier)
+		klog.V(2).Infof("%s gathering results", config.Identifier)
 		enableViolations, err := util.GetBoolOrDefault(config.Params, "enableViolations", false)
 		if err != nil {
 			return nil, err

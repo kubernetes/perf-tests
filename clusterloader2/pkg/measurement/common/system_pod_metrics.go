@@ -80,7 +80,7 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]mea
 		return nil, err
 	}
 	if !systemPodMetricsEnabled {
-		klog.Info("skipping collection of system pod metrics")
+		klog.V(2).Info("skipping collection of system pod metrics")
 		return []measurement.Summary{}, nil
 	}
 
@@ -122,7 +122,7 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]mea
 }
 
 func getPodMetrics(config *measurement.Config) (*systemPodsMetrics, error) {
-	klog.Info("collecting system pod metrics...")
+	klog.V(2).Info("collecting system pod metrics...")
 	lst, err := getPodList(config.ClusterFramework.GetClientSets().GetClient())
 	if err != nil {
 		return &systemPodsMetrics{}, err
@@ -226,7 +226,7 @@ func getThresholdOverrides(config *measurement.Config) (map[string]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	klog.Infof("Loaded restart count threshold overrides: %v", parsed)
+	klog.V(2).Infof("Loaded restart count threshold overrides: %v", parsed)
 	return parsed, nil
 }
 

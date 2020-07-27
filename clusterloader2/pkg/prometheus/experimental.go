@@ -68,7 +68,7 @@ func (pc *Controller) cachePrometheusDiskMetadataIfEnabled() error {
 }
 
 func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
-	klog.Info("Retrieving Prometheus' persistent disk metadata...")
+	klog.V(2).Info("Retrieving Prometheus' persistent disk metadata...")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	list, err := k8sClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -84,20 +84,20 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 		if pv.Status.Phase != corev1.VolumeBound {
 			continue
 		}
-		klog.Infof("Found Prometheus' PV with name: %s", pv.Name)
+		klog.V(2).Infof("Found Prometheus' PV with name: %s", pv.Name)
 		pdName = pv.Spec.GCEPersistentDisk.PDName
 		zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
-		klog.Infof("PD name=%s, zone=%s", pdName, zone)
+		klog.V(2).Infof("PD name=%s, zone=%s", pdName, zone)
 	}
 	if pdName == "" || zone == "" {
 		klog.Warningf("missing zone or PD name, aborting")
-		klog.Info("PV list was:")
+		klog.V(2).Info("PV list was:")
 		s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)
 		if err != nil {
 			klog.Warningf("Error while marshalling response %v: %v", list, err)
 			return true, err
 		}
-		klog.Info(string(s))
+		klog.V(2).Info(string(s))
 		return true, nil
 	}
 	pc.diskMetadata.name = pdName
@@ -111,7 +111,7 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
 	}
 	if pc.diskMetadata.name == "" || pc.diskMetadata.zone == "" {
 		klog.Errorf("Missing zone or PD name, aborting snapshot")
-		klog.Infof("PD name=%s, zone=%s", pc.diskMetadata.name, pc.diskMetadata.zone)
+		klog.V(2).Infof("PD name=%s, zone=%s", pc.diskMetadata.name, pc.diskMetadata.zone)
 		return fmt.Errorf("missing zone or PD name, aborting snapshot")
 	}
 	// Select snapshot name
@@ -138,20 +138,20 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
 }
 
 func (pc *Controller) trySnapshotPrometheusDisk(pdName, snapshotName, zone string) error {
-	klog.Info("Trying to snapshot Prometheus' persistent disk...")
+	klog.V(2).Info("Trying to snapshot Prometheus' persistent disk...")
 	project := pc.clusterLoaderConfig.PrometheusConfig.SnapshotProject
 	if project == "" {
 		// This should never happen when run from kubetest with a GCE/GKE Kubernetes
 		// provider - kubetest always propagates PROJECT env var in such situations.
 		return fmt.Errorf("unknown project - please set --experimental-snapshot-project flag")
 	}
-	klog.Infof("Snapshotting PD %q into snapshot %q in project %q in zone %q", pdName, snapshotName, project, zone)
+	klog.V(2).Infof("Snapshotting PD %q into snapshot %q in project %q in zone %q", pdName, snapshotName, project, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "snapshot", pdName, "--project", project, "--zone", zone, "--snapshot-names", snapshotName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("creating disk snapshot failed: %v\nCommand output: %q", err, string(output))
 	}
-	klog.Infof("Creating disk snapshot finished with: %q", string(output))
+	klog.V(2).Infof("Creating disk snapshot finished with: %q", string(output))
 	return nil
 }
 
@@ -161,7 +161,7 @@ func (pc *Controller) deletePrometheusDiskIfEnabled() error {
 	}
 	if pc.diskMetadata.name == "" || pc.diskMetadata.zone == "" {
 		klog.Errorf("Missing zone or PD name, aborting deletion")
-		klog.Infof("PD name=%s, zone=%s", pc.diskMetadata.name, pc.diskMetadata.zone)
+		klog.V(2).Infof("PD name=%s, zone=%s", pc.diskMetadata.name, pc.diskMetadata.zone)
 		return fmt.Errorf("missing zone or PD name, aborting deletion")
 	}
 	// Delete Prometheus disk
@@ -179,19 +179,19 @@ func (pc *Controller) deletePrometheusDiskIfEnabled() error {
 }
 
 func (pc *Controller) tryDeletePrometheusDisk(pdName, zone string) error {
-	klog.Info("Trying to delete Prometheus' persistent disk...")
+	klog.V(2).Info("Trying to delete Prometheus' persistent disk...")
 	project := pc.clusterLoaderConfig.PrometheusConfig.SnapshotProject
 	if project == "" {
 		// This should never happen when run from kubetest with a GCE/GKE Kubernetes
 		// provider - kubetest always propagates PROJECT env var in such situations.
 		return fmt.Errorf("unknown project - please set --experimental-snapshot-project flag")
 	}
-	klog.Infof("Deleting PD %q in project %q in zone %q", pdName, project, zone)
+	klog.V(2).Infof("Deleting PD %q in project %q in zone %q", pdName, project, zone)
 	cmd := exec.Command("gcloud", "compute", "disks", "delete", pdName, "--project", project, "--zone", zone)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("deleting disk failed: %v\nCommand output: %q", err, string(output))
 	}
-	klog.Infof("Deleting disk finished with: %q", string(output))
+	klog.V(2).Infof("Deleting disk finished with: %q", string(output))
 	return nil
 }

@@ -126,10 +126,10 @@ func (s *serviceCreationLatencyMeasurement) String() string {
 
 func (s *serviceCreationLatencyMeasurement) start() error {
 	if s.isRunning {
-		klog.Infof("%s: service creation latency measurement already running", s)
+		klog.V(2).Infof("%s: service creation latency measurement already running", s)
 		return nil
 	}
-	klog.Infof("%s: starting service creation latency measurement...", s)
+	klog.V(2).Infof("%s: starting service creation latency measurement...", s)
 
 	s.isRunning = true
 	s.stopCh = make(chan struct{})
@@ -153,7 +153,7 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer} {
 			reachable := s.creationTimes.Count(phaseName(reachabilityPhase, svcType))
 			created := s.creationTimes.Count(phaseName(creatingPhase, svcType))
-			klog.Infof("%s type %s: %d created, %d reachable", s, svcType, created, reachable)
+			klog.V(2).Infof("%s type %s: %d created, %d reachable", s, svcType, created, reachable)
 			if created != reachable {
 				return false, nil
 			}
@@ -163,7 +163,7 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 }
 
 func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measurement.Summary, error) {
-	klog.Infof("%s: gathering service created latency measurement...", s)
+	klog.V(2).Infof("%s: gathering service created latency measurement...", s)
 	if !s.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", s)
 	}

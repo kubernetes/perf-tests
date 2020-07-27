@@ -106,18 +106,18 @@ func (c *controller) PreloadImages() error {
 		return err
 	}
 
-	klog.Infof("Creating namespace %s...", namespace)
+	klog.V(2).Infof("Creating namespace %s...", namespace)
 	if err := client.CreateNamespace(kclient, namespace); err != nil {
 		return err
 	}
 
-	klog.Info("Creating daemonset to preload images...")
+	klog.V(2).Info("Creating daemonset to preload images...")
 	c.templateMapping["Images"] = c.images
 	if err := c.framework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
 		return err
 	}
 
-	klog.Infof("Getting %s/%s deamonset size...", namespace, daemonsetName)
+	klog.V(2).Infof("Getting %s/%s deamonset size...", namespace, daemonsetName)
 	ds, err := kclient.AppsV1().DaemonSets(namespace).Get(context.TODO(), daemonsetName, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -128,16 +128,16 @@ func (c *controller) PreloadImages() error {
 	}
 	clusterSize := int(size)
 
-	klog.Infof("Waiting for %d Node objects to be updated...", clusterSize)
+	klog.V(2).Infof("Waiting for %d Node objects to be updated...", clusterSize)
 	if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
-		klog.Infof("%d out of %d nodes have pulled images", len(doneNodes), clusterSize)
+		klog.V(3).Infof("%d out of %d nodes have pulled images", len(doneNodes), clusterSize)
 		return len(doneNodes) == clusterSize, nil
 	}); err != nil {
 		return nil
 	}
-	klog.Info("Waiting... done")
+	klog.V(2).Info("Waiting... done")
 
-	klog.Infof("Deleting namespace %s...", namespace)
+	klog.V(2).Infof("Deleting namespace %s...", namespace)
 	if err := client.DeleteNamespace(kclient, namespace); err != nil {
 		return err
 	}

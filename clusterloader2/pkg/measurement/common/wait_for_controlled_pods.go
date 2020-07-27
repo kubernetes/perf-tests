@@ -157,10 +157,10 @@ func (*waitForControlledPodsRunningMeasurement) String() string {
 
 func (w *waitForControlledPodsRunningMeasurement) start() error {
 	if w.isRunning {
-		klog.Infof("%v: wait for controlled pods measurement already running", w)
+		klog.V(2).Infof("%v: wait for controlled pods measurement already running", w)
 		return nil
 	}
-	klog.Infof("%v: starting wait for controlled pods measurement...", w)
+	klog.V(2).Infof("%v: starting wait for controlled pods measurement...", w)
 	gv, err := schema.ParseGroupVersion(w.apiVersion)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 }
 
 func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {
-	klog.Infof("%v: waiting for controlled pods measurement...", w)
+	klog.V(2).Infof("%v: waiting for controlled pods measurement...", w)
 	if !w.isRunning {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
@@ -243,7 +243,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 			}
 		}
 	}
-	klog.Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
+	klog.V(2).Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
 	if numberTimeout > 0 {
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
@@ -257,7 +257,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
 	}
 
-	klog.Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
+	klog.V(2).Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
 	return nil
 }
 

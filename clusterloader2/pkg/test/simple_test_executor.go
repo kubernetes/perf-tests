@@ -53,7 +53,7 @@ func createSimpleExecutor() Executor {
 // ExecuteTest executes test based on provided configuration.
 func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.ErrorList {
 	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(conf.Namespace.Prefix)
-	klog.Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
+	klog.V(2).Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
 
 	defer cleanupResources(ctx, conf)
 	ctx.GetFactory().Init(conf.TuningSets)
@@ -69,14 +69,14 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 
 	if chaosMonkeyWaitGroup != nil {
 		// Wait for the Chaos Monkey subroutine to end
-		klog.Info("Waiting for the chaos monkey subroutine to end...")
+		klog.V(2).Info("Waiting for the chaos monkey subroutine to end...")
 		chaosMonkeyWaitGroup.Wait()
-		klog.Info("Chaos monkey ended.")
+		klog.V(2).Info("Chaos monkey ended.")
 	}
 
 	for _, summary := range ctx.GetManager().GetSummaries() {
 		if ctx.GetClusterLoaderConfig().ReportDir == "" {
-			klog.Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
+			klog.V(2).Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
 			testDistinctor := ""
 			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
@@ -91,7 +91,7 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 			}
 		}
 	}
-	klog.Infof(ctx.GetChaosMonkey().Summary())
+	klog.V(2).Infof(ctx.GetChaosMonkey().Summary())
 	return errList
 }
 
@@ -132,7 +132,7 @@ func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *erro
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
 	if step.Name != "" {
-		klog.Infof("Step %q started", step.Name)
+		klog.V(2).Infof("Step %q started", step.Name)
 	}
 	var wg wait.Group
 	errList := errors.NewErrorList()
@@ -159,7 +159,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	}
 	wg.Wait()
 	if step.Name != "" {
-		klog.Infof("Step %q ended", step.Name)
+		klog.V(2).Infof("Step %q ended", step.Name)
 	}
 	if !errList.IsEmpty() {
 		klog.Warningf("Got errors during step execution: %v", errList)
@@ -381,7 +381,7 @@ func cleanupResources(ctx Context, conf *api.Config) {
 			return
 		}
 	}
-	klog.Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
+	klog.V(2).Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
 }
 
 func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Object) (int32, error) {

@@ -122,7 +122,7 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 	for i := range prometheusPods {
 		if prometheusPods[i].Spec.NodeName != "" {
 			nodesHasPrometheusPod.Insert(prometheusPods[i].Spec.NodeName)
-			klog.Infof("%s: Node %s removed from killing. Runs pod %s", k, prometheusPods[i].Spec.NodeName, prometheusPods[i].Name)
+			klog.V(2).Infof("%s: Node %s removed from killing. Runs pod %s", k, prometheusPods[i].Spec.NodeName, prometheusPods[i].Name)
 		}
 	}
 
@@ -136,12 +136,12 @@ func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})
 	numNodes := int(math.Ceil(k.config.FailureRate * float64(len(nodes))))
-	klog.Infof("%s: %d nodes available, wants to fail %d nodes", k, len(nodes), numNodes)
+	klog.V(2).Infof("%s: %d nodes available, wants to fail %d nodes", k, len(nodes), numNodes)
 	if len(nodes) > numNodes {
 		nodes = nodes[:numNodes]
 	}
 	for _, node := range nodes {
-		klog.Infof("%s: Node %q schedule for failure", k, node.Name)
+		klog.V(2).Infof("%s: Node %q schedule for failure", k, node.Name)
 	}
 	return nodes, nil
 }
@@ -155,7 +155,7 @@ func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 		go func() {
 			defer wg.Done()
 
-			klog.Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
+			klog.V(2).Infof("%s: Stopping docker and kubelet on %q to simulate failure", k, node.Name)
 			k.addStopServicesEvent(node.Name)
 			err := k.ssh.Exec("sudo systemctl stop docker kubelet", &node, nil)
 			if err != nil {
@@ -166,7 +166,7 @@ func (k *NodeKiller) kill(nodes []v1.Node, stopCh <-chan struct{}) {
 			// Listening for interruptions on stopCh or wait for the simulated downtime
 			sleepInterrupt(time.Duration(k.config.SimulatedDowntime), stopCh)
 
-			klog.Infof("%s: Rebooting %q to repair the node", k, node.Name)
+			klog.V(2).Infof("%s: Rebooting %q to repair the node", k, node.Name)
 			k.addRebootEvent(node.Name)
 			err = k.ssh.Exec("sudo reboot", &node, nil)
 			if err != nil {

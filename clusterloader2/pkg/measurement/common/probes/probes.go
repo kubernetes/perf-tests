@@ -99,7 +99,7 @@ type probesMeasurement struct {
 // - gather - Gathers and prints metrics.
 func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	if !config.CloudProvider.Features().SupportProbe {
-		klog.Infof("%s: Probes cannot work in %s, skipping the measurement!", p, config.CloudProvider.Name())
+		klog.V(1).Infof("%s: Probes cannot work in %s, skipping the measurement!", p, config.CloudProvider.Name())
 		return nil, nil
 	}
 	if config.PrometheusFramework == nil {
@@ -128,10 +128,10 @@ func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.S
 // Dispose cleans up after the measurement.
 func (p *probesMeasurement) Dispose() {
 	if p.framework == nil {
-		klog.Infof("Probe %s wasn't started, skipping the Dispose() step", p)
+		klog.V(1).Infof("Probe %s wasn't started, skipping the Dispose() step", p)
 		return
 	}
-	klog.Infof("Stopping %s probe...", p)
+	klog.V(2).Infof("Stopping %s probe...", p)
 	k8sClient := p.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, probesNamespace); err != nil {
 		klog.Errorf("error while deleting %s namespace: %v", probesNamespace, err)
@@ -158,7 +158,7 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 }
 
 func (p *probesMeasurement) start(config *measurement.Config) error {
-	klog.Infof("Starting %s probe...", p)
+	klog.V(2).Infof("Starting %s probe...", p)
 	if !p.startTime.IsZero() {
 		return fmt.Errorf("measurement %s cannot be started twice", p)
 	}
@@ -180,7 +180,7 @@ func (p *probesMeasurement) start(config *measurement.Config) error {
 }
 
 func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.Summary, error) {
-	klog.Info("Gathering metrics from probes...")
+	klog.V(2).Info("Gathering metrics from probes...")
 	if p.startTime.IsZero() {
 		return nil, fmt.Errorf("measurement %s has not been started", p)
 	}
@@ -211,7 +211,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 			prefix = " WARNING"
 		}
 	}
-	klog.Infof("%s:%s got %v%s", p, prefix, latency, suffix)
+	klog.V(2).Infof("%s:%s got %v%s", p, prefix, latency, suffix)
 
 	summary, err := p.createSummary(*latency)
 	if err != nil {
@@ -225,7 +225,7 @@ func (p *probesMeasurement) createProbesObjects() error {
 }
 
 func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error {
-	klog.Infof("Waiting for Probe %s to become ready...", p)
+	klog.V(2).Infof("Waiting for Probe %s to become ready...", p)
 	checkProbesReadyTimeout, err := util.GetDurationOrDefault(config.Params, "checkProbesReadyTimeout", defaultCheckProbesReadyTimeout)
 	if err != nil {
 		return err

@@ -62,7 +62,7 @@ func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, co
 		return nil, err
 	}
 
-	klog.Infof("%s: got %v", netProg, latency)
+	klog.V(2).Infof("%s: got %v", netProg, latency)
 	summary, err := n.createSummary(latency)
 	return []measurement.Summary{summary}, err
 }

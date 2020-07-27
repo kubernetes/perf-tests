@@ -79,7 +79,7 @@ func (t *timer) Execute(config *measurement.Config) ([]measurement.Summary, erro
 			return nil, fmt.Errorf("uninitialized timer %s", label)
 		}
 		duration := time.Since(startTime)
-		klog.Infof("%s: %s - %v", t, label, duration)
+		klog.V(0).Infof("%s: %s - %v", t, label, duration)
 		t.durations[label] = duration
 		delete(t.startTimes, label)
 	case "gather":

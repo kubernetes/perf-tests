@@ -43,6 +43,6 @@ func (e *GCloudSSHExecutor) Exec(command string, node *v1.Node, stdin io.Reader)
 	cmd := exec.Command("gcloud", "compute", "ssh", "--zone", zone, "--command", command, node.Name)
 	cmd.Stdin = stdin
 	output, err := cmd.CombinedOutput()
-	klog.Infof("ssh to %q finished with %q: %v", node.Name, string(output), err)
+	klog.V(2).Infof("ssh to %q finished with %q: %v", node.Name, string(output), err)
 	return err
 }

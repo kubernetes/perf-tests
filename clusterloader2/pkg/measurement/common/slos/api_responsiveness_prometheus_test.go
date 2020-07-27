@@ -47,6 +47,7 @@ func turnOffLoggingToStderrInKlog() {
 	if klogLogToStderr {
 		klog.InitFlags(nil)
 		flag.Set("logtostderr", "false")
+		flag.Set("v", "2")
 		flag.Parse()
 		klogLogToStderr = false
 	}

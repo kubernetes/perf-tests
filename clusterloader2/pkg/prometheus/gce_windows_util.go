@@ -78,7 +78,7 @@ func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, ma
 	if windowsNode == nil {
 		return fmt.Errorf("no windows nodes available to install wmi exporter")
 	}
-	klog.Infof("Installing wmi exporter onto projectId: %s, zone: %s, nodeName: %s with cmd: %s", windowsNode.projectID, windowsNode.zone, windowsNode.nodeName, installWmiExporterCmd)
+	klog.V(2).Infof("Installing wmi exporter onto projectId: %s, zone: %s, nodeName: %s with cmd: %s", windowsNode.projectID, windowsNode.zone, windowsNode.nodeName, installWmiExporterCmd)
 	cmd := exec.Command("gcloud", "compute", "ssh", "--project", windowsNode.projectID, "--zone", windowsNode.zone, windowsNode.nodeName, "--command", powershellCmd)
 	err := cmd.Run()
 	if err != nil {

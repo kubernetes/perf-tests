@@ -17,9 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
-	"io/ioutil"
 	"path"
 	"path/filepath"
 	"sort"
@@ -28,15 +26,12 @@ import (
 	"sync"
 
 	"k8s.io/klog"
-
-	"cloud.google.com/go/storage"
-	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
 // DownloaderOptions is an options for Downloader.
 type DownloaderOptions struct {
+	Mode               string
 	ConfigPaths        []string
 	GithubConfigDirs   []string
 	DefaultBuildsCount int
@@ -80,7 +75,7 @@ func (g *Downloader) getData() (JobToCategoryData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh config: %v", err)
 	}
-	klog.Infof("Getting Data from GCS...")
+	klog.Infof("Getting Data from %v...", options.Mode)
 	result := make(JobToCategoryData)
 	var resultLock sync.Mutex
 	var wg sync.WaitGroup
@@ -135,7 +130,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
 						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
-						testDataResponse, err := g.MetricsBkt.GetFile(job, buildNumber,
+						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber,
 							fmt.Sprintf("artifacts/%v", metricsFileName))
 						if err != nil {
 							klog.Errorf("Error when reading response Body: %v", err)
@@ -180,104 +175,7 @@ func getBuildData(result JobToCategoryData, prefix string, category string, labe
 type MetricsBucket interface {
 	GetBuildNumbers(job string) ([]int, error)
 	ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error)
-	GetFile(job string, buildNumber int, path string) ([]byte, error)
-}
-
-// GCSMetricsBucket that creates a Google Cloud Storage client to fetch data.
-type GCSMetricsBucket struct {
-	client  *storage.Client
-	bucket  *storage.BucketHandle
-	logPath string
-}
-
-// NewGCSMetricsBucket creates a new GCSMetricsBucket.
-func NewGCSMetricsBucket(bucket, path, credentialPath string) (MetricsBucket, error) {
-	ctx := context.Background()
-	authOpt := option.WithoutAuthentication()
-	if credentialPath != "" {
-		authOpt = option.WithCredentialsFile(credentialPath)
-	}
-	c, err := storage.NewClient(ctx, authOpt)
-	if err != nil {
-		return nil, err
-	}
-	b := c.Bucket(bucket)
-	return &GCSMetricsBucket{
-		client:  c,
-		bucket:  b,
-		logPath: path,
-	}, nil
-}
-
-// GetBuildNumbers fetches the build numbers from a GCS Bucket.
-func (b *GCSMetricsBucket) GetBuildNumbers(job string) ([]int, error) {
-	var builds []int
-	ctx := context.Background()
-	jobPrefix := joinStringsAndInts(b.logPath, job) + "/"
-	klog.Infof("%s", jobPrefix)
-	it := b.bucket.Objects(ctx, &storage.Query{
-		Prefix:    jobPrefix,
-		Delimiter: "/",
-	})
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		if attrs.Prefix == "" {
-			continue
-		}
-		build := strings.TrimPrefix(attrs.Prefix, jobPrefix)
-		build = strings.TrimSuffix(build, "/")
-		buildNo, err := strconv.Atoi(build)
-		if err != nil {
-			return nil, fmt.Errorf("unknown build name convention: %s", build)
-		}
-		builds = append(builds, buildNo)
-	}
-	return builds, nil
-}
-
-// ListFilesInBuild fetches the files in the build from GCS.
-func (b *GCSMetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
-	var files []string
-	ctx := context.Background()
-	jobPrefix := joinStringsAndInts(b.logPath, job, buildNumber, prefix)
-	it := b.bucket.Objects(ctx, &storage.Query{
-		Prefix: jobPrefix,
-	})
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		files = append(files, attrs.Name)
-	}
-	return files, nil
-}
-
-// GetFile fetches the file from the GCS bucket.
-func (b *GCSMetricsBucket) GetFile(job string, buildNumber int, path string) ([]byte, error) {
-	ctx := context.Background()
-	filePath := joinStringsAndInts(b.logPath, job, buildNumber, path)
-	rc, err := b.bucket.Object(filePath).NewReader(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	data, err := ioutil.ReadAll(rc)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	ReadFile(job string, buildNumber int, path string) ([]byte, error)
 }
 
 func joinStringsAndInts(pathElements ...interface{}) string {

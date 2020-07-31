@@ -135,7 +135,7 @@ The semantic of the above structure will be as following:
 The rationale for having such structure is the following:
 - `Objects` represent a collection of Kubernetes objects that can be logically
   though of as a unit of workload (e.g. application comprised of a service,
-  deployment and a volme). Conceptually, this collection is out unit of
+  deployment and a volume). Conceptually, this collection is out unit of
   replication. Note that we process the `Objects` slice serially which allows
   ordering between objects of a unit (e.g. create a service before deployment).
   The replication itself is done according to `TuningSet` and
@@ -168,7 +168,7 @@ An appropriate validation will be added to cluster loader to ensure the above fo
 a given input config.
 
 Note that (namespace number, object type, basename) tuple defines a set of
-replicad objects.
+replicated objects.
 
 All `Object` changes for a given (namespace, replica number) pair are treated as
 a unit of action. Such units will be spread over time using a referenced tuning
@@ -368,7 +368,7 @@ necessary at the early beginning.
 1. Simple templating in json files.
    This would be extremely useful (necessary) feature to enable referencing
    objects from other objects. As an example, let's say that we want to reference
-   secret number `i` from deploymenet number `i`.
+   secret number `i` from deployment number `i`.
    We would achieve that by providing very simple templating mechanism at the
    level of files with object definitions. The exact details are TBD, but the
    high-level proposal is to:

@@ -19,12 +19,12 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"k8s.io/klog"
 	"net/http"
 	"os"
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/klog"
 )
 
 type githubDirContent struct {
@@ -65,7 +65,7 @@ func getGithubDirContents(url string) ([]githubDirContent, error) {
 		return nil, err
 	}
 	if token := os.Getenv("GITHUB_TOKEN"); len(token) != 0 {
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer: %s", token))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 	client := &http.Client{}
 	resp, err := client.Do(req)

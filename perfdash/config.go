@@ -23,9 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog"
-
 	"github.com/ghodss/yaml"
+	"k8s.io/klog"
 )
 
 // To add new e2e test support, you need to:
@@ -407,11 +406,6 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 
 	for _, configPath := range configPaths {
 		klog.Infof("Fetching config %s", configPath)
-		// Perfdash supports only yamls.
-		if !strings.HasSuffix(configPath, ".yaml") {
-			klog.Warningf("%s is not an yaml file!", configPath)
-			continue
-		}
 		var content []byte
 		var err error
 		switch {

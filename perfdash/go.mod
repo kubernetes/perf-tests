@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.34.0
-	github.com/aws/aws-sdk-go v1.16.26
+	github.com/aws/aws-sdk-go v1.34.4
 	github.com/ghodss/yaml v0.0.0-20180820084758-c7ce16629ff4
 	github.com/google/martian v2.1.0+incompatible // indirect
 	github.com/googleapis/gax-go v1.0.3 // indirect

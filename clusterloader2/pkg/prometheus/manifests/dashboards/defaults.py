@@ -38,6 +38,7 @@ class Graph(g.Graph):
     dataSource = attr.ib(default="$source")
     span = attr.ib(default=g.TOTAL_SPAN)
     tooltip = attr.ib(default=DECREASING_ORDER_TOOLTIP)
+    nullPointMode = attr.ib(default=None)
 
 
 @attr.s

@@ -90,8 +90,16 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 		}
 
 		if strings.HasPrefix(query, "sum(increase") {
-			// countQuery
-			sample.Value = model.SampleValue(s.count)
+			if strings.Contains(query, "_count") {
+				// countQuery
+				sample.Value = model.SampleValue(s.count)
+			} else {
+				// countFastQuery
+				// This is query is called 3 times, but to avoid complex fake
+				// the same value is returned every time. The logic can handle
+				// duplicates well, so this shouldn't be an issue.
+				sample.Value = model.SampleValue(s.count - s.slowCount)
+			}
 		} else if strings.HasPrefix(query, "histogram_quantile") {
 			// simpleLatencyQuery
 			sample.Value = model.SampleValue(s.latency)
@@ -99,12 +107,6 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 			// latencyQuery
 			sample.Metric["quantile"] = ".99"
 			sample.Value = model.SampleValue(s.latency)
-		} else if strings.HasPrefix(query, "sum(rate") {
-			// countSlowQuery
-			// This is query is called 3 times, but to avoid complex fake
-			// the same value is returned every time. The logic can handle
-			// duplicates well, so this shouldn't be an issue.
-			sample.Value = model.SampleValue(s.slowCount)
 		}
 		samples = append(samples, sample)
 	}

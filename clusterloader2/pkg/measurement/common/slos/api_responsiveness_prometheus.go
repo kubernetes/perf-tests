@@ -200,23 +200,15 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 		return nil, err
 	}
 
-	allowedSlowCalls, err := util.GetIntOrDefault(config.Params, "allowedSlowCalls", 0)
-	if err != nil {
-		return nil, err
-	}
-
 	countSlowSamples := make([]*model.Sample, 0)
-	// TODO(oxddr): remove this guard once it's stable
-	if allowedSlowCalls != 0 {
-		filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
-		for _, filter := range filters {
-			query := fmt.Sprintf(countSlowQuery, filter, promDuration)
-			samples, err := executor.Query(query, measurementEnd)
-			if err != nil {
-				return nil, err
-			}
-			countSlowSamples = append(countSlowSamples, samples...)
+	filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
+	for _, filter := range filters {
+		query := fmt.Sprintf(countSlowQuery, filter, promDuration)
+		samples, err := executor.Query(query, measurementEnd)
+		if err != nil {
+			return nil, err
 		}
+		countSlowSamples = append(countSlowSamples, samples...)
 	}
 
 	return newFromSamples(latencySamples, countSamples, countSlowSamples)
@@ -387,11 +379,11 @@ func (ap *apiCallMetric) getKey() string {
 }
 
 func (ap *apiCallMetric) Validate(allowedSlowCalls int, threshold time.Duration) error {
+	// TODO(oxddr): remove allowedSlowCalls guard once it's stable
+	if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
+		return nil
+	}
 	if err := ap.Latency.VerifyThreshold(threshold); err != nil {
-		// TODO(oxddr): remove allowedSlowCalls guard once it's stable
-		if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
-			return nil
-		}
 		return fmt.Errorf("got: %+v; expected perc99 <= %v", ap, threshold)
 	}
 	return nil

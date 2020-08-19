@@ -360,7 +360,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 					scope:     "namespace",
 					p99:       1200.,
 					count:     "123",
-					slowCount: "0",
+					slowCount: "5",
 				},
 			},
 		},

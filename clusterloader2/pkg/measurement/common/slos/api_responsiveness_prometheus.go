@@ -60,14 +60,14 @@ const (
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
 	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
-	countSlowQuery = "sum(rate(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
+	countFastQuery = "sum(increase(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	// exclude all buckets of 1s and shorter
-	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT", le!~"0.\\d+|1"`
+	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT|LIST", le="1"`
 	// exclude all buckets below or equal 5s
-	filterNamespaceList = `scope!="cluster", verb="LIST", le!~"[01234](.\\d+)?|5"`
+	filterNamespaceList = `scope!="cluster", verb="LIST", scope!="cluster", le="5"`
 	// exclude all buckets below or equal 30s
-	filterClusterList = `scope="cluster", verb="LIST", le!~"[12]?[0-9](.\\d+)?|30"`
+	filterClusterList = `scope="cluster", verb="LIST", scope!="cluster", le="30"`
 
 	latencyWindowSize = 5 * time.Minute
 
@@ -202,18 +202,18 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 		return nil, err
 	}
 
-	countSlowSamples := make([]*model.Sample, 0)
+	countFastSamples := make([]*model.Sample, 0)
 	filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
 	for _, filter := range filters {
-		query := fmt.Sprintf(countSlowQuery, filter, promDuration)
+		query := fmt.Sprintf(countFastQuery, filter, promDuration)
 		samples, err := executor.Query(query, measurementEnd)
 		if err != nil {
 			return nil, err
 		}
-		countSlowSamples = append(countSlowSamples, samples...)
+		countFastSamples = append(countFastSamples, samples...)
 	}
 
-	return newFromSamples(latencySamples, countSamples, countSlowSamples)
+	return newFromSamples(latencySamples, countSamples, countFastSamples)
 }
 
 func getCustomThresholds(config *measurement.Config, metrics *apiCallMetrics) (customThresholds, error) {
@@ -268,7 +268,7 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedS
 	return badMetrics
 }
 
-func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Sample) (*apiCallMetrics, error) {
+func newFromSamples(latencySamples, countSamples, countFastSamples []*model.Sample) (*apiCallMetrics, error) {
 	extractCommon := func(sample *model.Sample) (string, string, string, string) {
 		return string(sample.Metric["resource"]), string(sample.Metric["subresource"]), string(sample.Metric["verb"]), string(sample.Metric["scope"])
 	}
@@ -292,10 +292,12 @@ func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Samp
 		m.SetCount(resource, subresource, verb, scope, count)
 	}
 
-	for _, sample := range countSlowSamples {
+	for _, sample := range countFastSamples {
 		resource, subresource, verb, scope := extractCommon(sample)
-		failedCount := int(math.Round(float64(sample.Value)))
-		m.SetSlowCount(resource, subresource, verb, scope, failedCount)
+		fastCount := int(math.Round(float64(sample.Value)))
+		count := m.GetCount(resource, subresource, verb, scope)
+		slowCount := count - fastCount
+		m.SetSlowCount(resource, subresource, verb, scope, slowCount)
 	}
 
 	return m, nil
@@ -319,6 +321,11 @@ func (m *apiCallMetrics) getAPICall(resource, subresource, verb, scope string) *
 func (m *apiCallMetrics) SetLatency(resource, subresource, verb, scope string, quantile float64, latency time.Duration) {
 	call := m.getAPICall(resource, subresource, verb, scope)
 	call.Latency.SetQuantile(quantile, latency)
+}
+
+func (m *apiCallMetrics) GetCount(resource, subresource, verb, scope string) int {
+	call := m.getAPICall(resource, subresource, verb, scope)
+	return call.Count
 }
 
 func (m *apiCallMetrics) SetCount(resource, subresource, verb, scope string, count int) {

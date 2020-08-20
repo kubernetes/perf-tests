@@ -50,6 +50,7 @@ var (
 	extentionsPoints = []string{
 		"PreFilter",
 		"Filter",
+		"PostFilter",
 		"PreScore",
 		"Score",
 		"PreBind",

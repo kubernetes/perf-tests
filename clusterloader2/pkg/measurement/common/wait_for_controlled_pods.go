@@ -74,10 +74,15 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 }
 
 type waitForControlledPodsRunningMeasurement struct {
-	apiVersion            string
-	kind                  string
-	selector              *measurementutil.ObjectSelector
-	operationTimeout      time.Duration
+	apiVersion       string
+	kind             string
+	selector         *measurementutil.ObjectSelector
+	operationTimeout time.Duration
+	// countErrorMargin orders measurement to wait for number of pods to be in
+	// <desired count - countErrorMargin, desired count> range
+	// When using preemptibles on large scale, number of ready nodes is not stable
+	// and reaching DesiredPodCount could take a very long time.
+	countErrorMargin      int
 	stopCh                chan struct{}
 	isRunning             bool
 	queue                 workerqueue.Interface
@@ -122,6 +127,10 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 			return nil, err
 		}
 		w.checkIfPodsAreUpdated, err = util.GetBoolOrDefault(config.Params, "checkIfPodsAreUpdated", true)
+		if err != nil {
+			return nil, err
+		}
+		w.countErrorMargin, err = util.GetIntOrDefault(config.Params, "countErrorMargin", 0)
 		if err != nil {
 			return nil, err
 		}
@@ -482,6 +491,10 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
+		var minDesiredPodCount int
+		if w.countErrorMargin > 0 {
+			minDesiredPodCount = int(runtimeObjectReplicas) - w.countErrorMargin
+		}
 		options := &measurementutil.WaitForPodOptions{
 			Selector: &measurementutil.ObjectSelector{
 				Namespace:     runtimeObjectNamespace,
@@ -489,6 +502,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 				FieldSelector: "",
 			},
 			DesiredPodCount:     int(runtimeObjectReplicas),
+			MinDesiredPodCount:  minDesiredPodCount,
 			CallerName:          w.String(),
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,

@@ -37,6 +37,7 @@ const (
 type WaitForPodOptions struct {
 	Selector            *ObjectSelector
 	DesiredPodCount     int
+	MinDesiredPodCount  int
 	CallerName          string
 	WaitForPodsInterval time.Duration
 
@@ -91,6 +92,11 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == options.DesiredPodCount {
+				return nil
+			}
+			// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
+			// Overall number of pods (especially Inactive pods) should not grow unchecked.
+			if options.MinDesiredPodCount > 0 && podsStatus.RunningUpdated >= options.MinDesiredPodCount && len(pods) <= options.DesiredPodCount {
 				return nil
 			}
 			oldPods = pods

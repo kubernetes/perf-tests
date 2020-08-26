@@ -45,7 +45,9 @@ const (
 )
 
 func init() {
-	measurement.Register(podStartupLatencyMeasurementName, createPodStartupLatencyMeasurement)
+	if err := measurement.Register(podStartupLatencyMeasurementName, createPodStartupLatencyMeasurement); err != nil {
+		klog.Fatalf("cant register service %v", err)
+	}
 }
 
 func createPodStartupLatencyMeasurement() measurement.Measurement {

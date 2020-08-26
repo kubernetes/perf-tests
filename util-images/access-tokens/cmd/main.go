@@ -62,7 +62,11 @@ func main() {
 }
 
 func initFlagsAndKlog() {
-	flag.Set("alsologtostderr", "true")
+	err := flag.Set("alsologtostderr", "true")
+	if err != nil {
+		klog.Warningf("Got error while setting flag alsologtostderr to true %v", err)
+		return
+	}
 	klogFlags := goflag.NewFlagSet("klog", goflag.ExitOnError)
 	klog.InitFlags(klogFlags)
 	flag.CommandLine.AddGoFlagSet(klogFlags)

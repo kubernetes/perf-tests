@@ -299,7 +299,7 @@ func (pc *Controller) runNodeExporter() error {
 			g.Go(func() error {
 				f, err := os.Open(os.ExpandEnv(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterPod))
 				if err != nil {
-					return fmt.Errorf("Unable to open manifest file: %v", err)
+					return fmt.Errorf("unable to open manifest file: %v", err)
 				}
 				defer f.Close()
 				return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)

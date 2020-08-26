@@ -48,12 +48,18 @@ func serveHTTPObject(res http.ResponseWriter, req *http.Request, obj interface{}
 	if err != nil {
 		res.Header().Set("Content-type", "text/html")
 		res.WriteHeader(http.StatusInternalServerError)
-		res.Write([]byte(fmt.Sprintf("<h3>Internal Error</h3><p>%v", err)))
+		_, err = res.Write([]byte(fmt.Sprintf("<h3>Internal Error</h3><p>%v", err)))
+		if err != nil {
+			klog.Errorf("unable to write error %v", err)
+		}
 		return
 	}
 	res.Header().Set("Content-type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(data)
+	_, err = res.Write(data)
+	if err != nil {
+		klog.Errorf("unable to write response data %v", err)
+	}
 }
 
 func getURLParam(req *http.Request, name string) (string, bool) {
@@ -80,7 +86,7 @@ func (j *JobToCategoryData) ServeJobNames(res http.ResponseWriter, req *http.Req
 func (j *JobToCategoryData) ServeCategoryNames(res http.ResponseWriter, req *http.Request) {
 	jobname, ok := getURLParam(req, "jobname")
 	if !ok {
-		klog.Warningf("Url Param 'jobname' is missing")
+		klog.Warningf("url Param 'jobname' is missing")
 		return
 	}
 

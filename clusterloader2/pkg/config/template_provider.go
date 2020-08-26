@@ -225,7 +225,10 @@ func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{
 	if err != nil {
 		return nil, errors.NewErrorList(goerrors.Errorf("mapping creation error: %v", err))
 	}
-	MergeMappings(mapping, envMapping)
+	err = MergeMappings(mapping, envMapping)
+	if err != nil {
+		return nil, errors.NewErrorList(goerrors.Errorf("mapping merging error: %v", err))
+	}
 	return mapping, nil
 }
 

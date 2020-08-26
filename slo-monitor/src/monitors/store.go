@@ -127,12 +127,12 @@ func (q *NoStoreQueue) ListKeys() []string {
 
 // Get implements Get function from Store interface
 func (q *NoStoreQueue) Get(obj interface{}) (item interface{}, exists bool, err error) {
-	return "", false, fmt.Errorf("Unimplemented Get")
+	return "", false, fmt.Errorf("unimplemented Get")
 }
 
 // GetByKey implements GetByKey function from Store interface
 func (q *NoStoreQueue) GetByKey(key string) (item interface{}, exists bool, err error) {
-	return "", false, fmt.Errorf("Unimplemented GetByKey")
+	return "", false, fmt.Errorf("unimplemented GetByKey")
 }
 
 // Replace implements Replace function from Store interface
@@ -149,7 +149,7 @@ func (q *NoStoreQueue) Replace(list []interface{}, rv string) error {
 
 // Resync implements Resync function from Store interface
 func (q *NoStoreQueue) Resync() error {
-	return fmt.Errorf("Unimplemented Resync")
+	return fmt.Errorf("unimplemented Resync")
 }
 
 // Pop implements Pop function from Queue interface
@@ -173,7 +173,10 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 	}()
 	err := process(item)
 	if e, ok := err.(cache.ErrRequeue); ok {
-		q.AddIfNotPresent(item)
+		err = q.AddIfNotPresent(item)
+		if err != nil {
+			glog.Errorf("Error in adding obj: %v", item.obj)
+		}
 		err = e.Err
 	}
 	return item, err

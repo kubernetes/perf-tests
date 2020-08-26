@@ -100,7 +100,7 @@ func run() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("Error creating metrics bucket downloader: %v", err)
+		return fmt.Errorf("error creating metrics bucket downloader: %v", err)
 	}
 
 	downloader := NewDownloader(options, metricsBucket)

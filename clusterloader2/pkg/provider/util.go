@@ -45,7 +45,7 @@ func runSSHCommand(cmd, host string) (string, string, int, error) {
 		return "", "", 0, err
 	}
 	if signer == nil {
-		return "", "", 0, fmt.Errorf("Cannot find sshkey")
+		return "", "", 0, fmt.Errorf("cannot find sshkey")
 	}
 
 	user := defaultSSHUser()
@@ -89,7 +89,7 @@ func sshSignerFromKeyFile(KeyPathEnv string, defaultKeyPath string) (ssh.Signer,
 	}
 
 	if keyfile == "" {
-		return nil, fmt.Errorf("Cannot find ssh key file")
+		return nil, fmt.Errorf("cannot find ssh key file")
 	}
 
 	return sshutil.MakePrivateKeySignerFromFile(keyfile)

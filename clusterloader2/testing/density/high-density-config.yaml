@@ -35,6 +35,9 @@
 # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
 {{$saturationDeploymentHardTimeout := MaxInt $saturationDeploymentTimeout 1200}}
 
+{{$saturationDeploymentSpec := DefaultParam .SATURATION_DEPLOYMENT_SPEC "deployment.yaml"}}
+{{$latencyDeploymentSpec := DefaultParam .LATENCY_DEPLOYMENT_SPEC "deployment.yaml"}}
+
 name: density
 namespace:
   number: {{$namespaces}}
@@ -113,7 +116,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$saturationDeploymentSpec}}
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
         Group: saturation
@@ -163,7 +166,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$latencyDeploymentSpec}}
       templateFillMap:
         Replicas: 1
         Group: latency
@@ -186,7 +189,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$latencyDeploymentSpec}}
 
 - name: Waiting for latency pods to be deleted
   measurements:
@@ -211,7 +214,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$saturationDeploymentSpec}}
 
 - name: Waiting for saturation pods to be deleted
   measurements:

@@ -38,7 +38,8 @@ const (
 	manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/"
 
 	checkProbesReadyInterval = 15 * time.Second
-	checkProbesReadyTimeout  = 5 * time.Minute
+
+	defaultCheckProbesReadyTimeout  = 5 * time.Minute
 )
 
 var (
@@ -171,7 +172,7 @@ func (p *probesMeasurement) start(config *measurement.MeasurementConfig) error {
 	if err := p.createProbesObjects(); err != nil {
 		return err
 	}
-	if err := p.waitForProbesReady(); err != nil {
+	if err := p.waitForProbesReady(config); err != nil {
 		return err
 	}
 	p.startTime = time.Now()
@@ -223,8 +224,12 @@ func (p *probesMeasurement) createProbesObjects() error {
 	return p.framework.ApplyTemplatedManifests(path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
 }
 
-func (p *probesMeasurement) waitForProbesReady() error {
+func (p *probesMeasurement) waitForProbesReady(config *measurement.MeasurementConfig) error {
 	klog.Infof("Waiting for Probe %s to become ready...", p)
+	checkProbesReadyTimeout, err := util.GetDurationOrDefault(config.Params, "checkProbesReadyTimeout", defaultCheckProbesReadyTimeout)
+	if err != nil {
+		return err
+	}
 	return wait.Poll(checkProbesReadyInterval, checkProbesReadyTimeout, p.checkProbesReady)
 }
 

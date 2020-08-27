@@ -22,9 +22,6 @@ import (
 	"path"
 	"time"
 
-	ginkgoconfig "github.com/onsi/ginkgo/config"
-	ginkgoreporters "github.com/onsi/ginkgo/reporters"
-	ginkgotypes "github.com/onsi/ginkgo/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -253,13 +250,8 @@ func main() {
 		}
 	}
 
-	suiteSummary := &ginkgotypes.SuiteSummary{
-		SuiteDescription:           "ClusterLoaderV2",
-		NumberOfSpecsThatWillBeRun: len(testConfigPaths),
-	}
-	junitReporter := ginkgoreporters.NewJUnitReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"))
-	junitReporter.SpecSuiteWillBegin(ginkgoconfig.GinkgoConfig, suiteSummary)
-	testsStart := time.Now()
+	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
+	testReporter.BeginTestSuite()
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
 		if err != nil {
@@ -267,17 +259,16 @@ func main() {
 		}
 		for i := range testSuite {
 			clusterLoaderConfig.TestScenario = testSuite[i]
-			runSingleTest(f, prometheusFramework, junitReporter, suiteSummary)
+			runSingleTest(f, prometheusFramework, testReporter)
 		}
 	} else {
 		for i := range testConfigPaths {
 			clusterLoaderConfig.TestScenario.ConfigPath = testConfigPaths[i]
 			clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
-			runSingleTest(f, prometheusFramework, junitReporter, suiteSummary)
+			runSingleTest(f, prometheusFramework, testReporter)
 		}
 	}
-	suiteSummary.RunTime = time.Since(testsStart)
-	junitReporter.SpecSuiteDidEnd(suiteSummary)
+	testReporter.EndTestSuite()
 
 	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
 		if err := prometheusController.TearDownPrometheusStack(); err != nil {
@@ -289,36 +280,27 @@ func main() {
 			klog.Errorf("Error while tearing down exec service: %v", err)
 		}
 	}
-	if suiteSummary.NumberOfFailedSpecs > 0 {
-		klog.Exitf("%d tests have failed!", suiteSummary.NumberOfFailedSpecs)
+	if failedTestItems := testReporter.GetNumberOfFailedTestItems(); failedTestItems > 0 {
+		klog.Exitf("%d tests have failed!", failedTestItems)
 	}
 }
 
 func runSingleTest(
 	f *framework.Framework,
 	prometheusFramework *framework.Framework,
-	junitReporter *ginkgoreporters.JUnitReporter,
-	suiteSummary *ginkgotypes.SuiteSummary,
+	testReporter test.Reporter,
 ) {
 	testId := getTestId(clusterLoaderConfig.TestScenario)
 	testStart := time.Now()
-	specSummary := &ginkgotypes.SpecSummary{
-		ComponentTexts: []string{suiteSummary.SuiteDescription, testId},
-	}
 	printTestStart(testId)
-	if errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig); !errList.IsEmpty() {
-		suiteSummary.NumberOfFailedSpecs++
-		specSummary.State = ginkgotypes.SpecStateFailed
-		specSummary.Failure = ginkgotypes.SpecFailure{
-			Message: errList.String(),
-		}
+	errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+	if !errList.IsEmpty() {
 		printTestResult(testId, "Fail", errList.String())
 	} else {
-		specSummary.State = ginkgotypes.SpecStatePassed
 		printTestResult(testId, "Success", "")
 	}
-	specSummary.RunTime = time.Since(testStart)
-	junitReporter.SpecDidComplete(specSummary)
+	testConfigPath := clusterLoaderConfig.TestScenario.ConfigPath
+	testReporter.ReportTestFinish(time.Since(testStart), testConfigPath, errList)
 }
 
 func getTestId(ts api.TestScenario) string {

@@ -29,7 +29,7 @@
 {{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 #Variables
-{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$namespaces := MultiplyInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}

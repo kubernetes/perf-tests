@@ -129,18 +129,19 @@ steps:
         CpuRequest: 1m
         MemoryRequest: 10M
 
-- name: Collecting saturation pod measurements
+- name: Waiting for saturation pods to be running
   measurements:
   - Identifier: WaitForRunningSaturationDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- measurements:
+
+- name: Collecting saturation pod measurements
+  measurements:
   - Identifier: SaturationPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
-- measurements:
   - Identifier: SchedulingThroughput
     Method: SchedulingThroughput
     Params:

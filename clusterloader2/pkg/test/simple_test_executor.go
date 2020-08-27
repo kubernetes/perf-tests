@@ -136,6 +136,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	}
 	var wg wait.Group
 	errList := errors.NewErrorList()
+	stepStart := time.Now()
 	if len(step.Measurements) > 0 {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
@@ -164,6 +165,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	if !errList.IsEmpty() {
 		klog.Warningf("Got errors during step execution: %v", errList)
 	}
+	ctx.GetTestReporter().ReportTestStepFinish(time.Since(stepStart), step.Name, errList)
 	return errList
 }
 

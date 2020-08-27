@@ -32,6 +32,7 @@ type simpleContext struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	clusterFramework    *framework.Framework
 	prometheusFramework *framework.Framework
+	testReporter        Reporter
 	state               *state.State
 	templateMapping     map[string]interface{}
 	templateProvider    *config.TemplateProvider
@@ -40,12 +41,13 @@ type simpleContext struct {
 	chaosMonkey         *chaos.Monkey
 }
 
-func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, templateMapping map[string]interface{}) Context {
+func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, testReporter Reporter, templateMapping map[string]interface{}) Context {
 	templateProvider := config.NewTemplateProvider(filepath.Dir(c.TestScenario.ConfigPath))
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		clusterFramework:    f,
 		prometheusFramework: p,
+		testReporter:        testReporter,
 		state:               s,
 		templateMapping:     util.CloneMap(templateMapping),
 		templateProvider:    templateProvider,
@@ -68,6 +70,11 @@ func (sc *simpleContext) GetClusterFramework() *framework.Framework {
 // GetFramework returns prometheus framework.
 func (sc *simpleContext) GetPrometheusFramework() *framework.Framework {
 	return sc.prometheusFramework
+}
+
+// GetTestReporter returns test items reporter.
+func (sc *simpleContext) GetTestReporter() Reporter {
+	return sc.testReporter
 }
 
 // GetState returns current test state.

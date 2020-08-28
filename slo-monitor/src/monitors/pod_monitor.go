@@ -183,6 +183,9 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
 					return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(opts)
 				}))
+				// Increase page size from default 500 to 5000 to increase listing throughput.
+				// In our test setup 5000 objects, should have total size of ~4MB, which seems to be acceptable page size.
+				pg.PageSize = 5000
 				return pg.List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {

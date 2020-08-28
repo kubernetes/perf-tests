@@ -13,7 +13,7 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.12.0
+TAG = 0.13.0
 # Image should be pulled from k8s.gcr.io, which will auto-detect
 # region (us, eu, asia, ...) and pull from the closest.
 REPOSITORY?=k8s.gcr.io
@@ -28,7 +28,7 @@ build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go sr
 container: build
 	docker build --pull . -t $(REPOSITORY)/slo-monitor:$(TAG)
 
-push:
+push: container
 	docker tag $(REPOSITORY)/slo-monitor:$(TAG) $(PUSH_REPOSITORY)/slo-monitor:$(TAG)
 	docker push $(PUSH_REPOSITORY)/slo-monitor:$(TAG)
 

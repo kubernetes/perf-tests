@@ -121,7 +121,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
 					filePrefix := fmt.Sprintf("%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
-					searchPrefix := fmt.Sprintf("artifacts/%v", filePrefix)
+					searchPrefix := g.artifactName(tests, filePrefix)
 					artifacts, err := g.MetricsBkt.ListFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
 						klog.Infof("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
@@ -130,10 +130,10 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
 						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
-						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber,
-							fmt.Sprintf("artifacts/%v", metricsFileName))
+						fileName := g.artifactName(tests, metricsFileName)
+						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber, fileName)
 						if err != nil {
-							klog.Infof("Error when reading response Body: %v", err)
+							klog.Infof("Error when reading response Body for %q: %v", fileName, err)
 							continue
 						}
 						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
@@ -144,6 +144,10 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 			}
 		}
 	}
+}
+
+func (g *Downloader) artifactName(jobAttrs Tests, file string) string {
+	return path.Join(jobAttrs.ArtifactsDir, file)
 }
 
 func getResultCategory(metricsFileName string, filePrefix string, category string, artifacts []string) string {

@@ -490,6 +490,10 @@ steps:
     objectBundle:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
+        SvcName: big-service
     - basename: big-deployment
       objectTemplatePath: configmap.yaml
     - basename: big-deployment
@@ -506,6 +510,10 @@ steps:
     objectBundle:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+        SvcName: medium-service
     - basename: medium-deployment
       objectTemplatePath: configmap.yaml
     - basename: medium-deployment
@@ -522,6 +530,10 @@ steps:
     objectBundle:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
+        ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
+        SvcName: small-service
     - basename: small-deployment
       objectTemplatePath: configmap.yaml
     - basename: small-deployment

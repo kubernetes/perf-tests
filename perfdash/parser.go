@@ -258,32 +258,34 @@ type schedulingMetrics struct {
 	FrameworkExtensionPointDuration map[string]latencyMetric `json:"frameworkExtensionPointDuration"`
 }
 
-func parseOperationLatency(latency latencyMetric, operationName string) perftype.DataItem {
-	perfData := perftype.DataItem{Unit: "ms", Labels: map[string]string{"Operation": operationName}, Data: make(map[string]float64)}
+func parseOperationLatency(latency latencyMetric, testName string, operationName string) perftype.DataItem {
+	perfData := perftype.DataItem{Unit: "ms", Labels: map[string]string{"TestName": testName, "Operation": operationName}, Data: make(map[string]float64)}
 	perfData.Data["Perc50"] = float64(latency.Perc50) / float64(time.Millisecond)
 	perfData.Data["Perc90"] = float64(latency.Perc90) / float64(time.Millisecond)
 	perfData.Data["Perc99"] = float64(latency.Perc99) / float64(time.Millisecond)
 	return perfData
 }
 
-func parseSchedulingLatency(data []byte, buildNumber int, testResult *BuildData) {
-	testResult.Version = "v1"
-	build := fmt.Sprintf("%d", buildNumber)
-	var obj schedulingMetrics
-	if err := json.Unmarshal(data, &obj); err != nil {
-		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
-		return
-	}
-	preemptionEvaluation := parseOperationLatency(obj.PreemptionEvaluationLatency, "preemption_evaluation")
-	testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
-	e2eScheduling := parseOperationLatency(obj.E2eSchedulingLatency, "e2eScheduling")
-	testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
-	scheduling := parseOperationLatency(obj.SchedulingLatency, "scheduling")
-	testResult.Builds[build] = append(testResult.Builds[build], scheduling)
+func parseSchedulingLatency(testName string) func([]byte, int, *BuildData) {
+	return func(data []byte, buildNumber int, testResult *BuildData) {
+		testResult.Version = "v1"
+		build := fmt.Sprintf("%d", buildNumber)
+		var obj schedulingMetrics
+		if err := json.Unmarshal(data, &obj); err != nil {
+			klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
+			return
+		}
+		preemptionEvaluation := parseOperationLatency(obj.PreemptionEvaluationLatency, testName, "preemption_evaluation")
+		testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
+		e2eScheduling := parseOperationLatency(obj.E2eSchedulingLatency, testName, "e2eScheduling")
+		testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
+		scheduling := parseOperationLatency(obj.SchedulingLatency, testName, "scheduling")
+		testResult.Builds[build] = append(testResult.Builds[build], scheduling)
 
-	for name, metric := range obj.FrameworkExtensionPointDuration {
-		frameworkExtensionPointDuration := parseOperationLatency(metric, name)
-		testResult.Builds[build] = append(testResult.Builds[build], frameworkExtensionPointDuration)
+		for name, metric := range obj.FrameworkExtensionPointDuration {
+			frameworkExtensionPointDuration := parseOperationLatency(metric, testName, name)
+			testResult.Builds[build] = append(testResult.Builds[build], frameworkExtensionPointDuration)
+		}
 	}
 }
 
@@ -294,20 +296,22 @@ type schedulingThroughputMetric struct {
 	Perc99  float64 `json:"perc99"`
 }
 
-func parseSchedulingThroughputCL(data []byte, buildNumber int, testResult *BuildData) {
-	testResult.Version = "v1"
-	build := fmt.Sprintf("%d", buildNumber)
-	var obj schedulingThroughputMetric
-	if err := json.Unmarshal(data, &obj); err != nil {
-		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
-		return
+func parseSchedulingThroughputCL(testName string) func([]byte, int, *BuildData) {
+	return func(data []byte, buildNumber int, testResult *BuildData) {
+		testResult.Version = "v1"
+		build := fmt.Sprintf("%d", buildNumber)
+		var obj schedulingThroughputMetric
+		if err := json.Unmarshal(data, &obj); err != nil {
+			klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
+			return
+		}
+		perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{"TestName": testName}, Data: make(map[string]float64)}
+		perfData.Data["Perc50"] = obj.Perc50
+		perfData.Data["Perc90"] = obj.Perc90
+		perfData.Data["Perc99"] = obj.Perc99
+		perfData.Data["Average"] = obj.Average
+		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
-	perfData := perftype.DataItem{Unit: "1/s", Labels: map[string]string{}, Data: make(map[string]float64)}
-	perfData.Data["Perc50"] = obj.Perc50
-	perfData.Data["Perc90"] = obj.Perc90
-	perfData.Data["Perc99"] = obj.Perc99
-	perfData.Data["Average"] = obj.Average
-	testResult.Builds[build] = append(testResult.Builds[build], perfData)
 }
 
 // TODO(krzysied): This structure also should be moved to metric package.

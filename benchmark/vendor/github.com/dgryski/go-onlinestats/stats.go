@@ -63,7 +63,7 @@ func CombineRunning(a, b *Running) *Running {
 
 	an := float64(a.n)
 	bn := float64(b.n)
-	cn := float64(an + bn)
+	cn := an + bn
 
 	combined.n = a.n + b.n
 

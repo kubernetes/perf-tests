@@ -17,12 +17,12 @@ type DEA struct {
 func NewDEA(alpha float64, maxDt float64) *DEA {
 	return &DEA{
 		alpha: alpha,
-		newDataWeightUpperBound: 1 - math.Pow(alpha, float64(maxDt)),
+		newDataWeightUpperBound: 1 - math.Pow(alpha, maxDt),
 	}
 }
 
 func (ew *DEA) Update(newData float64, t float64) {
-	weightReductionFactor := math.Pow(ew.alpha, float64(t-ew.previousTime))
+	weightReductionFactor := math.Pow(ew.alpha, t-ew.previousTime)
 	newDataWeight := minf(1-weightReductionFactor, ew.newDataWeightUpperBound)
 	ew.sumOfWeights = weightReductionFactor*ew.sumOfWeights + newDataWeight
 	ew.sumOfData = weightReductionFactor*ew.sumOfData + newDataWeight*newData
@@ -31,7 +31,7 @@ func (ew *DEA) Update(newData float64, t float64) {
 }
 
 func (ew *DEA) CompletenessFraction(t float64) float64 {
-	return math.Pow(ew.alpha, float64(t-ew.previousTime)*ew.sumOfWeights)
+	return math.Pow(ew.alpha, t-ew.previousTime*ew.sumOfWeights)
 }
 func (ew *DEA) Mean() float64 {
 	return (ew.sumOfData / ew.sumOfWeights)

@@ -86,7 +86,7 @@ func (q *NoStoreQueue) enqueueOrModifyItemLocked(key string, obj interface{}, op
 func (q *NoStoreQueue) Add(obj interface{}) error {
 	key, err := keyFunc(obj)
 	if err != nil {
-		return cache.KeyError{obj, err}
+		return cache.KeyError{Obj: obj, Err: err}
 	}
 
 	defer q.cond.Broadcast()
@@ -105,7 +105,7 @@ func (q *NoStoreQueue) Update(obj interface{}) error {
 func (q *NoStoreQueue) Delete(obj interface{}) error {
 	key, err := keyFunc(obj)
 	if err != nil {
-		return cache.KeyError{obj, err}
+		return cache.KeyError{Obj: obj, Err: err}
 	}
 
 	defer q.cond.Broadcast()
@@ -186,7 +186,7 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 func (q *NoStoreQueue) AddIfNotPresent(obj interface{}) error {
 	key, err := keyFunc(obj)
 	if err != nil {
-		return cache.KeyError{obj, err}
+		return cache.KeyError{Obj: obj, Err: err}
 	}
 
 	defer q.cond.Broadcast()

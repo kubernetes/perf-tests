@@ -29,7 +29,7 @@ import (
 const allTargets = -1
 
 type targetsResponse struct {
-	Data targetsData `json:"data""`
+	Data targetsData `json:"data"`
 }
 
 type targetsData struct {

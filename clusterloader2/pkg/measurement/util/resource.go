@@ -46,8 +46,8 @@ type UsageDataPerContainer struct {
 
 // ResourceConstraint specifies constraint on resources.
 type ResourceConstraint struct {
-	CPUConstraint    float64 `json: cpuConstraint`
-	MemoryConstraint uint64  `json: memoryConstraint`
+	CPUConstraint    float64 `json:"cpuConstraint"`
+	MemoryConstraint uint64  `json:"memoryConstraint"`
 }
 
 // SingleContainerSummary is a resource usage summary for a single container.

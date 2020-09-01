@@ -6,15 +6,29 @@ linters-settings:
     min-confidence: 0
   misspell:
     locale: US
+  govet:
+    check-shadowing: false
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    # TODO(kushthedude) remove the disabled checks
+    disable:
+      - composites
+      - copylocks
 
 linters:
   disable-all: true
   enable:
     - gofmt
     - golint
+    - govet
     - errcheck
     - deadcode
-    # TODO(oxddr): enable more checkers
+    # TODO(kushthedude) fix after vendor is migrated to go modules
     # - misspell
 
 service:

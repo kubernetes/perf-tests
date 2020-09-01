@@ -61,7 +61,7 @@ func MannWhitney(xs, ys []float64) float64 {
 
 	mu := float64(n1n2) / 2.0
 	sigu := math.Sqrt(float64(n1n2*(len(xs)+len(ys)+1)) / 12.0)
-	zu := math.Abs(float64(u)-mu) / sigu
+	zu := math.Abs(u-mu) / sigu
 
 	return 2 - 2*cdf(0, 1, zu)
 }

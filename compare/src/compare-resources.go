@@ -136,13 +136,6 @@ func max(left, right int64) int64 {
 	return right
 }
 
-func min(left, right int64) int64 {
-	if left < right {
-		return left
-	}
-	return right
-}
-
 func getContainerKind(containerName string) string {
 	return containerName[strings.LastIndex(containerName, "/")+1:]
 }

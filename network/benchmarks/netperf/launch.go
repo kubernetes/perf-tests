@@ -41,7 +41,6 @@ import (
 )
 
 const (
-	debugLog         = "output.txt"
 	testNamespace    = "netperf"
 	csvDataMarker    = "GENERATING CSV OUTPUT"
 	csvEndDataMarker = "END CSV DATA"

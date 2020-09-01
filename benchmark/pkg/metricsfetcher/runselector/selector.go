@@ -37,6 +37,6 @@ func GetJobRunsUsingScheme(job string, scheme string, nValue int, utils util.Job
 	case LastNHours:
 		return schemes.GetJobRunsFromLastNHours(job, nValue, utils)
 	default:
-		return nil, fmt.Errorf("Unknown run selection scheme '%v'", scheme)
+		return nil, fmt.Errorf("unknown run selection scheme '%v'", scheme)
 	}
 }

@@ -43,11 +43,19 @@ var (
 	klogLogToStderr = true
 )
 
-func turnOffLoggingToStderrInKlog() {
+func turnOffLoggingToStderrInKlog(t *testing.T) {
 	if klogLogToStderr {
 		klog.InitFlags(nil)
-		flag.Set("logtostderr", "false")
-		flag.Set("v", "2")
+		err := flag.Set("logtostderr", "false")
+		if err != nil {
+			t.Errorf("Unable to set flag %v", err)
+			return
+		}
+		err = flag.Set("v", "2")
+		if err != nil {
+			t.Errorf("Unable to set flag %v", err)
+			return
+		}
 		flag.Parse()
 		klogLogToStderr = false
 	}
@@ -554,7 +562,7 @@ func TestLogging(t *testing.T) {
 		},
 	}
 
-	turnOffLoggingToStderrInKlog()
+	turnOffLoggingToStderrInKlog(t)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -565,7 +573,10 @@ func TestLogging(t *testing.T) {
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{}
 
-			gatherer.Gather(executor, time.Now(), config)
+			_, err := gatherer.Gather(executor, time.Now(), config)
+			if err != nil && !errors.IsMetricViolationError(err) {
+				t.Errorf("error while gathering results: %v", err)
+			}
 			klog.Flush()
 
 			for _, msg := range tc.expectedMessages {
@@ -717,7 +728,7 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 		},
 	}
 
-	turnOffLoggingToStderrInKlog()
+	turnOffLoggingToStderrInKlog(t)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

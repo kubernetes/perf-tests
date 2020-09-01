@@ -48,7 +48,7 @@ func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHa
 			case deleteOperationType:
 				return deleteHandler(workItem.obj)
 			default:
-				return fmt.Errorf("Encountered unknown operation type: %v", workItem.operationType)
+				return fmt.Errorf("encountered unknown operation type: %v", workItem.operationType)
 			}
 		},
 	}

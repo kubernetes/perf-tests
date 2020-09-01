@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
 
 	"golang.org/x/time/rate"
@@ -59,7 +60,11 @@ func newGlobalQPSLoad(params *api.GlobalQPSLoad) *globalQPSLoad {
 func (ql *globalQPSLoad) Execute(actions []func()) {
 	var wg wait.Group
 	for i := range actions {
-		ql.limiter.Wait(context.TODO())
+		err := ql.limiter.Wait(context.TODO())
+		if err != nil {
+			klog.Errorf("Error while waiting for rate limitter: %v - skipping the action", err)
+			continue
+		}
 		wg.Start(actions[i])
 	}
 	wg.Wait()

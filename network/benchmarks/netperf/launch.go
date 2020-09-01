@@ -136,8 +136,11 @@ func cleanup(c *kubernetes.Clientset) {
 	}
 	for _, svc := range svcs.Items {
 		fmt.Println("Deleting svc", svc.GetName())
-		c.Core().Services(testNamespace).Delete(
+		err := c.Core().Services(testNamespace).Delete(
 			svc.GetName(), &metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Println("Failed to get service", err)
+		}
 	}
 }
 
@@ -145,7 +148,10 @@ func cleanup(c *kubernetes.Clientset) {
 func createServices(c *kubernetes.Clientset) bool {
 	// Create our namespace if not present
 	if _, err := c.Core().Namespaces().Get(testNamespace, metav1.GetOptions{}); err != nil {
-		c.Core().Namespaces().Create(&api.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})
+		_, err := c.Core().Namespaces().Create(&api.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}})
+		if err != nil {
+			fmt.Println("Failed to create service", err)
+		}
 	}
 
 	// Create the orchestrator service that points to the coordinator pod
@@ -344,14 +350,23 @@ func processCsvData(csvData *string) bool {
 	outputFilePrefix := fmt.Sprintf("%s-%s_%s.", testNamespace, tag, t.Format("20060102150405"))
 	fmt.Printf("Test concluded - CSV raw data written to %s/%scsv\n", outputFileDirectory, outputFilePrefix)
 	if _, err := os.Stat(outputFileDirectory); os.IsNotExist(err) {
-		os.Mkdir(outputFileDirectory, 0766)
+		err := os.Mkdir(outputFileDirectory, 0766)
+		if err != nil {
+			fmt.Println("Error creating directory", err)
+			return false
+		}
+
 	}
 	fd, err := os.OpenFile(fmt.Sprintf("%s/%scsv", outputFileDirectory, outputFilePrefix), os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		fmt.Println("ERROR writing output CSV datafile", err)
 		return false
 	}
-	fd.WriteString(*csvData)
+	_, err = fd.WriteString(*csvData)
+	if err != nil {
+		fmt.Println("Error writing string", err)
+		return false
+	}
 	fd.Close()
 	return true
 }

@@ -82,7 +82,7 @@ func (g *Downloader) getData() (JobToCategoryData, error) {
 	wg.Add(len(newJobs))
 	for job, tests := range newJobs {
 		if tests.Prefix == "" {
-			return nil, fmt.Errorf("Invalid empty Prefix for job %s", job)
+			return nil, fmt.Errorf("invalid empty Prefix for job %s", job)
 		}
 		go g.getJobData(&wg, result, &resultLock, job, tests)
 	}
@@ -124,7 +124,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 					searchPrefix := fmt.Sprintf("artifacts/%v", filePrefix)
 					artifacts, err := g.MetricsBkt.ListFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
-						klog.Errorf("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
+						klog.Infof("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
 						continue
 					}
 					for _, artifact := range artifacts {
@@ -133,7 +133,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber,
 							fmt.Sprintf("artifacts/%v", metricsFileName))
 						if err != nil {
-							klog.Errorf("Error when reading response Body: %v", err)
+							klog.Infof("Error when reading response Body: %v", err)
 							continue
 						}
 						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)

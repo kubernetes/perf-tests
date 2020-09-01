@@ -35,7 +35,7 @@ type MockJobLogUtils struct {
 func (utils MockJobLogUtils) GetLatestBuildNumberForJob(job string) (int, error) {
 	length := len(utils.MockBuildNumbers)
 	if length == 0 {
-		return 0, fmt.Errorf("Array of mock build numbers is empty")
+		return 0, fmt.Errorf("array of mock build numbers is empty")
 	}
 	return utils.MockBuildNumbers[length-1], nil
 }
@@ -49,7 +49,7 @@ func (utils MockJobLogUtils) GetBuildNumbersForJob(job string) ([]int, error) {
 func (utils MockJobLogUtils) GetJobRunStartTimestamp(job string, run int) (uint64, error) {
 	value, ok := utils.MockStartTimestamps[run]
 	if !ok {
-		return 0, fmt.Errorf("Run number %v not a key in the mock start timestamps map", run)
+		return 0, fmt.Errorf("run number %v not a key in the mock start timestamps map", run)
 	}
 	return value, nil
 }
@@ -58,7 +58,7 @@ func (utils MockJobLogUtils) GetJobRunStartTimestamp(job string, run int) (uint6
 func (utils MockJobLogUtils) GetJobRunFinishedStatus(job string, run int) (bool, error) {
 	value, ok := utils.MockFinishedStatuses[run]
 	if !ok {
-		return false, fmt.Errorf("Run number %v not a key in the mock finished statuses map", run)
+		return false, fmt.Errorf("run number %v not a key in the mock finished statuses map", run)
 	}
 	return value, nil
 }
@@ -67,11 +67,11 @@ func (utils MockJobLogUtils) GetJobRunFinishedStatus(job string, run int) (bool,
 func (utils MockJobLogUtils) GetJobRunFileContents(job string, run int, filepath string) ([]byte, error) {
 	files, ok := utils.MockFileContents[run]
 	if !ok {
-		return nil, fmt.Errorf("Run number %v not a 1st key in the mock file contents map", run)
+		return nil, fmt.Errorf("run number %v not a 1st key in the mock file contents map", run)
 	}
 	file, ok := files[filepath]
 	if !ok {
-		return nil, fmt.Errorf("Filepath %v not a 2nd key in the mock file contents map for 1st key %v", filepath, run)
+		return nil, fmt.Errorf("filepath %v not a 2nd key in the mock file contents map for 1st key %v", filepath, run)
 	}
 	return file, nil
 }
@@ -80,7 +80,7 @@ func (utils MockJobLogUtils) GetJobRunFileContents(job string, run int, filepath
 func (utils MockJobLogUtils) ListJobRunFilesWithPrefix(job string, run int, prefix string) ([]string, error) {
 	filesWithPrefixes, ok := utils.MockFilesWithPrefix[run]
 	if !ok {
-		return nil, fmt.Errorf("Run number %v not a 1st key in the mock files with prefix map", run)
+		return nil, fmt.Errorf("run number %v not a 1st key in the mock files with prefix map", run)
 	}
 	filesWithPrefix, ok := filesWithPrefixes[prefix]
 	return filesWithPrefix, nil

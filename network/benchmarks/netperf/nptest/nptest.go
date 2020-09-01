@@ -509,13 +509,19 @@ func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, reply *int) error {
 
 func serveRPCRequests(port string) {
 	baseObject := new(NetPerfRPC)
-	rpc.Register(baseObject)
+	err := rpc.Register(baseObject)
+	if err != nil {
+		log.Fatal("failed to register rpc", err)
+	}
 	rpc.HandleHTTP()
 	listener, e := net.Listen("tcp", ":"+port)
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
-	http.Serve(listener, nil)
+	err = http.Serve(listener, nil)
+	if err != nil {
+		log.Fatal("failed start server", err)
+	}
 }
 
 // Blocking RPC server start - only runs on the orchestrator
@@ -555,11 +561,17 @@ func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 	case workItem.ClientItem.Type == iperfTCPTest || workItem.ClientItem.Type == iperfUDPTest || workItem.ClientItem.Type == iperfSctpTest:
 		outputString := iperfClient(workItem.ClientItem.Host, workItem.ClientItem.Port, workItem.ClientItem.MSS, workItem.ClientItem.Type)
 		var reply int
-		client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
+		err := client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
+		if err != nil {
+			log.Fatal("failed to call client", err)
+		}
 	case workItem.ClientItem.Type == netperfTest:
 		outputString := netperfClient(workItem.ClientItem.Host, workItem.ClientItem.Port, workItem.ClientItem.Type)
 		var reply int
-		client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
+		err := client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
+		if err != nil {
+			log.Fatal("failed to call client", err)
+		}
 	}
 	// Client COOLDOWN period before asking for next work item to replenish burst allowance policers etc
 	time.Sleep(10 * time.Second)

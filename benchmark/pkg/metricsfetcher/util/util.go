@@ -81,7 +81,7 @@ func (utils GCSLogUtils) GetJobRunFinishedStatus(job string, run int) (bool, err
 func (utils GCSLogUtils) GetJobRunFileContents(job string, run int, filepath string) ([]byte, error) {
 	response, err := utils.googleGCSBucketUtils.GetFileFromJenkinsGoogleBucket(job, run, filepath)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't read file from GCS: %v", err)
+		return nil, fmt.Errorf("couldn't read file from GCS: %v", err)
 	}
 	defer response.Body.Close()
 	return ioutil.ReadAll(response.Body)
@@ -98,6 +98,6 @@ func GetJobLogUtilsForMode(mode string) (JobLogUtils, error) {
 	case GCS:
 		return NewGCSLogUtils(), nil
 	default:
-		return nil, fmt.Errorf("Unknown source mode '%v'", mode)
+		return nil, fmt.Errorf("unknown source mode '%v'", mode)
 	}
 }

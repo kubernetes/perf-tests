@@ -50,7 +50,9 @@ const (
 )
 
 func init() {
-	measurement.Register(serviceCreationLatencyName, createServiceCreationLatencyMeasurement)
+	if err := measurement.Register(serviceCreationLatencyName, createServiceCreationLatencyMeasurement); err != nil {
+		klog.Fatalf("cant register service %v", err)
+	}
 }
 
 func createServiceCreationLatencyMeasurement() measurement.Measurement {

@@ -41,6 +41,6 @@ func CompareJobsUsingScheme(jobComparisonData *util.JobComparisonData, scheme st
 		schemes.CompareJobsUsingKSTest(jobComparisonData, matchThreshold, minMetricAvgForCompare)
 		return nil
 	default:
-		return fmt.Errorf("Unknown comparison scheme '%v'", scheme)
+		return fmt.Errorf("unknown comparison scheme '%v'", scheme)
 	}
 }

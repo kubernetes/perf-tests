@@ -52,5 +52,8 @@ func Run(config *Config) {
 func pong(w http.ResponseWriter, r *http.Request) {
 	klog.V(4).Infof("pong -> %s\n", r.RemoteAddr)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("pong"))
+	_, err := w.Write([]byte("pong"))
+	if err != nil {
+		klog.Fatalf("unable to write response %v\n", err)
+	}
 }

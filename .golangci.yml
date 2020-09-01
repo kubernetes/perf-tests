@@ -13,8 +13,8 @@ linters:
     - gofmt
     - golint
     - errcheck
+    - deadcode
     # TODO(oxddr): enable more checkers
-    # - deadcode
     # - misspell
 
 service:

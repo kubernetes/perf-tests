@@ -52,9 +52,6 @@ type Tests struct {
 // Jobs is a map from job name to all supported tests in the job.
 type Jobs map[string]Tests
 
-// Buckets is a map from bucket url to all supported jobs in the bucket.
-type Buckets map[string]Jobs
-
 var (
 	// performanceDescriptions contains metrics exported by a --ginko.focus=[Feature:Performance]
 	// e2e test
@@ -366,14 +363,6 @@ var (
 		"throughput":   throughputDescriptions,
 	}
 )
-
-func getProwConfigOrDie(configPaths []string) Jobs {
-	jobs, err := getProwConfig(configPaths)
-	if err != nil {
-		panic(err)
-	}
-	return jobs
-}
 
 // Minimal subset of the prow config definition at k8s.io/test-infra/prow/config
 type config struct {

@@ -18,16 +18,13 @@ TESTS := $(shell find pkg -name '*_test.go')
 
 all: benchmark
 
-godep:
-	go get -u github.com/tools/godep
+benchmark: cmd/benchmark.go $(SOURCES)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -o $(BINARY) cmd/benchmark.go
 
-benchmark: godep cmd/benchmark.go $(SOURCES)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 godep go build -a -o $(BINARY) cmd/benchmark.go
-
-test: godep $(TESTS)
-	godep go test k8s.io/perf-tests/benchmark/pkg/... -v
+test: $(TESTS)
+	go test k8s.io/perf-tests/benchmark/pkg/... -v
 
 clean:
 	rm -f $(BINARY)
 
-.PHONY: all godep benchmark test clean
+.PHONY: all benchmark test clean

@@ -17,7 +17,6 @@ limitations under the License.
 package monitors
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +30,6 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/pager"
 
 	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
@@ -131,10 +129,8 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-					return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(opts)
-				}))
-				return pg.List(context.Background(), options)
+				// This call is paginated by cache.Reflector.
+				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(options)
@@ -180,13 +176,8 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = eventSelector
-				pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-					return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(opts)
-				}))
-				// Increase page size from default 500 to 5000 to increase listing throughput.
-				// In our test setup 5000 objects, should have total size of ~4MB, which seems to be acceptable page size.
-				pg.PageSize = 5000
-				return pg.List(context.Background(), options)
+				// This call is paginated by cache.Reflector.
+				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = eventSelector

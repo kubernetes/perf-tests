@@ -11,7 +11,7 @@ metadata:
 spec:
   baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
   nodeSelector:
-    beta.kubernetes.io/os: linux
+    kubernetes.io/os: linux
   replicas: 1
   resources:
     requests:

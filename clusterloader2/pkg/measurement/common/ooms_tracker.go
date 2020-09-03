@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -26,11 +27,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
+	// "k8s.io/perf-tests/clusterloader2/pkg/mexasurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
+
+	"k8s.io/client-go/tools/cache"
+	cachefork "k8s.io/perf-tests/clusterloader2/pkg/third_party/forked/k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -124,15 +130,47 @@ func (m *clusterOOMsTrackerMeasurement) start(config *measurement.Config) error 
 	if err := m.initFields(config); err != nil {
 		return fmt.Errorf("problem with OOMs tracking measurement fields initialization: %w", err)
 	}
-	// Watching for OOM events from node-problem-detector below.
-	i := informer.NewInformer(
-		config.ClusterFramework.GetClientSets().GetClient(),
-		"events",
-		m.selector,
-		m.handleOOMEvent,
-	)
-	if err := informer.StartAndSync(i, m.stopCh, informerTimeout); err != nil {
-		return fmt.Errorf("problem with OOM events informer starting: %w", err)
+
+	ctx := context.TODO()
+	cfg := &cachefork.Config{
+		Queue: NewNoStoreQueue(),
+		ListerWatcher: &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.FieldSelector = m.selector.FieldSelector
+				// This call is paginated by cache.Reflector.
+				return config.ClusterFramework.GetClientSets().GetClient().CoreV1().Events(corev1.NamespaceAll).List(ctx, options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.FieldSelector = m.selector.FieldSelector
+				return config.ClusterFramework.GetClientSets().GetClient().CoreV1().Events(corev1.NamespaceAll).Watch(ctx, options)
+			},
+		},
+		ObjectType:        &corev1.Event{},
+		FullResyncPeriod:  time.Duration(0),
+		RetryOnError:      false,
+		WatchListPageSize: 5001,
+		Process: func(obj interface{}) error {
+			workItem := obj.(workItem)
+			switch workItem.operationType {
+			case setOperationType:
+				m.handleOOMEvent(nil, workItem.obj)
+				return nil
+			case deleteOperationType:
+				return nil
+			default:
+				return fmt.Errorf("encountered unknown operation type: %v", workItem.operationType)
+			}
+		},
+	}
+	controller := cachefork.New(cfg)
+	go controller.Run(m.stopCh)
+	timeoutCh := make(chan struct{})
+	timeoutTimer := time.AfterFunc(informerTimeout, func() {
+		close(timeoutCh)
+	})
+	defer timeoutTimer.Stop()
+	if !cache.WaitForCacheSync(timeoutCh, controller.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
 	}
 	return nil
 }
@@ -214,6 +252,8 @@ func (m *clusterOOMsTrackerMeasurement) handleOOMEvent(_, obj interface{}) {
 	if !ok {
 		return
 	}
+
+	klog.Infof("Processing event: %v", event.ObjectMeta.ResourceVersion)
 
 	m.lock.Lock()
 	defer m.lock.Unlock()

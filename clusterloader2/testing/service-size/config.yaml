@@ -1,0 +1,94 @@
+{{$ITERATIONS := DefaultParam .Iterations 50}}
+{{$UPDATES := DefaultParam .Updates 10}}
+{{$STEP := DefaultParam .Step 50}}
+
+name: service-size
+namespace:
+    number: 1
+tuningSets:
+- name: qps
+  GlobalQPSLoad:
+    qps: 1
+    burst: 1
+steps:
+- name: Starting measurements
+  measurements:
+    - Identifier: APIResponsivenessPrometheus
+      Method: APIResponsivenessPrometheus
+      Params:
+        action: start
+- name: Starting measurement for waiting for pods
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: group = load
+      operationTimeout: 15m
+- name: Creating SVC
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: qps
+    objectBundle:
+    - basename: service
+      objectTemplatePath: service.yaml
+{{$revision := 1}}
+{{range $i := Loop $ITERATIONS}}
+{{$size := MultiplyInt (AddInt $i 1) $STEP}}
+- name: Sleep
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 20s
+- name: Scaling Deployment to {{$size}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: qps
+    objectBundle:
+    - basename: deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        InstanceCount: {{$size}}
+        Revision: "r{{$revision}}"
+- name: Waiting for pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+     - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather
+{{range $j := Loop $UPDATES}}
+{{$revision = AddInt $revision 1}}
+- name: Rolling update {{$j}} of size {{$size}} with revision {{$revision}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: qps
+    objectBundle:
+    - basename: deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        InstanceCount: {{$size}}
+        Revision: "r{{$revision}}"
+- name: Waiting for pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+     - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather
+{{end}}
+{{end}}

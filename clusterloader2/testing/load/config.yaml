@@ -54,6 +54,8 @@
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 
+{{$secret_multiplier := 3}}
+
 name: load
 namespace:
   number: {{$namespaces}}
@@ -204,8 +206,10 @@ steps:
     objectBundle:
     - basename: big-deployment
       objectTemplatePath: configmap.yaml
-    - basename: big-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: big-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: big-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -224,8 +228,10 @@ steps:
     objectBundle:
     - basename: medium-deployment
       objectTemplatePath: configmap.yaml
-    - basename: medium-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: medium-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: medium-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -244,8 +250,10 @@ steps:
     objectBundle:
     - basename: small-deployment
       objectTemplatePath: configmap.yaml
-    - basename: small-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: small-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: small-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -327,18 +335,37 @@ steps:
     Params:
       action: gather
 
-{{if $EXEC_COMMAND}}
-- name: Exec command
+- name: Sleep1
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 5m
+
+- name: Master upgrade
   measurements:
   - Identifier: ExecCommand
     Method: Exec
     Params:
       command:
-      {{range $EXEC_COMMAND}}
-      - {{.}}
-      {{end}}
-{{end}}
+      - gcloud
+      - container
+      - clusters
+      - upgrade
+      - --master
+      - --cluster-version=${CLUSTER_API_VERSION}
+      - --zone=${ZONE}
+      - -q
+      - ${CLUSTER_NAME}
 
+- name: Sleep2
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 15m
+
+{{if false}}
 - name: Scaling and updating objects
   phases:
   - namespaceRange:
@@ -453,6 +480,7 @@ steps:
     - Identifier: WaitForRunningJobs
     Params:
       action: gather
+{{end}}
 
 - name: Deleting objects
   phases:
@@ -466,8 +494,10 @@ steps:
       objectTemplatePath: deployment.yaml
     - basename: big-deployment
       objectTemplatePath: configmap.yaml
-    - basename: big-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: big-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: big-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -482,8 +512,10 @@ steps:
       objectTemplatePath: deployment.yaml
     - basename: medium-deployment
       objectTemplatePath: configmap.yaml
-    - basename: medium-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: medium-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: medium-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -498,8 +530,10 @@ steps:
       objectTemplatePath: deployment.yaml
     - basename: small-deployment
       objectTemplatePath: configmap.yaml
-    - basename: small-deployment
+    {{range $sIndex := Loop $secret_multiplier}}
+    - basename: small-deployment-{{$sIndex}}
       objectTemplatePath: secret.yaml
+    {{end}}
     {{if $ENABLE_NETWORKPOLICIES}}
     - basename: small-deployment
       objectTemplatePath: networkpolicy.yaml

@@ -2,6 +2,8 @@
 {{$CpuRequest := DefaultParam .CpuRequest "10m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
 
+{{$secret_multiplier := 3}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,8 +34,10 @@ spec:
         volumeMounts:
           - name: configmap
             mountPath: /var/configmap
-          - name: secret
-            mountPath: /var/secret
+          {{range $sIndex := Loop $secret_multiplier}}
+          - name: secret-{{$sIndex}}
+            mountPath: /var/secret-{{$sIndex}}
+          {{end}}
       dnsPolicy: Default
       terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
@@ -51,7 +55,10 @@ spec:
         - name: configmap
           configMap:
             name: {{.BaseName}}-{{.Index}}
-        - name: secret
+        {{$baseName := .BaseName}}
+        {{$index := .Index}}
+        {{range $sIndex := Loop $secret_multiplier}}
+        - name: secret-{{$sIndex}}
           secret:
-            secretName: {{.BaseName}}-{{.Index}}
-
+            secretName: "{{$baseName}}-{{$sIndex}}-{{$index}}"
+        {{end}}

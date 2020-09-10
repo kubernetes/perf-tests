@@ -176,16 +176,30 @@ var (
 			}},
 		},
 		"Scheduler": {
-			"SchedulingLatency": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "SchedulingMetrics",
-				Parser:           parseSchedulingLatency,
-			}},
-			"SchedulingThroughput": []TestDescription{{
-				Name:             "density",
-				OutputFilePrefix: "SchedulingThroughput",
-				Parser:           parseSchedulingThroughputCL,
-			}},
+			"SchedulingLatency": []TestDescription{
+				// `density_*` items need to be before the `density` item because of
+				// how data file prefixes work. Same applies to SchedulingThroughput.
+				{
+					Name:             "density_pod-anti-affinity",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("pod-anti-affinity"),
+				}, {
+					Name:             "density",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("density"),
+				},
+			},
+			"SchedulingThroughput": []TestDescription{
+				{
+					Name:             "density_pod-anti-affinity",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("pod-anti-affinity"),
+				}, {
+					Name:             "density",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("density"),
+				},
+			},
 		},
 		"Etcd": {
 			"DensityBackendCommitDuration": []TestDescription{{

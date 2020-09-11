@@ -1,3 +1,8 @@
+- identifier: pod-affinity
+  configPath: testing/density/config.yaml
+  overridePaths:
+  - testing/density/scheduler/pod-affinity/overrides.yaml
+
 - identifier: pod-anti-affinity
   configPath: testing/density/config.yaml
   overridePaths:

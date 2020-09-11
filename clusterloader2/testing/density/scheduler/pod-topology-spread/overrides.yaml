@@ -1,0 +1,2 @@
+SATURATION_DEPLOYMENT_SPEC: scheduler/pod-topology-spread/deployment.yaml
+LATENCY_DEPLOYMENT_SPEC: scheduler/pod-topology-spread/deployment.yaml

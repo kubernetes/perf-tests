@@ -20,22 +20,54 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
 	stats "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
+	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 const (
 	singleCallTimeout = 5 * time.Minute
 )
 
+type ContainerFilter func(pod stats.PodReference, name string) bool
+
+// ContainerIDFilter matches containers by name.
+func ContainerIDFilter(ids func() []string) ContainerFilter {
+	return func(pod stats.PodReference, name string) bool {
+		for _, id := range ids() {
+			if id == name {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// AllContainersFilter matches any containers.
+func AllContainersFilter() ContainerFilter {
+	return func(pod stats.PodReference, name string) bool {
+		return true
+	}
+}
+
 // GetOneTimeResourceUsageOnNode queries the node's /stats/summary endpoint
 // and returns the resource usage of all containerNames returned by the containerNames function.
 func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port int, containerNames func() []string) (util.ResourceUsagePerContainer, error) {
+	return GetOneTimeResourceUsageOnNodeFilter(APIStatsGatherer(c), nodeName, port, ContainerIDFilter(containerNames))
+}
+
+type StatsGatherer func(nodeName string, port int) (*stats.Summary, error)
+
+// GetOneTimeResourceUsageOnNodeFilter queries the node's /stats/summary endpoint
+// and returns the resource usage of all containers that matched filter.
+func GetOneTimeResourceUsageOnNodeFilter(gatherer StatsGatherer, nodeName string, port int, filter ContainerFilter) (util.ResourceUsagePerContainer, error) {
 	// Get information of all containers on the node.
-	summary, err := getStatsSummary(c, nodeName, port)
+	summary, err := gatherer(nodeName, port)
 	if err != nil {
 		return nil, err
 	}
@@ -55,18 +87,10 @@ func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port 
 		}
 	}
 	// Process container infos that are relevant to us.
-	containers := containerNames()
-	usageMap := make(util.ResourceUsagePerContainer, len(containers))
+	usageMap := make(util.ResourceUsagePerContainer)
 	for _, pod := range summary.Pods {
 		for _, container := range pod.Containers {
-			isInteresting := false
-			for _, interestingContainerName := range containers {
-				if container.Name == interestingContainerName {
-					isInteresting = true
-					break
-				}
-			}
-			if !isInteresting {
+			if !filter(pod.PodRef, container.Name) {
 				continue
 			}
 			if usage := f(pod.PodRef.Name+"/"+container.Name, &container); usage != nil {
@@ -75,6 +99,13 @@ func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port 
 		}
 	}
 	return usageMap, nil
+}
+
+// APIStatsGatherer uses nodes/proxy to collect stats.
+func APIStatsGatherer(c clientset.Interface) StatsGatherer {
+	return func(nodeName string, port int) (summary *stats.Summary, err error) {
+		return getStatsSummary(c, nodeName, port)
+	}
 }
 
 // getStatsSummary contacts kubelet for the container information.
@@ -106,4 +137,24 @@ func removeUint64Ptr(ptr *uint64) uint64 {
 		return 0
 	}
 	return *ptr
+}
+
+// SSHStatsGatherer grabs pod resource usage summary using ssh.
+func SSHStatsGatherer(p provider.Provider, sshAddress string) StatsGatherer {
+	return func(nodeName string, port int) (*stats.Summary, error) {
+		cmd := fmt.Sprintf("curl http://localhost:%v/stats/summary", ports.KubeletReadOnlyPort)
+		stdout, stderr, code, err := p.RunSSHCommand(cmd, net.JoinHostPort(sshAddress, "22"))
+		if err != nil {
+			return nil, err
+		}
+		if code != 0 {
+			return nil, fmt.Errorf("failed to run %q on %q, stderr: %v", cmd, sshAddress, stderr)
+		}
+		summary := stats.Summary{}
+		err = json.Unmarshal([]byte(stdout), &summary)
+		if err != nil {
+			return nil, err
+		}
+		return &summary, nil
+	}
 }

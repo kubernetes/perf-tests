@@ -52,6 +52,7 @@ replace k8s.io/sample-controller => k8s.io/sample-controller v0.18.0
 
 require (
 	github.com/go-errors/errors v1.0.1
+	github.com/google/go-cmp v0.3.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.4.1

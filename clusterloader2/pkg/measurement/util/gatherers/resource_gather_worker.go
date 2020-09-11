@@ -21,7 +21,6 @@ import (
 	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubelet"
@@ -30,10 +29,10 @@ import (
 )
 
 type resourceGatherWorker struct {
-	c                           clientset.Interface
+	g                           kubelet.StatsGatherer
 	nodeName                    string
 	wg                          *sync.WaitGroup
-	containerIDs                []string
+	containerFilter             kubelet.ContainerFilter
 	stopCh                      chan struct{}
 	dataSeries                  []util.ResourceUsagePerContainer
 	finished                    bool
@@ -59,7 +58,7 @@ func (w *resourceGatherWorker) singleProbe() {
 			}
 		}
 	} else {
-		nodeUsage, err := kubelet.GetOneTimeResourceUsageOnNode(w.c, w.nodeName, w.port, func() []string { return w.containerIDs })
+		nodeUsage, err := kubelet.GetOneTimeResourceUsageOnNodeFilter(w.g, w.nodeName, w.port, w.containerFilter)
 		if err != nil {
 			klog.Errorf("error while reading data from %v: %v", w.nodeName, err)
 			return

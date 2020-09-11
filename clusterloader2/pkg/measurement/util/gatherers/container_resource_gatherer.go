@@ -30,6 +30,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubelet"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	pkgutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -71,6 +72,7 @@ type ContainerResourceGatherer struct {
 type ResourceGathererOptions struct {
 	InKubemark                        bool
 	Nodes                             NodesSet
+	MasterIPs                         []string
 	ResourceDataGatheringPeriod       time.Duration
 	MasterResourceDataGatheringPeriod time.Duration
 }
@@ -146,18 +148,34 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			}
 		}
 
-		for _, node := range nodeList.Items {
-			if options.Nodes == AllNodes || masterNodes.Has(node.Name) || nodesToConsider[node.Name] {
+		for _, address := range options.MasterIPs {
+			nodesToConsider[address] = true
+		}
+		machines := collectMachines(nodeList, options.MasterIPs)
+		masterIPs := sets.NewString(options.MasterIPs...)
+		defaultFilter := kubelet.ContainerIDFilter(func() []string { return g.containerIDs })
+		for _, machine := range machines {
+			considerNode := masterNodes.Has(machine.nodeName) || nodesToConsider[machine.nodeName]
+			if options.Nodes == AllNodes || considerNode || masterIPs.Has(machine.sshIP) {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod
-				if masterNodes.Has(node.Name) {
+				gatherer := kubelet.APIStatsGatherer(c)
+				filter := defaultFilter
+				if masterNodes.Has(machine.nodeName) {
 					resourceDataGatheringPeriod = options.MasterResourceDataGatheringPeriod
+				} else if masterIPs.Has(machine.sshIP) {
+					if !provider.Features().SupportSSHToMaster {
+						continue
+					}
+					resourceDataGatheringPeriod = options.MasterResourceDataGatheringPeriod
+					gatherer = kubelet.SSHStatsGatherer(provider, machine.sshIP)
+					filter = kubelet.AllContainersFilter()
 				}
 				g.workers = append(g.workers, resourceGatherWorker{
-					c:                           c,
-					nodeName:                    node.Name,
+					g:                           gatherer,
+					nodeName:                    machine.nodeName,
 					wg:                          &g.workerWg,
-					containerIDs:                g.containerIDs,
+					containerFilter:             filter,
 					stopCh:                      g.stopCh,
 					finished:                    false,
 					inKubemark:                  false,
@@ -168,6 +186,46 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		}
 	}
 	return &g, nil
+}
+
+type machine struct {
+	nodeName  string
+	sshIP     string
+	addresses []string
+}
+
+func hasNodeWithAddress(machines []machine, ip string) bool {
+	for _, m := range machines {
+		for _, addr := range m.addresses {
+			if addr == ip {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func collectMachines(nodeList *corev1.NodeList, masterIPs []string) []machine {
+	var machines []machine
+	for _, node := range nodeList.Items {
+		addresses := []string{}
+		for _, addr := range node.Status.Addresses {
+			addresses = append(addresses, addr.Address)
+		}
+		machines = append(machines, machine{
+			nodeName:  node.Name,
+			addresses: addresses,
+		})
+	}
+	for _, ip := range masterIPs {
+		if !hasNodeWithAddress(machines, ip) {
+			machines = append(machines, machine{
+				sshIP:     ip,
+				addresses: []string{ip},
+			})
+		}
+	}
+	return machines
 }
 
 // StartGatheringData starts a stat gathering worker blocks for each node to track,

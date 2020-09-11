@@ -113,6 +113,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 				Nodes:                             nodesSet,
 				ResourceDataGatheringPeriod:       60 * time.Second,
 				MasterResourceDataGatheringPeriod: 10 * time.Second,
+				MasterIPs:                         config.ClusterFramework.GetClusterConfig().MasterIPs,
 			}, namespace)
 		if err != nil {
 			return nil, err

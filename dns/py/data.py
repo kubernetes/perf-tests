@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2016 The Kubernetes Authors.
 #
@@ -70,7 +70,7 @@ class Parser(object):
   Parses dnsperf output file.
   """
   def __init__(self, out):
-    self.lines = [x.strip() for x in out.split('\n')]
+    self.lines = [x.strip() for x in out.decode().split('\n')]
     self.results = {}
     self.histogram = []
 
@@ -192,11 +192,11 @@ CREATE TABLE IF NOT EXISTS histograms (
           'rtt_ms_count': count,
       }
 
-      columns = ','.join(data.keys())
+      columns = ','.join(list(data.keys()))
       qs = ','.join(['?'] * len(data))
       stmt = 'INSERT INTO histograms (' + columns + ') VALUES (' + qs + ')'
       _log.debug('histogram sql -- %s', stmt)
-      self.c.execute(stmt, data.values())
+      self.c.execute(stmt, list(data.values()))
 
   def get_results(self, run_id, run_subid):
     sql = ('SELECT ' + ','.join([r.name for r in RESULTS])
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS histograms (
     _log.debug('%s', sql)
     self.c.execute(sql, (run_id, run_subid, pod_name))
     rows = self.c.fetchall()
-    return dict(zip([r.name for r in RESULTS], rows[0])) if rows else None
+    return dict(list(zip([r.name for r in RESULTS], rows[0]))) if rows else None
 
   def _exists(self, key):
     self.c.execute(

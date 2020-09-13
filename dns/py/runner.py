@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2016 The Kubernetes Authors.
 #
@@ -23,7 +23,7 @@ import traceback
 import yaml
 import threading
 import re
-import Queue
+import queue
 from subprocess import PIPE
 
 from data import Parser, ResultDb
@@ -41,7 +41,7 @@ _remove_query_pattern=["setting3[.]yeahost[.]com"]
 MAX_TEST_SVC = 20
 
 def add_prefix(prefix, text):
-  return '\n'.join([prefix + l for l in text.split('\n')])
+  return '\n'.join([prefix + l for l in text.decode().split('\n')])
 
 
 class Runner(object):
@@ -232,7 +232,7 @@ class Runner(object):
     output_file = '%s/run-%s/result-%s-%s.out' % \
       (self.args.out_dir, test_case.run_id, test_case.run_subid, test_case.pod_name)
     _log.info('Writing to output file %s', output_file)
-    res_usage = Queue.Queue()
+    res_usage = queue.Queue()
     dt = threading.Thread(target=self._run_top,args=[res_usage])
     dt.start()
     header = '''### run_id {run_id}:{run_subid}
@@ -260,8 +260,8 @@ class Runner(object):
       results = {}
       results['params'] = test_case.to_yaml()
       results['code'] = code
-      results['stdout'] = out.split('\n')
-      results['stderr'] = err.split('\n')
+      results['stdout'] = out.decode().split('\n')
+      results['stderr'] = err.decode().split('\n')
       results['data'] = {}
 
       try:
@@ -273,7 +273,7 @@ class Runner(object):
         results['data']['ok'] = True
         results['data']['msg'] = None
 
-        for key, value in parser.results.items():
+        for key, value in list(parser.results.items()):
           results['data'][key] = value
         results['data']['max_perfserver_cpu'] = res_usage.get()
         results['data']['max_perfserver_memory'] = res_usage.get()
@@ -370,7 +370,7 @@ class Runner(object):
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
         raise Exception('error getting pod information: %d', code)
-      client_pods=client_pods.rstrip().split('\n')
+      client_pods=client_pods.rstrip().decode().split('\n')
       _log.info('got client pods "%s"', client_pods)
       if len(client_pods) > 0:
         break
@@ -392,7 +392,7 @@ class Runner(object):
       try:
         _log.info('Downloading large query file')
         subprocess.check_call(['wget', _dnsperf_qfile_path])
-        subprocess.check_call(['gunzip', _dnsperf_qfile_path.split('/')[-1]])
+        subprocess.check_call(['gunzip', _dnsperf_qfile_path.decode().split('/')[-1]])
         _log.info('Removing hostnames matching specified patterns')
         for pattern in _remove_query_pattern:
           subprocess.check_call(['sed', '-i', '-e', '/%s/d' %(pattern), _dnsperf_qfile_name])

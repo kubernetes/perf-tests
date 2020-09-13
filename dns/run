@@ -22,17 +22,17 @@ outDir=${2:-"out"}
 nodeLocalIP=${4:-"169.254.20.10"}
 mkdir -p ${outDir}
 
-pip2 install numpy
+pip3 install numpy
 
 case "$1" in
   kube-dns )
-    python2 py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    python3 py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   core-dns )
-    python2 py/run_perf.py --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    python3 py/run_perf.py --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   node-local-dns )
-    python2 py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
+    python3 py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
     ;;
 esac
 

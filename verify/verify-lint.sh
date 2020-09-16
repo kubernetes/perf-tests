@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -euxo pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "$KUBE_ROOT"

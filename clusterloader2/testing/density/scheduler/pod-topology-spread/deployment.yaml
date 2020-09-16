@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{.Group}}
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: {{.Group}}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        # Cannot be DoNotSchedule because the there's no way to differentiate
+        # the master node from a hollow node; as a result, the global minimum
+        # matching number will always be zero (since pods cannot be scheduled
+        # on to the master).
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            group: {{.Group}}
+      containers:
+      - image: k8s.gcr.io/pause:3.1
+        imagePullPolicy: IfNotPresent
+        name: {{.Name}}
+        ports:
+        resources:
+          requests:
+            cpu: {{.CpuRequest}}
+            memory: {{.MemoryRequest}}
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900

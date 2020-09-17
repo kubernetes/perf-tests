@@ -17,6 +17,8 @@ limitations under the License.
 package test
 
 import (
+	"time"
+
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -49,6 +51,7 @@ type Context interface {
 	GetClusterLoaderConfig() *config.ClusterLoaderConfig
 	GetClusterFramework() *framework.Framework
 	GetPrometheusFramework() *framework.Framework
+	GetTestReporter() Reporter
 	GetState() *state.State
 	GetTemplateMappingCopy() map[string]interface{}
 	GetTemplateProvider() *config.TemplateProvider
@@ -63,4 +66,14 @@ type Executor interface {
 	ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList
 	ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList
 	ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList
+}
+
+// Reporter is an interface for reporting tests results.
+type Reporter interface {
+	SetTestName(name string)
+	GetNumberOfFailedTestItems() int
+	BeginTestSuite()
+	EndTestSuite()
+	ReportTestStepFinish(duration time.Duration, stepName string, errList *errors.ErrorList)
+	ReportTestFinish(duration time.Duration, testConfigPath string, errList *errors.ErrorList)
 }

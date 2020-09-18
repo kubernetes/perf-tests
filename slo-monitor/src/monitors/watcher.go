@@ -28,7 +28,6 @@ import (
 
 const (
 	resyncPeriod      = time.Duration(0)
-	watchListPageSize = 5000
 )
 
 // NewWatcherWithHandler creates a simple watcher that will call `h` for all coming objects
@@ -41,7 +40,6 @@ func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHa
 		ObjectType:        objType,
 		FullResyncPeriod:  resyncPeriod,
 		RetryOnError:      false,
-		WatchListPageSize: watchListPageSize,
 
 		Process: func(obj interface{}) error {
 			workItem := obj.(workItem)

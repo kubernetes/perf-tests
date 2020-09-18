@@ -180,9 +180,17 @@ var (
 				// `density_*` items need to be before the `density` item because of
 				// how data file prefixes work. Same applies to SchedulingThroughput.
 				{
+					Name:             "density_pod-affinity",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("pod-affinity"),
+				}, {
 					Name:             "density_pod-anti-affinity",
 					OutputFilePrefix: "SchedulingMetrics",
 					Parser:           parseSchedulingLatency("pod-anti-affinity"),
+				}, {
+					Name:             "density_pod-topology-spread",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("pod-topology-spread"),
 				}, {
 					Name:             "density",
 					OutputFilePrefix: "SchedulingMetrics",
@@ -191,9 +199,17 @@ var (
 			},
 			"SchedulingThroughput": []TestDescription{
 				{
+					Name:             "density_pod-affinity",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("pod-affinity"),
+				}, {
 					Name:             "density_pod-anti-affinity",
 					OutputFilePrefix: "SchedulingThroughput",
 					Parser:           parseSchedulingThroughputCL("pod-anti-affinity"),
+				}, {
+					Name:             "density_pod-topology-spread",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("pod-topology-spread"),
 				}, {
 					Name:             "density",
 					OutputFilePrefix: "SchedulingThroughput",

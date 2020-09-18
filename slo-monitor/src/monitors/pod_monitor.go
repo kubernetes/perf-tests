@@ -129,8 +129,20 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				// This call is paginated by cache.Reflector.
-				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(options)
+				// slo-monitor is not using the events returned from the list
+				// (it uses NoStoreQueue implementation of Store which discards them),
+				// only the resourceVersion is used to instantiate the watch from this point.
+				// This trick allows us to reduce memory usage on startup and further relists.
+				o := metav1.ListOptions{
+					Limit: 1,
+				}
+				result, err := pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(o)
+				if err != nil {
+					return nil, err
+				}
+				result.Continue = ""
+				result.Items = nil
+				return result, nil
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(options)
@@ -175,9 +187,20 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	eventController := NewWatcherWithHandler(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.FieldSelector = eventSelector
-				// This call is paginated by cache.Reflector.
-				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(options)
+				// slo-monitor is not using the pods returned from the list
+				// (it uses NoStoreQueue implementation of Store which discards them),
+				// only the resourceVersion is used to instantiate the watch from this point.
+				// This trick allows us to reduce memory usage on startup and further relists.
+				o := metav1.ListOptions{
+					Limit: 1,
+				}
+				result, err := pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(o)
+				if err != nil {
+					return nil, err
+				}
+				result.Continue = ""
+				result.Items = nil
+				return result, nil
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = eventSelector

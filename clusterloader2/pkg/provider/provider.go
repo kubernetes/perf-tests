@@ -53,6 +53,9 @@ type Features struct {
 
 	// ShouldPrometheusScrapeApiserverOnly determines if we should set PROMETHEUS_SCRAPE_APISERVER_ONLY by default.
 	ShouldPrometheusScrapeApiserverOnly bool
+
+	// SchedulerInsecurePortDisabled determines if kube-scheduler listens on insecure port.
+	SchedulerInsecurePortDisabled bool
 }
 
 // Config is the config of the provider.

@@ -23,23 +23,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/client-go/tools/cache"
-	cachefork "k8s.io/perf-tests/slo-monitor/src/third_party/forked/k8s.io/client-go/tools/cache"
 )
 
 const (
-	resyncPeriod      = time.Duration(0)
+	resyncPeriod = time.Duration(0)
 )
 
 // NewWatcherWithHandler creates a simple watcher that will call `h` for all coming objects
 func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHandler, deleteHandler func(obj interface{}) error) cache.Controller {
 	fifo := NewNoStoreQueue()
 
-	cfg := &cachefork.Config{
-		Queue:             fifo,
-		ListerWatcher:     lw,
-		ObjectType:        objType,
-		FullResyncPeriod:  resyncPeriod,
-		RetryOnError:      false,
+	cfg := &cache.Config{
+		Queue:            fifo,
+		ListerWatcher:    lw,
+		ObjectType:       objType,
+		FullResyncPeriod: resyncPeriod,
+		RetryOnError:     false,
 
 		Process: func(obj interface{}) error {
 			workItem := obj.(workItem)
@@ -53,6 +52,5 @@ func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHa
 			}
 		},
 	}
-	return cachefork.New(cfg)
-
+	return cache.New(cfg)
 }

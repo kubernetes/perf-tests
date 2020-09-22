@@ -192,36 +192,26 @@ steps:
 
 - name: Starting measurement for waiting for pods
   measurements:
-  - Identifier: WaitForRunningDeployments
-    Method: WaitForControlledPodsRunning
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    - Identifier: WaitForRunningStatefulSets
+      Params:
+        apiVersion: apps/v1
+        kind: StatefulSet
+    - Identifier: WaitForRunningDaemonSets
+      Params:
+        apiVersion: apps/v1
+        kind: DaemonSet
+    - Identifier: WaitForRunningJobs
+      Params:
+        apiVersion: batch/v1
+        kind: Job
     Params:
       action: start
-      apiVersion: apps/v1
-      kind: Deployment
-      labelSelector: group = load
-      operationTimeout: 15m
-  - Identifier: WaitForRunningStatefulSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: start
-      apiVersion: apps/v1
-      kind: StatefulSet
-      labelSelector: group = load
-      operationTimeout: 15m
-  - Identifier: WaitForRunningDaemonSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: start
-      apiVersion: apps/v1
-      kind: DaemonSet
-      labelSelector: group = load
-      operationTimeout: 15m
-  - Identifier: WaitForRunningJobs
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: start
-      apiVersion: batch/v1
-      kind: Job
       labelSelector: group = load
       operationTimeout: 15m
 
@@ -362,23 +352,14 @@ steps:
 
 - name: Waiting for pods to be running
   measurements:
-  - Identifier: WaitForRunningDeployments
-    Method: WaitForControlledPodsRunning
+  - Method: WaitForControlledPodsRunning
+    Instances:
+     - Identifier: WaitForRunningDeployments
+     - Identifier: WaitForRunningStatefulSets
+     - Identifier: WaitForRunningDaemonSets
+     - Identifier: WaitForRunningJobs
     Params:
       action: gather
-  - Identifier: WaitForRunningStatefulSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningDaemonSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningJobs
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-
 
 {{if $EXEC_COMMAND}}
 - name: Exec command
@@ -643,20 +624,12 @@ steps:
 
 - name: Waiting for objects to become scaled
   measurements:
-  - Identifier: WaitForRunningDeployments
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningStatefulSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningDaemonSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningJobs
-    Method: WaitForControlledPodsRunning
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    - Identifier: WaitForRunningStatefulSets
+    - Identifier: WaitForRunningDaemonSets
+    - Identifier: WaitForRunningJobs
     Params:
       action: gather
 
@@ -796,20 +769,12 @@ steps:
 
 - name: Waiting for pods to be deleted
   measurements:
-  - Identifier: WaitForRunningDeployments
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningStatefulSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningDaemonSets
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-  - Identifier: WaitForRunningJobs
-    Method: WaitForControlledPodsRunning
+  - Method: WaitForControlledPodsRunning
+    Instances:
+     - Identifier: WaitForRunningDeployments
+     - Identifier: WaitForRunningStatefulSets
+     - Identifier: WaitForRunningDaemonSets
+     - Identifier: WaitForRunningJobs
     Params:
       action: gather
   {{if $ENABLE_PVS}}

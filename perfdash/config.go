@@ -47,6 +47,7 @@ type Tests struct {
 	Prefix       string
 	Descriptions TestDescriptions
 	BuildsCount  int
+	ArtifactsDir string
 }
 
 // Jobs is a map from job name to all supported tests in the job.
@@ -464,6 +465,7 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 
 func parsePeriodicConfig(periodic periodic) (Tests, error) {
 	var thisPeriodicConfig Tests
+	thisPeriodicConfig.ArtifactsDir = "artifacts"
 	for _, tag := range periodic.Tags {
 		if strings.HasPrefix(tag, "perfDashPrefix:") {
 			split := strings.SplitN(tag, ":", 2)
@@ -489,6 +491,11 @@ func parsePeriodicConfig(periodic periodic) (Tests, error) {
 				return Tests{}, fmt.Errorf("non-positive builds count - %v", i)
 			}
 			thisPeriodicConfig.BuildsCount = i
+			continue
+		}
+		if strings.HasPrefix(tag, "perfDashArtifactsDir:") {
+			split := strings.SplitN(tag, ":", 2)
+			thisPeriodicConfig.ArtifactsDir = strings.TrimSpace(split[1])
 			continue
 		}
 		if strings.HasPrefix(tag, "perfDash") {

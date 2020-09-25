@@ -49,7 +49,6 @@
 # If Jobs are enabled reduce the number of small, medium, big deployments per namespace.
 {{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
-{{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace (IfThenElse $ENABLE_JOBS 1 0)}}
 
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
@@ -341,17 +340,17 @@ steps:
         templateFillMap:
           ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
           ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 1
-    tuningSet: RandomizedSaturationTimeLimited
-    objectBundle:
-      - basename: big-job
-        objectTemplatePath: job.yaml
-        templateFillMap:
-          ReplicasMin: {{$BIG_GROUP_SIZE}}
-          ReplicasMax: {{$BIG_GROUP_SIZE}}
+  # - namespaceRange:
+  #     min: 1
+  #     max: {{$namespaces}}
+  #   replicasPerNamespace: 1
+  #   tuningSet: RandomizedSaturationTimeLimited
+  #   objectBundle:
+  #     - basename: big-job
+  #       objectTemplatePath: job.yaml
+  #       templateFillMap:
+  #         ReplicasMin: {{$BIG_GROUP_SIZE}}
+  #         ReplicasMax: {{$BIG_GROUP_SIZE}}
   {{end}}
 
 - name: Waiting for pods to be running
@@ -488,17 +487,17 @@ steps:
         templateFillMap:
           ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
           ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 1
-    tuningSet: RandomizedScalingTimeLimited
-    objectBundle:
-      - basename: big-job
-        objectTemplatePath: job.yaml
-        templateFillMap:
-          ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
-          ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
+  # - namespaceRange:
+  #     min: 1
+  #     max: {{$namespaces}}
+  #   replicasPerNamespace: 1
+  #   tuningSet: RandomizedScalingTimeLimited
+  #   objectBundle:
+  #     - basename: big-job
+  #       objectTemplatePath: job.yaml
+  #       templateFillMap:
+  #         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
+  #         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
   {{end}}
 
 - name: Waiting for objects to become scaled
@@ -637,14 +636,14 @@ steps:
     objectBundle:
       - basename: medium-job
         objectTemplatePath: job.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
-    objectBundle:
-      - basename: big-job
-        objectTemplatePath: job.yaml
+  # - namespaceRange:
+  #     min: 1
+  #     max: {{$namespaces}}
+  #   replicasPerNamespace: 0
+  #   tuningSet: RandomizedSaturationTimeLimited
+  #   objectBundle:
+  #     - basename: big-job
+  #       objectTemplatePath: job.yaml
   {{end}}
   # If both StatefulSets and PVs were enabled we need to delete PVs manually.
   {{if and $ENABLE_STATEFULSETS $ENABLE_PVS}}

@@ -19,6 +19,7 @@
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
+{{$ENABLE_DENSITY_TEST := DefaultParam .CL2_ENABLE_DENSITY_TEST false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER false}}
 {{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
@@ -48,6 +49,27 @@
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace 1}}
 {{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
 
+# The minimal number of pods to be used to measure various things like
+# pod-startup-latency or scheduler-throughput. The purpose of it is to avoid
+# problems in small clusters where we wouldn't have enough samples (pods) to
+# measure things accurately.
+{{$MIN_PODS_IN_SMALL_CLUSTERS := 500}}
+
+# BEGIN scheduler-throughput section
+# TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
+{{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) (MultiplyInt 2 .Nodes)}}
+{{$schedulerThroughputPodsPerDeployment := .Nodes}}
+{{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
+{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 0}}
+# END scheduler-throughput section
+
+# TODO(https://github.com/kubernetes/perf-tests/issues/1024): Investigate and get rid of this section.
+# BEGIN pod-startup-latency section
+{{$totalLatencyPods := MaxInt $MIN_PODS_IN_SMALL_CLUSTERS .Nodes}}
+{{$latencyReplicas := DivideInt $totalLatencyPods $namespaces}}
+{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "1h"}}
+# END pod-startup-latency section
+
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
 
@@ -56,11 +78,20 @@
 
 name: load
 namespace:
-  number: {{$namespaces}}
+  number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:
     parallelismLimit: 1
+# Dedicated tuningSet for SchedulerThroughput phases that results in fully
+# parallel creation of deployments.
+- name: SchedulerThroughputParallel
+  parallelismLimitedLoad:
+    parallelismLimit: {{$schedulerThroughputNamespaces}}
+# TODO(https://github.com/kubernetes/perf-tests/issues/1024): This TuningSet is used only for pod-startup-latency, get rid of it
+- name: Uniform5qps
+  qpsLoad:
+    qps: 5
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$saturationTime}}s
@@ -94,7 +125,7 @@ steps:
     Params:
       action: start
       labelSelector: group = load
-      threshold: 1h
+      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
     Params:
@@ -216,6 +247,9 @@ steps:
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -236,6 +270,9 @@ steps:
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -256,6 +293,9 @@ steps:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -337,6 +377,151 @@ steps:
       {{range $EXEC_COMMAND}}
       - {{.}}
       {{end}}
+{{end}}
+
+{{if $ENABLE_DENSITY_TEST}}
+# BEGIN scheduler throughput
+- name: Creating scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scheduler-throughput
+      # The operation timeout shouldn't be less than 20m to make sure that ~10m node
+      # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
+      operationTimeout: 20m
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      measurmentInterval: 1s
+- name: Creating scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scheduler-throughput-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: {{$schedulerThroughputPodsPerDeployment}}
+        Group: scheduler-throughput
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scheduler throughput pods to be created
+  measurements:
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Collecting scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      threshold: {{$schedulerThroughputThreshold}}
+- name: Deleting scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scheduler-throughput-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scheduler throughput pods to be deleted
+  measurements:
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# END scheduler throughput
+
+# TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, we wouldn't need this section.
+# BEGIN pod-startup-latency
+- name: Starting latency pod measurements
+  measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = latency
+      threshold: {{$podStartupLatencyThreshold}}
+  - Identifier: WaitForRunningLatencyDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = latency
+      operationTimeout: 15m
+- name: Creating latency pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$latencyReplicas}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+        # CPU and memory requests are calculated for 1-core 4GB node.
+        # Increasing allocation of both memory and cpu by 10% decreases the
+        # value of priority function in scheduler by one point.
+        # This results in decreased probability of choosing the same node again.
+        # TODO(https://github.com/kubernetes/perf-tests/issues/1024): See whether we can get rid of this
+        CpuRequest: 100m
+        MemoryRequest: 350M
+- name: Waiting for latency pods to be running
+  measurements:
+  - Identifier: WaitForRunningLatencyDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting latency pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: latency-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for latency pods to be deleted
+  measurements:
+  - Identifier: WaitForRunningLatencyDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Collecting pod startup latency
+  measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+# END pod-startup-latency
 {{end}}
 
 - name: Scaling and updating objects

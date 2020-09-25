@@ -37,7 +37,12 @@ var (
 )
 
 // RunTest runs test based on provided test configuration.
-func RunTest(clusterFramework, prometheusFramework *framework.Framework, clusterLoaderConfig *config.ClusterLoaderConfig) *errors.ErrorList {
+func RunTest(
+	clusterFramework *framework.Framework,
+	prometheusFramework *framework.Framework,
+	clusterLoaderConfig *config.ClusterLoaderConfig,
+	testReporter Reporter,
+) *errors.ErrorList {
 	if clusterFramework == nil {
 		return errors.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
@@ -55,11 +60,17 @@ func RunTest(clusterFramework, prometheusFramework *framework.Framework, cluster
 	if errList != nil {
 		return errList
 	}
-	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), mapping)
+	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping)
 	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
+	testName := clusterLoaderConfig.TestScenario.Identifier
+	if testName == "" {
+		testName = testConfig.Name
+	}
+	testReporter.SetTestName(testName)
+
 	return Test.ExecuteTest(ctx, testConfig)
 }

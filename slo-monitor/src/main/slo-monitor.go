@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 )
 
@@ -75,7 +75,7 @@ func main() {
 	glog.Infof("Starting Performance SLO monitor on port %v", listenURL)
 
 	monitors.Register()
-	http.Handle("/metrics", prometheus.Handler())
+	http.Handle("/metrics", promhttp.Handler())
 
 	kubeClient, err := createKubeClient()
 	if err != nil {

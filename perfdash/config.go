@@ -196,6 +196,10 @@ var (
 					Name:             "density",
 					OutputFilePrefix: "SchedulingMetrics",
 					Parser:           parseSchedulingLatency("density"),
+				}, {
+					Name:             "load",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("load"),
 				},
 			},
 			"SchedulingThroughput": []TestDescription{
@@ -215,6 +219,10 @@ var (
 					Name:             "density",
 					OutputFilePrefix: "SchedulingThroughput",
 					Parser:           parseSchedulingThroughputCL("density"),
+				}, {
+					Name:             "load",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("load"),
 				},
 			},
 		},

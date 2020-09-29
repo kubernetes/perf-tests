@@ -22,6 +22,9 @@ verify-all: test verify-boilerplate verify-flags
 .PHONY: verify-all-dev
 verify-all-dev: verify-all verify-dashboard verify-lint
 
+.PHONY: verify-all-python
+verify-all: verify-boilerplate verify-flags
+
 # TODO(oxddr): go-build.sh doesn't work at the moment decide whether we need this at all
 # .PHONY: build
 # build:

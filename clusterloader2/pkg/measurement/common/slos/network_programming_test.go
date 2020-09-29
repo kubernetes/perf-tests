@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -50,7 +51,7 @@ func TestGather(t *testing.T) {
 	}
 }
 
-func testGatherer(t *testing.T, executor QueryExecutor, wantData *measurementutil.PerfData, wantError error) {
+func testGatherer(t *testing.T, executor common.QueryExecutor, wantData *measurementutil.PerfData, wantError error) {
 	g := &netProgGatherer{}
 	summaries, err := g.Gather(executor, time.Now(), nil)
 	if err != nil {

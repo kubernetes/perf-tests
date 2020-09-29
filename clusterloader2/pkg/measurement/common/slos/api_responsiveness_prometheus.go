@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -76,7 +77,9 @@ const (
 )
 
 func init() {
-	create := func() measurement.Measurement { return createPrometheusMeasurement(&apiResponsivenessGatherer{}) }
+	create := func() measurement.Measurement {
+		return common.CreatePrometheusMeasurement(&apiResponsivenessGatherer{})
+	}
 	if err := measurement.Register(apiResponsivenessPrometheusMeasurementName, create); err != nil {
 		klog.Fatalf("Cannot register %s: %v", apiResponsivenessPrometheusMeasurementName, err)
 	}
@@ -112,7 +115,7 @@ func (cte *customThresholdEntry) getKey() string {
 
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (a *apiResponsivenessGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
 	if err != nil {
 		return nil, err
@@ -155,7 +158,7 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
-func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, startTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
+func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package slos
+package common
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
-func createPrometheusMeasurement(gatherer Gatherer) measurement.Measurement {
+func CreatePrometheusMeasurement(gatherer Gatherer) measurement.Measurement {
 	return &prometheusMeasurement{
 		gatherer: gatherer,
 	}

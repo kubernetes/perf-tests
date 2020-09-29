@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -39,7 +40,7 @@ const (
 )
 
 func init() {
-	create := func() measurement.Measurement { return createPrometheusMeasurement(&netProgGatherer{}) }
+	create := func() measurement.Measurement { return common.CreatePrometheusMeasurement(&netProgGatherer{}) }
 	if err := measurement.Register(netProg, create); err != nil {
 		klog.Fatalf("Cannot register %s: %v", netProg, err)
 	}
@@ -56,7 +57,7 @@ func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	return config.CloudProvider.Name() != "kubemark"
 }
 
-func (n *netProgGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (n *netProgGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	latency, err := n.query(executor, startTime)
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func (n *netProgGatherer) String() string {
 	return netProg
 }
 
-func (n *netProgGatherer) query(executor QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
+func (n *netProgGatherer) query(executor common.QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
 	end := time.Now()
 	duration := end.Sub(startTime)
 

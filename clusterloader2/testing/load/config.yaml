@@ -9,6 +9,8 @@
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .LOAD_TEST_THROUGHPUT 10}}
+{{$SCALING_LOAD_TEST_THROUGHPUT := DefaultParam .CL2_SCALING_LOAD_TEST_THROUGHPUT 20}}
+
 {{$BIG_GROUP_SIZE := 250}}
 {{$MEDIUM_GROUP_SIZE := 30}}
 {{$SMALL_GROUP_SIZE := 5}}
@@ -36,6 +38,7 @@
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
+{{$scalingSaturationTime := DivideInt $totalPods $SCALING_LOAD_TEST_THROUGHPUT}}
 # bigDeployments - 1/4 of namespace pods should be in big Deployments.
 {{$bigDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $BIG_GROUP_SIZE)}}
 # mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
@@ -71,7 +74,7 @@ tuningSets:
     # The expected number of created/deleted pods is totalPods/4 when scaling,
     # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
-    timeLimit: {{DivideInt $saturationTime 4}}s
+    timeLimit: {{DivideInt $scalingSaturationTime 4}}s
 {{if $ENABLE_CHAOSMONKEY}}
 chaosMonkey:
   nodeFailure:
@@ -172,7 +175,7 @@ steps:
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: 15h
   {{if $ENABLE_STATEFULSETS}}
   - Identifier: WaitForRunningStatefulSets
     Method: WaitForControlledPodsRunning
@@ -181,7 +184,7 @@ steps:
       apiVersion: apps/v1
       kind: StatefulSet
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: 15h
   {{end}}
   {{if $ENABLE_DAEMONSETS}}
   - Identifier: WaitForRunningDaemonSets
@@ -191,7 +194,7 @@ steps:
       apiVersion: apps/v1
       kind: DaemonSet
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: 15h
   {{end}}
   {{if $ENABLE_JOBS}}
   - Identifier: WaitForRunningJobs
@@ -201,7 +204,7 @@ steps:
       apiVersion: batch/v1
       kind: Job
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: 15h
   {{end}}
 
 - name: Creating objects
@@ -708,7 +711,7 @@ steps:
     Params:
       desiredPVCCount: 0
       labelSelector: group = load
-      timeout: 15m
+      timeout: 15h
   {{end}}
 
 {{if $ENABLE_DAEMONSETS}}

@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/common/model"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -52,7 +53,9 @@ func (w *windowsResourceUsageGatherer) String() string {
 }
 
 func init() {
-	create := func() measurement.Measurement { return createPrometheusMeasurement(&windowsResourceUsageGatherer{}) }
+	create := func() measurement.Measurement {
+		return common.CreatePrometheusMeasurement(&windowsResourceUsageGatherer{})
+	}
 	if err := measurement.Register(windowsResourceUsagePrometheusMeasurementName, create); err != nil {
 		klog.Fatalf("Cannot register %s: %v", windowsResourceUsagePrometheusMeasurementName, err)
 	}
@@ -92,7 +95,7 @@ func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData 
 	return perfData
 }
 
-func getSummary(query string, converter convertFunc, metricsName string, executor QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
+func getSummary(query string, converter convertFunc, metricsName string, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, time.Now())
 	if err != nil {
 		return nil, err
@@ -109,7 +112,7 @@ func getSummary(query string, converter convertFunc, metricsName string, executo
 }
 
 // Gather gathers the metrics and convert to json summary
-func (w *windowsResourceUsageGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, executor, config)
 	if err != nil {
 		return nil, err

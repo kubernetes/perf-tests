@@ -12,7 +12,7 @@ import (
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
 
-func (w WorkerRPC) Metrics(tc *api.MetricsRequest, reply api.MetricsResponse) error {
+func (w WorkerRPC) Metrics(tc *api.MetricRequest, reply api.MetricResponse) error {
 	return nil
 }
 
@@ -47,7 +47,7 @@ func Start() {
 }
 
 func register(port string) {
-	client, err := rpc.DialHTTP("tcp", serverAddress+":"+port)
+	client, err := rpc.DialHTTP("tcp", api.ControllerHost+":"+port)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?

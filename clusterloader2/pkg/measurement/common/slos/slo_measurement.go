@@ -62,7 +62,7 @@ func (s sloMeasurement) Execute(config *measurement.Config) ([]measurement.Summa
 		s.summaries = append(s.summaries, summaries...)
 	}
 
-	if errList.IsEmpty() {
+	if !errList.IsEmpty() {
 		return nil, errList
 	}
 	return s.summaries, nil

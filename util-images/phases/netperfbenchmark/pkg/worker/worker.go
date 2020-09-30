@@ -12,31 +12,31 @@ import (
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
 
-func (w WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
+func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startTCPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startTCPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startTCPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startTCPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startUDPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startUDPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startUDPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startUDPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startHTTPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startHTTPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 
-func (w WorkerRPC) startHTTPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+func (w *WorkerRPC) startHTTPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
 	return nil
 }
 

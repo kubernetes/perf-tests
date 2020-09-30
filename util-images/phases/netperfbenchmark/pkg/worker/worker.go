@@ -12,7 +12,7 @@ import (
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
 
-func (w WorkerRPC) Metrics(tc *api.MetricRequest, reply api.MetricResponse) error {
+func (w WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
 	return nil
 }
 
@@ -24,9 +24,25 @@ func (w WorkerRPC) startTCPServer(tc *api.WorkerRequest, reply *api.WorkerRespon
 	return nil
 }
 
+func (w WorkerRPC) startUDPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	return nil
+}
+
+func (w WorkerRPC) startUDPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	return nil
+}
+
+func (w WorkerRPC) startHTTPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	return nil
+}
+
+func (w WorkerRPC) startHTTPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	return nil
+}
+
 func InitializeServerRPC(port string) {
 	baseObject := new(WorkerRPC)
-	err := rpc.Register(baseObject)
+	err := rpc.Register(&baseObject)
 	if err != nil {
 		klog.Fatalf("failed to register rpc", err)
 	}

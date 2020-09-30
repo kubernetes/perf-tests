@@ -14,16 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(jprzychodzen): Remove after all PRs with 'pull-perf-tests-verify-all' are closed
+# Deprecated, use verify-all-dev for local development
 .PHONY: verify-all
-verify-all: test verify-boilerplate verify-flags
+verify-all:
+	echo "Deprecated, use 'verify-all-dev' for local development"
 
 # verify-lint-dev is convenience target for developers to run all checks
 # at once locally
 .PHONY: verify-all-dev
-verify-all-dev: verify-all verify-dashboard verify-lint
+verify-all-dev: test verify-all-python verify-dashboard verify-lint
 
 .PHONY: verify-all-python
-verify-all: verify-boilerplate verify-flags
+verify-all-python: verify-boilerplate verify-flags
 
 # TODO(oxddr): go-build.sh doesn't work at the moment decide whether we need this at all
 # .PHONY: build

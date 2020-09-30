@@ -35,7 +35,7 @@ type WorkerPodData struct {
 }
 
 type WorkerPodRegReply struct {
-	response	   string
+	Response	   string
 }
 
 type WorkerRequest struct {

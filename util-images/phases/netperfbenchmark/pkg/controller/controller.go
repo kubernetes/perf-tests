@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"strconv"
+	"strings"
 	"sync"
 
 	"k8s.io/klog"
@@ -56,10 +57,7 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 
 	if podData, ok := workerPodList[data.WorkerNode] ; !ok {
 		workerPodList[data.WorkerNode] = []api.WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
-		reply.PodName = ""
-		reply.WorkerNode = ""
-		reply.ControllerPodIp = ""
-		reply.ControllerRpcPort = api.ControllerRpcSvcPort
+		reply.Response = "Hi"
 		return nil
 	} else {
 		workerPodList[data.WorkerNode] = append(podData, api.WorkerPodData{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp})
@@ -72,14 +70,15 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 
 	//Get the client-server pod numbers
 	clientPodNum , serverPodNum, ratioType = deriveClientServerPodNum(ratio)
+	timeduration , _ := strconv.Atoi(duration)
 
 	switch ratioType {
 	case OneToOne:
-		executeOneToOneTest(strconv.Atoi(duration), protocol)
+		executeOneToOneTest(timeduration, protocol)
 	case ManyToOne:
-		executeManyToOneTest()
+		executeManyToOneTest(clientPodNum , serverPodNum, timeduration, protocol)
 	case ManyToMany:
-		executeManyToManyTest()
+		executeManyToManyTest(clientPodNum , serverPodNum, timeduration, protocol)
 	default:
 		klog.Fatalf("Invalid Pod Ratio")
 	}
@@ -88,8 +87,8 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 func deriveClientServerPodNum(ratio string) (int, int, int) {
 	var podNumber []string
 	var clientPodNum , serverPodNum, ratioType int
-	if string.Contains(ratio, ratioSeparator) {
-		podNumber = string.Split(ratio, ratioSeparator)
+	if strings.Contains(ratio, ratioSeparator) {
+		podNumber = strings.Split(ratio, ratioSeparator)
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
 		serverPodNum, _ = strconv.Atoi(podNumber[1])
 
@@ -110,22 +109,6 @@ func deriveClientServerPodNum(ratio string) (int, int, int) {
 	return -1,-1,InvalidRatio
 }
 
-func extractPodRatio(podNumber []string) int {
-	var clientPodNum , serverPodNum int
-	clientPodNum, _ = strconv.Atoi(podNumber[0])
-	serverPodNum, _ = strconv.Atoi(podNumber[1])
-	if clientPodNum == serverPodNum {
-		return OneToOne
-	}
-	if (clientPodNum > serverPodNum) && serverPodNum == 1 {
-		return ManyToOne
-	}
-	if clientPodNum > 1 && serverPodNum > 1 {
-		return ManyToMany
-	}
-	return InvalidRatio
-}
-
 //Select one client , one server pod.
 func executeOneToOneTest(duration int, protocol string) {
 
@@ -136,3 +119,12 @@ func executeOneToOneTest(duration int, protocol string) {
 
 }
 
+//Select N clients , one server pod.
+func executeManyToOneTest(clientPodNum int, serverPodNum int, duration int, protocol string) {
+
+}
+
+//Select N clients , M server pod.
+func executeManyToManyTest(clientPodNum int, serverPodNum int, duration int, protocol string) {
+
+}

@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -50,7 +49,7 @@ func Start() {
 func register(port string) {
 	client, err := rpc.DialHTTP("tcp", serverAddress+":"+port)
 	if err != nil {
-		log.Fatal("dialing:", err)
+		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?
 	}
 	podData := &api.WorkerPodData{}

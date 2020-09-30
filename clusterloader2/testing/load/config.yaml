@@ -561,6 +561,9 @@ steps:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -573,6 +576,9 @@ steps:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -585,6 +591,9 @@ steps:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
+{{if $ENABLE_DENSITY_TEST}}
+        CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

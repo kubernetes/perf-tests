@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	mode = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
-	ratio = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
+	mode     = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
+	ratio    = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
 	duration = flag.String("measurement-duration", "", "Duration of metric collection in seconds")
 	protocol = flag.String("protocol", "", "Protocol to be tested. Supported values: tcp or or udp or http")
 )
@@ -41,11 +41,10 @@ func main() {
 	switch *mode {
 	case api.ControllerMode:
 		controller.Start()
-		controller.ExecuteTest(ratio, duration, protocol)
+		controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
 		worker.Start()
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
 }
-

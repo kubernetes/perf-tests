@@ -23,15 +23,15 @@ const (
 )
 
 const (
-	WorkerMode           = "worker"
-	ControllerMode       = "controller"
+	WorkerMode     = "worker"
+	ControllerMode = "controller"
 )
 
 type WorkerPodData struct {
-	PodName			string
-	WorkerNode      string
-	PodIp			string
-	ClusterIP       string
+	PodName    string
+	WorkerNode string
+	PodIp      string
+	ClusterIP  string
 }
 
 type WorkerPodRegReply struct {
@@ -39,12 +39,18 @@ type WorkerPodRegReply struct {
 }
 
 type WorkerRequest struct {
-	Duration		int8
-	DestinationIP	string
-	Timestamp       string
+	Duration      int8
+	DestinationIP string
+	Timestamp     string
 }
 
 type WorkerResponse struct {
-	PodName			string
-	WorkerNode      string
+	PodName    string
+	WorkerNode string
+}
+
+type MetricRequest struct {
+}
+
+type MetricResponse struct {
 }

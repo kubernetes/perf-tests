@@ -225,6 +225,20 @@ var (
 					Parser:           parseSchedulingThroughputCL("load"),
 				},
 			},
+			"LoadSchedulingLatency": []TestDescription{
+				{
+					Name:             "load",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("load"),
+				},
+			},
+			"LoadSchedulingThroughput": []TestDescription{
+				{
+					Name:             "load",
+					OutputFilePrefix: "SchedulingThroughput",
+					Parser:           parseSchedulingThroughputCL("load"),
+				},
+			},
 		},
 		"Etcd": {
 			"DensityBackendCommitDuration": []TestDescription{{

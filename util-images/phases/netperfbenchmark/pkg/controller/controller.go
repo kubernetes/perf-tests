@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 	"net"
 	"net/http"
@@ -18,8 +19,7 @@ var globalLock sync.Mutex
 type ControllerRPC int
 
 var workerPodList map[string][]api.WorkerPodData
-
-const ratioSeparator = ":"
+var syncWait *sync.WaitGroup
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -29,8 +29,15 @@ const (
 	InvalidRatio = 4
 )
 
-func Start() {
+func Start(ratio string) {
 	workerPodList = make(map[string][]api.WorkerPodData)
+
+	// Use WaitGroup to ensure all client pods registration
+	// with controller pod.
+	syncWait = new(sync.WaitGroup)
+	clientPodNum, _, _ := api.DeriveClientServerPodNum(ratio)
+	syncWait.Add(clientPodNum)
+
 	InitializeServerRPC(api.ControllerRpcSvcPort)
 }
 
@@ -51,6 +58,12 @@ func InitializeServerRPC(port string) {
 	}
 }
 
+func WaitForWorkerPodReg() {
+	// This Blocks the execution
+	// until its counter become 0
+	syncWait.Wait()
+}
+
 func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.WorkerPodRegReply) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -62,25 +75,6 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 	} else {
 		workerPodList[data.WorkerNode] = append(podData, api.WorkerPodData{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp})
 		return nil
-	}
-}
-
-func ExecuteTest(ratio string, duration string, protocol string) {
-	var clientPodNum, serverPodNum, ratioType int
-
-	//Get the client-server pod numbers
-	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
-	timeduration, _ := strconv.Atoi(duration)
-
-	switch ratioType {
-	case OneToOne:
-		executeOneToOneTest(timeduration, protocol)
-	case ManyToOne:
-		executeManyToOneTest(clientPodNum, serverPodNum, timeduration, protocol)
-	case ManyToMany:
-		executeManyToManyTest(clientPodNum, serverPodNum, timeduration, protocol)
-	default:
-		klog.Fatalf("Invalid Pod Ratio")
 	}
 }
 
@@ -101,12 +95,28 @@ func deriveClientServerPodNum(ratio string) (int, int, int) {
 		if clientPodNum > 1 && serverPodNum > 1 {
 			ratioType = ManyToMany
 		}
-
 		return clientPodNum, serverPodNum, ratioType
 	}
 
-	klog.Fatalf("Invalid Pod Ratio")
-	return -1, -1, InvalidRatio
+	return -1, -1, -1
+}
+
+func ExecuteTest(ratio string, duration string, protocol string) {
+	var clientPodNum, serverPodNum, ratioType int
+	timeduration, _ := strconv.Atoi(duration)
+
+	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
+
+	switch ratioType {
+	case OneToOne:
+		executeOneToOneTest(timeduration, protocol)
+	case ManyToOne:
+		executeManyToOneTest(clientPodNum, serverPodNum, timeduration, protocol)
+	case ManyToMany:
+		executeManyToManyTest(clientPodNum, serverPodNum, timeduration, protocol)
+	default:
+		klog.Fatalf("Invalid Pod Ratio")
+	}
 }
 
 //Select one client , one server pod.

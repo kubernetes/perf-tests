@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
+	"strings"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
@@ -38,13 +40,34 @@ func main() {
 
 	klog.Infof("Pod running in: %s mode \n", *mode)
 
+	err := validate(*mode, *ratio, *protocol)
+	if err != nil {
+		klog.Fatalf("Validation failed with err : %s", err)
+	}
+
 	switch *mode {
 	case api.ControllerMode:
-		controller.Start()
+		controller.Start(*ratio)
+		controller.WaitForWorkerPodReg()
 		controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
 		worker.Start()
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
+}
+
+func validate(mode string, ratio string, protocol string) error {
+	if mode != api.ControllerMode || mode != api.WorkerMode {
+		return errors.New("invalid mode")
+	}
+
+	if !strings.Contains(ratio, api.RatioSeparator) {
+		return errors.New("invalid ratio. : missing")
+	}
+
+	if protocol != api.Protocol_TCP || protocol != api.Protocol_UDP || protocol != api.ControllerRpcSvcPort {
+		return errors.New("invalid protocol")
+	}
+	return nil
 }

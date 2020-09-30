@@ -28,6 +28,14 @@ const (
 	ControllerMode = "controller"
 )
 
+const (
+	Protocol_TCP  = "tcp"
+	Protocol_UDP  = "udp"
+	Protocol_HTTP = "http"
+)
+
+const RatioSeparator = ":"
+
 type WorkerPodData struct {
 	PodName    string
 	WorkerNode string

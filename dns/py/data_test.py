@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2016 The Kubernetes Authors.
 #
@@ -29,14 +29,14 @@ class DataTest(unittest.TestCase):
     parser = Parser(raw)
     parser.parse()
     # Check a subset of fields
-    self.assertEquals(1000, parser.results['queries_sent'])
+    self.assertEqual(1000, parser.results['queries_sent'])
 
   def test_result_db(self):
     results = yaml.load(open('fixtures/results.yaml'))
 
     self.db.put(results)
     res = self.db.get_results(1234, 0)
-    self.assertEquals(727354, res['queries_sent'])
+    self.assertEqual(727354, res['queries_sent'])
     self.db.put(results) # dup
 
     self.assertRaises(

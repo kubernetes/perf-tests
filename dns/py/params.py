@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2016 The Kubernetes Authors.
 #
@@ -22,7 +22,7 @@ subclassing *Param class and adding them to the `PARAMETERS` global
 variable.
 """
 
-from __future__ import print_function
+
 
 import copy
 import logging
@@ -160,7 +160,7 @@ class CorednsCache(Param):
   def set(self, inputs, value):
     if value > 0:
       cf = inputs.configmap_yaml['data']['Corefile']
-      cfList = cf.split("\n")
+      cfList = cf.decode().split("\n")
       cfList.insert(1,
                     "  cache {\n"
                     "    success " + repr(value) + "\n"

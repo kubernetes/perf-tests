@@ -23,9 +23,9 @@ const ratioSeparator = ":"
 
 //Client-To-Server Pod ratio indicator
 const (
-	OneToOne = 1
-	ManyToOne = 2
-	ManyToMany = 3
+	OneToOne     = 1
+	ManyToOne    = 2
+	ManyToMany   = 3
 	InvalidRatio = 4
 )
 
@@ -55,7 +55,7 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	if podData, ok := workerPodList[data.WorkerNode] ; !ok {
+	if podData, ok := workerPodList[data.WorkerNode]; !ok {
 		workerPodList[data.WorkerNode] = []api.WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
 		reply.Response = "Hi"
 		return nil
@@ -66,19 +66,19 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 }
 
 func ExecuteTest(ratio string, duration string, protocol string) {
-	var clientPodNum , serverPodNum, ratioType int
+	var clientPodNum, serverPodNum, ratioType int
 
 	//Get the client-server pod numbers
-	clientPodNum , serverPodNum, ratioType = deriveClientServerPodNum(ratio)
-	timeduration , _ := strconv.Atoi(duration)
+	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
+	timeduration, _ := strconv.Atoi(duration)
 
 	switch ratioType {
 	case OneToOne:
 		executeOneToOneTest(timeduration, protocol)
 	case ManyToOne:
-		executeManyToOneTest(clientPodNum , serverPodNum, timeduration, protocol)
+		executeManyToOneTest(clientPodNum, serverPodNum, timeduration, protocol)
 	case ManyToMany:
-		executeManyToManyTest(clientPodNum , serverPodNum, timeduration, protocol)
+		executeManyToManyTest(clientPodNum, serverPodNum, timeduration, protocol)
 	default:
 		klog.Fatalf("Invalid Pod Ratio")
 	}
@@ -86,7 +86,7 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 
 func deriveClientServerPodNum(ratio string) (int, int, int) {
 	var podNumber []string
-	var clientPodNum , serverPodNum, ratioType int
+	var clientPodNum, serverPodNum, ratioType int
 	if strings.Contains(ratio, ratioSeparator) {
 		podNumber = strings.Split(ratio, ratioSeparator)
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
@@ -106,7 +106,7 @@ func deriveClientServerPodNum(ratio string) (int, int, int) {
 	}
 
 	klog.Fatalf("Invalid Pod Ratio")
-	return -1,-1,InvalidRatio
+	return -1, -1, InvalidRatio
 }
 
 //Select one client , one server pod.

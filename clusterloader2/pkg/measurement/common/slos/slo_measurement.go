@@ -26,7 +26,7 @@ const (
 	sloMeasurementName = "SLOMeasurement"
 )
 
-var sloMeasurementsNames = []string{"NetworkProgrammingLatency", "DnsLookupLatency"}
+var sloMeasurementsNames = []string{"DnsLookupLatency"}
 
 func init() {
 	if err := measurement.Register(sloMeasurementName, createSLOMeasurements); err != nil {

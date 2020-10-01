@@ -12,20 +12,18 @@ import (
 	"k8s.io/klog"
 )
 
-var globalLock sync.Mutex
-
 //ControllerRPC service that exposes RegisterWorkerPod API for clients
 type ControllerRPC int
 
 var workerPodList map[string][]api.WorkerPodData
 var syncWait *sync.WaitGroup
+var globalLock sync.Mutex
 
 //Client-To-Server Pod ratio indicator
 const (
-	OneToOne     = 1
-	ManyToOne    = 2
-	ManyToMany   = 3
-	InvalidRatio = 4
+	OneToOne   = 1
+	ManyToOne  = 2
+	ManyToMany = 3
 )
 
 func Start(ratio string) {
@@ -128,11 +126,15 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 
 //Select one client , one server pod.
 func executeOneToOneTest(duration int, protocol string) {
+	var nodeNum int
 
-	if len(workerPodList) == 0 || len(workerPodList) == 1 {
-		klog.Fatalf("Either no worker-node or one worker node exist. Can't choose pods from same worker node")
+	if len(workerPodList) == 1 {
+		klog.Error("Woker pods exist on same worker-node. Not executing Tc")
 		return
 	}
+
+	//nodeNum = len(workerPodList)
+	// Choose two unique worker-nodes first
 
 }
 

@@ -5,17 +5,17 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"sync"
+	"os/exec"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 )
 
-const (
-	iperf3Path = "/usr/local/bin/iperf3"
-	iperf2Path = "/usr/local/bin/iperf"
-	siegePath  = "/usr/local/bin/siege"
-)
+// var (
+// 	iperf3Path = "/usr/local/bin/iperf3"
+// 	iperf2Path = "/usr/local/bin/iperf"
+// 	siegePath  = "/usr/local/bin/siege"
+// )
 
 var listener net.Listener
 
@@ -23,31 +23,39 @@ var listener net.Listener
 type WorkerRPC int
 
 func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
-	klog.Info("Metric hit!!")
+	klog.Info("In metrics")
 	// listener.Close()
 	return nil
 }
 
 func (w *WorkerRPC) Stop(tc *api.MetricRequest, reply *api.MetricResponse) error {
-	klog.Info("Close hit!!")
+	klog.Info("In stop")
 	listener.Close()
 	return nil
 }
 
 func (w *WorkerRPC) StartTCPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+
 	return nil
 }
 
 func (w *WorkerRPC) StartTCPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
-
+	klog.Info("In StartTCPServer")
+	go execCmd("iperf3", []string{"-s"})
 	return nil
 }
 
 func (w *WorkerRPC) StartUDPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	//iperf -s -u -e -i 1
+	klog.Info("In StartUDPServer")
+	go execCmd("iperf", []string{"-s", "-u", "-e", "-i", "1", "-t", tc.Duration})
 	return nil
 }
 
 func (w *WorkerRPC) StartUDPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	//iperf -c localhost -u -l 20 -b 1M -e -i 1
+	klog.Info("In StartUDPClient")
+	go execCmd("iperf", []string{"-c", tc.DestinationIP, "-u", "-l", "20", "-b", "1M", "-e", "-i", "1"})
 	return nil
 }
 
@@ -59,7 +67,16 @@ func (w *WorkerRPC) StartHTTPClient(tc *api.WorkerRequest, reply *api.WorkerResp
 	return nil
 }
 
-func initializeServerRPC(port string, wg *sync.WaitGroup) {
+func execCmd(path string, args []string) {
+	cmd := exec.Command(path, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		klog.Error("failed executing %s", cmd.String, err)
+	}
+	klog.Info("Output:" + string(out))
+}
+
+func initializeServerRPC(port string) {
 	baseObject := new(WorkerRPC)
 	err := rpc.Register(baseObject)
 	if err != nil {
@@ -72,7 +89,7 @@ func initializeServerRPC(port string, wg *sync.WaitGroup) {
 		klog.Fatalf("listen error:", e)
 	}
 	klog.Info("About to serve rpc...")
-	go startServer(&listener, wg)
+	go startServer(&listener)
 	klog.Info("Started http server")
 
 	//TODO to be removed ,test///////////////////////
@@ -81,25 +98,29 @@ func initializeServerRPC(port string, wg *sync.WaitGroup) {
 	// 	klog.Fatalf("dialing:", err)
 	// 	//TODO WHAT IF FAILS?
 	// }
-	// podData := &api.MetricRequest{}
-	// var reply api.MetricResponse
-	// err = client.Call("WorkerRPC.Metrics", podData, &reply)
-	// err = client.Call("WorkerRPC.Stop", podData, &reply)
+	// podData := &api.WorkerRequest{DestinationIP: "localhost", Duration: "13"}
+	// var reply api.WorkerResponse
+	// // podData := &api.MetricRequest{}
+	// // var reply api.MetricResponse
+	// // err = client.Call("WorkerRPC.Metrics", podData, &reply)
+	// // err = client.Call("WorkerRPC.Stop", podData, &reply)
+	// err = client.Call("WorkerRPC.StartUDPServer", podData, &reply)
+	// time.Sleep(2 * time.Second)
+	// err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
 	////////////////////////////////////////////////
 
 }
 
-func startServer(listener *net.Listener, wg *sync.WaitGroup) {
+func startServer(listener *net.Listener) {
 	err := http.Serve(*listener, nil)
 	if err != nil {
 		klog.Info("failed start server", err)
 	}
 	klog.Info("Stopping rpc")
-	wg.Done()
 }
 
-func Start(wg *sync.WaitGroup) {
-	initializeServerRPC(api.WorkerRpcSvcPort, wg)
+func Start() {
+	initializeServerRPC(api.WorkerRpcSvcPort)
 	register(api.ControllerRpcSvcPort)
 }
 

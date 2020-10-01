@@ -18,8 +18,8 @@ package api
 
 //net-rpc service listen ports
 const (
-	ControllerRpcSvcPort = "5001"
-	WorkerRpcSvcPort     = "5002"
+	ControllerRpcSvcPort = "5002"
+	WorkerRpcSvcPort     = "5003"
 	ControllerHost       = "controller"
 )
 
@@ -56,7 +56,7 @@ type WorkerPodRegReply struct {
 }
 
 type WorkerRequest struct {
-	Duration      int8
+	Duration      string
 	DestinationIP string
 	Timestamp     string
 }

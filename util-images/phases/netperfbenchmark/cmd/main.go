@@ -54,7 +54,7 @@ func main() {
 		controller.WaitForWorkerPodReg()
 		controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
-		worker.Start(&wg)
+		worker.Start()
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
@@ -66,6 +66,10 @@ func validate(mode string, ratio string, protocol string) error {
 
 	if mode != api.ControllerMode && mode != api.WorkerMode {
 		return errors.New("invalid mode")
+	}
+
+	if mode == api.WorkerMode {
+		return nil
 	}
 
 	if !strings.Contains(ratio, api.RatioSeparator) {

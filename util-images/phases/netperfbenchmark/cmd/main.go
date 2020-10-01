@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"sync"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
@@ -36,6 +37,8 @@ func main() {
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	klog.Infof("Pod running in: %s mode \n", *mode)
 
 	switch *mode {
@@ -43,8 +46,10 @@ func main() {
 		controller.Start()
 		controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
-		worker.Start()
+		worker.Start(&wg)
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
+
+	wg.Wait()
 }

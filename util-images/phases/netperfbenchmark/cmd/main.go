@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"strings"
+	"sync"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
@@ -38,6 +39,8 @@ func main() {
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	klog.Infof("Pod running in: %s mode \n", *mode)
 
 	err := validate(*mode, *ratio, *protocol)
@@ -51,14 +54,17 @@ func main() {
 		controller.WaitForWorkerPodReg()
 		controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
-		worker.Start()
+		worker.Start(&wg)
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
+
+	wg.Wait()
 }
 
 func validate(mode string, ratio string, protocol string) error {
-	if mode != api.ControllerMode || mode != api.WorkerMode {
+
+	if mode != api.ControllerMode && mode != api.WorkerMode {
 		return errors.New("invalid mode")
 	}
 
@@ -66,7 +72,7 @@ func validate(mode string, ratio string, protocol string) error {
 		return errors.New("invalid ratio. : missing")
 	}
 
-	if protocol != api.Protocol_TCP || protocol != api.Protocol_UDP || protocol != api.ControllerRpcSvcPort {
+	if protocol != api.Protocol_TCP && protocol != api.Protocol_UDP && protocol != api.Protocol_HTTP {
 		return errors.New("invalid protocol")
 	}
 	return nil

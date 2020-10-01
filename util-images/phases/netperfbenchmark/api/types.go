@@ -23,6 +23,14 @@ const (
 	ControllerHost       = "controller"
 )
 
+//Environment variables
+const (
+	PodName   = "POD_NAME"
+	NodeName  = "NODE_NAME"
+	PodIP     = "POD_IP"
+	ClusterIp = "CLUSTER_IP"
+)
+
 const (
 	WorkerMode     = "worker"
 	ControllerMode = "controller"

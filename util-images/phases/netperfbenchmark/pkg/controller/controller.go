@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 	"net"
 	"net/http"
@@ -35,10 +34,18 @@ func Start(ratio string) {
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
 	syncWait = new(sync.WaitGroup)
-	clientPodNum, _, _ := api.DeriveClientServerPodNum(ratio)
+	clientPodNum, _, _ := deriveClientServerPodNum(ratio)
 	syncWait.Add(clientPodNum)
 
 	InitializeServerRPC(api.ControllerRpcSvcPort)
+}
+
+func startServer(listener *net.Listener) {
+	err := http.Serve(*listener, nil)
+	if err != nil {
+		klog.Info("failed start server", err)
+	}
+	klog.Info("Stopping rpc")
 }
 
 func InitializeServerRPC(port string) {
@@ -52,10 +59,9 @@ func InitializeServerRPC(port string) {
 	if e != nil {
 		klog.Fatalf("listen error:", e)
 	}
-	err = http.Serve(listener, nil)
-	if err != nil {
-		klog.Fatalf("failed start server", err)
-	}
+	klog.Info("About to serve rpc...")
+	go startServer(&listener)
+	klog.Info("Started http server")
 }
 
 func WaitForWorkerPodReg() {
@@ -67,6 +73,7 @@ func WaitForWorkerPodReg() {
 func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.WorkerPodRegReply) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
+	defer syncWait.Done()
 
 	if podData, ok := workerPodList[data.WorkerNode]; !ok {
 		workerPodList[data.WorkerNode] = []api.WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
@@ -81,8 +88,8 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 func deriveClientServerPodNum(ratio string) (int, int, int) {
 	var podNumber []string
 	var clientPodNum, serverPodNum, ratioType int
-	if strings.Contains(ratio, ratioSeparator) {
-		podNumber = strings.Split(ratio, ratioSeparator)
+	if strings.Contains(ratio, api.RatioSeparator) {
+		podNumber = strings.Split(ratio, api.RatioSeparator)
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
 		serverPodNum, _ = strconv.Atoi(podNumber[1])
 

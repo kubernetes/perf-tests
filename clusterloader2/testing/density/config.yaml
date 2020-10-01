@@ -15,7 +15,7 @@
 # This results in decreased probability of choosing the same node again.
 {{$LATENCY_POD_CPU := DefaultParam .LATENCY_POD_CPU 100}}
 {{$LATENCY_POD_MEMORY := DefaultParam .LATENCY_POD_MEMORY 350}}
-{{$MIN_LATENCY_PODS := 500}}
+{{$MIN_LATENCY_PODS := DefaultParam .MIN_LATENCY_PODS 500}}
 {{$MIN_SATURATION_PODS_TIMEOUT := 180}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
@@ -37,6 +37,9 @@
 # saturationDeploymentHardTimeout must be at least 20m to make sure that ~10m node
 # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
 {{$saturationDeploymentHardTimeout := MaxInt $saturationDeploymentTimeout 1200}}
+
+{{$saturationDeploymentSpec := DefaultParam .SATURATION_DEPLOYMENT_SPEC "deployment.yaml"}}
+{{$latencyDeploymentSpec := DefaultParam .LATENCY_DEPLOYMENT_SPEC "deployment.yaml"}}
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
@@ -122,25 +125,26 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$saturationDeploymentSpec}}
       templateFillMap:
         Replicas: {{$podsPerNamespace}}
         Group: saturation
         CpuRequest: 1m
         MemoryRequest: 10M
 
-- name: Collecting saturation pod measurements
+- name: Waiting for saturation pods to be running
   measurements:
   - Identifier: WaitForRunningSaturationDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- measurements:
+
+- name: Collecting saturation pod measurements
+  measurements:
   - Identifier: SaturationPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
-- measurements:
   - Identifier: SchedulingThroughput
     Method: SchedulingThroughput
     Params:
@@ -173,7 +177,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$latencyDeploymentSpec}}
       templateFillMap:
         Replicas: 1
         Group: latency
@@ -196,7 +200,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: latency-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$latencyDeploymentSpec}}
 
 - name: Waiting for latency pods to be deleted
   measurements:
@@ -221,7 +225,7 @@ steps:
     tuningSet: Uniform5qps
     objectBundle:
     - basename: saturation-deployment
-      objectTemplatePath: deployment.yaml
+      objectTemplatePath: {{$saturationDeploymentSpec}}
 
 - name: Waiting for saturation pods to be deleted
   measurements:

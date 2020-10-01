@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 	"net"
 	"net/http"
@@ -35,7 +34,7 @@ func Start(ratio string) {
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
 	syncWait = new(sync.WaitGroup)
-	clientPodNum, _, _ := api.DeriveClientServerPodNum(ratio)
+	clientPodNum, _, _ := deriveClientServerPodNum(ratio)
 	syncWait.Add(clientPodNum)
 
 	InitializeServerRPC(api.ControllerRpcSvcPort)
@@ -81,8 +80,8 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 func deriveClientServerPodNum(ratio string) (int, int, int) {
 	var podNumber []string
 	var clientPodNum, serverPodNum, ratioType int
-	if strings.Contains(ratio, ratioSeparator) {
-		podNumber = strings.Split(ratio, ratioSeparator)
+	if strings.Contains(ratio, api.RatioSeparator) {
+		podNumber = strings.Split(ratio, api.RatioSeparator)
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
 		serverPodNum, _ = strconv.Atoi(podNumber[1])
 

@@ -76,15 +76,15 @@ func initializeServerRPC(port string, wg *sync.WaitGroup) {
 	klog.Info("Started http server")
 
 	//TODO to be removed ,test///////////////////////
-	client, err := rpc.DialHTTP("tcp", "localhost"+":"+port)
-	if err != nil {
-		klog.Fatalf("dialing:", err)
-		//TODO WHAT IF FAILS?
-	}
-	podData := &api.MetricRequest{}
-	var reply api.MetricResponse
-	err = client.Call("WorkerRPC.Metrics", podData, &reply)
-	err = client.Call("WorkerRPC.Stop", podData, &reply)
+	// client, err := rpc.DialHTTP("tcp", "localhost"+":"+port)
+	// if err != nil {
+	// 	klog.Fatalf("dialing:", err)
+	// 	//TODO WHAT IF FAILS?
+	// }
+	// podData := &api.MetricRequest{}
+	// var reply api.MetricResponse
+	// err = client.Call("WorkerRPC.Metrics", podData, &reply)
+	// err = client.Call("WorkerRPC.Stop", podData, &reply)
 	////////////////////////////////////////////////
 
 }
@@ -100,7 +100,7 @@ func startServer(listener *net.Listener, wg *sync.WaitGroup) {
 
 func Start(wg *sync.WaitGroup) {
 	initializeServerRPC(api.WorkerRpcSvcPort, wg)
-	// register(api.ControllerRpcSvcPort)
+	register(api.ControllerRpcSvcPort)
 }
 
 func register(port string) {

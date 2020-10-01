@@ -291,6 +291,7 @@ func parseSchedulingLatency(testName string) func([]byte, int, *BuildData) {
 
 type schedulingThroughputMetric struct {
 	Average float64 `json:"average"`
+	Max     float64 `json:"max"`
 	Perc50  float64 `json:"perc50"`
 	Perc90  float64 `json:"perc90"`
 	Perc99  float64 `json:"perc99"`
@@ -310,6 +311,7 @@ func parseSchedulingThroughputCL(testName string) func([]byte, int, *BuildData) 
 		perfData.Data["Perc90"] = obj.Perc90
 		perfData.Data["Perc99"] = obj.Perc99
 		perfData.Data["Average"] = obj.Average
+		perfData.Data["Max"] = obj.Max
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
 }

@@ -139,7 +139,6 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
 						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
-					break
 				}
 			}
 		}

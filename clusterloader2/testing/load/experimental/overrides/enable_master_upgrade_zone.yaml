@@ -1,0 +1,10 @@
+CL2_EXEC_COMMAND:
+  - gcloud
+  - container
+  - clusters
+  - upgrade
+  - --master
+  - --cluster-version=${CLUSTER_API_VERSION}
+  - --zone=${ZONE}
+  - -q
+  - ${CLUSTER_NAME}

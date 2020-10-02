@@ -132,8 +132,8 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
+  - Identifier: SLOMeasurement
+    Method: SLOMeasurement
     Params:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
@@ -863,8 +863,8 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: gather
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
+  - Identifier: SLOMeasurement
+    Method: SLOMeasurement
     Params:
       action: gather
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}

@@ -9,6 +9,7 @@
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
 {{$BIG_GROUP_SIZE := DefaultParam .BIG_GROUP_SIZE 250}}
 {{$MEDIUM_GROUP_SIZE := DefaultParam .MEDIUM_GROUP_SIZE 30}}
 {{$SMALL_GROUP_SIZE := DefaultParam .SMALL_GROUP_SIZE 5}}
@@ -33,6 +34,7 @@
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
+{{$deletionTime := DivideInt $totalPods $DELETE_TEST_THROUGHPUT}}
 # bigDeployments - 1/4 of namespace pods should be in big Deployments.
 {{$bigDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $BIG_GROUP_SIZE)}}
 # mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
@@ -70,6 +72,9 @@ tuningSets:
     # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
     timeLimit: {{DivideInt $saturationTime 4}}s
+- name: RandomizedDeletionTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$deletionTime}}s
 {{if $ENABLE_CHAOSMONKEY}}
 chaosMonkey:
   nodeFailure:
@@ -486,7 +491,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
@@ -502,7 +507,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
@@ -518,7 +523,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
@@ -534,7 +539,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: small-statefulset
         objectTemplatePath: statefulset.yaml
@@ -544,7 +549,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: medium-statefulset
         objectTemplatePath: statefulset.yaml
@@ -554,7 +559,7 @@ steps:
       min: 1
       max: 1
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: daemonset
         objectTemplatePath: daemonset.yaml
@@ -562,7 +567,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: small-job
         objectTemplatePath: job.yaml
@@ -570,7 +575,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: medium-job
         objectTemplatePath: job.yaml
@@ -578,7 +583,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: big-job
         objectTemplatePath: job.yaml
@@ -588,7 +593,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-small-statefulset-{{$ssIndex}}
@@ -602,7 +607,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-medium-statefulset-{{$ssIndex}}

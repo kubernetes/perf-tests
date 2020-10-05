@@ -250,10 +250,6 @@ type schedulingMetrics struct {
 	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
 	E2eSchedulingLatency        latencyMetric `json:"e2eSchedulingLatency"`
 	SchedulingLatency           latencyMetric `json:"schedulingLatency"`
-	ThroughputAverage           float64       `json:"throughputAverage"`
-	ThroughputPerc50            float64       `json:"throughputPerc50"`
-	ThroughputPerc90            float64       `json:"throughputPerc90"`
-	ThroughputPerc99            float64       `json:"throughputPerc99"`
 
 	FrameworkExtensionPointDuration map[string]latencyMetric `json:"frameworkExtensionPointDuration"`
 }

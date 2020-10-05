@@ -146,10 +146,11 @@ func (s *PVCStore) List() []*v1.PersistentVolumeClaim {
 // PVStore is a convenient wrapper around cache.Store.
 type PVStore struct {
 	*ObjectStore
+	provisioner string
 }
 
 // NewPVStore creates PVStore based on a given object selector.
-func NewPVStore(c clientset.Interface, selector *ObjectSelector) (*PVStore, error) {
+func NewPVStore(c clientset.Interface, selector *ObjectSelector, provisioner string) (*PVStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -166,7 +167,7 @@ func NewPVStore(c clientset.Interface, selector *ObjectSelector) (*PVStore, erro
 	if err != nil {
 		return nil, err
 	}
-	return &PVStore{ObjectStore: objectStore}, nil
+	return &PVStore{ObjectStore: objectStore, provisioner: provisioner}, nil
 }
 
 // List returns list of pvs (that satisfy conditions provided to NewPVStore).
@@ -174,7 +175,11 @@ func (s *PVStore) List() []*v1.PersistentVolume {
 	objects := s.Store.List()
 	pvs := make([]*v1.PersistentVolume, 0, len(objects))
 	for _, o := range objects {
-		pvs = append(pvs, o.(*v1.PersistentVolume))
+		pv := o.(*v1.PersistentVolume)
+		if s.provisioner == "" ||
+			pv.Annotations["pv.kubernetes.io/provisioned-by"] == s.provisioner {
+			pvs = append(pvs, pv)
+		}
 	}
 	return pvs
 }

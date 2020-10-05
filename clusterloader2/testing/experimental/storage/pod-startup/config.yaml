@@ -6,14 +6,33 @@
   {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 
 # Test Variales
-  {{$PODS_PER_NODE := .PODS_PER_NODE}}
+  {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 1}}
   {{$DEPLOYMENT_TEMPLATE_PATH := .DEPLOYMENT_TEMPLATE_PATH }}
-  {{$VOLUMES_PER_POD := .VOLUMES_PER_POD}}
+  {{$VOLUMES_PER_POD := DefaultParam .VOLUMES_PER_POD 1}}
   {{$VOLUME_TEMPLATE_PATH := .VOLUME_TEMPLATE_PATH}}
+  # Set this to false if metrics data is not needed.
+  {{$GATHER_METRICS := DefaultParam .GATHER_METRICS true}}
+  {{$START_PODS := DefaultParam .START_PODS true}}
   {{$PROVISION_VOLUME := DefaultParam .PROVISION_VOLUME false}}
-  {{$USE_CSI := DefaultParam .USE_CSI false}}
+  {{$STORAGE_CLASS := DefaultParam .STORAGE_CLASS "csi-gce-pd"}}
+  # Shortcut for provisioning volumes with some external provisioner. Without it,
+  # the PV controller must update each PVC before the external provisioner
+  # starts to work on it, which limits the volume creation rate.
+  # With it, volume creation starts immediately. This is best
+  # used together with WAIT_FOR_PVS_CREATED=true and
+  # WAIT_FOR_PVS_BOUND=false because then test does not to wait for the
+  # PV controller during volume creation at all.
+  {{$PROVISIONER := DefaultParam .PROVISIONER ""}}
+  # When checking PVs, the test by default considers *all* PVs in the cluster,
+  # whether they were created by the test or not. In other words, the test
+  # only works in clusters with no PVs. To make it a bit more flexible,
+  # the value of the expected provisioner can be set here and then only
+  # PVs with that annotation will be counted.
+  {{$EXPECTED_PROVISIONER := DefaultParam .EXPECTED_PROVISIONER ""}}
   {{$VOL_SIZE := DefaultParam .VOL_SIZE "8Gi"}}
-  {{$WAIT_FOR_PVS := DefaultParam .WAIT_FOR_PVS false}}
+  {{$WAIT_FOR_PVS_CREATED := DefaultParam .WAIT_FOR_PVS_CREATED false}}
+  {{$WAIT_FOR_PVS_BOUND := DefaultParam .WAIT_FOR_PVS_BOUND false}}
+  {{$WAIT_FOR_PVS_DELETED := DefaultParam .WAIT_FOR_PVS_DELETED false}}
   {{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 10}}
   # TODO(hantaowang): remove knob after deciding on right values
   {{$POD_STARTUP_TIMEOUT := DefaultParam .POD_STARTUP_TIMEOUT "15m"}}
@@ -24,7 +43,10 @@
   {{$podsPerNamespace := MultiplyInt $NODES_PER_NAMESPACE $PODS_PER_NODE}}
   {{$volumesPerNamespace := MultiplyInt $podsPerNamespace $VOLUMES_PER_POD}}
   {{$totalVols := MultiplyInt $volumesPerNamespace $namespaces}}
-  {{$PVCBoundTime := MultiplyInt $totalVols 2 | MaxInt 60}}
+  {{$guessedStepTime := MultiplyInt $totalVols 2 | MaxInt 60}}
+
+# This is a very conservative estimate of 2 seconds per volume.
+  {{$StepTimeSeconds := DefaultParam .STEP_TIME_SECONDS $guessedStepTime}}
 
 
 name: storage
@@ -35,6 +57,7 @@ tuningSets:
   qpsLoad:
     qps: {{$POD_THROUGHPUT}}
 steps:
+{{ if $GATHER_METRICS }}
 # Start measurements
 - name: Starting measurement for the entire test
   measurements:
@@ -56,6 +79,7 @@ steps:
       action: start
       labelSelector: group = volume-test
       threshold: {{$POD_STARTUP_SLO}}s
+{{ end }}
 {{ if $PROVISION_VOLUME }}
 # Provision volumes
 - name: Provisioning volumes
@@ -71,11 +95,22 @@ steps:
       templateFillMap:
         Group: volume-test
         VolSize: {{$VOL_SIZE}}
-        UseCSI: {{$USE_CSI}}
-        CSIStorageClass: {{$CSI_STORAGE_CLASS}}
+        StorageClass: {{$STORAGE_CLASS}}
+        Provisioner: {{$PROVISIONER}}
 {{ end }}
-{{ if $WAIT_FOR_PVS }}
-- name: Waiting for PVs
+{{if $WAIT_FOR_PVS_CREATED }}
+- name: Waiting for volume creation
+  measurements:
+    - Identifier: WaitForPVsToBeCreated
+      Method: WaitForAvailablePVs
+      Params:
+        desiredPVCount: {{$totalVols}}
+        apiVersion: v1
+        provisioner: {{$EXPECTED_PROVISIONER}}
+        timeout: {{$StepTimeSeconds}}s
+{{ end }}
+{{ if $WAIT_FOR_PVS_BOUND }}
+- name: Waiting for PVs to be bound
   measurements:
   - Identifier: WaitForPVCsToBeBound
     Method: WaitForBoundPVCs
@@ -83,8 +118,9 @@ steps:
       desiredPVCCount: {{$totalVols}}
       apiVersion: v1
       labelSelector: group = volume-test
-      timeout: {{$PVCBoundTime}}s
+      timeout: {{$StepTimeSeconds}}s
 {{ end }}
+{{ if $START_PODS }}
 - name: Starting measurement for waiting for deployments
   measurements:
   - Identifier: WaitForRunningDeployments
@@ -126,6 +162,7 @@ steps:
     objectBundle:
     - basename: deployment
       objectTemplatePath: {{$DEPLOYMENT_TEMPLATE_PATH}}
+{{ end }}
 {{ if $PROVISION_VOLUME }}
 # Delete volumes
 - name: Deleting volumes
@@ -139,7 +176,7 @@ steps:
       - basename: vol
         objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
 {{ end }}
-{{if $WAIT_FOR_PVS }}
+{{if $WAIT_FOR_PVS_DELETED }}
 - name: Waiting for volume deletion
   measurements:
     - Identifier: WaitForPVsToBeDeleted
@@ -147,8 +184,10 @@ steps:
       Params:
         desiredPVCount: 0
         apiVersion: v1
-        timeout: {{$PVCBoundTime}}s
+        provisioner: {{$EXPECTED_PROVISIONER}}
+        timeout: {{$StepTimeSeconds}}s
 {{ end }}
+{{ if $GATHER_METRICS }}
 # Collect measurements
 - name: Gather test measurements
   measurements:
@@ -171,3 +210,4 @@ steps:
     Method: PodStartupLatency
     Params:
       action: gather
+{{ end }}

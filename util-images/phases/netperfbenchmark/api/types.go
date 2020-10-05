@@ -21,6 +21,7 @@ const (
 	ControllerRpcSvcPort = "5002"
 	WorkerRpcSvcPort     = "5003"
 	ControllerHost       = "controller"
+	HttpPort             = "5301"
 )
 
 //Environment variables
@@ -56,7 +57,7 @@ type WorkerPodRegReply struct {
 }
 
 type WorkerRequest struct {
-	Duration      string
+	Duration      int
 	DestinationIP string
 	Timestamp     string
 }

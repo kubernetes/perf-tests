@@ -157,7 +157,7 @@ func initializeServerRPC() {
 	klog.Info("Started http server")
 
 	//TODO to be removed
-	test()
+	// test()
 }
 
 //TODO to be removed , test method

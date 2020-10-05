@@ -37,7 +37,8 @@ tuningSets:
     qps: {{$POD_THROUGHPUT}}
 steps:
 # Start measurements
-- measurements:
+- name: Starting measurement for the entire test
+  measurements:
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:
@@ -59,7 +60,8 @@ steps:
       threshold: {{$POD_STARTUP_SLO}}s
 {{ if $PROVISION_VOLUME }}
 # Provision volumes
-- phases:
+- name: Provisioning volumes
+  phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -72,9 +74,11 @@ steps:
         Group: volume-test
         VolSize: {{$VOL_SIZE}}
         UseCSI: {{$USE_CSI}}
+        CSIStorageClass: {{$CSI_STORAGE_CLASS}}
 {{ end }}
 {{ if $WAIT_FOR_PVS }}
-- measurements:
+- name: Waiting for PVs
+  measurements:
   - Identifier: WaitForPVCsToBeBound
     Method: WaitForBoundPVCs
     Params:
@@ -94,7 +98,8 @@ steps:
       labelSelector: group = volume-test
       operationTimeout: {{$POD_STARTUP_TIMEOUT}}
 # Create deployments
-- phases:
+- name: Creating deployments
+  phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -113,7 +118,8 @@ steps:
     Params:
       action: gather
 # Delete deployments
-- phases:
+- name: Deleting deployments
+  phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -124,7 +130,8 @@ steps:
       objectTemplatePath: {{$DEPLOYMENT_TEMPLATE_PATH}}
 {{ if $PROVISION_VOLUME }}
 # Delete volumes
-- phases:
+- name: Deleting volumes
+  phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -135,7 +142,8 @@ steps:
         objectTemplatePath: {{$VOLUME_TEMPLATE_PATH}}
 {{ end }}
 {{if $WAIT_FOR_PVS }}
-- measurements:
+- name: Waiting for volume deletion
+  measurements:
     - Identifier: WaitForPVsToBeDeleted
       Method: WaitForAvailablePVs
       Params:
@@ -144,7 +152,8 @@ steps:
         timeout: {{$PVCBoundTime}}s
 {{ end }}
 # Collect measurements
-- measurements:
+- name: Gather test measurements
+  measurements:
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:

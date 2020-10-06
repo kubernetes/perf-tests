@@ -57,7 +57,7 @@ type WorkerPodRegReply struct {
 }
 
 type WorkerRequest struct {
-	Duration      int
+	Duration      string
 	DestinationIP string
 	Timestamp     string
 }
@@ -71,4 +71,5 @@ type MetricRequest struct {
 }
 
 type MetricResponse struct {
+	Result []float64
 }

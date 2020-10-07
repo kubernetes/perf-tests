@@ -1,44 +1,44 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+FROM golang:buster AS build-env
+ARG gopkg=k8s.io/perf-tests/util-images/phases/netperfbenchmark
 
-# network performance tests in containers
-#
-# Run as the Orchestrator: Arguments: --mode=orchestrator
-#
-# Run as a Worker (first get orchestrator virtual IP address):
-# kubectl get svc --format "{{ .NetworkSettings.IPAddress }}" netperf-orch
-#
-# Args: --mode=worker --host=<service cluster ip> --port=5202
-#
-FROM debian:jessie
+ADD [".", "/go/src/$gopkg"]
+
+#ENV GO111MODULE on
+WORKDIR /go/src/$gopkg
+RUN CGO_ENABLED=0 go build -o /workspace/phases ./cmd
+
+FROM golang:buster
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
-MAINTAINER Girish Kalele <gkalele@google.com>
-# install binary and remove cache
 RUN apt-get update \
-    && apt-get install -y  curl wget net-tools gcc make libsctp-dev \
+    && apt-get install -y  curl wget net-tools gcc g++ make \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /tmp
 
 # Download and build iperf3 from sources
 RUN curl -LO https://downloads.es.net/pub/iperf/iperf-3.1.tar.gz && tar zxf iperf-3.1.tar.gz
+RUN rm -rf iperf-3.1.tar.gz
 RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
 
-# Download and build netperf from sources
-RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
-RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
+RUN curl -LO https://iperf.fr/download/source/iperf-2.0.9-source.tar.gz && tar zxf iperf-2.0.9-source.tar.gz
+RUN rm -rf iperf-2.0.9-source.tar.gz
+RUN cd iperf-2.0.9 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
 
-COPY nptests /usr/bin/
 
-ENTRYPOINT ["nptests"]
+ENV VERSION=3.1.4
+
+RUN curl -LO http://download.joedog.org/siege/siege-$VERSION.tar.gz > siege-$VERSION.tar.gz && tar -xf siege-${VERSION}.tar.gz
+RUN rm -rf siege-${VERSION}.tar.gz
+RUN cd siege-${VERSION} && ./configure &&  make install
+
+#RUN apt-get update \
+#    && apk add curl g++ make \
+#    && curl http://download.joedog.org/siege/siege-$VERSION.tar.gz > siege-$VERSION.tar.gz \
+#    && tar -xf siege-${VERSION}.tar.gz \
+#    && cd siege-${VERSION} \
+#    && ./configure \
+#    && make install
+
+WORKDIR /workspace
+COPY --from=build-env /workspace/phases .
+ENTRYPOINT ["/workspace/phases"]

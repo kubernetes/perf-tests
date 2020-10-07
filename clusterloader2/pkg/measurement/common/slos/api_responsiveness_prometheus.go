@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -70,7 +71,7 @@ const (
 
 	latencyWindowSize = 5 * time.Minute
 
-	// Number of metrics with highest latency to print. If the latency exceeeds SLO threshold, a metric is printed regardless.
+	// Number of metrics with highest latency to print. If the latency exceeds SLO threshold, a metric is printed regardless.
 	topToPrint = 5
 )
 
@@ -93,6 +94,20 @@ type apiCallMetric struct {
 
 type apiCallMetrics struct {
 	metrics map[string]*apiCallMetric
+}
+
+type customThresholdEntry struct {
+	Resource    string        `json:"resource"`
+	Subresource string        `json:"subresource"`
+	Verb        string        `json:"verb"`
+	Scope       string        `json:"scope"`
+	Threshold   time.Duration `json:"threshold"`
+}
+
+type customThresholds map[string]time.Duration
+
+func (cte *customThresholdEntry) getKey() string {
+	return buildKey(cte.Resource, cte.Subresource, cte.Verb, cte.Scope)
 }
 
 type apiResponsivenessGatherer struct{}
@@ -118,7 +133,12 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 		return nil, err
 	}
 
-	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls)
+	customThresholds, err := getCustomThresholds(config, apiCalls)
+	if err != nil {
+		return nil, err
+	}
+
+	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls, customThresholds)
 	if len(badMetrics) > 0 {
 		err = errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
@@ -202,13 +222,44 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 	return newFromSamples(latencySamples, countSamples, countSlowSamples)
 }
 
-func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics) []error {
+func getCustomThresholds(config *measurement.MeasurementConfig, metrics *apiCallMetrics) (customThresholds, error) {
+	thresholdsString, err := util.GetStringOrDefault(config.Params, "customThresholds", "")
+	if err != nil {
+		return nil, err
+	}
+	var thresholds []customThresholdEntry
+	if err := yaml.Unmarshal([]byte(thresholdsString), &thresholds); err != nil {
+		return nil, err
+	}
+
+	customThresholds := customThresholds{}
+	for _, entry := range thresholds {
+		if entry.Threshold == 0 {
+			return nil, fmt.Errorf("custom threshold must be set to a positive time duration")
+		}
+		key := entry.getKey()
+		if _, ok := metrics.metrics[key]; !ok {
+			klog.Infof("WARNING: unrecognized custom threshold API call key: %v", key)
+		} else {
+			customThresholds[key] = entry.Threshold
+		}
+	}
+	return customThresholds, nil
+}
+
+func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics, customThresholds customThresholds) []error {
 	badMetrics := make([]error, 0)
 	top := topToPrint
 
 	for _, apiCall := range metrics.sorted() {
+		var threshold time.Duration
+		if customThreshold, ok := customThresholds[apiCall.getKey()]; ok {
+			threshold = customThreshold
+		} else {
+			threshold = apiCall.getSLOThreshold()
+		}
 		var err error
-		if err = apiCall.Validate(allowedSlowCalls); err != nil {
+		if err = apiCall.Validate(allowedSlowCalls, threshold); err != nil {
 			badMetrics = append(badMetrics, err)
 		}
 		if top > 0 || err != nil {
@@ -217,7 +268,7 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedS
 			if err != nil {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %v", identifier, prefix, apiCall)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", identifier, prefix, *apiCall, threshold)
 		}
 	}
 	return badMetrics
@@ -257,7 +308,7 @@ func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Samp
 }
 
 func (m *apiCallMetrics) getAPICall(resource, subresource, verb, scope string) *apiCallMetric {
-	key := m.buildKey(resource, subresource, verb, scope)
+	key := buildKey(resource, subresource, verb, scope)
 	call, exists := m.metrics[key]
 	if !exists {
 		call = &apiCallMetric{
@@ -327,12 +378,15 @@ func (m *apiCallMetrics) sorted() []*apiCallMetric {
 	return all
 }
 
-func (m *apiCallMetrics) buildKey(resource, subresource, verb, scope string) string {
+func buildKey(resource, subresource, verb, scope string) string {
 	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
 }
 
-func (ap *apiCallMetric) Validate(allowedSlowCalls int) error {
-	threshold := ap.getSLOThreshold()
+func (ap *apiCallMetric) getKey() string {
+	return buildKey(ap.Resource, ap.Subresource, ap.Verb, ap.Scope)
+}
+
+func (ap *apiCallMetric) Validate(allowedSlowCalls int, threshold time.Duration) error {
 	if err := ap.Latency.VerifyThreshold(threshold); err != nil {
 		// TODO(oxddr): remove allowedSlowCalls guard once it's stable
 		if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
@@ -351,8 +405,4 @@ func (ap *apiCallMetric) getSLOThreshold() time.Duration {
 		return clusterThreshold
 	}
 	return namespaceThreshold
-}
-
-func (ap *apiCallMetric) String() string {
-	return fmt.Sprintf("%+v; threshold: %v", *ap, ap.getSLOThreshold())
 }

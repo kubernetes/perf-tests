@@ -279,16 +279,12 @@ func parseIperf3(result []string) []float64 {
 	dur := result[1]
 	fmtResult := make([][]string, 0)
 	sumResult := make([]float64, 0)
-	// unitReg := regexp.MustCompile(`KBytes\s|KBytes/sec\s|sec\s|pps\s|ms\s|/`)
-	// unitReg := regexp.MustCompile(`\[\s+|\]\s+|\s+`) //|KBytes|KBytes/sec|sec|pps|ms|/`)
 	unitReg := regexp.MustCompile(`\[\s+|\]\s+|\s+|KBytes\s+|KBytes/sec\s+|sec\s+|pps\s+|ms\s+|/\s+`)
-	// mulSpaceReg := regexp.MustCompile(`\s+|\[\s|\]`)
 	for _, op := range result {
 		if strings.HasPrefix(op, "-") {
 			klog.Info("TO B DELE:", op)
 			continue
 		}
-		// op = mulSpaceReg.ReplaceAllString(op, " ")
 		//All Output:
 		fmtResult = append(fmtResult, strings.Split(unitReg.ReplaceAllString(op, " "), " "))
 		split := strings.Split(unitReg.ReplaceAllString(op, " "), " ")
@@ -330,8 +326,6 @@ func parseIperf(result []string) []float64 {
 	dur := result[1]
 	fmtResult := make([][]string, 0)
 	sumResult := make([]float64, 0)
-	// unitReg := regexp.MustCompile(`KBytes\s|KBytes/sec\s|sec\s|pps\s|ms\s|/`)
-	// unitReg := regexp.MustCompile(`\[\s+|\]\s+|\s+`) //|KBytes|KBytes/sec|sec|pps|ms|/`)
 	unitReg := regexp.MustCompile(`%|\[\s+|\]\s+|KBytes\s+|KBytes/sec\s+|sec\s+|pps\s*|ms\s+|/|\(|\)\s+`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
 	cnt := 0

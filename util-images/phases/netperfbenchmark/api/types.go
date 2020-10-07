@@ -43,6 +43,37 @@ const (
 	Protocol_HTTP = "http"
 )
 
+//UDP result array Index mapping
+const (
+	UDPTransfer = iota
+	UDPBW
+	UDPJitter
+	UDPLostPkt
+	UDPTotalPkt
+	UDPLatPer
+	UDPLatAvg
+	UDPLatMin
+	UDPLatMax
+	UDPLatStdD
+	UDPPps
+)
+
+//HTTP result array Index mapping
+const (
+	HTTPTxs = iota
+	HTTPAvl
+	HTTPTimeElps
+	HTTPDataTrsfd
+	HTTPRespTime
+	HTTPTxRate
+	HTTPThroughput
+	HTTPConcurrency
+	HTTPTxSuccesful
+	HTTPFailedTxs
+	HTTPLongestTx
+	HTTPShortestTx
+)
+
 const RatioSeparator = ":"
 
 type WorkerPodData struct {
@@ -60,6 +91,7 @@ type WorkerRequest struct {
 	Duration      string
 	DestinationIP string
 	Timestamp     string
+	NumClients    string
 }
 
 type WorkerResponse struct {

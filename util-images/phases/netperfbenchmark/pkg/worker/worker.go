@@ -20,15 +20,9 @@ import (
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 )
 
-// var (
-// 	iperf3Path = "/usr/local/bin/iperf3"
-// 	iperf2Path = "/usr/local/bin/iperf"
-// 	siegePath  = "/usr/local/bin/siege"
-// )
-
 var listener net.Listener
 var resultCh = make(chan string, 100)
-var resultSumCh = make(chan string, 1)
+var resultStatus = make(chan string, 1)
 
 var iperfFn = []string{"", "", "", "Sum", "Sum", "Sum", "Sum", "Sum", "Avg", "Avg", "Min", "Max", "Avg", "Sum"}
 
@@ -37,12 +31,26 @@ type WorkerRPC int
 
 func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
 	klog.Info("In metrics")
+	var status string
 	// listener.Close()
+	select {
+	case status = <-resultStatus:
+		if status != "OK" {
+			klog.Error("Error collecting metrics:", status)
+			return errors.New("metrics collection failed:" + status)
+		}
+		klog.Info("Metrics collected")
+	default:
+		klog.Info("Metric collection in progress")
+		return errors.New("Metrics in progress")
+	}
 	result := make([]string, 0)
-	close(resultCh)
+	close(resultCh) //can be removed,if  following exact time based closure
 	for v := range resultCh {
 		result = append(result, v)
 	}
+
+	//TODO to be deleted, for debugging
 	for i, v := range result {
 		klog.Info("le", i, ":", v)
 	}
@@ -74,9 +82,9 @@ func (w *WorkerRPC) StartTCPServer(tc *api.WorkerRequest, reply *api.WorkerRespo
 }
 
 func (w *WorkerRPC) StartUDPServer(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
-	//iperf -s -u -e -i 1
+	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
-	go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration})
+	go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
 	return nil
 }
 
@@ -104,9 +112,12 @@ func (w *WorkerRPC) StartHTTPServer(tc *api.WorkerRequest, reply *api.WorkerResp
 }
 
 func (w *WorkerRPC) StartHTTPClient(tc *api.WorkerRequest, reply *api.WorkerResponse) error {
+	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
+	//c concurrent r repetitions t time d delay in sec between 1 and d
 	klog.Info("In StartHTTPClient")
-	go execCmd(tc.Duration, "siege", []string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test", "-d1",
-		"-r" + tc.Duration, "-c1"})
+	go execCmd(tc.Duration, "siege",
+		[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
+			"-d1", "-t" + tc.Duration + "S", "-c1"})
 	return nil
 }
 
@@ -155,6 +166,9 @@ func scanOutput(out *io.Reader) {
 	klog.Info("Command executed,sending result back")
 	if err := scanner.Err(); err != nil {
 		klog.Error("Error", err)
+		resultStatus <- err.Error()
+	} else {
+		resultStatus <- "OK"
 	}
 }
 
@@ -186,7 +200,7 @@ func test() {
 		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?
 	}
-	podData := &api.WorkerRequest{DestinationIP: "localhost", Duration: "10"}
+	podData := &api.WorkerRequest{DestinationIP: "localhost", Duration: "10", NumClients: "2"}
 	var reply api.WorkerResponse
 	metricReq := &api.MetricRequest{}
 	var metricRes api.MetricResponse
@@ -197,20 +211,21 @@ func test() {
 	// time.Sleep(15 * time.Second)
 	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
 	//UDP TEST
-	resultCh = make(chan string, 40)
+	//resultCh = make(chan string, 140)
 	err = client.Call("WorkerRPC.StartUDPServer", podData, &reply)
-	time.Sleep(2 * time.Second)
+	// time.Sleep(2 * time.Second)
+	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
 	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
 	time.Sleep(15 * time.Second)
 	client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	// //HTTP test
-	resultCh = make(chan string, 40)
-	err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
-	time.Sleep(2 * time.Second)
-	err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
-	time.Sleep(15 * time.Second)
-	client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	klog.Info("TESTING COMPLETED!")
+	//HTTP test
+	// // resultCh = make(chan string, 40)
+	// err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
+	// // time.Sleep(2 * time.Second)
+	// err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
+	// time.Sleep(15 * time.Second)
+	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
+	// klog.Info("TESTING COMPLETED!")
 	////////////////////////////////////////////////
 }
 
@@ -293,7 +308,7 @@ func parseIperf3(result []string) []float64 {
 					case "Sum":
 						sumResult[i-2] = tmp + sumResult[i-2]
 					case "Avg":
-						sumResult[i-2] = tmp + sumResult[i-2]/(float64(2))
+						sumResult[i-2] = (tmp + sumResult[i-2]) / (float64(2))
 					case "Min":
 						sumResult[i-2] = math.Min(tmp, sumResult[i-2])
 					case "Max":
@@ -319,25 +334,20 @@ func parseIperf(result []string) []float64 {
 	// unitReg := regexp.MustCompile(`\[\s+|\]\s+|\s+`) //|KBytes|KBytes/sec|sec|pps|ms|/`)
 	unitReg := regexp.MustCompile(`%|\[\s+|\]\s+|KBytes\s+|KBytes/sec\s+|sec\s+|pps\s*|ms\s+|/|\(|\)\s+`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
+	cnt := 0
 	for _, op := range result {
-		if strings.HasPrefix(op, "-") {
-			klog.Info("TO B DELE:", op)
-			continue
-		}
 		if !strings.Contains(op, "0.00-"+dur+".00") {
 			continue
 		}
-		// op = mulSpaceReg.ReplaceAllString(op, " ")
-		//All Output:
+		//TODO try using one regex
 		frmtString := mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " ")
 		klog.Info("Trim info:", frmtString)
-		fmtResult = append(fmtResult, strings.Split(frmtString, " "))
 		split := strings.Split(frmtString, " ")
-		klog.Info("Comapre fails:", split[2], ":", "0.00-"+dur+".00")
-		if split[2] == "0.00-"+dur+".00" {
+		fmtResult = append(fmtResult, split)
+		if len(split) >= 13 && "SUM" != split[1] && split[2] == "0.00-"+dur+".00" { //if the record is for the complete duration of run
 			for i, v := range split {
-				klog.Info("SplitINfo", i, ":", v)
-				if i == 0 || i == 1 || i == 2 || i == 14 {
+				klog.Info("Split", i, ":", v)
+				if i == 0 || i == 1 || i == 2 || i == 14 { //first index and hte last is ""
 					continue
 				}
 				tmp, err := strconv.ParseFloat(v, 64)
@@ -351,13 +361,14 @@ func parseIperf(result []string) []float64 {
 					case "Sum":
 						sumResult[i-3] = tmp + sumResult[i-3]
 					case "Avg":
-						sumResult[i-3] = tmp + sumResult[i-3]/(float64(2))
+						sumResult[i-3] = (float64(cnt)*tmp + sumResult[i-3]) / (float64(1 + cnt))
 					case "Min":
 						sumResult[i-3] = math.Min(tmp, sumResult[i-3])
 					case "Max":
 						sumResult[i-3] = math.Max(tmp, sumResult[i-3])
 					}
 				}
+				cnt++
 			}
 		}
 	}
@@ -367,5 +378,35 @@ func parseIperf(result []string) []float64 {
 }
 
 func parseSiege(result []string) []float64 {
-	return nil
+	canAppend := false
+	sumResult := make([]float64, 0)
+	mulSpaceReg := regexp.MustCompile(`\s+`)
+	for _, op := range result {
+		if canAppend != true && strings.HasPrefix(op, "Transactions:") {
+			canAppend = true
+		}
+		if canAppend == false {
+			continue
+		}
+		fmtStr := mulSpaceReg.ReplaceAllString(op, " ")
+		split := strings.Split(fmtStr, ":")
+		klog.Info("Formatted:", fmtStr)
+		if len(split) > 1 {
+			split := strings.Split(split[1], " ")
+			if len(split) < 2 {
+				continue
+			}
+			tmp, err := strconv.ParseFloat(split[1], 64)
+			if err != nil {
+				klog.Error("Error parsing:", err)
+			}
+			sumResult = append(sumResult, tmp)
+		}
+
+		if strings.HasPrefix(op, "Shortest transaction") {
+			break
+		}
+	}
+	klog.Info("Final output:", sumResult)
+	return sumResult
 }

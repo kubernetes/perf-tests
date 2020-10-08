@@ -1,4 +1,4 @@
-FROM golang:buster AS build-env
+FROM golang:1.15.2-alpine3.12 AS build-env
 ARG gopkg=k8s.io/perf-tests/util-images/phases/netperfbenchmark
 
 ADD [".", "/go/src/$gopkg"]
@@ -7,7 +7,7 @@ ADD [".", "/go/src/$gopkg"]
 WORKDIR /go/src/$gopkg
 RUN CGO_ENABLED=0 go build -o /workspace/phases ./cmd
 
-FROM golang:buster
+FROM  debian:jessie
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 RUN apt-get update \

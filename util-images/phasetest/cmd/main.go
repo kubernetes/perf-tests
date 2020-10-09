@@ -56,14 +56,14 @@ func main() {
 	flag.Parse()
 
 	klog.Infof("Starting main \n")
-	registerDataPoint("worker-1", "W1-P1", "W-1", "10.1.1.1", "20.1.1.1")
-	registerDataPoint("worker-1", "W1-P2", "W-1", "10.1.1.2", "20.1.1.1")
-	registerDataPoint("worker-1", "W1-P3", "W-1", "10.1.1.3", "20.1.1.1")
+	registerDataPoint("W-1", "W1-P1", "W-1", "10.1.1.1", "20.1.1.1")
+	registerDataPoint("W-1", "W1-P2", "W-1", "10.1.1.2", "20.1.1.1")
+	registerDataPoint("W-1", "W1-P3", "W-1", "10.1.1.3", "20.1.1.1")
 
-	registerDataPoint("worker-2", "W2-P1", "W-2", "10.1.2.1", "20.1.2.1")
-	registerDataPoint("worker-2", "W2-P2", "W-2", "10.1.2.2", "20.1.2.1")
+	registerDataPoint("W-2", "W2-P1", "W-2", "10.1.2.1", "20.1.2.1")
+	registerDataPoint("W-2", "W2-P2", "W-2", "10.1.2.2", "20.1.2.1")
 
-	registerDataPoint("worker-3", "W3-P1", "W-3", "10.1.3.1", "20.1.3.1")
+	registerDataPoint("W-3", "W3-P1", "W-3", "10.1.3.1", "20.1.3.1")
 
 	klog.Infof("Size of map: %d \n", len(workerPodList))
 	//klog.Infof("Parent worker list: %s \n", workerPodList)
@@ -76,9 +76,9 @@ func main() {
 
 	klog.Infof("Unique podPair : %s \n", getUniquePodPair(&subGrp1, &subGrp2))
 
-	klog.Infof("SubGrp1 map: %s \n", subGrp1)
-
-	klog.Infof("SubGrp2 map: %s \n", subGrp2)
+	//klog.Infof("SubGrp1 map: %s \n", subGrp1)
+	//
+	//klog.Infof("SubGrp2 map: %s \n", subGrp2)
 
 	klog.Infof("Parent worker list: %s \n", workerPodList)
 
@@ -88,9 +88,9 @@ func main() {
 
 	klog.Infof("Unique podPair : %s \n", getUniquePodPair(&subGrp1, &subGrp2))
 
-	klog.Infof("SubGrp1 map: %s \n", subGrp1)
-
-	klog.Infof("SubGrp2 map: %s \n", subGrp2)
+	//klog.Infof("SubGrp1 map: %s \n", subGrp1)
+	//
+	//klog.Infof("SubGrp2 map: %s \n", subGrp2)
 
 	klog.Infof("Parent worker list: %s \n", workerPodList)
 
@@ -123,6 +123,7 @@ func divideMapIntoSubGrp(originalMap *map[string][]workerPodData, subGrp1 *map[s
 	var i int = 0
 
 	for key, podList := range *originalMap {
+		klog.Infof("podList: %s \n", podList)
 		if len(podList) == 0 {
 			continue
 		}
@@ -148,7 +149,7 @@ func getUniquePodPair(subGrp1 *map[string][]workerPodData, subGrp2 *map[string][
 
 	for key, value := range *subGrp2 {
 		destPod, _ = getUnusedPod(&value)
-		(*subGrp1)[key] = value
+		(*subGrp2)[key] = value
 		//klog.Infof("222 getUniquePodPair key: %s value : %s \n", key, value)
 	}
 

@@ -87,11 +87,16 @@ type WorkerPodRegReply struct {
 	Response string
 }
 
-type WorkerRequest struct {
-	Duration      string
+type ClientRequest struct {
+	Duration      int
+	Timestamp     int64 //epoch time
 	DestinationIP string
-	Timestamp     string
-	NumClients    string
+}
+
+type ServerRequest struct {
+	Duration   int
+	Timestamp  int64 //epoch time
+	NumClients string
 }
 
 type WorkerResponse struct {
@@ -100,10 +105,11 @@ type WorkerResponse struct {
 }
 
 type UniquePodPair struct {
-	SrcPodName  string
-	SrcPodIp    string
-	DestPodName string
-	DestPodIp   string
+	SrcPodName    string
+	SrcPodIp      string
+	DestPodName   string
+	DestPodIp     string
+	IsLastPodPair bool `default: false`
 }
 
 type MetricRequest struct {

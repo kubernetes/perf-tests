@@ -21,6 +21,7 @@ const (
 	ControllerRpcSvcPort = "5002"
 	WorkerRpcSvcPort     = "5003"
 	ControllerHost       = "controller"
+	HttpPort             = "5301"
 )
 
 //Environment variables
@@ -42,6 +43,37 @@ const (
 	Protocol_HTTP = "http"
 )
 
+//UDP result array Index mapping
+const (
+	UDPTransfer = iota
+	UDPBW
+	UDPJitter
+	UDPLostPkt
+	UDPTotalPkt
+	UDPLatPer
+	UDPLatAvg
+	UDPLatMin
+	UDPLatMax
+	UDPLatStdD
+	UDPPps
+)
+
+//HTTP result array Index mapping
+const (
+	HTTPTxs = iota
+	HTTPAvl
+	HTTPTimeElps
+	HTTPDataTrsfd
+	HTTPRespTime
+	HTTPTxRate
+	HTTPThroughput
+	HTTPConcurrency
+	HTTPTxSuccesful
+	HTTPFailedTxs
+	HTTPLongestTx
+	HTTPShortestTx
+)
+
 const RatioSeparator = ":"
 
 type WorkerPodData struct {
@@ -59,6 +91,7 @@ type WorkerRequest struct {
 	Duration      string
 	DestinationIP string
 	Timestamp     string
+	NumClients    string
 }
 
 type WorkerResponse struct {
@@ -77,4 +110,5 @@ type MetricRequest struct {
 }
 
 type MetricResponse struct {
+	Result []float64
 }

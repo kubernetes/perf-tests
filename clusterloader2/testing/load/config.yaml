@@ -397,6 +397,13 @@ steps:
       {{end}}
 {{end}}
 
+- name: Wait 10h
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 10h
+
 - name: Scaling and updating objects
   phases:
   - namespaceRange:

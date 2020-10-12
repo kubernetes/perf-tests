@@ -88,13 +88,13 @@ type WorkerPodRegReply struct {
 }
 
 type ClientRequest struct {
-	Duration      int
+	Duration      string
 	Timestamp     int64 //epoch time
 	DestinationIP string
 }
 
 type ServerRequest struct {
-	Duration   int
+	Duration   string
 	Timestamp  int64 //epoch time
 	NumClients string
 }

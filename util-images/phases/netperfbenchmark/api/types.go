@@ -20,7 +20,6 @@ package api
 const (
 	ControllerRpcSvcPort = "5002"
 	WorkerRpcSvcPort     = "5003"
-	ControllerHost       = "controller"
 	HttpPort             = "5301"
 )
 

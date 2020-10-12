@@ -1,0 +1,33 @@
+name: sampltest
+automanagedNamespaces: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+steps:
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: controller-service
+      objectTemplatePath: controller-service.yaml
+    - basename: controller
+      objectTemplatePath: controller-deployment.yaml 
+      templateFillMap:
+        Protocol: tcp
+        Ratio: 1:1
+        SvcName: controller-service
+    - basename: worker
+      objectTemplatePath: worker-deployment.yaml
+      templateFillMap:
+        Replicas: 2
+        ControllerIp: controller-service
+- name: Wait 5min
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m

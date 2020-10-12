@@ -205,7 +205,7 @@ func test() {
 		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?
 	}
-	podData := &api.WorkerRequest{DestinationIP: "localhost", Duration: "10", NumClients: "1"}
+	podData := &api.ClientRequest{DestinationIP: "localhost", Duration: "10", Timestamp: 1}
 	var reply api.WorkerResponse
 	metricReq := &api.MetricRequest{}
 	var metricRes api.MetricResponse
@@ -226,11 +226,11 @@ func test() {
 	//HTTP test
 	// // resultCh = make(chan string, 40)
 	err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
-	// time.Sleep(2 * time.Second)
+	time.Sleep(2 * time.Second)
 	err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
 	time.Sleep(15 * time.Second)
 	client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	klog.Info("TESTING COMPLETED!")
+	//klog.Info("TESTING COMPLETED!")
 	////////////////////////////////////////////////
 }
 

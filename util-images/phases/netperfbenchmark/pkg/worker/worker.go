@@ -85,13 +85,6 @@ func (w *WorkerRPC) StartTCPServer(tc *api.ServerRequest, reply *api.WorkerRespo
 	return nil
 }
 
-func (w *WorkerRPC) StartUDPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
-	//iperf -c localhost -u -l 20 -b 1M -e -i 1
-	klog.Info("In StartUDPClient")
-	go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
-	return nil
-}
-
 func (w *WorkerRPC) StartUDPServer(tc *api.ServerRequest, reply *api.WorkerResponse) error {
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
@@ -100,14 +93,10 @@ func (w *WorkerRPC) StartUDPServer(tc *api.ServerRequest, reply *api.WorkerRespo
 	return nil
 }
 
-func (w *WorkerRPC) StartHTTPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
-	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
-	//c concurrent r repetitions t time d delay in sec between 1 and d
-	resultCh <- "HTTP"
-	klog.Info("In StartHTTPClient")
-	go execCmd(tc.Duration, "siege",
-		[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
-			"-d1", "-t" + tc.Duration + "S", "-c1"})
+func (w *WorkerRPC) StartUDPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
+	//iperf -c localhost -u -l 20 -b 1M -e -i 1
+	klog.Info("In StartUDPClient")
+	go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
 	return nil
 }
 
@@ -124,6 +113,17 @@ func (w *WorkerRPC) StartHTTPServer(tc *api.ServerRequest, reply *api.WorkerResp
 		klog.Error("Siege server listen error:", err)
 	}
 	go http.Serve(listener1, nil)
+	return nil
+}
+
+func (w *WorkerRPC) StartHTTPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
+	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
+	//c concurrent r repetitions t time d delay in sec between 1 and d
+	resultCh <- "HTTP"
+	klog.Info("In StartHTTPClient")
+	go execCmd(tc.Duration, "siege",
+		[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
+			"-d1", "-t" + tc.Duration + "S", "-c1"})
 	return nil
 }
 
@@ -194,7 +194,7 @@ func initializeServerRPC() {
 	klog.Info("Started http server")
 
 	//TODO to be removed
-	test()
+	// test()
 }
 
 //TODO to be removed , test method
@@ -217,20 +217,20 @@ func test() {
 	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
 	//UDP TEST
 	//resultCh = make(chan string, 140)
-	// err = client.Call("WorkerRPC.StartUDPServer", podData, &reply)
-	// // time.Sleep(2 * time.Second)
-	// err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
-	// err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
-	// time.Sleep(15 * time.Second)
-	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	//HTTP test
-	// // resultCh = make(chan string, 40)
-	err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
-	time.Sleep(2 * time.Second)
-	err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
+	err = client.Call("WorkerRPC.StartUDPServer", podData, &reply)
+	// time.Sleep(2 * time.Second)
+	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
+	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
 	time.Sleep(15 * time.Second)
 	client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	//klog.Info("TESTING COMPLETED!")
+	//HTTP test
+	// // resultCh = make(chan string, 40)
+	// err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
+	// // time.Sleep(2 * time.Second)
+	// err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
+	// time.Sleep(15 * time.Second)
+	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
+	klog.Info("TESTING COMPLETED!")
 	////////////////////////////////////////////////
 }
 
@@ -242,15 +242,16 @@ func startServer(listener *net.Listener) {
 	klog.Info("Stopping rpc")
 }
 
-func Start() {
+func Start(controllerIp string) {
 	initializeServerRPC()
-	register(api.ControllerRpcSvcPort)
+	register(controllerIp, api.ControllerRpcSvcPort)
 }
 
-func register(port string) {
+func register(controllerIp string, port string) {
 	klog.Info("Env variables:", "POD_NAME:"+os.Getenv(api.PodName), " NODE_NAME:"+os.Getenv(api.NodeName),
 		" POD_IP:"+os.Getenv(api.PodIP), " CLUSTER_IP:"+os.Getenv(api.ClusterIp))
-	client, err := rpc.DialHTTP("tcp", api.ControllerHost+":"+port)
+	klog.Info("Controller ip:", controllerIp)
+	client, err := rpc.DialHTTP("tcp", controllerIp+":"+port)
 	if err != nil {
 		klog.Error("dialing:", err)
 		return

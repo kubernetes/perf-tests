@@ -20,7 +20,6 @@ package api
 const (
 	ControllerRpcSvcPort = "5002"
 	WorkerRpcSvcPort     = "5003"
-	ControllerHost       = "controller"
 	HttpPort             = "5301"
 )
 
@@ -93,15 +92,15 @@ type ClientRequest struct {
 	DestinationIP string
 }
 
+type WorkerResponse struct {
+	PodName    string
+	WorkerNode string
+}
+
 type ServerRequest struct {
 	Duration   string
 	Timestamp  int64 //epoch time
 	NumClients string
-}
-
-type WorkerResponse struct {
-	PodName    string
-	WorkerNode string
 }
 
 type UniquePodPair struct {

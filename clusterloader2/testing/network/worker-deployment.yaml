@@ -1,27 +1,33 @@
+{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+{{$CpuRequest := DefaultParam .CpuRequest "10m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: default
-  name: worker
+  name: {{.Name}}
   labels:
-    netperf: worker
+    group: network
 spec:
+  replicas: {{.Replicas}} 
   selector:
     matchLabels:
-      netperf: worker
-  replicas: 2 #{{.Replicas}}
+      name: {{.Name}}
   template:
     metadata:
       labels:
-        netperf: worker
+        group: network
+        name: {{.Name}}
     spec:
+#      hostNetwork: {{$HostNetworkMode}}
       containers:
-        - name: worker
-          image: netperfbenchmark:0.01
-          imagePullPolicy: IfNotPresent
-          args:
+      - image:  netperfbenchmark:0.01
+        name: {{.Name}}
+        imagePullPolicy: IfNotPresent
+        args:
             - --mode=worker
-          env:
+            - --controlerIP={{.ControllerIp}}-{{.Index}}
+        env:
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
@@ -37,18 +43,33 @@ spec:
             - name: POD_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: status.podIP   
-      #     resources:
-      #       limits:
-      #         cpu: 100m
-      #         memory: 100Mi
-      #     ports:
-      #       - containerPort: 8080
-      #         name: metrics
-      #     volumeMounts:
-      #       - name: logs-volume
-      #         mountPath: /var/log
-      # volumes:
-      #   - name: logs-volume
-      #     hostPath:
-      #       path: /var/log
+                  fieldPath: status.podIP
+#        resources:
+#          requests:
+#            cpu: {{$CpuRequest}}
+#            memory: {{$MemoryRequest}}
+#        volumeMounts:
+#          - name: configmap
+#            mountPath: /var/configmap
+#          - name: secret
+#            mountPath: /var/secret
+#      dnsPolicy: Default
+#      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+#      tolerations:
+#      - key: "node.kubernetes.io/not-ready"
+#        operator: "Exists"
+#        effect: "NoExecute"
+#        tolerationSeconds: 900
+#      - key: "node.kubernetes.io/unreachable"
+#        operator: "Exists"
+#        effect: "NoExecute"
+#        tolerationSeconds: 900
+#      volumes:
+#        - name: configmap
+#          configMap:
+#            name: {{.BaseName}}-{{.Index}}
+#        - name: secret
+#          secret:
+#            secretName: {{.BaseName}}-{{.Index}}

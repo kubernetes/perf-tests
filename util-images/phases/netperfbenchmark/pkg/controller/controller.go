@@ -1,8 +1,9 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+	"log"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 
 	"k8s.io/klog"
 )
@@ -26,6 +29,8 @@ var podPairCh = make(chan api.UniquePodPair)
 var firstClientPodTime int64
 
 const initialDelayForTCExec = 5
+
+var metricsResponse []float64
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -62,6 +67,7 @@ func Start(ratio string) {
 	syncWait.Add(clientPodNum)
 
 	InitializeServerRPC(api.ControllerRpcSvcPort)
+	go StartHTTPServer()
 }
 
 func startServer(listener *net.Listener) {
@@ -346,4 +352,22 @@ func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.Server
 	if err != nil {
 		klog.Error("RPC call to server : %s failed with err: %s", rpcMethod, err)
 	}
+}
+
+func StartHTTPServer() error {
+	http.HandleFunc("/metrics", Handler)
+	log.Fatal(http.ListenAndServe(":5010", nil))
+	return nil
+}
+
+func Handler(w http.ResponseWriter, r *http.Request) {
+	klog.Info("Inside reply")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	// w.Write([]byte(`{"message": "hello world"}`))
+	b, err := json.Marshal(metricsResponse)
+	if err != nil {
+		klog.Info("Error marshalling to json:", err)
+	}
+	w.Write(b)
 }

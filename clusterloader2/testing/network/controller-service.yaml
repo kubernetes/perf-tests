@@ -10,3 +10,7 @@ spec:
   ports:
     - name: rpc
       port: 5002
+    - name: metrics
+      port: 5010
+#      targetPort: 5010
+#      nodePort: 8000

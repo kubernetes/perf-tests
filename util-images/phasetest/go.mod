@@ -1,4 +1,4 @@
-module Nordix/perf-tests/util-images/phasetest
+module k8s.io/perf-tests/util-images/phasetest
 
 go 1.14
 

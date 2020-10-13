@@ -1,8 +1,9 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+	"log"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"k8s.io/klog"
+	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 //ControllerRPC service that exposes RegisterWorkerPod API for clients
@@ -26,6 +29,10 @@ var podPairCh = make(chan api.UniquePodPair)
 var firstClientPodTime int64
 
 const initialDelayForTCExec = 5
+
+var metricRespMap map[string]api.MetricResponse
+
+var uniqPodPairList []api.UniquePodPair
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -52,8 +59,19 @@ var protocolRpcMap = map[int]string{
 	HTTP_Client: "WorkerRPC.StartHTTPClient",
 }
 
+var metricUnitMap = map[string]string{
+	//TCP
+	"Throughput" : ""
+	//UDP
+	"Latency": "WorkerRPC.StartTCPServer",
+	"":        "WorkerRPC.StartTCPClient",
+
+	//HTTP
+}
+
 func Start(ratio string) {
 	workerPodList = make(map[string][]api.WorkerPodData)
+	metricRespMap = make(map[string]api.MetricResponse)
 
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
@@ -62,6 +80,7 @@ func Start(ratio string) {
 	syncWait.Add(clientPodNum)
 
 	InitializeServerRPC(api.ControllerRpcSvcPort)
+	go StartHTTPServer()
 }
 
 func startServer(listener *net.Listener) {
@@ -170,7 +189,9 @@ func executeOneToOneTest(duration string, protocol string) {
 	//sleep till test-run
 	timeDuration, _ := strconv.Atoi(duration)
 	time.Sleep(time.Duration(timeDuration) * time.Second)
-	collectMetrics(uniqPodPair, protocol)
+	var metricResp api.MetricResponse
+	collectMetrics(uniqPodPair, protocol, &metricResp)
+	populateMetricRespMap(uniqPodPair, protocol, &metricResp)
 }
 
 //Select N clients , one server pod.
@@ -209,6 +230,10 @@ func executeManyToManyTest(duration string, protocol string) {
 		}
 	}
 
+	//sleep till test-run
+	timeDuration, _ := strconv.Atoi(duration)
+	time.Sleep(time.Duration(timeDuration) * time.Second)
+	collectMetricForManyToMany(protocol)
 }
 
 func formUniquePodPair(originalMap *map[string][]api.WorkerPodData) {
@@ -234,6 +259,7 @@ func formUniquePodPair(originalMap *map[string][]api.WorkerPodData) {
 				uniqPodPair.DestPodIp = unUsedPod.PodIp
 				uniqPodPair.DestPodName = unUsedPod.PodName
 				i = 0
+				uniqPodPairList = append(uniqPodPairList, uniqPodPair)
 				podPairCh <- uniqPodPair
 			}
 		}
@@ -301,7 +327,7 @@ func getTimeStampForPod() int64 {
 	return futureTime
 }
 
-func collectMetrics(uniqPodPair api.UniquePodPair, protocol string) {
+func collectMetrics(uniqPodPair api.UniquePodPair, protocol string, metricResp *api.MetricResponse) {
 	var err error
 	var client *rpc.Client
 
@@ -320,13 +346,32 @@ func collectMetrics(uniqPodPair api.UniquePodPair, protocol string) {
 	}
 
 	metricReq := &api.MetricRequest{}
-	metricRPCMethod(client, metricReq)
+	metricRPCMethod(client, metricReq, metricResp)
 }
 
-func metricRPCMethod(client *rpc.Client, metricReq *api.MetricRequest) {
-	var reply api.WorkerResponse
+func collectMetricForManyToMany(protocol string) {
+	var metricResp api.MetricResponse
+	for _, podPair := range uniqPodPairList {
+		collectMetrics(podPair, protocol, &metricResp)
+		populateMetricRespMap(podPair, protocol, &metricResp)
+	}
+}
+
+//For TCP,UDP the metrics are collected from ServerPod.
+//For HTTP , the metrics are collected from clientPod
+func populateMetricRespMap(uniqPodPair api.UniquePodPair, protocol string, metricResp *api.MetricResponse) {
+	switch protocol {
+	case api.Protocol_TCP:
+	case api.Protocol_UDP:
+		metricRespMap[uniqPodPair.DestPodName] = *metricResp
+	case api.Protocol_HTTP:
+		metricRespMap[uniqPodPair.SrcPodName] = *metricResp
+	}
+}
+
+func metricRPCMethod(client *rpc.Client, metricReq *api.MetricRequest, metricResp *api.MetricResponse) {
 	rpcMethod := "WorkerRPC.Metrics"
-	err := client.Call(rpcMethod, *metricReq, &reply)
+	err := client.Call(rpcMethod, *metricReq, metricResp)
 	if err != nil {
 		klog.Error("RPC call to : %s failed with err: %s", rpcMethod, err)
 	}
@@ -346,4 +391,39 @@ func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.Server
 	if err != nil {
 		klog.Error("RPC call to server : %s failed with err: %s", rpcMethod, err)
 	}
+}
+
+func StartHTTPServer() error {
+	http.HandleFunc("/metrics", metricHandler)
+	log.Fatal(http.ListenAndServe(":5010", nil))
+	return nil
+}
+
+func metricHandler(w http.ResponseWriter, r *http.Request) {
+	klog.Info("Inside reply")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	b, err := json.Marshal(metricsResponse)
+	if err != nil {
+		klog.Info("Error marshalling to json:", err)
+	}
+	w.Write(b)
+}
+
+func populateDataItem(unitName string, metricName string) measurementutil.DataItem {
+	return measurementutil.DataItem{
+		Data: getDataMap(metricName),
+		Unit: getUnit(metricName),
+		Labels: map[string]string{
+			"Metric": metricName,
+		},
+	}
+}
+
+func getDataMap(metric string) map[string]float64 {
+	return map[string]float64{"avg": 123.12}
+}
+
+func getUnit(metric string) string {
+
 }

@@ -17,15 +17,24 @@ limitations under the License.
 package main
 
 import (
+	//"encoding/json"
 	"errors"
 	"flag"
-	//"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+	"math"
+	"sort"
 	"time"
 
 	//"fmt"
 	//"time"
 
 	"k8s.io/klog"
+	//measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+)
+
+const (
+	Millisec     = "ms"
+	HTTP         = "HTTP"
+	ResponseTime = "ResponseTime"
 )
 
 //var (
@@ -151,7 +160,17 @@ func main() {
 	//time.Sleep(500 * time.Millisecond)
 	//klog.Infof(getTimeStampForPod(firstClientPodTime, 2))
 
-	executeManyToManyTest()
+	//executeManyToManyTest()
+
+	//var jsonData []byte
+	//jsonData, err := json.Marshal(ToPerfData("sec", "Response_Time"))
+	//if err != nil {
+	//	log.Println(err)
+	//}
+	//klog.Infof("PerfData : %s", string(jsonData))
+
+	var values = []int64{2, 3, 4, 6, 7, 9, 11, 13}
+	klog.Infof("Percentile : %v", SamplePercentile(values, 0.95))
 }
 
 func registerDataPoint(nodeName string, podName string, workerNode string, podIp string, clusterIp string) {
@@ -342,4 +361,77 @@ func getTimeStampForPod(firstPodTime time.Time, podPairIndex int) string {
 	future := currTime.Add(diff)
 	klog.Infof("index: %d, future: %s ", podPairIndex, future.Format(time.StampMilli))
 	return future.Format(time.StampMilli)
+}
+
+//func (metric *LatencyMetric) ToPerfData(name string) DataItem {
+//	return DataItem{
+//		Data: map[string]float64{
+//			"Perc50": float64(metric.Perc50) / float64(time.Millisecond),
+//			"Perc90": float64(metric.Perc90) / float64(time.Millisecond),
+//			"Perc99": float64(metric.Perc99) / float64(time.Millisecond),
+//		},
+//		Unit: "ms",
+//		Labels: map[string]string{
+//			"Metric": name,
+//		},
+//	}
+//}
+
+const (
+	average  = "avg"
+	minimum  = "min"
+	maxmimum = "max"
+)
+
+const (
+	UDPLatAvg = iota
+	UDPLatMin
+	UDPLatMax
+	UDPJitter
+	UDPPps
+	HTTPRespTime
+	TCPThroughput
+)
+
+//func ToPerfData(unitName string, metricName string) measurementutil.DataItem {
+//	return measurementutil.DataItem{
+//		Data: getDataMap(),
+//		Unit: unitName,
+//		Labels: map[string]string{
+//			"Metric": metricName,
+//		},
+//	}
+//}
+
+func getDataMap() map[string]float64 {
+	return map[string]float64{"avg": 123.12}
+}
+
+type int64Slice []int64
+
+func (p int64Slice) Len() int           { return len(p) }
+func (p int64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p int64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func SamplePercentile(values int64Slice, perc float64) float64 {
+	ps := []float64{perc}
+
+	scores := make([]float64, len(ps))
+	size := len(values)
+	if size > 0 {
+		sort.Sort(values)
+		for i, p := range ps {
+			pos := p * float64(size+1) //ALTERNATIVELY, DROP THE +1
+			if pos < 1.0 {
+				scores[i] = float64(values[0])
+			} else if pos >= float64(size) {
+				scores[i] = float64(values[size-1])
+			} else {
+				lower := float64(values[int(pos)-1])
+				upper := float64(values[int(pos)])
+				scores[i] = lower + (pos-math.Floor(pos))*(upper-lower)
+			}
+		}
+	}
+	return scores[0]
 }

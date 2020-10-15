@@ -162,7 +162,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 					finished:                    false,
 					inKubemark:                  false,
 					resourceDataGatheringPeriod: resourceDataGatheringPeriod,
-					port:                        port,
+					port:                        int(node.Status.DaemonEndpoints.KubeletEndpoint.Port)
 				})
 			}
 		}

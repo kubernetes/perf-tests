@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/rpc"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,7 +16,6 @@ import (
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 //ControllerRPC service that exposes RegisterWorkerPod API for clients
@@ -30,9 +31,11 @@ var firstClientPodTime int64
 
 const initialDelayForTCExec = 5
 
-var metricRespMap map[string]api.MetricResponse
-
+var metricVal map[string][]float64
 var uniqPodPairList []api.UniquePodPair
+var metricDataCh = make(chan metricData)
+
+var aggrPodPairMetricSlice []float64
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -50,6 +53,22 @@ const (
 	HTTP_Client
 )
 
+const (
+	Percentile90 = 0.90
+	Percentile95 = 0.95
+	Percentile99 = 0.99
+)
+
+const (
+	Perc90 = "Perc90"
+	Perc95 = "Perc95"
+	Perc99 = "Perc99"
+	Min    = "min"
+	Max    = "max"
+	Avg    = "avg"
+	value  = "value"
+)
+
 var protocolRpcMap = map[int]string{
 	TCP_Server:  "WorkerRPC.StartTCPServer",
 	TCP_Client:  "WorkerRPC.StartTCPClient",
@@ -59,19 +78,41 @@ var protocolRpcMap = map[int]string{
 	HTTP_Client: "WorkerRPC.StartHTTPClient",
 }
 
-var metricUnitMap = map[string]string{
-	//TCP
-	"Throughput" : ""
-	//UDP
-	"Latency": "WorkerRPC.StartTCPServer",
-	"":        "WorkerRPC.StartTCPClient",
+const (
+	Throughput   = "Throughput"
+	Latency      = "Latency"
+	Jitter       = "Jitter"
+	PPS          = "Packet_Per_Second"
+	ResponseTime = "Response_Time"
+)
 
-	//HTTP
+var metricUnitMap = map[string]string{
+	Throughput:   "kbytes/sec",
+	Latency:      "ms",
+	Jitter:       "ms",
+	PPS:          "second",
+	ResponseTime: "second",
+}
+
+type metricData struct {
+	dataItemArr []dataItems
+}
+
+type dataItems struct {
+	Data   map[string]float64
+	Labels map[string]string
+}
+
+// DataItem is the data point.
+type DataItem struct {
+	Data   map[string]float64 `json:"data"`
+	Unit   string             `json:"unit"`
+	Labels map[string]string  `json:"labels,omitempty"`
 }
 
 func Start(ratio string) {
 	workerPodList = make(map[string][]api.WorkerPodData)
-	metricRespMap = make(map[string]api.MetricResponse)
+	metricVal = make(map[string][]float64)
 
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
@@ -191,7 +232,8 @@ func executeOneToOneTest(duration string, protocol string) {
 	time.Sleep(time.Duration(timeDuration) * time.Second)
 	var metricResp api.MetricResponse
 	collectMetrics(uniqPodPair, protocol, &metricResp)
-	populateMetricRespMap(uniqPodPair, protocol, &metricResp)
+	populateMetricValMap(uniqPodPair, protocol, &metricResp)
+	calculateAndSendMetricVal(protocol, OneToOne)
 }
 
 //Select N clients , one server pod.
@@ -234,6 +276,7 @@ func executeManyToManyTest(duration string, protocol string) {
 	timeDuration, _ := strconv.Atoi(duration)
 	time.Sleep(time.Duration(timeDuration) * time.Second)
 	collectMetricForManyToMany(protocol)
+	calculateAndSendMetricVal(protocol, ManyToMany)
 }
 
 func formUniquePodPair(originalMap *map[string][]api.WorkerPodData) {
@@ -353,19 +396,57 @@ func collectMetricForManyToMany(protocol string) {
 	var metricResp api.MetricResponse
 	for _, podPair := range uniqPodPairList {
 		collectMetrics(podPair, protocol, &metricResp)
-		populateMetricRespMap(podPair, protocol, &metricResp)
+		populateMetricValMap(podPair, protocol, &metricResp)
 	}
 }
 
 //For TCP,UDP the metrics are collected from ServerPod.
-//For HTTP , the metrics are collected from clientPod
-func populateMetricRespMap(uniqPodPair api.UniquePodPair, protocol string, metricResp *api.MetricResponse) {
+//For HTTP, the metrics are collected from clientPod
+func populateMetricValMap(uniqPodPair api.UniquePodPair, protocol string, metricResp *api.MetricResponse) {
 	switch protocol {
 	case api.Protocol_TCP:
 	case api.Protocol_UDP:
-		metricRespMap[uniqPodPair.DestPodName] = *metricResp
+		metricVal[uniqPodPair.DestPodName] = (*metricResp).Result
 	case api.Protocol_HTTP:
-		metricRespMap[uniqPodPair.SrcPodName] = *metricResp
+		metricVal[uniqPodPair.SrcPodName] = (*metricResp).Result
+	}
+}
+
+func calculateAndSendMetricVal(protocol string, podRatioType int) {
+	var metricData metricData
+	switch protocol {
+	case api.Protocol_TCP:
+		getMetricData(&metricData, podRatioType, api.TCPBW, Throughput)
+	case api.Protocol_UDP:
+		getMetricData(&metricData, podRatioType, api.UDPPps, PPS)
+		getMetricData(&metricData, podRatioType, api.UDPJitter, Jitter)
+		getMetricData(&metricData, podRatioType, api.UDPLatAvg, Latency)
+	case api.Protocol_HTTP:
+		getMetricData(&metricData, podRatioType, api.HTTPRespTime, ResponseTime)
+	}
+	metricDataCh <- metricData
+}
+
+func getMetricData(data *metricData, podRatioType int, metricIndex int, metricName string) {
+	var dataElem dataItems
+	dataElem.Data = make(map[string]float64)
+	dataElem.Labels = make(map[string]string)
+	dataElem.Labels["Metric"] = metricName
+	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
+	data.dataItemArr = append(data.dataItemArr, dataElem)
+	klog.Infof("data:%v", data)
+}
+
+func calculateMetricDataValue(dataElem *dataItems, podRatioType int, metricIndex int) {
+	resultSlice := make([]float64, 10)
+	for _, resultSlice = range metricVal {
+		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, resultSlice[metricIndex])
+	}
+	switch podRatioType {
+	case OneToOne:
+		dataElem.Data[value] = resultSlice[metricIndex]
+	case ManyToMany:
+		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
 	}
 }
 
@@ -400,30 +481,60 @@ func StartHTTPServer() error {
 }
 
 func metricHandler(w http.ResponseWriter, r *http.Request) {
+	metricData := <-metricDataCh
 	klog.Info("Inside reply")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	b, err := json.Marshal(metricsResponse)
+
+	b, err := json.Marshal(populateDataItem(metricData))
 	if err != nil {
 		klog.Info("Error marshalling to json:", err)
 	}
 	w.Write(b)
 }
 
-func populateDataItem(unitName string, metricName string) measurementutil.DataItem {
-	return measurementutil.DataItem{
-		Data: getDataMap(metricName),
-		Unit: getUnit(metricName),
-		Labels: map[string]string{
-			"Metric": metricName,
-		},
-	}
-}
+func populateDataItem(data metricData) []DataItem {
+	var dataItemArr []DataItem
 
-func getDataMap(metric string) map[string]float64 {
-	return map[string]float64{"avg": 123.12}
+	for _, dataElem := range data.dataItemArr {
+		dataItemArr = append(dataItemArr, DataItem{
+			Data:   dataElem.Data,
+			Unit:   getUnit(dataElem.Labels["Metric"]),
+			Labels: dataElem.Labels,
+		})
+	}
+	return dataItemArr
 }
 
 func getUnit(metric string) string {
+	return metricUnitMap[metric]
+}
 
+type float64Slice []float64
+
+func (p float64Slice) Len() int           { return len(p) }
+func (p float64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p float64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func getPercentile(values float64Slice, perc float64) float64 {
+	ps := []float64{perc}
+
+	scores := make([]float64, len(ps))
+	size := len(values)
+	if size > 0 {
+		sort.Sort(values)
+		for i, p := range ps {
+			pos := p * float64(size+1) //ALTERNATIVELY, DROP THE +1
+			if pos < 1.0 {
+				scores[i] = float64(values[0])
+			} else if pos >= float64(size) {
+				scores[i] = float64(values[size-1])
+			} else {
+				lower := float64(values[int(pos)-1])
+				upper := float64(values[int(pos)])
+				scores[i] = lower + (pos-math.Floor(pos))*(upper-lower)
+			}
+		}
+	}
+	return scores[0]
 }

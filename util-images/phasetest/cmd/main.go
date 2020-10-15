@@ -18,8 +18,17 @@ package main
 
 import (
 	//"encoding/json"
+	//"log"
+
+	"encoding/json"
+	"log"
+
+	//"encoding/json"
 	"errors"
 	"flag"
+	//"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+
+	//"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
 	"math"
 	"sort"
 	"time"
@@ -31,11 +40,11 @@ import (
 	//measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
-const (
-	Millisec     = "ms"
-	HTTP         = "HTTP"
-	ResponseTime = "ResponseTime"
-)
+//const (
+//	Millisec     = "ms"
+//	HTTP         = "HTTP"
+//	ResponseTime = "ResponseTime"
+//)
 
 //var (
 //	mode     = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
@@ -69,6 +78,7 @@ var firstClientPodTime time.Time
 
 func init() {
 	workerPodList = make(map[string][]workerPodData)
+	metricVal = make(map[string][]float64)
 }
 
 func main() {
@@ -169,8 +179,29 @@ func main() {
 	//}
 	//klog.Infof("PerfData : %s", string(jsonData))
 
-	var values = []int64{2, 3, 4, 6, 7, 9, 11, 13}
-	klog.Infof("Percentile : %v", SamplePercentile(values, 0.95))
+	//var values = []float64{2, 3, 4, 6, 7, 9, 11, 13}
+	//klog.Infof("Percentile : %v", getPercentile(values, 0.95))
+
+	var uniqPodPar1 = UniquePodPair{"W1-P1", "", "W2-P2", "", false}
+	var uniqPodPar2 = UniquePodPair{"W2-P1", "", "W1-P2", "", false}
+	var uniqPodPar3 = UniquePodPair{"W4-P1", "", "W3-P2", "", false}
+	var uniqPodPar4 = UniquePodPair{"W4-P2", "", "W3-P1", "", false}
+
+	var metricResp1 = MetricResponse{Result: []float64{10, 200}}
+	var metricResp2 = MetricResponse{Result: []float64{100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100}}
+	var metricResp3 = MetricResponse{Result: []float64{3100, 3200, 3300, 3400, 3500, 3600, 3700, 3800, 3900, 31000, 31100}}
+	var metricResp4 = MetricResponse{Result: []float64{4100, 4200, 4300, 4400, 4500, 4600, 4700, 4800, 4900, 41000, 41100}}
+	populateMetricValMap(uniqPodPar1, Protocol_TCP, &metricResp1)
+	populateMetricValMap(uniqPodPar2, Protocol_UDP, &metricResp2)
+	populateMetricValMap(uniqPodPar3, Protocol_HTTP, &metricResp3)
+	populateMetricValMap(uniqPodPar4, Protocol_UDP, &metricResp4)
+
+	go printjsondata()
+
+	calculateAndSendMetricVal(Protocol_UDP, 1)
+	//calculateAndSendMetricVal(Protocol_TCP, 1)
+	//calculateAndSendMetricVal(Protocol_HTTP, 1)
+
 }
 
 func registerDataPoint(nodeName string, podName string, workerNode string, podIp string, clusterIp string) {
@@ -377,21 +408,21 @@ func getTimeStampForPod(firstPodTime time.Time, podPairIndex int) string {
 //	}
 //}
 
-const (
-	average  = "avg"
-	minimum  = "min"
-	maxmimum = "max"
-)
-
-const (
-	UDPLatAvg = iota
-	UDPLatMin
-	UDPLatMax
-	UDPJitter
-	UDPPps
-	HTTPRespTime
-	TCPThroughput
-)
+//const (
+//	average  = "avg"
+//	minimum  = "min"
+//	maxmimum = "max"
+//)
+//
+//const (
+//	UDPLatAvg = iota
+//	UDPLatMin
+//	UDPLatMax
+//	UDPJitter
+//	UDPPps
+//	HTTPRespTime
+//	TCPThroughput
+//)
 
 //func ToPerfData(unitName string, metricName string) measurementutil.DataItem {
 //	return measurementutil.DataItem{
@@ -403,17 +434,211 @@ const (
 //	}
 //}
 
-func getDataMap() map[string]float64 {
-	return map[string]float64{"avg": 123.12}
+//---------------------------------------------------------------
+type UniquePodPair struct {
+	SrcPodName    string
+	SrcPodIp      string
+	DestPodName   string
+	DestPodIp     string
+	IsLastPodPair bool `default: false`
 }
 
-type int64Slice []int64
+type MetricResponse struct {
+	Result []float64
+}
 
-func (p int64Slice) Len() int           { return len(p) }
-func (p int64Slice) Less(i, j int) bool { return p[i] < p[j] }
-func (p int64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+type metricData struct {
+	dataItemArr []dataItems
+}
 
-func SamplePercentile(values int64Slice, perc float64) float64 {
+type dataItems struct {
+	Data   map[string]float64
+	Labels map[string]string
+}
+
+type DataItem struct {
+	// Data is a map from bucket to real data point (e.g. "Perc90" -> 23.5). Notice
+	// that all data items with the same label combination should have the same buckets.
+	Data map[string]float64 `json:"data"`
+	// Unit is the data unit. Notice that all data items with the same label combination
+	// should have the same unit.
+	Unit string `json:"unit"`
+	// Labels is the labels of the data item.
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+const (
+	Throughput   = "Throughput"
+	Latency      = "Latency"
+	Jitter       = "Jitter"
+	PPS          = "Packet_Per_Second"
+	ResponseTime = "Response_Time"
+)
+
+const (
+	OneToOne   = 1
+	ManyToOne  = 2
+	ManyToMany = 3
+)
+
+var metricUnitMap = map[string]string{
+	Throughput:   "kbytes/sec",
+	Latency:      "ms",
+	Jitter:       "ms",
+	PPS:          "second",
+	ResponseTime: "second",
+}
+
+const (
+	Protocol_TCP  = "tcp"
+	Protocol_UDP  = "udp"
+	Protocol_HTTP = "http"
+)
+
+//TCP result array Index mapping
+const (
+	TCPTransfer = iota
+	TCPBW
+)
+
+//UDP result array Index mapping
+const (
+	UDPTransfer = iota
+	UDPBW
+	UDPJitter
+	UDPLostPkt
+	UDPTotalPkt
+	UDPLatPer
+	UDPLatAvg
+	UDPLatMin
+	UDPLatMax
+	UDPLatStdD
+	UDPPps
+)
+
+//HTTP result array Index mapping
+const (
+	HTTPTxs = iota
+	HTTPAvl
+	HTTPTimeElps
+	HTTPDataTrsfd
+	HTTPRespTime
+	HTTPTxRate
+	HTTPThroughput
+	HTTPConcurrency
+	HTTPTxSuccesful
+	HTTPFailedTxs
+	HTTPLongestTx
+	HTTPShortestTx
+)
+
+const (
+	Percentile90 = 0.90
+	Percentile95 = 0.95
+	Percentile99 = 0.99
+)
+
+const (
+	Perc90 = "Perc90"
+	Perc95 = "Perc95"
+	Perc99 = "Perc99"
+	Min    = "min"
+	Max    = "max"
+	Avg    = "avg"
+	value  = "value"
+)
+
+var metricVal map[string][]float64
+var metricDataCh = make(chan metricData)
+var aggrPodPairMetricSlice []float64
+
+func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp *MetricResponse) {
+	switch protocol {
+	case Protocol_TCP:
+	case Protocol_UDP:
+		metricVal[uniqPodPair.DestPodName] = (*metricResp).Result
+	case Protocol_HTTP:
+		metricVal[uniqPodPair.SrcPodName] = (*metricResp).Result
+	}
+}
+
+func calculateAndSendMetricVal(protocol string, podRatio int) {
+	var metricData metricData
+	switch protocol {
+	case Protocol_TCP:
+		getMetricData(&metricData, podRatio, TCPBW, Throughput)
+	case Protocol_UDP:
+		getMetricData(&metricData, podRatio, UDPPps, PPS)
+		getMetricData(&metricData, podRatio, UDPJitter, Jitter)
+		getMetricData(&metricData, podRatio, UDPLatAvg, Latency)
+	case Protocol_HTTP:
+		getMetricData(&metricData, podRatio, HTTPRespTime, ResponseTime)
+	}
+	klog.Infof("sending metricData : %v", metricData)
+	metricDataCh <- metricData
+}
+
+func getMetricData(data *metricData, podRatioType int, metricIndex int, metricName string) {
+	var dataElem dataItems
+	dataElem.Data = make(map[string]float64)
+	dataElem.Labels = make(map[string]string)
+	dataElem.Labels["Metric"] = metricName
+	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
+	data.dataItemArr = append(data.dataItemArr, dataElem)
+	klog.Infof("data:%v", data)
+}
+
+func calculateMetricDataValue(dataElem *dataItems, podRatioType int, metricIndex int) {
+	resultSlice := make([]float64, 10)
+	for _, resultSlice = range metricVal {
+		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, resultSlice[metricIndex])
+	}
+	switch podRatioType {
+	case OneToOne:
+		dataElem.Data[value] = resultSlice[metricIndex]
+		klog.Infof("calculateMetricDataValue :OneToOne: resultSlice:%v", resultSlice)
+	case ManyToMany:
+		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
+	}
+	klog.Infof("calculateMetricDataValue  dataElem:%v", dataElem)
+}
+
+func printjsondata() {
+	klog.Infof("before recvd metricData")
+	data := <-metricDataCh
+	klog.Infof("recvd metricData : %v", data)
+	var jsonData []byte
+	jsonData, err := json.Marshal(populateDataItem(data))
+	if err != nil {
+		log.Println(err)
+	}
+	klog.Infof("PerfData : %s", string(jsonData))
+}
+
+func populateDataItem(data metricData) []DataItem {
+	var dataItemArr []DataItem
+
+	for _, dataElem := range data.dataItemArr {
+		dataItemArr = append(dataItemArr, DataItem{
+			Data:   dataElem.Data,
+			Unit:   getUnit(dataElem.Labels["Metric"]),
+			Labels: dataElem.Labels,
+		})
+	}
+	return dataItemArr
+}
+
+func getUnit(metric string) string {
+	return metricUnitMap[metric]
+}
+
+type float64Slice []float64
+
+func (p float64Slice) Len() int           { return len(p) }
+func (p float64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p float64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func getPercentile(values float64Slice, perc float64) float64 {
 	ps := []float64{perc}
 
 	scores := make([]float64, len(ps))

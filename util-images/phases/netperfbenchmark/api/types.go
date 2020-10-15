@@ -42,6 +42,12 @@ const (
 	Protocol_HTTP = "http"
 )
 
+//TCP result array Index mapping
+const (
+	TCPTransfer = iota
+	TCPBW
+)
+
 //UDP result array Index mapping
 const (
 	UDPTransfer = iota

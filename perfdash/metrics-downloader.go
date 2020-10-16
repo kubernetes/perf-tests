@@ -25,8 +25,14 @@ import (
 	"strings"
 	"sync"
 
+	"io/ioutil"
+
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/perftype"
+)
+
+const (
+	buildPath = "/root/build/"
 )
 
 // DownloaderOptions is an options for Downloader.
@@ -90,6 +96,92 @@ func (g *Downloader) getData() (JobToCategoryData, error) {
 	return result, nil
 }
 
+func (g *Downloader) getDataLocal() (JobToCategoryData, error) {
+	// configPaths := make([]string, len(g.Options.ConfigPaths))
+	// copy(configPaths, g.Options.ConfigPaths)
+	// for _, githubURL := range g.Options.GithubConfigDirs {
+	// 	githubConfigPaths, err := GetConfigsFromGithub(githubURL)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	configPaths = append(configPaths, githubConfigPaths...)
+	// }
+
+	// klog.Infof("Config paths - %d", len(configPaths))
+	// for i, configPath := range configPaths {
+	// 	klog.Infof("Config path %d: %s", i+1, configPath)
+	// }
+
+	// newJobs, err := getProwConfig(configPaths)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to refresh config: %v", err)
+	// }
+	// klog.Infof("Getting Data from %v...", options.Mode)
+	result := make(JobToCategoryData)
+	var resultLock sync.Mutex
+	// var wg sync.WaitGroup
+	// wg.Add(len(newJobs))
+	// for job, tests := range newJobs {
+	// 	if tests.Prefix == "" {
+	// 		return nil, fmt.Errorf("invalid empty Prefix for job %s", job)
+	// 	}
+	tests := Tests{Prefix: "performance", Descriptions: jobTypeToDescriptions["performance"], BuildsCount: GetBuildsCount(),
+		ArtifactsDir: ""}
+
+	g.getJobDataLocal(result, &resultLock, tests)
+	// }
+	// wg.Wait()
+	return result, nil
+}
+
+func (g *Downloader) getJobDataLocal(result JobToCategoryData, resultLock *sync.Mutex, tests Tests) {
+	buildNumbers, err := GetBuildNumbers()
+	if err != nil {
+		panic(err)
+	}
+
+	buildsToFetch := tests.BuildsCount
+	if buildsToFetch < 1 || g.Options.OverrideBuildCount {
+		buildsToFetch = g.Options.DefaultBuildsCount
+	}
+	klog.Info("Builds to fetch for: ", buildsToFetch)
+
+	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
+	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
+		buildNumber := buildNumbers[index]
+		klog.Info("Fetching build:", buildNumber)
+		for categoryLabel, categoryMap := range tests.Descriptions {
+			for testLabel, testDescriptions := range categoryMap {
+				for _, testDescription := range testDescriptions {
+					filePrefix := fmt.Sprintf("%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
+					searchPrefix := g.artifactName(tests, filePrefix)
+					artifacts, err := ListFilesInBuild(buildNumber, searchPrefix)
+					if err != nil || len(artifacts) == 0 {
+						klog.Info("Error while looking for", searchPrefix, "  build: ", buildNumber, " Err:", err)
+						continue
+					}
+					for _, fileName := range artifacts {
+						// metricsFileName := filepath.Base(artifact)
+						// resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
+						resultCategory := getResultCategory(fileName, filePrefix, categoryLabel, artifacts)
+						klog.Info("Result category:", resultCategory)
+						// fileName := g.artifactName(tests, metricsFileName)
+						testDataResponse, err := ReadFile(buildNumber, fileName)
+						if err != nil {
+							klog.Infof("Error when reading response Body for %q: %v", fileName, err)
+							continue
+						}
+						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, "localjob", resultLock)
+						testDescription.Parser(testDataResponse, buildNumber, buildData)
+						klog.Info("REsult:", result)
+					}
+					break
+				}
+			}
+		}
+	}
+}
+
 /*
 getJobData fetches build numbers, reads metrics data from GCS and
 updates result with parsed metrics for a given prow job. Assumptions:
@@ -148,6 +240,51 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 
 func (g *Downloader) artifactName(jobAttrs Tests, file string) string {
 	return path.Join(jobAttrs.ArtifactsDir, file)
+}
+
+func ReadFile(buildNumber int, fileName string) ([]byte, error) {
+	return ioutil.ReadFile(joinStringsAndInts(buildPath, buildNumber, fileName))
+}
+
+func GetBuildsCount() int {
+	builds, _ := GetBuildNumbers()
+	return len(builds)
+}
+func ListFilesInBuild(buildNumber int, prefix string) ([]string, error) {
+
+	files, err := ioutil.ReadDir(buildPath + "/" + strconv.Itoa(buildNumber))
+	if err != nil {
+		klog.Info(err)
+	}
+	fileNames := make([]string, 0)
+
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), prefix) {
+			fileNames = append(fileNames, f.Name())
+		}
+	}
+
+	return fileNames, nil
+
+}
+func GetBuildNumbers() ([]int, error) {
+	files, err := ioutil.ReadDir(buildPath)
+	if err != nil {
+		klog.Info(err)
+	}
+	builds := make([]int, 0)
+
+	for _, f := range files {
+		if f.IsDir() {
+			file, err := strconv.Atoi(f.Name())
+			if err == nil {
+				builds = append(builds, file)
+				fmt.Println(f.Name())
+			}
+		}
+	}
+	return builds, nil
+
 }
 
 func getResultCategory(metricsFileName string, filePrefix string, category string, artifacts []string) string {

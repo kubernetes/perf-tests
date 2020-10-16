@@ -299,6 +299,136 @@ var (
 					Parser:           parsePerfData,
 				}},
 		},
+		"Network_Baseline": {
+			"TCP_P2P": []TestDescription{{
+				Name:             "standalone",
+				OutputFilePrefix: "NetworkPerformanceMetrics1:1TCPP2P",
+				Parser:           parsePerfData,
+			}},
+
+			"TCP_ClusterIP": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetrics1:1TCPClusterIP",
+					Parser:           parsePerfData,
+				}},
+
+			"UDP_P2P": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetrics1:1UDPP2P",
+					Parser:           parsePerfData,
+				}},
+			"UDP_ClusterIP": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetrics1:1UDPClusterIP",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_P2P": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetrics1:1HTTPP2P",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_ClusterIP": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetrics1:1HTTPClusterIP",
+					Parser:           parsePerfData,
+				}},
+		},
+		"Network_Scale": {
+			"TCP_P2P_N:M": []TestDescription{{
+				Name:             "standalone",
+				OutputFilePrefix: "NetworkPerformanceMetricsN:MTCPP2P",
+				Parser:           parsePerfData,
+			}},
+
+			"TCP_ClusterIP_N:M": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:MTCPClusterIP",
+					Parser:           parsePerfData,
+				}},
+
+			"UDP_P2P_N:M": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:MUDPP2P",
+					Parser:           parsePerfData,
+				}},
+			"UDP_ClusterIP_N:M": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:MUDPClusterIP",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_P2P_N:M": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:MHTTPP2P",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_ClusterIP_N:M": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:MHTTPClusterIP",
+					Parser:           parsePerfData,
+				}},
+			"TCP_P2P_N:1": []TestDescription{{
+				Name:             "standalone",
+				OutputFilePrefix: "NetworkPerformanceMetricsN:1TCPP2P",
+				Parser:           parsePerfData,
+			}},
+
+			"TCP_ClusterIP_N:1": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:1TCPClusterIP",
+					Parser:           parsePerfData,
+				}},
+
+			"UDP_P2P_N:1": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:1UDPP2P",
+					Parser:           parsePerfData,
+				}},
+			"UDP_ClusterIP_N:1": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:1UDPClusterIP",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_P2P_N:1": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:1HTTPP2P",
+					Parser:           parsePerfData,
+				}},
+			"HTTP_ClusterIP_N:1": []TestDescription{
+				{
+					// TODO(oxddr): remove this around Sep '19 when we stop showing old data
+					Name:             "standalone",
+					OutputFilePrefix: "NetworkPerformanceMetricsN:1HTTPClusterIP",
+					Parser:           parsePerfData,
+				}},
+		},
 		"DNS": {
 			"Load_DNSLookupLatency": []TestDescription{{
 				Name:             "load",

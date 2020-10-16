@@ -32,8 +32,9 @@ const (
 	errorDelay   = 10 * time.Second
 	maxBuilds    = 100
 
-	s3Mode  = "s3"
-	gcsMode = "gcs"
+	s3Mode    = "s3"
+	gcsMode   = "gcs"
+	localMode = "local"
 )
 
 var options = &DownloaderOptions{}
@@ -95,6 +96,8 @@ func run() error {
 		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath)
 	case s3Mode:
 		metricsBucket, err = NewS3MetricsBucket(*logsBucket, *logsPath, *awsRegion)
+	case localMode:
+		metricsBucket = nil
 	default:
 		return fmt.Errorf("unexpected mode: %s", options.Mode)
 	}
@@ -107,7 +110,11 @@ func run() error {
 	result := make(JobToCategoryData)
 
 	if !*www {
-		result, err = downloader.getData()
+		if downloader.Options.Mode == localMode {
+			result, err = downloader.getDataLocal()
+		} else {
+			result, err = downloader.getData()
+		}
 		if err != nil {
 			return fmt.Errorf("fetching data failed: %v", err)
 		}
@@ -122,7 +129,12 @@ func run() error {
 	go func() {
 		for {
 			klog.Infof("Fetching new data...")
-			result, err = downloader.getData()
+			if downloader.Options.Mode == localMode {
+				klog.Info("Fetching in local mode")
+				result, err = downloader.getDataLocal()
+			} else {
+				result, err = downloader.getData()
+			}
 			if err != nil {
 				klog.Errorf("Error fetching data: %v", err)
 				time.Sleep(errorDelay)

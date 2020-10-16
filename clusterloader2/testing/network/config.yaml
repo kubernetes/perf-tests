@@ -1,4 +1,4 @@
-name: sampltest
+name: standalone
 automanagedNamespaces: 1
 tuningSets:
 - name: Sequence
@@ -32,15 +32,37 @@ steps:
       templateFillMap:
         Replicas: 2
         ControllerIp: controller-service
-- name: Wait 5min
+- name: Wait 1min
   measurements:
     - Identifier: Wait
       Method: Sleep
       Params:
-        duration: 5m
+        duration: 1m
 - name: Gather
   measurements:
     - Identifier: NetworkPerformanceMetrics
       Method: NetworkPerformanceMetrics
       Params:
         action: gather 
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+      Basename: netperf
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: controller-service
+      objectTemplatePath: controller-service.yaml
+    - basename: controller
+      objectTemplatePath: controller-deployment.yaml
+      templateFillMap:
+        Protocol: tcp
+        Ratio: 1:1
+        SvcName: controller-service
+    - basename: worker
+      objectTemplatePath: worker-deployment.yaml
+      templateFillMap:
+        Replicas: 0
+        ControllerIp: controller-service
+

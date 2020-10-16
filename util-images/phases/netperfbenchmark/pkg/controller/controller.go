@@ -129,7 +129,6 @@ func startServer(listener *net.Listener) {
 	if err != nil {
 		klog.Info("failed start server", err)
 	}
-	klog.Info("Stopping rpc")
 }
 
 func InitializeServerRPC(port string) {
@@ -151,6 +150,7 @@ func InitializeServerRPC(port string) {
 func WaitForWorkerPodReg() {
 	// This Blocks the execution
 	// until its counter become 0
+	klog.Info("Waiting for all worker pods registration")
 	syncWait.Wait()
 }
 
@@ -196,6 +196,7 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 	var clientPodNum, serverPodNum, ratioType int
 
 	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
+	klog.Info("clientPodNum:%d ,  serverPodNum: %d, ratioType: %s", clientPodNum, serverRPCMethod, ratioType)
 
 	switch ratioType {
 	case OneToOne:
@@ -326,6 +327,7 @@ func getUnusedPod(unusedPodList *[]api.WorkerPodData) (api.WorkerPodData, error)
 }
 
 func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration string, futureTimestamp int64) {
+	klog.Info("[sendReqToClient] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
@@ -346,6 +348,7 @@ func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration st
 }
 
 func sendReqToSrv(uniqPodPair api.UniquePodPair, protocol string, duration string) {
+	klog.Info("[sendReqToSrv] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
@@ -377,9 +380,11 @@ func collectMetrics(uniqPodPair api.UniquePodPair, protocol string, metricResp *
 	switch protocol {
 	case api.Protocol_TCP:
 	case api.Protocol_UDP:
+		klog.Info("[collectMetrics] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 		client, err = rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
 
 	case api.Protocol_HTTP:
+		klog.Info("[collectMetrics] srcPodIp: %s workerSvPort: %s", uniqPodPair.SrcPodIp, api.WorkerRpcSvcPort)
 		client, err = rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+api.WorkerRpcSvcPort)
 	}
 
@@ -459,6 +464,7 @@ func metricRPCMethod(client *rpc.Client, metricReq *api.MetricRequest, metricRes
 }
 
 func clientRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.ClientRequest) {
+	klog.Info("[clientRPCMethod] rpcMethod : %s , clientReq: %v", rpcMethod, *clientReq)
 	var reply api.WorkerResponse
 	err := client.Call(rpcMethod, *clientReq, &reply)
 	if err != nil {
@@ -467,6 +473,7 @@ func clientRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.Client
 }
 
 func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.ServerRequest) {
+	klog.Info("[serverRPCMethod] rpcMethod : %s , clientReq: %v", rpcMethod, *clientReq)
 	var reply api.WorkerResponse
 	err := client.Call(rpcMethod, *clientReq, &reply)
 	if err != nil {
@@ -477,6 +484,7 @@ func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.Server
 func StartHTTPServer() error {
 	http.HandleFunc("/metrics", metricHandler)
 	log.Fatal(http.ListenAndServe(":5010", nil))
+	klog.Info("Started http server for metric collection")
 	return nil
 }
 

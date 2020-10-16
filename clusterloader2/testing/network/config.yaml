@@ -27,6 +27,20 @@ steps:
         Protocol: tcp
         Ratio: 1:1
         SvcName: controller-service
+- name: Wait for 5 secs controller to be up
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5s
+- phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+      Basename: netperf
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
     - basename: worker
       objectTemplatePath: worker-deployment.yaml
       templateFillMap:

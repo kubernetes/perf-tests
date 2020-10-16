@@ -44,7 +44,7 @@ func main() {
 	wg.Add(1)
 	klog.Infof("Pod running in: %s mode %s ratio\n", *mode, *ratio)
 
-	err := validate(*mode, *ratio, *protocol)
+	err := validate(*mode, *ratio, *protocol, *duration)
 	if err != nil {
 		klog.Fatalf("Validation failed with err : %s", err)
 	}
@@ -63,7 +63,7 @@ func main() {
 	wg.Wait()
 }
 
-func validate(mode string, ratio string, protocol string) error {
+func validate(mode string, ratio string, protocol string, duration string) error {
 
 	if mode != api.ControllerMode && mode != api.WorkerMode {
 		return errors.New("invalid mode")
@@ -71,10 +71,11 @@ func validate(mode string, ratio string, protocol string) error {
 
 	if mode == api.WorkerMode && *controllerIp == "" {
 		return errors.New("Controller hostname/ip not specified")
-	} else {
-		return nil
 	}
 
+	if mode == api.ControllerMode && duration == "" {
+		return errors.New("Duration not specified. Mandatory param for controller-mode")
+	}
 	if !strings.Contains(ratio, api.RatioSeparator) {
 		return errors.New("invalid ratio. : missing")
 	}

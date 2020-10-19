@@ -17,7 +17,9 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"sync"
 	"time"
@@ -245,6 +247,15 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		case timeout:
 			timedOutObjects = append(timedOutObjects, objChecker.key)
 			numberTimeout++
+		case deleteTimeout:
+			timedOutObjects = append(timedOutObjects, objChecker.key)
+			numberTimeout++
+			podsClient := w.clusterFramework.GetClientSets().GetClient().CoreV1().Pods(w.selector.Namespace)
+			err := podsClient.DeleteCollection(context.Background(), forceDeleteOptions(), w.listOptions())
+			if err != nil {
+				klog.Errorf("Error: %s while Force Deleting Pod, %s", err, objChecker.key)
+			}
+
 		default:
 			numberUnknown++
 			if err != nil {
@@ -268,6 +279,24 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 
 	klog.V(2).Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
 	return nil
+}
+
+func (w *waitForControlledPodsRunningMeasurement) listOptions() metav1.ListOptions {
+	listOptions := metav1.ListOptions{
+		LabelSelector: w.selector.LabelSelector,
+		FieldSelector: w.selector.FieldSelector,
+	}
+	return listOptions
+}
+
+func forceDeleteOptions() metav1.DeleteOptions {
+	gracePeriod := int64(0)
+	propagationPolicy := metav1.DeletePropagationBackground
+	forceDeletePodOptions := metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+		PropagationPolicy:  &propagationPolicy,
+	}
+	return forceDeletePodOptions
 }
 
 // handleObject manages checker for given controlling pod object.
@@ -519,6 +548,9 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 				o.err = fmt.Errorf("%s: %v", key, err)
 			}
 			if o.status == timeout {
+				if isDeleted {
+					o.status = deleteTimeout
+				}
 				klog.Errorf("%s: %s timed out", w, key)
 			}
 			return
@@ -541,6 +573,7 @@ const (
 	running
 	deleted
 	timeout
+	deleteTimeout
 )
 
 type objectChecker struct {

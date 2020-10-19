@@ -33,15 +33,15 @@ const initialDelayForTCExec = 5
 
 var metricVal map[string][]float64
 var uniqPodPairList []api.UniquePodPair
-var metricDataCh = make(chan metricData)
+var metricDataCh = make(chan NetworkPerfResp)
 
 var aggrPodPairMetricSlice []float64
 
 //Client-To-Server Pod ratio indicator
 const (
-	OneToOne   = 1
-	ManyToOne  = 2
-	ManyToMany = 3
+	OneToOne   = "1:1"
+	ManyToOne  = "N:1"
+	ManyToMany = "N:M"
 )
 
 const (
@@ -86,6 +86,13 @@ const (
 	ResponseTime = "Response_Time"
 )
 
+type NetworkPerfResp struct {
+	Client_Server_Ratio string
+	Protocol            string
+	Service             string
+	DataItems           []DataItem
+}
+
 var metricUnitMap = map[string]string{
 	Throughput:   "kbytes/sec",
 	Latency:      "ms",
@@ -94,14 +101,14 @@ var metricUnitMap = map[string]string{
 	ResponseTime: "second",
 }
 
-type metricData struct {
-	dataItemArr []dataItems
-}
+// type metricData struct {
+// 	dataItemArr []dataItems
+// }
 
-type dataItems struct {
-	Data   map[string]float64
-	Labels map[string]string
-}
+// type dataItems struct {
+// 	Data   map[string]float64
+// 	Labels map[string]string
+// }
 
 // DataItem is the data point.
 type DataItem struct {
@@ -117,8 +124,8 @@ func Start(ratio string) {
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
 	syncWait = new(sync.WaitGroup)
-	clientPodNum, _, _ := deriveClientServerPodNum(ratio)
-	syncWait.Add(clientPodNum)
+	clientPodNum, serverPodNum, _ := deriveClientServerPodNum(ratio)
+	syncWait.Add(clientPodNum + serverPodNum)
 
 	InitializeServerRPC(api.ControllerRpcSvcPort)
 	go StartHTTPServer()
@@ -129,6 +136,7 @@ func startServer(listener *net.Listener) {
 	if err != nil {
 		klog.Info("failed start server", err)
 	}
+	klog.Info("Stopping rpc")
 }
 
 func InitializeServerRPC(port string) {
@@ -169,32 +177,31 @@ func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.Wo
 	}
 }
 
-func deriveClientServerPodNum(ratio string) (int, int, int) {
+func deriveClientServerPodNum(ratio string) (int, int, string) {
 	var podNumber []string
-	var clientPodNum, serverPodNum, ratioType int
+	var clientPodNum, serverPodNum int
 	if strings.Contains(ratio, api.RatioSeparator) {
 		podNumber = strings.Split(ratio, api.RatioSeparator)
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
 		serverPodNum, _ = strconv.Atoi(podNumber[1])
 
 		if clientPodNum == serverPodNum {
-			ratioType = OneToOne
+			return clientPodNum, serverPodNum, OneToOne
 		}
 		if (clientPodNum > serverPodNum) && serverPodNum == 1 {
-			ratioType = ManyToOne
+			return clientPodNum, serverPodNum, ManyToOne
 		}
 		if clientPodNum > 1 && serverPodNum > 1 {
-			ratioType = ManyToMany
+			return clientPodNum, serverPodNum, ManyToMany
 		}
-		return clientPodNum, serverPodNum, ratioType
 	}
 
-	return -1, -1, -1
+	return -1, -1, "-1"
 }
 
 func ExecuteTest(ratio string, duration string, protocol string) {
-	var clientPodNum, serverPodNum, ratioType int
-
+	var clientPodNum, serverPodNum int
+	var ratioType string
 	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
 	klog.Info("clientPodNum:%d ,  serverPodNum: %d, ratioType: %s", clientPodNum, serverRPCMethod, ratioType)
 
@@ -230,7 +237,7 @@ func executeOneToOneTest(duration string, protocol string) {
 
 	//sleep till test-run
 	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration) * time.Second)
+	time.Sleep(time.Duration(timeDuration+2) * time.Second)
 	var metricResp api.MetricResponse
 	collectMetrics(uniqPodPair, protocol, &metricResp)
 	populateMetricValMap(uniqPodPair, protocol, &metricResp)
@@ -275,7 +282,7 @@ func executeManyToManyTest(duration string, protocol string) {
 
 	//sleep till test-run
 	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration) * time.Second)
+	time.Sleep(time.Duration(timeDuration+2) * time.Second)
 	collectMetricForManyToMany(protocol)
 	calculateAndSendMetricVal(protocol, ManyToMany)
 }
@@ -327,7 +334,6 @@ func getUnusedPod(unusedPodList *[]api.WorkerPodData) (api.WorkerPodData, error)
 }
 
 func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration string, futureTimestamp int64) {
-	klog.Info("[sendReqToClient] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
@@ -335,7 +341,7 @@ func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration st
 	}
 
 	clientReq := &api.ClientRequest{Duration: duration, DestinationIP: uniqPodPair.DestPodIp, Timestamp: futureTimestamp}
-
+	klog.Info("Client req:", clientReq)
 	switch protocol {
 	case api.Protocol_TCP:
 		clientRPCMethod(client, protocolRpcMap[TCP_Client], clientReq)
@@ -348,14 +354,13 @@ func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration st
 }
 
 func sendReqToSrv(uniqPodPair api.UniquePodPair, protocol string, duration string) {
-	klog.Info("[sendReqToSrv] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
 	}
 
 	serverReq := &api.ServerRequest{Duration: duration, NumClients: "1", Timestamp: time.Now().Unix()}
-
+	klog.Info("Client req:", serverReq)
 	switch protocol {
 	case api.Protocol_TCP:
 		serverRPCMethod(client, protocolRpcMap[TCP_Server], serverReq)
@@ -379,6 +384,8 @@ func collectMetrics(uniqPodPair api.UniquePodPair, protocol string, metricResp *
 
 	switch protocol {
 	case api.Protocol_TCP:
+		//client, err = rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
+		fallthrough
 	case api.Protocol_UDP:
 		klog.Info("[collectMetrics] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
 		client, err = rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
@@ -410,6 +417,8 @@ func collectMetricForManyToMany(protocol string) {
 func populateMetricValMap(uniqPodPair api.UniquePodPair, protocol string, metricResp *api.MetricResponse) {
 	switch protocol {
 	case api.Protocol_TCP:
+		//metricVal[uniqPodPair.DestPodName] = (*metricResp).Result
+		fallthrough
 	case api.Protocol_UDP:
 		metricVal[uniqPodPair.DestPodName] = (*metricResp).Result
 	case api.Protocol_HTTP:
@@ -417,32 +426,38 @@ func populateMetricValMap(uniqPodPair api.UniquePodPair, protocol string, metric
 	}
 }
 
-func calculateAndSendMetricVal(protocol string, podRatioType int) {
-	var metricData metricData
+func calculateAndSendMetricVal(protocol string, podRatioType string) {
+	var metricData NetworkPerfResp
 	switch protocol {
 	case api.Protocol_TCP:
 		getMetricData(&metricData, podRatioType, api.TCPBW, Throughput)
+		metricData.Protocol = api.Protocol_TCP
 	case api.Protocol_UDP:
 		getMetricData(&metricData, podRatioType, api.UDPPps, PPS)
 		getMetricData(&metricData, podRatioType, api.UDPJitter, Jitter)
 		getMetricData(&metricData, podRatioType, api.UDPLatAvg, Latency)
+		metricData.Protocol = api.Protocol_UDP
 	case api.Protocol_HTTP:
 		getMetricData(&metricData, podRatioType, api.HTTPRespTime, ResponseTime)
+		metricData.Protocol = api.Protocol_HTTP
 	}
+	metricData.Service = "P2P"
+	metricData.Client_Server_Ratio = podRatioType
 	metricDataCh <- metricData
 }
 
-func getMetricData(data *metricData, podRatioType int, metricIndex int, metricName string) {
-	var dataElem dataItems
+func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
+	var dataElem DataItem
 	dataElem.Data = make(map[string]float64)
 	dataElem.Labels = make(map[string]string)
 	dataElem.Labels["Metric"] = metricName
 	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
-	data.dataItemArr = append(data.dataItemArr, dataElem)
+	dataElem.Unit = getUnit(dataElem.Labels["Metric"])
+	data.DataItems = append(data.DataItems, dataElem)
 	klog.Infof("data:%v", data)
 }
 
-func calculateMetricDataValue(dataElem *dataItems, podRatioType int, metricIndex int) {
+func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricIndex int) {
 	resultSlice := make([]float64, 10)
 	for _, resultSlice = range metricVal {
 		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, resultSlice[metricIndex])
@@ -464,7 +479,6 @@ func metricRPCMethod(client *rpc.Client, metricReq *api.MetricRequest, metricRes
 }
 
 func clientRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.ClientRequest) {
-	klog.Info("[clientRPCMethod] rpcMethod : %s , clientReq: %v", rpcMethod, *clientReq)
 	var reply api.WorkerResponse
 	err := client.Call(rpcMethod, *clientReq, &reply)
 	if err != nil {
@@ -473,7 +487,6 @@ func clientRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.Client
 }
 
 func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *api.ServerRequest) {
-	klog.Info("[serverRPCMethod] rpcMethod : %s , clientReq: %v", rpcMethod, *clientReq)
 	var reply api.WorkerResponse
 	err := client.Call(rpcMethod, *clientReq, &reply)
 	if err != nil {
@@ -493,26 +506,28 @@ func metricHandler(w http.ResponseWriter, r *http.Request) {
 	klog.Info("Inside reply")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	b, err := json.Marshal(populateDataItem(metricData))
+	// metricData.DataItems = populateDataItem(metricData.DataItems)
+	klog.Info("Marshalled Resp:", metricData)
+	b, err := json.Marshal(metricData)
 	if err != nil {
 		klog.Info("Error marshalling to json:", err)
 	}
 	w.Write(b)
 }
 
-func populateDataItem(data metricData) []DataItem {
-	var dataItemArr []DataItem
+// func populateDataItem(data []dataItems) []DataItem {
+// 	var dataItemArr []DataItem
 
-	for _, dataElem := range data.dataItemArr {
-		dataItemArr = append(dataItemArr, DataItem{
-			Data:   dataElem.Data,
-			Unit:   getUnit(dataElem.Labels["Metric"]),
-			Labels: dataElem.Labels,
-		})
-	}
-	return dataItemArr
-}
+// 	for _, dataElem := range data {
+// 		dataItemArr = append(dataItemArr, DataItem{
+// 			Data:   dataElem.Data,
+// 			Unit:   getUnit(dataElem.Labels["Metric"]),
+// 			Labels: dataElem.Labels,
+// 		})
+// 	}
+// 	klog.Info("Metric res:", dataItemArr)
+// 	return dataItemArr
+// }
 
 func getUnit(metric string) string {
 	return metricUnitMap[metric]

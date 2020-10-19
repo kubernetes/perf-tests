@@ -71,6 +71,8 @@ func validate(mode string, ratio string, protocol string, duration string) error
 
 	if mode == api.WorkerMode && *controllerIp == "" {
 		return errors.New("Controller hostname/ip not specified")
+	} else if mode == api.WorkerMode {
+		return nil
 	}
 
 	if mode == api.ControllerMode && duration == "" {

@@ -37,9 +37,9 @@ const (
 )
 
 const (
-	Protocol_TCP  = "tcp"
-	Protocol_UDP  = "udp"
-	Protocol_HTTP = "http"
+	Protocol_TCP  = "TCP"
+	Protocol_UDP  = "UDP"
+	Protocol_HTTP = "HTTP"
 )
 
 //TCP result array Index mapping

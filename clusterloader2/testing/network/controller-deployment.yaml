@@ -30,6 +30,7 @@ spec:
             - --mode=controller
             - --client-server-pod-ratio={{.Ratio}}
             - --protocol={{.Protocol}} 
+            - --measurement-duration={{.Duration}}
 #        resources:
 #          requests:
 #            cpu: {{$CpuRequest}}

@@ -35,8 +35,6 @@ var metricVal map[string][]float64
 var uniqPodPairList []api.UniquePodPair
 var metricDataCh = make(chan NetworkPerfResp)
 
-var aggrPodPairMetricSlice []float64
-
 //Client-To-Server Pod ratio indicator
 const (
 	OneToOne   = "1:1"
@@ -185,13 +183,17 @@ func deriveClientServerPodNum(ratio string) (int, int, string) {
 		clientPodNum, _ = strconv.Atoi(podNumber[0])
 		serverPodNum, _ = strconv.Atoi(podNumber[1])
 
-		if clientPodNum == serverPodNum {
+		if clientPodNum <= 0 || serverPodNum <= 0 {
+			klog.Error("Invalid pod numbers")
+			return -1, -1, "-1"
+		}
+		if clientPodNum == serverPodNum && clientPodNum == 1 {
 			return clientPodNum, serverPodNum, OneToOne
 		}
 		if (clientPodNum > serverPodNum) && serverPodNum == 1 {
 			return clientPodNum, serverPodNum, ManyToOne
 		}
-		if clientPodNum > 1 && serverPodNum > 1 {
+		if clientPodNum == serverPodNum {
 			return clientPodNum, serverPodNum, ManyToMany
 		}
 	}
@@ -260,6 +262,11 @@ func executeManyToManyTest(duration string, protocol string) {
 	for {
 		select {
 		case uniqPodPair = <-podPairCh:
+			klog.Info("Pod Pairs:", uniqPodPair)
+			if uniqPodPair.IsLastPodPair {
+				endOfPodPairs = true
+				break
+			}
 			sendReqToSrv(uniqPodPair, protocol, duration)
 			time.Sleep(50 * time.Millisecond)
 			//Get timestamp for first pair and use the same for all
@@ -268,10 +275,6 @@ func executeManyToManyTest(duration string, protocol string) {
 			}
 			sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
 			podPairIndex++
-			if uniqPodPair.IsLastPodPair {
-				endOfPodPairs = true
-				break
-			}
 		default:
 			//do nothing
 		}
@@ -334,6 +337,7 @@ func getUnusedPod(unusedPodList *[]api.WorkerPodData) (api.WorkerPodData, error)
 }
 
 func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration string, futureTimestamp int64) {
+	klog.Info("Unique pod pair client:", uniqPodPair)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
@@ -354,6 +358,7 @@ func sendReqToClient(uniqPodPair api.UniquePodPair, protocol string, duration st
 }
 
 func sendReqToSrv(uniqPodPair api.UniquePodPair, protocol string, duration string) {
+	klog.Info("Unique pod pair server:", uniqPodPair)
 	client, err := rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
@@ -409,6 +414,7 @@ func collectMetricForManyToMany(protocol string) {
 	for _, podPair := range uniqPodPairList {
 		collectMetrics(podPair, protocol, &metricResp)
 		populateMetricValMap(podPair, protocol, &metricResp)
+		klog.Info("Metrics Response from worker:", metricResp)
 	}
 }
 
@@ -458,10 +464,12 @@ func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, 
 }
 
 func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricIndex int) {
+	var aggrPodPairMetricSlice []float64
 	resultSlice := make([]float64, 10)
 	for _, resultSlice = range metricVal {
 		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, resultSlice[metricIndex])
 	}
+	klog.Info("Metric Index:", metricIndex, " AggregatePodMetrics:", aggrPodPairMetricSlice)
 	switch podRatioType {
 	case OneToOne:
 		dataElem.Data[value] = resultSlice[metricIndex]

@@ -26,7 +26,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
             - --mode=worker
-            - --controlerIP={{.ControllerIp}}-{{.Index}}
+            - --controllerIP={{.ControllerIp}}-{{.Index}}
         env:
             - name: NODE_NAME
               valueFrom:

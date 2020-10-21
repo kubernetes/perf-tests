@@ -239,7 +239,7 @@ func executeOneToOneTest(duration string, protocol string) {
 
 	//sleep till test-run
 	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration+2) * time.Second)
+	time.Sleep(time.Duration(timeDuration+initialDelayForTCExec+3) * time.Second)
 	var metricResp api.MetricResponse
 	collectMetrics(uniqPodPair, protocol, &metricResp)
 	populateMetricValMap(uniqPodPair, protocol, &metricResp)
@@ -285,7 +285,7 @@ func executeManyToManyTest(duration string, protocol string) {
 
 	//sleep till test-run
 	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration+2) * time.Second)
+	time.Sleep(time.Duration(timeDuration+initialDelayForTCExec+3) * time.Second)
 	collectMetricForManyToMany(protocol)
 	calculateAndSendMetricVal(protocol, ManyToMany)
 }

@@ -25,7 +25,7 @@ steps:
       objectTemplatePath: controller-deployment.yaml 
       templateFillMap:
         Protocol: UDP 
-        Ratio: 1:1
+        Ratio: 200:200 
         SvcName: controller-service
         Duration: 10
 - name: Wait for 5 secs controller to be up
@@ -45,7 +45,7 @@ steps:
     - basename: worker
       objectTemplatePath: worker-deployment.yaml
       templateFillMap:
-        Replicas: 2 
+        Replicas: 400 
         ControllerIp: controller-service
 - name: Wait 1min
   measurements:
@@ -59,7 +59,7 @@ steps:
       Method: NetworkPerformanceMetrics
       Params:
         action: gather 
-- name: Wait 2min
+- name: Wait 5min
   measurements:
     - Identifier: Wait
       Method: Sleep
@@ -79,7 +79,7 @@ steps:
       objectTemplatePath: controller-deployment.yaml
       templateFillMap:
         Protocol: UDP 
-        Ratio: 1:1
+        Ratio: 200:200 
         SvcName: controller-service
     - basename: worker
       objectTemplatePath: worker-deployment.yaml

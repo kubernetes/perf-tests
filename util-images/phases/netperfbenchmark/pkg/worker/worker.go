@@ -29,6 +29,7 @@ var iperfTCPFn = []string{"Sum", "Avg"}
 
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
+type fn func(int)
 
 func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
 	klog.Info("In metrics")
@@ -72,16 +73,19 @@ func (w *WorkerRPC) Stop(tc *api.MetricRequest, reply *api.MetricResponse) error
 
 func (w *WorkerRPC) StartTCPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
 	klog.Info("In StartTCPClient")
-	// go execCmd(tc.Duration, "iperf3", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1"})
-	go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", tc.Duration})
+	klog.Info("Req:", tc)
+	// go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", tc.Duration})
+	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", tc.Duration})
 	return nil
 }
 
 func (w *WorkerRPC) StartTCPServer(tc *api.ServerRequest, reply *api.WorkerResponse) error {
 	klog.Info("In StartTCPServer")
+	klog.Info("Req:", tc)
 	resultCh <- "TCP"
 	// go execCmd(tc.Duration, "iperf3", []string{"-s", "-f", "K", "-i", "1"})
-	go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-i", tc.Duration, "-P", tc.NumClients})
+	// go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-i", tc.Duration, "-P", tc.NumClients})
+	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-s", "-f", "K", "-i", tc.Duration, "-P", tc.NumClients})
 	return nil
 }
 
@@ -89,14 +93,16 @@ func (w *WorkerRPC) StartUDPServer(tc *api.ServerRequest, reply *api.WorkerRespo
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
 	resultCh <- "UDP"
-	go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
+	// go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
+	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
 	return nil
 }
 
 func (w *WorkerRPC) StartUDPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
 	//iperf -c localhost -u -l 20 -b 1M -e -i 1
 	klog.Info("In StartUDPClient")
-	go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
+	// go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
+	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
 	return nil
 }
 
@@ -121,7 +127,10 @@ func (w *WorkerRPC) StartHTTPClient(tc *api.ClientRequest, reply *api.WorkerResp
 	//c concurrent r repetitions t time d delay in sec between 1 and d
 	resultCh <- "HTTP"
 	klog.Info("In StartHTTPClient")
-	go execCmd(tc.Duration, "siege",
+	// go execCmd(tc.Duration, "siege",
+	// 	[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
+	// 		"-d1", "-t" + tc.Duration + "S", "-c1"})
+	go schedule(tc.Timestamp, tc.Duration, "siege",
 		[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
 			"-d1", "-t" + tc.Duration + "S", "-c1"})
 	return nil
@@ -129,6 +138,14 @@ func (w *WorkerRPC) StartHTTPClient(tc *api.ClientRequest, reply *api.WorkerResp
 
 func Handler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "hi\n")
+}
+
+func schedule(futureTimestamp int64, duration string, command string, args []string) {
+	//If future time is past,run immediately
+	klog.Info("About to wait for futuretime:", futureTimestamp)
+	klog.Info("Current time:", time.Now().Unix())
+	time.Sleep(time.Duration(futureTimestamp-time.Now().Unix()) * time.Second)
+	execCmd(duration, command, args)
 }
 
 // func execCmd2(path string, args []string, duration ...string) {
@@ -205,7 +222,13 @@ func test() {
 		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?
 	}
-	podData := &api.ClientRequest{DestinationIP: "localhost", Duration: "10", Timestamp: 1}
+	currTime := time.Now()
+	initDelayInSec := time.Second * time.Duration(5)
+	futureTime := currTime.Add(initDelayInSec).Unix()
+	klog.Info("Current timestamp:", time.Now().Unix())
+	klog.Info("Schedule timestamp:", futureTime)
+	serpodData := &api.ServerRequest{Duration: "10", NumClients: "1"}
+	podData := &api.ClientRequest{DestinationIP: "localhost", Duration: "10", Timestamp: futureTime}
 	var reply api.WorkerResponse
 	metricReq := &api.MetricRequest{}
 	var metricRes api.MetricResponse
@@ -217,7 +240,7 @@ func test() {
 	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
 	//UDP TEST
 	//resultCh = make(chan string, 140)
-	err = client.Call("WorkerRPC.StartUDPServer", podData, &reply)
+	err = client.Call("WorkerRPC.StartUDPServer", serpodData, &reply)
 	// time.Sleep(2 * time.Second)
 	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
 	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)

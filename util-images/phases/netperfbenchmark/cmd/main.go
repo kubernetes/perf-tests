@@ -33,7 +33,7 @@ var (
 	ratio        = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
 	duration     = flag.String("measurement-duration", "", "Duration of metric collection in seconds")
 	protocol     = flag.String("protocol", "", "Protocol to be tested. Supported values: tcp or or udp or http")
-	controllerIp = flag.String("controlerIP", "", "IP address of controller pod")
+	controllerIp = flag.String("controllerIP", "", "IP address of controller pod")
 )
 
 func main() {

@@ -121,5 +121,6 @@ type MetricRequest struct {
 }
 
 type MetricResponse struct {
-	Result []float64
+	Result          []float64
+	WorkerStartTime string
 }

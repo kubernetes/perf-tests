@@ -95,8 +95,8 @@ var metricUnitMap = map[string]string{
 	Throughput:   "kbytes/sec",
 	Latency:      "ms",
 	Jitter:       "ms",
-	PPS:          "second",
-	ResponseTime: "second",
+	PPS:          "pps",
+	ResponseTime: "seconds",
 }
 
 // type metricData struct {
@@ -365,7 +365,7 @@ func sendReqToSrv(uniqPodPair api.UniquePodPair, protocol string, duration strin
 	}
 
 	serverReq := &api.ServerRequest{Duration: duration, NumClients: "1", Timestamp: time.Now().Unix()}
-	klog.Info("Client req:", serverReq)
+	klog.Info("Server req:", serverReq)
 	switch protocol {
 	case api.Protocol_TCP:
 		serverRPCMethod(client, protocolRpcMap[TCP_Server], serverReq)

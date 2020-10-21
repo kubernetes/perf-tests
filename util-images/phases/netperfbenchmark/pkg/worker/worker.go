@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/klog"
@@ -23,6 +24,8 @@ import (
 var listener net.Listener
 var resultCh = make(chan string, 100)
 var resultStatus = make(chan string, 1)
+var startedAt int64
+var futureTime int64
 
 var iperfUDPFn = []string{"", "", "", "Sum", "Sum", "Sum", "Sum", "Sum", "Avg", "Avg", "Min", "Max", "Avg", "Sum"}
 var iperfTCPFn = []string{"Sum", "Avg"}
@@ -61,6 +64,10 @@ func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) er
 		return err
 	}
 	reply.Result = output
+	st := strconv.FormatInt(startedAt, 10)
+	ft := strconv.FormatInt(futureTime, 10)
+	dt := strconv.FormatInt(futureTime-startedAt, 10)
+	reply.WorkerStartTime = "StartedAt:" + st + " FutureTime:" + ft + " diffTime:" + dt
 	return nil
 	// stringSlices := strings.Join(result[:], "\n\n")
 }
@@ -145,6 +152,8 @@ func schedule(futureTimestamp int64, duration string, command string, args []str
 	klog.Info("About to wait for futuretime:", futureTimestamp)
 	klog.Info("Current time:", time.Now().Unix())
 	time.Sleep(time.Duration(futureTimestamp-time.Now().Unix()) * time.Second)
+	atomic.AddInt64(&startedAt, time.Now().Unix())
+	atomic.AddInt64(&futureTime, futureTimestamp)
 	execCmd(duration, command, args)
 }
 

@@ -1,9 +1,14 @@
-package common
+package network
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -13,20 +18,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
-const (
-	networkPerfMetricsName = "NetworkPerformanceMetrics"
-	netperfNamespace       = "netperf-1"
-)
-
-type NetworkPerfResp struct {
-	Client_Server_Ratio string
-	Protocol            string
-	Service             string
-	DataItems           []measurementutil.DataItem
-}
-
 func init() {
-	klog.Info("Registering Netowrk Measurement")
+	klog.Info("Registering Network Measurement")
 	if err := measurement.Register(networkPerfMetricsName, createNetworkPerfMetricsMeasurement); err != nil {
 		klog.Fatal("Cannot register %s: %v", networkPerfMetricsName, err)
 	}
@@ -37,14 +30,20 @@ func createNetworkPerfMetricsMeasurement() measurement.Measurement {
 }
 
 type networkPerfMetricsMeasurement struct {
+	k8sClient       kubernetes.Interface
+	framework       *framework.Framework
+	podReplicas     int
+	namespace       string
+	templateMapping map[string]interface{}
+	startTime       time.Time
 }
 
-type networkPerfMetrics struct {
-	Name    string `json:"name"`
-	Metrics []float64
-}
+//type networkPerfMetrics struct {
+//	Name    string `json:"name"`
+//	Metrics []float64
+//}
 
-func (m *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 
 	klog.Info("In network execute")
 	action, err := util.GetString(config.Params, "action")
@@ -55,9 +54,9 @@ func (m *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]m
 
 	switch action {
 	case "start":
-		m.start(config)
+		npm.start(config)
 	case "gather":
-		summary, err := m.gather(config)
+		summary, err := npm.gather(config)
 		if err != nil && !errors.IsMetricViolationError(err) {
 			klog.Error("Error in metrics:", err)
 			return nil, err
@@ -70,15 +69,82 @@ func (m *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]m
 	return nil, nil
 }
 
-func (m *networkPerfMetricsMeasurement) Dispose() {
+func (npm *networkPerfMetricsMeasurement) Dispose() {
 
 }
 
-func (m *networkPerfMetricsMeasurement) start(config *measurement.Config) {
+func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) error {
+	if err := npm.initialize(config); err != nil {
+		return err
+	}
+
+	//create namespace for the worker-pods
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
+	npm.k8sClient = k8sClient
+	npm.namespace = netperfNamespace
 	if err := client.CreateNamespace(k8sClient, netperfNamespace); err != nil {
 		klog.Info("Error starting measurement:", err)
 	}
+
+	//Create worker pods using manifest files
+	if err := npm.createWorkerPods(); err != nil {
+		return err
+	}
+
+	if err := npm.waitForWorkerPodsReady(); err != nil {
+		return err
+	}
+
+	npm.storeWorkerPods()
+
+	return nil
+}
+
+func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config) error {
+	podReplicas, err := util.GetInt(config.Params, "podReplicas")
+	if err != nil {
+		return err
+	}
+	npm.framework = config.ClusterFramework
+	npm.podReplicas = podReplicas
+	npm.templateMapping = map[string]interface{}{"Replicas": podReplicas}
+	return nil
+}
+
+func (npm *networkPerfMetricsMeasurement) createWorkerPods() error {
+	return npm.framework.ApplyTemplatedManifests(manifestsPathPrefix, npm.templateMapping)
+}
+
+func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
+	var podNum = npm.podReplicas
+	var weightedPodTReadyTimeout = podNum * 1
+	var checkWorkerPodReadyTimeout = time.Duration(weightedPodTReadyTimeout) * time.Second
+	return wait.Poll(checkWorkerPodReadyInterval, checkWorkerPodReadyTimeout, npm.checkWorkerPodsReady)
+}
+
+func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
+	options := metav1.ListOptions{LabelSelector: workerLabel}
+	pods, err := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
+	if len(pods.Items) == npm.podReplicas {
+		return true, err
+	}
+	return false, err
+}
+
+func (*networkPerfMetricsMeasurement) String() string {
+	return networkPerfMetricsName
+}
+
+func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
+	options := metav1.ListOptions{LabelSelector: workerLabel}
+	pods, _ := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
+
+	for _, pod := range pods.Items {
+		podData := &WorkerPodData{PodName: pod.Name, PodIp: pod.Status.PodIP, WorkerNode: pod.Spec.NodeName}
+		klog.Info("PodData :", *podData)
+		populateWorkerPodList(podData)
+	}
+
 }
 
 func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
@@ -109,8 +175,4 @@ func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (meas
 		klog.Info("Pretty Print to Json Err:", err)
 	}
 	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
-}
-
-func (*networkPerfMetricsMeasurement) String() string {
-	return networkPerfMetricsName
 }

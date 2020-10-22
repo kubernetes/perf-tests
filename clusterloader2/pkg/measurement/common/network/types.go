@@ -16,9 +16,7 @@ limitations under the License.
 
 package network
 
-import (
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-)
+import "time"
 
 //net-rpc service listen ports
 const (
@@ -85,6 +83,13 @@ const (
 
 const RatioSeparator = ":"
 
+const (
+	networkPerfMetricsName      = "NetworkPerformanceMetrics"
+	netperfNamespace            = "netperf-1"
+	checkWorkerPodReadyInterval = 1 * time.Second
+	workerLabel                 = "worker"
+)
+
 type WorkerPodData struct {
 	PodName    string
 	WorkerNode string
@@ -127,11 +132,4 @@ type MetricRequest struct {
 type MetricResponse struct {
 	Result          []float64
 	WorkerStartTime string
-}
-
-type NetworkPerfResp struct {
-	Client_Server_Ratio string
-	Protocol            string
-	Service             string
-	DataItems           []measurementutil.DataItem
 }

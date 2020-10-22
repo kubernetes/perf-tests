@@ -1,9 +1,13 @@
-package common
+package network
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"path"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -18,15 +22,8 @@ const (
 	netperfNamespace       = "netperf-1"
 )
 
-type NetworkPerfResp struct {
-	Client_Server_Ratio string
-	Protocol            string
-	Service             string
-	DataItems           []measurementutil.DataItem
-}
-
 func init() {
-	klog.Info("Registering Netowrk Measurement")
+	klog.Info("Registering Network Measurement")
 	if err := measurement.Register(networkPerfMetricsName, createNetworkPerfMetricsMeasurement); err != nil {
 		klog.Fatal("Cannot register %s: %v", networkPerfMetricsName, err)
 	}
@@ -37,6 +34,12 @@ func createNetworkPerfMetricsMeasurement() measurement.Measurement {
 }
 
 type networkPerfMetricsMeasurement struct {
+	config proberConfig
+
+	framework        *framework.Framework
+	replicasPerProbe int
+	templateMapping  map[string]interface{}
+	startTime        time.Time
 }
 
 type networkPerfMetrics struct {
@@ -79,6 +82,37 @@ func (m *networkPerfMetricsMeasurement) start(config *measurement.Config) {
 	if err := client.CreateNamespace(k8sClient, netperfNamespace); err != nil {
 		klog.Info("Error starting measurement:", err)
 	}
+
+	//Create worker pods using manifest files
+
+	if err := m.createProbesObjects(); err != nil {
+		return err
+	}
+	if err := m.waitForProbesReady(config); err != nil {
+		return err
+	}
+
+}
+
+func (p *networkPerfMetricsMeasurement) createProbesObjects() error {
+	return p.framework.ApplyTemplatedManifests(path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
+}
+
+func (p *networkPerfMetricsMeasurement) waitForProbesReady(config *measurement.Config) error {
+	klog.V(2).Infof("Waiting for Probe %s to become ready...", p)
+	checkProbesReadyTimeout, err := util.GetDurationOrDefault(config.Params, "checkProbesReadyTimeout", defaultCheckProbesReadyTimeout)
+	if err != nil {
+		return err
+	}
+	return wait.Poll(checkProbesReadyInterval, checkProbesReadyTimeout, p.checkProbesReady)
+}
+
+func (*networkPerfMetricsMeasurement) String() string {
+	return networkPerfMetricsName
+}
+
+func listWorkerPods() {
+
 }
 
 func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
@@ -109,8 +143,4 @@ func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (meas
 		klog.Info("Pretty Print to Json Err:", err)
 	}
 	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
-}
-
-func (*networkPerfMetricsMeasurement) String() string {
-	return networkPerfMetricsName
 }

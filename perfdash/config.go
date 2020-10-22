@@ -223,6 +223,10 @@ var (
 					Name:             "load",
 					OutputFilePrefix: "SchedulingThroughput",
 					Parser:           parseSchedulingThroughputCL("load"),
+				}, {
+					Name:             "load",
+					OutputFilePrefix: "SchedulingThroughputPrometheus",
+					Parser:           parseSchedulingThroughputCL("load-prometheus"),
 				},
 			},
 			"LoadSchedulingLatency": []TestDescription{

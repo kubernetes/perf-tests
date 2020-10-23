@@ -16,6 +16,8 @@ limitations under the License.
 
 package network
 
+import "time"
+
 //net-rpc service listen ports
 const (
 	ControllerRpcSvcPort = "5002"
@@ -80,6 +82,13 @@ const (
 )
 
 const RatioSeparator = ":"
+
+const (
+	networkPerfMetricsName      = "NetworkPerformanceMetrics"
+	netperfNamespace            = "netperf-1"
+	checkWorkerPodReadyInterval = 1 * time.Second
+	workerLabel                 = "worker"
+)
 
 type WorkerPodData struct {
 	PodName    string

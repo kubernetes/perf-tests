@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -19,8 +18,9 @@ import (
 type ControllerRPC int
 
 var workerPodList map[string][]WorkerPodData
-var syncWait *sync.WaitGroup
-var globalLock sync.Mutex
+
+//var syncWait *sync.WaitGroup
+//var globalLock sync.Mutex
 
 var podPairCh = make(chan UniquePodPair)
 
@@ -30,8 +30,9 @@ const initialDelayForTCExec = 5
 
 var metricVal map[string][]float64
 var uniqPodPairList []UniquePodPair
-var metricDataCh = make(chan NetworkPerfResp)
 var K8sClient clientset.Interface
+
+//var metricDataCh = make(chan NetworkPerfResp)
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -106,7 +107,7 @@ var metricUnitMap = map[string]string{
 // 	Labels map[string]string
 // }
 
-const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/"
+const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/*yaml"
 
 // DataItem is the data point.
 type DataItem struct {
@@ -129,10 +130,6 @@ func Start(ratio string, clientIfc clientset.Interface, namespace string) {
 }
 
 func populateWorkerPodList(data *WorkerPodData) error {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-	defer syncWait.Done()
-
 	if podData, ok := workerPodList[data.WorkerNode]; !ok {
 		workerPodList[data.WorkerNode] = []WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
 		return nil
@@ -319,8 +316,6 @@ func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration string
 
 func sendReqToSrv(uniqPodPair UniquePodPair, protocol string, duration string) {
 	klog.Info("Unique pod pair server:", uniqPodPair)
-	serverReq := ServerRequest{Duration: duration, NumClients: "1", Timestamp: time.Now().Unix()}
-	klog.Info("Server req:", serverReq)
 	switch protocol {
 	case Protocol_TCP:
 		StartWork(uniqPodPair.DestPodName, httpPathMap[TCP_Server], duration, time.Now().Unix(), "1", "")
@@ -394,7 +389,7 @@ func calculateAndSendMetricVal(protocol string, podRatioType string) {
 	}
 	metricData.Service = "P2P"
 	metricData.Client_Server_Ratio = podRatioType
-	metricDataCh <- metricData
+	//metricDataCh <- metricData
 }
 
 func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {

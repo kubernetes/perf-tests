@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"k8s.io/klog"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
+	"k8s.io/perf-tests/util-images/network/netperfbenchmark/api"
 )
 
 var listener net.Listener
@@ -32,22 +32,52 @@ var iperfTCPFn = []string{"Sum", "Avg"}
 
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
-type fn func(int)
 
-func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) error {
+func Start(controllerIp string) {
+	listenToServer()
+}
+
+func listenToServer() {
+	handlers := map[string]func(http.ResponseWriter, *http.Request){"/startTCPServer": StartTCPServer,
+		"/startTCPClient": StartTCPClient, "/startUDPServer": StartUDPServer, "/startUDPClient": StartUDPClient,
+		"/startHTTPServer": StartHTTPServer, "/startHTTPClient": StartHTTPClient, "/metrics": Metrics}
+	startListening(api.WorkerListenPort, handlers)
+	klog.Info("Started listening to Server")
+	//TODO to be removed
+	// test()
+}
+
+func startListening(port string, handlers map[string]func(http.ResponseWriter, *http.Request)) error {
+	klog.Info("In StartHTTPServer")
+	for path, handler := range handlers {
+		http.HandleFunc(path, handler)
+	}
+	listener1, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		klog.Error("Error listening:", err)
+	}
+	go http.Serve(listener1, nil)
+	return nil
+}
+
+func Metrics(res http.ResponseWriter, req *http.Request) {
+	var reply api.MetricResponse
 	klog.Info("In metrics")
 	var status string
-	// listener.Close()
 	select {
 	case status = <-resultStatus:
 		if status != "OK" {
 			klog.Error("Error collecting metrics:", status)
-			return errors.New("metrics collection failed:" + status)
+			reply.Error = "metrics collection failed:" + status
+			createResp(reply, &res)
+			return
 		}
 		klog.Info("Metrics collected")
 	default:
 		klog.Info("Metric collection in progress")
-		return errors.New("Metrics in progress")
+		reply.Error = "Metrics in progress"
+		createResp(reply, &res)
+		return
 	}
 	result := make([]string, 0)
 	close(resultCh) //can be removed,if  following exact time based closure
@@ -61,94 +91,109 @@ func (w *WorkerRPC) Metrics(tc *api.MetricRequest, reply *api.MetricResponse) er
 	}
 	output, err := parseResult(result)
 	if err != nil {
-		return err
+		reply.Error = err.Error()
+		createResp(reply, &res)
+		return
 	}
 	reply.Result = output
+
 	st := strconv.FormatInt(startedAt, 10)
 	ft := strconv.FormatInt(futureTime, 10)
 	dt := strconv.FormatInt(futureTime-startedAt, 10)
 	reply.WorkerStartTime = "StartedAt:" + st + " FutureTime:" + ft + " diffTime:" + dt
-	return nil
+	createResp(reply, &res)
 	// stringSlices := strings.Join(result[:], "\n\n")
 }
 
-func (w *WorkerRPC) Stop(tc *api.MetricRequest, reply *api.MetricResponse) error {
+func createResp(resp interface{}, w *http.ResponseWriter) {
+	klog.Info("Inside reply")
+	(*w).Header().Set("Content-Type", "application/json")
+	(*w).WriteHeader(http.StatusOK)
+	klog.Info("Marshalled Resp:", resp)
+	b, err := json.Marshal(resp)
+	if err != nil {
+		klog.Info("Error marshalling to json:", err)
+	}
+	(*w).Write(b)
+}
+
+func Stop(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In stop")
 	listener.Close()
-	return nil
 }
 
-func (w *WorkerRPC) StartTCPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
+func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPClient")
-	klog.Info("Req:", tc)
-	// go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", tc.Duration})
-	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", tc.Duration})
-	return nil
+	klog.Info("Req:", req)
+	ts, dur, destIP, _ := parseURLParam(req)
+	go schedule(ts, dur,
+		"iperf", []string{"-c", destIP, "-f", "K", "-l",
+			"20", "-b", "1M", "-i", "1", "-t", dur})
 }
 
-func (w *WorkerRPC) StartTCPServer(tc *api.ServerRequest, reply *api.WorkerResponse) error {
+func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPServer")
-	klog.Info("Req:", tc)
+	klog.Info("Req:", req)
 	resultCh <- "TCP"
-	// go execCmd(tc.Duration, "iperf3", []string{"-s", "-f", "K", "-i", "1"})
-	// go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-i", tc.Duration, "-P", tc.NumClients})
-	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-s", "-f", "K", "-i", tc.Duration, "-P", tc.NumClients})
-	return nil
+	ts, dur, _, numcl := parseURLParam(req)
+	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-i", dur, "-P", numcl})
 }
 
-func (w *WorkerRPC) StartUDPServer(tc *api.ServerRequest, reply *api.WorkerResponse) error {
+func StartUDPServer(res http.ResponseWriter, req *http.Request) {
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
 	resultCh <- "UDP"
-	// go execCmd(tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
-	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", tc.Duration, "-P", tc.NumClients})
-	return nil
+	ts, dur, _, numcl := parseURLParam(req)
+	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", dur, "-P", numcl})
 }
 
-func (w *WorkerRPC) StartUDPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
+func StartUDPClient(res http.ResponseWriter, req *http.Request) {
 	//iperf -c localhost -u -l 20 -b 1M -e -i 1
 	klog.Info("In StartUDPClient")
-	// go execCmd(tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
-	go schedule(tc.Timestamp, tc.Duration, "iperf", []string{"-c", tc.DestinationIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", tc.Duration})
-	return nil
+	ts, dur, destIP, _ := parseURLParam(req)
+	go schedule(ts, dur, "iperf", []string{"-c", destIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", dur})
 }
 
-func (w *WorkerRPC) StartHTTPServer(tc *api.ServerRequest, reply *api.WorkerResponse) error {
+func StartHTTPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartHTTPServer")
-	// //mux := http.NewServeMux()
-	// //http.DefaultServeMux = mux
-	// // mux.HandleFunc("/", Handler)
-	http.HandleFunc("/test", Handler)
-	// http.ListenAndServe(":5001", nil)
-	// klog.Info("http server shut")
-	listener1, err := net.Listen("tcp", ":"+api.HttpPort)
-	if err != nil {
-		klog.Error("Siege server listen error:", err)
-	}
-	go http.Serve(listener1, nil)
-	return nil
+	startListening(api.HttpPort, map[string]func(http.ResponseWriter, *http.Request){"/test": Handler})
 }
 
-func (w *WorkerRPC) StartHTTPClient(tc *api.ClientRequest, reply *api.WorkerResponse) error {
+func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
 	//c concurrent r repetitions t time d delay in sec between 1 and d
 	resultCh <- "HTTP"
 	klog.Info("In StartHTTPClient")
-	// go execCmd(tc.Duration, "siege",
-	// 	[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
-	// 		"-d1", "-t" + tc.Duration + "S", "-c1"})
-	go schedule(tc.Timestamp, tc.Duration, "siege",
-		[]string{"http://" + tc.DestinationIP + ":" + api.HttpPort + "/test",
-			"-d1", "-t" + tc.Duration + "S", "-c1"})
-	return nil
+	ts, dur, destIP, _ := parseURLParam(req)
+	go schedule(ts, dur, "siege",
+		[]string{"http://" + destIP + ":" + api.HttpPort + "/test",
+			"-d1", "-t" + dur + "S", "-c1"})
 }
 
 func Handler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "hi\n")
 }
 
+func parseURLParam(req *http.Request) (int64, string, string, string) {
+	values := req.URL.Query()
+	ts := values.Get("timestamp")
+	dur := values.Get("duration")
+	destIP := values.Get("destIP")
+	numcl := values.Get("numCls")
+	var tsint int64
+	var err error
+	if ts != "" {
+		tsint, err = strconv.ParseInt(ts, 10, 64)
+		if err != nil {
+			klog.Info("Invalid timestamp:", ts, " ", err)
+		}
+	}
+	return tsint, dur, destIP, numcl
+
+}
+
 func schedule(futureTimestamp int64, duration string, command string, args []string) {
-	//If future time is past,run immediately
+	//If future time is in past,run immediately
 	klog.Info("About to wait for futuretime:", futureTimestamp)
 	klog.Info("Current time:", time.Now().Unix())
 	time.Sleep(time.Duration(futureTimestamp-time.Now().Unix()) * time.Second)
@@ -203,30 +248,10 @@ func scanOutput(out *io.Reader) {
 	}
 }
 
-func initializeServerRPC() {
-	baseObject := new(WorkerRPC)
-	err := rpc.Register(baseObject)
-	if err != nil {
-		klog.Fatalf("failed to register rpc", err)
-	}
-	rpc.HandleHTTP()
-	var e error
-	listener, e = net.Listen("tcp", ":"+api.WorkerRpcSvcPort)
-	if e != nil {
-		klog.Fatalf("listen error:", e)
-	}
-	klog.Info("About to serve rpc...")
-	go startServer(&listener)
-	klog.Info("Started http server")
-
-	//TODO to be removed
-	// test()
-}
-
 //TODO to be removed , test method
 func test() {
 	//TODO to be removed ,test///////////////////////
-	client, err := rpc.DialHTTP("tcp", "localhost"+":"+api.WorkerRpcSvcPort)
+	client, err := rpc.DialHTTP("tcp", "localhost"+":"+api.WorkerListenPort)
 	if err != nil {
 		klog.Fatalf("dialing:", err)
 		//TODO WHAT IF FAILS?
@@ -264,37 +289,6 @@ func test() {
 	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
 	klog.Info("TESTING COMPLETED!")
 	////////////////////////////////////////////////
-}
-
-func startServer(listener *net.Listener) {
-	err := http.Serve(*listener, nil)
-	if err != nil {
-		klog.Info("failed start server", err)
-	}
-	klog.Info("Stopping rpc")
-}
-
-func Start(controllerIp string) {
-	initializeServerRPC()
-	register(controllerIp, api.ControllerRpcSvcPort)
-}
-
-func register(controllerIp string, port string) {
-	klog.Info("Env variables:", "POD_NAME:"+os.Getenv(api.PodName), " NODE_NAME:"+os.Getenv(api.NodeName),
-		" POD_IP:"+os.Getenv(api.PodIP), " CLUSTER_IP:"+os.Getenv(api.ClusterIp))
-	klog.Info("Controller ip:", controllerIp)
-	client, err := rpc.DialHTTP("tcp", controllerIp+":"+port)
-	if err != nil {
-		klog.Error("dialing:", err)
-		return
-		//TODO WHAT IF FAILS?
-	}
-
-	//Not checking the presence of env vars as it's better in any case for cntrlr to know
-	podData := &api.WorkerPodData{os.Getenv(api.PodName), os.Getenv(api.NodeName),
-		os.Getenv(api.PodIP), os.Getenv(api.ClusterIp)}
-	var reply api.WorkerPodRegReply
-	err = client.Call("ControllerRPC.RegisterWorkerPod", podData, &reply)
 }
 
 func parseResult(result []string) ([]float64, error) {

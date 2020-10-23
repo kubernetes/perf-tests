@@ -14,16 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package network
-
-import (
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-)
+package api
 
 //net-rpc service listen ports
 const (
 	ControllerRpcSvcPort = "5002"
-	WorkerRpcSvcPort     = "5003"
+	WorkerListenPort     = "5003"
 	HttpPort             = "5301"
 )
 
@@ -111,6 +107,7 @@ type ServerRequest struct {
 type WorkerResponse struct {
 	PodName    string
 	WorkerNode string
+	Error      string
 }
 
 type UniquePodPair struct {
@@ -127,11 +124,23 @@ type MetricRequest struct {
 type MetricResponse struct {
 	Result          []float64
 	WorkerStartTime string
+	Error           string
 }
 
 type NetworkPerfResp struct {
 	Client_Server_Ratio string
 	Protocol            string
 	Service             string
-	DataItems           []measurementutil.DataItem
+	DataItems           []DataItem
+}
+
+type DataItem struct {
+	// Data is a map from bucket to real data point (e.g. "Perc90" -> 23.5). Notice
+	// that all data items with the same label combination should have the same buckets.
+	Data map[string]float64 `json:"data"`
+	// Unit is the data unit. Notice that all data items with the same label combination
+	// should have the same unit.
+	Unit string `json:"unit"`
+	// Labels is the labels of the data item.
+	Labels map[string]string `json:"labels,omitempty"`
 }

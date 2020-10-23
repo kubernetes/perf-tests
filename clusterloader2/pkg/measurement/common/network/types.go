@@ -104,6 +104,12 @@ type WorkerPodRegReply struct {
 	Response string
 }
 
+type WorkerRequest struct {
+	Duration      string
+	Timestamp     int64 //epoch time
+	DestinationIP string
+}
+
 type ClientRequest struct {
 	Duration      string
 	Timestamp     int64 //epoch time

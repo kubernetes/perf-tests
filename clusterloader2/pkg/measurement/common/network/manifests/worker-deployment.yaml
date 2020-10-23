@@ -5,24 +5,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.Name}}
+  namespace: netperf
+  name: worker
   labels:
     group: network
 spec:
-  replicas: {{.Replicas}} 
+  replicas: {{.Replicas}}
   selector:
     matchLabels:
-      name: {{.Name}}
+      name: worker
   template:
     metadata:
       labels:
         group: network
-        name: {{.Name}}
+        name: worker
     spec:
 #      hostNetwork: {{$HostNetworkMode}}
       containers:
-      - image:  netperfbenchmark:0.01
-        name: {{.Name}}
+      - image:  tools:v1
+        name: worker
         imagePullPolicy: IfNotPresent
         args:
             - --mode=worker

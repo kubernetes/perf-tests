@@ -97,7 +97,7 @@ var metricUnitMap = map[string]string{
 // 	Labels map[string]string
 // }
 
-const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/*yaml"
+const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/*.yaml"
 
 // DataItem is the data point.
 type DataItem struct {
@@ -434,35 +434,35 @@ func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp
 }
 
 func calculateAndSendMetricVal(protocol string, podRatioType string) {
-	var metricData NetworkPerfResp
-	switch protocol {
-	case Protocol_TCP:
-		getMetricData(&metricData, podRatioType, TCPBW, Throughput)
-		metricData.Protocol = Protocol_TCP
-	case Protocol_UDP:
-		getMetricData(&metricData, podRatioType, UDPPps, PPS)
-		getMetricData(&metricData, podRatioType, UDPJitter, Jitter)
-		getMetricData(&metricData, podRatioType, UDPLatAvg, Latency)
-		metricData.Protocol = Protocol_UDP
-	case Protocol_HTTP:
-		getMetricData(&metricData, podRatioType, HTTPRespTime, ResponseTime)
-		metricData.Protocol = Protocol_HTTP
-	}
-	metricData.Service = "P2P"
-	metricData.Client_Server_Ratio = podRatioType
+	//var metricData NetworkPerfResp
+	//switch protocol {
+	//case Protocol_TCP:
+	//	getMetricData(&metricData, podRatioType, TCPBW, Throughput)
+	//	metricData.Protocol = Protocol_TCP
+	//case Protocol_UDP:
+	//	getMetricData(&metricData, podRatioType, UDPPps, PPS)
+	//	getMetricData(&metricData, podRatioType, UDPJitter, Jitter)
+	//	getMetricData(&metricData, podRatioType, UDPLatAvg, Latency)
+	//	metricData.Protocol = Protocol_UDP
+	//case Protocol_HTTP:
+	//	getMetricData(&metricData, podRatioType, HTTPRespTime, ResponseTime)
+	//	metricData.Protocol = Protocol_HTTP
+	//}
+	//metricData.Service = "P2P"
+	//metricData.Client_Server_Ratio = podRatioType
 	//metricDataCh <- metricData
 }
 
-func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
-	var dataElem DataItem
-	dataElem.Data = make(map[string]float64)
-	dataElem.Labels = make(map[string]string)
-	dataElem.Labels["Metric"] = metricName
-	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
-	dataElem.Unit = getUnit(dataElem.Labels["Metric"])
-	data.DataItems = append(data.DataItems, dataElem)
-	klog.Infof("data:%v", data)
-}
+//func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
+//	var dataElem DataItem
+//	dataElem.Data = make(map[string]float64)
+//	dataElem.Labels = make(map[string]string)
+//	dataElem.Labels["Metric"] = metricName
+//	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
+//	dataElem.Unit = getUnit(dataElem.Labels["Metric"])
+//	data.DataItems = append(data.DataItems, dataElem)
+//	klog.Infof("data:%v", data)
+//}
 
 func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricIndex int) {
 	var aggrPodPairMetricSlice []float64

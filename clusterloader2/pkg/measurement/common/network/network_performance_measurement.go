@@ -2,20 +2,16 @@ package network
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
-	"path"
 	"time"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -106,6 +102,7 @@ func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config)
 	if err != nil {
 		return err
 	}
+	klog.Info("podReplicas:", podReplicas)
 	npm.framework = config.ClusterFramework
 	npm.podReplicas = podReplicas
 	npm.templateMapping = map[string]interface{}{"Replicas": podReplicas}
@@ -113,6 +110,7 @@ func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config)
 }
 
 func (npm *networkPerfMetricsMeasurement) createWorkerPods() error {
+	klog.Info("createWorkerPods:", manifestsPathPrefix)
 	return npm.framework.ApplyTemplatedManifests(manifestsPathPrefix, npm.templateMapping)
 }
 
@@ -120,6 +118,7 @@ func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
 	var podNum = npm.podReplicas
 	var weightedPodTReadyTimeout = podNum * 1
 	var checkWorkerPodReadyTimeout = time.Duration(weightedPodTReadyTimeout) * time.Second
+	klog.Info("waitForWorkerPodsReady:", podNum, weightedPodTReadyTimeout, checkWorkerPodReadyTimeout)
 	return wait.Poll(checkWorkerPodReadyInterval, checkWorkerPodReadyTimeout, npm.checkWorkerPodsReady)
 }
 
@@ -161,19 +160,20 @@ func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (meas
 	////TODO to be removed/////////////
 	// body = []byte(`{"Client_Server_Ratio":"1:1","Protocol":"TCP","Service":"P2P","dataItems":[{"data":{"value":1935.318591},"unit":"kbytes/sec","labels":{"Metric": "Throughput"}}] }`)
 	///////////////////////////////////
-	var dat NetworkPerfResp
-	if err := json.Unmarshal(body, &dat); err != nil {
-		panic(err)
-	}
-	fmt.Println(dat)
-
-	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version: "v1",
-		// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}
-		DataItems: dat.DataItems,
-	})
-	if err != nil {
-		klog.Info("Pretty Print to Json Err:", err)
-	}
-	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
+	//var dat NetworkPerfResp
+	//if err := json.Unmarshal(body, &dat); err != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(dat)
+	//
+	//content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
+	//	Version: "v1",
+	//	// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}
+	//	DataItems: dat.DataItems,
+	//})
+	//if err != nil {
+	//	klog.Info("Pretty Print to Json Err:", err)
+	//}
+	//return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
+	return measurement.CreateSummary("", "", ""), nil
 }

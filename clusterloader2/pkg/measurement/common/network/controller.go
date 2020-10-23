@@ -1,19 +1,17 @@
 package network
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"math"
-	"net"
-	"net/http"
-	"net/rpc"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
@@ -33,6 +31,7 @@ const initialDelayForTCExec = 5
 var metricVal map[string][]float64
 var uniqPodPairList []UniquePodPair
 var metricDataCh = make(chan NetworkPerfResp)
+var K8sClient clientset.Interface
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -66,8 +65,8 @@ const (
 	value  = "value"
 )
 
-var protocolRpcMap = map[int]string{
-	TCP_Server:  "WorkerRPC.StartTCPServer",
+var httpPathMap = map[int]string{
+	TCP_Server:  "startTCPServer",
 	TCP_Client:  "WorkerRPC.StartTCPClient",
 	UDP_Server:  "WorkerRPC.StartUDPServer",
 	UDP_Client:  "WorkerRPC.StartUDPClient",
@@ -82,6 +81,13 @@ const (
 	PPS          = "Packet_Per_Second"
 	ResponseTime = "Response_Time"
 )
+
+type NetworkPerfResp struct {
+	Client_Server_Ratio string
+	Protocol            string
+	Service             string
+	DataItems           []DataItem
+}
 
 var metricUnitMap = map[string]string{
 	Throughput:   "kbytes/sec",
@@ -109,65 +115,18 @@ type DataItem struct {
 	Labels map[string]string  `json:"labels,omitempty"`
 }
 
-func Start(ratio string) {
+func Start(ratio string, clientIfc clientset.Interface, namespace string) {
 	workerPodList = make(map[string][]WorkerPodData)
 	metricVal = make(map[string][]float64)
+	K8sClient = clientIfc
+	namespace = namespace
 
 	// Use WaitGroup to ensure all client pods registration
 	// with controller pod.
-	syncWait = new(sync.WaitGroup)
-	clientPodNum, serverPodNum, _ := deriveClientServerPodNum(ratio)
-	syncWait.Add(clientPodNum + serverPodNum)
-
-	//InitializeServerRPC(api.ControllerRpcSvcPort)
-	//go StartHTTPServer()
+	// syncWait = new(sync.WaitGroup)
+	// clientPodNum, serverPodNum, _ := deriveClientServerPodNum(ratio)
+	// syncWait.Add(clientPodNum + serverPodNum)
 }
-
-//func startServer(listener *net.Listener) {
-//	err := http.Serve(*listener, nil)
-//	if err != nil {
-//		klog.Info("failed start server", err)
-//	}
-//	klog.Info("Stopping rpc")
-//}
-
-//func InitializeServerRPC(port string) {
-//	baseObject := new(ControllerRPC)
-//	err := rpc.Register(baseObject)
-//	if err != nil {
-//		klog.Fatalf("failed to register rpc", err)
-//	}
-//	rpc.HandleHTTP()
-//	listener, e := net.Listen("tcp", ":"+port)
-//	if e != nil {
-//		klog.Fatalf("listen error:", e)
-//	}
-//	klog.Info("About to serve rpc...")
-//	go startServer(&listener)
-//	klog.Info("Started http server")
-//}
-
-//func WaitForWorkerPodReg() {
-//	// This Blocks the execution
-//	// until its counter become 0
-//	klog.Info("Waiting for all worker pods registration")
-//	syncWait.Wait()
-//}
-
-//func (t *ControllerRPC) RegisterWorkerPod(data *api.WorkerPodData, reply *api.WorkerPodRegReply) error {
-//	globalLock.Lock()
-//	defer globalLock.Unlock()
-//	defer syncWait.Done()
-//
-//	if podData, ok := workerPodList[data.WorkerNode]; !ok {
-//		workerPodList[data.WorkerNode] = []api.WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
-//		reply.Response = "Hi"
-//		return nil
-//	} else {
-//		workerPodList[data.WorkerNode] = append(podData, api.WorkerPodData{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp})
-//		return nil
-//	}
-//}
 
 func populateWorkerPodList(data *WorkerPodData) error {
 	globalLock.Lock()
@@ -213,7 +172,7 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 	var clientPodNum, serverPodNum int
 	var ratioType string
 	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
-	klog.Info("clientPodNum:%d ,  serverPodNum: %d, ratioType: %s", clientPodNum, serverRPCMethod, ratioType)
+	klog.Info("clientPodNum:%d ,  serverPodNum: %d, ratioType: %s", clientPodNum, serverPodNum, ratioType)
 
 	switch ratioType {
 	case OneToOne:
@@ -346,41 +305,29 @@ func getUnusedPod(unusedPodList *[]WorkerPodData) (WorkerPodData, error) {
 
 func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration string, futureTimestamp int64) {
 	klog.Info("Unique pod pair client:", uniqPodPair)
-	client, err := rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+WorkerRpcSvcPort)
-	if err != nil {
-		klog.Fatalf("dialing:", err)
-		//TODO WHAT IF FAILS?
-	}
-
 	clientReq := &ClientRequest{Duration: duration, DestinationIP: uniqPodPair.DestPodIp, Timestamp: futureTimestamp}
 	klog.Info("Client req:", clientReq)
 	switch protocol {
 	case Protocol_TCP:
-		clientRPCMethod(client, protocolRpcMap[TCP_Client], clientReq)
+		StartWork(uniqPodPair.SrcPodName, httpPathMap[TCP_Client], duration, futureTimestamp, "", uniqPodPair.DestPodIp)
 	case Protocol_UDP:
-		clientRPCMethod(client, protocolRpcMap[UDP_Client], clientReq)
+		StartWork(uniqPodPair.SrcPodName, httpPathMap[UDP_Client], duration, futureTimestamp, "", uniqPodPair.DestPodIp)
 	case Protocol_HTTP:
-		clientRPCMethod(client, protocolRpcMap[HTTP_Client], clientReq)
+		StartWork(uniqPodPair.SrcPodName, httpPathMap[HTTP_Client], duration, futureTimestamp, "", uniqPodPair.DestPodIp)
 	}
-
 }
 
 func sendReqToSrv(uniqPodPair UniquePodPair, protocol string, duration string) {
 	klog.Info("Unique pod pair server:", uniqPodPair)
-	client, err := rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+WorkerRpcSvcPort)
-	if err != nil {
-		klog.Fatalf("dialing:", err)
-	}
-
 	serverReq := ServerRequest{Duration: duration, NumClients: "1", Timestamp: time.Now().Unix()}
 	klog.Info("Server req:", serverReq)
 	switch protocol {
 	case Protocol_TCP:
-		serverRPCMethod(client, protocolRpcMap[TCP_Server], serverReq)
+		StartWork(uniqPodPair.DestPodName, httpPathMap[TCP_Server], duration, time.Now().Unix(), "1", "")
 	case Protocol_UDP:
-		serverRPCMethod(client, protocolRpcMap[UDP_Server], serverReq)
+		StartWork(uniqPodPair.DestPodName, httpPathMap[UDP_Server], duration, time.Now().Unix(), "1", "")
 	case Protocol_HTTP:
-		serverRPCMethod(client, protocolRpcMap[HTTP_Server], serverReq)
+		StartWork(uniqPodPair.DestPodName, httpPathMap[HTTP_Server], duration, time.Now().Unix(), "1", "")
 	}
 }
 
@@ -392,29 +339,19 @@ func getTimeStampForPod() int64 {
 }
 
 func collectMetrics(uniqPodPair UniquePodPair, protocol string, metricResp *MetricResponse) {
-	var err error
-	var client *rpc.Client
+	var podName string
 
 	switch protocol {
 	case Protocol_TCP:
-		//client, err = rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
 		fallthrough
 	case Protocol_UDP:
-		klog.Info("[collectMetrics] destPodIp: %s workerSvPort: %s", uniqPodPair.DestPodIp, api.WorkerRpcSvcPort)
-		client, err = rpc.DialHTTP("tcp", uniqPodPair.DestPodIp+":"+api.WorkerRpcSvcPort)
-
+		podName = uniqPodPair.DestPodName
+		klog.Info("[collectMetrics] destPodIp: %s podName: %s", uniqPodPair.DestPodIp, podName)
 	case Protocol_HTTP:
-		klog.Info("[collectMetrics] srcPodIp: %s workerSvPort: %s", uniqPodPair.SrcPodIp, api.WorkerRpcSvcPort)
-		client, err = rpc.DialHTTP("tcp", uniqPodPair.SrcPodIp+":"+api.WorkerRpcSvcPort)
+		podName = uniqPodPair.SrcPodName
+		klog.Info("[collectMetrics] srcPodIp: %s podName: %s", uniqPodPair.SrcPodIp, podName)
 	}
-
-	if err != nil {
-		klog.Fatalf("dialing:", err)
-		//TODO WHAT IF FAILS?
-	}
-
-	metricReq := &MetricRequest{}
-	metricRPCMethod(client, metricReq, metricResp)
+	metricResp = FetchMetrics(podName)
 }
 
 func collectMetricForManyToMany(protocol string) {
@@ -486,50 +423,50 @@ func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricInd
 	}
 }
 
-func metricRPCMethod(client *rpc.Client, metricReq *MetricRequest, metricResp *MetricResponse) {
-	rpcMethod := "WorkerRPC.Metrics"
-	err := client.Call(rpcMethod, *metricReq, metricResp)
-	if err != nil {
-		klog.Error("RPC call to : %s failed with err: %s", rpcMethod, err)
+func StartWork(podName string, wrkType string, duration string, timestamp int64,
+	numCls string, srvrIP string) {
+	var resp WorkerResponse
+	var params = make(map[string]string)
+	params["duration"] = duration
+	params["timestamp"] = strconv.FormatInt(timestamp, 10)
+	params["numCls"] = numCls
+	params["destIP"] = srvrIP
+	body := messageWorker(podName, params, wrkType)
+	if err := json.Unmarshal(*body, &resp); err != nil {
+		klog.Info("Error unmarshalling metric response:", err)
 	}
+	klog.Info("Unmarshalled response to startWork:", resp)
 }
 
-func clientRPCMethod(client *rpc.Client, rpcMethod string, clientReq *ClientRequest) {
-	var reply WorkerResponse
-	err := client.Call(rpcMethod, *clientReq, &reply)
-	if err != nil {
-		klog.Error("RPC call to client : %s failed with err: %s", rpcMethod, err)
+func FetchMetrics(podName string) *MetricResponse {
+	var resp MetricResponse
+	var params = make(map[string]string)
+	body := messageWorker(podName, params, "metrics")
+	if err := json.Unmarshal(*body, &resp); err != nil {
+		klog.Info("Error unmarshalling metric response:", err)
 	}
+	klog.Info("Unmarshalled metrics:", resp)
+	return &resp
 }
 
-func serverRPCMethod(client *rpc.Client, rpcMethod string, clientReq *ServerRequest) {
-	var reply WorkerResponse
-	err := client.Call(rpcMethod, *clientReq, &reply)
-	if err != nil {
-		klog.Error("RPC call to server : %s failed with err: %s", rpcMethod, err)
+func messageWorker(podName string, params map[string]string, msgType string) *[]byte {
+	req := K8sClient.CoreV1().RESTClient().Get().
+		Namespace("netperf-1").
+		Resource("pods").
+		Name(podName + ":5003").
+		SubResource("proxy").Suffix(msgType)
+	for k, v := range params {
+		req = req.Param(k, v)
 	}
+	body, err := req.DoRaw(context.TODO())
+	if err != nil {
+		klog.Info("Error calling ", msgType, ":", err.Error())
+	} else {
+		klog.Info("GOT RESPONSE:")
+		klog.Info(string(body))
+	}
+	return &body
 }
-
-//func StartHTTPServer() error {
-//	http.HandleFunc("/metrics", metricHandler)
-//	log.Fatal(http.ListenAndServe(":5010", nil))
-//	klog.Info("Started http server for metric collection")
-//	return nil
-//}
-
-//func metricHandler(w http.ResponseWriter, r *http.Request) {
-//	metricData := <-metricDataCh
-//	klog.Info("Inside reply")
-//	w.Header().Set("Content-Type", "application/json")
-//	w.WriteHeader(http.StatusOK)
-//	// metricData.DataItems = populateDataItem(metricData.DataItems)
-//	klog.Info("Marshalled Resp:", metricData)
-//	b, err := json.Marshal(metricData)
-//	if err != nil {
-//		klog.Info("Error marshalling to json:", err)
-//	}
-//	w.Write(b)
-//}
 
 func getUnit(metric string) string {
 	return metricUnitMap[metric]

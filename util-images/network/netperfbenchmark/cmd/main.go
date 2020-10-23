@@ -23,9 +23,8 @@ import (
 	"sync"
 
 	"k8s.io/klog"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/api"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/pkg/controller"
-	"k8s.io/perf-tests/util-images/phases/netperfbenchmark/pkg/worker"
+	"k8s.io/perf-tests/util-images/network/netperfbenchmark/api"
+	"k8s.io/perf-tests/util-images/network/netperfbenchmark/pkg/worker"
 )
 
 var (
@@ -50,10 +49,10 @@ func main() {
 	}
 
 	switch *mode {
-	case api.ControllerMode:
-		controller.Start(*ratio)
-		controller.WaitForWorkerPodReg()
-		controller.ExecuteTest(*ratio, *duration, *protocol)
+	// case api.ControllerMode:
+	// 	controller.Start(*ratio)
+	// 	controller.WaitForWorkerPodReg()
+	// 	controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
 		worker.Start(*controllerIp)
 	default:

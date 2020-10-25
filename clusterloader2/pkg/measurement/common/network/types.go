@@ -17,7 +17,6 @@ limitations under the License.
 package network
 
 import (
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"time"
 )
 
@@ -141,11 +140,4 @@ type MetricRequest struct {
 type MetricResponse struct {
 	Result          []float64
 	WorkerStartTime string
-}
-
-type NetworkPerfResp struct {
-	Client_Server_Ratio string
-	Protocol            string
-	Service             string
-	DataItems           []measurementutil.DataItem
 }

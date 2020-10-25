@@ -31,19 +31,17 @@ type networkPerfMetricsMeasurement struct {
 	framework       *framework.Framework
 	podReplicas     int
 	namespace       string
+	podRatio        string
+	testDuration    int
+	protocol        string
 	templateMapping map[string]interface{}
 	startTime       time.Time
 }
 
-//type networkPerfMetrics struct {
-//	Name    string `json:"name"`
-//	Metrics []float64
-//}
-
 func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 
 	klog.Info("In network execute")
-	action, err := util.GetString(config.Params, "action")
+	action, err := npm.validate(config)
 	klog.Info("In network execute:action:", action)
 	if err != nil {
 		return nil, err
@@ -71,12 +69,14 @@ func (npm *networkPerfMetricsMeasurement) Dispose() {
 }
 
 func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) error {
+	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
+
+	Start(k8sClient, netperfNamespace)
 	if err := npm.initialize(config); err != nil {
 		return err
 	}
 
 	//create namespace for the worker-pods
-	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
 	npm.k8sClient = k8sClient
 	npm.namespace = netperfNamespace
 	if err := client.CreateNamespace(k8sClient, netperfNamespace); err != nil {
@@ -88,11 +88,14 @@ func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) erro
 		return err
 	}
 
+	//wait for specified num of worker pods to be ready
 	if err := npm.waitForWorkerPodsReady(); err != nil {
 		return err
 	}
 
 	npm.storeWorkerPods()
+
+	ExecuteTest(npm.podRatio, npm.testDuration, npm.protocol)
 
 	return nil
 }
@@ -147,7 +150,7 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 
 }
 
-func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
+func (npm *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
 	body, queryErr := config.ClusterFramework.GetClientSets().GetClient().CoreV1().
 		Services("netperf-1").
 		ProxyGet("http", "controller-service-0", "5010", "/metrics", nil).
@@ -176,4 +179,33 @@ func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (meas
 	//}
 	//return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
 	return measurement.CreateSummary("", "", ""), nil
+}
+
+func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) (string, error) {
+	var ratio, protocol string
+	var duration int
+	action, err := util.GetString(config.Params, "action")
+	if err != nil {
+		return "", err
+	}
+
+	if duration, err = util.GetInt(config.Params, "duration"); err != nil {
+		return action, err
+	}
+
+	if ratio, err = util.GetString(config.Params, "ratio"); err != nil {
+		return action, err
+	}
+	if protocol, err = util.GetString(config.Params, "protocol"); err != nil {
+		return action, err
+	}
+
+	if protocol != Protocol_TCP && protocol != Protocol_UDP && protocol != Protocol_HTTP {
+		return action, err
+	}
+
+	npm.testDuration = duration
+	npm.podRatio = ratio
+	npm.protocol = protocol
+	return action, nil
 }

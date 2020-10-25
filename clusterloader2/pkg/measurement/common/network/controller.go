@@ -14,13 +14,7 @@ import (
 	"k8s.io/klog"
 )
 
-//ControllerRPC service that exposes RegisterWorkerPod API for clients
-type ControllerRPC int
-
 var workerPodList map[string][]WorkerPodData
-
-//var syncWait *sync.WaitGroup
-//var globalLock sync.Mutex
 
 var podPairCh = make(chan UniquePodPair)
 
@@ -98,15 +92,6 @@ var metricUnitMap = map[string]string{
 	ResponseTime: "seconds",
 }
 
-// type metricData struct {
-// 	dataItemArr []dataItems
-// }
-
-// type dataItems struct {
-// 	Data   map[string]float64
-// 	Labels map[string]string
-// }
-
 const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/*.yaml"
 
 // DataItem is the data point.
@@ -116,17 +101,11 @@ type DataItem struct {
 	Labels map[string]string  `json:"labels,omitempty"`
 }
 
-func Start(ratio string, clientIfc clientset.Interface, namespace string) {
+func Start(clientIfc clientset.Interface, namespace string) {
 	workerPodList = make(map[string][]WorkerPodData)
 	metricVal = make(map[string][]float64)
 	K8sClient = clientIfc
 	namespace = namespace
-
-	// Use WaitGroup to ensure all client pods registration
-	// with controller pod.
-	// syncWait = new(sync.WaitGroup)
-	// clientPodNum, serverPodNum, _ := deriveClientServerPodNum(ratio)
-	// syncWait.Add(clientPodNum + serverPodNum)
 }
 
 func populateWorkerPodList(data *WorkerPodData) error {
@@ -165,7 +144,7 @@ func deriveClientServerPodNum(ratio string) (int, int, string) {
 	return -1, -1, "-1"
 }
 
-func ExecuteTest(ratio string, duration string, protocol string) {
+func ExecuteTest(ratio string, duration int, protocol string) {
 	var clientPodNum, serverPodNum int
 	var ratioType string
 	clientPodNum, serverPodNum, ratioType = deriveClientServerPodNum(ratio)
@@ -184,7 +163,7 @@ func ExecuteTest(ratio string, duration string, protocol string) {
 }
 
 //Select one client , one server pod.
-func executeOneToOneTest(duration string, protocol string) {
+func executeOneToOneTest(duration int, protocol string) {
 	var uniqPodPair UniquePodPair
 
 	if len(workerPodList) == 1 {
@@ -202,8 +181,7 @@ func executeOneToOneTest(duration string, protocol string) {
 	sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
 
 	//sleep till test-run
-	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration+initialDelayForTCExec+3) * time.Second)
+	time.Sleep(time.Duration(duration+initialDelayForTCExec+3) * time.Second)
 	var metricResp MetricResponse
 	collectMetrics(uniqPodPair, protocol, &metricResp)
 	populateMetricValMap(uniqPodPair, protocol, &metricResp)
@@ -211,12 +189,12 @@ func executeOneToOneTest(duration string, protocol string) {
 }
 
 //Select N clients , one server pod.
-func executeManyToOneTest(clientPodNum int, serverPodNum int, duration string, protocol string) {
+func executeManyToOneTest(clientPodNum int, serverPodNum int, duration int, protocol string) {
 
 }
 
 //Select N clients , M server pod.
-func executeManyToManyTest(duration string, protocol string) {
+func executeManyToManyTest(duration int, protocol string) {
 	var uniqPodPair UniquePodPair
 	var endOfPodPairs = false
 	var podPairIndex = 0
@@ -248,8 +226,7 @@ func executeManyToManyTest(duration string, protocol string) {
 	}
 
 	//sleep till test-run
-	timeDuration, _ := strconv.Atoi(duration)
-	time.Sleep(time.Duration(timeDuration+initialDelayForTCExec+3) * time.Second)
+	time.Sleep(time.Duration(duration+initialDelayForTCExec+3) * time.Second)
 	collectMetricForManyToMany(protocol)
 	calculateAndSendMetricVal(protocol, ManyToMany)
 }
@@ -300,10 +277,10 @@ func getUnusedPod(unusedPodList *[]WorkerPodData) (WorkerPodData, error) {
 	return unusedPod, nil
 }
 
-func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration string, futureTimestamp int64) {
+func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration int, futureTimestamp int64) {
 	klog.Info("Unique pod pair client:", uniqPodPair)
-	clientReq := &ClientRequest{Duration: duration, DestinationIP: uniqPodPair.DestPodIp, Timestamp: futureTimestamp}
-	klog.Info("Client req:", clientReq)
+	//clientReq := &ClientRequest{Duration: duration, DestinationIP: uniqPodPair.DestPodIp, Timestamp: futureTimestamp}
+	//klog.Info("Client req:", clientReq)
 	switch protocol {
 	case Protocol_TCP:
 		StartWork(uniqPodPair.SrcPodName, httpPathMap[TCP_Client], duration, futureTimestamp, "", uniqPodPair.DestPodIp)
@@ -314,7 +291,7 @@ func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration string
 	}
 }
 
-func sendReqToSrv(uniqPodPair UniquePodPair, protocol string, duration string) {
+func sendReqToSrv(uniqPodPair UniquePodPair, protocol string, duration int) {
 	klog.Info("Unique pod pair server:", uniqPodPair)
 	switch protocol {
 	case Protocol_TCP:
@@ -373,35 +350,35 @@ func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp
 }
 
 func calculateAndSendMetricVal(protocol string, podRatioType string) {
-	//var metricData NetworkPerfResp
-	//switch protocol {
-	//case Protocol_TCP:
-	//	getMetricData(&metricData, podRatioType, TCPBW, Throughput)
-	//	metricData.Protocol = Protocol_TCP
-	//case Protocol_UDP:
-	//	getMetricData(&metricData, podRatioType, UDPPps, PPS)
-	//	getMetricData(&metricData, podRatioType, UDPJitter, Jitter)
-	//	getMetricData(&metricData, podRatioType, UDPLatAvg, Latency)
-	//	metricData.Protocol = Protocol_UDP
-	//case Protocol_HTTP:
-	//	getMetricData(&metricData, podRatioType, HTTPRespTime, ResponseTime)
-	//	metricData.Protocol = Protocol_HTTP
-	//}
-	//metricData.Service = "P2P"
-	//metricData.Client_Server_Ratio = podRatioType
+	var metricData NetworkPerfResp
+	switch protocol {
+	case Protocol_TCP:
+		getMetricData(&metricData, podRatioType, TCPBW, Throughput)
+		metricData.Protocol = Protocol_TCP
+	case Protocol_UDP:
+		getMetricData(&metricData, podRatioType, UDPPps, PPS)
+		getMetricData(&metricData, podRatioType, UDPJitter, Jitter)
+		getMetricData(&metricData, podRatioType, UDPLatAvg, Latency)
+		metricData.Protocol = Protocol_UDP
+	case Protocol_HTTP:
+		getMetricData(&metricData, podRatioType, HTTPRespTime, ResponseTime)
+		metricData.Protocol = Protocol_HTTP
+	}
+	metricData.Service = "P2P"
+	metricData.Client_Server_Ratio = podRatioType
 	//metricDataCh <- metricData
 }
 
-//func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
-//	var dataElem DataItem
-//	dataElem.Data = make(map[string]float64)
-//	dataElem.Labels = make(map[string]string)
-//	dataElem.Labels["Metric"] = metricName
-//	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
-//	dataElem.Unit = getUnit(dataElem.Labels["Metric"])
-//	data.DataItems = append(data.DataItems, dataElem)
-//	klog.Infof("data:%v", data)
-//}
+func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
+	var dataElem DataItem
+	dataElem.Data = make(map[string]float64)
+	dataElem.Labels = make(map[string]string)
+	dataElem.Labels["Metric"] = metricName
+	calculateMetricDataValue(&dataElem, podRatioType, metricIndex)
+	dataElem.Unit = getUnit(dataElem.Labels["Metric"])
+	data.DataItems = append(data.DataItems, dataElem)
+	klog.Infof("data:%v", data)
+}
 
 func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricIndex int) {
 	var aggrPodPairMetricSlice []float64
@@ -418,11 +395,11 @@ func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricInd
 	}
 }
 
-func StartWork(podName string, wrkType string, duration string, timestamp int64,
+func StartWork(podName string, wrkType string, duration int, timestamp int64,
 	numCls string, srvrIP string) {
 	var resp WorkerResponse
 	var params = make(map[string]string)
-	params["duration"] = duration
+	params["duration"] = strconv.Itoa(duration)
 	params["timestamp"] = strconv.FormatInt(timestamp, 10)
 	params["numCls"] = numCls
 	params["destIP"] = srvrIP

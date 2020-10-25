@@ -1,4 +1,4 @@
-module k8s.io/perf-tests/util-images/phases/netperfbenchmark
+module k8s.io/perf-tests/util-images/network/netperfbenchmark
 
 go 1.12
 

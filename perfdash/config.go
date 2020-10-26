@@ -193,6 +193,10 @@ var (
 					OutputFilePrefix: "SchedulingMetrics",
 					Parser:           parseSchedulingLatency("pod-topology-spread"),
 				}, {
+					Name:             "density_vanilla",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("vanilla"),
+				}, {
 					Name:             "density",
 					OutputFilePrefix: "SchedulingMetrics",
 					Parser:           parseSchedulingLatency("density"),
@@ -215,6 +219,10 @@ var (
 					Name:             "density_pod-topology-spread",
 					OutputFilePrefix: "SchedulingThroughput",
 					Parser:           parseSchedulingThroughputCL("pod-topology-spread"),
+				}, {
+					Name:             "density_vanilla",
+					OutputFilePrefix: "SchedulingMetrics",
+					Parser:           parseSchedulingLatency("vanilla"),
 				}, {
 					Name:             "density",
 					OutputFilePrefix: "SchedulingThroughput",

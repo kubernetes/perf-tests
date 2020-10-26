@@ -634,9 +634,10 @@ steps:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
-{{if $ENaBLE_DENSITY_TEST}}
+{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
 {{end}}
+  {{if $ENABLE_STATEFULSETS}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

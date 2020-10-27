@@ -18,6 +18,8 @@ package network
 
 import (
 	"time"
+
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 //net-rpc service listen ports
@@ -124,6 +126,7 @@ type ServerRequest struct {
 type WorkerResponse struct {
 	PodName    string
 	WorkerNode string
+	Error      string
 }
 
 type UniquePodPair struct {
@@ -140,4 +143,12 @@ type MetricRequest struct {
 type MetricResponse struct {
 	Result          []float64
 	WorkerStartTime string
+	Error           string
+}
+
+type NetworkPerfResp struct {
+	Client_Server_Ratio string
+	Protocol            string
+	Service             string
+	DataItems           []measurementutil.DataItem
 }

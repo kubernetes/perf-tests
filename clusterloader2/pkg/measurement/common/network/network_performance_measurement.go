@@ -2,11 +2,13 @@ package network
 
 import (
 	"context"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
-	"time"
 
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -150,35 +152,17 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 
 }
 
-func (npm *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
-	body, queryErr := config.ClusterFramework.GetClientSets().GetClient().CoreV1().
-		Services("netperf-1").
-		ProxyGet("http", "controller-service-0", "5010", "/metrics", nil).
-		DoRaw(context.TODO())
-	if queryErr != nil {
-		klog.Info("Error:", queryErr)
+func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
+	dat := GetMetricsForDisp()
+	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
+		Version: "v1",
+		// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}
+		DataItems: dat.DataItems,
+	})
+	if err != nil {
+		klog.Info("Pretty Print to Json Err:", err)
 	}
-	klog.Info("GOT RESPONSE:")
-	klog.Info(string(body))
-	////TODO to be removed/////////////
-	// body = []byte(`{"Client_Server_Ratio":"1:1","Protocol":"TCP","Service":"P2P","dataItems":[{"data":{"value":1935.318591},"unit":"kbytes/sec","labels":{"Metric": "Throughput"}}] }`)
-	///////////////////////////////////
-	//var dat NetworkPerfResp
-	//if err := json.Unmarshal(body, &dat); err != nil {
-	//	panic(err)
-	//}
-	//fmt.Println(dat)
-	//
-	//content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-	//	Version: "v1",
-	//	// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}
-	//	DataItems: dat.DataItems,
-	//})
-	//if err != nil {
-	//	klog.Info("Pretty Print to Json Err:", err)
-	//}
-	//return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
-	return measurement.CreateSummary("", "", ""), nil
+	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
 }
 
 func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) (string, error) {

@@ -458,7 +458,7 @@ func messageWorker(podName string, params map[string]string, msgType string) *[]
 	return &body
 }
 
-func GetAllmetrics() NetworkPerfResp {
+func GetMetricsForDisp() NetworkPerfResp {
 	metricData := <-metricDataCh
 	klog.Info("Returning all metrics")
 	klog.Info(metricData)

@@ -147,7 +147,7 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 }
 
 func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
-	dat := GetAllmetrics()
+	dat := GetMetricsForDisp()
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version: "v1",
 		// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}

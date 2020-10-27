@@ -105,9 +105,7 @@ type ServerRequest struct {
 }
 
 type WorkerResponse struct {
-	PodName    string
-	WorkerNode string
-	Error      string
+	Error string
 }
 
 type UniquePodPair struct {

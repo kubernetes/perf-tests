@@ -66,10 +66,6 @@ func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([
 	return nil, nil
 }
 
-func (npm *networkPerfMetricsMeasurement) Dispose() {
-
-}
-
 func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) error {
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
 
@@ -192,4 +188,20 @@ func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) (
 	npm.podRatio = ratio
 	npm.protocol = protocol
 	return action, nil
+}
+
+// Dispose cleans up after the measurement.
+func (npm *networkPerfMetricsMeasurement) Dispose() {
+	if npm.framework == nil {
+		klog.V(1).Infof("Network measurement %s wasn't started, skipping the Dispose() step", p)
+		return
+	}
+	klog.Info("Stopping %s network measurement...", npm)
+	k8sClient := npm.framework.GetClientSets().GetClient()
+	if err := client.DeleteNamespace(k8sClient, netperfNamespace); err != nil {
+		klog.Errorf("error while deleting %s namespace: %v", netperfNamespace, err)
+	}
+	if err := client.WaitForDeleteNamespace(k8sClient, netperfNamespace); err != nil {
+		klog.Errorf("error while waiting for %s namespace to be deleted: %v", netperfNamespace, err)
+	}
 }

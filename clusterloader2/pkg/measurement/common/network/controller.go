@@ -11,6 +11,8 @@ import (
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+
 	"k8s.io/klog"
 )
 
@@ -32,7 +34,7 @@ var metricVal map[string][]float64
 var uniqPodPairList []UniquePodPair
 var K8sClient clientset.Interface
 
-//var metricDataCh = make(chan NetworkPerfResp)
+var metricDataCh = make(chan NetworkPerfResp)
 
 //Client-To-Server Pod ratio indicator
 const (
@@ -82,13 +84,6 @@ const (
 	PPS          = "Packet_Per_Second"
 	ResponseTime = "Response_Time"
 )
-
-type NetworkPerfResp struct {
-	Client_Server_Ratio string
-	Protocol            string
-	Service             string
-	DataItems           []DataItem
-}
 
 var metricUnitMap = map[string]string{
 	Throughput:   "kbytes/sec",
@@ -389,11 +384,11 @@ func calculateAndSendMetricVal(protocol string, podRatioType string) {
 	}
 	metricData.Service = "P2P"
 	metricData.Client_Server_Ratio = podRatioType
-	//metricDataCh <- metricData
+	metricDataCh <- metricData
 }
 
 func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string) {
-	var dataElem DataItem
+	var dataElem measurementutil.DataItem
 	dataElem.Data = make(map[string]float64)
 	dataElem.Labels = make(map[string]string)
 	dataElem.Labels["Metric"] = metricName
@@ -403,7 +398,7 @@ func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, 
 	klog.Infof("data:%v", data)
 }
 
-func calculateMetricDataValue(dataElem *DataItem, podRatioType string, metricIndex int) {
+func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType string, metricIndex int) {
 	var aggrPodPairMetricSlice []float64
 	resultSlice := make([]float64, 10)
 	for _, resultSlice = range metricVal {
@@ -461,6 +456,13 @@ func messageWorker(podName string, params map[string]string, msgType string) *[]
 		klog.Info(string(body))
 	}
 	return &body
+}
+
+func GetAllmetrics() NetworkPerfResp {
+	metricData := <-metricDataCh
+	klog.Info("Returning all metrics")
+	klog.Info(metricData)
+	return metricData
 }
 
 func getUnit(metric string) string {

@@ -33,7 +33,7 @@ var iperfTCPFn = []string{"Sum", "Avg"}
 //WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
 type WorkerRPC int
 
-func Start(controllerIp string) {
+func Start() {
 	listenToServer()
 }
 
@@ -126,9 +126,14 @@ func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPClient")
 	klog.Info("Req:", req)
 	ts, dur, destIP, _ := parseURLParam(req)
+	if dur == "" || destIP == "" {
+		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		return
+	}
 	go schedule(ts, dur,
 		"iperf", []string{"-c", destIP, "-f", "K", "-l",
 			"20", "-b", "1M", "-i", "1", "-t", dur})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func StartTCPServer(res http.ResponseWriter, req *http.Request) {
@@ -136,7 +141,12 @@ func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("Req:", req)
 	resultCh <- "TCP"
 	ts, dur, _, numcl := parseURLParam(req)
+	if dur == "" || numcl == "" {
+		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		return
+	}
 	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-i", dur, "-P", numcl})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func StartUDPServer(res http.ResponseWriter, req *http.Request) {
@@ -144,19 +154,30 @@ func StartUDPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartUDPServer")
 	resultCh <- "UDP"
 	ts, dur, _, numcl := parseURLParam(req)
+	if dur == "" || numcl == "" {
+		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		return
+	}
 	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", dur, "-P", numcl})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func StartUDPClient(res http.ResponseWriter, req *http.Request) {
 	//iperf -c localhost -u -l 20 -b 1M -e -i 1
 	klog.Info("In StartUDPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
+	if dur == "" || destIP == "" {
+		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		return
+	}
 	go schedule(ts, dur, "iperf", []string{"-c", destIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", dur})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func StartHTTPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartHTTPServer")
 	startListening(api.HttpPort, map[string]func(http.ResponseWriter, *http.Request){"/test": Handler})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
@@ -165,9 +186,14 @@ func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	resultCh <- "HTTP"
 	klog.Info("In StartHTTPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
+	if dur == "" || destIP == "" {
+		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		return
+	}
 	go schedule(ts, dur, "siege",
 		[]string{"http://" + destIP + ":" + api.HttpPort + "/test",
 			"-d1", "-t" + dur + "S", "-c1"})
+	createResp(api.WorkerResponse{}, &res)
 }
 
 func Handler(res http.ResponseWriter, req *http.Request) {

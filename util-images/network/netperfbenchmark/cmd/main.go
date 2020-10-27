@@ -28,11 +28,10 @@ import (
 )
 
 var (
-	mode         = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
-	ratio        = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
-	duration     = flag.String("measurement-duration", "", "Duration of metric collection in seconds")
-	protocol     = flag.String("protocol", "", "Protocol to be tested. Supported values: tcp or or udp or http")
-	controllerIp = flag.String("controllerIP", "", "IP address of controller pod")
+	mode     = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
+	ratio    = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
+	duration = flag.String("measurement-duration", "", "Duration of metric collection in seconds")
+	protocol = flag.String("protocol", "", "Protocol to be tested. Supported values: tcp or or udp or http")
 )
 
 func main() {
@@ -54,7 +53,7 @@ func main() {
 	// 	controller.WaitForWorkerPodReg()
 	// 	controller.ExecuteTest(*ratio, *duration, *protocol)
 	case api.WorkerMode:
-		worker.Start(*controllerIp)
+		worker.Start()
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}
@@ -68,9 +67,7 @@ func validate(mode string, ratio string, protocol string, duration string) error
 		return errors.New("invalid mode")
 	}
 
-	if mode == api.WorkerMode && *controllerIp == "" {
-		return errors.New("Controller hostname/ip not specified")
-	} else if mode == api.WorkerMode {
+	if mode == api.WorkerMode {
 		return nil
 	}
 

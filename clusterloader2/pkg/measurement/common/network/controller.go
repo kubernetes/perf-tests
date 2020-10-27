@@ -64,11 +64,11 @@ const (
 
 var httpPathMap = map[int]string{
 	TCP_Server:  "startTCPServer",
-	TCP_Client:  "WorkerRPC.StartTCPClient",
-	UDP_Server:  "WorkerRPC.StartUDPServer",
-	UDP_Client:  "WorkerRPC.StartUDPClient",
-	HTTP_Server: "WorkerRPC.StartHTTPServer",
-	HTTP_Client: "WorkerRPC.StartHTTPClient",
+	TCP_Client:  "startTCPClient",
+	UDP_Server:  "startUDPServer",
+	UDP_Client:  "startUDPClient",
+	HTTP_Server: "startHTTPServer",
+	HTTP_Client: "startHTTPClient",
 }
 
 const (
@@ -96,11 +96,10 @@ type DataItem struct {
 	Labels map[string]string  `json:"labels,omitempty"`
 }
 
-func Start(clientIfc clientset.Interface, namespace string) {
+func Start(clientIfc clientset.Interface) {
 	workerPodList = make(map[string][]WorkerPodData)
 	metricVal = make(map[string][]float64)
 	K8sClient = clientIfc
-	namespace = namespace
 }
 
 func populateWorkerPodList(data *WorkerPodData) error {
@@ -177,9 +176,9 @@ func executeOneToOneTest(duration int, protocol string) {
 
 	//sleep till test-run
 	time.Sleep(time.Duration(duration+initialDelayForTCExec+3) * time.Second)
-	var metricResp MetricResponse
-	collectMetrics(uniqPodPair, protocol, &metricResp)
-	populateMetricValMap(uniqPodPair, protocol, &metricResp)
+	var metricResp *MetricResponse
+	metricResp = collectMetrics(uniqPodPair, protocol)
+	populateMetricValMap(uniqPodPair, protocol, metricResp)
 	calculateAndSendMetricVal(protocol, OneToOne)
 }
 
@@ -305,7 +304,7 @@ func getTimeStampForPod() int64 {
 	return futureTime
 }
 
-func collectMetrics(uniqPodPair UniquePodPair, protocol string, metricResp *MetricResponse) {
+func collectMetrics(uniqPodPair UniquePodPair, protocol string) *MetricResponse {
 	var podName string
 
 	switch protocol {
@@ -318,14 +317,15 @@ func collectMetrics(uniqPodPair UniquePodPair, protocol string, metricResp *Metr
 		podName = uniqPodPair.SrcPodName
 		klog.Info("[collectMetrics] srcPodIp: %s podName: %s", uniqPodPair.SrcPodIp, podName)
 	}
-	metricResp = FetchMetrics(podName)
+	metricResp := FetchMetrics(podName)
+	return metricResp
 }
 
 func collectMetricForManyToMany(protocol string) {
-	var metricResp MetricResponse
+	var metricResp *MetricResponse
 	for _, podPair := range uniqPodPairList {
-		collectMetrics(podPair, protocol, &metricResp)
-		populateMetricValMap(podPair, protocol, &metricResp)
+		metricResp = collectMetrics(podPair, protocol)
+		populateMetricValMap(podPair, protocol, metricResp)
 		klog.Info("Metrics Response from worker:", metricResp)
 	}
 }
@@ -342,6 +342,7 @@ func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp
 	case Protocol_HTTP:
 		metricVal[uniqPodPair.SrcPodName] = (*metricResp).Result
 	}
+	klog.Info("Metric in populateMetricValMap:", (*metricResp).Result)
 }
 
 func calculateAndSendMetricVal(protocol string, podRatioType string) {
@@ -398,6 +399,8 @@ func StartWork(podName string, wrkType string, duration int, timestamp int64,
 	params["timestamp"] = strconv.FormatInt(timestamp, 10)
 	params["numCls"] = numCls
 	params["destIP"] = srvrIP
+	klog.Info("Params:", params)
+	klog.Info("POdname:", podName, " workType:", wrkType)
 	body := messageWorker(podName, params, wrkType)
 	if err := json.Unmarshal(*body, &resp); err != nil {
 		klog.Info("Error unmarshalling metric response:", err)
@@ -418,7 +421,7 @@ func FetchMetrics(podName string) *MetricResponse {
 
 func messageWorker(podName string, params map[string]string, msgType string) *[]byte {
 	req := K8sClient.CoreV1().RESTClient().Get().
-		Namespace("netperf-1").
+		Namespace(netperfNamespace).
 		Resource("pods").
 		Name(podName + ":5003").
 		SubResource("proxy").Suffix(msgType)
@@ -437,7 +440,7 @@ func messageWorker(podName string, params map[string]string, msgType string) *[]
 
 func GetMetricsForDisp() NetworkPerfResp {
 	metricData := <-metricDataCh
-	klog.Info("Returning all metrics")
+	klog.Info("Returning metrics for Graph")
 	klog.Info(metricData)
 	return metricData
 }

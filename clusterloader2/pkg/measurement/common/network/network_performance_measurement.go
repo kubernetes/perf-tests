@@ -2,8 +2,9 @@ package network
 
 import (
 	"context"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"time"
+
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,14 +44,19 @@ type networkPerfMetricsMeasurement struct {
 func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 
 	klog.Info("In network execute")
-	action, err := npm.validate(config)
-	klog.Info("In network execute:action:", action)
+	action, err := util.GetString(config.Params, "action")
 	if err != nil {
+		klog.Info("Error starting action:", err)
 		return nil, err
 	}
+	klog.Info("In network execute:action:", action)
 
 	switch action {
 	case "start":
+		err = npm.validate(config)
+		if err != nil {
+			klog.Info("Error starting action:", err)
+		}
 		npm.start(config)
 	case "gather":
 		summary, err := npm.gather(config)
@@ -73,7 +79,7 @@ func (npm *networkPerfMetricsMeasurement) Dispose() {
 func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) error {
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
 
-	Start(k8sClient, netperfNamespace)
+	Start(k8sClient)
 	if err := npm.initialize(config); err != nil {
 		return err
 	}
@@ -92,6 +98,7 @@ func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) erro
 
 	//wait for specified num of worker pods to be ready
 	if err := npm.waitForWorkerPodsReady(); err != nil {
+		klog.Info("ERROR waiting:", err)
 		return err
 	}
 
@@ -121,15 +128,17 @@ func (npm *networkPerfMetricsMeasurement) createWorkerPods() error {
 
 func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
 	var podNum = npm.podReplicas
-	var weightedPodTReadyTimeout = podNum * 1
+	var weightedPodTReadyTimeout = podNum * 3
 	var checkWorkerPodReadyTimeout = time.Duration(weightedPodTReadyTimeout) * time.Second
 	klog.Info("waitForWorkerPodsReady:", podNum, weightedPodTReadyTimeout, checkWorkerPodReadyTimeout)
 	return wait.Poll(checkWorkerPodReadyInterval, checkWorkerPodReadyTimeout, npm.checkWorkerPodsReady)
 }
 
 func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
-	options := metav1.ListOptions{LabelSelector: workerLabel}
+	// options := metav1.ListOptions{LabelSelector: workerLabel}
+	options := metav1.ListOptions{}
 	pods, err := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
+	klog.Info("POLL pods:", len(pods.Items), " namespace:", npm.namespace, " Options:", options)
 	if len(pods.Items) == npm.podReplicas {
 		return true, err
 	}
@@ -141,12 +150,14 @@ func (*networkPerfMetricsMeasurement) String() string {
 }
 
 func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
-	options := metav1.ListOptions{LabelSelector: workerLabel}
+	// options := metav1.ListOptions{LabelSelector: workerLabel}
+	time.Sleep(5 * time.Second)
+	options := metav1.ListOptions{}
 	pods, _ := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
-
+	klog.Info("populating pods:", len(pods.Items))
 	for _, pod := range pods.Items {
 		podData := &WorkerPodData{PodName: pod.Name, PodIp: pod.Status.PodIP, WorkerNode: pod.Spec.NodeName}
-		klog.Info("PodData :", *podData)
+		klog.Info("PodData :", *podData, " PODIP:", pod.Status)
 		populateWorkerPodList(podData)
 	}
 
@@ -165,31 +176,28 @@ func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (meas
 	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
 }
 
-func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) (string, error) {
+func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) error {
 	var ratio, protocol string
 	var duration int
-	action, err := util.GetString(config.Params, "action")
-	if err != nil {
-		return "", err
-	}
+	var err error
 
 	if duration, err = util.GetInt(config.Params, "duration"); err != nil {
-		return action, err
+		return err
 	}
 
 	if ratio, err = util.GetString(config.Params, "ratio"); err != nil {
-		return action, err
+		return err
 	}
 	if protocol, err = util.GetString(config.Params, "protocol"); err != nil {
-		return action, err
+		return err
 	}
 
 	if protocol != Protocol_TCP && protocol != Protocol_UDP && protocol != Protocol_HTTP {
-		return action, err
+		return err
 	}
 
 	npm.testDuration = duration
 	npm.podRatio = ratio
 	npm.protocol = protocol
-	return action, nil
+	return nil
 }

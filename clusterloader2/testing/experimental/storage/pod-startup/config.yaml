@@ -3,7 +3,6 @@
 # - If using Persistent Volumes, the default storage class must have volumeBindingMode: Immediate
 
 # Cluster Variables
-  {{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
   {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 
 # Test Variales
@@ -51,7 +50,6 @@ steps:
     Method: TestMetrics
     Params:
       action: start
-      nodeMode: {{$NODE_MODE}}
   - Identifier: PodWithVolumesStartupLatency
     Method: PodStartupLatency
     Params:

@@ -36,7 +36,6 @@
 {{$qpsPerWorker := DefaultParam .CL2_ACCESS_TOKENS_QPS (MultiplyFloat 2.5 (DivideFloat .Nodes 5000))}}
 
 # TestMetrics measurement variables
-{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
@@ -59,7 +58,6 @@ steps:
       Method: TestMetrics
       Params:
         action: start
-        nodeMode: {{$NODE_MODE}}
         systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
@@ -174,7 +172,6 @@ steps:
       Method: TestMetrics
       Params:
         action: gather
-        nodeMode: {{$NODE_MODE}}
         systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

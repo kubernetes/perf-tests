@@ -32,6 +32,9 @@ import (
 
 const (
 	resourceUsageMetricName = "ResourceUsageSummary"
+	// maxNodeCountForAllNodes defines the threshold for cluster size above which
+	// we no longer gather resource usage from all system components on all nodes.
+	maxNodeCountForAllNodes = 1000
 )
 
 func init() {
@@ -67,10 +70,6 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		if err != nil {
 			return nil, err
 		}
-		nodeMode, err := util.GetStringOrDefault(config.Params, "nodeMode", "")
-		if err != nil {
-			return nil, err
-		}
 		namespace, err := util.GetStringOrDefault(config.Params, "namespace", "kube-system")
 		if err != nil {
 			return nil, err
@@ -94,19 +93,15 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 				}
 			}
 		}
-		var nodesSet gatherers.NodesSet
-		switch nodeMode {
-		case "master":
-			nodesSet = gatherers.MasterNodes
-		case "masteranddns":
-			nodesSet = gatherers.MasterAndDNSNodes
-		case "masterandnondaemons":
+
+		// Compute the node based on the cluster size.
+		nodeCount := config.ClusterFramework.GetClusterConfig().Nodes
+		nodesSet := gatherers.AllNodes
+		if nodeCount > maxNodeCountForAllNodes {
 			nodesSet = gatherers.MasterAndNonDaemons
-		default:
-			nodesSet = gatherers.AllNodes
 		}
 
-		klog.V(2).Infof("%s: starting resource usage collecting...", e)
+		klog.V(2).Infof("%s: starting resource usage collecting (mode %#v)...", e, nodesSet)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, config.ClusterFramework.GetClusterConfig().KubeletPort,
 			provider, gatherers.ResourceGathererOptions{
 				InKubemark:                        provider.Name() == "kubemark",

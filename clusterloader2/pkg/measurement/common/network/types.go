@@ -17,8 +17,6 @@ limitations under the License.
 package network
 
 import (
-	"time"
-
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -88,10 +86,9 @@ const (
 const RatioSeparator = ":"
 
 const (
-	networkPerfMetricsName      = "NetworkPerformanceMetrics"
-	netperfNamespace            = "netperf"
-	checkWorkerPodReadyInterval = 1 * time.Second
-	workerLabel                 = "worker"
+	networkPerfMetricsName = "NetworkPerformanceMetrics"
+	netperfNamespace       = "netperf"
+	workerLabel            = "worker"
 )
 
 type WorkerPodData struct {

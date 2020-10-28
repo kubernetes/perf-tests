@@ -123,11 +123,8 @@ func (npm *networkPerfMetricsMeasurement) createWorkerPods() error {
 }
 
 func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
-	var podNum = npm.podReplicas
-	var weightedPodTReadyTimeout = podNum * 3
-	var checkWorkerPodReadyTimeout = time.Duration(weightedPodTReadyTimeout) * time.Second
-	klog.Info("waitForWorkerPodsReady:", podNum, weightedPodTReadyTimeout, checkWorkerPodReadyTimeout)
-	return wait.Poll(checkWorkerPodReadyInterval, checkWorkerPodReadyTimeout, npm.checkWorkerPodsReady)
+	workerPodReadyInterval, weightedPodReadyTimeout := npm.getWeightedTimerValuesForPoll()
+	return wait.Poll(workerPodReadyInterval, weightedPodReadyTimeout, npm.checkWorkerPodsReady)
 }
 
 func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
@@ -135,10 +132,30 @@ func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
 	options := metav1.ListOptions{}
 	pods, err := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
 	klog.Info("POLL pods:", len(pods.Items), " namespace:", npm.namespace, " Options:", options)
+	var podsWithIps = 0
 	if len(pods.Items) == npm.podReplicas {
-		return true, err
+		for _, pod := range pods.Items {
+			if pod.Status.PodIP != "" {
+				podsWithIps++
+			}
+		}
+		if podsWithIps == len(pods.Items) {
+			return true, err
+		}
 	}
 	return false, err
+}
+
+func (npm *networkPerfMetricsMeasurement) getWeightedTimerValuesForPoll() (time.Duration, time.Duration) {
+	var weightedPodReadyTimeout = npm.podReplicas * 3
+	podReadyTimeout := time.Duration(weightedPodReadyTimeout) * time.Second
+
+	var workerPodReadyInterval time.Duration
+	workerPodReadyInterval = time.Duration(2) * time.Second
+
+	klog.Info("waitForWorkerPodsReady:  , podReadyTimeout: ", weightedPodReadyTimeout, podReadyTimeout)
+	return workerPodReadyInterval, podReadyTimeout
+
 }
 
 func (*networkPerfMetricsMeasurement) String() string {
@@ -152,9 +169,11 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 	pods, _ := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
 	klog.Info("populating pods:", len(pods.Items))
 	for _, pod := range pods.Items {
-		podData := &WorkerPodData{PodName: pod.Name, PodIp: pod.Status.PodIP, WorkerNode: pod.Spec.NodeName}
-		klog.Info("PodData :", *podData, " PODIP:", pod.Status)
-		populateWorkerPodList(podData)
+		if pod.Status.PodIP != "" {
+			podData := &WorkerPodData{PodName: pod.Name, PodIp: pod.Status.PodIP, WorkerNode: pod.Spec.NodeName}
+			klog.Info("PodData :", *podData, " PODIP:", pod.Status)
+			populateWorkerPodList(podData)
+		}
 	}
 
 }

@@ -19,6 +19,7 @@
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
 {{$ENABLE_DENSITY_TEST := DefaultParam .CL2_ENABLE_DENSITY_TEST false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
@@ -248,6 +249,8 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
@@ -271,6 +274,7 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableDNSTests: {{$ENABLE_DNSTESTS}}
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
@@ -294,6 +298,8 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
@@ -540,6 +546,8 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
@@ -555,6 +563,7 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableDNSTests: {{$ENABLE_DNSTESTS}}
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
@@ -570,6 +579,8 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service

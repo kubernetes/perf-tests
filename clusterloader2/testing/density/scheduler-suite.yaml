@@ -1,0 +1,18 @@
+- identifier: vanilla
+  configPath: testing/density/config.yaml
+  overridePaths: []
+
+- identifier: pod-affinity
+  configPath: testing/density/config.yaml
+  overridePaths:
+  - testing/density/scheduler/pod-affinity/overrides.yaml
+
+- identifier: pod-anti-affinity
+  configPath: testing/density/config.yaml
+  overridePaths:
+  - testing/density/scheduler/pod-anti-affinity/overrides.yaml
+
+- identifier: pod-topology-spread
+  configPath: testing/density/config.yaml
+  overridePaths:
+  - testing/density/scheduler/pod-topology-spread/overrides.yaml

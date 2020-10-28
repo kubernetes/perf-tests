@@ -220,7 +220,7 @@ func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) e
 // Dispose cleans up after the measurement.
 func (npm *networkPerfMetricsMeasurement) Dispose() {
 	if npm.framework == nil {
-		klog.V(1).Infof("Network measurement %s wasn't started, skipping the Dispose() step", p)
+		klog.V(1).Infof("Network measurement %s wasn't started, skipping the Dispose() step", npm)
 		return
 	}
 	klog.Info("Stopping %s network measurement...", npm)

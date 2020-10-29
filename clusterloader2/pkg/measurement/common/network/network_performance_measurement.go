@@ -153,7 +153,7 @@ func (npm *networkPerfMetricsMeasurement) getWeightedTimerValuesForPoll() (time.
 	var workerPodReadyInterval time.Duration
 	workerPodReadyInterval = time.Duration(2) * time.Second
 
-	klog.Info("waitForWorkerPodsReady:  , podReadyTimeout: ", weightedPodReadyTimeout, podReadyTimeout)
+	klog.Info("waitForWorkerPodsReady:  , podReadyTimeout: ", workerPodReadyInterval, podReadyTimeout)
 	return workerPodReadyInterval, podReadyTimeout
 
 }
@@ -178,17 +178,21 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 
 }
 
-func (m *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
-	dat := GetMetricsForDisp()
+func (npm *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
+	npm.GetMetricsForDisp()
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version: "v1",
 		// DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())}
-		DataItems: dat.DataItems,
+		DataItems: networkPerfRespForDisp.DataItems,
 	})
 	if err != nil {
 		klog.Info("Pretty Print to Json Err:", err)
 	}
-	return measurement.CreateSummary(m.String()+dat.Client_Server_Ratio+dat.Protocol+dat.Service, "json", content), nil
+	return measurement.CreateSummary(npm.String()+networkPerfRespForDisp.Client_Server_Ratio+networkPerfRespForDisp.Protocol+networkPerfRespForDisp.Service, "json", content), nil
+}
+
+func (npm *networkPerfMetricsMeasurement) GetMetricsForDisp() {
+	getMetricsForDisplay(npm.podRatio, npm.protocol)
 }
 
 func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) error {

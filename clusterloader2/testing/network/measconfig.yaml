@@ -1,0 +1,37 @@
+name: standalone
+automanagedNamespaces: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+steps:
+- name: start netowrk metric measurement
+  measurements:
+    - Identifier: NetworkPerformanceMetrics
+      Method: NetworkPerformanceMetrics
+      Params:
+        action: start 
+        podReplicas: 100
+        duration: 10
+        ratio: "50:50"
+        protocol: HTTP 
+- name: Wait for 15 secs controller to be up
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 15s
+- name: Gather
+  measurements:
+    - Identifier: NetworkPerformanceMetrics
+      Method: NetworkPerformanceMetrics
+      Params:
+        action: gather 
+- name: Wait 0min
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 0m
+
+

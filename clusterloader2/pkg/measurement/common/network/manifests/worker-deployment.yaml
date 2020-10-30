@@ -22,7 +22,7 @@ spec:
     spec:
 #      hostNetwork: {{$HostNetworkMode}}
       containers:
-      - image:  tools:v1
+      - image:  netperfbenchmark:0.03
         name: worker
         imagePullPolicy: IfNotPresent
         args:

@@ -55,14 +55,14 @@ const (
 )
 
 const (
-	Perc90 = "Perc90"
-	Perc95 = "Perc95"
-	Perc99 = "Perc99"
-	Min    = "min"
-	Max    = "max"
-	Avg    = "avg"
-	value  = "value"
-	Ratio  = "ratio"
+	Perc90        = "Perc90"
+	Perc95        = "Perc95"
+	Perc99        = "Perc99"
+	Min           = "min"
+	Max           = "max"
+	Avg           = "avg"
+	value         = "value"
+	Num_Pod_Pairs = "Num_Pod_Pairs"
 )
 
 var httpPathMap = map[int]string{
@@ -329,19 +329,19 @@ func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp
 	klog.Info("Metric in populateMetricValMap:", *metricResp)
 }
 
-func formNetPerfRespForDisp(protocol string, podRatioType string, finalPodRatio string) NetworkPerfResp {
+func formNetPerfRespForDisp(protocol string, podRatioType string, finalPodRatio float64) NetworkPerfResp {
 	var metricData NetworkPerfResp
 	switch protocol {
 	case Protocol_TCP:
-		getMetricData(&metricData, podRatioType, TCPBW, Throughput)
+		getMetricData(&metricData, podRatioType, finalPodRatio, TCPBW, Throughput)
 		metricData.Protocol = Protocol_TCP
 	case Protocol_UDP:
-		getMetricData(&metricData, podRatioType, UDPPps, PPS)
-		getMetricData(&metricData, podRatioType, UDPJitter, Jitter)
-		getMetricData(&metricData, podRatioType, UDPLatAvg, Latency)
+		getMetricData(&metricData, podRatioType, finalPodRatio, UDPPps, PPS)
+		getMetricData(&metricData, podRatioType, finalPodRatio, UDPJitter, Jitter)
+		getMetricData(&metricData, podRatioType, finalPodRatio, UDPLatAvg, Latency)
 		metricData.Protocol = Protocol_UDP
 	case Protocol_HTTP:
-		getMetricData(&metricData, podRatioType, HTTPRespTime, ResponseTime)
+		getMetricData(&metricData, podRatioType, finalPodRatio, HTTPRespTime, ResponseTime)
 		metricData.Protocol = Protocol_HTTP
 	}
 	metricData.Service = "P2P"
@@ -349,7 +349,7 @@ func formNetPerfRespForDisp(protocol string, podRatioType string, finalPodRatio 
 	return metricData
 }
 
-func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, metricName string, finalPodRatio string) {
+func getMetricData(data *NetworkPerfResp, podRatioType string, finalPodRatio float64, metricIndex int, metricName string) {
 	var dataElem measurementutil.DataItem
 	dataElem.Data = make(map[string]float64)
 	dataElem.Labels = make(map[string]string)
@@ -360,7 +360,7 @@ func getMetricData(data *NetworkPerfResp, podRatioType string, metricIndex int, 
 	klog.Infof("data:%v", data)
 }
 
-func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType string, metricIndex int, finalPodRatio string) {
+func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType string, metricIndex int, finalPodRatio float64) {
 	var aggrPodPairMetricSlice []float64
 	resultSlice := make([]float64, 10)
 	for _, resultSlice = range metricVal {
@@ -372,7 +372,7 @@ func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType s
 		dataElem.Data[value] = resultSlice[metricIndex]
 	case ManyToMany:
 		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
-		dataElem.Data[Ratio] = finalPodRatio
+		dataElem.Data[Num_Pod_Pairs] = finalPodRatio
 	}
 }
 
@@ -422,7 +422,7 @@ func getMetricsForDisplay(podRatio string, protocol string) {
 	})
 
 	actualPodRatio := getActualPodRatioForDisp()
-	networkPerfRespForDisp = formNetPerfRespForDisp(protocol, ratioType)
+	networkPerfRespForDisp = formNetPerfRespForDisp(protocol, ratioType, actualPodRatio)
 }
 
 func getMetricsFromPendingPods(protocol string) (bool, error) {
@@ -446,12 +446,9 @@ func getMetricsFromPendingPods(protocol string) (bool, error) {
 	return false, nil
 }
 
-func getActualPodRatioForDisp() string {
-	var podPairStr string
+func getActualPodRatioForDisp() float64 {
 	podPairNum := len(uniqPodPairList) - len(metricRespPendingList)
-	podPairStr = strconv.Itoa(podPairNum) + ":" + strconv.Itoa(podPairNum)
-
-	return podPairStr
+	return float64(podPairNum)
 }
 
 func messageWorker(podName string, params map[string]string, msgType string) *[]byte {

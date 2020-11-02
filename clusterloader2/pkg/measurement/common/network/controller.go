@@ -1,3 +1,19 @@
+/*
+Copyright 2016 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package network
 
 import (
@@ -17,103 +33,35 @@ import (
 	"k8s.io/klog"
 )
 
-var workerPodList map[string][]WorkerPodData
+var workerPodList map[string][]workerPodData
 
 var firstClientPodTime int64
 
 const initialDelayForTCExec = 5
 
 var metricVal map[string]MetricResponse
-var uniqPodPairList []UniquePodPair
-var metricRespPendingList []UniquePodPair
+var uniqPodPairList []uniquePodPair
+var metricRespPendingList []uniquePodPair
 var K8sClient clientset.Interface
 
-var metricDataCh = make(chan NetworkPerfResp)
-var podPairCh = make(chan UniquePodPair)
+var podPairCh = make(chan uniquePodPair)
 var networkPerfRespForDisp NetworkPerfResp
 
-//Client-To-Server Pod ratio indicator
-const (
-	OneToOne   = "1:1"
-	ManyToOne  = "N:1"
-	ManyToMany = "N:M"
-)
-
-const (
-	TCP_Server = iota
-	TCP_Client
-	UDP_Server
-	UDP_Client
-	HTTP_Server
-	HTTP_Client
-)
-
-const (
-	Percentile90 = 0.90
-	Percentile95 = 0.95
-	Percentile99 = 0.99
-)
-
-const (
-	Perc90        = "Perc90"
-	Perc95        = "Perc95"
-	Perc99        = "Perc99"
-	Min           = "min"
-	Max           = "max"
-	Avg           = "avg"
-	value         = "value"
-	Num_Pod_Pairs = "Num_Pod_Pairs"
-)
-
-var httpPathMap = map[int]string{
-	TCP_Server:  "startTCPServer",
-	TCP_Client:  "startTCPClient",
-	UDP_Server:  "startUDPServer",
-	UDP_Client:  "startUDPClient",
-	HTTP_Server: "startHTTPServer",
-	HTTP_Client: "startHTTPClient",
-}
-
-const (
-	Throughput   = "Throughput"
-	Latency      = "Latency"
-	Jitter       = "Jitter"
-	PPS          = "Packet_Per_Second"
-	ResponseTime = "Response_Time"
-)
-
-var metricUnitMap = map[string]string{
-	Throughput:   "kbytes/sec",
-	Latency:      "ms",
-	Jitter:       "ms",
-	PPS:          "pps",
-	ResponseTime: "seconds",
-}
-
-const manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests/*.yaml"
-
-// DataItem is the data point.
-type DataItem struct {
-	Data   map[string]float64 `json:"data"`
-	Unit   string             `json:"unit"`
-	Labels map[string]string  `json:"labels,omitempty"`
-}
-
 func (npm *networkPerfMetricsMeasurement) Start(clientIfc clientset.Interface) {
-	workerPodList = make(map[string][]WorkerPodData)
+	workerPodList = make(map[string][]workerPodData)
 	metricVal = make(map[string]MetricResponse)
 	clientPodNum, _, _ := deriveClientServerPodNum(npm.podRatio)
-	uniqPodPairList = make([]UniquePodPair, clientPodNum)
-	metricRespPendingList = make([]UniquePodPair, clientPodNum)
+	uniqPodPairList = make([]uniquePodPair, clientPodNum)
+	metricRespPendingList = make([]uniquePodPair, clientPodNum)
 	K8sClient = clientIfc
 }
 
-func populateWorkerPodList(data *WorkerPodData) error {
-	if podData, ok := workerPodList[data.WorkerNode]; !ok {
-		workerPodList[data.WorkerNode] = []WorkerPodData{{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp}}
+func populateWorkerPodList(data *workerPodData) error {
+	if podData, ok := workerPodList[data.workerNode]; !ok {
+		workerPodList[data.workerNode] = []workerPodData{{podName: data.podName, workerNode: data.workerNode, podIp: data.podIp}}
 		return nil
 	} else {
-		workerPodList[data.WorkerNode] = append(podData, WorkerPodData{PodName: data.PodName, WorkerNode: data.WorkerNode, PodIp: data.PodIp})
+		workerPodList[data.workerNode] = append(podData, workerPodData{podName: data.podName, workerNode: data.workerNode, podIp: data.podIp})
 		return nil
 	}
 }
@@ -153,8 +101,6 @@ func ExecuteTest(ratio string, duration int, protocol string) {
 	switch ratioType {
 	case OneToOne:
 		executeOneToOneTest(duration, protocol)
-	case ManyToOne:
-		executeManyToOneTest(clientPodNum, serverPodNum, duration, protocol)
 	case ManyToMany:
 		executeManyToManyTest(duration, protocol)
 	default:
@@ -164,7 +110,7 @@ func ExecuteTest(ratio string, duration int, protocol string) {
 
 //Select one client , one server pod.
 func executeOneToOneTest(duration int, protocol string) {
-	var uniqPodPair UniquePodPair
+	var uniqPodPair uniquePodPair
 
 	if len(workerPodList) == 1 {
 		klog.Error("Worker pods exist on same worker-node. Not executing Tc")
@@ -181,14 +127,9 @@ func executeOneToOneTest(duration int, protocol string) {
 	sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
 }
 
-//Select N clients , one server pod.
-func executeManyToOneTest(clientPodNum int, serverPodNum int, duration int, protocol string) {
-
-}
-
 //Select N clients , M server pod.
 func executeManyToManyTest(duration int, protocol string) {
-	var uniqPodPair UniquePodPair
+	var uniqPodPair uniquePodPair
 	var endOfPodPairs = false
 	var podPairIndex = 0
 
@@ -220,9 +161,9 @@ func executeManyToManyTest(duration int, protocol string) {
 
 }
 
-func formUniquePodPair(originalMap *map[string][]WorkerPodData) {
-	var uniqPodPair UniquePodPair
-	lastPodPair := UniquePodPair{IsLastPodPair: true}
+func formUniquePodPair(originalMap *map[string][]workerPodData) {
+	var uniqPodPair uniquePodPair
+	lastPodPair := uniquePodPair{IsLastPodPair: true}
 
 	var i = 0
 
@@ -237,11 +178,11 @@ func formUniquePodPair(originalMap *map[string][]WorkerPodData) {
 			i++
 
 			if i == 1 {
-				uniqPodPair.SrcPodIp = unUsedPod.PodIp
-				uniqPodPair.SrcPodName = unUsedPod.PodName
+				uniqPodPair.SrcPodIp = unUsedPod.podIp
+				uniqPodPair.SrcPodName = unUsedPod.podName
 			} else if i == 2 {
-				uniqPodPair.DestPodIp = unUsedPod.PodIp
-				uniqPodPair.DestPodName = unUsedPod.PodName
+				uniqPodPair.DestPodIp = unUsedPod.podIp
+				uniqPodPair.DestPodName = unUsedPod.podName
 				i = 0
 				uniqPodPairList = append(uniqPodPairList, uniqPodPair)
 				podPairCh <- uniqPodPair
@@ -254,8 +195,8 @@ func formUniquePodPair(originalMap *map[string][]WorkerPodData) {
 	}
 }
 
-func getUnusedPod(unusedPodList *[]WorkerPodData) (WorkerPodData, error) {
-	var unusedPod WorkerPodData
+func getUnusedPod(unusedPodList *[]workerPodData) (workerPodData, error) {
+	var unusedPod workerPodData
 	if len(*unusedPodList) == 0 {
 		return unusedPod, errors.New("Unused pod list empty")
 	}
@@ -266,9 +207,8 @@ func getUnusedPod(unusedPodList *[]WorkerPodData) (WorkerPodData, error) {
 	return unusedPod, nil
 }
 
-func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration int, futureTimestamp int64) {
+func sendReqToClient(uniqPodPair uniquePodPair, protocol string, duration int, futureTimestamp int64) {
 	klog.Info("Unique pod pair client:", uniqPodPair)
-	//klog.Info("Client req:", clientReq)
 	switch protocol {
 	case Protocol_TCP:
 		StartWork(uniqPodPair.SrcPodName, httpPathMap[TCP_Client], duration, futureTimestamp, "", uniqPodPair.DestPodIp)
@@ -279,7 +219,7 @@ func sendReqToClient(uniqPodPair UniquePodPair, protocol string, duration int, f
 	}
 }
 
-func sendReqToSrv(uniqPodPair UniquePodPair, protocol string, duration int) {
+func sendReqToSrv(uniqPodPair uniquePodPair, protocol string, duration int) {
 	klog.Info("Unique pod pair server:", uniqPodPair)
 	switch protocol {
 	case Protocol_TCP:
@@ -298,7 +238,7 @@ func getTimeStampForPod() int64 {
 	return futureTime
 }
 
-func collectMetrics(uniqPodPair UniquePodPair, protocol string) *MetricResponse {
+func collectMetrics(uniqPodPair uniquePodPair, protocol string) *MetricResponse {
 	var podName string
 
 	switch protocol {
@@ -317,7 +257,7 @@ func collectMetrics(uniqPodPair UniquePodPair, protocol string) *MetricResponse 
 
 //For TCP,UDP the metrics are collected from ServerPod.
 //For HTTP, the metrics are collected from clientPod
-func populateMetricValMap(uniqPodPair UniquePodPair, protocol string, metricResp *MetricResponse) {
+func populateMetricValMap(uniqPodPair uniquePodPair, protocol string, metricResp *MetricResponse) {
 	switch protocol {
 	case Protocol_TCP:
 		fallthrough
@@ -362,14 +302,14 @@ func getMetricData(data *NetworkPerfResp, podRatioType string, finalPodRatio flo
 
 func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType string, metricIndex int, finalPodRatio float64) {
 	var aggrPodPairMetricSlice []float64
-	resultSlice := make([]float64, 10)
-	for _, resultSlice = range metricVal {
-		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, resultSlice[metricIndex])
+	var metricResp MetricResponse
+	for _, metricResp = range metricVal {
+		aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, metricResp.Result[metricIndex])
 	}
 	klog.Info("Metric Index:", metricIndex, " AggregatePodMetrics:", aggrPodPairMetricSlice)
 	switch podRatioType {
 	case OneToOne:
-		dataElem.Data[value] = resultSlice[metricIndex]
+		dataElem.Data[value] = metricResp.Result[metricIndex]
 	case ManyToMany:
 		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
 		dataElem.Data[Num_Pod_Pairs] = finalPodRatio
@@ -426,7 +366,7 @@ func getMetricsForDisplay(podRatio string, protocol string) {
 }
 
 func getMetricsFromPendingPods(protocol string) (bool, error) {
-	var pendingList []UniquePodPair
+	var pendingList []uniquePodPair
 	var metricResp *MetricResponse
 
 	if len(metricRespPendingList) == 0 {

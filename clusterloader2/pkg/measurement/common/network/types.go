@@ -27,19 +27,6 @@ const (
 	HttpPort             = "5301"
 )
 
-//Environment variables
-const (
-	PodName   = "POD_NAME"
-	NodeName  = "NODE_NAME"
-	PodIP     = "POD_IP"
-	ClusterIp = "CLUSTER_IP"
-)
-
-const (
-	WorkerMode     = "worker"
-	ControllerMode = "controller"
-)
-
 const (
 	Protocol_TCP  = "TCP"
 	Protocol_UDP  = "UDP"
@@ -88,36 +75,14 @@ const RatioSeparator = ":"
 const (
 	networkPerfMetricsName = "NetworkPerformanceMetrics"
 	netperfNamespace       = "netperf"
-	workerLabel            = "worker"
 )
 
-type WorkerPodData struct {
-	PodName    string
-	WorkerNode string
-	PodIp      string
-	ClusterIP  string
-}
-
-type WorkerPodRegReply struct {
-	Response string
-}
-
-type WorkerRequest struct {
-	Duration      string
-	Timestamp     int64 //epoch time
-	DestinationIP string
-}
-
-type ClientRequest struct {
-	Duration      string
-	Timestamp     int64 //epoch time
-	DestinationIP string
-}
-
-type ServerRequest struct {
-	Duration   string
-	Timestamp  int64 //epoch time
-	NumClients string
+//WorkerPodData represents details of Pods running on worker node
+type workerPodData struct {
+	podName    string
+	workerNode string
+	podIp      string
+	clusterIP  string
 }
 
 type WorkerResponse struct {
@@ -126,7 +91,8 @@ type WorkerResponse struct {
 	Error      string
 }
 
-type UniquePodPair struct {
+//UniquePodPair represents src-dest worker pod pair.
+type uniquePodPair struct {
 	SrcPodName    string
 	SrcPodIp      string
 	DestPodName   string
@@ -148,4 +114,69 @@ type NetworkPerfResp struct {
 	Protocol            string
 	Service             string
 	DataItems           []measurementutil.DataItem
+}
+
+//Client-To-Server Pod ratio indicator
+const (
+	OneToOne   = "1:1"
+	ManyToOne  = "N:1"
+	ManyToMany = "N:M"
+)
+
+const (
+	TCP_Server = iota
+	TCP_Client
+	UDP_Server
+	UDP_Client
+	HTTP_Server
+	HTTP_Client
+)
+
+const (
+	Percentile90 = 0.90
+	Percentile95 = 0.95
+	Percentile99 = 0.99
+)
+
+const (
+	Perc90        = "Perc90"
+	Perc95        = "Perc95"
+	Perc99        = "Perc99"
+	Min           = "min"
+	Max           = "max"
+	Avg           = "avg"
+	value         = "value"
+	Num_Pod_Pairs = "Num_Pod_Pairs"
+)
+
+var httpPathMap = map[int]string{
+	TCP_Server:  "startTCPServer",
+	TCP_Client:  "startTCPClient",
+	UDP_Server:  "startUDPServer",
+	UDP_Client:  "startUDPClient",
+	HTTP_Server: "startHTTPServer",
+	HTTP_Client: "startHTTPClient",
+}
+
+const (
+	Throughput   = "Throughput"
+	Latency      = "Latency"
+	Jitter       = "Jitter"
+	PPS          = "Packet_Per_Second"
+	ResponseTime = "Response_Time"
+)
+
+var metricUnitMap = map[string]string{
+	Throughput:   "kbytes/sec",
+	Latency:      "ms",
+	Jitter:       "ms",
+	PPS:          "pps",
+	ResponseTime: "seconds",
+}
+
+// DataItem is the data point.
+type DataItem struct {
+	Data   map[string]float64 `json:"data"`
+	Unit   string             `json:"unit"`
+	Labels map[string]string  `json:"labels,omitempty"`
 }

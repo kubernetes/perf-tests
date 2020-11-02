@@ -32,6 +32,7 @@ import (
 
 const (
 	schedulingThroughputMeasurementName = "SchedulingThroughput"
+	defaultSchedulingThroughputInterval = 5 * time.Second
 )
 
 func init() {
@@ -70,9 +71,12 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Measuremen
 		if err := selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
-
+		measurmentInterval, err := util.GetDurationOrDefault(config.Params, "measurmentInterval", defaultSchedulingThroughputInterval)
+		if err != nil {
+			return nil, err
+		}
 		s.stopCh = make(chan struct{})
-		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector)
+		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector, measurmentInterval)
 	case "gather":
 		threshold, err := util.GetFloat64OrDefault(config.Params, "threshold", 0)
 		if err != nil {
@@ -108,7 +112,7 @@ func (*schedulingThroughputMeasurement) String() string {
 	return schedulingThroughputMeasurementName
 }
 
-func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *measurementutil.ObjectSelector) error {
+func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *measurementutil.ObjectSelector, measurmentInterval time.Duration) error {
 	ps, err := measurementutil.NewPodStore(clientSet, selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
@@ -123,10 +127,10 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 			select {
 			case <-s.stopCh:
 				return
-			case <-time.After(defaultWaitForPodsInterval):
+			case <-time.After(measurmentInterval):
 				pods := ps.List()
 				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */)
-				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(defaultWaitForPodsInterval/time.Second)
+				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(measurmentInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
 				lastScheduledCount = podsStatus.Scheduled
 				klog.Infof("%v: %s: %d pods scheduled", s, selector.String(), lastScheduledCount)
@@ -147,24 +151,20 @@ func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measureme
 	throughputSummary := &schedulingThroughput{}
 	if length := len(s.schedulingThroughputs); length > 0 {
 		sort.Float64s(s.schedulingThroughputs)
-		sum := 0.0
-		for i := range s.schedulingThroughputs {
-			sum += s.schedulingThroughputs[i]
-		}
-		throughputSummary.Average = sum / float64(length)
 		throughputSummary.Perc50 = s.schedulingThroughputs[int(math.Ceil(float64(length*50)/100))-1]
 		throughputSummary.Perc90 = s.schedulingThroughputs[int(math.Ceil(float64(length*90)/100))-1]
 		throughputSummary.Perc99 = s.schedulingThroughputs[int(math.Ceil(float64(length*99)/100))-1]
+		throughputSummary.Max = s.schedulingThroughputs[length-1]
 	}
 	content, err := util.PrettyPrintJSON(throughputSummary)
 	if err != nil {
 		return nil, err
 	}
 	summary := measurement.CreateSummary(schedulingThroughputMeasurementName, "json", content)
-	if threshold > 0 && throughputSummary.Perc99 < threshold {
+	if threshold > 0 && throughputSummary.Max < threshold {
 		err = errors.NewMetricViolationError(
 			"scheduler throughput",
-			fmt.Sprintf("actual throughput %f lower than threshold %f", throughputSummary.Perc99, threshold))
+			fmt.Sprintf("actual throughput %f lower than threshold %f", throughputSummary.Max, threshold))
 	}
 	return []measurement.Summary{summary}, err
 }
@@ -177,8 +177,8 @@ func (s *schedulingThroughputMeasurement) stop() {
 }
 
 type schedulingThroughput struct {
-	Average float64 `json:"average"`
-	Perc50  float64 `json:"perc50"`
-	Perc90  float64 `json:"perc90"`
-	Perc99  float64 `json:"perc99"`
+	Perc50 float64 `json:"perc50"`
+	Perc90 float64 `json:"perc90"`
+	Perc99 float64 `json:"perc99"`
+	Max    float64 `json:"max"`
 }

@@ -77,6 +77,8 @@
 
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
+{{$WAIT_AFTER_EXEC_DURATION := DefaultParam .CL2_WAIT_AFTER_EXEC_DURATION "0s"}}
 
 name: load
 namespace:
@@ -387,7 +389,12 @@ steps:
       {{range $EXEC_COMMAND}}
       - {{.}}
       {{end}}
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+        duration: {{$WAIT_AFTER_EXEC_DURATION}}
 {{end}}
+{{if not $EXIT_AFTER_EXEC}}
 
 {{if $ENABLE_DENSITY_TEST}}
 # BEGIN scheduler throughput
@@ -851,6 +858,7 @@ steps:
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
+{{end}} # not EXIT_AFTER_EXEC
 
 - name: Collecting measurements
   measurements:

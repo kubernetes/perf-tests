@@ -20,13 +20,6 @@ import (
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
-//net-rpc service listen ports
-const (
-	ControllerRpcSvcPort = "5002"
-	WorkerRpcSvcPort     = "5003"
-	HttpPort             = "5301"
-)
-
 const (
 	Protocol_TCP  = "TCP"
 	Protocol_UDP  = "UDP"
@@ -121,6 +114,7 @@ const (
 	OneToOne   = "1:1"
 	ManyToOne  = "N:1"
 	ManyToMany = "N:M"
+	Invalid    = "Invalid"
 )
 
 const (

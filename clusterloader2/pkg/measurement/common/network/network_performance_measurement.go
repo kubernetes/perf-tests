@@ -25,6 +25,7 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -67,8 +68,7 @@ type networkPerfMetricsMeasurement struct {
 }
 
 func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-
-	klog.Info("In network execute")
+	klog.V(3).Info("In network execute")
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		klog.Info("Error starting action:", err)
@@ -80,7 +80,7 @@ func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([
 	case "start":
 		err = npm.validate(config)
 		if err != nil {
-			klog.Info("Error starting action:", err)
+			klog.Error("Error starting action:", err)
 			return nil, err
 		}
 		npm.start(config)
@@ -127,7 +127,6 @@ func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) erro
 	npm.storeWorkerPods()
 
 	ExecuteTest(npm.podRatio, npm.testDuration, npm.protocol)
-
 	return nil
 }
 
@@ -136,7 +135,7 @@ func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config)
 	if err != nil {
 		return err
 	}
-	klog.Info("podReplicas:", podReplicas)
+	klog.Info("Total configured pod num:", podReplicas)
 	npm.framework = config.ClusterFramework
 	npm.podReplicas = podReplicas
 	npm.templateMapping = map[string]interface{}{"Replicas": podReplicas}
@@ -144,7 +143,7 @@ func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config)
 }
 
 func (npm *networkPerfMetricsMeasurement) createWorkerPods() error {
-	klog.Info("createWorkerPods:", manifestsPathPrefix)
+	klog.V(3).Info("Manifest file path:", manifestsPathPrefix)
 	return npm.framework.ApplyTemplatedManifests(manifestsPathPrefix, npm.templateMapping)
 }
 
@@ -156,7 +155,6 @@ func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
 func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
 	options := metav1.ListOptions{}
 	pods, err := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
-	klog.Info("POLL pods:", len(pods.Items), " namespace:", npm.namespace, " Options:", options)
 	var podsWithIps = 0
 	if len(pods.Items) == npm.podReplicas {
 		for _, pod := range pods.Items {
@@ -188,18 +186,19 @@ func (*networkPerfMetricsMeasurement) String() string {
 }
 
 func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
+	var podCount int
 	time.Sleep(5 * time.Second)
 	options := metav1.ListOptions{}
 	pods, _ := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
-	klog.Info("populating pods:", len(pods.Items))
 	for _, pod := range pods.Items {
 		if pod.Status.PodIP != "" {
 			podData := &workerPodData{podName: pod.Name, podIp: pod.Status.PodIP, workerNode: pod.Spec.NodeName}
-			klog.Info("PodData :", *podData, " PODIP:", pod.Status)
 			populateWorkerPodList(podData)
+			podCount++
 		}
 	}
 
+	klog.Infof("Actual Pods configured: %v, Pods with IPs: %v", npm.podReplicas, podCount)
 }
 
 func (npm *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
@@ -230,12 +229,20 @@ func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) e
 	if ratio, err = util.GetString(config.Params, "ratio"); err != nil {
 		return err
 	}
+
+	if !checkRatioSeparator(ratio) {
+		return fmt.Errorf("ratio separator : missing")
+	}
+
+	if err, ok := validateCliServPodNum(ratio); !ok {
+		return err
+	}
 	if protocol, err = util.GetString(config.Params, "protocol"); err != nil {
 		return err
 	}
 
 	if protocol != Protocol_TCP && protocol != Protocol_UDP && protocol != Protocol_HTTP {
-		return err
+		return fmt.Errorf("invalid protocol , supported ones are TCP,UDP,HTTP")
 	}
 
 	npm.testDuration = duration

@@ -29,5 +29,13 @@ function build_go {
   ./make.bash
 }
 
+function print_recent_commits {
+  local -r hours=5
+  local -r dashline=$(printf %100s | tr " " "-")
+  printf "Changes committed to the Golang master branch in the last ${hours} hours:\n${dashline}\n"
+  git --no-pager log --format="commit %h%nDate: %ci%n%n%B${dashline}" --since="${hours}".hours
+}
+
 install_go_compiler
 build_go
+print_recent_commits

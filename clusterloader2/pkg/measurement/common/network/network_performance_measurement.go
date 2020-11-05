@@ -15,12 +15,11 @@ limitations under the License.
 */
 
 /*
- * Network Performance measurement captures network performance metrics
+ * Package network captures network performance metrics
  * for protocol TCP,UDP,HTTP etc. The metrics are collected for baseline (1:1),
  * scale (N:M) pod ratios.Client and server pods located on different worker
  * nodes exchange traffic for specified time to measure the performance metrics.
  */
-
 package network
 
 import (
@@ -80,12 +79,16 @@ func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([
 	case "start":
 		err = npm.validate(config)
 		if err != nil {
-			klog.Error("Error starting action:", err)
+			klog.Error("Error in validation action:", err)
 			return nil, err
 		}
-		npm.start(config)
+		err = npm.start(config)
+		if err != nil {
+			klog.Error("Error starting measurement:", err)
+			return nil, err
+		}
 	case "gather":
-		summary, err := npm.gather(config)
+		summary, err := npm.gather()
 		if err != nil && !errors.IsMetricViolationError(err) {
 			klog.Error("Error in metrics:", err)
 			return nil, err
@@ -99,17 +102,14 @@ func (npm *networkPerfMetricsMeasurement) Execute(config *measurement.Config) ([
 }
 
 func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) error {
-	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
-
-	npm.Start(k8sClient)
 	if err := npm.initialize(config); err != nil {
 		return err
 	}
 
+	npm.startCtrl()
 	//create namespace for the worker-pods
-	npm.k8sClient = k8sClient
 	npm.namespace = netperfNamespace
-	if err := client.CreateNamespace(k8sClient, netperfNamespace); err != nil {
+	if err := client.CreateNamespace(npm.k8sClient, netperfNamespace); err != nil {
 		klog.Info("Error starting measurement:", err)
 	}
 
@@ -126,7 +126,7 @@ func (npm *networkPerfMetricsMeasurement) start(config *measurement.Config) erro
 
 	npm.storeWorkerPods()
 
-	ExecuteTest(npm.podRatio, npm.testDuration, npm.protocol)
+	executeTest(npm.podRatio, npm.testDuration, npm.protocol)
 	return nil
 }
 
@@ -136,6 +136,7 @@ func (npm *networkPerfMetricsMeasurement) initialize(config *measurement.Config)
 		return err
 	}
 	klog.Info("Total configured pod num:", podReplicas)
+	npm.k8sClient = config.ClusterFramework.GetClientSets().GetClient()
 	npm.framework = config.ClusterFramework
 	npm.podReplicas = podReplicas
 	npm.templateMapping = map[string]interface{}{"Replicas": podReplicas}
@@ -155,6 +156,9 @@ func (npm *networkPerfMetricsMeasurement) waitForWorkerPodsReady() error {
 func (npm *networkPerfMetricsMeasurement) checkWorkerPodsReady() (bool, error) {
 	options := metav1.ListOptions{}
 	pods, err := npm.k8sClient.CoreV1().Pods(npm.namespace).List(context.TODO(), options)
+	if err != nil {
+		return false, err
+	}
 	var podsWithIps = 0
 	if len(pods.Items) == npm.podReplicas {
 		for _, pod := range pods.Items {
@@ -201,7 +205,7 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 	klog.Infof("Actual Pods configured: %v, Pods with IPs: %v", npm.podReplicas, podCount)
 }
 
-func (npm *networkPerfMetricsMeasurement) gather(config *measurement.Config) (measurement.Summary, error) {
+func (npm *networkPerfMetricsMeasurement) gather() (measurement.Summary, error) {
 	npm.GetMetricsForDisp()
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version:   "v1",

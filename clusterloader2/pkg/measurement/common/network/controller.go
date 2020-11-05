@@ -43,15 +43,15 @@ const initialDelayForTCExec = 5
 var metricVal map[string]MetricResponse
 var uniqPodPairList []uniquePodPair
 var metricRespPendingList []uniquePodPair
-var K8sClient clientset.Interface
+var k8sClient clientset.Interface
 
 var podPairCh = make(chan uniquePodPair)
 var networkPerfRespForDisp NetworkPerfResp
 
 const WorkerListenPort = "5003"
 
-func (npm *networkPerfMetricsMeasurement) Start(clientIfc clientset.Interface) {
-	K8sClient = clientIfc
+func (npm *networkPerfMetricsMeasurement) startCtrl() {
+	k8sClient = npm.k8sClient
 	workerPodList = make(map[string][]workerPodData)
 	metricVal = make(map[string]MetricResponse)
 	clientPodNum, _, _ := deriveClientServerPodNum(npm.podRatio)
@@ -59,13 +59,11 @@ func (npm *networkPerfMetricsMeasurement) Start(clientIfc clientset.Interface) {
 	metricRespPendingList = make([]uniquePodPair, 0, clientPodNum)
 }
 
-func populateWorkerPodList(data *workerPodData) error {
+func populateWorkerPodList(data *workerPodData) {
 	if podData, ok := workerPodList[data.workerNode]; !ok {
 		workerPodList[data.workerNode] = []workerPodData{{podName: data.podName, workerNode: data.workerNode, podIp: data.podIp}}
-		return nil
 	} else {
 		workerPodList[data.workerNode] = append(podData, workerPodData{podName: data.podName, workerNode: data.workerNode, podIp: data.podIp})
-		return nil
 	}
 }
 
@@ -108,7 +106,7 @@ func deriveClientServerPodNum(ratio string) (int, int, string) {
 	return clientPodNum, serverPodNum, Invalid
 }
 
-func ExecuteTest(ratio string, duration int, protocol string) {
+func executeTest(ratio string, duration int, protocol string) {
 	_, _, ratioType := deriveClientServerPodNum(ratio)
 
 	switch ratioType {
@@ -130,12 +128,10 @@ func exec1To1Test(duration int, protocol string) {
 		return
 	}
 
-	go formUniquePodPair(&workerPodList)
+	go formUniquePodPair(workerPodList)
 
 	uniqPodPair = <-podPairCh
-	if uniqPodPair.IsLastPodPair {
-		return
-	}
+
 	sendReqToSrv(uniqPodPair, protocol, duration)
 	time.Sleep(50 * time.Millisecond)
 	firstClientPodTime = getTimeStampForPod()
@@ -145,49 +141,38 @@ func exec1To1Test(duration int, protocol string) {
 //execNToMTest executes testcase for N client, M server pods.
 func execNToMTest(duration int, protocol string) {
 	var uniqPodPair uniquePodPair
-	var endOfPodPairs = false
-	var podPairIndex = 0
 
-	go formUniquePodPair(&workerPodList)
+	go formUniquePodPair(workerPodList)
 
 	for {
-		select {
-		case uniqPodPair = <-podPairCh:
-			klog.V(3).Info("Unique PodPair :", uniqPodPair)
-			if uniqPodPair.IsLastPodPair {
-				endOfPodPairs = true
-				break
-			}
-			sendReqToSrv(uniqPodPair, protocol, duration)
-			time.Sleep(50 * time.Millisecond)
-			//Get timestamp for first pair and use the same for all
-			if podPairIndex == 0 {
-				firstClientPodTime = getTimeStampForPod()
-			}
-			sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
-			podPairIndex++
-		default:
-			//do nothing
-		}
-		if endOfPodPairs {
+		uniqPodPair = <-podPairCh
+		klog.V(3).Info("Unique PodPair :", uniqPodPair)
+		if uniqPodPair.IsLastPodPair {
 			break
 		}
+		sendReqToSrv(uniqPodPair, protocol, duration)
+		time.Sleep(50 * time.Millisecond)
+		//Get timestamp for first pair and use the same for all
+		if firstClientPodTime != 0 {
+			firstClientPodTime = getTimeStampForPod()
+		}
+		sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
 	}
 
 }
 
-func formUniquePodPair(originalMap *map[string][]workerPodData) {
+func formUniquePodPair(originalMap map[string][]workerPodData) {
 	var uniqPodPair uniquePodPair
 	lastPodPair := uniquePodPair{IsLastPodPair: true}
 
 	var i = 0
 
 	for {
-		for key, value := range *originalMap {
+		for key, value := range originalMap {
 			unUsedPod, err := getUnusedPod(&value)
-			(*originalMap)[key] = value
+			originalMap[key] = value
 			if err != nil {
-				delete(*originalMap, key)
+				delete(originalMap, key)
 				continue
 			}
 			i++
@@ -203,7 +188,7 @@ func formUniquePodPair(originalMap *map[string][]workerPodData) {
 				podPairCh <- uniqPodPair
 			}
 		}
-		if len(*originalMap) == 0 {
+		if len(originalMap) == 0 {
 			podPairCh <- lastPodPair
 			break
 		}
@@ -319,12 +304,14 @@ func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType s
 
 	switch podRatioType {
 	case OneToOne:
-		if len(metricResp.Result) > 0 {
-			dataElem.Data[value] = metricResp.Result[metricIndex]
-		} else {
-			dataElem.Data[value] = 0
+		for _, metricResp = range metricVal {
+			if len(metricResp.Result) > 0 {
+				dataElem.Data[value] = metricResp.Result[metricIndex]
+			} else {
+				dataElem.Data[value] = 0
+			}
 		}
-		klog.Info("Metric value: %v", dataElem.Data[value])
+		klog.Info("Metric value: ", dataElem.Data[value])
 	case ManyToMany:
 		for _, metricResp = range metricVal {
 			if len(metricResp.Result) > 0 {
@@ -333,7 +320,7 @@ func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType s
 		}
 		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
 		dataElem.Data[Num_Pod_Pairs] = finalPodRatio
-		klog.Info("Aggregate Metric value: %v", aggrPodPairMetricSlice)
+		klog.Info("Aggregate Metric value: ", aggrPodPairMetricSlice)
 	}
 }
 
@@ -417,7 +404,7 @@ func actualPodRatioForDisp() float64 {
 }
 
 func messageWorker(podName string, params map[string]string, msgType string) *[]byte {
-	req := K8sClient.CoreV1().RESTClient().Get().
+	req := k8sClient.CoreV1().RESTClient().Get().
 		Namespace(netperfNamespace).
 		Resource("pods").
 		Name(podName + ":" + WorkerListenPort).
@@ -455,12 +442,12 @@ func getPercentile(values float64Slice, perc float64) float64 {
 		for i, p := range ps {
 			pos := p * float64(size+1) //ALTERNATIVELY, DROP THE +1
 			if pos < 1.0 {
-				scores[i] = float64(values[0])
+				scores[i] = values[0]
 			} else if pos >= float64(size) {
-				scores[i] = float64(values[size-1])
+				scores[i] = values[size-1]
 			} else {
-				lower := float64(values[int(pos)-1])
-				upper := float64(values[int(pos)])
+				lower := values[int(pos)-1]
+				upper := values[int(pos)]
 				scores[i] = lower + (pos-math.Floor(pos))*(upper-lower)
 			}
 		}

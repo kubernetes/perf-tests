@@ -175,7 +175,7 @@ func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPServer")
 	klog.Info("Req:", req)
-	resultCh <- "TCP"
+	resultCh <- protocolTCP
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
@@ -189,7 +189,7 @@ func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 func StartUDPServer(res http.ResponseWriter, req *http.Request) {
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
-	resultCh <- "UDP"
+	resultCh <- protocolUDP
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
@@ -223,7 +223,7 @@ func StartHTTPServer(res http.ResponseWriter, req *http.Request) {
 func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
 	//c concurrent r repetitions t time d delay in sec between 1 and d
-	resultCh <- "HTTP"
+	resultCh <- protocolHTTP
 	klog.Info("In StartHTTPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
 	if dur == "" || destIP == "" {
@@ -324,11 +324,11 @@ func scanOutput(out *io.Reader) {
 func parseResult(result []string) ([]float64, error) {
 	klog.Info("Parsing", result[0])
 	switch result[0] {
-	case "TCP":
+	case protocolTCP:
 		return parseTCP(result), nil
-	case "UDP":
+	case protocolUDP:
 		return parseUDP(result), nil
-	case "HTTP":
+	case protocolHTTP:
 		return parseHTTP(result), nil
 	default:
 		return nil, errors.New("invalid protocol:" + result[0])

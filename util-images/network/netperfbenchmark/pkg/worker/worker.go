@@ -1,3 +1,23 @@
+/*
+Copyright 2019 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+/*
+Package worker implements the worker related activities like starting TCP/UDP/HTTP client/server
+and collecting the metric output to be returned to the controller when requested.
+*/
 package worker
 
 import (
@@ -9,7 +29,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/rpc"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -18,7 +37,6 @@ import (
 	"time"
 
 	"k8s.io/klog"
-	"k8s.io/perf-tests/util-images/network/netperfbenchmark/api"
 )
 
 var listener net.Listener
@@ -26,83 +44,104 @@ var resultCh = make(chan string, 100)
 var resultStatus = make(chan string, 1)
 var startedAt int64
 var futureTime int64
-
+var cmdErr atomic.Value
 var iperfUDPFn = []string{"", "", "", "Sum", "Sum", "Sum", "Sum", "Sum", "Avg", "Avg", "Min", "Max", "Avg", "Sum"}
 var iperfTCPFn = []string{"Sum", "Avg"}
 
-//WorkerRPC service that exposes ExecTestcase, GetPerfMetrics API for clients
-type WorkerRPC int
+const tcpMtrCnt = 2
+const udpMtrCnt = 11
+const httpMetrCnt = 12
 
-func Start() {
-	listenToServer()
+//StartResponse is the response sent back to controller on starting a measurement
+type startWrkResponse struct {
+	error string
 }
 
-func listenToServer() {
-	handlers := map[string]func(http.ResponseWriter, *http.Request){"/startTCPServer": StartTCPServer,
+//MetricResponse is the response sent back to controller after collecting measurement
+type metricResponse struct {
+	Result          []float64
+	WorkerStartTime string
+	Error           string
+}
+
+//http  listen ports
+const (
+	workerListenPort = "5003"
+	httpPort         = "5301"
+)
+
+//Protocols supported
+const (
+	protocolTCP  = "TCP"
+	protocolUDP  = "UDP"
+	protocolHTTP = "HTTP"
+)
+
+//Start worker
+func Start() {
+	listenToCntrlr()
+}
+
+func listenToCntrlr() {
+	h := map[string]func(http.ResponseWriter, *http.Request){"/startTCPServer": StartTCPServer,
 		"/startTCPClient": StartTCPClient, "/startUDPServer": StartUDPServer, "/startUDPClient": StartUDPClient,
 		"/startHTTPServer": StartHTTPServer, "/startHTTPClient": StartHTTPClient, "/metrics": Metrics}
-	startListening(api.WorkerListenPort, handlers)
+	startListening(workerListenPort, h)
 	klog.Info("Started listening to Server")
-	//TODO to be removed
-	// test()
 }
 
-func startListening(port string, handlers map[string]func(http.ResponseWriter, *http.Request)) error {
+func startListening(port string, handlers map[string]func(http.ResponseWriter, *http.Request)) {
 	klog.Info("In StartHTTPServer")
-	for path, handler := range handlers {
-		http.HandleFunc(path, handler)
+	for p, h := range handlers {
+		http.HandleFunc(p, h)
 	}
-	listener1, err := net.Listen("tcp", ":"+port)
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
-		klog.Error("Error listening:", err)
+		klog.Fatalf("Failed starting http server for port: %v, Error: %v", port, err)
 	}
-	go http.Serve(listener1, nil)
-	return nil
 }
 
+//Metrics returns the metrics collected
 func Metrics(res http.ResponseWriter, req *http.Request) {
-	var reply api.MetricResponse
+	var reply metricResponse
 	klog.Info("In metrics")
-	var status string
+	var stat string
 	select {
-	case status = <-resultStatus:
-		if status != "OK" {
-			klog.Error("Error collecting metrics:", status)
-			reply.Error = "metrics collection failed:" + status
+	case stat = <-resultStatus:
+		if stat != "OK" {
+			klog.Error("Error collecting metrics:", stat)
+			reply.Error = "metrics collection failed:" + stat
 			createResp(reply, &res)
 			return
 		}
 		klog.Info("Metrics collected")
 	default:
 		klog.Info("Metric collection in progress")
-		reply.Error = "Metrics in progress"
+		reply.Error = "metric collection in progress"
 		createResp(reply, &res)
 		return
 	}
-	result := make([]string, 0)
+	var rslt []string
 	close(resultCh) //can be removed,if  following exact time based closure
 	for v := range resultCh {
-		result = append(result, v)
+		rslt = append(rslt, v)
 	}
 
-	//TODO to be deleted, for debugging
-	for i, v := range result {
-		klog.Info("le", i, ":", v)
-	}
-	output, err := parseResult(result)
+	o, err := parseResult(rslt)
 	if err != nil {
 		reply.Error = err.Error()
 		createResp(reply, &res)
 		return
 	}
-	reply.Result = output
+	reply.Result = o
 
-	st := strconv.FormatInt(startedAt, 10)
-	ft := strconv.FormatInt(futureTime, 10)
-	dt := strconv.FormatInt(futureTime-startedAt, 10)
-	reply.WorkerStartTime = "StartedAt:" + st + " FutureTime:" + ft + " diffTime:" + dt
+	stInt := atomic.LoadInt64(&startedAt)
+	ftInt := atomic.LoadInt64(&futureTime)
+	stStr := strconv.FormatInt(stInt, 10)
+	ftStr := strconv.FormatInt(ftInt, 10)
+	dtStr := strconv.FormatInt(ftInt-stInt, 10)
+	reply.WorkerStartTime = "StartedAt:" + stStr + " FutureTime:" + ftStr + " diffTime:" + dtStr
 	createResp(reply, &res)
-	// stringSlices := strings.Join(result[:], "\n\n")
 }
 
 func createResp(resp interface{}, w *http.ResponseWriter) {
@@ -117,69 +156,70 @@ func createResp(resp interface{}, w *http.ResponseWriter) {
 	(*w).Write(b)
 }
 
-func Stop(res http.ResponseWriter, req *http.Request) {
-	klog.Info("In stop")
-	listener.Close()
-}
-
+//StartTCPClient starts iperf client for tcp measurements
 func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPClient")
 	klog.Info("Req:", req)
 	ts, dur, destIP, _ := parseURLParam(req)
 	if dur == "" || destIP == "" {
-		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
 	go schedule(ts, dur,
 		"iperf", []string{"-c", destIP, "-f", "K", "-l",
 			"20", "-b", "1M", "-i", "1", "-t", dur})
-	createResp(api.WorkerResponse{}, &res)
+	createResp(startWrkResponse{}, &res)
 }
 
+//StartTCPServer starts iperf server for tcp measurements
 func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPServer")
 	klog.Info("Req:", req)
 	resultCh <- "TCP"
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
-		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
 	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-i", dur, "-P", numcl})
-	createResp(api.WorkerResponse{}, &res)
+	createResp(startWrkResponse{}, &res)
 }
 
+//StartUDPServer starts iperf server for udp measurements
 func StartUDPServer(res http.ResponseWriter, req *http.Request) {
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
 	resultCh <- "UDP"
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
-		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
 	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", dur, "-P", numcl})
-	createResp(api.WorkerResponse{}, &res)
+	createResp(startWrkResponse{}, &res)
 }
 
+//StartUDPClient starts iperf client for udp measurements
 func StartUDPClient(res http.ResponseWriter, req *http.Request) {
 	//iperf -c localhost -u -l 20 -b 1M -e -i 1
 	klog.Info("In StartUDPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
 	if dur == "" || destIP == "" {
-		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
 	go schedule(ts, dur, "iperf", []string{"-c", destIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", dur})
-	createResp(api.WorkerResponse{}, &res)
+	createResp(startWrkResponse{}, &res)
 }
 
+//StartHTTPServer starts an http server for http measurements
 func StartHTTPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartHTTPServer")
-	startListening(api.HttpPort, map[string]func(http.ResponseWriter, *http.Request){"/test": Handler})
-	createResp(api.WorkerResponse{}, &res)
+	go startListening(httpPort, map[string]func(http.ResponseWriter, *http.Request){"/test": Handler})
+	createResp(startWrkResponse{}, &res)
 }
 
+//StartHTTPClient starts an siege client for http measurements
 func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
 	//c concurrent r repetitions t time d delay in sec between 1 and d
@@ -187,15 +227,16 @@ func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartHTTPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
 	if dur == "" || destIP == "" {
-		createResp(api.WorkerResponse{Error: "missing/invalid required parameters"}, &res)
+		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
 	go schedule(ts, dur, "siege",
-		[]string{"http://" + destIP + ":" + api.HttpPort + "/test",
+		[]string{"http://" + destIP + ":" + httpPort + "/test",
 			"-d1", "-t" + dur + "S", "-c1"})
-	createResp(api.WorkerResponse{}, &res)
+	createResp(startWrkResponse{}, &res)
 }
 
+//Handler handles http requests for http measurements
 func Handler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "hi\n")
 }
@@ -204,7 +245,7 @@ func parseURLParam(req *http.Request) (int64, string, string, string) {
 	values := req.URL.Query()
 	ts := values.Get("timestamp")
 	dur := values.Get("duration")
-	destIP := values.Get("destIP")
+	dstIP := values.Get("destIP")
 	numcl := values.Get("numCls")
 	var tsint int64
 	var err error
@@ -214,7 +255,7 @@ func parseURLParam(req *http.Request) (int64, string, string, string) {
 			klog.Info("Invalid timestamp:", ts, " ", err)
 		}
 	}
-	return tsint, dur, destIP, numcl
+	return tsint, dur, dstIP, numcl
 
 }
 
@@ -223,8 +264,8 @@ func schedule(futureTimestamp int64, duration string, command string, args []str
 	klog.Info("About to wait for futuretime:", futureTimestamp)
 	klog.Info("Current time:", time.Now().Unix())
 	time.Sleep(time.Duration(futureTimestamp-time.Now().Unix()) * time.Second)
-	atomic.AddInt64(&startedAt, time.Now().Unix())
-	atomic.AddInt64(&futureTime, futureTimestamp)
+	atomic.StoreInt64(&startedAt, time.Now().Unix())
+	atomic.StoreInt64(&futureTime, futureTimestamp)
 	execCmd(duration, command, args)
 }
 
@@ -243,78 +284,41 @@ func execCmd(duration string, command string, args []string) {
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		klog.Error("unable to obtain Stdout:", err)
+		resultStatus <- err.Error()
+		return
 	}
 	eout, err := cmd.StderrPipe()
 	if err != nil {
 		klog.Error("unable to obtain Stderr:", err)
+		resultStatus <- err.Error()
+		return
 	}
 	multiRdr := io.MultiReader(out, eout)
-	// scanner := bufio.NewScanner(out)
 	go scanOutput(&multiRdr)
-	cmd.Start()
+	err = cmd.Start()
+	if err != nil {
+		resultStatus <- err.Error()
+	}
 }
 
 func scanOutput(out *io.Reader) {
 	scanner := bufio.NewScanner(*out)
 	klog.Info("Starting scan for output")
 	for scanner.Scan() {
-		line := scanner.Text()
+		l := scanner.Text()
 		// klog.Info(line)
-		if line == "" {
+		if l == "" {
 			continue
 		}
-		resultCh <- line
+		resultCh <- l
 	}
 	klog.Info("Command executed,sending result back")
 	if err := scanner.Err(); err != nil {
 		klog.Error("Error", err)
 		resultStatus <- err.Error()
-	} else {
-		resultStatus <- "OK"
+		return
 	}
-}
-
-//TODO to be removed , test method
-func test() {
-	//TODO to be removed ,test///////////////////////
-	client, err := rpc.DialHTTP("tcp", "localhost"+":"+api.WorkerListenPort)
-	if err != nil {
-		klog.Fatalf("dialing:", err)
-		//TODO WHAT IF FAILS?
-	}
-	currTime := time.Now()
-	initDelayInSec := time.Second * time.Duration(5)
-	futureTime := currTime.Add(initDelayInSec).Unix()
-	klog.Info("Current timestamp:", time.Now().Unix())
-	klog.Info("Schedule timestamp:", futureTime)
-	serpodData := &api.ServerRequest{Duration: "10", NumClients: "1"}
-	podData := &api.ClientRequest{DestinationIP: "localhost", Duration: "10", Timestamp: futureTime}
-	var reply api.WorkerResponse
-	metricReq := &api.MetricRequest{}
-	var metricRes api.MetricResponse
-	// TCP TEST
-	// err = client.Call("WorkerRPC.StartTCPServer", podData, &reply)
-	// time.Sleep(2 * time.Second)
-	// err = client.Call("WorkerRPC.StartTCPClient", podData, &reply)
-	// time.Sleep(15 * time.Second)
-	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	//UDP TEST
-	//resultCh = make(chan string, 140)
-	err = client.Call("WorkerRPC.StartUDPServer", serpodData, &reply)
-	// time.Sleep(2 * time.Second)
-	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
-	err = client.Call("WorkerRPC.StartUDPClient", podData, &reply)
-	time.Sleep(15 * time.Second)
-	client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	//HTTP test
-	// // resultCh = make(chan string, 40)
-	// err = client.Call("WorkerRPC.StartHTTPServer", podData, &reply)
-	// // time.Sleep(2 * time.Second)
-	// err = client.Call("WorkerRPC.StartHTTPClient", podData, &reply)
-	// time.Sleep(15 * time.Second)
-	// client.Call("WorkerRPC.Metrics", metricReq, &metricRes)
-	klog.Info("TESTING COMPLETED!")
-	////////////////////////////////////////////////
+	resultStatus <- "OK"
 }
 
 func parseResult(result []string) ([]float64, error) {
@@ -327,49 +331,46 @@ func parseResult(result []string) ([]float64, error) {
 	case "HTTP":
 		return parseHTTP(result), nil
 	default:
-		return nil, errors.New("wrong result type:" + result[0])
+		return nil, errors.New("invalid protocol:" + result[0])
 
 	}
-	return nil, nil
-
 }
 
 func parseTCP(result []string) []float64 {
-	klog.Info("In Parse iperf")
+	klog.Info("In parseTCP")
 	dur := result[1]
-	fmtResult := make([][]string, 0)
-	sumResult := make([]float64, 0)
+	sumResult := make([]float64, 0, tcpMtrCnt)
 	unitReg := regexp.MustCompile(`\[\s+|\]\s+|KBytes\s+|KBytes/sec\s*|sec\s+|ms\s+|us\s*`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
 	cnt := 0
-	sessionId := make(map[string]bool)
+	sessionID := make(map[string]bool)
 	for _, op := range result {
 		klog.Info(op)
-		if !strings.Contains(op, "0.0-"+dur+".0") {
+		if !strings.Contains(op, "0.0-"+dur+".0") { //single digit dur has probs
 			continue
 		}
-		//TODO try using one regex
 		frmtString := mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " ")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
-		fmtResult = append(fmtResult, split)
 		//for bug in iperf tcp
-		if len(split) >= 3 && "SUM" != split[1] && split[2] == "0.0-"+dur+".0" { //if the record is for the complete duration of run
-			if _, ok := sessionId[split[1]]; ok {
+		//if the record is for the complete duration of run
+		if len(split) >= 3 && "SUM" != split[1] && split[2] == "0.0-"+dur+".0" {
+			if _, ok := sessionID[split[1]]; ok {
 				continue
 			}
 			for i, v := range split {
 				klog.Info("Split", i, ":", v)
 				if i == 1 {
-					sessionId[v] = true
+					sessionID[v] = true
 					continue
 				}
-				if i == 0 || i == 2 || i == 5 { //first index and hte last is ""
+				//first index and hte last is ""
+				if i == 0 || i == 2 || i == 5 {
 					continue
 				}
 				tmp, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					klog.Error("conversion error", err)
+					klog.Error("Conversion error", err)
 				}
 				if len(sumResult) <= 1 {
 					sumResult = append(sumResult, tmp)
@@ -389,17 +390,14 @@ func parseTCP(result []string) []float64 {
 			}
 		}
 	}
-	klog.Info("Matrix:", fmtResult)
 	klog.Info("Final output:", sumResult)
 	return sumResult
-
 }
 
 func parseUDP(result []string) []float64 {
-	klog.Info("In Parse iperf")
+	klog.Info("In parseUDP")
 	dur := result[1]
-	fmtResult := make([][]string, 0)
-	sumResult := make([]float64, 0)
+	sumResult := make([]float64, 0, udpMtrCnt)
 	unitReg := regexp.MustCompile(`%|\[\s+|\]\s+|KBytes\s+|KBytes/sec\s+|sec\s+|pps\s*|ms\s+|/|\(|\)\s+`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
 	cnt := 0
@@ -407,20 +405,20 @@ func parseUDP(result []string) []float64 {
 		if !strings.Contains(op, "0.00-"+dur+".00") {
 			continue
 		}
-		//TODO try using one regex
 		frmtString := mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " ")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
-		fmtResult = append(fmtResult, split)
-		if len(split) >= 13 && "SUM" != split[1] && split[2] == "0.00-"+dur+".00" { //if the record is for the complete duration of run
+		//if the record is for the complete duration of run
+		if len(split) >= 13 && "SUM" != split[1] && split[2] == "0.00-"+dur+".00" {
 			for i, v := range split {
 				klog.Info("Split", i, ":", v)
-				if i == 0 || i == 1 || i == 2 || i == 14 { //first index and hte last is ""
+				//first index and hte last is ""
+				if i == 0 || i == 1 || i == 2 || i == 14 {
 					continue
 				}
 				tmp, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					klog.Error("conversion error", err)
+					klog.Error("Conversion error", err)
 				}
 				if len(sumResult) < 11 {
 					sumResult = append(sumResult, tmp)
@@ -440,14 +438,13 @@ func parseUDP(result []string) []float64 {
 			}
 		}
 	}
-	klog.Info("Matrix:", fmtResult)
 	klog.Info("Final output:", sumResult)
 	return sumResult
 }
 
 func parseHTTP(result []string) []float64 {
 	canAppend := false
-	sumResult := make([]float64, 0)
+	sumResult := make([]float64, 0, httpMetrCnt)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
 	for _, op := range result {
 		if canAppend != true && strings.HasPrefix(op, "Transactions:") {

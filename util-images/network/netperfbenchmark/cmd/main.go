@@ -13,73 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
+/*
+Package main implements initial startup of the worker process.
+*/
 package main
 
 import (
-	"errors"
-	"flag"
-	"strings"
-	"sync"
-
 	"k8s.io/klog"
-	"k8s.io/perf-tests/util-images/network/netperfbenchmark/api"
 	"k8s.io/perf-tests/util-images/network/netperfbenchmark/pkg/worker"
 )
 
-var (
-	mode     = flag.String("mode", "", "Mode that should be run. Supported values: controller or worker")
-	ratio    = flag.String("client-server-pod-ratio", "", "Client POD to Server POD ratio")
-	duration = flag.String("measurement-duration", "", "Duration of metric collection in seconds")
-	protocol = flag.String("protocol", "", "Protocol to be tested. Supported values: tcp or or udp or http")
-)
-
 func main() {
-	klog.InitFlags(flag.CommandLine)
-	flag.Parse()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	klog.Infof("Pod running in: %s mode %s ratio\n", *mode, *ratio)
-
-	err := validate(*mode, *ratio, *protocol, *duration)
-	if err != nil {
-		klog.Fatalf("Validation failed with err : %s", err)
-	}
-
-	switch *mode {
-	// case api.ControllerMode:
-	// 	controller.Start(*ratio)
-	// 	controller.WaitForWorkerPodReg()
-	// 	controller.ExecuteTest(*ratio, *duration, *protocol)
-	case api.WorkerMode:
-		worker.Start()
-	default:
-		klog.Fatalf("Unrecognized mode: %q", *mode)
-	}
-
-	wg.Wait()
-}
-
-func validate(mode string, ratio string, protocol string, duration string) error {
-
-	if mode != api.ControllerMode && mode != api.WorkerMode {
-		return errors.New("invalid mode")
-	}
-
-	if mode == api.WorkerMode {
-		return nil
-	}
-
-	if mode == api.ControllerMode && duration == "" {
-		return errors.New("Duration not specified. Mandatory param for controller-mode")
-	}
-	if !strings.Contains(ratio, api.RatioSeparator) {
-		return errors.New("invalid ratio. : missing")
-	}
-
-	if protocol != api.Protocol_TCP && protocol != api.Protocol_UDP && protocol != api.Protocol_HTTP {
-		return errors.New("invalid protocol")
-	}
-	return nil
+	klog.Infof("Worker Pod started")
+	worker.Start()
 }

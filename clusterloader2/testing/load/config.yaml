@@ -87,7 +87,7 @@
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
-{{$WAIT_AFTER_EXEC_DURATION := DefaultParam .CL2_WAIT_AFTER_EXEC_DURATION "0s"}}
+{{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
@@ -448,7 +448,7 @@ steps:
   - Identifier: WaitAfterExec
     Method: Sleep
     Params:
-        duration: {{$WAIT_AFTER_EXEC_DURATION}}
+        duration: {{$SLEEP_AFTER_EXEC_DURATION}}
 {{end}}
 {{if not $EXIT_AFTER_EXEC}}
 

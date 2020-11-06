@@ -206,7 +206,7 @@ func (npm *networkPerfMetricsMeasurement) storeWorkerPods() {
 }
 
 func (npm *networkPerfMetricsMeasurement) gather() (measurement.Summary, error) {
-	npm.GetMetricsForDisp()
+	formMetricsForDisplay(npm.podRatio, npm.protocol)
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version:   "v1",
 		DataItems: networkPerfRespForDisp.DataItems,
@@ -215,10 +215,6 @@ func (npm *networkPerfMetricsMeasurement) gather() (measurement.Summary, error) 
 		klog.Info("Pretty Print to Json Err:", err)
 	}
 	return measurement.CreateSummary(npm.String()+networkPerfRespForDisp.Client_Server_Ratio+networkPerfRespForDisp.Protocol+networkPerfRespForDisp.Service, "json", content), nil
-}
-
-func (npm *networkPerfMetricsMeasurement) GetMetricsForDisp() {
-	getMetricsForDisplay(npm.podRatio, npm.protocol)
 }
 
 func (npm *networkPerfMetricsMeasurement) validate(config *measurement.Config) error {

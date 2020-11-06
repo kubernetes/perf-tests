@@ -153,7 +153,7 @@ func execNToMTest(duration int, protocol string) {
 		sendReqToSrv(uniqPodPair, protocol, duration)
 		time.Sleep(50 * time.Millisecond)
 		//Get timestamp for first pair and use the same for all
-		if firstClientPodTime != 0 {
+		if firstClientPodTime == 0 {
 			firstClientPodTime = getTimeStampForPod()
 		}
 		sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
@@ -254,8 +254,8 @@ func collectMetrics(uniqPodPair uniquePodPair, protocol string) *MetricResponse 
 	return metricResp
 }
 
-//populateMetricValMap stores the metric response received from worker pod in intermediate map.
-func populateMetricValMap(uniqPodPair uniquePodPair, protocol string, metricResp *MetricResponse) {
+//populateMetricVal stores the metric response received from worker pod in intermediate map.
+func populateMetricVal(uniqPodPair uniquePodPair, protocol string, metricResp *MetricResponse) {
 	switch protocol {
 	case Protocol_TCP:
 		fallthrough
@@ -264,7 +264,7 @@ func populateMetricValMap(uniqPodPair uniquePodPair, protocol string, metricResp
 	case Protocol_HTTP:
 		metricVal[uniqPodPair.SrcPodName] = *metricResp
 	}
-	klog.V(3).Info("Metric in populateMetricValMap:", *metricResp)
+	klog.V(3).Info("Metric in populateMetricVal:", *metricResp)
 }
 
 func formNetPerfRespForDisp(protocol string, podRatioType string, finalPodRatio float64) NetworkPerfResp {
@@ -351,21 +351,13 @@ func FetchMetrics(podName string) *MetricResponse {
 	return &resp
 }
 
-func getMetricsForDisplay(podRatio string, protocol string) {
-	var metricResp *MetricResponse
+func formMetricsForDisplay(podRatio string, protocol string) {
 
-	for _, podPair := range uniqPodPairList {
-		metricResp = collectMetrics(podPair, protocol)
-		if metricResp != nil && metricResp.Error == "" {
-			populateMetricValMap(podPair, protocol, metricResp)
-		} else {
-			metricRespPendingList = append(metricRespPendingList, podPair)
-		}
-	}
+	retrieveMetricFromPods(protocol, &uniqPodPairList, &metricRespPendingList)
 
 	if len(metricRespPendingList) > 0 {
 		wait.Poll(time.Duration(1)*time.Second, time.Duration(5)*time.Second, func() (bool, error) {
-			return getMetricsFromPendingPods(protocol)
+			return formMetricsFromPendingPods(protocol)
 		})
 	}
 
@@ -374,25 +366,30 @@ func getMetricsForDisplay(podRatio string, protocol string) {
 	networkPerfRespForDisp = formNetPerfRespForDisp(protocol, ratioType, actualPodRatio)
 }
 
-func getMetricsFromPendingPods(protocol string) (bool, error) {
+func formMetricsFromPendingPods(protocol string) (bool, error) {
 	var pendingList []uniquePodPair
-	var metricResp *MetricResponse
 
 	if len(metricRespPendingList) == 0 {
 		return true, nil
 	}
 
-	for _, podPair := range metricRespPendingList {
+	retrieveMetricFromPods(protocol, &metricRespPendingList, &pendingList)
+	metricRespPendingList = pendingList
+	return false, nil
+}
+
+func retrieveMetricFromPods(protocol string, podList *[]uniquePodPair, pendingPodList *[]uniquePodPair) {
+	var pendingList []uniquePodPair
+	var metricResp *MetricResponse
+	for _, podPair := range *podList {
 		metricResp = collectMetrics(podPair, protocol)
 		if metricResp != nil || metricResp.Error == "" {
-			populateMetricValMap(podPair, protocol, metricResp)
+			populateMetricVal(podPair, protocol, metricResp)
 		} else {
 			pendingList = append(pendingList, podPair)
 		}
 	}
-
-	metricRespPendingList = pendingList
-	return false, nil
+	pendingPodList = &pendingList
 }
 
 func actualPodRatioForDisp() float64 {

@@ -40,8 +40,10 @@ import (
 )
 
 var listener net.Listener
-var resultCh = make(chan string, 100)
-var resultStatus = make(chan string, 1)
+var resultStatus = make(chan string)
+var result []string
+var tstDuration string
+var tstProtocol string
 var startedAt int64
 var futureTime int64
 var cmdErr atomic.Value
@@ -121,25 +123,17 @@ func Metrics(res http.ResponseWriter, req *http.Request) {
 		createResp(reply, &res)
 		return
 	}
-	var rslt []string
-	close(resultCh) //can be removed,if  following exact time based closure
-	for v := range resultCh {
-		rslt = append(rslt, v)
-	}
-
-	o, err := parseResult(rslt)
+	o, err := parseResult()
 	if err != nil {
 		reply.Error = err.Error()
 		createResp(reply, &res)
 		return
 	}
 	reply.Result = o
-
-	stInt := atomic.LoadInt64(&startedAt)
-	ftInt := atomic.LoadInt64(&futureTime)
-	stStr := strconv.FormatInt(stInt, 10)
-	ftStr := strconv.FormatInt(ftInt, 10)
-	dtStr := strconv.FormatInt(ftInt-stInt, 10)
+	//startime and other variables below can be removed in future, for debugging during initial runs
+	stStr := strconv.FormatInt(startedAt, 10)
+	ftStr := strconv.FormatInt(futureTime, 10)
+	dtStr := strconv.FormatInt(futureTime-startedAt, 10)
 	reply.WorkerStartTime = "StartedAt:" + stStr + " FutureTime:" + ftStr + " diffTime:" + dtStr
 	createResp(reply, &res)
 }
@@ -165,7 +159,7 @@ func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
-	go schedule(ts, dur,
+	go schedule(protocolTCP, ts, dur,
 		"iperf", []string{"-c", destIP, "-f", "K", "-l",
 			"20", "-b", "1M", "-i", "1", "-t", dur})
 	createResp(startWrkResponse{}, &res)
@@ -175,13 +169,12 @@ func StartTCPClient(res http.ResponseWriter, req *http.Request) {
 func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 	klog.Info("In StartTCPServer")
 	klog.Info("Req:", req)
-	resultCh <- protocolTCP
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
-	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-i", dur, "-P", numcl})
+	go schedule(protocolTCP, ts, dur, "iperf", []string{"-s", "-f", "K", "-i", dur, "-P", numcl})
 	createResp(startWrkResponse{}, &res)
 }
 
@@ -189,13 +182,12 @@ func StartTCPServer(res http.ResponseWriter, req *http.Request) {
 func StartUDPServer(res http.ResponseWriter, req *http.Request) {
 	//iperf -s -u -e -i <duration> -P <num parallel clients>
 	klog.Info("In StartUDPServer")
-	resultCh <- protocolUDP
 	ts, dur, _, numcl := parseURLParam(req)
 	if dur == "" || numcl == "" {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
-	go schedule(ts, dur, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", dur, "-P", numcl})
+	go schedule(protocolUDP, ts, dur, "iperf", []string{"-s", "-f", "K", "-u", "-e", "-i", dur, "-P", numcl})
 	createResp(startWrkResponse{}, &res)
 }
 
@@ -208,7 +200,7 @@ func StartUDPClient(res http.ResponseWriter, req *http.Request) {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
-	go schedule(ts, dur, "iperf", []string{"-c", destIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", dur})
+	go schedule(protocolUDP, ts, dur, "iperf", []string{"-c", destIP, "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", dur})
 	createResp(startWrkResponse{}, &res)
 }
 
@@ -223,14 +215,13 @@ func StartHTTPServer(res http.ResponseWriter, req *http.Request) {
 func StartHTTPClient(res http.ResponseWriter, req *http.Request) {
 	//// siege http://localhost:5301/test -d1 -r1 -c1 -t10S
 	//c concurrent r repetitions t time d delay in sec between 1 and d
-	resultCh <- protocolHTTP
 	klog.Info("In StartHTTPClient")
 	ts, dur, destIP, _ := parseURLParam(req)
 	if dur == "" || destIP == "" {
 		createResp(startWrkResponse{error: "missing/invalid required parameters"}, &res)
 		return
 	}
-	go schedule(ts, dur, "siege",
+	go schedule(protocolHTTP, ts, dur, "siege",
 		[]string{"http://" + destIP + ":" + httpPort + "/test",
 			"-d1", "-t" + dur + "S", "-c1"})
 	createResp(startWrkResponse{}, &res)
@@ -259,28 +250,20 @@ func parseURLParam(req *http.Request) (int64, string, string, string) {
 
 }
 
-func schedule(futureTimestamp int64, duration string, command string, args []string) {
+func schedule(protocol string, futureTimestamp int64, duration string, command string, args []string) {
 	//If future time is in past,run immediately
 	klog.Info("About to wait for futuretime:", futureTimestamp)
 	klog.Info("Current time:", time.Now().Unix())
 	time.Sleep(time.Duration(futureTimestamp-time.Now().Unix()) * time.Second)
-	atomic.StoreInt64(&startedAt, time.Now().Unix())
-	atomic.StoreInt64(&futureTime, futureTimestamp)
+	startedAt = time.Now().Unix()
+	futureTime = futureTimestamp
+	tstDuration = duration
+	tstProtocol = protocol
 	execCmd(duration, command, args)
 }
 
-// func execCmd2(path string, args []string, duration ...string) {
-// 	cmd := exec.Command(path, args...)
-// 	out, err := cmd.CombinedOutput()
-// 	if err != nil {
-// 		klog.Error("failed executing ", path, args, err)
-// 	}
-// 	klog.Info("Output:" + string(out))
-// }
-
 func execCmd(duration string, command string, args []string) {
 	cmd := exec.Command(command, args...)
-	resultCh <- duration
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		klog.Error("unable to obtain Stdout:", err)
@@ -294,11 +277,11 @@ func execCmd(duration string, command string, args []string) {
 		return
 	}
 	multiRdr := io.MultiReader(out, eout)
-	go scanOutput(&multiRdr)
 	err = cmd.Start()
 	if err != nil {
 		resultStatus <- err.Error()
 	}
+	scanOutput(&multiRdr)
 }
 
 func scanOutput(out *io.Reader) {
@@ -310,7 +293,7 @@ func scanOutput(out *io.Reader) {
 		if l == "" {
 			continue
 		}
-		resultCh <- l
+		result = append(result, l)
 	}
 	klog.Info("Command executed,sending result back")
 	if err := scanner.Err(); err != nil {
@@ -321,9 +304,9 @@ func scanOutput(out *io.Reader) {
 	resultStatus <- "OK"
 }
 
-func parseResult(result []string) ([]float64, error) {
+func parseResult() ([]float64, error) {
 	klog.Info("Parsing", result[0])
-	switch result[0] {
+	switch tstProtocol {
 	case protocolTCP:
 		return parseTCP(result), nil
 	case protocolUDP:
@@ -338,23 +321,23 @@ func parseResult(result []string) ([]float64, error) {
 
 func parseTCP(result []string) []float64 {
 	klog.Info("In parseTCP")
-	dur := result[1]
 	sumResult := make([]float64, 0, tcpMtrCnt)
 	unitReg := regexp.MustCompile(`\[\s+|\]\s+|KBytes\s+|KBytes/sec\s*|sec\s+|ms\s+|us\s*`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
+	hypSpcReg := regexp.MustCompile(`\-\s+`)
 	cnt := 0
 	sessionID := make(map[string]bool)
 	for _, op := range result {
 		klog.Info(op)
-		if !strings.Contains(op, "0.0-"+dur+".0") { //single digit dur has probs
+		if !strings.Contains(op, "0.0-"+tstDuration+".0") { //single digit dur has probs
 			continue
 		}
-		frmtString := mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " ")
+		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
 		//for bug in iperf tcp
 		//if the record is for the complete duration of run
-		if len(split) >= 3 && "SUM" != split[1] && split[2] == "0.0-"+dur+".0" {
+		if len(split) >= 3 && "SUM" != split[1] && split[2] == "0.0-"+tstDuration+".0" {
 			if _, ok := sessionID[split[1]]; ok {
 				continue
 			}
@@ -396,20 +379,20 @@ func parseTCP(result []string) []float64 {
 
 func parseUDP(result []string) []float64 {
 	klog.Info("In parseUDP")
-	dur := result[1]
 	sumResult := make([]float64, 0, udpMtrCnt)
 	unitReg := regexp.MustCompile(`%|\[\s+|\]\s+|KBytes\s+|KBytes/sec\s+|sec\s+|pps\s*|ms\s+|/|\(|\)\s+`)
 	mulSpaceReg := regexp.MustCompile(`\s+`)
+	hypSpcReg := regexp.MustCompile(`\-\s+`)
 	cnt := 0
 	for _, op := range result {
-		if !strings.Contains(op, "0.00-"+dur+".00") {
+		if !strings.Contains(op, "0.00-"+tstDuration+".00") {
 			continue
 		}
-		frmtString := mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " ")
+		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
 		//if the record is for the complete duration of run
-		if len(split) >= 13 && "SUM" != split[1] && split[2] == "0.00-"+dur+".00" {
+		if len(split) >= 13 && "SUM" != split[1] && split[2] == "0.00-"+tstDuration+".00" {
 			for i, v := range split {
 				klog.Info("Split", i, ":", v)
 				//first index and hte last is ""

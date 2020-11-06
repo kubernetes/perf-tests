@@ -198,7 +198,7 @@ func formUniquePodPair(originalMap map[string][]workerPodData) {
 func getUnusedPod(unusedPodList *[]workerPodData) (workerPodData, error) {
 	var unusedPod workerPodData
 	if len(*unusedPodList) == 0 {
-		return unusedPod, errors.New("Unused pod list empty")
+		return unusedPod, errors.New("unused pod list empty")
 	}
 	numOfPods := len(*unusedPodList)
 	//extract last pod of slice
@@ -234,8 +234,8 @@ func sendReqToSrv(uniqPodPair uniquePodPair, protocol string, duration int) {
 
 func getTimeStampForPod() int64 {
 	currTime := time.Now()
-	initDelayInSec := time.Second * time.Duration(initialDelayForTCExec)
-	futureTime := currTime.Add(initDelayInSec).Unix()
+	initDelay := time.Second * time.Duration(initialDelayForTCExec)
+	futureTime := currTime.Add(initDelay).Unix()
 	return futureTime
 }
 
@@ -352,9 +352,7 @@ func FetchMetrics(podName string) *MetricResponse {
 }
 
 func formMetricsForDisplay(podRatio string, protocol string) {
-
 	retrieveMetricFromPods(protocol, &uniqPodPairList, &metricRespPendingList)
-
 	if len(metricRespPendingList) > 0 {
 		wait.Poll(time.Duration(1)*time.Second, time.Duration(5)*time.Second, func() (bool, error) {
 			return formMetricsFromPendingPods(protocol)
@@ -379,17 +377,15 @@ func formMetricsFromPendingPods(protocol string) (bool, error) {
 }
 
 func retrieveMetricFromPods(protocol string, podList *[]uniquePodPair, pendingPodList *[]uniquePodPair) {
-	var pendingList []uniquePodPair
 	var metricResp *MetricResponse
 	for _, podPair := range *podList {
 		metricResp = collectMetrics(podPair, protocol)
-		if metricResp != nil || metricResp.Error == "" {
+		if metricResp != nil && metricResp.Error == "" {
 			populateMetricVal(podPair, protocol, metricResp)
 		} else {
-			pendingList = append(pendingList, podPair)
+			*pendingPodList = append(*pendingPodList, podPair)
 		}
 	}
-	pendingPodList = &pendingList
 }
 
 func actualPodRatioForDisp() float64 {

@@ -33,7 +33,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"k8s.io/klog"
@@ -46,7 +45,6 @@ var tstDuration string
 var tstProtocol string
 var startedAt int64
 var futureTime int64
-var cmdErr atomic.Value
 var iperfUDPFn = []string{"", "", "", "Sum", "Sum", "Sum", "Sum", "Sum", "Avg", "Avg", "Min", "Max", "Avg", "Sum"}
 var iperfTCPFn = []string{"Sum", "Avg"}
 

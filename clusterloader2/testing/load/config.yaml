@@ -572,6 +572,12 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Sleep
+  measurements:
+  - Identifier: SleepAfterLatencyPods
+    Method: Sleep
+    Params:
+        duration: 30m
 - name: Deleting latency pods
   phases:
   - namespaceRange:

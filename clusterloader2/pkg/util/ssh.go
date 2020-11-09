@@ -36,9 +36,9 @@ type GCloudSSHExecutor struct{}
 // Exec executes command on a given node with stdin provided.
 // If stdin is nil, the process reads from null device.
 func (e *GCloudSSHExecutor) Exec(command string, node *v1.Node, stdin io.Reader) error {
-	zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
+	zone, ok := node.Labels["topology.kubernetes.io/zone"]
 	if !ok {
-		return fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)
+		return fmt.Errorf("unknown zone for %q node: no topology.kubernetes.io/zone label", node.Name)
 	}
 	cmd := exec.Command("gcloud", "compute", "ssh", "--zone", zone, "--command", command, node.Name)
 	cmd.Stdin = stdin

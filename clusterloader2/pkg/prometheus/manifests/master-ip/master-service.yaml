@@ -23,7 +23,7 @@ spec:
     - name: kubelet
       port: 10250
     - name: kube-scheduler
-      port: 10251
+      port: 10259
     - name: kube-controller-manager
       port: 10252
     {{end}}

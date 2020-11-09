@@ -34,7 +34,7 @@ func getComponentProtocolAndPort(componentName string) (string, int, error) {
 	case "kube-controller-manager":
 		return "http://", 10252, nil
 	case "kube-scheduler":
-		return "http://", 10251, nil
+		return "https://", 10259, nil
 	}
 	return "", -1, fmt.Errorf("port for component %v unknown", componentName)
 }

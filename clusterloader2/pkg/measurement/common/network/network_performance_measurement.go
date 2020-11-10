@@ -265,4 +265,7 @@ func (npm *networkPerfMetricsMeasurement) Dispose() {
 	if err := client.WaitForDeleteNamespace(k8sClient, netperfNamespace); err != nil {
 		klog.Errorf("error while waiting for %s namespace to be deleted: %v", netperfNamespace, err)
 	}
+
+	//Closing the channels used
+	closeCh()
 }

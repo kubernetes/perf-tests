@@ -44,10 +44,11 @@ var uniqPodPairList []uniquePodPair
 var metricRespPendingList []uniquePodPair
 var k8sClient clientset.Interface
 
-var podPairCh = make(chan uniquePodPair)
 var networkPerfRespForDisp NetworkPerfResp
 
 const WorkerListenPort = "5003"
+
+var podPairCh chan uniquePodPair
 
 func (npm *networkPerfMetricsMeasurement) startCtrl() {
 	k8sClient = npm.k8sClient
@@ -56,6 +57,7 @@ func (npm *networkPerfMetricsMeasurement) startCtrl() {
 	clientPodNum, _, _ := deriveClientServerPodNum(npm.podRatio)
 	uniqPodPairList = make([]uniquePodPair, 0, clientPodNum)
 	metricRespPendingList = make([]uniquePodPair, 0, clientPodNum)
+	podPairCh = make(chan uniquePodPair)
 }
 
 func populateWorkerPodList(data *workerPodData) {
@@ -416,6 +418,10 @@ func messageWorker(podName string, params map[string]string, msgType string) *[]
 
 func getUnit(metric string) string {
 	return metricUnitMap[metric]
+}
+
+func closeCh() {
+	close(podPairCh)
 }
 
 type float64Slice []float64

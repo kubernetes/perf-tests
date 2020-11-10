@@ -327,10 +327,10 @@ func parseTCP(result []string) []float64 {
 	sessionID := make(map[string]bool)
 	for _, op := range result {
 		klog.Info(op)
-		if !strings.Contains(op, "0.0-"+tstDuration+".0") { //single digit dur has probs
+		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
+		if !strings.Contains(frmtString, "0.0-"+tstDuration+".0") { //single digit dur has probs
 			continue
 		}
-		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
 		//for bug in iperf tcp
@@ -383,10 +383,10 @@ func parseUDP(result []string) []float64 {
 	hypSpcReg := regexp.MustCompile(`\-\s+`)
 	cnt := 0
 	for _, op := range result {
-		if !strings.Contains(op, "0.00-"+tstDuration+".00") {
+		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
+		if !strings.Contains(frmtString, "0.00-"+tstDuration+".00") {
 			continue
 		}
-		frmtString := hypSpcReg.ReplaceAllString(mulSpaceReg.ReplaceAllString(unitReg.ReplaceAllString(op, " "), " "), "-")
 		klog.Info("Trim info:", frmtString)
 		split := strings.Split(frmtString, " ")
 		//if the record is for the complete duration of run

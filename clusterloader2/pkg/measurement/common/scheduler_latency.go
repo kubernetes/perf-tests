@@ -17,15 +17,19 @@ limitations under the License.
 package common
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/master/ports"
 	schedulermetric "k8s.io/kubernetes/pkg/scheduler/metrics"
@@ -293,6 +297,131 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		return "", fmt.Errorf("unknown REST request")
 	}
 
+	config, err := clientcmd.LoadFromFile("/workspace/.kube/config")
+	if err != nil {
+		return "", fmt.Errorf("error loading kubeconfig: %v", err)
+	}
+
+	up := ""
+	for _, authInfo := range config.AuthInfos {
+		// if authInfo.Username != "" && authInfo.Password != "" {
+		// 	up = base64.StdEncoding.EncodeToString([]byte(authInfo.Username + ":" + authInfo.Password))
+		// }
+		if authInfo.Token != "" {
+			up = authInfo.Token
+		}
+		if len(authInfo.ClientCertificateData) > 0 && len(authInfo.ClientKeyData) > 0 {
+			// clientCertificateData, err := base64.StdEncoding.DecodeString(string(authInfo.ClientCertificateData))
+			// if err != nil {
+			// 	fmt.Printf("unable to decode ClientCertificateData: %v, data: %v\n", err, string(authInfo.ClientCertificateData))
+			// }
+			if err := ioutil.WriteFile("/tmp/client.crt", authInfo.ClientCertificateData, 0644); err != nil {
+				fmt.Printf("unable to write ClientCertificateData: %v\n", err)
+			}
+			// clientKeyData, err2 := base64.StdEncoding.DecodeString(string(authInfo.ClientKeyData))
+			// if err2 != nil {
+			// 	fmt.Printf("unable to decode ClientKeyData: %v, data: %v\n", err2, string(authInfo.ClientKeyData))
+			// }
+			if err := ioutil.WriteFile("/tmp/key.crt", authInfo.ClientKeyData, 0644); err != nil {
+				fmt.Printf("unable to write ClientCertificateData: %v\n", err)
+			}
+			fmt.Printf("clientCertificateData: %v\n", string(authInfo.ClientCertificateData))
+			fmt.Printf("clientKeyData: %v\n", string(authInfo.ClientKeyData))
+		}
+	}
+
+	for _, cluster := range config.Clusters {
+		if len(cluster.CertificateAuthorityData) > 0 {
+			if err := ioutil.WriteFile("/tmp/ca.crt", cluster.CertificateAuthorityData, 0644); err != nil {
+				fmt.Printf("unable to write CertificateAuthorityData: %v\n", err)
+			}
+		}
+	}
+
+	// fmt.Printf("username:password=%v\n", up)
+	fmt.Printf("token=%v\n", up)
+
+	cmd := exec.Command("kubectl", "get", "pods", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "-o", "yaml")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err = cmd.Run()
+	fmt.Printf("stdout: %v, err: %v\n", out.String(), err)
+
+	// kubectl exec -n openshift-kube-scheduler ${POD} curl https://localhost:${PORT}/metrics -H "Authorization: Bearer $CLUSTER_ADMIN_TOKEN" -k
+	// cmd = exec.Command("kubectl", "exec", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "--", fmt.Sprintf("curl https://localhost:%v/metrics -H \"Authorization: Bearer %v\" -k", ports.KubeSchedulerPort, up))
+	{
+		cmd = exec.Command("timeout", "60s", "kubectl", "port-forward", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), fmt.Sprintf("%v:%v", ports.KubeSchedulerPort, ports.KubeSchedulerPort))
+		var out2, out3 bytes.Buffer
+		cmd.Stdout = &out2
+		cmd.Stderr = &out3
+		err = cmd.Start()
+		fmt.Printf("\n\ntimeout: stdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	}
+	time.Sleep(10 * time.Second)
+	{
+		cmd = exec.Command("curl", "--key", "/tmp/key.crt", "--cert", "/tmp/client.crt", "--cacert", "/tmp/ca.crt", "-v", fmt.Sprintf("https://localhost:%v/metrics", ports.KubeSchedulerPort), "-H", fmt.Sprintf("Authorization: Bearer %v", up), "-k")
+		var out2, out3 bytes.Buffer
+		cmd.Stdout = &out2
+		cmd.Stderr = &out3
+		err = cmd.Run()
+		fmt.Printf("\n\ncurl: stdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	}
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "-t", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "-c", "kube-scheduler", "/usr/local/bin/ls")
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "-t", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "-c", "kube-scheduler", "/usr/local/bin/curl")
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "-t", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "-c", "kube-scheduler", "/usr/local/bin/echo $PATH")
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "-t", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName), "-c", "kube-scheduler", "/usr/bin/ls")
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "--help")
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", fmt.Sprintf("kube-scheduler-%v", masterName))
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
+	// {
+	// 	cmd = exec.Command("kubectl", "exec", "-n", metav1.NamespaceSystem, fmt.Sprintf("kube-scheduler-%v", masterName))
+	// 	var out2, out3 bytes.Buffer
+	// 	cmd.Stdout = &out2
+	// 	cmd.Stderr = &out3
+	// 	err = cmd.Run()
+	// 	fmt.Printf("\n\nstdout: %v, stderr: %v, err: %v\n", out2.String(), out3.String(), err)
+	// }
 	var responseText string
 	if masterRegistered {
 		ctx, cancel := context.WithTimeout(context.Background(), singleRestCallTimeout)
@@ -301,11 +430,12 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		body, err := c.CoreV1().RESTClient().Verb(opUpper).
 			Namespace(metav1.NamespaceSystem).
 			Resource("pods").
-			Name(fmt.Sprintf("kube-scheduler-%v:%v", masterName, ports.KubeSchedulerPort)).
+			Name(fmt.Sprintf("https:kube-scheduler-%v:%v", masterName, ports.KubeSchedulerPort)).
 			SubResource("proxy").
 			Suffix("metrics").
+			SetHeader("Authorization", "Bearer "+up).
 			Do(ctx).Raw()
-
+		fmt.Printf("response body: %v\n", string(body))
 		if err != nil {
 			klog.Errorf("Send request to scheduler failed with err: %v", err)
 			return "", err

@@ -42,7 +42,10 @@ spec:
     port: kube-scheduler
     scheme: https
     tlsConfig:
+      caFile: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+      serverName: kubernetes
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   - interval: 5s
     port: kube-controller-manager
   selector:

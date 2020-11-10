@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -53,6 +54,11 @@ func PrepareConfig(path string) (config *restclient.Config, err error) {
 }
 
 func restclientConfig(path string) (*clientcmdapi.Config, error) {
+	kubeconfigBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("kubeconfigBytes: %v\n", string(kubeconfigBytes))
 	c, err := clientcmd.LoadFromFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading kubeconfig: %v", err)

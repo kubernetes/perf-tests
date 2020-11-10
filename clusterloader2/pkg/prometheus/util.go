@@ -68,6 +68,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 	if err := json.Unmarshal(raw, &response); err != nil {
 		return false, err // This shouldn't happen, return error.
 	}
+	// fmt.Printf("\n\nraw: %v\n\n", string(raw))
 	nReady, nTotal := 0, 0
 	var exampleNotReadyTarget Target
 	for _, t := range response.Data.ActiveTargets {
@@ -79,6 +80,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 			nReady++
 			continue
 		}
+		// fmt.Printf("exampleNotReadyTarget: %v\n", t)
 		exampleNotReadyTarget = t
 	}
 	if nTotal < minActiveTargets {

@@ -41,6 +41,7 @@
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
 {{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -972,7 +973,7 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
-      enableViolations: true
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}

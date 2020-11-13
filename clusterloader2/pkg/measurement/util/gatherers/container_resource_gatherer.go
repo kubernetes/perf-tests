@@ -40,12 +40,8 @@ type NodesSet int
 const (
 	// AllNodes - all containers on all nodes
 	AllNodes NodesSet = 0
-	// MasterNodes - all containers on Master nodes only
-	MasterNodes NodesSet = 1
-	// MasterAndDNSNodes - all containers on Master nodes and DNS containers on other nodes
-	MasterAndDNSNodes NodesSet = 2
 	// MasterAndNonDaemons - all containers on Master nodes and non-daemons on other nodes.
-	MasterAndNonDaemons NodesSet = 3
+	MasterAndNonDaemons NodesSet = 1
 )
 
 // ResourceUsageSummary represents summary of resource usage per container.
@@ -126,12 +122,6 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 
 		nodesToConsider := make(map[string]bool)
 		for _, pod := range pods.Items {
-			if (options.Nodes == MasterNodes) && !masterNodes.Has(pod.Spec.NodeName) {
-				continue
-			}
-			if (options.Nodes == MasterAndDNSNodes) && !masterNodes.Has(pod.Spec.NodeName) && pod.Labels["k8s-app"] != "kube-dns" {
-				continue
-			}
 			if (options.Nodes == MasterAndNonDaemons) && !masterNodes.Has(pod.Spec.NodeName) && isDaemonPod(&pod) {
 				continue
 			}
@@ -141,7 +131,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			for _, container := range pod.Status.ContainerStatuses {
 				g.containerIDs = append(g.containerIDs, container.Name)
 			}
-			if options.Nodes == MasterAndDNSNodes || options.Nodes == MasterAndNonDaemons {
+			if options.Nodes == MasterAndNonDaemons {
 				nodesToConsider[pod.Spec.NodeName] = true
 			}
 		}

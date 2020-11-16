@@ -5,8 +5,33 @@ metadata:
 {{if not (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - only 10% deployments will have non-immutable ConfigMap.
 immutable: true
 {{end}}
+# Every pod that needs its own configmap entry should be unconditionally
+# added below. That allows us to avoid complicating it with ifs.
 data:
-  data.yaml: |-
-    a: 1
-    b: 2
-    c: 3
+  # all-queries is used by DNS tests.
+  all-queries: |
+    kubernetes A
+    kubernetes AAAA
+    kubernetes.cluster.local A
+    kubernetes.cluster.local AAAA
+    kubernetes.svc.cluster.local A
+    kubernetes.svc.cluster.local AAAA
+    kubernetes.default.svc.cluster.local A
+    kubernetes.default.svc.cluster.local AAAA
+    google.com.svc.cluster.local A
+    google.com.svc.cluster.local AAAA
+    google.com.default.svc.cluster.local A
+    google.com.default.svc.cluster.local AAAA
+    google.com.cluster.local A
+    google.com.cluster.local AAAA
+    google.com A
+    google.com AAAA
+    1-2-3-4.default.pod.cluster.local A
+    metrics-server A
+    metrics-server AAAA
+    metrics-server.cluster.local A
+    metrics-server.cluster.local AAAA
+    metrics-server.svc.cluster.local A
+    metrics-server.svc.cluster.local AAAA
+    metrics-server.kube-system.svc.cluster.local A
+    metrics-server.kube-system.svc.cluster.local AAAA

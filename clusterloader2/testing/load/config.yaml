@@ -199,7 +199,7 @@ steps:
     tuningSet: Sequence
     objectBundle:
     - basename: medium-service
-      objectTemplatePath: service.yaml
+      objectTemplatePath: service2.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

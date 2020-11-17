@@ -395,10 +395,13 @@ steps:
       {{range $EXEC_COMMAND}}
       - {{.}}
       {{end}}
+
+- name: Sleep
+  measurements:
   - Identifier: WaitAfterExec
     Method: Sleep
     Params:
-        duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
 {{end}}
 {{if not $EXIT_AFTER_EXEC}}
 

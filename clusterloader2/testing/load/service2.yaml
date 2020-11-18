@@ -10,6 +10,7 @@ metadata:
 spec:
   selector:
     svc: {{.Name}}
+    app: dns-perf-client
   ports:
   - port: 80
     targetPort: 80

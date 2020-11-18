@@ -1,12 +1,12 @@
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
   labels:
     k8s-app: dns-perf-client
   name: dns-perf-client
   namespace: monitoring
 spec:
-  endpoints:
+  podMetricsEndpoints:
     - interval: 10m
       targetPort: 80
   jobLabel: k8s-app

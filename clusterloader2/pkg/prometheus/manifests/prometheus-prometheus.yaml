@@ -41,6 +41,8 @@ spec:
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
+  podMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
   version: v2.9.2
   retention: 7d
   storage:

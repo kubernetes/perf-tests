@@ -47,6 +47,7 @@ rules:
   - services/finalizers
   - endpoints
   verbs:
+  - list
   - get
   - create
   - update

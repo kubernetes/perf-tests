@@ -8,6 +8,7 @@ metadata:
   name: k8s
   namespace: monitoring
 spec:
+  logLevel: debug
   alerting:
     alertmanagers:
     - name: alertmanager-main

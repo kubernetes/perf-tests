@@ -19,6 +19,17 @@ spec:
   replicas: 1
   resources:
     requests:
+      cpu: 200m
+      {{if $PROMETHEUS_SCRAPE_KUBELETS}}
+      # TODO(oxddr): figure out memory limit
+      memory: 10Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      {{else}}
+      # Start with 2Gi and add 2Gi for each 2K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      {{end}}
+    limits: 
+      # Start with 500m and add 500m for each 1K nodes.
+      cpu: {{MultiplyInt 500 (AddInt 1 (DivideInt .Nodes 1000))}}m
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
       # TODO(oxddr): figure out memory limit
       memory: 10Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi

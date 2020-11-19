@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	oomEventMsgRegex = regexp.MustCompile(`Kill process (\d+) \((.+)\) score \d+ or sacrifice child\nKilled process \d+ .+ total-vm:(\d+kB), anon-rss:\d+kB, file-rss:\d+kB.*`)
+	oomEventMsgRegex = regexp.MustCompile(`Killed process (\d+) \((.+)\) total-vm:(\d+kB), anon-rss:\d+kB, file-rss:\d+kB.*`)
 )
 
 func init() {

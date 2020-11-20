@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o errexit
+set -o nounset
+
 # $1 - Test type.
 # $2 - Optional test output directory path. If not provided default "out" is used.
 # $3 - Optional json metrics directory path. If not provided metrics will not be created.

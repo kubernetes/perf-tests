@@ -41,7 +41,8 @@ _remove_query_pattern=["setting3[.]yeahost[.]com"]
 MAX_TEST_SVC = 20
 
 def add_prefix(prefix, text):
-  return '\n'.join([prefix + l for l in text.decode().split('\n')])
+  decoded_text = isinstance(text, str) and str or text.decode()
+  return '\n'.join([prefix + l for l in decoded_text.split('\n')])
 
 
 class Runner(object):
@@ -161,8 +162,6 @@ class Runner(object):
     """
     cmdline = [self.args.kubectl_exec] + list(args)
     _log.debug('kubectl %s', cmdline)
-    if stdin:
-      _log.debug('kubectl stdin\n%s', add_prefix('in  | ', stdin))
     proc = subprocess.Popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = proc.communicate(stdin)
     ret = proc.wait()
@@ -171,11 +170,11 @@ class Runner(object):
     _log.debug('kubectl stdout\n%s', add_prefix('out | ', out))
     _log.debug('kubectl stderr\n%s', add_prefix('err | ', err))
 
-    return proc.wait(), out, err
+    return proc.wait(), out.decode(), err.decode()
 
   def _create(self, yaml_obj):
     _log.debug('applying yaml: %s', yaml.dump(yaml_obj))
-    ret, out, err = self._kubectl(yaml.dump(yaml_obj), 'create', '-f', '-')
+    ret, out, err = self._kubectl(yaml.dump(yaml_obj, encoding='utf-8'), 'create', '-f', '-')
     if ret != 0:
       _log.error('Could not create dns: %d\nstdout:\n%s\nstderr:%s\n',
                  ret, out, err)
@@ -260,8 +259,8 @@ class Runner(object):
       results = {}
       results['params'] = test_case.to_yaml()
       results['code'] = code
-      results['stdout'] = out.decode().split('\n')
-      results['stderr'] = err.decode().split('\n')
+      results['stdout'] = out.split('\n')
+      results['stderr'] = err.split('\n')
       results['data'] = {}
 
       try:
@@ -280,8 +279,8 @@ class Runner(object):
         results['data']['max_kubedns_cpu'] = res_usage.get()
         results['data']['max_kubedns_memory'] = res_usage.get()
         results['data']['histogram'] = parser.histogram
-      except Exception as exc:
-        _log.error('Error parsing results: %s', exc)
+      except Exception:
+        _log.exception('Error parsing results.')
         results['data']['ok'] = False
         results['data']['msg'] = 'parsing error:\n%s' % traceback.format_exc()
 
@@ -370,7 +369,7 @@ class Runner(object):
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
         raise Exception('error getting pod information: %d', code)
-      client_pods=client_pods.rstrip().decode().split('\n')
+      client_pods=client_pods.rstrip().split('\n')
       _log.info('got client pods "%s"', client_pods)
       if len(client_pods) > 0:
         break

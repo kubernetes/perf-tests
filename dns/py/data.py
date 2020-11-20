@@ -70,7 +70,7 @@ class Parser(object):
   Parses dnsperf output file.
   """
   def __init__(self, out):
-    self.lines = [x.strip() for x in out.decode().split('\n')]
+    self.lines = [x.strip() for x in out.split('\n')]
     self.results = {}
     self.histogram = []
 

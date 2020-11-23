@@ -301,6 +301,8 @@ func calculateMetricDataValue(dataElem *measurementutil.DataItem, podRatioType s
 				aggrPodPairMetricSlice = append(aggrPodPairMetricSlice, metricResp.Result[metricIndex])
 			}
 		}
+		dataElem.Data[Perc05] = getPercentile(aggrPodPairMetricSlice, Percentile05)
+		dataElem.Data[Perc50] = getPercentile(aggrPodPairMetricSlice, Percentile50)
 		dataElem.Data[Perc95] = getPercentile(aggrPodPairMetricSlice, Percentile95)
 		dataElem.Data[Num_Pod_Pairs] = finalPodRatio
 		klog.Info("Aggregate Metric value: ", aggrPodPairMetricSlice)

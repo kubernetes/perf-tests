@@ -127,15 +127,15 @@ const (
 )
 
 const (
-	Percentile90 = 0.90
+	Percentile05 = 0.05
+	Percentile50 = 0.50
 	Percentile95 = 0.95
-	Percentile99 = 0.99
 )
 
 const (
-	Perc90        = "Perc90"
+	Perc05        = "Perc05"
+	Perc50        = "Perc50"
 	Perc95        = "Perc95"
-	Perc99        = "Perc99"
 	Min           = "min"
 	Max           = "max"
 	Avg           = "avg"

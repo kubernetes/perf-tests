@@ -19,7 +19,6 @@
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
-{{$ENABLE_DENSITY_TEST := DefaultParam .CL2_ENABLE_DENSITY_TEST false}}
 # LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
 # Increasing allocation of both memory and cpu by 10%
 # decreases the value of priority function in scheduler by one point.
@@ -262,9 +261,7 @@ steps:
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -286,9 +283,7 @@ steps:
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -311,9 +306,7 @@ steps:
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -405,7 +398,6 @@ steps:
 {{end}}
 {{if not $EXIT_AFTER_EXEC}}
 
-{{if $ENABLE_DENSITY_TEST}}
 # BEGIN scheduler throughput
 - name: Creating scheduler throughput measurements
   measurements:
@@ -544,7 +536,6 @@ steps:
     Params:
       action: gather
 # END pod-startup-latency
-{{end}}
 
 - name: Scaling and updating objects
   phases:
@@ -562,9 +553,7 @@ steps:
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -578,9 +567,7 @@ steps:
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -595,9 +582,7 @@ steps:
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

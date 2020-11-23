@@ -20,12 +20,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	clientset "k8s.io/client-go/kubernetes"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -112,31 +113,12 @@ func executeTest(ratio string, duration int, protocol string) {
 
 	switch ratioType {
 	case OneToOne:
-		exec1To1Test(duration, protocol)
+		fallthrough
 	case ManyToMany:
 		execNToMTest(duration, protocol)
 	default:
 		klog.Error("Invalid Pod Ratio")
 	}
-}
-
-//exec1To1Test executes testcase for 1 client, 1 server pod.
-func exec1To1Test(duration int, protocol string) {
-	var uniqPodPair uniquePodPair
-
-	if len(workerPodList) == 1 {
-		klog.Error("Worker pods exist on same worker-node. Not executing Tc")
-		return
-	}
-
-	go formUniquePodPair(workerPodList)
-
-	uniqPodPair = <-podPairCh
-
-	sendReqToSrv(uniqPodPair, protocol, duration)
-	time.Sleep(50 * time.Millisecond)
-	firstClientPodTime = getTimeStampForPod()
-	sendReqToClient(uniqPodPair, protocol, duration, firstClientPodTime)
 }
 
 //execNToMTest executes testcase for N client, M server pods.

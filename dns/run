@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o errexit
+set -o nounset
+
 # $1 - Test type.
 # $2 - Optional test output directory path. If not provided default "out" is used.
 # $3 - Optional json metrics directory path. If not provided metrics will not be created.
@@ -22,17 +25,17 @@ outDir=${2:-"out"}
 nodeLocalIP=${4:-"169.254.20.10"}
 mkdir -p ${outDir}
 
-pip2 install numpy
+pip3 install numpy
 
 case "$1" in
   kube-dns )
-    python2 py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    python3 py/run_perf.py --params params/kubedns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   core-dns )
-    python2 py/run_perf.py --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
+    python3 py/run_perf.py --params params/coredns/default.yaml --out-dir ${outDir} --use-cluster-dns
     ;;
   node-local-dns )
-    python2 py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
+    python3 py/run_perf.py --params params/nodelocaldns/default.yaml --out-dir ${outDir} --nodecache-ip ${nodeLocalIP}
     ;;
 esac
 

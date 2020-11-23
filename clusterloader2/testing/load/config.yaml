@@ -5,10 +5,10 @@
 # - Only half of Deployments will be assigned 1-1 to existing SVCs.
 
 #Constants
-{{$NODE_MODE := DefaultParam .NODE_MODE "allnodes"}}
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
 {{$BIG_GROUP_SIZE := DefaultParam .BIG_GROUP_SIZE 250}}
 {{$MEDIUM_GROUP_SIZE := DefaultParam .MEDIUM_GROUP_SIZE 30}}
 {{$SMALL_GROUP_SIZE := DefaultParam .SMALL_GROUP_SIZE 5}}
@@ -16,24 +16,32 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
-{{$ENABLE_PROMETHEUS_API_RESPONSIVENESS := DefaultParam .ENABLE_PROMETHEUS_API_RESPONSIVENESS false}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
-{{$ENABLE_DENSITY_TEST := DefaultParam .CL2_ENABLE_DENSITY_TEST false}}
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+# LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
+# Increasing allocation of both memory and cpu by 10%
+# decreases the value of priority function in scheduler by one point.
+# This results in decreased probability of choosing the same node again.
+# TODO(https://github.com/kubernetes/perf-tests/issues/1024): See whether we can get rid of this
+{{$LATENCY_POD_CPU := DefaultParam .CL2_LATENCY_POD_CPU 100}}
+{{$LATENCY_POD_MEMORY := DefaultParam .CL2_LATENCY_POD_MEMORY 350}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
-{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER false}}
+{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
 {{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
-{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK false}}
+{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
 {{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
 {{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 {{$saturationTime := DivideInt $totalPods $LOAD_TEST_THROUGHPUT}}
+{{$deletionTime := DivideInt $totalPods $DELETE_TEST_THROUGHPUT}}
 # bigDeployments - 1/4 of namespace pods should be in big Deployments.
 {{$bigDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $BIG_GROUP_SIZE)}}
 # mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
@@ -60,14 +68,14 @@
 {{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) (MultiplyInt 2 .Nodes)}}
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
-{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 0}}
+{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
 # END scheduler-throughput section
 
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Investigate and get rid of this section.
 # BEGIN pod-startup-latency section
 {{$totalLatencyPods := MaxInt $MIN_PODS_IN_SMALL_CLUSTERS .Nodes}}
 {{$latencyReplicas := DivideInt $totalLatencyPods $namespaces}}
-{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "1h"}}
+{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 # END pod-startup-latency section
 
 # Probe measurements shared parameter
@@ -75,6 +83,8 @@
 
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
+{{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 name: load
 namespace:
@@ -101,6 +111,9 @@ tuningSets:
     # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
     timeLimit: {{DivideInt $saturationTime 4}}s
+- name: RandomizedDeletionTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$deletionTime}}s
 {{if $ENABLE_CHAOSMONKEY}}
 chaosMonkey:
   nodeFailure:
@@ -132,8 +145,8 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
+  - Identifier: SLOMeasurement
+    Method: SLOMeasurement
     Params:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
@@ -148,7 +161,6 @@ steps:
     Method: TestMetrics
     Params:
       action: start
-      nodeMode: {{$NODE_MODE}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
       clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
@@ -244,12 +256,12 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{$BIG_GROUP_SIZE}}
         ReplicasMax: {{$BIG_GROUP_SIZE}}
         SvcName: big-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -267,12 +279,11 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableDNSTests: {{$ENABLE_DNSTESTS}}
         ReplicasMin: {{$MEDIUM_GROUP_SIZE}}
         ReplicasMax: {{$MEDIUM_GROUP_SIZE}}
         SvcName: medium-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -290,12 +301,12 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{$SMALL_GROUP_SIZE}}
         ReplicasMax: {{$SMALL_GROUP_SIZE}}
         SvcName: small-service
-{{if $ENABLE_DENSITY_TEST}}
         CpuRequest: 5m
-{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -377,9 +388,16 @@ steps:
       {{range $EXEC_COMMAND}}
       - {{.}}
       {{end}}
-{{end}}
 
-{{if $ENABLE_DENSITY_TEST}}
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+{{end}}
+{{if not $EXIT_AFTER_EXEC}}
+
 # BEGIN scheduler throughput
 - name: Creating scheduler throughput measurements
   measurements:
@@ -436,6 +454,7 @@ steps:
     Method: SchedulingThroughput
     Params:
       action: gather
+      enableViolations: true
       threshold: {{$schedulerThroughputThreshold}}
 - name: Deleting scheduler throughput pods
   phases:
@@ -486,13 +505,8 @@ steps:
       templateFillMap:
         Replicas: 1
         Group: latency
-        # CPU and memory requests are calculated for 1-core 4GB node.
-        # Increasing allocation of both memory and cpu by 10% decreases the
-        # value of priority function in scheduler by one point.
-        # This results in decreased probability of choosing the same node again.
-        # TODO(https://github.com/kubernetes/perf-tests/issues/1024): See whether we can get rid of this
-        CpuRequest: 100m
-        MemoryRequest: 350M
+        CpuRequest: {{$LATENCY_POD_CPU}}m
+        MemoryRequest: {{$LATENCY_POD_MEMORY}}M
 - name: Waiting for latency pods to be running
   measurements:
   - Identifier: WaitForRunningLatencyDeployments
@@ -522,7 +536,6 @@ steps:
     Params:
       action: gather
 # END pod-startup-latency
-{{end}}
 
 - name: Scaling and updating objects
   phases:
@@ -535,9 +548,12 @@ steps:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{MultiplyInt $BIG_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $BIG_GROUP_SIZE 1.5}}
         SvcName: big-service
+        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -547,9 +563,11 @@ steps:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableDNSTests: {{$ENABLE_DNSTESTS}}
         ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
         SvcName: medium-service
+        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -559,9 +577,12 @@ steps:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
         ReplicasMin: {{MultiplyInt $SMALL_GROUP_SIZE 0.5}}
         ReplicasMax: {{MultiplyInt $SMALL_GROUP_SIZE 1.5}}
         SvcName: small-service
+        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -645,7 +666,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
@@ -661,7 +682,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
@@ -677,7 +698,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
@@ -693,7 +714,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: small-statefulset
         objectTemplatePath: statefulset.yaml
@@ -703,7 +724,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: medium-statefulset
         objectTemplatePath: statefulset.yaml
@@ -713,7 +734,7 @@ steps:
       min: 1
       max: 1
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: daemonset
         objectTemplatePath: daemonset.yaml
@@ -721,7 +742,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: small-job
         objectTemplatePath: job.yaml
@@ -729,7 +750,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: medium-job
         objectTemplatePath: job.yaml
@@ -737,7 +758,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       - basename: big-job
         objectTemplatePath: job.yaml
@@ -747,7 +768,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-small-statefulset-{{$ssIndex}}
@@ -761,7 +782,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedSaturationTimeLimited
+    tuningSet: RandomizedDeletionTimeLimited
     objectBundle:
       {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
       - basename: pv-medium-statefulset-{{$ssIndex}}
@@ -826,6 +847,7 @@ steps:
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
+{{end}} # not EXIT_AFTER_EXEC
 
 - name: Collecting measurements
   measurements:
@@ -833,7 +855,7 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: gather
-      enableViolations: true
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
@@ -854,8 +876,8 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: gather
-  - Identifier: DnsLookupLatency
-    Method: DnsLookupLatency
+  - Identifier: SLOMeasurement
+    Method: SLOMeasurement
     Params:
       action: gather
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}

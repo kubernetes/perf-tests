@@ -20,13 +20,14 @@ import (
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
 	sloMeasurementName = "SLOMeasurement"
 )
 
-var sloMeasurementsNames = []string{"NetworkProgrammingLatency", "DnsLookupLatency"}
+var sloMeasurementsNames = []string{"DnsLookupLatency", "SchedulingThroughputPrometheus"}
 
 func init() {
 	if err := measurement.Register(sloMeasurementName, createSLOMeasurements); err != nil {
@@ -54,7 +55,13 @@ type sloMeasurement struct {
 func (s sloMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	errList := errors.NewErrorList()
 	for _, m := range s.measurements {
-		summaries, err := m.Execute(config)
+		measurementConfig, err := getMeasurementConfig(config, m.String())
+		if err != nil {
+			errList.Append(err)
+			continue
+		}
+
+		summaries, err := m.Execute(measurementConfig)
 		if err != nil {
 			errList.Append(err)
 			continue
@@ -62,10 +69,36 @@ func (s sloMeasurement) Execute(config *measurement.Config) ([]measurement.Summa
 		s.summaries = append(s.summaries, summaries...)
 	}
 
-	if errList.IsEmpty() {
+	if !errList.IsEmpty() {
 		return nil, errList
 	}
 	return s.summaries, nil
+}
+
+func getMeasurementConfig(config *measurement.Config, measurementName string) (*measurement.Config, error) {
+	measurementConfig := *config
+	measurementConfig.Params = util.CloneMap(config.Params)
+
+	overrides, err := util.GetMap(config.Params, "overrides")
+	if util.IsErrKeyNotFound(err) {
+		return &measurementConfig, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	measurementOverrides, err := util.GetMap(overrides, measurementName)
+	if util.IsErrKeyNotFound(err) {
+		return &measurementConfig, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range measurementOverrides {
+		measurementConfig.Params[k] = v
+	}
+
+	return &measurementConfig, nil
 }
 
 func (s sloMeasurement) Dispose() {

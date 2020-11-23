@@ -250,10 +250,6 @@ type schedulingMetrics struct {
 	PreemptionEvaluationLatency latencyMetric `json:"preemptionEvaluationLatency"`
 	E2eSchedulingLatency        latencyMetric `json:"e2eSchedulingLatency"`
 	SchedulingLatency           latencyMetric `json:"schedulingLatency"`
-	ThroughputAverage           float64       `json:"throughputAverage"`
-	ThroughputPerc50            float64       `json:"throughputPerc50"`
-	ThroughputPerc90            float64       `json:"throughputPerc90"`
-	ThroughputPerc99            float64       `json:"throughputPerc99"`
 
 	FrameworkExtensionPointDuration map[string]latencyMetric `json:"frameworkExtensionPointDuration"`
 }
@@ -291,6 +287,7 @@ func parseSchedulingLatency(testName string) func([]byte, int, *BuildData) {
 
 type schedulingThroughputMetric struct {
 	Average float64 `json:"average"`
+	Max     float64 `json:"max"`
 	Perc50  float64 `json:"perc50"`
 	Perc90  float64 `json:"perc90"`
 	Perc99  float64 `json:"perc99"`
@@ -310,6 +307,7 @@ func parseSchedulingThroughputCL(testName string) func([]byte, int, *BuildData) 
 		perfData.Data["Perc90"] = obj.Perc90
 		perfData.Data["Perc99"] = obj.Perc99
 		perfData.Data["Average"] = obj.Average
+		perfData.Data["Max"] = obj.Max
 		testResult.Builds[build] = append(testResult.Builds[build], perfData)
 	}
 }

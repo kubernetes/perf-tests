@@ -19,12 +19,19 @@ spec:
   replicas: 1
   resources:
     requests:
+      cpu: {{AddInt 200 (MultiplyInt 500 (DivideInt .Nodes 1000))}}m
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-      # TODO(oxddr): figure out memory limit
-      memory: 10Gi # {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      memory: 10Gi
       {{else}}
-      # Start with 2Gi and add 2Gi for each 2K nodes.
-      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 2000))}}Gi
+      # Start with 2Gi and add 2Gi for each 1K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      {{end}}
+    limits:
+      {{if $PROMETHEUS_SCRAPE_KUBELETS}}
+      memory: 10Gi
+      {{else}}
+      # Start with 2Gi and add 2Gi for each 1K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
   ruleSelector:
     matchLabels:
@@ -41,6 +48,8 @@ spec:
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
+  podMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
   version: v2.9.2
   retention: 7d
   storage:

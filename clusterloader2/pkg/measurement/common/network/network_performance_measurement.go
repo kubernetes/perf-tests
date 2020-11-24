@@ -23,6 +23,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -101,7 +103,7 @@ type networkPerformanceMeasurement struct {
 	numberOfServers int
 	numberOfClients int
 	podRatioType    string
-	testDuration    int
+	testDuration    time.Duration
 	protocol        string
 
 	// workerPodInfo stores list of podData for every worker node.
@@ -261,6 +263,8 @@ func (npm *networkPerformanceMeasurement) storeWorkerPods() error {
 }
 
 func (npm *networkPerformanceMeasurement) gather() (measurement.Summary, error) {
+	npm.waitForMetricsFromPods()
+
 	close(npm.stopCh)
 	npm.cleanupCluster()
 
@@ -363,7 +367,6 @@ func (npm *networkPerformanceMeasurement) calculateMetricDataValue(dataElem *mea
 		dataElem.Data[perc95] = percentile.percentile95
 		klog.Info("Aggregate Metric value: ", aggregatePodPairMetrics)
 	}
-	klog.Infof("Response received from: %v pods", len(npm.metricVal))
 }
 
 func (npm *networkPerformanceMeasurement) createResultSummary() testResultSummary {
@@ -395,4 +398,20 @@ func (npm *networkPerformanceMeasurement) getMetricData(data *testResultSummary,
 	metricDataItem.Unit = metricUnitMap[metricDataItem.Labels["Metric"]]
 	data.DataItems = append(data.DataItems, metricDataItem)
 	klog.V(3).Infof("TestResultSummary: %v", data)
+}
+
+func (npm *networkPerformanceMeasurement) waitForMetricsFromPods() {
+	bufferTime := time.Duration(math.Max(10, float64(npm.numberOfClients)*0.1)) * time.Second
+	timeout := initialDelayForTestExecution + npm.testDuration + bufferTime
+	interval := 2 * time.Second
+	if err := wait.Poll(interval, timeout, npm.checkResponseReceivedFromPods); err != nil {
+		// TODO: Log pod names from which response is not received.
+		klog.Errorf("Failed to receive response from %v pods", npm.numberOfClients-len(npm.metricVal))
+	}
+}
+
+func (npm *networkPerformanceMeasurement) checkResponseReceivedFromPods() (bool, error) {
+	npm.metricLock.Lock()
+	defer npm.metricLock.Unlock()
+	return len(npm.metricVal) == npm.numberOfClients, nil
 }

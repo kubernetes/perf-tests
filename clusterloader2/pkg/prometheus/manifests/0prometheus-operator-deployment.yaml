@@ -25,7 +25,7 @@ spec:
         {{if $PROMETHEUS_SCRAPE_KUBELETS}}
         - --kubelet-service=kube-system/kubelet
         {{end}}
-        image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.30.0
+        image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.31.0
         name: prometheus-operator
         ports:
         - containerPort: 8080

@@ -31,7 +31,7 @@ from params import ATTRIBUTE_CLUSTER_DNS, ATTRIBUTE_NODELOCAL_DNS, Inputs, TestC
 
 _log = logging.getLogger(__name__)
 _app_label = 'app=dns-perf-server'
-_client_podname = 'dns-perf-client'
+_client_label = 'app=dns-perf-client'
 _test_svc_label = 'app=test-svc'
 _dnsperf_qfile_name='queryfile-example-current'
 _dnsperf_qfile_path='ftp://ftp.nominum.com/pub/nominum/dnsperf/data/queryfile-example-current.gz'
@@ -365,12 +365,7 @@ class Runner(object):
         _log.info("pending replicas in client deployment - '%s'", pending.rstrip())
         time.sleep(5)
         continue
-      code, client_pods, err = self._kubectl(None, 'get','pods', '-l', 'app=dns-perf-client', '--no-headers', '-o', 'custom-columns=:metadata.name')
-      if code != 0:
-        _log.error('Error: stderr\n%s', add_prefix('err | ', err))
-        raise Exception('error getting pod information: %d', code)
-      client_pods=client_pods.rstrip().split('\n')
-      _log.info('got client pods "%s"', client_pods)
+      client_pods = self._get_pod(_client_label)
       if len(client_pods) > 0:
         break
       _log.debug('waiting for client pods')
@@ -416,8 +411,8 @@ class Runner(object):
     self._kubectl(None, 'delete', 'deployment/dns-perf-client')
 
     while True:
-      code, _, _ = self._kubectl(None, 'get', 'pod', _client_podname)
-      if code != 0:
+      client_pods = self._get_pod(_client_label)
+      if len(client_pods) == 0:
         break
       time.sleep(1)
       _log.info('Waiting for client pod to terminate')
@@ -444,13 +439,22 @@ class Runner(object):
       time.sleep(1)
 
     if active:
+      break_loop = False
       while True:
-        code, out, err = self._kubectl(
+        client_pods = self._get_pod(_client_label)
+        if len(client_pods) == 0:
+          continue
+        for podname in client_pods:
+          code, out, err = self._kubectl(
             None,
-            'exec', _client_podname, '--',
+            'exec', podname, '--',
             'dig', '@' + self.args.dns_ip,
             'kubernetes.default.svc.cluster.local.')
-        if code == 0:
+
+          if code == 0:
+            break_loop = True
+            break
+        if break_loop:
           break
 
         _log.info('Waiting for DNS service to start')
@@ -458,6 +462,16 @@ class Runner(object):
         time.sleep(1)
 
       _log.info('DNS is up')
+
+  def _get_pod(self, label, output='custom-columns=:metadata.name'):
+    code, client_pods, err = self._kubectl(None, 'get', 'pods', '-l', label, '--no-headers', '-o',
+                                           output)
+    if code != 0:
+      _log.error('Error: stderr\n%s', add_prefix('err | ', err))
+      return []
+    client_pods = client_pods.rstrip().split('\n') if len(client_pods) != 0 else []
+    _log.info('got client pods "%s"', client_pods)
+    return client_pods
 
   def _ensure_out_dir(self, run_id):
     rundir_name = 'run-%s' % run_id

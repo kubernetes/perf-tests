@@ -33,6 +33,25 @@ import (
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
+var (
+	// klogv1 allows users to turn on/off logging to stderr only through
+	// the use of flag. This prevents us from having control over which
+	// of the test functions have that mechanism turned off when we run
+	// go test command.
+	// TODO(#1286): refactor api_responsiveness_prometheus.go to make
+	// testing of logging easier and remove this hack in the end.
+	klogLogToStderr = true
+)
+
+func turnOffLoggingToStderrInKlog() {
+	if klogLogToStderr {
+		klog.InitFlags(nil)
+		flag.Set("logtostderr", "false")
+		flag.Parse()
+		klogLogToStderr = false
+	}
+}
+
 type sample struct {
 	resource    string
 	subresource string
@@ -64,15 +83,23 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 		sample := &model.Sample{
 			Metric: model.Metric{
 				"resource":    model.LabelValue(s.resource),
-				"subresoruce": model.LabelValue(s.subresource),
+				"subresource": model.LabelValue(s.subresource),
 				"verb":        model.LabelValue(s.verb),
 				"scope":       model.LabelValue(s.scope),
 			},
 		}
 
 		if strings.HasPrefix(query, "sum(increase") {
-			// countQuery
-			sample.Value = model.SampleValue(s.count)
+			if strings.Contains(query, "_count") {
+				// countQuery
+				sample.Value = model.SampleValue(s.count)
+			} else {
+				// countFastQuery
+				// This is query is called 3 times, but to avoid complex fake
+				// the same value is returned every time. The logic can handle
+				// duplicates well, so this shouldn't be an issue.
+				sample.Value = model.SampleValue(s.count - s.slowCount)
+			}
 		} else if strings.HasPrefix(query, "histogram_quantile") {
 			// simpleLatencyQuery
 			sample.Value = model.SampleValue(s.latency)
@@ -80,12 +107,6 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 			// latencyQuery
 			sample.Metric["quantile"] = ".99"
 			sample.Value = model.SampleValue(s.latency)
-		} else if strings.HasPrefix(query, "sum(rate") {
-			// countSlowQuery
-			// This is query is called 3 times, but to avoid complex fake
-			// the same value is returned every time. The logic can handle
-			// duplicates well, so this shouldn't be an issue.
-			sample.Value = model.SampleValue(s.slowCount)
 		}
 		samples = append(samples, sample)
 	}
@@ -340,7 +361,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 					scope:     "namespace",
 					p99:       1200.,
 					count:     "123",
-					slowCount: "0",
+					slowCount: "5",
 				},
 			},
 		},
@@ -531,9 +552,7 @@ func TestLogging(t *testing.T) {
 		},
 	}
 
-	klog.InitFlags(nil)
-	flag.Set("logtostderr", "false")
-	flag.Parse()
+	turnOffLoggingToStderrInKlog()
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -552,6 +571,170 @@ func TestLogging(t *testing.T) {
 			}
 			for _, msg := range tc.unexpectedMessages {
 				assert.NotContains(t, buf.String(), msg)
+			}
+		})
+	}
+}
+
+func TestAPIResponsivenessCustomThresholds(t *testing.T) {
+	splitter := func(yamlLines []string) string {
+		return strings.Join(yamlLines, "\n")
+	}
+
+	cases := []struct {
+		name             string
+		config           *measurement.MeasurementConfig
+		samples          []*sample
+		hasError         bool
+		expectedMessages []string
+	}{
+		{
+			name: "simple_slo_threshold_override_success",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"customThresholds": splitter([]string{
+						"- verb: PUT",
+						"  resource: leases",
+						"  scope: namespace",
+						"  threshold: 600ms",
+					}),
+				},
+			},
+			samples: []*sample{
+				{
+					resource: "leases",
+					verb:     "PUT",
+					scope:    "namespace",
+					latency:  0.5,
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "simple_slo_threshold_override_failure",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"customThresholds": splitter([]string{
+						"- verb: PUT",
+						"  resource: leases",
+						"  scope: namespace",
+						"  threshold: 400ms",
+					}),
+				},
+			},
+			samples: []*sample{
+				{
+					resource: "leases",
+					verb:     "PUT",
+					scope:    "namespace",
+					latency:  0.5,
+				},
+			},
+			hasError: true,
+			expectedMessages: []string{
+				"WARNING Top latency metric",
+			},
+		},
+		{
+			name: "empty_custom_thresholds_field",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"customThresholds": "",
+				},
+			},
+			samples: []*sample{
+				{
+					resource: "leases",
+					verb:     "PUT",
+					scope:    "namespace",
+					latency:  0.5,
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "no_custom_thresholds_field",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{},
+			},
+			samples: []*sample{
+				{
+					resource: "leases",
+					verb:     "PUT",
+					scope:    "namespace",
+					latency:  0.5,
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "unrecognized_metric",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"customThresholds": splitter([]string{
+						"- verb: POST",
+						"  resource: pod",
+						"  scope: namespace",
+						"  threshold: 500ms",
+					}),
+				},
+			},
+			samples: []*sample{
+				{
+					resource: "leases",
+					verb:     "PUT",
+					scope:    "namespace",
+					latency:  0.2,
+				},
+			},
+			hasError: false,
+			expectedMessages: []string{
+				"unrecognized custom threshold API call key",
+			},
+		},
+		{
+			name: "non_unmarshallable_custom_thresholds",
+			config: &measurement.MeasurementConfig{
+				Params: map[string]interface{}{
+					"customThresholds": splitter([]string{
+						"im: not",
+						"a: good",
+						"yaml: array",
+					}),
+				},
+			},
+			samples: []*sample{
+				{
+					resource: "pod",
+					verb:     "POST",
+					scope:    "namespace",
+					latency:  0.2,
+				},
+			},
+			hasError: true,
+		},
+	}
+
+	turnOffLoggingToStderrInKlog()
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := bytes.NewBuffer(nil)
+			klog.SetOutput(buf)
+
+			executor := &fakeQueryExecutor{samples: tc.samples}
+			gatherer := &apiResponsivenessGatherer{}
+
+			_, err := gatherer.Gather(executor, time.Now(), tc.config)
+			klog.Flush()
+			if tc.hasError {
+				assert.NotNil(t, err, "expected an error, but got none")
+			} else {
+				assert.Nil(t, err, "expected no error, but got %v", err)
+			}
+
+			for _, msg := range tc.expectedMessages {
+				assert.Contains(t, buf.String(), msg)
 			}
 		})
 	}

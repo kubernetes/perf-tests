@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -59,18 +60,18 @@ const (
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
 	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
-	countSlowQuery = "sum(rate(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
+	countFastQuery = "sum(increase(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	// exclude all buckets of 1s and shorter
-	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT", le!~"0.\\d+|1"`
+	filterGetAndMutating = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|CONNECT|LIST", le="1"`
 	// exclude all buckets below or equal 5s
-	filterNamespaceList = `scope!="cluster", verb="LIST", le!~"[01234](.\\d+)?|5"`
+	filterNamespaceList = `resource!="events", scope!="cluster", verb="LIST", le="5"`
 	// exclude all buckets below or equal 30s
-	filterClusterList = `scope="cluster", verb="LIST", le!~"[12]?[0-9](.\\d+)?|30"`
+	filterClusterList = `resource!="events", scope="cluster", verb="LIST", le="30"`
 
 	latencyWindowSize = 5 * time.Minute
 
-	// Number of metrics with highest latency to print. If the latency exceeeds SLO threshold, a metric is printed regardless.
+	// Number of metrics with highest latency to print. If the latency exceeds SLO threshold, a metric is printed regardless.
 	topToPrint = 5
 )
 
@@ -93,6 +94,20 @@ type apiCallMetric struct {
 
 type apiCallMetrics struct {
 	metrics map[string]*apiCallMetric
+}
+
+type customThresholdEntry struct {
+	Resource    string        `json:"resource"`
+	Subresource string        `json:"subresource"`
+	Verb        string        `json:"verb"`
+	Scope       string        `json:"scope"`
+	Threshold   time.Duration `json:"threshold"`
+}
+
+type customThresholds map[string]time.Duration
+
+func (cte *customThresholdEntry) getKey() string {
+	return buildKey(cte.Resource, cte.Subresource, cte.Verb, cte.Scope)
 }
 
 type apiResponsivenessGatherer struct{}
@@ -118,7 +133,12 @@ func (a *apiResponsivenessGatherer) Gather(executor QueryExecutor, startTime tim
 		return nil, err
 	}
 
-	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls)
+	customThresholds, err := getCustomThresholds(config, apiCalls)
+	if err != nil {
+		return nil, err
+	}
+
+	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls, customThresholds)
 	if len(badMetrics) > 0 {
 		err = errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
@@ -180,35 +200,58 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor QueryExecutor, start
 		return nil, err
 	}
 
-	allowedSlowCalls, err := util.GetIntOrDefault(config.Params, "allowedSlowCalls", 0)
+	countFastSamples := make([]*model.Sample, 0)
+	filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
+	for _, filter := range filters {
+		query := fmt.Sprintf(countFastQuery, filter, promDuration)
+		samples, err := executor.Query(query, measurementEnd)
+		if err != nil {
+			return nil, err
+		}
+		countFastSamples = append(countFastSamples, samples...)
+	}
+
+	return newFromSamples(latencySamples, countSamples, countFastSamples)
+}
+
+func getCustomThresholds(config *measurement.MeasurementConfig, metrics *apiCallMetrics) (customThresholds, error) {
+	thresholdsString, err := util.GetStringOrDefault(config.Params, "customThresholds", "")
 	if err != nil {
 		return nil, err
 	}
-
-	countSlowSamples := make([]*model.Sample, 0)
-	// TODO(oxddr): remove this guard once it's stable
-	if allowedSlowCalls != 0 {
-		filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
-		for _, filter := range filters {
-			query := fmt.Sprintf(countSlowQuery, filter, promDuration)
-			samples, err := executor.Query(query, measurementEnd)
-			if err != nil {
-				return nil, err
-			}
-			countSlowSamples = append(countSlowSamples, samples...)
-		}
+	var thresholds []customThresholdEntry
+	if err := yaml.Unmarshal([]byte(thresholdsString), &thresholds); err != nil {
+		return nil, err
 	}
 
-	return newFromSamples(latencySamples, countSamples, countSlowSamples)
+	customThresholds := customThresholds{}
+	for _, entry := range thresholds {
+		if entry.Threshold == 0 {
+			return nil, fmt.Errorf("custom threshold must be set to a positive time duration")
+		}
+		key := entry.getKey()
+		if _, ok := metrics.metrics[key]; !ok {
+			klog.Infof("WARNING: unrecognized custom threshold API call key: %v", key)
+		} else {
+			customThresholds[key] = entry.Threshold
+		}
+	}
+	return customThresholds, nil
 }
 
-func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics) []error {
+func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics, customThresholds customThresholds) []error {
 	badMetrics := make([]error, 0)
 	top := topToPrint
 
 	for _, apiCall := range metrics.sorted() {
+		var threshold time.Duration
+		if customThreshold, ok := customThresholds[apiCall.getKey()]; ok {
+			threshold = customThreshold
+		} else {
+			threshold = apiCall.getSLOThreshold()
+		}
 		var err error
-		if err = apiCall.Validate(allowedSlowCalls); err != nil {
+		if err = apiCall.Validate(allowedSlowCalls, threshold); err != nil {
 			badMetrics = append(badMetrics, err)
 		}
 		if top > 0 || err != nil {
@@ -217,13 +260,13 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedS
 			if err != nil {
 				prefix = "WARNING "
 			}
-			klog.Infof("%s: %vTop latency metric: %v", identifier, prefix, apiCall)
+			klog.Infof("%s: %vTop latency metric: %+v; threshold: %v", identifier, prefix, *apiCall, threshold)
 		}
 	}
 	return badMetrics
 }
 
-func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Sample) (*apiCallMetrics, error) {
+func newFromSamples(latencySamples, countSamples, countFastSamples []*model.Sample) (*apiCallMetrics, error) {
 	extractCommon := func(sample *model.Sample) (string, string, string, string) {
 		return string(sample.Metric["resource"]), string(sample.Metric["subresource"]), string(sample.Metric["verb"]), string(sample.Metric["scope"])
 	}
@@ -247,17 +290,19 @@ func newFromSamples(latencySamples, countSamples, countSlowSamples []*model.Samp
 		m.SetCount(resource, subresource, verb, scope, count)
 	}
 
-	for _, sample := range countSlowSamples {
+	for _, sample := range countFastSamples {
 		resource, subresource, verb, scope := extractCommon(sample)
-		failedCount := int(math.Round(float64(sample.Value)))
-		m.SetSlowCount(resource, subresource, verb, scope, failedCount)
+		fastCount := int(math.Round(float64(sample.Value)))
+		count := m.GetCount(resource, subresource, verb, scope)
+		slowCount := count - fastCount
+		m.SetSlowCount(resource, subresource, verb, scope, slowCount)
 	}
 
 	return m, nil
 }
 
 func (m *apiCallMetrics) getAPICall(resource, subresource, verb, scope string) *apiCallMetric {
-	key := m.buildKey(resource, subresource, verb, scope)
+	key := buildKey(resource, subresource, verb, scope)
 	call, exists := m.metrics[key]
 	if !exists {
 		call = &apiCallMetric{
@@ -274,6 +319,11 @@ func (m *apiCallMetrics) getAPICall(resource, subresource, verb, scope string) *
 func (m *apiCallMetrics) SetLatency(resource, subresource, verb, scope string, quantile float64, latency time.Duration) {
 	call := m.getAPICall(resource, subresource, verb, scope)
 	call.Latency.SetQuantile(quantile, latency)
+}
+
+func (m *apiCallMetrics) GetCount(resource, subresource, verb, scope string) int {
+	call := m.getAPICall(resource, subresource, verb, scope)
+	return call.Count
 }
 
 func (m *apiCallMetrics) SetCount(resource, subresource, verb, scope string, count int) {
@@ -327,17 +377,20 @@ func (m *apiCallMetrics) sorted() []*apiCallMetric {
 	return all
 }
 
-func (m *apiCallMetrics) buildKey(resource, subresource, verb, scope string) string {
+func buildKey(resource, subresource, verb, scope string) string {
 	return fmt.Sprintf("%s|%s|%s|%s", resource, subresource, verb, scope)
 }
 
-func (ap *apiCallMetric) Validate(allowedSlowCalls int) error {
-	threshold := ap.getSLOThreshold()
+func (ap *apiCallMetric) getKey() string {
+	return buildKey(ap.Resource, ap.Subresource, ap.Verb, ap.Scope)
+}
+
+func (ap *apiCallMetric) Validate(allowedSlowCalls int, threshold time.Duration) error {
+	// TODO(oxddr): remove allowedSlowCalls guard once it's stable
+	if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
+		return nil
+	}
 	if err := ap.Latency.VerifyThreshold(threshold); err != nil {
-		// TODO(oxddr): remove allowedSlowCalls guard once it's stable
-		if allowedSlowCalls > 0 && ap.SlowCount <= allowedSlowCalls {
-			return nil
-		}
 		return fmt.Errorf("got: %+v; expected perc99 <= %v", ap, threshold)
 	}
 	return nil
@@ -351,8 +404,4 @@ func (ap *apiCallMetric) getSLOThreshold() time.Duration {
 		return clusterThreshold
 	}
 	return namespaceThreshold
-}
-
-func (ap *apiCallMetric) String() string {
-	return fmt.Sprintf("%+v; threshold: %v", *ap, ap.getSLOThreshold())
 }

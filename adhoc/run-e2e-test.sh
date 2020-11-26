@@ -32,4 +32,6 @@ export ARTIFACTS_DIR=/workspace/_artifacts
 # Implement ad-hoc test here, e.g. install extra addons via kubectl then run
 # clusterloader2 with your custom config.
 
+kubectl get nodes > ${ARTIFACTS_DIR}/node-list.txt
+
 exit 0

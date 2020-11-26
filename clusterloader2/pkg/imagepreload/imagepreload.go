@@ -133,7 +133,7 @@ func (c *controller) PreloadImages() error {
 		klog.V(3).Infof("%d out of %d nodes have pulled images", len(doneNodes), clusterSize)
 		return len(doneNodes) == clusterSize, nil
 	}); err != nil {
-		return nil
+		return err
 	}
 	klog.V(2).Info("Waiting... done")
 

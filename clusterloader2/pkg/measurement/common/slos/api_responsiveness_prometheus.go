@@ -65,9 +65,9 @@ const (
 	// exclude all buckets of 1s and shorter
 	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT|LIST", le="1"`
 	// exclude all buckets below or equal 5s
-	filterNamespaceList = `scope!="cluster", verb="LIST", scope!="cluster", le="5"`
+	filterNamespaceList = `scope!="cluster", verb="LIST", le="5"`
 	// exclude all buckets below or equal 30s
-	filterClusterList = `scope="cluster", verb="LIST", scope!="cluster", le="30"`
+	filterClusterList = `scope="cluster", verb="LIST", le="30"`
 
 	latencyWindowSize = 5 * time.Minute
 

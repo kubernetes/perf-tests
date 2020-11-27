@@ -63,11 +63,11 @@ const (
 	countFastQuery = "sum(increase(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	// exclude all buckets of 1s and shorter
-	filterGetAndMutating = `verb!~"WATCH|WATCHLIST|PROXY|CONNECT|LIST", le="1"`
+	filterGetAndMutating = `resource!="events", verb!~"WATCH|WATCHLIST|PROXY|CONNECT|LIST", le="1"`
 	// exclude all buckets below or equal 5s
-	filterNamespaceList = `scope!="cluster", verb="LIST", scope!="cluster", le="5"`
+	filterNamespaceList = `resource!="events", scope!="cluster", verb="LIST", le="5"`
 	// exclude all buckets below or equal 30s
-	filterClusterList = `scope="cluster", verb="LIST", scope!="cluster", le="30"`
+	filterClusterList = `resource!="events", scope="cluster", verb="LIST", le="30"`
 
 	latencyWindowSize = 5 * time.Minute
 

@@ -22,6 +22,16 @@ set -o pipefail
 PERFTEST_ROOT=$(dirname "${BASH_SOURCE}")
 echo "TOOL_NAME: $1"
 
+# TODO(kubernetes/perf-tests/issues/1624): Get rid of the logic below.
+# Print the git history. This is useful in the CI jobs as it provides an ability
+# to check the exact k8s.io/perf-tests commit (commits) a test was run against.
+if [[ "${PERF_TESTS_PRINT_COMMIT_HISTORY:-false}" == "true" ]]; then
+  # The output file location assumes the script works inside a prow job.
+  output_file="/workspace/_artifacts/perf-tests.gitlog"
+  echo "k8s.io/perf-tests git log:" | tee $output_file || true
+  git log -n 10 --format="%H - %ad (%s)" --date=local | tee -a $output_file || true
+fi
+
 case "$1" in
   cluster-loader2 )
     #CLUSTERLOADER2

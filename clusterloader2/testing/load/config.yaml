@@ -80,14 +80,14 @@
 {{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) (MultiplyInt 2 .Nodes)}}
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
-{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 0}}
+{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
 # END scheduler-throughput section
 
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Investigate and get rid of this section.
 # BEGIN pod-startup-latency section
 {{$totalLatencyPods := MaxInt $MIN_PODS_IN_SMALL_CLUSTERS .Nodes}}
 {{$latencyReplicas := DivideInt $totalLatencyPods $namespaces}}
-{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "1h"}}
+{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 # END pod-startup-latency section
 
 # Probe measurements shared parameter
@@ -526,6 +526,7 @@ steps:
     Method: SchedulingThroughput
     Params:
       action: gather
+      enableViolations: true
       threshold: {{$schedulerThroughputThreshold}}
 - name: Deleting scheduler throughput pods
   phases:

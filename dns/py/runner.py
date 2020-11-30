@@ -163,6 +163,8 @@ class Runner(object):
     cmdline = [self.args.kubectl_exec] + list(args)
     _log.debug('kubectl %s', cmdline)
     proc = subprocess.Popen(cmdline, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    if isinstance(stdin, str):
+      stdin = stdin.encode()
     out, err = proc.communicate(stdin)
     ret = proc.wait()
 
@@ -195,6 +197,10 @@ class Runner(object):
       # Output is of the form:
       # NAME                        CPU(cores)   MEMORY(bytes)
       # kube-dns-686548bc64-4q7wg   2m           31Mi
+      if not isinstance(perfout, str):
+        perfout = perfout.decode()
+      if not isinstance(kubeout, str):
+        kubeout = kubeout.decode()
       pcpu = re.findall(' \d+m ', perfout)
       pmem = re.findall(' \d+Mi ', perfout)
       kcpu = re.findall(' \d+m ', kubeout)

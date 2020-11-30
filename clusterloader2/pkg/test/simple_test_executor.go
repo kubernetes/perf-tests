@@ -122,7 +122,7 @@ func (ste *simpleTestExecutor) ExecuteTest(ctx Context, conf *api.Config) *error
 
 // ExecuteStep executes single test step based on provided step configuration.
 func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
-	klog.V(2).Infof("Step %q started", step.Name)
+	klog.Infof("Step %q started", step.Name)
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	stepStart := time.Now()
@@ -150,7 +150,7 @@ func (ste *simpleTestExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.
 		}
 	}
 	wg.Wait()
-	klog.V(2).Infof("Step %q ended", step.Name)
+	klog.Infof("Step %q ended", step.Name)
 	if !errList.IsEmpty() {
 		klog.Warningf("Got errors during step execution: %v", errList)
 	}

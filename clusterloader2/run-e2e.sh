@@ -34,4 +34,4 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
 fi
 
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
-./clusterloader --alsologtostderr --v=2 "$@"
+./clusterloader --alsologtostderr --v=2 --node-preload-images=gcr.io/k8s-testimages/probes:v0.0.4 "$@"

@@ -25,8 +25,7 @@ spec:
             # TODO(oxddr): according to @wojtek-t there are differences between fully and not fully qualified domain names
             # Investigate it and potentially measure latency for both
             - --dns-probe-url=ping-server.probes
-            - --logtostderr=false
-            - --log_file=/var/log/cl2-dns-lookup.log
+            - --logtostderr=true
           resources:
             limits:
               cpu: 100m
@@ -34,10 +33,3 @@ spec:
           ports:
             - containerPort: 8080
               name: metrics
-          volumeMounts:
-            - name: logs-volume
-              mountPath: /var/log
-      volumes:
-        - name: logs-volume
-          hostPath:
-            path: /var/log

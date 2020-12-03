@@ -5,7 +5,7 @@
 # - Only half of Deployments will be assigned 1-1 to existing SVCs.
 
 #Constants
-{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 400}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 3}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
@@ -61,21 +61,20 @@
 # pod-startup-latency or scheduler-throughput. The purpose of it is to avoid
 # problems in small clusters where we wouldn't have enough samples (pods) to
 # measure things accurately.
-{{$MIN_PODS_IN_SMALL_CLUSTERS := 500}}
 
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
-{{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) (MultiplyInt 2 .Nodes)}}
-{{$schedulerThroughputPodsPerDeployment := .Nodes}}
+{{$totalSchedulerThroughputPods := 100}}
+{{$schedulerThroughputPodsPerDeployment := 100}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
-{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 5}}
 # END scheduler-throughput section
 
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Investigate and get rid of this section.
 # BEGIN pod-startup-latency section
-{{$totalLatencyPods := MaxInt $MIN_PODS_IN_SMALL_CLUSTERS .Nodes}}
+{{$totalLatencyPods := 100 }}
 {{$latencyReplicas := DivideInt $totalLatencyPods $namespaces}}
-{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "1h"}}
 # END pod-startup-latency section
 
 # Probe measurements shared parameter
@@ -225,7 +224,7 @@ steps:
     Params:
       action: start
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: 45m
 
 - name: Creating objects
   phases:
@@ -416,7 +415,7 @@ steps:
       labelSelector: group = scheduler-throughput
       # The operation timeout shouldn't be less than 20m to make sure that ~10m node
       # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
-      operationTimeout: 20m
+      operationTimeout: 45m
   - Identifier: SchedulingThroughput
     Method: SchedulingThroughput
     Params:
@@ -491,7 +490,7 @@ steps:
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = latency
-      operationTimeout: 15m
+      operationTimeout: 45m
 - name: Creating latency pods
   phases:
   - namespaceRange:

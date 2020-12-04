@@ -52,11 +52,6 @@
 {{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
 {{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
 
-# Reduce the number of small, medium, big deployments per namespace.
-{{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace 1}}
-{{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace 1}}
-{{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
-
 # The minimal number of pods to be used to measure various things like
 # pod-startup-latency or scheduler-throughput. The purpose of it is to avoid
 # problems in small clusters where we wouldn't have enough samples (pods) to
@@ -231,7 +226,7 @@ steps:
   - namespaceRange:
       min: 1
       max: 1
-    replicasPerNamespace: 1
+    replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
     - basename: daemonset
@@ -335,7 +330,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
       - basename: small-job
@@ -346,7 +341,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
       - basename: medium-job
@@ -357,7 +352,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: 0
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
       - basename: big-job

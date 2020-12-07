@@ -54,6 +54,7 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 	return &podStartupLatencyMeasurement{
 		selector:          measurementutil.NewObjectSelector(),
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
+		podMetadata:       measurementutil.NewPodsMetadata(podStartupLatencyMeasurementName),
 	}
 }
 
@@ -62,6 +63,7 @@ type podStartupLatencyMeasurement struct {
 	isRunning         bool
 	stopCh            chan struct{}
 	podStartupEntries *measurementutil.ObjectTransitionTimes
+	podMetadata       *measurementutil.PodsMetadata
 	threshold         time.Duration
 }
 
@@ -162,6 +164,11 @@ func podStartupTransitionsWithThreshold(threshold time.Duration) map[string]meas
 	return result
 }
 
+type podStartupLatencyCheck struct {
+	namePrefix string
+	filter     measurementutil.KeyFilterFunc
+}
+
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
@@ -174,21 +181,36 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		return nil, err
 	}
 
-	transitions := podStartupTransitionsWithThreshold(p.threshold)
-	podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(transitions, measurementutil.MatchAll)
+	checks := []podStartupLatencyCheck{
+		{
+			namePrefix: "",
+			filter:     measurementutil.MatchAll,
+		},
+		{
+			namePrefix: "Stateless",
+			filter:     p.podMetadata.FilterStateless,
+		},
+	}
 
+	var summaries []measurement.Summary
 	var err error
-	if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(p.threshold); slosErr != nil {
-		err = errors.NewMetricViolationError("pod startup", slosErr.Error())
-		klog.Errorf("%s: %v", p, err)
-	}
+	for _, check := range checks {
+		transitions := podStartupTransitionsWithThreshold(p.threshold)
+		podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(transitions, check.filter)
 
-	content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(podStartupLatency))
-	if jsonErr != nil {
-		return nil, jsonErr
+		if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(p.threshold); slosErr != nil {
+			err = errors.NewMetricViolationError("pod startup", slosErr.Error())
+			klog.Errorf("%s%s: %v", check.namePrefix, p, err)
+		}
+
+		content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(podStartupLatency))
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+		summaryName := fmt.Sprintf("%s%s_%s", check.namePrefix, podStartupLatencyMeasurementName, identifier)
+		summaries = append(summaries, measurement.CreateSummary(summaryName, "json", content))
 	}
-	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", podStartupLatencyMeasurementName, identifier), "json", content)
-	return []measurement.Summary{summary}, err
+	return summaries, err
 }
 
 func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface) error {
@@ -222,8 +244,11 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 	if !ok {
 		return
 	}
+
+	key := createMetaNamespaceKey(pod.Namespace, pod.Name)
+	p.podMetadata.SetStateless(key, isPodStateless(pod))
+
 	if pod.Status.Phase == corev1.PodRunning {
-		key := createMetaNamespaceKey(pod.Namespace, pod.Name)
 		if _, found := p.podStartupEntries.Get(key, createPhase); !found {
 			p.podStartupEntries.Set(key, watchPhase, time.Now())
 			p.podStartupEntries.Set(key, createPhase, pod.CreationTimestamp.Time)
@@ -246,4 +271,15 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 
 func createMetaNamespaceKey(namespace, name string) string {
 	return namespace + "/" + name
+}
+
+func isPodStateless(pod *corev1.Pod) bool {
+	for _, volume := range pod.Spec.Volumes {
+		if volume.EmptyDir != nil || volume.DownwardAPI != nil || volume.ConfigMap != nil || volume.Secret != nil {
+			continue
+		}
+		klog.V(4).Infof("pod %s/%s classified as stateful", pod.Namespace, pod.Name)
+		return false
+	}
+	return true
 }

@@ -137,7 +137,7 @@ steps:
     replicasPerNamespace: 1
     tuningSet: SchedulerThroughputParallel
     objectBundle:
-    - basename: scae-up-deployment
+    - basename: scale-up-deployment
       objectTemplatePath: simple-deployment.yaml
       templateFillMap:
         Replicas: 100

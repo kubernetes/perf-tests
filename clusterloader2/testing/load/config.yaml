@@ -166,6 +166,13 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterScaleUp
+    Method: Sleep
+    Params:
+      duration: 30m
+
 # END scale up phase
 #
 - name: Starting measurements

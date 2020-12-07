@@ -128,6 +128,7 @@ steps:
       kind: Deployment
       labelSelector: group = scale-up
       operationTimeout: 45m
+      checkIfPodsAreUpdated: false
 - name: Creating scale up pods
   phases:
   - namespaceRange:
@@ -161,7 +162,7 @@ steps:
       objectTemplatePath: simple-deployment.yaml
 - name: Waiting for scale up pods to be deleted
   measurements:
-  - Identifier: WaitForSchedulerThroughputDeployments
+  - Identifier: WaitForScaleUpDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
@@ -270,6 +271,7 @@ steps:
       action: start
       labelSelector: group = load
       operationTimeout: 45m
+      checkIfPodsAreUpdated: false
 
 
 - name: Creating objects
@@ -462,6 +464,7 @@ steps:
       # The operation timeout shouldn't be less than 20m to make sure that ~10m node
       # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
       operationTimeout: 45m
+      checkIfPodsAreUpdated: false
   - Identifier: SchedulingThroughput
     Method: SchedulingThroughput
     Params:
@@ -537,6 +540,7 @@ steps:
       kind: Deployment
       labelSelector: group = latency
       operationTimeout: 45m
+      checkIfPodsAreUpdated: false
 - name: Creating latency pods
   phases:
   - namespaceRange:

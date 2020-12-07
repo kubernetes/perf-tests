@@ -91,6 +91,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
+			klog.V(1).Infof("pods: %v, running: %v, inactive: %v, runningUpdated: %v, desired: %v", len(pods), podsStatus.Running, podsStatus.Inactive, podsStatus.RunningUpdated, options.DesiredPodCount)
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == options.DesiredPodCount {
 				return nil
 			}

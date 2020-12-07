@@ -22,8 +22,7 @@ spec:
             - --metric-bind-address=0.0.0.0:8080
             - --mode=ping-server
             - --ping-server-bind-address=0.0.0.0:8081
-            - --logtostderr=false
-            - --log_file=/var/log/cl2-ping-server.log
+            - --logtostderr=true
           resources:
             limits:
               cpu: 100m
@@ -33,10 +32,3 @@ spec:
               name: metrics
             - containerPort: 8081
               name: http
-          volumeMounts:
-            - name: logs-volume
-              mountPath: /var/log
-      volumes:
-        - name: logs-volume
-          hostPath:
-            path: /var/log

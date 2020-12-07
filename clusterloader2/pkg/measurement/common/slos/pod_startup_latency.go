@@ -128,6 +128,40 @@ func (p *podStartupLatencyMeasurement) stop() {
 	}
 }
 
+var podStartupTransitions = map[string]measurementutil.Transition{
+	"create_to_schedule": {
+		From: createPhase,
+		To:   schedulePhase,
+	},
+	"schedule_to_run": {
+		From: schedulePhase,
+		To:   runPhase,
+	},
+	"run_to_watch": {
+		From: runPhase,
+		To:   watchPhase,
+	},
+	"schedule_to_watch": {
+		From: schedulePhase,
+		To:   watchPhase,
+	},
+	"pod_startup": {
+		From: createPhase,
+		To:   watchPhase,
+	},
+}
+
+func podStartupTransitionsWithThreshold(threshold time.Duration) map[string]measurementutil.Transition {
+	result := make(map[string]measurementutil.Transition)
+	for key, value := range podStartupTransitions {
+		result[key] = value
+	}
+	podStartupTransition := result["pod_startup"]
+	podStartupTransition.Threshold = threshold
+	result["pod_startup"] = podStartupTransition
+	return result
+}
+
 func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
@@ -140,29 +174,8 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		return nil, err
 	}
 
-	podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(map[string]measurementutil.Transition{
-		"create_to_schedule": {
-			From: createPhase,
-			To:   schedulePhase,
-		},
-		"schedule_to_run": {
-			From: schedulePhase,
-			To:   runPhase,
-		},
-		"run_to_watch": {
-			From: runPhase,
-			To:   watchPhase,
-		},
-		"schedule_to_watch": {
-			From: schedulePhase,
-			To:   watchPhase,
-		},
-		"pod_startup": {
-			From:      createPhase,
-			To:        watchPhase,
-			Threshold: p.threshold,
-		},
-	})
+	transitions := podStartupTransitionsWithThreshold(p.threshold)
+	podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(transitions, measurementutil.MatchAll)
 
 	var err error
 	if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(p.threshold); slosErr != nil {

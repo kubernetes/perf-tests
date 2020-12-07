@@ -164,6 +164,29 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 	})
 }
 
+var serviceCreationTransitions = map[string]measurementutil.Transition{
+	"create_to_available_clusterip": {
+		From: phaseName(creatingPhase, corev1.ServiceTypeClusterIP),
+		To:   phaseName(reachabilityPhase, corev1.ServiceTypeClusterIP),
+	},
+	"create_to_available_nodeport": {
+		From: phaseName(creatingPhase, corev1.ServiceTypeNodePort),
+		To:   phaseName(reachabilityPhase, corev1.ServiceTypeNodePort),
+	},
+	"create_to_assigned_loadbalancer": {
+		From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
+		To:   phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
+	},
+	"assigned_to_available_loadbalancer": {
+		From: phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
+		To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
+	},
+	"create_to_available_loadbalancer": {
+		From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
+		To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
+	},
+}
+
 func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering service created latency measurement...", s)
 	if !s.isRunning {
@@ -171,28 +194,7 @@ func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measure
 	}
 
 	// NOTE: For ClusterIP or NodePort type of service, the cluster ip or node port is assigned as part of service creation API call, so the ipAssigning phase is no sense.
-	serviceCreationLatency := s.creationTimes.CalculateTransitionsLatency(map[string]measurementutil.Transition{
-		"create_to_available_clusterip": {
-			From: phaseName(creatingPhase, corev1.ServiceTypeClusterIP),
-			To:   phaseName(reachabilityPhase, corev1.ServiceTypeClusterIP),
-		},
-		"create_to_available_nodeport": {
-			From: phaseName(creatingPhase, corev1.ServiceTypeNodePort),
-			To:   phaseName(reachabilityPhase, corev1.ServiceTypeNodePort),
-		},
-		"create_to_assigned_loadbalancer": {
-			From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
-			To:   phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
-		},
-		"assigned_to_available_loadbalancer": {
-			From: phaseName(ipAssigningPhase, corev1.ServiceTypeLoadBalancer),
-			To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
-		},
-		"create_to_available_loadbalancer": {
-			From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
-			To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
-		},
-	})
+	serviceCreationLatency := s.creationTimes.CalculateTransitionsLatency(serviceCreationTransitions, measurementutil.MatchAll)
 
 	content, err := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(serviceCreationLatency))
 	if err != nil {

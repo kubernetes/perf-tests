@@ -84,14 +84,25 @@ func (o *ObjectTransitionTimes) Count(phase string) int {
 	return count
 }
 
+// KeyFilterFunc is a function that for a given key returns whether
+// its corresponding entry should be included in the metric.
+type KeyFilterFunc func(string) bool
+
+// MatchAll implements KeyFilterFunc and matches every element.
+func MatchAll(_ string) bool { return true }
+
 // CalculateTransitionsLatency returns a latency map for given transitions.
-func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transition) map[string]*LatencyMetric {
+func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transition, filter KeyFilterFunc) map[string]*LatencyMetric {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	metric := make(map[string]*LatencyMetric)
 	for name, transition := range t {
 		lag := make([]LatencyData, 0, len(o.times))
 		for key, transitionTimes := range o.times {
+			if !filter(key) {
+				klog.V(4).Infof("%s: filter doesn match key %s", o.name, key)
+				continue
+			}
 			fromPhaseTime, exists := transitionTimes[transition.From]
 			if !exists {
 				klog.V(4).Infof("%s: failed to find %v time for %v", o.name, transition.From, key)

@@ -6,7 +6,7 @@
 
 #Constants
 {{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
-{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 10}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
 {{$BIG_GROUP_SIZE := DefaultParam .BIG_GROUP_SIZE 250}}
@@ -59,9 +59,6 @@
 
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
-{{$totalSchedulerThroughputPods := 100}}
-{{$schedulerThroughputPodsPerDeployment := 100}}
-{{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 {{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 5}}
 # END scheduler-throughput section
 
@@ -82,7 +79,7 @@
 
 name: load
 namespace:
-  number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+  number: {{$namespaces}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:
@@ -91,7 +88,7 @@ tuningSets:
 # parallel creation of deployments.
 - name: SchedulerThroughputParallel
   parallelismLimitedLoad:
-    parallelismLimit: {{$schedulerThroughputNamespaces}}
+    parallelismLimit: 1
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): This TuningSet is used only for pod-startup-latency, get rid of it
 - name: Uniform5qps
   qpsLoad:
@@ -117,63 +114,116 @@ chaosMonkey:
     simulatedDowntime: 10m
 {{end}}
 steps:
-# BEGIN Scale up phase
-#- name: Creating scale up measurements
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: start
-#      apiVersion: apps/v1
-#      kind: Deployment
-#      labelSelector: group = scale-up
-#      operationTimeout: 45m
-#      checkIfPodsAreUpdated: false
-#- name: Creating scale up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 1
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#      templateFillMap:
-#        Replicas: 100
-#        Group: scale-up
-#        CpuRequest: 1m
-#        MemoryRequest: 10M
-#- name: Waiting for scale up pods to be created
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Deleting scale up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 0
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#- name: Waiting for scale up pods to be deleted
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Sleep
-#  measurements:
-#  - Identifier: WaitAfterScaleUp
-#    Method: Sleep
-#    Params:
-#      duration: 30m
-
+- name: Creating scale up measurements
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scale-up
+      operationTimeout: 45m
+      checkIfPodsAreUpdated: false
+- name: Creating scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: 100
+        Group: scale-up
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scale up pods to be created
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scale up pods to be deleted
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterScaleUp
+    Method: Sleep
+    Params:
+      duration: 30m
 # END scale up phase
+- name: Creating scale2 up measurements
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scale-up
+      operationTimeout: 45m
+      checkIfPodsAreUpdated: false
+- name: Creating scale2 up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: 500
+        Group: scale-up
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scale up pods to be created
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scale up pods to be deleted
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterScaleUp
+    Method: Sleep
+    Params:
+      duration: 30m
+# End of scale up 2 section
 #
 - name: Starting measurements
   measurements:
@@ -193,12 +243,6 @@ steps:
       threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
-    Params:
-      action: start
-      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
-      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-  - Identifier: SLOMeasurement
-    Method: SLOMeasurement
     Params:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
@@ -689,108 +733,108 @@ steps:
     - basename: small-deployment
       objectTemplatePath: networkpolicy.yaml
     {{end}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: small-statefulset
-        objectTemplatePath: statefulset.yaml
-      - basename: small-statefulset
-        objectTemplatePath: statefulset_service.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: medium-statefulset
-        objectTemplatePath: statefulset.yaml
-      - basename: medium-statefulset
-        objectTemplatePath: statefulset_service.yaml
-  - namespaceRange:
-      min: 1
-      max: 1
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: daemonset
-        objectTemplatePath: daemonset.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: small-job
-        objectTemplatePath: job.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: medium-job
-        objectTemplatePath: job.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      - basename: big-job
-        objectTemplatePath: job.yaml
-  # If both StatefulSets and PVs were enabled we need to delete PVs manually.
-  {{if $ENABLE_PVS}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
-      - basename: pv-small-statefulset-{{$ssIndex}}
-        objectTemplatePath: pvc.yaml
-        listUnknownObjectOptions:
-          labelSelector:
-            matchLabels:
-              name: small-statefulset-{{$ssIndex}}
-      {{end}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
-    objectBundle:
-      {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
-      - basename: pv-medium-statefulset-{{$ssIndex}}
-        objectTemplatePath: pvc.yaml
-        listUnknownObjectOptions:
-          labelSelector:
-            matchLabels:
-              name: medium-statefulset-{{$ssIndex}}
-      {{end}}
-  {{end}}
-
-- name: Waiting for pods to be deleted
-  measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-     - Identifier: WaitForRunningDeployments
-       #- Identifier: WaitForRunningStatefulSets
-       #- Identifier: WaitForRunningDaemonSets
-       #- Identifier: WaitForRunningJobs
-    Params:
-      action: gather
-  {{if $ENABLE_PVS}}
-  - Identifier: WaitForPVCsToBeDeleted
-    Method: WaitForBoundPVCs
-    Params:
-      desiredPVCCount: 0
-      labelSelector: group = load
-      timeout: 15m
-  {{end}}
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: small-statefulset
+#        objectTemplatePath: statefulset.yaml
+#      - basename: small-statefulset
+#        objectTemplatePath: statefulset_service.yaml
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: medium-statefulset
+#        objectTemplatePath: statefulset.yaml
+#      - basename: medium-statefulset
+#        objectTemplatePath: statefulset_service.yaml
+#  - namespaceRange:
+#      min: 1
+#      max: 1
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: daemonset
+#        objectTemplatePath: daemonset.yaml
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: small-job
+#        objectTemplatePath: job.yaml
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: medium-job
+#        objectTemplatePath: job.yaml
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      - basename: big-job
+#        objectTemplatePath: job.yaml
+#  # If both StatefulSets and PVs were enabled we need to delete PVs manually.
+#  {{if $ENABLE_PVS}}
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+#      - basename: pv-small-statefulset-{{$ssIndex}}
+#        objectTemplatePath: pvc.yaml
+#        listUnknownObjectOptions:
+#          labelSelector:
+#            matchLabels:
+#              name: small-statefulset-{{$ssIndex}}
+#      {{end}}
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: 0
+#    tuningSet: RandomizedDeletionTimeLimited
+#    objectBundle:
+#      {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+#      - basename: pv-medium-statefulset-{{$ssIndex}}
+#        objectTemplatePath: pvc.yaml
+#        listUnknownObjectOptions:
+#          labelSelector:
+#            matchLabels:
+#              name: medium-statefulset-{{$ssIndex}}
+#      {{end}}
+#  {{end}}
+#
+#- name: Waiting for pods to be deleted
+#  measurements:
+#  - Method: WaitForControlledPodsRunning
+#    Instances:
+#     - Identifier: WaitForRunningDeployments
+#       #- Identifier: WaitForRunningStatefulSets
+#       #- Identifier: WaitForRunningDaemonSets
+#       #- Identifier: WaitForRunningJobs
+#    Params:
+#      action: gather
+#  {{if $ENABLE_PVS}}
+#  - Identifier: WaitForPVCsToBeDeleted
+#    Method: WaitForBoundPVCs
+#    Params:
+#      desiredPVCCount: 0
+#      labelSelector: group = load
+#      timeout: 15m
+#  {{end}}
 
 - name: Deleting PriorityClass for DaemonSets
   phases:
@@ -853,10 +897,6 @@ steps:
       action: gather
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
-    Params:
-      action: gather
-  - Identifier: SLOMeasurement
-    Method: SLOMeasurement
     Params:
       action: gather
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}

@@ -115,115 +115,115 @@ chaosMonkey:
     simulatedDowntime: 10m
 {{end}}
 steps:
-#- name: Creating scale up measurements
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: start
-#      apiVersion: apps/v1
-#      kind: Deployment
-#      labelSelector: group = scale-up
-#      operationTimeout: 45m
-#      checkIfPodsAreUpdated: false
-#- name: Creating scale up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 1
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#      templateFillMap:
-#        Replicas: 100
-#        Group: scale-up
-#        CpuRequest: 1m
-#        MemoryRequest: 10M
-#- name: Waiting for scale up pods to be created
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Deleting scale up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 0
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#- name: Waiting for scale up pods to be deleted
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Sleep
-#  measurements:
-#  - Identifier: WaitAfterScaleUp
-#    Method: Sleep
-#    Params:
-#      duration: 30m
-## END scale up phase
-#- name: Creating scale2 up measurements
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: start
-#      apiVersion: apps/v1
-#      kind: Deployment
-#      labelSelector: group = scale-up
-#      operationTimeout: 45m
-#      checkIfPodsAreUpdated: false
-#- name: Creating scale2 up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 1
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#      templateFillMap:
-#        Replicas: 500
-#        Group: scale-up
-#        CpuRequest: 1m
-#        MemoryRequest: 10M
-#- name: Waiting for scale up pods to be created
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Deleting scale up pods
-#  phases:
-#  - namespaceRange:
-#      min: 1
-#      max: 1
-#    replicasPerNamespace: 0
-#    tuningSet: SchedulerThroughputParallel
-#    objectBundle:
-#    - basename: scale-up-deployment
-#      objectTemplatePath: simple-deployment.yaml
-#- name: Waiting for scale up pods to be deleted
-#  measurements:
-#  - Identifier: WaitForScaleUpDeployments
-#    Method: WaitForControlledPodsRunning
-#    Params:
-#      action: gather
-#- name: Sleep
-#  measurements:
-#  - Identifier: WaitAfterScaleUp
-#    Method: Sleep
-#    Params:
-#      duration: 30m
+- name: Creating scale up measurements
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scale-up
+      operationTimeout: 45m
+      checkIfPodsAreUpdated: false
+- name: Creating scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: 100
+        Group: scale-up
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scale up pods to be created
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scale up pods to be deleted
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterScaleUp
+    Method: Sleep
+    Params:
+      duration: 30m
+# END scale up phase
+- name: Creating scale2 up measurements
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scale-up
+      operationTimeout: 45m
+      checkIfPodsAreUpdated: false
+- name: Creating scale2 up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: 500
+        Group: scale-up
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scale up pods to be created
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting scale up pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scale-up-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scale up pods to be deleted
+  measurements:
+  - Identifier: WaitForScaleUpDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterScaleUp
+    Method: Sleep
+    Params:
+      duration: 30m
 # End of scale up 2 section
 #
 - name: Starting measurements

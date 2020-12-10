@@ -44,6 +44,7 @@
 {{$deletionTime := DivideInt $totalPods $DELETE_TEST_THROUGHPUT}}
 # bigDeployments - 1/4 of namespace pods should be in big Deployments.
 {{$bigDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $BIG_GROUP_SIZE)}}
+{{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
 # mediumDeployments - 1/4 of namespace pods should be in medium Deployments.
 {{$mediumDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
 # smallDeployments - 1/2 of namespace pods should be in small Deployments.

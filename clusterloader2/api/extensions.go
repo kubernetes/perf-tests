@@ -50,3 +50,18 @@ func (d *Duration) String() string {
 func (d *Duration) ToTimeDuration() time.Duration {
 	return time.Duration(*d)
 }
+
+// IsPhase returns true whether a step is a phase-step.
+func (s *Step) IsPhase() bool {
+	return len(s.Phases) > 0
+}
+
+// IsMeasurement returns true whether a step is a measurement-step.
+func (s *Step) IsMeasurement() bool {
+	return len(s.Measurements) > 0
+}
+
+// IsMeasurement returns true whether a step is a module.
+func (s *Step) IsModule() bool {
+	return len(s.Module.Steps) > 0 || s.Module.Path != ""
+}

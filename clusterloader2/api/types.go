@@ -56,16 +56,30 @@ type Config struct {
 
 // Step represents encapsulation of some actions. These actions could be
 // object declarations or measurement usages.
-// Exactly one field (Phases or Measurements) should be non-empty.
+// Exactly one field (Phases or Measurements or Module) should be non-empty.
 type Step struct {
+	// Name is an optional name for given step. If name is set,
+	// timer will be run for the step execution.
+	// TODO: Document names with modules
+	Name string `json:"name"`
 	// Phases is a collection of declarative definitions of objects.
 	// Phases will be executed in parallel.
 	Phases []Phase `json:"phases"`
 	// Measurements is a collection of parallel measurement calls.
 	Measurements []Measurement `json:"measurements"`
-	// Name is an optional name for given step. If name is set,
-	// timer will be run for the step execution.
-	Name string `json:"name"`
+	// TODO: Document
+	Module Module `json:"module"`
+}
+
+// TODO: Document
+type Module struct {
+	// Path is the path to the filename with the module definition.
+	Path string `json:"path"`
+	// TemplateFillMap specifies for each placeholder what value should it be replaced with.
+	TemplateFillMap map[string]interface{} `json:"templateFillMap"`
+
+  // Steps is the list of steps composing the module.
+	Steps []Step  `json:"steps"`
 }
 
 // Phase is a structure that declaratively defines state of objects.

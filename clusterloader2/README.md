@@ -44,6 +44,8 @@ Templates for test definition come with one predefined value - ```{{.Nodes}}```,
 which represents the number of schedulable nodes in the cluster. \
 Example of a test definition can be found here: [load test].
 
+TODO(mmat@): Document the current api (top-level, including modules)
+
 ### Object template
 
 Object template is similar to standard kubernetes object definition

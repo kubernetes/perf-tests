@@ -1,0 +1,85 @@
+## Input Params
+{{$namespaces := .namespaces}}
+{{$minPodsInSmallCluster := .minPodsInSmallCluster}}
+
+# Variables
+# TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
+{{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $minPodsInSmallCluster) (MultiplyInt 2 .Nodes)}}
+{{$schedulerThroughputPodsPerDeployment := .Nodes}}
+{{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
+{{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+
+steps:
+- name: Creating scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scheduler-throughput
+      # The operation timeout shouldn't be less than 20m to make sure that ~10m node
+      # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
+      operationTimeout: 20m
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      measurmentInterval: 1s
+- name: Creating scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 1
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scheduler-throughput-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: {{$schedulerThroughputPodsPerDeployment}}
+        Group: scheduler-throughput
+        CpuRequest: 1m
+        MemoryRequest: 10M
+- name: Waiting for scheduler throughput pods to be created
+  measurements:
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Collecting scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      enableViolations: true
+      threshold: {{$schedulerThroughputThreshold}}
+- name: Deleting scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 0
+    tuningSet: SchedulerThroughputParallel
+    objectBundle:
+    - basename: scheduler-throughput-deployment
+      objectTemplatePath: simple-deployment.yaml
+- name: Waiting for scheduler throughput pods to be deleted
+  measurements:
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather

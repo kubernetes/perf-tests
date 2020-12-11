@@ -75,11 +75,11 @@ type Step struct {
 type Module struct {
 	// Path is the path to the filename with the module definition.
 	Path string `json:"path"`
-	// TemplateFillMap specifies for each placeholder what value should it be replaced with.
-	TemplateFillMap map[string]interface{} `json:"templateFillMap"`
+	// Params specifies for each placeholder what value should it be replaced with.
+	Params map[string]interface{} `json:"params"`
 
-  // Steps is the list of steps composing the module.
-	Steps []Step  `json:"steps"`
+	// Steps is the list of steps composing the module.
+	Steps []Step `json:"steps"`
 }
 
 // Phase is a structure that declaratively defines state of objects.

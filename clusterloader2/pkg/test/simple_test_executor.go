@@ -169,8 +169,8 @@ func (ste *simpleExecutor) processModule(ctx Context, module *api.Module) (*api.
 		return module, nil
 	}
 	mapping := ctx.GetTemplateMappingCopy()
-	if module.TemplateFillMap != nil {
-		util.CopyMap(module.TemplateFillMap, mapping)
+	if module.Params != nil {
+		util.CopyMap(module.Params, mapping)
 	}
 	if err := ctx.GetTemplateProvider().TemplateInto(module.Path, mapping, module); err != nil {
 		return nil, fmt.Errorf("erorr while processing module %#v: %w", module, err)

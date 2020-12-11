@@ -1,3 +1,4 @@
+{{$TURN_OFF_LOGGING_TO_FILE := DefaultParam .TURN_OFF_LOGGING_TO_FILE false}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,8 +26,12 @@ spec:
             # TODO(oxddr): according to @wojtek-t there are differences between fully and not fully qualified domain names
             # Investigate it and potentially measure latency for both
             - --dns-probe-url=ping-server.probes
+{{if $TURN_OFF_LOGGING_TO_FILE}}
+            - --logtostderr=true
+{{else}}
             - --logtostderr=false
             - --log_file=/var/log/cl2-dns-lookup.log
+{{end}}
           resources:
             limits:
               cpu: 100m
@@ -34,6 +39,7 @@ spec:
           ports:
             - containerPort: 8080
               name: metrics
+{{if $TURN_OFF_LOGGING_TO_FILE}}
           volumeMounts:
             - name: logs-volume
               mountPath: /var/log
@@ -41,3 +47,4 @@ spec:
         - name: logs-volume
           hostPath:
             path: /var/log
+{{end}}

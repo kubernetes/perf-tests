@@ -1,3 +1,4 @@
+{{$TURN_OFF_LOGGING_TO_FILE := DefaultParam .TURN_OFF_LOGGING_TO_FILE false}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,8 +23,12 @@ spec:
             - --metric-bind-address=0.0.0.0:8080
             - --mode=ping-server
             - --ping-server-bind-address=0.0.0.0:8081
+{{if $TURN_OFF_LOGGING_TO_FILE}}
+            - --logtostderr=true
+{{else}}
             - --logtostderr=false
             - --log_file=/var/log/cl2-ping-server.log
+{{end}}
           resources:
             limits:
               cpu: 100m
@@ -33,6 +38,7 @@ spec:
               name: metrics
             - containerPort: 8081
               name: http
+{{if $TURN_OFF_LOGGING_TO_FILE}}
           volumeMounts:
             - name: logs-volume
               mountPath: /var/log
@@ -40,3 +46,4 @@ spec:
         - name: logs-volume
           hostPath:
             path: /var/log
+{{end}}

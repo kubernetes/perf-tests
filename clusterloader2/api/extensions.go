@@ -37,7 +37,7 @@ func (d *Duration) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("parsing duration error: %v", err)
 	}
-	(*d) = Duration(duration)
+	*d = Duration(duration)
 	return nil
 }
 
@@ -49,4 +49,9 @@ func (d *Duration) String() string {
 // ToTimeDuration converts Duration to time.Duration.
 func (d *Duration) ToTimeDuration() time.Duration {
 	return time.Duration(*d)
+}
+
+// IsMeasurement returns true whether a step is a measurement-step.
+func (s *Step) IsMeasurement() bool {
+	return len(s.Measurements) > 0
 }

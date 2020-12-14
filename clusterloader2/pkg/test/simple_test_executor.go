@@ -140,7 +140,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	stepStart := time.Now()
-	if len(step.Measurements) > 0 {
+	if step.IsMeasurement() {
 		for i := range step.Measurements {
 			// index is created to make i value unchangeable during thread execution.
 			index := i

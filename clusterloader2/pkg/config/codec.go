@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/perf-tests/clusterloader2/api"
 )
 
 var (
@@ -33,15 +32,6 @@ var (
 	// Useful to distinguish where the manifast was empty or malformed.
 	ErrorEmptyFile = errors.New("emptyfile")
 )
-
-// convertToConfig converts array of bytes into test config.
-func convertToConfig(raw []byte) (*api.Config, error) {
-	var config api.Config
-	if err := yaml.NewYAMLOrJSONDecoder(bytes.NewBuffer(raw), 4096).Decode(&config); err != nil {
-		return nil, fmt.Errorf("decoding failed: %v", err)
-	}
-	return &config, nil
-}
 
 // convertToObject converts array of bytes into unstructured object.
 func convertToObject(raw []byte) (*unstructured.Unstructured, error) {

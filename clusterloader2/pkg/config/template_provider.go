@@ -150,11 +150,11 @@ func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]int
 // TemplateToConfig creates test config from file specified by the given path.
 // Template's placeholders are replaced based on provided mapping.
 func (tp *TemplateProvider) TemplateToConfig(path string, mapping map[string]interface{}) (*api.Config, error) {
-	b, err := tp.getMappedTemplate(path, mapping)
-	if err != nil {
+	c := &api.Config{}
+	if err := tp.TemplateInto(path, mapping, c); err != nil {
 		return nil, err
 	}
-	return convertToConfig(b)
+	return c, nil
 }
 
 // TemplateInto decodes template specified by the given path into given structure.

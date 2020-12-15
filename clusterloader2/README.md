@@ -133,6 +133,14 @@ In case of timeout test continues to run, with error (causing marking test as fa
 - **Sleep** \
 This is a barrier that waits until requested amount of the time passes.
 
+## Prometheus metrics
+
+There are two ways of scraping metrics from pods within cluster:
+- **ServiceMonitor** \
+Allows to scrape metrics from all pods in service. Here you can find example [Service monitor]
+- **PodMonitor** \
+Allows to scrape metrics from all pods with specific label. Here you can find example [Pod monitor]
+
 ## Vendor
 
 Vendor is created using [Go modules].
@@ -145,3 +153,5 @@ Vendor is created using [Go modules].
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
 [overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml
 [pod startup SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md
+[Service monitor]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/prometheus/manifests/default/prometheus-serviceMonitorKubeProxy.yaml
+[Pod monitor]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/prometheus/manifests/default/prometheus-podMonitorNodeLocalDNS.yaml

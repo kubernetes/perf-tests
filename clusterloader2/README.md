@@ -44,6 +44,16 @@ Templates for test definition come with one predefined value - ```{{.Nodes}}```,
 which represents the number of schedulable nodes in the cluster. \
 Example of a test definition can be found here: [load test].
 
+### Modules
+
+ClusterLoader2 supports modularization of the test configs via the [Module API](https://github.com/kubernetes/perf-tests/blob/1bbb8bd493e5ce6370b0e18f3deaf821f3f28fd0/clusterloader2/api/types.go#L77).
+With the Module API, you can divide a single test config file into multiple
+module files. A module can be parameterized and used multiple times by
+the test or other module. This provides a convenient way to avoid copy-pasting
+and maintaining super-long, unreadable test configs<sup id="a1">[1](#f1)</sup>.
+
+[TODO(mm4tt)]: <> (Point to the load config based on modules here once we migrate it)
+
 ### Object template
 
 Object template is similar to standard kubernetes object definition
@@ -144,6 +154,11 @@ Allows to scrape metrics from all pods with specific label. Here you can find ex
 ## Vendor
 
 Vendor is created using [Go modules].
+
+---
+
+<sup><b id="f1">1.</b> As an example and anti-pattern see the 900 line [load test config.yaml](https://github.com/kubernetes/perf-tests/blob/92cc27ff529ae3702c87e8f154ea62f3f2d8e837/clusterloader2/testing/load/config.yaml) we ended up maintaining at some point. [↩](#a1)</sup>
+
 
 [api]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/api/types.go
 [API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md

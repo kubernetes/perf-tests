@@ -54,18 +54,39 @@ type Config struct {
 	ChaosMonkey ChaosMonkeyConfig `json:"chaosMonkey"`
 }
 
-// Step represents encapsulation of some actions. These actions could be
-// object declarations or measurement usages.
-// Exactly one field (Phases or Measurements) should be non-empty.
+// Step represents a unit of work in ClusterLoader2. It can be either:
+// - a collection of measurements,
+// - a collection of phases,
+// - a module (sequence of steps).
+// Exactly one field (Phases or Measurements or Module) should be non-empty.
 type Step struct {
 	// Phases is a collection of declarative definitions of objects.
 	// Phases will be executed in parallel.
 	Phases []Phase `json:"phases"`
 	// Measurements is a collection of parallel measurement calls.
 	Measurements []Measurement `json:"measurements"`
-	// Name is an optional name for given step. If name is set,
-	// timer will be run for the step execution.
+	// Module points to a CL2 module defined in a separate file.
+	Module ModuleRef `json:"module"`
+	// Name is an optional name for given step. If name is set the step execution
+	// time will be measured and the step will be reported at the end of the test.
+	// The name is ignored if the step is of type 'Module'.
 	Name string `json:"name"`
+}
+
+// ModuleRef is a structure that points to a Module defined in a separate file.
+type ModuleRef struct {
+	// Path is the path to the filename with the module template.
+	Path string `json:"path"`
+	// Params specifies template parameters to be substituted inside the template.
+	Params map[string]interface{} `json:"params"`
+}
+
+// Module is a structure with the definition of a CL2 module. Conceptually, a
+// module is a sequence of steps.
+type Module struct {
+	// Steps is the list of steps composing the module. Steps are executed
+	// serially.
+	Steps []Step `json:"steps"`
 }
 
 // Phase is a structure that declaratively defines state of objects.

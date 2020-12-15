@@ -64,6 +64,9 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 		close(stopCh)
 		return errors.NewErrorList(fmt.Errorf("error while creating chaos monkey: %v", err))
 	}
+	if err := ste.prepareTestNamespaces(ctx, conf); err != nil {
+		return errors.NewErrorList(fmt.Errorf("error while preparing test namespaces: %w", err))
+	}
 	errList := ste.ExecuteTestSteps(ctx, conf)
 	close(stopCh)
 
@@ -95,28 +98,30 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 	return errList
 }
 
-// ExecuteTestSteps executes all test steps provided in configuration
-func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *errors.ErrorList {
+// prepareTestNamespaces prepares k8s namespaces for the test.
+func (ste *simpleExecutor) prepareTestNamespaces(ctx Context, conf *api.Config) error {
 	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces listing failed: %v", err))
+		return fmt.Errorf("automanaged namespaces listing failed: %w", err)
 	}
 	if len(automanagedNamespacesList) > 0 && *conf.Namespace.EnableExistingNamespaces == false {
-		return errors.NewErrorList(fmt.Errorf("pre-existing automanaged namespaces found"))
+		return fmt.Errorf("pre-existing automanaged namespaces found")
 	}
 	var deleteStaleNS = *conf.Namespace.DeleteStaleNamespaces
 	if len(staleNamespaces) > 0 && deleteStaleNS {
 		klog.Warning("stale automanaged namespaces found")
 		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
-			klog.Errorf("stale automanaged namespaces cleanup error: %v", errList.String())
+			klog.Errorf("stale automanaged namespaces cleanup error: %s", errList.String())
 		}
 	}
-
-	err = ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.Namespace.Number))
-	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("automanaged namespaces creation failed: %v", err))
+	if err := ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.Namespace.Number)); err != nil {
+		return fmt.Errorf("automanaged namespaces creation failed: %w", err)
 	}
+	return nil
+}
 
+// ExecuteTestSteps executes all test steps provided in configuration
+func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *errors.ErrorList {
 	steps, err := flattenModuleSteps(ctx, conf.Steps)
 	if err != nil {
 		return errors.NewErrorList(

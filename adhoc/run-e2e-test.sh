@@ -44,7 +44,6 @@ sed -i \
     -e 's;^expected_rate=.*;expected_rate=50;' \
     -e 's;^expected_duration=.*;expected_duration=60;' \
     -e "s;^result_dir=.*;result_dir=${ARTIFACTS_DIR}/scale-test;" \
-    -e 's;^GATHER_METRICS: false;GATHER_METRICS: true;' \
     -e 's;--provider=local;--provider=gce --experimental-gcp-snapshot-prometheus-disk=true --experimental-prometheus-disk-snapshot-name=po-${BUILD_ID}-${short_unique_name};' \
     hack/scale-test.sh
 

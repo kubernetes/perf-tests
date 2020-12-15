@@ -69,6 +69,7 @@ type PrometheusConfig struct {
 	ScrapeNodeExporter      bool
 	ScrapeKubelets          bool
 	ScrapeKubeProxy         bool
+	ScrapeNodeLocalDNS      bool
 	SnapshotProject         string
 	ManifestPath            string
 	CoreManifests           string

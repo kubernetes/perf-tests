@@ -1,0 +1,22 @@
+{{$PROMETHEUS_SCRAPE_NODE_LOCAL_DNS := DefaultParam .PROMETHEUS_SCRAPE_NODE_LOCAL_DNS false}}
+
+{{if $PROMETHEUS_SCRAPE_NODE_LOCAL_DNS}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: node-local-dns-pods
+  name: node-local-dns-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10m
+      port: metrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: node-local-dns
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

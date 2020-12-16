@@ -18,7 +18,10 @@ package test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -71,4 +74,25 @@ func loadModule(ctx Context, moduleRef *api.ModuleRef) (*api.Module, error) {
 		return nil, fmt.Errorf("erorr while processing module %#v: %w", module, err)
 	}
 	return &module, nil
+}
+
+func dumpExecutableSteps(ctx Context, executableSteps []*api.Step) error {
+	if ctx.GetClusterLoaderConfig().ReportDir == "" {
+		return nil
+	}
+	s := steps{executableSteps }
+	b, err := yaml.Marshal(s)
+	if err != nil {
+		return err
+	}
+	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, "steps.yaml")
+	if err := ioutil.WriteFile(filePath, b, 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
+// steps is struct needed to marshal list of Step pointers into yaml.
+type steps struct {
+	Steps []*api.Step `json:"steps"`
 }

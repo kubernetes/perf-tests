@@ -122,6 +122,9 @@ func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *erro
 		return errors.NewErrorList(
 			fmt.Errorf("erorr when flattening module steps: %w", err))
 	}
+	if err := dumpExecutableSteps(ctx, steps); err != nil {
+		klog.Warningf("Error while dumping executable steps: %w", err)
+	}
 	errList := errors.NewErrorList()
 	for i, step := range steps {
 		namePrefix := step.Name

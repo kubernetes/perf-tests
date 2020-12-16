@@ -27,6 +27,8 @@ spec:
           requests:
             cpu: {{.CpuRequest}}
             memory: {{.MemoryRequest}}
+          limits:
+            memory: {{.MemoryRequest}}
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:

@@ -32,6 +32,8 @@ spec:
           requests:
             cpu: 10m
             memory: "10M"
+          limits:
+            memory: "10M"
         {{if $EnablePVs}}
         volumeMounts:
           - name: pv

@@ -209,6 +209,16 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	if err := pc.cachePrometheusDiskMetadataIfEnabled(); err != nil {
 		klog.Warningf("Error while caching prometheus disk metadata: %v", err)
 	}
+	defer func() {
+		klog.V(2).Info("Snapshotting prometheus disk")
+		if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
+			klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+		}
+		if err := pc.deletePrometheusDiskIfEnabled(); err != nil {
+			klog.Warningf("Error while deleting prometheus disk: %v", err)
+		}
+	}()
+
 	klog.V(2).Info("Tearing down prometheus stack")
 	k8sClient := pc.framework.GetClientSets().GetClient()
 	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
@@ -216,12 +226,6 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	}
 	if err := client.WaitForDeleteNamespace(k8sClient, namespace); err != nil {
 		return err
-	}
-	if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
-		klog.Warningf("Error while snapshotting prometheus disk: %v", err)
-	}
-	if err := pc.deletePrometheusDiskIfEnabled(); err != nil {
-		klog.Warningf("Error while deleting prometheus disk: %v", err)
 	}
 	return nil
 }

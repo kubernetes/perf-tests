@@ -45,5 +45,8 @@ spec:
       insecureSkipVerify: true
   - interval: 5s
     port: kube-controller-manager
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
   selector:
     k8s-app: master

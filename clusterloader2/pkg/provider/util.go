@@ -32,7 +32,7 @@ func getComponentProtocolAndPort(componentName string) (string, int, error) {
 	case "kube-apiserver":
 		return "https://", 443, nil
 	case "kube-controller-manager":
-		return "http://", 10252, nil
+		return "https://", 10257, nil
 	case "kube-scheduler":
 		return "https://", 10259, nil
 	}

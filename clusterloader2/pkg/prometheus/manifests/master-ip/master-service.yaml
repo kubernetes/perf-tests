@@ -25,7 +25,7 @@ spec:
     - name: kube-scheduler
       port: 10259
     - name: kube-controller-manager
-      port: 10252
+      port: 10257
     {{end}}
     {{if $PROMETHEUS_SCRAPE_NODE_EXPORTER}}
     - name: node-exporter

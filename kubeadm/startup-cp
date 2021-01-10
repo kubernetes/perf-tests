@@ -1,0 +1,41 @@
+# Copyright 2021 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# obtain the public IP
+PUBLIC_IP=$(curl -H "Metadata-Flavor:Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
+
+# prepare the kubeadm configuration file
+CI_VERSION=${CI_VERSION:-"latest"}
+CNI_PLUGIN_MANIFEST=${CNI_PLUGIN_MANIFEST:-"https://raw.githubusercontent.com/cilium/cilium/v1.9/install/kubernetes/quick-install.yaml"}
+
+KUBE_VERSION=$(curl -L https://dl.k8s.io/ci/"$CI_VERSION".txt)
+CONFIG_YAML_PATH=config.yaml
+sudo bash -c "cat >> $CONFIG_YAML_PATH" << EOL
+kind: ClusterConfiguration
+apiVersion: kubeadm.k8s.io/v1beta2
+kubernetesVersion: ci/$KUBE_VERSION # use version from CI
+apiServer:
+  certSANs:
+  - "$PUBLIC_IP" # allows external auth
+---
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+cgroupDriver: systemd # matches the cgroup driver for containerd
+EOL
+
+# create the control plane
+sudo kubeadm init --v=5 --config=$CONFIG_YAML_PATH
+
+# apply a CNI plugin
+sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f "$CNI_PLUGIN_MANIFEST"

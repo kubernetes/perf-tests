@@ -301,7 +301,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		body, err := c.CoreV1().RESTClient().Verb(opUpper).
 			Namespace(metav1.NamespaceSystem).
 			Resource("pods").
-			Name(fmt.Sprintf("kube-scheduler-%v:%v", masterName, ports.InsecureSchedulerPort)).
+			Name(fmt.Sprintf("https:kube-scheduler-%v:%v", masterName, ports.KubeSchedulerPort)).
 			SubResource("proxy").
 			Suffix("metrics").
 			Do(ctx).Raw()
@@ -312,7 +312,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		}
 		responseText = string(body)
 	} else {
-		cmd := "curl -X " + opUpper + " http://localhost:10251/metrics"
+		cmd := "curl -X " + opUpper + " -k https://localhost:10259/metrics"
 		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
 		if err != nil || sshResult.Code != 0 {
 			return "", fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)

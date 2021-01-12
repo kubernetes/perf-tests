@@ -691,10 +691,8 @@ k8s.io/kubernetes/pkg/volume/util/recyclerclient
 k8s.io/kubernetes/pkg/volume/util/subpath
 k8s.io/kubernetes/test/e2e/framework/ginkgowrapper
 k8s.io/kubernetes/test/e2e/framework/log
-k8s.io/kubernetes/test/e2e/framework/metrics
 k8s.io/kubernetes/test/e2e/framework/pod
 k8s.io/kubernetes/test/e2e/framework/resource
-k8s.io/kubernetes/test/e2e/perftype
 k8s.io/kubernetes/test/e2e/system
 k8s.io/kubernetes/test/utils
 k8s.io/kubernetes/test/utils/image

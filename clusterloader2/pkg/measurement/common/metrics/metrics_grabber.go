@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ func (g *Grabber) GrabFromKubelet(nodeName string) (KubeletMetrics, error) {
 		return KubeletMetrics{}, err
 	}
 	if len(nodes.Items) != 1 {
-		return KubeletMetrics{}, fmt.Errorf("Error listing nodes with name %v, got %v", nodeName, nodes.Items)
+		return KubeletMetrics{}, fmt.Errorf("error listing nodes with name %v, got %v", nodeName, nodes.Items)
 	}
 	kubeletPort := nodes.Items[0].Status.DaemonEndpoints.KubeletEndpoint.Port
 	return g.grabFromKubeletInternal(nodeName, int(kubeletPort))
@@ -118,7 +118,7 @@ func (g *Grabber) GrabFromKubelet(nodeName string) (KubeletMetrics, error) {
 
 func (g *Grabber) grabFromKubeletInternal(nodeName string, kubeletPort int) (KubeletMetrics, error) {
 	if kubeletPort <= 0 || kubeletPort > 65535 {
-		return KubeletMetrics{}, fmt.Errorf("Invalid Kubelet port %v. Skipping Kubelet's metrics gathering", kubeletPort)
+		return KubeletMetrics{}, fmt.Errorf("invalid Kubelet port %v. Skipping Kubelet's metrics gathering", kubeletPort)
 	}
 	output, err := g.getMetricsFromNode(nodeName, int(kubeletPort))
 	if err != nil {
@@ -130,9 +130,9 @@ func (g *Grabber) grabFromKubeletInternal(nodeName string, kubeletPort int) (Kub
 // GrabFromScheduler returns metrics from scheduler
 func (g *Grabber) GrabFromScheduler() (SchedulerMetrics, error) {
 	if !g.registeredMaster {
-		return SchedulerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping Scheduler's metrics gathering")
+		return SchedulerMetrics{}, fmt.Errorf("master's Kubelet is not registered. Skipping Scheduler's metrics gathering")
 	}
-	output, err := g.getMetricsFromPod(g.client, fmt.Sprintf("%v-%v", "kube-scheduler", g.masterName), metav1.NamespaceSystem, ports.InsecureSchedulerPort)
+	output, err := g.getMetricsFromPod(g.client, fmt.Sprintf("%v-%v", "kube-scheduler", g.masterName), metav1.NamespaceSystem, ports.KubeSchedulerPort, true)
 	if err != nil {
 		return SchedulerMetrics{}, err
 	}
@@ -142,7 +142,7 @@ func (g *Grabber) GrabFromScheduler() (SchedulerMetrics, error) {
 // GrabFromClusterAutoscaler returns metrics from cluster autoscaler
 func (g *Grabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) {
 	if !g.registeredMaster && g.externalClient == nil {
-		return ClusterAutoscalerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ClusterAutoscaler's metrics gathering")
+		return ClusterAutoscalerMetrics{}, fmt.Errorf("master's Kubelet is not registered. Skipping ClusterAutoscaler's metrics gathering")
 	}
 	var client clientset.Interface
 	var namespace string
@@ -153,7 +153,7 @@ func (g *Grabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) 
 		client = g.client
 		namespace = metav1.NamespaceSystem
 	}
-	output, err := g.getMetricsFromPod(client, "cluster-autoscaler", namespace, 8085)
+	output, err := g.getMetricsFromPod(client, "cluster-autoscaler", namespace, 8085, false)
 	if err != nil {
 		return ClusterAutoscalerMetrics{}, err
 	}
@@ -163,7 +163,7 @@ func (g *Grabber) GrabFromClusterAutoscaler() (ClusterAutoscalerMetrics, error) 
 // GrabFromControllerManager returns metrics from controller manager
 func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) {
 	if !g.registeredMaster {
-		return ControllerManagerMetrics{}, fmt.Errorf("Master's Kubelet is not registered. Skipping ControllerManager's metrics gathering")
+		return ControllerManagerMetrics{}, fmt.Errorf("master's Kubelet is not registered. Skipping ControllerManager's metrics gathering")
 	}
 
 	var err error
@@ -176,7 +176,7 @@ func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) 
 
 		var lastMetricsFetchErr error
 		if metricsWaitErr := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
-			_, lastMetricsFetchErr = g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, ports.InsecureKubeControllerManagerPort)
+			_, lastMetricsFetchErr = g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, ports.KubeControllerManagerPort, true)
 			return lastMetricsFetchErr == nil, nil
 		}); metricsWaitErr != nil {
 			err = fmt.Errorf("error waiting for controller manager pod to expose metrics: %v; %v", metricsWaitErr, lastMetricsFetchErr)
@@ -187,7 +187,7 @@ func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) 
 		return ControllerManagerMetrics{}, err
 	}
 
-	output, err := g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, ports.InsecureKubeControllerManagerPort)
+	output, err := g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, ports.KubeControllerManagerPort, true)
 	if err != nil {
 		return ControllerManagerMetrics{}, err
 	}
@@ -256,17 +256,23 @@ func (g *Grabber) Grab() (Collection, error) {
 		}
 	}
 	if len(errs) > 0 {
-		return result, fmt.Errorf("Errors while grabbing metrics: %v", errs)
+		return result, fmt.Errorf("errors while grabbing metrics: %v", errs)
 	}
 	return result, nil
 }
 
-func (g *Grabber) getMetricsFromPod(client clientset.Interface, podName string, namespace string, port int) (string, error) {
+func (g *Grabber) getMetricsFromPod(client clientset.Interface, podName string, namespace string, port int, enableHTTPS bool) (string, error) {
+	var name string
+	if enableHTTPS {
+		name = fmt.Sprintf("https:%s:%d", podName, port)
+	} else {
+		name = fmt.Sprintf("%s:%d", podName, port)
+	}
 	rawOutput, err := client.CoreV1().RESTClient().Get().
 		Namespace(namespace).
 		Resource("pods").
 		SubResource("proxy").
-		Name(fmt.Sprintf("%v:%v", podName, port)).
+		Name(name).
 		Suffix("metrics").
 		Do(context.TODO()).Raw()
 	if err != nil {

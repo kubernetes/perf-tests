@@ -19,26 +19,25 @@ package common
 import (
 	"context"
 	"fmt"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
-	"k8s.io/perf-tests/clusterloader2/pkg/provider"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
-	goerrors "github.com/go-errors/errors"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	apiAvailabilityName = "APIAvailability"
+	apiAvailabilityMeasurementName = "APIAvailability"
 )
 
 func init() {
-	if err := measurement.Register(apiAvailabilityName, createAPIAvailabilityMeasurement); err != nil {
-		klog.Fatalf("Cannot register %s: %v", apiAvailabilityName, err)
+	if err := measurement.Register(apiAvailabilityMeasurementName, createAPIAvailabilityMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", apiAvailabilityMeasurementName, err)
 	}
 }
 
@@ -48,126 +47,214 @@ func createAPIAvailabilityMeasurement() measurement.Measurement {
 
 type apiAvailabilityMeasurement struct {
 	isRunning           bool
+	isPaused            bool
+	pauseCh             chan struct{}
+	unpauseCh           chan struct{}
 	stopCh              chan struct{}
-	hosts               []string
+	pollFrequency       time.Duration
+	hostIPs             []string
 	summaries           []measurement.Summary
 	clusterLevelMetrics *apiAvailabilityMetrics
-	hostLevelMetrics    map[string]*apiAvailabilityMetrics
-	wg                  sync.WaitGroup
+	// Metrics per host internal IP.
+	hostLevelMetrics       map[string]*apiAvailabilityMetrics
+	hostPollTimeoutSeconds int
+	wg                     sync.WaitGroup
+	lock                   sync.Mutex
 }
 
-func (a *apiAvailabilityMeasurement) updateMasterAvailabilityMetrics(c clientset.Interface, config *measurement.Config, provider provider.Provider) {
-	for _, host := range a.hosts {
-		// SSH and check the health of the host
-		command := fmt.Sprintf("curl -f -s -k %slocalhost:%v/healthz", "https://", 443)
-		sshResult, err := measurementutil.SSH(command, host+":22", provider)
-		availability := err != nil || sshResult.Code != 0
-		a.updateAvailabilityMetrics(availability, a.hostLevelMetrics[host])
+func (a *apiAvailabilityMeasurement) updateHostAvailabilityMetrics(c clientset.Interface) {
+	// TODO(#1683): Parallelize polling individual hosts.
+	for _, ip := range a.hostIPs {
+		statusCode, err := a.pollHost(ip)
+		availability := statusCode == strconv.Itoa(http.StatusOK)
+		if err != nil {
+			klog.Warningf("execservice issue: %s", err.Error())
+		}
+		if !availability {
+			klog.Warningf("host %s not available; HTTP status code: %s", ip, statusCode)
+		}
+		a.hostLevelMetrics[ip].update(availability)
 	}
+}
+
+func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
+	pod, err := execservice.GetPod()
+	if err != nil {
+		return "", fmt.Errorf("problem with GetPod(): %w", err)
+	}
+	cmd := fmt.Sprintf("curl --connect-timeout %d -s -k -w \"%%{http_code}\" -o /dev/null https://%s:443/readyz", a.hostPollTimeoutSeconds, hostIP)
+	output, err := execservice.RunCommand(pod, cmd)
+	if err != nil {
+		return "", fmt.Errorf("problem with RunCommand(): %w", err)
+	}
+	return output, nil
 }
 
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
-	// Check the availability of the cluster by issuing a REST call to /healthz end point
-	result := c.CoreV1().RESTClient().Get().AbsPath("/healthz").Do(context.TODO())
+	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Do(context.Background())
 	status := 0
 	result.StatusCode(&status)
-	a.updateAvailabilityMetrics(status == 200, a.clusterLevelMetrics)
+	availability := status == http.StatusOK
+	if !availability {
+		klog.Warningf("cluster not available; HTTP status code: %d", status)
+	}
+	a.clusterLevelMetrics.update(availability)
 }
 
-func (a *apiAvailabilityMeasurement) start(config *measurement.Config, SSHToMasterSupported bool, probeDuration int) error {
-	a.hosts = config.ClusterFramework.GetClusterConfig().MasterIPs
-	if len(a.hosts) < 1 {
-		return goerrors.Errorf("APIAvailability measurement can't start due to lack of master IPs")
+func (a *apiAvailabilityMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	action, err := util.GetString(config.Params, "action")
+	if err != nil {
+		return nil, err
 	}
 
-	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
-	provider := config.ClusterFramework.GetClusterConfig().Provider
+	a.lock.Lock()
+	defer a.lock.Unlock()
 
-	a.isRunning = true
-	a.stopCh = make(chan struct{})
+	switch action {
+	case "start":
+		return nil, a.start(config)
+	case "pause":
+		a.pause()
+		return nil, nil
+	case "unpause":
+		a.unpause()
+		return nil, nil
+	case "gather":
+		return a.gather()
+	default:
+		return nil, fmt.Errorf("unknown action %v", action)
+	}
+}
+
+func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
+	if a.isRunning {
+		klog.Infof("%s: measurement already running", a)
+		return nil
+	}
+	if err := a.initFields(config); err != nil {
+		return err
+	}
+	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
 	a.wg.Add(1)
 
 	go func() {
 		defer a.wg.Done()
 		for {
+			if a.isPaused {
+				select {
+				case <-a.unpauseCh:
+					a.isPaused = false
+				case <-a.stopCh:
+					return
+				}
+			}
 			select {
+			case <-a.pauseCh:
+				a.isPaused = true
+			case <-time.After(a.pollFrequency):
+				a.updateClusterAvailabilityMetrics(k8sClient)
+				if a.hostLevelAvailabilityEnabled() {
+					a.updateHostAvailabilityMetrics(k8sClient)
+				}
 			case <-a.stopCh:
 				return
-			case <-time.After(time.Duration(probeDuration)):
-				a.updateClusterAvailabilityMetrics(k8sClient)
-				if SSHToMasterSupported {
-					a.updateMasterAvailabilityMetrics(k8sClient, config, provider)
-				}
 			}
 		}
 	}()
 	return nil
 }
 
-// Execute starts the api-server healthz probe end point from start action and
-// collects availability metrics in gather.
-func (a *apiAvailabilityMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	SSHToMasterSupported := !config.ClusterFramework.GetClusterConfig().Provider.Features().SupportSSHToMaster
-
-	if !SSHToMasterSupported {
-		klog.Infof("ssh to master nodes not supported. Measurement would have only Cluster Level Metrics")
-	}
-
-	action, err := util.GetString(config.Params, "action")
+func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) error {
+	a.isRunning = true
+	a.stopCh = make(chan struct{})
+	a.pauseCh = make(chan struct{})
+	a.unpauseCh = make(chan struct{})
+	frequency, err := util.GetDuration(config.Params, "pollFrequency")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	probeFrequency, err := util.GetIntOrDefault(config.Params, "frequency", 1)
-	if err != nil {
-		return nil, err
-	}
+	a.pollFrequency = frequency
 
-	switch action {
-	case "start":
-		if a.isRunning {
-			klog.Infof("%s: measurement already running", a)
-			return nil, nil
+	a.clusterLevelMetrics = &apiAvailabilityMetrics{}
+	if config.ClusterLoaderConfig.EnableExecService {
+		a.hostIPs = config.ClusterFramework.GetClusterConfig().MasterInternalIPs
+		if len(a.hostIPs) == 0 {
+			klog.Infof("%s: host internal IP(s) are not provided, therefore only cluster-level availability will be measured", a)
+			return nil
 		}
-		return nil, a.start(config, SSHToMasterSupported, probeFrequency)
-	case "gather":
-		err := a.stopAndSummarize(SSHToMasterSupported, probeFrequency)
+		a.hostLevelMetrics = map[string]*apiAvailabilityMetrics{}
+		for _, ip := range a.hostIPs {
+			a.hostLevelMetrics[ip] = &apiAvailabilityMetrics{}
+		}
+		hostPollTimeoutSeconds, err := util.GetIntOrDefault(config.Params, "hostPollTimeoutSeconds", 5)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return a.summaries, nil
-	default:
-		return nil, fmt.Errorf("unknown action %v", action)
+		a.hostPollTimeoutSeconds = hostPollTimeoutSeconds
+	} else {
+		klog.Infof("%s: exec service is not enabled, therefore only cluster-level availability will be measured", a)
 	}
+
+	return nil
 }
 
-func (a *apiAvailabilityMeasurement) stopAndSummarize(SSHToMasterSupported bool, probeFrequency int) error {
+func (a *apiAvailabilityMeasurement) hostLevelAvailabilityEnabled() bool {
+	return len(a.hostLevelMetrics) > 0
+}
+
+func (a *apiAvailabilityMeasurement) pause() {
 	if !a.isRunning {
-		return nil
+		klog.Infof("%s: measurement is not running", a)
+		return
+	}
+	if a.isPaused {
+		klog.Warningf("%s: measurement already paused", a)
+		return
+	}
+	a.pauseCh <- struct{}{}
+	klog.Infof("%s: pausing the measurement (stopping checking the availability)", a)
+}
+
+func (a *apiAvailabilityMeasurement) unpause() {
+	if !a.isRunning {
+		klog.Infof("%s: measurement is not running", a)
+		return
+	}
+	if !a.isPaused {
+		klog.Warningf("%s: measurement already unpaused", a)
+		return
+	}
+	a.unpauseCh <- struct{}{}
+	klog.Infof("%s: unpausing the measurement", a)
+}
+
+func (a *apiAvailabilityMeasurement) gather() ([]measurement.Summary, error) {
+	if !a.isRunning {
+		return nil, nil
 	}
 	close(a.stopCh)
 	a.wg.Wait()
+	a.isRunning = false
+	klog.Infof("%s: gathering summaries", apiAvailabilityMeasurementName)
 
-	output := apiAvailabilityOutput{}
-	output.createClusterSummary(a.clusterLevelMetrics, probeFrequency)
-	if SSHToMasterSupported {
-		output.createMastersSummary(a.hostLevelMetrics, a.hosts, probeFrequency)
+	output := apiAvailabilityOutput{
+		ClusterSummary: createClusterSummary(a.clusterLevelMetrics, a.pollFrequency),
+	}
+	if a.hostLevelAvailabilityEnabled() {
+		output.HostSummaries = createHostSummary(a.hostLevelMetrics, a.hostIPs, a.pollFrequency)
 	}
 
-	errList := errors.NewErrorList()
 	content, err := util.PrettyPrintJSON(output)
 	if err != nil {
-		errList.Append(errList, err)
-	} else {
-		summary := measurement.CreateSummary(apiAvailabilityName, "json", content)
-		a.summaries = append(a.summaries, summary)
+		return nil, err
 	}
-	return errList
+	summary := measurement.CreateSummary(apiAvailabilityMeasurementName, "json", content)
+	a.summaries = append(a.summaries, summary)
+	return a.summaries, nil
 }
 
-// Dispose cleans up after the measurement.
-func (a apiAvailabilityMeasurement) Dispose() {}
+func (a *apiAvailabilityMeasurement) Dispose() {}
 
-// String returns string representation of this measurement.
-func (a apiAvailabilityMeasurement) String() string {
-	return apiAvailabilityName
+func (a *apiAvailabilityMeasurement) String() string {
+	return apiAvailabilityMeasurementName
 }

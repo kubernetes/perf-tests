@@ -18,6 +18,7 @@
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
+{{$ENABLE_NODE_LOCAL_DNS_LATENCY := DefaultParam .CL2_ENABLE_NODE_LOCAL_DNS_LATENCY false}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
 # LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
 # Increasing allocation of both memory and cpu by 10%
@@ -145,6 +146,12 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
+  - Identifier: NodeLocalDNSLatency
+    Method: NodeLocalDNSLatencyPrometheus
+    Params:
+      action: start
+{{end}}
   - Identifier: SLOMeasurement
     Method: SLOMeasurement
     Params:
@@ -876,6 +883,13 @@ steps:
     Method: InClusterNetworkLatency
     Params:
       action: gather
+{{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
+  - Identifier: NodeLocalDNSLatency
+    Method: NodeLocalDNSLatencyPrometheus
+    Params:
+      action: gather
+      enableViolations: true
+{{end}}
   - Identifier: SLOMeasurement
     Method: SLOMeasurement
     Params:

@@ -91,7 +91,7 @@ func (g *Grabber) getMetricsFromNode(nodeName string, kubeletPort int) (string, 
 	}()
 	select {
 	case <-time.After(proxyTimeout):
-		return "", fmt.Errorf("Timed out when waiting for proxy to gather metrics from %v", nodeName)
+		return "", fmt.Errorf("timed out when waiting for proxy to gather metrics from %v", nodeName)
 	case <-finished:
 		if err != nil {
 			return "", err

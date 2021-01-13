@@ -29,7 +29,7 @@ import (
 
 const (
 	nodelocaldnsLatencyPrometheusMeasurementName = "NodeLocalDNSLatencyPrometheus"
-	percLatencyQueryTemplate                     = `histogram_quantile(%v, sum(rate(http_request_duration_seconds_bucket[%v])) by (le))`
+	percLatencyQueryTemplate                     = `histogram_quantile(%v, sum(rate(coredns_dns_request_duration_seconds_bucket[%v])) by (le))`
 	defaultLatencyUpperBoundSeconds              = 5.0
 )
 

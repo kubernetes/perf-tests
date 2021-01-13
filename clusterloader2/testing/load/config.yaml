@@ -125,6 +125,10 @@ chaosMonkey:
 steps:
 - name: Starting measurements
   measurements:
+  - Identifier: PeriodicPodList
+    Method: PeriodicPodList
+    Params:
+      action: start
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:

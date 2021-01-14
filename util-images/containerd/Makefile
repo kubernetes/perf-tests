@@ -4,8 +4,7 @@ TAG = v0.0.1
 
 all: push
 
-.PHONY: build
-build: cmd
+build: Dockerfile
 	docker build --pull -t $(IMG):$(TAG) .
 	docker tag $(IMG):$(TAG) $(IMG):latest
 	@echo Built $(IMG):$(TAG) and tagged with latest

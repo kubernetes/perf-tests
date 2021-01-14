@@ -99,7 +99,7 @@ func (n *nodelocaldnsLatencyGatherer) getPercentileLatencies(executor QueryExecu
 			errList.Append(fmt.Errorf("got unexpected number of samples: %d for query %q", len(samples), query))
 			continue
 		}
-		result.SetQuantile(percVal, time.Duration(float64(samples[0].Value))*time.Second)
+		result.SetQuantile(percVal, time.Duration(float64(samples[0].Value)*float64(time.Second)))
 	}
 	if !errList.IsEmpty() {
 		return nil, fmt.Errorf("failed to compute latencies, errors - %s", errList.Error())

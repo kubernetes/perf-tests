@@ -28,7 +28,7 @@ type genericSummary struct {
 	content   string
 }
 
-// CreateSummary creates gneric summary.
+// CreateSummary creates generic summary.
 func CreateSummary(name, ext, content string) Summary {
 	return &genericSummary{
 		name:      name,

@@ -144,8 +144,8 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-// histogramSub is a helper function to substract two histograms
-func histogramSub(finalHist, initialHist *measurementutil.Histogram) *measurementutil.Histogram {
+// HistogramSub is a helper function to substract two histograms
+func HistogramSub(finalHist, initialHist *measurementutil.Histogram) *measurementutil.Histogram {
 	for k := range finalHist.Buckets {
 		finalHist.Buckets[k] = finalHist.Buckets[k] - initialHist.Buckets[k]
 	}
@@ -154,17 +154,17 @@ func histogramSub(finalHist, initialHist *measurementutil.Histogram) *measuremen
 
 func (m *schedulerLatencyMetrics) substract(sub schedulerLatencyMetrics) {
 	if sub.preemptionEvaluationHist != nil {
-		m.preemptionEvaluationHist = histogramSub(m.preemptionEvaluationHist, sub.preemptionEvaluationHist)
+		m.preemptionEvaluationHist = HistogramSub(m.preemptionEvaluationHist, sub.preemptionEvaluationHist)
 	}
 	if sub.schedulingAlgorithmDurationHist != nil {
-		m.schedulingAlgorithmDurationHist = histogramSub(m.schedulingAlgorithmDurationHist, sub.schedulingAlgorithmDurationHist)
+		m.schedulingAlgorithmDurationHist = HistogramSub(m.schedulingAlgorithmDurationHist, sub.schedulingAlgorithmDurationHist)
 	}
 	if sub.e2eSchedulingDurationHist != nil {
-		m.e2eSchedulingDurationHist = histogramSub(m.e2eSchedulingDurationHist, sub.e2eSchedulingDurationHist)
+		m.e2eSchedulingDurationHist = HistogramSub(m.e2eSchedulingDurationHist, sub.e2eSchedulingDurationHist)
 	}
 	for _, ep := range extentionsPoints {
 		if sub.frameworkExtensionPointDurationHist[ep] != nil {
-			m.frameworkExtensionPointDurationHist[ep] = histogramSub(m.frameworkExtensionPointDurationHist[ep], sub.frameworkExtensionPointDurationHist[ep])
+			m.frameworkExtensionPointDurationHist[ep] = HistogramSub(m.frameworkExtensionPointDurationHist[ep], sub.frameworkExtensionPointDurationHist[ep])
 		}
 	}
 }
@@ -177,20 +177,20 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 		result.FrameworkExtensionPointDuration[ePoint] = &measurementutil.LatencyMetric{}
 	}
 
-	if err := s.setQuantileFromHistogram(&result.E2eSchedulingLatency, metrics.e2eSchedulingDurationHist); err != nil {
+	if err := SetQuantileFromHistogram(&result.E2eSchedulingLatency, metrics.e2eSchedulingDurationHist); err != nil {
 		return result, err
 	}
-	if err := s.setQuantileFromHistogram(&result.SchedulingLatency, metrics.schedulingAlgorithmDurationHist); err != nil {
+	if err := SetQuantileFromHistogram(&result.SchedulingLatency, metrics.schedulingAlgorithmDurationHist); err != nil {
 		return result, err
 	}
 
 	for _, ePoint := range extentionsPoints {
-		if err := s.setQuantileFromHistogram(result.FrameworkExtensionPointDuration[ePoint], metrics.frameworkExtensionPointDurationHist[ePoint]); err != nil {
+		if err := SetQuantileFromHistogram(result.FrameworkExtensionPointDuration[ePoint], metrics.frameworkExtensionPointDurationHist[ePoint]); err != nil {
 			return result, err
 		}
 	}
 
-	if err := s.setQuantileFromHistogram(&result.PreemptionEvaluationLatency, metrics.preemptionEvaluationHist); err != nil {
+	if err := SetQuantileFromHistogram(&result.PreemptionEvaluationLatency, metrics.preemptionEvaluationHist); err != nil {
 		return result, err
 	}
 	return result, nil
@@ -268,8 +268,8 @@ func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface
 	return latencyMetrics, nil
 }
 
-// setQuantileFromHistogram sets quantile of LatencyMetric from Histogram
-func (s *schedulerLatencyMeasurement) setQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measurementutil.Histogram) error {
+// SetQuantileFromHistogram sets quantile of LatencyMetric from Histogram
+func SetQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measurementutil.Histogram) error {
 	quantiles := []float64{0.5, 0.9, 0.99}
 	for _, quantile := range quantiles {
 		histQuantile, err := hist.Quantile(quantile)

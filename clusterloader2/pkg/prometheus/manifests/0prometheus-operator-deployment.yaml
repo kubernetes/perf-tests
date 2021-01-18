@@ -1,3 +1,4 @@
+{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,8 +27,8 @@ spec:
       containers:
       - args:
         - --kubelet-service=kube-system/kubelet
-        - --prometheus-config-reloader=quay.io/prometheus-operator/prometheus-config-reloader:v0.45.0
-        image: quay.io/prometheus-operator/prometheus-operator:v0.45.0
+        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.45.0
+        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.45.0
         name: prometheus-operator
         ports:
         - containerPort: 8080

@@ -1,3 +1,5 @@
+{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -15,7 +17,7 @@ spec:
     - name: alertmanager-main
       namespace: monitoring
       port: web
-  image: quay.io/prometheus/prometheus:v2.24.0
+  image: gcr.io/k8s-testimages/quay.io/prometheus/prometheus:v2.24.0
   nodeSelector:
     kubernetes.io/os: linux
   podMetadata:
@@ -31,7 +33,20 @@ spec:
   replicas: 2
   resources:
     requests:
-      memory: 400Mi
+      cpu: {{AddInt 200 (MultiplyInt 500 (DivideInt .Nodes 1000))}}m
+      {{if $PROMETHEUS_SCRAPE_KUBELETS}}
+      memory: 10Gi
+      {{else}}
+      # Start with 2Gi and add 2Gi for each 1K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      {{end}}
+    limits:
+      {{if $PROMETHEUS_SCRAPE_KUBELETS}}
+      memory: 10Gi
+      {{else}}
+      # Start with 2Gi and add 2Gi for each 1K nodes.
+      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      {{end}}
   ruleSelector:
     matchLabels:
       prometheus: k8s
@@ -40,7 +55,27 @@ spec:
     fsGroup: 2000
     runAsNonRoot: true
     runAsUser: 1000
+    tolerations:
+  - key: "monitoring"
+    operator: "Exists"
+    effect: "NoSchedule"
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
   version: 2.24.0
+  retention: 7d
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: ssd
+        resources:
+          requests:
+            # Start with 10Gi, add 10Gi for each 1K nodes.
+            storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+  query:	
+    maxSamples: 100000000	
+  {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}	
+  additionalScrapeConfigs:	
+    name: windows-scrape-configs	
+    key: windows-scrape-configs.yaml	
+  {{end}}

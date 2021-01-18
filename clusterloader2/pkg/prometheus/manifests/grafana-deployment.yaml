@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - env: []
-        image: grafana/grafana:7.3.5
+        image: gcr.io/k8s-testimages/grafana/grafana:7.3.5
         name: grafana
         ports:
         - containerPort: 3000
@@ -31,11 +31,11 @@ spec:
             port: http
         resources:
           limits:
-            cpu: 200m
-            memory: 200Mi
+            cpu: 250m
+            memory: 250Mi
           requests:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 250m
+            memory: 250Mi
         volumeMounts:
         - mountPath: /var/lib/grafana
           name: grafana-storage

@@ -30,7 +30,7 @@ import (
 const (
 	nodelocaldnsLatencyPrometheusMeasurementName = "NodeLocalDNSLatencyPrometheus"
 	percLatencyQueryTemplate                     = `histogram_quantile(%v, sum(rate(coredns_dns_request_duration_seconds_bucket[%v])) by (le))`
-	defaultLatencyUpperBoundSeconds              = 5.0
+	defaultThreshold                             = 5 * time.Second
 )
 
 var (
@@ -70,14 +70,14 @@ func (n *nodelocaldnsLatencyGatherer) IsEnabled(config *measurement.Config) bool
 }
 
 func (n *nodelocaldnsLatencyGatherer) validateResult(config *measurement.Config, result *measurementutil.LatencyMetric) error {
-	latencyUpperBound, err := util.GetFloat64OrDefault(config.Params, "dns_latency_upper_bound_seconds", defaultLatencyUpperBoundSeconds)
+	latencyUpperBound, err := util.GetDurationOrDefault(config.Params, "threshold", defaultThreshold)
 	if err != nil {
 		return err
 	}
-	if result.Perc99 > time.Duration(latencyUpperBound)*time.Second {
+	if result.Perc99 > latencyUpperBound {
 		return errors.NewMetricViolationError(
 			"NodelocalDNS dns_request_duration_seconds",
-			fmt.Sprintf("99th Percentile Latency %v is higher than the upper bound of %f seconds", result.Perc99, latencyUpperBound))
+			fmt.Sprintf("99th Percentile Latency %v is higher than the upper bound of %s", result.Perc99, latencyUpperBound))
 	}
 	return nil
 }

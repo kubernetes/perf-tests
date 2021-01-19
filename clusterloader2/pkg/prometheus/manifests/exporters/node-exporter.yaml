@@ -8,11 +8,14 @@ metadata:
 spec:
   containers:
     - name: prometheus-node-exporter
-      image: gcr.io/k8s-testimages/quay.io/prometheus/node-exporter:v0.18.1
+      image: gcr.io/k8s-testimages/quay.io/prometheus/node-exporter:v1.0.1
       imagePullPolicy: "IfNotPresent"
       args:
-        - --path.procfs=/host/proc
         - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
+        - --no-collector.wifi
+        - --no-collector.hwmon
+        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/pods/.+)($|/)
         - --collector.netstat.fields=^.*$
         - --collector.qdisc
       ports:
@@ -20,11 +23,13 @@ spec:
           containerPort: 9100
           hostPort: 9100
       volumeMounts:
-        - name: proc
-          mountPath: /host/proc
-          readOnly:  true
-        - name: sys
-          mountPath: /host/sys
+        - mountPath: /host/sys
+          mountPropagation: HostToContainer
+          name: sys
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
           readOnly: true
       resources:
         limits:
@@ -36,9 +41,9 @@ spec:
   hostNetwork: true
   hostPID: true
   volumes:
-    - name: proc
-      hostPath:
-        path: /proc
-    - name: sys
-      hostPath:
+    - hostPath:
         path: /sys
+      name: sys
+    - hostPath:
+        path: /
+      name: root

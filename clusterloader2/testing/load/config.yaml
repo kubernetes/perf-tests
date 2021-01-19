@@ -5,7 +5,10 @@
 # - Only half of Deployments will be assigned 1-1 to existing SVCs.
 
 #Constants
-{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+# Cater for the case where the number of nodes is less than nodes per namespace. See https://github.com/kubernetes/perf-tests/issues/887
+{{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .NODES_PER_NAMESPACE 100)}}
+# See https://github.com/kubernetes/perf-tests/pull/1667#issuecomment-769642266
+{{$IS_SMALL_CLUSTER := lt .Nodes 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
@@ -50,14 +53,21 @@
 {{$mediumDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $MEDIUM_GROUP_SIZE)}}
 # smallDeployments - 1/2 of namespace pods should be in small Deployments.
 {{$smallDeploymentsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 2 $SMALL_GROUP_SIZE)}}
-# Reduce the number of small and medium deployments per namespace
-{{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
-{{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
 
-# Reduce the number of small, medium, big deployments per namespace.
-{{$smallDeploymentsPerNamespace := SubtractInt $smallDeploymentsPerNamespace 1}}
-{{$mediumDeploymentsPerNamespace := SubtractInt $mediumDeploymentsPerNamespace 1}}
-{{$bigDeploymentsPerNamespace := SubtractInt $bigDeploymentsPerNamespace 1}}
+# Stateful sets are enabled. Reduce the number of small and medium deployments per namespace
+# See https://github.com/kubernetes/perf-tests/issues/1036#issuecomment-607631768
+# Ensure non zero or negative after subtraction.
+{{$smallDeploymentsPerNamespace := MaxInt 0 (SubtractInt $smallDeploymentsPerNamespace $SMALL_STATEFUL_SETS_PER_NAMESPACE)}}
+{{$mediumDeploymentsPerNamespace := MaxInt 0 (SubtractInt $mediumDeploymentsPerNamespace $MEDIUM_STATEFUL_SETS_PER_NAMESPACE)}}
+
+# Jobs are enabled. Reduce the number of small, medium, big deployments per namespace.
+# Ensure non zero or negative after subtraction.
+{{$smallDeploymentsPerNamespace := MaxInt 0 (SubtractInt $smallDeploymentsPerNamespace 1)}}
+{{$mediumDeploymentsPerNamespace := MaxInt 0 (SubtractInt $mediumDeploymentsPerNamespace 1)}}
+{{$bigDeploymentsPerNamespace := MaxInt 0 (SubtractInt $bigDeploymentsPerNamespace 1)}}
+
+# Disable big jobs on small clusters.
+{{$bigJobsPerNamespace := IfThenElse $IS_SMALL_CLUSTER 0 1}}
 
 # The minimal number of pods to be used to measure various things like
 # pod-startup-latency or scheduler-throughput. The purpose of it is to avoid
@@ -72,6 +82,10 @@
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 {{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
 # END scheduler-throughput section
+
+# Set schedulerThroughputNamespaces to 0 on small clusters otherwise it will result
+# in an unnecessary number of namespaces.
+{{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 0 $schedulerThroughputNamespaces}}
 
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Investigate and get rid of this section.
 # BEGIN pod-startup-latency section
@@ -348,7 +362,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$bigJobsPerNamespace}}
     tuningSet: RandomizedSaturationTimeLimited
     objectBundle:
       - basename: big-job
@@ -388,6 +402,7 @@ steps:
 {{end}}
 {{if not $EXIT_AFTER_EXEC}}
 
+{{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
 - name: Creating scheduler throughput measurements
   measurements:
@@ -463,7 +478,9 @@ steps:
     Params:
       action: gather
 # END scheduler throughput
+{{end}}
 
+{{if not $IS_SMALL_CLUSTER}}
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, we wouldn't need this section.
 # BEGIN pod-startup-latency
 - name: Starting latency pod measurements
@@ -526,6 +543,7 @@ steps:
     Params:
       action: gather
 # END pod-startup-latency
+{{end}}
 
 - name: Scaling and updating objects
   phases:
@@ -630,7 +648,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$bigJobsPerNamespace}}
     tuningSet: RandomizedScalingTimeLimited
     objectBundle:
       - basename: big-job

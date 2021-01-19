@@ -40,7 +40,10 @@ func (r *randomizedTimeLimitedLoad) Execute(actions []func()) {
 		index := i
 		wg.Start(func() {
 			// Sleeps for random duration in [0, TimeLimit].
-			time.Sleep(time.Duration(rand.Int63n(r.params.TimeLimit.ToTimeDuration().Nanoseconds())))
+			timeLimit := r.params.TimeLimit.ToTimeDuration().Nanoseconds()
+			if timeLimit > 0 {
+				time.Sleep(time.Duration(rand.Int63n(timeLimit)))
+			}
 			actions[index]()
 		})
 	}

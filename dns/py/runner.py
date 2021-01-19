@@ -54,16 +54,16 @@ class Runner(object):
     |args| parsed command line args.
     """
     self.args = args
-    self.deployment_yaml = yaml.load(open(self.args.deployment_yaml, 'r'))
-    self.configmap_yaml = yaml.load(open(self.args.configmap_yaml, 'r')) if \
+    self.deployment_yaml = yaml.safe_load(open(self.args.deployment_yaml, 'r'))
+    self.configmap_yaml = yaml.safe_load(open(self.args.configmap_yaml, 'r')) if \
       self.args.configmap_yaml else None
-    self.service_yaml = yaml.load(open(self.args.service_yaml, 'r')) if \
+    self.service_yaml = yaml.safe_load(open(self.args.service_yaml, 'r')) if \
         self.args.service_yaml else None
-    self.dnsperf_yaml = yaml.load(open(self.args.dnsperf_yaml, 'r'))
+    self.dnsperf_yaml = yaml.safe_load(open(self.args.dnsperf_yaml, 'r'))
     self.test_params = TestCases.load_from_file(args.params)
     if self.args.run_large_queries:
       self.test_params.set_param(QueryFile().name, _dnsperf_qfile_name)
-    self.args.testsvc_yaml = yaml.load(open(self.args.testsvc_yaml, 'r')) if \
+    self.args.testsvc_yaml = yaml.safe_load(open(self.args.testsvc_yaml, 'r')) if \
         self.args.testsvc_yaml else None
 
 
@@ -311,7 +311,7 @@ class Runner(object):
     if code != 0:
       raise Exception('error gettings nodes: %d', code)
 
-    nodes = [n['metadata']['name'] for n in yaml.load(out)['items']
+    nodes = [n['metadata']['name'] for n in yaml.safe_load(out)['items']
              if not ('unschedulable' in n['spec'] \
                  and n['spec']['unschedulable'])]
     if len(nodes) < 2 and not self.args.single_node:
@@ -337,7 +337,7 @@ class Runner(object):
       raise Exception('error gettings dns ip for service %s: %d' %(svcname, code))
 
     try:
-      return yaml.load(out)['spec']['clusterIP']
+      return yaml.safe_load(out)['spec']['clusterIP']
     except:
       raise Exception('error parsing %s service, could not get dns ip' %(svcname))
 
@@ -432,7 +432,7 @@ class Runner(object):
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
         raise Exception('error getting pod information: %d', code)
-      pods = yaml.load(out)
+      pods = yaml.safe_load(out)
 
       _log.info('Waiting for server to be %s (%d pods active)',
                 'up' if active else 'deleted',

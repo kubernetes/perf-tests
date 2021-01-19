@@ -247,7 +247,7 @@ class TestCases(object):
     """
     |filename| yaml file to read from.
     """
-    raw = yaml.load(open(filename, 'r'))
+    raw = yaml.safe_load(open(filename, 'r'))
     return TestCases(raw)
 
   def __init__(self, values):

@@ -32,7 +32,7 @@ class DataTest(unittest.TestCase):
     self.assertEqual(1000, parser.results['queries_sent'])
 
   def test_result_db(self):
-    results = yaml.load(open('fixtures/results.yaml'))
+    results = yaml.safe_load(open('fixtures/results.yaml'))
 
     self.db.put(results)
     res = self.db.get_results(1234, 0)

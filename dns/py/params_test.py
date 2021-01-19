@@ -24,7 +24,7 @@ from params import Inputs, TestCases, ATTRIBUTE_CLUSTER_DNS, PARAMETERS
 
 
 def make_mock_yaml():
-  return yaml.load("""
+  return yaml.safe_load("""
 spec:
   template:
     spec:
@@ -43,7 +43,7 @@ spec:
 
 
 def make_mock_coredns_configmap_yaml():
-  return yaml.load("""
+  return yaml.safe_load("""
 data:
   Corefile: |
     .:53 {
@@ -64,7 +64,7 @@ data:
   """)
 
 def make_mock_coredns_deployment_yaml():
-  return yaml.load("""
+  return yaml.safe_load("""
 spec:
   template:
     spec:

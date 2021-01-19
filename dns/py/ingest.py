@@ -49,7 +49,7 @@ def go(args):
   db = ResultDb(args.db)
   for output in args.outputs:
     _log.info('Processing %s', output)
-    results = yaml.load(open(output))
+    results = yaml.safe_load(open(output))
     db.put(results)
   db.commit()
 

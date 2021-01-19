@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# run the script to run e2e tests for cluster loader, netperf and dns.
-# This enables the same to be invoked from kubetest from test-infra.
-
 set -o nounset
 set -o pipefail
 
@@ -29,7 +26,7 @@ if [[ "${PERF_TESTS_PRINT_COMMIT_HISTORY:-false}" == "true" ]]; then
   # The output file location assumes the script works inside a prow job.
   output_file="/workspace/_artifacts/perf-tests.gitlog"
   echo "k8s.io/perf-tests git log:" | tee $output_file || true
-  git log -n 10 --format="%H - %ad (%s)" --date=local | tee -a $output_file || true
+  git -C /go/src/k8s.io/perf-tests log -n 10 --format="%H - %ad (%s)" --date=local | tee -a $output_file || true
 fi
 
 case "$1" in

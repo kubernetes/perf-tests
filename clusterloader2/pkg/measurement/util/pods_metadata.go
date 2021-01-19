@@ -40,7 +40,7 @@ func NewPodsMetadata(name string) *PodsMetadata {
 	}
 }
 
-// SetStaless marks a given pod as stateless.
+// SetStateless marks a given pod as stateless.
 func (o *PodsMetadata) SetStateless(key string, stateless bool) {
 	o.lock.Lock()
 	defer o.lock.Unlock()

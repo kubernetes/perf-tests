@@ -1,10 +1,10 @@
 ## Services modules provides a module for creating / deleting services.
 
 ## Input params
-{{$name := .actionName}}
+{{$name := .name}}
 {{$namespaces := .namespaces}}
 {{$smallServicesPerNamespace := .smallServicesPerNamespace}}
-{{$mediumServicesPerNamespace := .smallServicesPerNamespace}}
+{{$mediumServicesPerNamespace := .mediumServicesPerNamespace}}
 {{$bigServicesPerNamespace := .bigServicesPerNamespace}}
 
 steps:

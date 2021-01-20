@@ -75,6 +75,11 @@ function build_kubernetes {
   # hollow node pod.
   # TODO: Get rid of this cherry-pick once we start testing against k8s v1.20+.
   git cherry-pick -m 1 1698af78be83db748415d224ec1ea217755ea932
+  
+  # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/97843 and https://github.com/kubernetes/kubernetes/pull/98141 rebased to 1.18.
+  # Used for debugging failing golang tests.
+  # TODO: Get rid of this cherry-pick once we fix the regression.
+  git fetch https://github.com/mborsz/kubernetes.git cacher-1.18 && git cherry-pick FETCH_HEAD
 
   # Change the base image of kube-build to our own kube-cross image.
   sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:'"$TAG"'#' Dockerfile

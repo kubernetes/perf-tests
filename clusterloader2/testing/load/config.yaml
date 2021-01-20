@@ -859,6 +859,7 @@ steps:
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
   {{if not $USE_SIMPLE_LATENCY_QUERY}}
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus

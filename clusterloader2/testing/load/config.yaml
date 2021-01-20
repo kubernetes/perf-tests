@@ -175,14 +175,32 @@ steps:
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 
-- module:
-    path: modules/services.yaml
-    params:
-      name: "Creating SVCs"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
-      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
-      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
+- name: Creating SVCs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: big-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: medium-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: small-service
+      objectTemplatePath: service.yaml
 
 - name: Creating PriorityClass for DaemonSets
   phases:
@@ -811,14 +829,32 @@ steps:
         - basename: daemonset-priorityclass
           objectTemplatePath: daemonset-priorityclass.yaml
 
-- module:
-    path: modules/services.yaml
-    params:
-      name: "Deleting SVCs"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: 0
-      mediumServicesPerNamespace: 0
-      bigServicesPerNamespace: 0
+- name: Deleting SVCs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: big-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: medium-service
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: small-service
+      objectTemplatePath: service.yaml
 {{end}} # not EXIT_AFTER_EXEC
 
 - name: Collecting measurements

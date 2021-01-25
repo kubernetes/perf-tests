@@ -17,7 +17,15 @@ limitations under the License.
 package provider
 
 import (
+	"fmt"
+	"os/exec"
+	"strings"
+
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	sshutil "k8s.io/kubernetes/pkg/ssh"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 type GCEProvider struct {
@@ -63,4 +71,36 @@ func (p *GCEProvider) RunSSHCommand(cmd, host string) (string, string, int, erro
 	}
 	user := defaultSSHUser()
 	return sshutil.RunSSHCommand(cmd, user, host, signer)
+}
+
+func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error) {
+	nodes, err := client.ListNodes(c)
+	if err != nil {
+		return nil, err
+	}
+
+	var masterInstanceIDs []string
+	for _, node := range nodes {
+		if util.LegacyIsMasterNode(&node) {
+			zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
+			if !ok {
+				return nil, fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)
+			}
+			cmd := exec.Command("gcloud", "compute", "instances", "describe", "--format", "value(id)", "--zone", zone, node.Name)
+			out, err := cmd.Output()
+			if err != nil {
+				var stderr string
+
+				if ee, ok := err.(*exec.ExitError); ok {
+					stderr = string(ee.Stderr)
+				}
+				return nil, fmt.Errorf("fetching instanceID for %q failed with: %v (stderr: %q)", node.Name, err, stderr)
+			}
+			instanceID := strings.TrimSpace(string(out))
+			klog.Infof("Detected instanceID for %s/%s: %q", zone, node.Name, instanceID)
+			masterInstanceIDs = append(masterInstanceIDs, instanceID)
+		}
+	}
+
+	return map[string]string{"masterInstanceIDs": strings.Join(masterInstanceIDs, ",")}, nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package provider
 
 import (
+	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/pkg/ssh"
 )
 
@@ -64,4 +65,8 @@ func (p *SkeletonProvider) RunSSHCommand(cmd, host string) (string, string, int,
 	}
 	user := defaultSSHUser()
 	return sshutil.RunSSHCommand(cmd, user, host, signer)
+}
+
+func (p *SkeletonProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+	return nil, nil
 }

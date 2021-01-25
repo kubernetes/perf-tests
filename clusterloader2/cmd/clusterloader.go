@@ -33,6 +33,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
+	"k8s.io/perf-tests/clusterloader2/pkg/metadata"
 	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
@@ -298,6 +299,10 @@ func main() {
 	}
 	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
 		klog.Exitf("Error while preloading images: %v", err)
+	}
+
+	if err := metadata.Dump(f, path.Join(clusterLoaderConfig.ReportDir, "cl2-metadata.json")); err != nil {
+		klog.Errorf("Error while dumping metadata: %v", err)
 	}
 
 	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")

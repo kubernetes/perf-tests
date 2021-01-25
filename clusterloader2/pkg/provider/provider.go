@@ -19,6 +19,8 @@ package provider
 import (
 	"fmt"
 	"strings"
+
+	clientset "k8s.io/client-go/kubernetes"
 )
 
 // InitOptions encapsulates the fields needed to init provider.
@@ -79,6 +81,9 @@ type Provider interface {
 	GetComponentProtocolAndPort(componentName string) (string, int, error)
 
 	RunSSHCommand(cmd, host string) (string, string, int, error)
+
+	// Metadata returns provider-specific test run metadata.
+	Metadata(client clientset.Interface) (map[string]string, error)
 }
 
 // NewProvider creates a new provider from init options. It will return an error if provider name is not supported.

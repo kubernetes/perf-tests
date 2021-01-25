@@ -16,6 +16,10 @@ limitations under the License.
 
 package provider
 
+import (
+	clientset "k8s.io/client-go/kubernetes"
+)
+
 type AKSProvider struct {
 	features Features
 }
@@ -49,4 +53,8 @@ func (p *AKSProvider) GetConfig() Config {
 
 func (p *AKSProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	return runSSHCommand(cmd, host)
+}
+
+func (p *AKSProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+	return nil, nil
 }

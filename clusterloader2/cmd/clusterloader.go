@@ -307,20 +307,53 @@ func main() {
 
 	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
 	testReporter.BeginTestSuite()
+
+	var contexts []test.Context
+	var testConfigs []*api.Config
+
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
 		if err != nil {
 			klog.Exitf("Error while reading test suite: %v", err)
 		}
+
 		for i := range testSuite {
 			clusterLoaderConfig.TestScenario = testSuite[i]
-			runSingleTest(f, prometheusFramework, testReporter)
+			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+			if !errList.IsEmpty() {
+				klog.Exitf("Test context creation failed: %s", errList.String())
+			}
+			contexts = append(contexts, ctx)
+
+			testConfig, errList := test.CompileTestConfig(ctx)
+			if !errList.IsEmpty() {
+				klog.Exitf("Test compliation failed: %s", errList.String())
+			}
+			testConfigs = append(testConfigs, testConfig)
+		}
+
+		for i := range testSuite {
+			runSingleTest(contexts[i], testConfigs[i])
 		}
 	} else {
 		for i := range testConfigPaths {
 			clusterLoaderConfig.TestScenario.ConfigPath = testConfigPaths[i]
 			clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
-			runSingleTest(f, prometheusFramework, testReporter)
+			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+			if !errList.IsEmpty() {
+				klog.Exitf("Test context creation failed: %s", errList.String())
+			}
+			contexts = append(contexts, ctx)
+
+			testConfig, errList := test.CompileTestConfig(ctx)
+			if !errList.IsEmpty() {
+				klog.Exitf("Test compliation failed: %s", errList.String())
+			}
+			testConfigs = append(testConfigs, testConfig)
+		}
+
+		for i := range testConfigPaths {
+			runSingleTest(contexts[i], testConfigs[i])
 		}
 	}
 	testReporter.EndTestSuite()
@@ -341,21 +374,21 @@ func main() {
 }
 
 func runSingleTest(
-	f *framework.Framework,
-	prometheusFramework *framework.Framework,
-	testReporter test.Reporter,
+	ctx test.Context,
+	testConfig *api.Config,
 ) {
+	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 	testID := getTestID(clusterLoaderConfig.TestScenario)
 	testStart := time.Now()
 	printTestStart(testID)
-	errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+	errList := test.RunTest(ctx, testConfig)
 	if !errList.IsEmpty() {
 		printTestResult(testID, "Fail", errList.String())
 	} else {
 		printTestResult(testID, "Success", "")
 	}
 	testConfigPath := clusterLoaderConfig.TestScenario.ConfigPath
-	testReporter.ReportTestFinish(time.Since(testStart), testConfigPath, errList)
+	ctx.GetTestReporter().ReportTestFinish(time.Since(testStart), testConfigPath, errList)
 }
 
 func getTestID(ts api.TestScenario) string {

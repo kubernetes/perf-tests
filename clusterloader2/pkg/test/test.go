@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -37,41 +38,76 @@ var (
 	Test = createSimpleExecutor()
 )
 
-// RunTest runs test based on provided test configuration.
-func RunTest(
+// CreateTestContext creates the test context
+func CreateTestContext(
 	clusterFramework *framework.Framework,
 	prometheusFramework *framework.Framework,
 	clusterLoaderConfig *config.ClusterLoaderConfig,
 	testReporter Reporter,
-) *errors.ErrorList {
+) (Context, *errors.ErrorList) {
 	if clusterFramework == nil {
-		return errors.NewErrorList(fmt.Errorf("framework must be provided"))
+		return nil, errors.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
-		return errors.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
+		return nil, errors.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
 	}
 	if CreateContext == nil {
-		return errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
-	}
-	if Test == nil {
-		return errors.NewErrorList(fmt.Errorf("no Test installed"))
+		return nil, errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 
 	mapping, errList := config.GetMapping(clusterLoaderConfig)
 	if errList != nil {
-		return errList
+		return nil, errList
 	}
-	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping)
+
+	return CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping), errors.NewErrorList()
+}
+
+// CompileTestConfig loads the test configuration and nested modules
+func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
+	if Test == nil {
+		return &api.Config{}, errors.NewErrorList(fmt.Errorf("no Test installed"))
+	}
+
+	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
-	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
+	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
+		return &api.Config{}, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
+
+	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
+		return &api.Config{}, errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
+	}
+
+	steps, err := flattenModuleSteps(ctx, testConfig.Steps)
+	if err != nil {
+		return &api.Config{}, errors.NewErrorList(
+			fmt.Errorf("erorr when flattening module steps: %w", err))
+	}
+	testConfig.Steps = steps
+
+	testConfig.SetDefaults()
+	if err := testConfig.Validate(); err != nil {
+		return &api.Config{}, err
+	}
+
+	return testConfig, errors.NewErrorList()
+}
+
+// RunTest runs test based on provided test configuration.
+func RunTest(
+	ctx Context,
+	testConfig *api.Config,
+) *errors.ErrorList {
+	clusterFramework := ctx.GetClusterFramework()
+	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
+
 	testName := clusterLoaderConfig.TestScenario.Identifier
 	if testName == "" {
 		testName = testConfig.Name
 	}
-	testReporter.SetTestName(testName)
+	ctx.GetTestReporter().SetTestName(testName)
 
 	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
 		return errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
@@ -83,11 +119,6 @@ func RunTest(
 	}
 	if testConfig.Namespace.DeleteAutomanagedNamespaces == nil {
 		testConfig.Namespace.DeleteAutomanagedNamespaces = &clusterFramework.GetClusterConfig().DeleteAutomanagedNamespaces
-	}
-
-	testConfig.SetDefaults()
-	if err := testConfig.Validate(); err != nil {
-		return err
 	}
 
 	return Test.ExecuteTest(ctx, testConfig)

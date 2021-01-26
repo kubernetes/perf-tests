@@ -1,0 +1,22 @@
+{{$PROMETHEUS_SCRAPE_ANET := DefaultParam .PROMETHEUS_SCRAPE_ANET false}}
+
+{{if $PROMETHEUS_SCRAPE_ANET}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: anet-pods
+  name: anet-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10m
+      port: advdpmetrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

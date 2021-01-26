@@ -70,6 +70,7 @@ type PrometheusConfig struct {
 	ScrapeKubelets          bool
 	ScrapeKubeProxy         bool
 	ScrapeNodeLocalDNS      bool
+	ScrapeAnet              bool
 	SnapshotProject         string
 	ManifestPath            string
 	CoreManifests           string

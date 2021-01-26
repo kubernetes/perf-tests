@@ -50,6 +50,10 @@ func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.Config) ([]
 	if err != nil {
 		return nil, err
 	}
+	provisioner, err := util.GetString(config.Params, "provisioner")
+	if err != nil {
+		return nil, err
+	}
 	selector := measurementutil.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
@@ -66,6 +70,7 @@ func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.Config) ([]
 	options := &measurementutil.WaitForPVOptions{
 		Selector:           selector,
 		DesiredPVCount:     desiredPVCount,
+		Provisioner:        provisioner,
 		CallerName:         w.String(),
 		WaitForPVsInterval: defaultWaitForPVsInterval,
 	}

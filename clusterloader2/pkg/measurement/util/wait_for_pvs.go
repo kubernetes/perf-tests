@@ -29,15 +29,24 @@ import (
 type WaitForPVOptions struct {
 	Selector           *ObjectSelector
 	DesiredPVCount     int
+	Provisioner        string
 	CallerName         string
 	WaitForPVsInterval time.Duration
+}
+
+func (options WaitForPVOptions) filter() string {
+	filter := options.Selector.String()
+	if options.Provisioner != "" {
+		filter += " && provisioner=" + options.Provisioner
+	}
+	return filter
 }
 
 // WaitForPVs waits till desired number of PVs is running.
 // PVs are be specified by field and/or label selectors.
 // If stopCh is closed before all PVs are running, the error will be returned.
 func WaitForPVs(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPVOptions) error {
-	ps, err := NewPVStore(clientSet, options.Selector)
+	ps, err := NewPVStore(clientSet, options.Selector, options.Provisioner)
 	if err != nil {
 		return fmt.Errorf("PV store creation error: %v", err)
 	}
@@ -59,8 +68,12 @@ func WaitForPVs(clientSet clientset.Interface, stopCh <-chan struct{}, options *
 	for {
 		select {
 		case <-stopCh:
-			return fmt.Errorf("timeout while waiting for %d PVs with labels '%v' and fields '%v' - only %d found provisioned",
-				options.DesiredPVCount, options.Selector.LabelSelector, options.Selector.FieldSelector, pvStatus.Bound+pvStatus.Available)
+			example := ""
+			if len(oldPVs) > 0 {
+				example = fmt.Sprintf(", first one is %+v", oldPVs[0])
+			}
+			return fmt.Errorf("timeout while waiting for %d PVs with selector '%s' - only %d found provisioned%s",
+				options.DesiredPVCount, options.filter(), pvStatus.Bound+pvStatus.Available, example)
 		case <-time.After(options.WaitForPVsInterval):
 			pvs := ps.List()
 			pvStatus = ComputePVsStartupStatus(pvs, options.DesiredPVCount)
@@ -72,9 +85,9 @@ func WaitForPVs(clientSet clientset.Interface, stopCh <-chan struct{}, options *
 			}
 			addedPVs := diff.AddedPVs()
 			if scaling != up && len(addedPVs) > 0 {
-				klog.Errorf("%s: %s: %d PVs appeared: %v", options.CallerName, options.Selector.String(), len(deletedPVs), strings.Join(deletedPVs, ", "))
+				klog.Errorf("%s: %s: %d PVs appeared: %v", options.CallerName, options.filter(), len(addedPVs), strings.Join(addedPVs, ", "))
 			}
-			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), pvStatus.String())
+			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.filter(), pvStatus.String())
 			// We wait until there is a desired number of PVs provisioned and all other PVs are pending.
 			if len(pvs) == (pvStatus.Bound+pvStatus.Available+pvStatus.Pending) && pvStatus.Bound+pvStatus.Available == options.DesiredPVCount {
 				return nil

@@ -1,0 +1,7 @@
+# Total number of volumes will be one per node.
+PODS_PER_NODE: 1
+VOLUMES_PER_POD: 1
+NODES_PER_NAMESPACE: 1
+
+# Disable pod creation.
+START_PODS: false

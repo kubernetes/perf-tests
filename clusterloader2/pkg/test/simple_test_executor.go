@@ -19,10 +19,11 @@ package test
 import (
 	"fmt"
 	"io/ioutil"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"path"
 	"strings"
 	"time"
+
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,7 +156,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 			// index is created to make i value unchangeable during thread execution.
 			index := i
 			wg.Start(func() {
-				err := measurement.Execute(ctx.GetManager(), &step.Measurements[index])
+				err := measurement.Execute(ctx.GetManager(), step.Measurements[index])
 				if err != nil {
 					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
 				}
@@ -163,7 +164,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 		}
 	} else if step.IsPhase() {
 		for i := range step.Phases {
-			phase := &step.Phases[i]
+			phase := step.Phases[i]
 			wg.Start(func() {
 				if phaseErrList := ste.ExecutePhase(ctx, phase); !phaseErrList.IsEmpty() {
 					errList.Concat(phaseErrList)
@@ -198,14 +199,14 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 		instancesStates := make([]*state.InstancesState, 0)
 		// Updating state (DesiredReplicaCount) of every object in object bundle.
 		for j := range phase.ObjectBundle {
-			id, err := getIdentifier(ctx, &phase.ObjectBundle[j])
+			id, err := getIdentifier(ctx, phase.ObjectBundle[j])
 			if err != nil {
 				errList.Append(err)
 				return errList
 			}
 			instances, exists := ctx.GetState().GetNamespacesState().Get(nsName, id)
 			if !exists {
-				currentReplicaCount, err := getReplicaCountOfNewObject(ctx, nsName, &phase.ObjectBundle[j])
+				currentReplicaCount, err := getReplicaCountOfNewObject(ctx, nsName, phase.ObjectBundle[j])
 				if err != nil {
 					errList.Append(err)
 					return errList
@@ -233,7 +234,7 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 			actions = append(actions, func() {
 				for j := len(phase.ObjectBundle) - 1; j >= 0; j-- {
 					if replicaIndex < instancesStates[j].CurrentReplicaCount {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, deleteObject); !objectErrList.IsEmpty() {
+						if objectErrList := ste.ExecuteObject(ctx, phase.ObjectBundle[j], nsName, replicaIndex, deleteObject); !objectErrList.IsEmpty() {
 							errList.Concat(objectErrList)
 						}
 					}
@@ -247,7 +248,7 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 				replicaIndex := replicaCounter
 				actions = append(actions, func() {
 					for j := range phase.ObjectBundle {
-						if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, patchObject); !objectErrList.IsEmpty() {
+						if objectErrList := ste.ExecuteObject(ctx, phase.ObjectBundle[j], nsName, replicaIndex, patchObject); !objectErrList.IsEmpty() {
 							errList.Concat(objectErrList)
 							// If error then skip this bundle
 							break
@@ -262,7 +263,7 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 			replicaIndex := replicaCounter
 			actions = append(actions, func() {
 				for j := range phase.ObjectBundle {
-					if objectErrList := ste.ExecuteObject(ctx, &phase.ObjectBundle[j], nsName, replicaIndex, createObject); !objectErrList.IsEmpty() {
+					if objectErrList := ste.ExecuteObject(ctx, phase.ObjectBundle[j], nsName, replicaIndex, createObject); !objectErrList.IsEmpty() {
 						errList.Concat(objectErrList)
 						// If error then skip this bundle
 						break
@@ -274,7 +275,7 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 		// Updating state (CurrentReplicaCount) of every object in object bundle.
 		defer func() {
 			for j := range phase.ObjectBundle {
-				id, _ := getIdentifier(ctx, &phase.ObjectBundle[j])
+				id, _ := getIdentifier(ctx, phase.ObjectBundle[j])
 				instancesStates[j].CurrentReplicaCount = instancesStates[j].DesiredReplicaCount
 				ctx.GetState().GetNamespacesState().Set(nsName, id, instancesStates[j])
 			}

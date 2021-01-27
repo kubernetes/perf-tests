@@ -18,13 +18,14 @@ package modifier
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
-	"reflect"
-	"strconv"
-	"strings"
 )
 
 // Modifier mutates provided test
@@ -58,7 +59,7 @@ func (m *simpleModifier) ChangeTest(c *api.Config) error {
 
 func (m *simpleModifier) modifySkipSteps(c *api.Config) {
 	steps := c.Steps
-	c.Steps = []api.Step{}
+	c.Steps = []*api.Step{}
 	for _, s := range steps {
 		ignored := false
 		for _, i := range m.skipSteps {

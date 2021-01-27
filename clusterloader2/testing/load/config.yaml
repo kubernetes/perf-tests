@@ -38,6 +38,7 @@
 {{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
+{{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -164,6 +165,14 @@ steps:
     Method: NetworkProgrammingLatency
     Params:
       action: start
+  {{end}}
+  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: start
+      pollFrequency: "5s"
+      hostPollTimeoutSeconds: 5
   {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
@@ -369,6 +378,16 @@ steps:
       action: gather
 
 {{if $EXEC_COMMAND}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Pausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: pause
+{{end}}
+
 - name: Exec command
   measurements:
   - Identifier: ExecCommand
@@ -378,6 +397,15 @@ steps:
       {{range $EXEC_COMMAND}}
       - {{.}}
       {{end}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Unpausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: unpause
+{{end}}
 
 - name: Sleep
   measurements:
@@ -864,6 +892,12 @@ steps:
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
+    Params:
+      action: gather
+  {{end}}
+  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+  - Identifier: APIAvailability
+    Method: APIAvailability
     Params:
       action: gather
   {{end}}

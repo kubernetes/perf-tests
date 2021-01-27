@@ -28,64 +28,50 @@ type apiAvailabilityMetrics struct {
 }
 
 type apiAvailabilitySummary struct {
-	IP                         string        `json:"IP"`
-	AvailabilityPercentage     float32       `json:"availabilityPercentage"`
-	LongestUnavailableDuration time.Duration `json:"longestUnavailableDuration"`
+	IP                       string  `json:"IP,omitempty"`
+	AvailabilityPercentage   float32 `json:"availabilityPercentage"`
+	LongestUnavailablePeriod string  `json:"longestUnavailablePeriod"`
 }
 
 type apiAvailabilityOutput struct {
-	ClusterMetrics *apiAvailabilitySummary   `json:"clusterMetrics"`
-	MasterMetrics  []*apiAvailabilitySummary `json:"masterMetrics"`
+	ClusterSummary apiAvailabilitySummary   `json:"clusterMetrics"`
+	HostSummaries  []apiAvailabilitySummary `json:"hostMetrics"`
 }
 
-func (output apiAvailabilityOutput) createClusterSummary(metrics *apiAvailabilityMetrics, probeFrequency int) {
-	metrics.buildAPIAvailabilityMetricsSummary(probeFrequency, true, "")
-}
-
-func (output apiAvailabilityOutput) createMastersSummary(metrics map[string]*apiAvailabilityMetrics, hosts []string, probeFrequency int) {
-	for _, host := range hosts {
-		masterHostAvailabilitySummary := metrics[host].buildAPIAvailabilityMetricsSummary(probeFrequency, false, host)
-		output.MasterMetrics = append(output.MasterMetrics, masterHostAvailabilitySummary)
+func (a *apiAvailabilityMetrics) update(availability bool) {
+	if availability {
+		a.numSuccesses++
+		return
 	}
-
-}
-
-// updateMaxConsecutiveFailuresIfNeeded checks if the recently concluded consecutive failed number of probes is
-// higher than the max consecutive failed number of probes so far
-// if yes, then Update max consecutive failed probes
-func (a *apiAvailabilityMetrics) updateMaxConsecutiveFailuresIfNeeded() {
+	a.numFailures++
+	a.consecutiveFailedProbes++
 	if a.consecutiveFailedProbes > a.maxConsecutiveFailedProbes {
 		a.maxConsecutiveFailedProbes = a.consecutiveFailedProbes
 	}
 }
 
-func (a *apiAvailabilityMetrics) updateFailureMetrics() {
-	a.numFailures++
-	a.consecutiveFailedProbes++
-	a.updateMaxConsecutiveFailuresIfNeeded()
-}
-
-func (a *apiAvailabilityMetrics) updateSuccessMetrics() {
-	a.numSuccesses++
-	a.consecutiveFailedProbes = 0
-}
-
-func (a *apiAvailabilityMeasurement) updateAvailabilityMetrics(apiServerAvailable bool, metrics *apiAvailabilityMetrics) {
-	if apiServerAvailable {
-		metrics.updateSuccessMetrics()
-	} else {
-		metrics.updateFailureMetrics()
+func (a *apiAvailabilityMetrics) buildSummary(pollFrequency time.Duration, hostIP string) apiAvailabilitySummary {
+	availabilityPercentage := float32(100)
+	if a.numSuccesses > 0 || a.numFailures > 0 {
+		availabilityPercentage = (float32(a.numSuccesses) / float32(a.numSuccesses+a.numFailures)) * 100
+	}
+	longestUnavailablePeriod := time.Duration(a.maxConsecutiveFailedProbes) * pollFrequency
+	return apiAvailabilitySummary{
+		AvailabilityPercentage:   availabilityPercentage,
+		LongestUnavailablePeriod: longestUnavailablePeriod.String(),
+		IP:                       hostIP,
 	}
 }
 
-func (a *apiAvailabilityMetrics) buildAPIAvailabilityMetricsSummary(probeFrequency int, clusterMetrics bool, hostIP string) *apiAvailabilitySummary {
-	// Gather availability a
-	availabilityPercentage := (float32(a.numSuccesses) / float32(a.numSuccesses+a.numFailures)) * 100
-	longestUnavailableDuration := time.Duration(a.maxConsecutiveFailedProbes * probeFrequency)
+func createHostSummary(metrics map[string]*apiAvailabilityMetrics, hostIPs []string, pollFrequency time.Duration) []apiAvailabilitySummary {
+	summaries := []apiAvailabilitySummary{}
+	for _, ip := range hostIPs {
+		hostSummary := metrics[ip].buildSummary(pollFrequency, ip)
+		summaries = append(summaries, hostSummary)
+	}
+	return summaries
+}
 
-	apiAvailabilitySummary := &apiAvailabilitySummary{}
-	apiAvailabilitySummary.AvailabilityPercentage = availabilityPercentage
-	apiAvailabilitySummary.LongestUnavailableDuration = longestUnavailableDuration
-
-	return apiAvailabilitySummary
+func createClusterSummary(metrics *apiAvailabilityMetrics, pollFrequency time.Duration) apiAvailabilitySummary {
+	return metrics.buildSummary(pollFrequency, "")
 }

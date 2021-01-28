@@ -1,8 +1,11 @@
+# TODO(#1706): Remove CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS usage when support for 1.17 is dropped.
+{{$EnableImmutableSecretsAndConfigmaps := DefaultParam .CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS true}}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{.Name}}
-{{if not (eq (Mod .Index 20) 0 19) }} # .Index % 20 in {0,19} - only 10% deployments will have non-immutable ConfigMap.
+{{if and $EnableImmutableSecretsAndConfigmaps (not (eq (Mod .Index 20) 0 19)) }}
 immutable: true
 {{end}}
 # Every pod that needs its own configmap entry should be unconditionally

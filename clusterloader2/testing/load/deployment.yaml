@@ -1,6 +1,8 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$CpuRequest := DefaultParam .CpuRequest "10m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
+# TODO(#1706): Remove CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS usage when support for 1.17 is dropped.
+{{$EnableImmutableSecretsAndConfigmaps := DefaultParam .CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS true}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -46,10 +48,14 @@ spec:
             cpu: {{$CpuRequest}}
             memory: {{$MemoryRequest}}
         volumeMounts:
+        {{if or $EnableImmutableSecretsAndConfigmaps (eq (Mod .Index 20) 0 19) }}
           - name: configmap
             mountPath: /var/configmap
+        {{end}}
+        {{if or $EnableImmutableSecretsAndConfigmaps (eq (Mod .Index 20) 10 19) }}
           - name: secret
             mountPath: /var/secret
+        {{end}}
       terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
@@ -63,10 +69,14 @@ spec:
         effect: "NoExecute"
         tolerationSeconds: 900
       volumes:
+      {{if or $EnableImmutableSecretsAndConfigmaps (eq (Mod .Index 20) 0 19) }}
         - name: configmap
           configMap:
             name: {{.BaseName}}-{{.Index}}
+      {{end}}
+      {{if or $EnableImmutableSecretsAndConfigmaps (eq (Mod .Index 20) 10 19) }}
         - name: secret
           secret:
             secretName: {{.BaseName}}-{{.Index}}
+      {{end}}
 

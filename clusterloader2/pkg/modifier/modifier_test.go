@@ -17,15 +17,16 @@ limitations under the License.
 package modifier
 
 import (
-	"k8s.io/perf-tests/clusterloader2/api"
 	"reflect"
 	"testing"
+
+	"k8s.io/perf-tests/clusterloader2/api"
 )
 
 func defaultConfig() *api.Config {
 	return &api.Config{
 		Name: "test-modifier",
-		Steps: []api.Step{{
+		Steps: []*api.Step{{
 			Name: "eternal",
 		}},
 	}
@@ -37,7 +38,7 @@ func TestModifySkipSteps(t *testing.T) {
 	for _, d := range testCase {
 		c := defaultConfig()
 		for _, s := range d {
-			c.Steps = append(c.Steps, api.Step{Name: s})
+			c.Steps = append(c.Steps, &api.Step{Name: s})
 		}
 		m.modifySkipSteps(c)
 		if len(c.Steps) != 1 {
@@ -60,7 +61,7 @@ func TestModifyOverwrite(t *testing.T) {
 			overwrite: []string{"Namespace.Prefix=overwritten-prefix"},
 			expected: &api.Config{
 				Name: "test-modifier",
-				Steps: []api.Step{{
+				Steps: []*api.Step{{
 					Name: "eternal",
 				}},
 				Namespace: api.NamespaceConfig{
@@ -71,7 +72,7 @@ func TestModifyOverwrite(t *testing.T) {
 			overwrite: []string{"Namespace.EnableExistingNamespaces=true"},
 			expected: &api.Config{
 				Name: "test-modifier",
-				Steps: []api.Step{{
+				Steps: []*api.Step{{
 					Name: "eternal",
 				}},
 				Namespace: api.NamespaceConfig{
@@ -83,7 +84,7 @@ func TestModifyOverwrite(t *testing.T) {
 			overwrite: []string{"Namespace.Number=42"},
 			expected: &api.Config{
 				Name: "test-modifier",
-				Steps: []api.Step{{
+				Steps: []*api.Step{{
 					Name: "eternal",
 				}},
 				Namespace: api.NamespaceConfig{

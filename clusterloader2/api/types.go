@@ -47,9 +47,9 @@ type Config struct {
 	// Namespace is a structure for namespace configuration.
 	Namespace NamespaceConfig `json:"namespace"`
 	// Steps is a sequence of test steps executed in serial.
-	Steps []Step `json:"steps"`
+	Steps []*Step `json:"steps"`
 	// TuningSets is a collection of tuning sets that can be used by steps.
-	TuningSets []TuningSet `json:"tuningSets"`
+	TuningSets []*TuningSet `json:"tuningSets"`
 	// ChaosMonkey is a config for simulated component failures.
 	ChaosMonkey ChaosMonkeyConfig `json:"chaosMonkey"`
 }
@@ -62,9 +62,9 @@ type Config struct {
 type Step struct {
 	// Phases is a collection of declarative definitions of objects.
 	// Phases will be executed in parallel.
-	Phases []Phase `json:"phases"`
+	Phases []*Phase `json:"phases"`
 	// Measurements is a collection of parallel measurement calls.
-	Measurements []Measurement `json:"measurements"`
+	Measurements []*Measurement `json:"measurements"`
 	// Module points to a CL2 module defined in a separate file.
 	Module ModuleRef `json:"module"`
 	// Name is an optional name for given step. If name is set the step execution
@@ -86,7 +86,7 @@ type ModuleRef struct {
 type Module struct {
 	// Steps is the list of steps composing the module. Steps are executed
 	// serially.
-	Steps []Step `json:"steps"`
+	Steps []*Step `json:"steps"`
 }
 
 // Phase is a structure that declaratively defines state of objects.
@@ -105,7 +105,7 @@ type Phase struct {
 	// ObjectBundle declaratively defines a set of objects.
 	// For every specified namespace and for every required replica,
 	// these objects will be reconciled in serial.
-	ObjectBundle []Object `json:"objectBundle"`
+	ObjectBundle []*Object `json:"objectBundle"`
 }
 
 // Object is a structure that defines the object managed be the tests.
@@ -205,7 +205,7 @@ type Measurement struct {
 	Identifier string `json:"identifier"`
 	// MeasurementInstanceConfig contains the Identifier and Params of the measurement.
 	// It shouldn't be set when Identifier is set.
-	Instances []MeasurementInstanceConfig
+	Instances []*MeasurementInstanceConfig
 }
 
 // QPSLoad defines a uniform load with a given QPS.

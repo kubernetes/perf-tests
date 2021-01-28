@@ -36,10 +36,10 @@ func NewFactory() Factory {
 }
 
 // Init sets available tuning sets.
-func (tf *simpleFactory) Init(tuningSets []api.TuningSet) {
+func (tf *simpleFactory) Init(tuningSets []*api.TuningSet) {
 	tf.tuningSetMap = make(map[string]*api.TuningSet)
 	for i := range tuningSets {
-		tf.tuningSetMap[tuningSets[i].Name] = &tuningSets[i]
+		tf.tuningSetMap[tuningSets[i].Name] = tuningSets[i]
 	}
 }
 

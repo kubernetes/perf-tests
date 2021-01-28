@@ -27,7 +27,7 @@ import (
 type InstancesState struct {
 	DesiredReplicaCount int32
 	CurrentReplicaCount int32
-	Object              api.Object
+	Object              *api.Object
 }
 
 // InstancesIdentifier is a unique identifier for object replicas group

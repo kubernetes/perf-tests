@@ -36,10 +36,10 @@ import (
 //         -step 5
 // - step 6
 // the method will return [step1, step3, step5, step6].
-func flattenModuleSteps(ctx Context, unprocessedSteps []api.Step) ([]*api.Step, error) {
+func flattenModuleSteps(ctx Context, unprocessedSteps []*api.Step) ([]*api.Step, error) {
 	var processedSteps []*api.Step
 	for i := range unprocessedSteps {
-		step := &unprocessedSteps[i]
+		step := unprocessedSteps[i]
 		if step.IsModule() {
 			module, err := loadModule(ctx, &step.Module)
 			if err != nil {

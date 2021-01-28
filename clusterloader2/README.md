@@ -166,7 +166,7 @@ Vendor is created using [Go modules].
 [Go modules]: https://blog.golang.org/using-go-modules
 [load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
-[overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/5000_nodes/override.yaml
+[overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/scheduler/pod-affinity/overrides.yaml
 [pod startup SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md
 [Service monitor]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/prometheus/manifests/default/prometheus-serviceMonitorKubeProxy.yaml
 [Pod monitor]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/prometheus/manifests/default/prometheus-podMonitorNodeLocalDNS.yaml

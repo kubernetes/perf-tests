@@ -46,7 +46,7 @@ type ClusterConfig struct {
 	MasterName          string
 	// Deprecated: use NamespaceConfig.DeleteStaleNamespaces instead.
 	DeleteStaleNamespaces bool
-	// Deprecated: use NamespaceConfig.DeleteAutomanagedNamespaces instead.
+	// TODO(#1696): Clean up after removing automanagedNamespaces
 	DeleteAutomanagedNamespaces bool
 	// APIServerPprofByClientEnabled determines whether kube-apiserver pprof endpoint can be accessed
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.

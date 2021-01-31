@@ -18,6 +18,7 @@ package api
 
 import (
 	"fmt"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -25,7 +26,7 @@ import (
 func (conf *Config) SetDefaults() {
 	conf.Namespace.SetDefaults()
 
-	// TODO: remove after deprecated automanagedNamespaces is disabled.
+	// TODO(#1696): Clean up after removing automanagedNamespaces
 	if conf.Namespace.Number == 1 && conf.AutomanagedNamespaces > 1 {
 		conf.Namespace.Number = conf.AutomanagedNamespaces
 	}

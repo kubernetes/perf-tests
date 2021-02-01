@@ -23,19 +23,7 @@
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
 {{$DISABLE_DAEMONSETS := DefaultParam .CL2_DISABLE_DAEMONSETS false}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
-{{$ENABLE_NODE_LOCAL_DNS_LATENCY := DefaultParam .CL2_ENABLE_NODE_LOCAL_DNS_LATENCY false}}
-{{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
-{{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
-{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
-{{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
-{{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
-{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
-{{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
-{{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
-{{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
-{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
-{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -84,9 +72,6 @@
 # in an unnecessary number of namespaces.
 {{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 0 $schedulerThroughputNamespaces}}
 
-# Probe measurements shared parameter
-{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
-
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
@@ -129,63 +114,11 @@ chaosMonkey:
     simulatedDowntime: 10m
 {{end}}
 steps:
-- name: Starting measurements
-  measurements:
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
+- module:
+    path: modules/measurements.yaml
+    params:
       action: start
-  - Identifier: APIResponsivenessPrometheusSimple
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: start
-  - Identifier: CreatePhasePodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = load
-      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
-  - Identifier: InClusterNetworkLatency
-    Method: InClusterNetworkLatency
-    Params:
-      action: start
-      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
-      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-{{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
-  - Identifier: NodeLocalDNSLatency
-    Method: NodeLocalDNSLatencyPrometheus
-    Params:
-      action: start
-{{end}}
-  - Identifier: SLOMeasurement
-    Method: SLOMeasurement
-    Params:
-      action: start
-      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
-      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkProgrammingLatency
-    Method: NetworkProgrammingLatency
-    Params:
-      action: start
-  {{end}}
-  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: start
-      pollFrequency: "5s"
-      hostPollTimeoutSeconds: 5
-  {{end}}
-  - Identifier: TestMetrics
-    Method: TestMetrics
-    Params:
-      action: start
-      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
-      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
-      clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
-      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
-      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+      enableApiAvailabilityMeasurement: {{$ENABLE_API_AVAILABILITY_MEASUREMENT}}
 
 - module:
     path: modules/services.yaml
@@ -838,63 +771,8 @@ steps:
       bigServicesPerNamespace: 0
 {{end}} # not EXIT_AFTER_EXEC
 
-- name: Collecting measurements
-  measurements:
-  - Identifier: APIResponsivenessPrometheusSimple
-    Method: APIResponsivenessPrometheus
-    Params:
+- module:
+    path: modules/measurements.yaml
+    params:
       action: gather
-      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
-      useSimpleLatencyQuery: true
-      summaryName: APIResponsivenessPrometheus_simple
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
-      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-  {{if not $USE_SIMPLE_LATENCY_QUERY}}
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
-      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-  {{end}}
-  - Identifier: CreatePhasePodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
-  - Identifier: InClusterNetworkLatency
-    Method: InClusterNetworkLatency
-    Params:
-      action: gather
-{{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
-  - Identifier: NodeLocalDNSLatency
-    Method: NodeLocalDNSLatencyPrometheus
-    Params:
-      action: gather
-      enableViolations: true
-      threshold: {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD}}
-{{end}}
-  - Identifier: SLOMeasurement
-    Method: SLOMeasurement
-    Params:
-      action: gather
-  {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
-  - Identifier: NetworkProgrammingLatency
-    Method: NetworkProgrammingLatency
-    Params:
-      action: gather
-  {{end}}
-  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: gather
-  {{end}}
-  - Identifier: TestMetrics
-    Method: TestMetrics
-    Params:
-      action: gather
-      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
-      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
-      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
-      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+      enableApiAvailabilityMeasurement: {{$ENABLE_API_AVAILABILITY_MEASUREMENT}}

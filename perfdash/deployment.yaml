@@ -36,9 +36,9 @@ spec:
           timeoutSeconds: 1
         resources:
           requests:
-            cpu: 600m
-            memory: 8Gi
+            cpu: "3"
+            memory: 10Gi
           limits:
-            cpu: 600m
-            memory: 8Gi
+            cpu: "3"
+            memory: 10Gi
       restartPolicy: Always

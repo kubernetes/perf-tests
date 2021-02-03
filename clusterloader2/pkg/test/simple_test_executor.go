@@ -83,8 +83,8 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 			klog.V(2).Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
 			testDistinctor := ""
-			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
-				testDistinctor = "_" + ctx.GetClusterLoaderConfig().TestScenario.Identifier
+			if ctx.GetTestScenario().Identifier != "" {
+				testDistinctor = "_" + ctx.GetTestScenario().Identifier
 			}
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
 			fileName := strings.Join([]string{summary.SummaryName(), conf.Name + testDistinctor, summary.SummaryTime().Format(time.RFC3339)}, "_")

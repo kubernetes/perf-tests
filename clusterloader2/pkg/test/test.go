@@ -44,6 +44,7 @@ func CreateTestContext(
 	prometheusFramework *framework.Framework,
 	clusterLoaderConfig *config.ClusterLoaderConfig,
 	testReporter Reporter,
+	testScenario *api.TestScenario,
 ) (Context, *errors.ErrorList) {
 	if clusterFramework == nil {
 		return nil, errors.NewErrorList(fmt.Errorf("framework must be provided"))
@@ -55,12 +56,12 @@ func CreateTestContext(
 		return nil, errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	mapping, errList := config.GetMapping(clusterLoaderConfig, testScenario.OverridePaths)
 	if errList != nil {
 		return nil, errList
 	}
 
-	return CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping), errors.NewErrorList()
+	return CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping, testScenario), errors.NewErrorList()
 }
 
 // CompileTestConfig loads the test configuration and nested modules
@@ -70,7 +71,7 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	}
 
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
-	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
+	testConfigFilename := filepath.Base(ctx.GetTestScenario().ConfigPath)
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
 	if err != nil {
 		return &api.Config{}, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
@@ -103,7 +104,7 @@ func RunTest(
 	clusterFramework := ctx.GetClusterFramework()
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 
-	testName := clusterLoaderConfig.TestScenario.Identifier
+	testName := ctx.GetTestScenario().Identifier
 	if testName == "" {
 		testName = testConfig.Name
 	}

@@ -283,8 +283,7 @@ func main() {
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		// Pass overrides to prometheus controller
-		clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
-		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
+		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig, testOverridePaths); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
 		prometheusFramework = prometheusController.GetFramework()
@@ -297,7 +296,7 @@ func main() {
 			klog.Exitf("Error while setting up exec service: %v", err)
 		}
 	}
-	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
+	if err := imagepreload.Setup(&clusterLoaderConfig, f, testOverridePaths); err != nil {
 		klog.Exitf("Error while preloading images: %v", err)
 	}
 
@@ -318,8 +317,8 @@ func main() {
 		}
 
 		for i := range testSuite {
-			clusterLoaderConfig.TestScenario = testSuite[i]
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+			testScenario := testSuite[i]
+			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
 			if !errList.IsEmpty() {
 				klog.Exitf("Test context creation failed: %s", errList.String())
 			}
@@ -337,9 +336,11 @@ func main() {
 		}
 	} else {
 		for i := range testConfigPaths {
-			clusterLoaderConfig.TestScenario.ConfigPath = testConfigPaths[i]
-			clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter)
+			testScenario := api.TestScenario{
+				ConfigPath:    testConfigPaths[i],
+				OverridePaths: testOverridePaths,
+			}
+			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
 			if !errList.IsEmpty() {
 				klog.Exitf("Test context creation failed: %s", errList.String())
 			}
@@ -377,8 +378,7 @@ func runSingleTest(
 	ctx test.Context,
 	testConfig *api.Config,
 ) {
-	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
-	testID := getTestID(clusterLoaderConfig.TestScenario)
+	testID := getTestID(*ctx.GetTestScenario())
 	testStart := time.Now()
 	printTestStart(testID)
 	errList := test.RunTest(ctx, testConfig)
@@ -387,7 +387,7 @@ func runSingleTest(
 	} else {
 		printTestResult(testID, "Success", "")
 	}
-	testConfigPath := clusterLoaderConfig.TestScenario.ConfigPath
+	testConfigPath := ctx.GetTestScenario().ConfigPath
 	ctx.GetTestReporter().ReportTestFinish(time.Since(testStart), testConfigPath, errList)
 }
 

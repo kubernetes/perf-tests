@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
@@ -26,7 +25,6 @@ type ClusterLoaderConfig struct {
 	ClusterConfig     ClusterConfig
 	ReportDir         string
 	EnableExecService bool
-	TestScenario      api.TestScenario
 	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
 }

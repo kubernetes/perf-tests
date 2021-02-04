@@ -86,7 +86,11 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 		}
 		klog.V(2).Infof("Found Prometheus' PV with name: %s", pv.Name)
 		pdName = pv.Spec.GCEPersistentDisk.PDName
-		zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		zone = pv.ObjectMeta.Labels["topology.kubernetes.io/zone"]
+		if zone == "" {
+			// Fallback to old label to make it work for old k8s versions.
+			zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		}
 		klog.V(2).Infof("PD name=%s, zone=%s", pdName, zone)
 	}
 	if pdName == "" || zone == "" {

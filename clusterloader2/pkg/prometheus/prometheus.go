@@ -97,7 +97,7 @@ func CompleteConfig(p *config.PrometheusConfig) {
 }
 
 // NewController creates a new instance of Controller for the given config.
-func NewController(clusterLoaderConfig *config.ClusterLoaderConfig, testOverridePaths []string) (pc *Controller, err error) {
+func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Controller, err error) {
 	pc = &Controller{
 		clusterLoaderConfig: clusterLoaderConfig,
 		provider:            clusterLoaderConfig.ClusterConfig.Provider,
@@ -107,7 +107,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig, testOverride
 		return nil, err
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig, testOverridePaths)
+	mapping, errList := config.GetMapping(clusterLoaderConfig)
 	if errList != nil {
 		return nil, errList
 	}

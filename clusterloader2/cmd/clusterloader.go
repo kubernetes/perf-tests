@@ -55,7 +55,6 @@ var (
 	clusterLoaderConfig config.ClusterLoaderConfig
 	providerInitOptions provider.InitOptions
 	testConfigPaths     []string
-	testOverridePaths   []string
 	testSuiteConfigPath string
 )
 
@@ -117,7 +116,7 @@ func initFlags() {
 	flags.BoolEnvVar(&clusterLoaderConfig.EnableExecService, "enable-exec-service", "ENABLE_EXEC_SERVICE", true, "Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
-	flags.StringArrayVar(&testOverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
+	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	initClusterFlags()
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
@@ -283,7 +282,7 @@ func main() {
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		// Pass overrides to prometheus controller
-		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig, testOverridePaths); err != nil {
+		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
 		prometheusFramework = prometheusController.GetFramework()
@@ -296,7 +295,7 @@ func main() {
 			klog.Exitf("Error while setting up exec service: %v", err)
 		}
 	}
-	if err := imagepreload.Setup(&clusterLoaderConfig, f, testOverridePaths); err != nil {
+	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
 		klog.Exitf("Error while preloading images: %v", err)
 	}
 
@@ -330,15 +329,10 @@ func main() {
 			}
 			testConfigs = append(testConfigs, testConfig)
 		}
-
-		for i := range testSuite {
-			runSingleTest(contexts[i], testConfigs[i])
-		}
 	} else {
 		for i := range testConfigPaths {
 			testScenario := api.TestScenario{
-				ConfigPath:    testConfigPaths[i],
-				OverridePaths: testOverridePaths,
+				ConfigPath: testConfigPaths[i],
 			}
 			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
 			if !errList.IsEmpty() {
@@ -352,11 +346,12 @@ func main() {
 			}
 			testConfigs = append(testConfigs, testConfig)
 		}
-
-		for i := range testConfigPaths {
-			runSingleTest(contexts[i], testConfigs[i])
-		}
 	}
+
+	for i := range contexts {
+		runSingleTest(contexts[i], testConfigs[i])
+	}
+
 	testReporter.EndTestSuite()
 
 	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
@@ -378,7 +373,7 @@ func runSingleTest(
 	ctx test.Context,
 	testConfig *api.Config,
 ) {
-	testID := getTestID(*ctx.GetTestScenario())
+	testID := getTestID(ctx.GetTestScenario())
 	testStart := time.Now()
 	printTestStart(testID)
 	errList := test.RunTest(ctx, testConfig)
@@ -391,7 +386,7 @@ func runSingleTest(
 	ctx.GetTestReporter().ReportTestFinish(time.Since(testStart), testConfigPath, errList)
 }
 
-func getTestID(ts api.TestScenario) string {
+func getTestID(ts *api.TestScenario) string {
 	if ts.Identifier != "" {
 		return fmt.Sprintf("%s(%s)", ts.Identifier, ts.ConfigPath)
 	}

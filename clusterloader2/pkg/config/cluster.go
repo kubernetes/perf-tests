@@ -27,6 +27,9 @@ type ClusterLoaderConfig struct {
 	EnableExecService bool
 	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
+	// OverridePaths defines what override files should be applied
+	// to the config specified by the ConfigPath for each TestScenario.
+	OverridePaths []string `json:"overridePaths"`
 }
 
 // ClusterConfig is a structure that represents cluster description.

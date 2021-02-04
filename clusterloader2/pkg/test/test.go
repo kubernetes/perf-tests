@@ -38,7 +38,7 @@ var (
 	Test = createSimpleExecutor()
 )
 
-// CreateTestContext creates the test context
+// CreateTestContext creates the test context.
 func CreateTestContext(
 	clusterFramework *framework.Framework,
 	prometheusFramework *framework.Framework,
@@ -56,7 +56,7 @@ func CreateTestContext(
 		return nil, errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig, testScenario.OverridePaths)
+	mapping, errList := config.GetMapping(clusterLoaderConfig)
 	if errList != nil {
 		return nil, errList
 	}
@@ -64,7 +64,7 @@ func CreateTestContext(
 	return CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping, testScenario), errors.NewErrorList()
 }
 
-// CompileTestConfig loads the test configuration and nested modules
+// CompileTestConfig loads the test configuration and nested modules.
 func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	if Test == nil {
 		return &api.Config{}, errors.NewErrorList(fmt.Errorf("no Test installed"))

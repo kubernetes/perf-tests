@@ -66,8 +66,8 @@ type controller struct {
 // As a side-effect of the image preloading, size of Node objects is increased.
 //
 // Preloading is skipped in kubemark or if no images have been specified.
-func Setup(conf *config.ClusterLoaderConfig, f *framework.Framework, testOverridePaths []string) error {
-	mapping, err := config.GetMapping(conf, testOverridePaths)
+func Setup(conf *config.ClusterLoaderConfig, f *framework.Framework) error {
+	mapping, err := config.GetMapping(conf)
 	if err != nil {
 		return err
 	}

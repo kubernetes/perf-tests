@@ -103,6 +103,8 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		return NewGCEProvider(configs), nil
 	case GKEName:
 		return NewGKEProvider(configs), nil
+	case KindName:
+		return NewKindProvider(configs), nil
 	case KubemarkName:
 		return NewKubemarkProvider(configs), nil
 	case LocalName:

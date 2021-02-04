@@ -4,13 +4,18 @@
 
 To run ClusterLoader type:
 ```
-go run cmd/clusterloader.go --kubeconfig=kubeConfig.yaml --testconfig=config.yaml
+go run cmd/clusterloader.go --kubeconfig=kubeConfig.yaml --testconfig=config.yaml --provider=local
 ```
 OR
 ```
-./run-e2e.sh --testconfig=config.yaml
+./run-e2e.sh --testconfig=config.yaml --provider=local
 ```
-Flags kubeconfig and testconfig are necessary.
+
+The simplest way to get acquainted with ClusterLoader is using [kind](https://kind.sigs.k8s.io/). Provision a cluster and ensure you can SSH to localhost. Eg. running the load test:
+
+```
+go run cmd/clusterloader.go --testconfig=testing/load/config.yaml --nodes=1 --provider=kind --kubeconfig=<path-to-kubeconfig> --masterip=127.0.0.1 --mastername=kind-control-plane --master-internal-ip=127.0.0.1
+```
 
 ### Flags
 
@@ -20,7 +25,7 @@ These flags are required for any test to be run.
  - kubeconfig - path to the kubeconfig file.
  - testconfig - path to the test config file. This flag can be used multiple times
 if more than one test should be run.
- - provider - Cluster provider, options are: gce, gke, kubemark, aws, local, vsphere, skeleton
+ - provider - Cluster provider, options are: gce, gke, kind, kubemark, aws, local, vsphere, skeleton
 
 #### Optional
 

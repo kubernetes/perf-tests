@@ -22,6 +22,7 @@ const (
 	EKSName      = "eks"
 	GCEName      = "gce"
 	GKEName      = "gke"
+	KindName     = "kind"
 	KubemarkName = "kubemark"
 	LocalName    = "local"
 	SkeletonName = "skeleton"

@@ -40,7 +40,7 @@
 {{$latencyDeploymentSpec := DefaultParam .LATENCY_DEPLOYMENT_SPEC "deployment.yaml"}}
 
 # Probe measurements shared parameter
-{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "5m"}}
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
 
 name: density
 namespace:

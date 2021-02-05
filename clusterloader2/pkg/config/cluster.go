@@ -54,6 +54,7 @@ type ModifierConfig struct {
 type PrometheusConfig struct {
 	EnableServer       bool
 	TearDownServer     bool
+	ScrapeAnet         bool
 	ScrapeEtcd         bool
 	ScrapeNodeExporter bool
 	ScrapeKubelets     bool

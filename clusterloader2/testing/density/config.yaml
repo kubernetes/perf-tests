@@ -4,7 +4,8 @@
 
 #Constants
 {{$DENSITY_RESOURCE_CONSTRAINTS_FILE := DefaultParam .DENSITY_RESOURCE_CONSTRAINTS_FILE ""}}
-{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 100}}
+# Cater for the case where the number of nodes is less than nodes per namespace. See https://github.com/kubernetes/perf-tests/issues/887
+{{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .NODES_PER_NAMESPACE 100)}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$DENSITY_TEST_THROUGHPUT := DefaultParam .DENSITY_TEST_THROUGHPUT 20}}
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 0}}

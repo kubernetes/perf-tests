@@ -39,7 +39,7 @@ const (
 
 	checkProbesReadyInterval = 15 * time.Second
 
-	defaultCheckProbesReadyTimeout = 5 * time.Minute
+	defaultCheckProbesReadyTimeout = 15 * time.Minute
 )
 
 var (

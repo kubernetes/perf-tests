@@ -41,6 +41,7 @@ type simpleContext struct {
 	measurementManager  measurement.Manager
 	chaosMonkey         *chaos.Monkey
 	testScenario        *api.TestScenario
+	testConfig          *api.Config
 }
 
 func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, testReporter Reporter, templateMapping map[string]interface{}, testScenario *api.TestScenario) Context {
@@ -113,4 +114,14 @@ func (sc *simpleContext) GetChaosMonkey() *chaos.Monkey {
 // GetTestScenario returns test scenario.
 func (sc *simpleContext) GetTestScenario() *api.TestScenario {
 	return sc.testScenario
+}
+
+// GetTestConfig returns test config.
+func (sc *simpleContext) GetTestConfig() *api.Config {
+	return sc.testConfig
+}
+
+// SetTestConfig sets test config.
+func (sc *simpleContext) SetTestConfig(c *api.Config) {
+	sc.testConfig = c
 }

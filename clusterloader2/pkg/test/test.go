@@ -99,10 +99,10 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 // RunTest runs test based on provided test configuration.
 func RunTest(
 	ctx Context,
-	testConfig *api.Config,
 ) *errors.ErrorList {
 	clusterFramework := ctx.GetClusterFramework()
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
+	testConfig := ctx.GetTestConfig()
 
 	testName := ctx.GetTestScenario().Identifier
 	if testName == "" {

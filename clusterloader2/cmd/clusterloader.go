@@ -307,7 +307,6 @@ func main() {
 	testReporter.BeginTestSuite()
 
 	var contexts []test.Context
-	var testConfigs []*api.Config
 
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
@@ -321,13 +320,12 @@ func main() {
 			if !errList.IsEmpty() {
 				klog.Exitf("Test context creation failed: %s", errList.String())
 			}
-			contexts = append(contexts, ctx)
-
 			testConfig, errList := test.CompileTestConfig(ctx)
 			if !errList.IsEmpty() {
 				klog.Exitf("Test compliation failed: %s", errList.String())
 			}
-			testConfigs = append(testConfigs, testConfig)
+			ctx.SetTestConfig(testConfig)
+			contexts = append(contexts, ctx)
 		}
 	} else {
 		for i := range testConfigPaths {
@@ -338,18 +336,17 @@ func main() {
 			if !errList.IsEmpty() {
 				klog.Exitf("Test context creation failed: %s", errList.String())
 			}
-			contexts = append(contexts, ctx)
-
 			testConfig, errList := test.CompileTestConfig(ctx)
 			if !errList.IsEmpty() {
 				klog.Exitf("Test compliation failed: %s", errList.String())
 			}
-			testConfigs = append(testConfigs, testConfig)
+			ctx.SetTestConfig(testConfig)
+			contexts = append(contexts, ctx)
 		}
 	}
 
 	for i := range contexts {
-		runSingleTest(contexts[i], testConfigs[i])
+		runSingleTest(contexts[i])
 	}
 
 	testReporter.EndTestSuite()
@@ -371,12 +368,11 @@ func main() {
 
 func runSingleTest(
 	ctx test.Context,
-	testConfig *api.Config,
 ) {
 	testID := getTestID(ctx.GetTestScenario())
 	testStart := time.Now()
 	printTestStart(testID)
-	errList := test.RunTest(ctx, testConfig)
+	errList := test.RunTest(ctx)
 	if !errList.IsEmpty() {
 		printTestResult(testID, "Fail", errList.String())
 	} else {

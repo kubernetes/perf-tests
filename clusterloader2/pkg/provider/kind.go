@@ -17,8 +17,9 @@ limitations under the License.
 package provider
 
 import (
+	"fmt"
+
 	clientset "k8s.io/client-go/kubernetes"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
 )
 
 type KindProvider struct {
@@ -57,12 +58,7 @@ func (p *KindProvider) GetConfig() Config {
 func (p *KindProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// TODO(#1693): To maintain compatibility with the use of SSH to scrape measurements,
 	// we can SSH to localhost then run `docker exec -t <masterNodeContainerID> <cmd>`.
-	signer, err := sshSignerFromKeyFile("LOCAL_SSH_KEY", "id_rsa")
-	if err != nil {
-		return "", "", 0, err
-	}
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
+	return "", "", 0, fmt.Errorf("kind: ssh not yet implemented")
 }
 
 func (p *KindProvider) Metadata(client clientset.Interface) (map[string]string, error) {

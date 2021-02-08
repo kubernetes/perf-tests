@@ -58,6 +58,9 @@ type Context interface {
 	GetFactory() tuningset.Factory
 	GetManager() measurement.Manager
 	GetChaosMonkey() *chaos.Monkey
+	GetTestScenario() *api.TestScenario
+	GetTestConfig() *api.Config
+	SetTestConfig(*api.Config)
 }
 
 // Executor is an interface for test executing object.

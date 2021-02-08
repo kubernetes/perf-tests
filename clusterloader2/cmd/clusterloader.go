@@ -55,6 +55,7 @@ var (
 	clusterLoaderConfig config.ClusterLoaderConfig
 	providerInitOptions provider.InitOptions
 	testConfigPaths     []string
+	testOverridePaths   []string
 	testSuiteConfigPath string
 )
 
@@ -116,7 +117,7 @@ func initFlags() {
 	flags.BoolEnvVar(&clusterLoaderConfig.EnableExecService, "enable-exec-service", "ENABLE_EXEC_SERVICE", true, "Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
-	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
+	flags.StringArrayVar(&testOverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	initClusterFlags()
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
@@ -282,6 +283,7 @@ func main() {
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		// Pass overrides to prometheus controller
+		clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
 		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
@@ -305,50 +307,22 @@ func main() {
 
 	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
 	testReporter.BeginTestSuite()
-
-	var contexts []test.Context
-
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
 		if err != nil {
 			klog.Exitf("Error while reading test suite: %v", err)
 		}
-
 		for i := range testSuite {
-			testScenario := testSuite[i]
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test context creation failed: %s", errList.String())
-			}
-			testConfig, errList := test.CompileTestConfig(ctx)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test compliation failed: %s", errList.String())
-			}
-			ctx.SetTestConfig(testConfig)
-			contexts = append(contexts, ctx)
+			clusterLoaderConfig.TestScenario = testSuite[i]
+			runSingleTest(f, prometheusFramework, testReporter)
 		}
 	} else {
 		for i := range testConfigPaths {
-			testScenario := api.TestScenario{
-				ConfigPath: testConfigPaths[i],
-			}
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test context creation failed: %s", errList.String())
-			}
-			testConfig, errList := test.CompileTestConfig(ctx)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test compliation failed: %s", errList.String())
-			}
-			ctx.SetTestConfig(testConfig)
-			contexts = append(contexts, ctx)
+			clusterLoaderConfig.TestScenario.ConfigPath = testConfigPaths[i]
+			clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
+			runSingleTest(f, prometheusFramework, testReporter)
 		}
 	}
-
-	for i := range contexts {
-		runSingleTest(contexts[i])
-	}
-
 	testReporter.EndTestSuite()
 
 	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
@@ -367,22 +341,24 @@ func main() {
 }
 
 func runSingleTest(
-	ctx test.Context,
+	f *framework.Framework,
+	prometheusFramework *framework.Framework,
+	testReporter test.Reporter,
 ) {
-	testID := getTestID(ctx.GetTestScenario())
+	testID := getTestID(clusterLoaderConfig.TestScenario)
 	testStart := time.Now()
 	printTestStart(testID)
-	errList := test.RunTest(ctx)
+	errList := test.RunTest(f, prometheusFramework, &clusterLoaderConfig, testReporter)
 	if !errList.IsEmpty() {
 		printTestResult(testID, "Fail", errList.String())
 	} else {
 		printTestResult(testID, "Success", "")
 	}
-	testConfigPath := ctx.GetTestScenario().ConfigPath
-	ctx.GetTestReporter().ReportTestFinish(time.Since(testStart), testConfigPath, errList)
+	testConfigPath := clusterLoaderConfig.TestScenario.ConfigPath
+	testReporter.ReportTestFinish(time.Since(testStart), testConfigPath, errList)
 }
 
-func getTestID(ts *api.TestScenario) string {
+func getTestID(ts api.TestScenario) string {
 	if ts.Identifier != "" {
 		return fmt.Sprintf("%s(%s)", ts.Identifier, ts.ConfigPath)
 	}

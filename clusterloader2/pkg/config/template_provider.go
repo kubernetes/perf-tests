@@ -216,7 +216,7 @@ func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
 
 // GetMapping returns template variable mapping for the given ClusterLoaderConfig.
 func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
-	mapping, err := LoadTestOverrides(clusterLoaderConfig.OverridePaths)
+	mapping, err := LoadTestOverrides(clusterLoaderConfig.TestScenario.OverridePaths)
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}

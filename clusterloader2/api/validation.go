@@ -18,13 +18,11 @@ package api
 
 import (
 	"fmt"
-
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
 // Validate checks and verifies the configuration parameters.
 func (conf *Config) Validate() *errors.ErrorList {
-	// TODO(#1636): Validate other aspects of the api
 	return conf.Namespace.Validate()
 }
 

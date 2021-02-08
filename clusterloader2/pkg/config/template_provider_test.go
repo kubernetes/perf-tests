@@ -39,8 +39,9 @@ func TestValidateTestSuite(t *testing.T) {
 			name: "valid-id",
 			suite: api.TestSuite{
 				api.TestScenario{
-					Identifier: "some-id",
-					ConfigPath: "",
+					Identifier:    "some-id",
+					ConfigPath:    "",
+					OverridePaths: []string{},
 				},
 			},
 			wantErr: false,
@@ -49,8 +50,9 @@ func TestValidateTestSuite(t *testing.T) {
 			name: "id-with-underscore",
 			suite: api.TestSuite{
 				api.TestScenario{
-					Identifier: "some_id",
-					ConfigPath: "",
+					Identifier:    "some_id",
+					ConfigPath:    "",
+					OverridePaths: []string{},
 				},
 			},
 			wantErr: true,

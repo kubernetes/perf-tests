@@ -281,7 +281,6 @@ func main() {
 	var prometheusController *prometheus.Controller
 	var prometheusFramework *framework.Framework
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
-		// Pass overrides to prometheus controller
 		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
@@ -306,43 +305,35 @@ func main() {
 	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
 	testReporter.BeginTestSuite()
 
-	var contexts []test.Context
-
+	var testScenarios []api.TestScenario
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
 		if err != nil {
 			klog.Exitf("Error while reading test suite: %v", err)
 		}
-
-		for i := range testSuite {
-			testScenario := testSuite[i]
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test context creation failed: %s", errList.String())
-			}
-			testConfig, errList := test.CompileTestConfig(ctx)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test compliation failed: %s", errList.String())
-			}
-			ctx.SetTestConfig(testConfig)
-			contexts = append(contexts, ctx)
-		}
+		testScenarios = []api.TestScenario(testSuite)
 	} else {
 		for i := range testConfigPaths {
 			testScenario := api.TestScenario{
-				ConfigPath: testConfigPaths[i],
+				ConfigPath:    testConfigPaths[i],
+				OverridePaths: []string{},
 			}
-			ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenario)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test context creation failed: %s", errList.String())
-			}
-			testConfig, errList := test.CompileTestConfig(ctx)
-			if !errList.IsEmpty() {
-				klog.Exitf("Test compliation failed: %s", errList.String())
-			}
-			ctx.SetTestConfig(testConfig)
-			contexts = append(contexts, ctx)
+			testScenarios = append(testScenarios, testScenario)
 		}
+	}
+
+	var contexts []test.Context
+	for i := range testScenarios {
+		ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenarios[i])
+		if !errList.IsEmpty() {
+			klog.Exitf("Test context creation failed: %s", errList.String())
+		}
+		testConfig, errList := test.CompileTestConfig(ctx)
+		if !errList.IsEmpty() {
+			klog.Exitf("Test compliation failed: %s", errList.String())
+		}
+		ctx.SetTestConfig(testConfig)
+		contexts = append(contexts, ctx)
 	}
 
 	for i := range contexts {
@@ -366,9 +357,7 @@ func main() {
 	}
 }
 
-func runSingleTest(
-	ctx test.Context,
-) {
+func runSingleTest(ctx test.Context) {
 	testID := getTestID(ctx.GetTestScenario())
 	testStart := time.Now()
 	printTestStart(testID)

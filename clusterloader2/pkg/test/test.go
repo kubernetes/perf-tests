@@ -56,7 +56,7 @@ func CreateTestContext(
 		return nil, errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	mapping, errList := config.GetMapping(clusterLoaderConfig, testScenario.OverridePaths)
 	if errList != nil {
 		return nil, errList
 	}
@@ -67,40 +67,46 @@ func CreateTestContext(
 // CompileTestConfig loads the test configuration and nested modules.
 func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	if Test == nil {
-		return &api.Config{}, errors.NewErrorList(fmt.Errorf("no Test installed"))
+		return nil, errors.NewErrorList(fmt.Errorf("no Test installed"))
 	}
 
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 	testConfigFilename := filepath.Base(ctx.GetTestScenario().ConfigPath)
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
 	if err != nil {
-		return &api.Config{}, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
+		return nil, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
 
 	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
-		return &api.Config{}, errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
+		return nil, errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
 	}
 
 	steps, err := flattenModuleSteps(ctx, testConfig.Steps)
 	if err != nil {
-		return &api.Config{}, errors.NewErrorList(
+		return nil, errors.NewErrorList(
 			fmt.Errorf("erorr when flattening module steps: %w", err))
 	}
 	testConfig.Steps = steps
 
+	// TODO: remove them after the deprecated command options are removed.
+	clusterFramework := ctx.GetClusterFramework()
+	if testConfig.Namespace.DeleteStaleNamespaces == nil {
+		testConfig.Namespace.DeleteStaleNamespaces = &clusterFramework.GetClusterConfig().DeleteStaleNamespaces
+	}
+	if testConfig.Namespace.DeleteAutomanagedNamespaces == nil {
+		testConfig.Namespace.DeleteAutomanagedNamespaces = &clusterFramework.GetClusterConfig().DeleteAutomanagedNamespaces
+	}
+
 	testConfig.SetDefaults()
 	if err := testConfig.Validate(); err != nil {
-		return &api.Config{}, err
+		return nil, err
 	}
 
 	return testConfig, errors.NewErrorList()
 }
 
 // RunTest runs test based on provided test configuration.
-func RunTest(
-	ctx Context,
-) *errors.ErrorList {
-	clusterFramework := ctx.GetClusterFramework()
+func RunTest(ctx Context) *errors.ErrorList {
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 	testConfig := ctx.GetTestConfig()
 
@@ -112,14 +118,6 @@ func RunTest(
 
 	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
 		return errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
-	}
-
-	// TODO: remove them after the deprecated command options are removed.
-	if testConfig.Namespace.DeleteStaleNamespaces == nil {
-		testConfig.Namespace.DeleteStaleNamespaces = &clusterFramework.GetClusterConfig().DeleteStaleNamespaces
-	}
-	if testConfig.Namespace.DeleteAutomanagedNamespaces == nil {
-		testConfig.Namespace.DeleteAutomanagedNamespaces = &clusterFramework.GetClusterConfig().DeleteAutomanagedNamespaces
 	}
 
 	return Test.ExecuteTest(ctx, testConfig)

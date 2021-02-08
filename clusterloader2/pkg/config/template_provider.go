@@ -194,29 +194,45 @@ func validateTestSuite(suite api.TestSuite) error {
 	return nil
 }
 
+func updateMappingFromFile(mapping map[string]interface{}, path string) error {
+	bin, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("test overrides reading error: %v", err)
+	}
+	tmpMapping := make(map[string]interface{})
+	if err = decodeInto(bin, &tmpMapping); err != nil {
+		return fmt.Errorf("test overrides unmarshalling error: %v", err)
+	}
+	// Merge tmpMapping into mapping.
+	for k, v := range tmpMapping {
+		mapping[k] = v
+	}
+	return nil
+}
+
 // LoadTestOverrides returns mapping from file specified by the given paths.
-func LoadTestOverrides(paths []string) (map[string]interface{}, error) {
+// Test specific overrides in testOverridePath will supersede any global overrides.
+func LoadTestOverrides(paths []string, testOverridePaths []string) (map[string]interface{}, error) {
+	var err error
 	mapping := make(map[string]interface{})
 	for _, path := range paths {
-		bin, err := ioutil.ReadFile(path)
+		err = updateMappingFromFile(mapping, path)
 		if err != nil {
-			return nil, fmt.Errorf("test overrides reading error: %v", err)
+			return nil, err
 		}
-		tmpMapping := make(map[string]interface{})
-		if err = decodeInto(bin, &tmpMapping); err != nil {
-			return nil, fmt.Errorf("test overrides unmarshalling error: %v", err)
-		}
-		// Merge tmpMapping into mapping.
-		for k, v := range tmpMapping {
-			mapping[k] = v
+	}
+	for _, testOverridePath := range testOverridePaths {
+		err = updateMappingFromFile(mapping, testOverridePath)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return mapping, nil
 }
 
 // GetMapping returns template variable mapping for the given ClusterLoaderConfig.
-func GetMapping(clusterLoaderConfig *ClusterLoaderConfig) (map[string]interface{}, *errors.ErrorList) {
-	mapping, err := LoadTestOverrides(clusterLoaderConfig.OverridePaths)
+func GetMapping(clusterLoaderConfig *ClusterLoaderConfig, testOverridePaths []string) (map[string]interface{}, *errors.ErrorList) {
+	mapping, err := LoadTestOverrides(clusterLoaderConfig.OverridePaths, testOverridePaths)
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}

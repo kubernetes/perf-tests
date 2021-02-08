@@ -31,6 +31,10 @@ type TestScenario struct {
 	Identifier string `json:"identifier"`
 	// ConfigPath defines path to the file containing a single Config definition.
 	ConfigPath string `json:"configPath"`
+	// OverridePaths defines what override files should be applied
+	// to the config specified by the ConfigPath. This supersedes the global
+	// config provided by ClusterLoaderConfig.
+	OverridePaths []string `json:"overridePaths"`
 }
 
 // Config is a structure that represents configuration

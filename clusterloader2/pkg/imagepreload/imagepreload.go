@@ -67,7 +67,7 @@ type controller struct {
 //
 // Preloading is skipped in kubemark or if no images have been specified.
 func Setup(conf *config.ClusterLoaderConfig, f *framework.Framework) error {
-	mapping, err := config.GetMapping(conf)
+	mapping, err := config.GetMapping(conf, nil)
 	if err != nil {
 		return err
 	}

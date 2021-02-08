@@ -100,6 +100,12 @@ export CL2_ACCESS_TOKENS_QPS=5
 ## Measurement
 
 Currently available measurements are:
+- **APIAvailabilityMeasurement** \
+This measurement collects information about the availability of cluster's control plane. \
+There are two slightly different ways this is measured:
+  - cluster-level availability, where we periodically issue an API call to `/readyz`,
+  - host-level availability, where we periodically poll each of the control plane's host `/readyz` endpoint.
+    - this requires the [exec service](https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/pkg/execservice) to be enabled.
 - **APIResponsivenessPrometheusSimple** \
 This measurement creates percentiles of latency and number for server api calls based on the data collected by the prometheus server. 
 Api calls are divided by resource, subresource, verb and scope. \
@@ -167,6 +173,7 @@ Vendor is created using [Go modules].
 
 [api]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/api/types.go
 [API call latencies SLO]: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
+[exec service]: https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/pkg/execservice
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [Go modules]: https://blog.golang.org/using-go-modules
 [load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml

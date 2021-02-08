@@ -82,9 +82,13 @@ func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error)
 	var masterInstanceIDs []string
 	for _, node := range nodes {
 		if util.LegacyIsMasterNode(&node) {
-			zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]
+			zone, ok := node.Labels["topology.kubernetes.io/zone"]
 			if !ok {
-				return nil, fmt.Errorf("unknown zone for %q node: no failure-domain.beta.kubernetes.io/zone label", node.Name)
+				// Fallback to old label to make it work for old k8s versions.
+				zone, ok = node.Labels["failure-domain.beta.kubernetes.io/zone"]
+				if !ok {
+					return nil, fmt.Errorf("unknown zone for %q node: no topology-related labels", node.Name)
+				}
 			}
 			cmd := exec.Command("gcloud", "compute", "instances", "describe", "--format", "value(id)", "--zone", zone, node.Name)
 			out, err := cmd.Output()

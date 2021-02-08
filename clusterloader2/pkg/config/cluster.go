@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
@@ -25,11 +26,9 @@ type ClusterLoaderConfig struct {
 	ClusterConfig     ClusterConfig
 	ReportDir         string
 	EnableExecService bool
+	TestScenario      api.TestScenario
 	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
-	// OverridePaths defines what override files should be applied
-	// to the config specified by the ConfigPath for each TestScenario.
-	OverridePaths []string `json:"overridePaths"`
 }
 
 // ClusterConfig is a structure that represents cluster description.

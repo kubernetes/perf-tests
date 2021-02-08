@@ -68,7 +68,7 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 	if err := ste.prepareTestNamespaces(ctx, conf); err != nil {
 		return errors.NewErrorList(fmt.Errorf("error while preparing test namespaces: %w", err))
 	}
-	errList := ste.ExecuteTestSteps(ctx, conf)
+	errList := ste.ExecuteTestSteps(ctx, conf.Steps)
 	close(stopCh)
 
 	if chaosMonkeyWaitGroup != nil {
@@ -83,8 +83,8 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 			klog.V(2).Infof("%v: %v", summary.SummaryName(), summary.SummaryContent())
 		} else {
 			testDistinctor := ""
-			if ctx.GetClusterLoaderConfig().TestScenario.Identifier != "" {
-				testDistinctor = "_" + ctx.GetClusterLoaderConfig().TestScenario.Identifier
+			if ctx.GetTestScenario().Identifier != "" {
+				testDistinctor = "_" + ctx.GetTestScenario().Identifier
 			}
 			// TODO(krzysied): Remember to keep original filename style for backward compatibility.
 			fileName := strings.Join([]string{summary.SummaryName(), conf.Name + testDistinctor, summary.SummaryTime().Format(time.RFC3339)}, "_")
@@ -122,12 +122,7 @@ func (ste *simpleExecutor) prepareTestNamespaces(ctx Context, conf *api.Config) 
 }
 
 // ExecuteTestSteps executes all test steps provided in configuration
-func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, conf *api.Config) *errors.ErrorList {
-	steps, err := flattenModuleSteps(ctx, conf.Steps)
-	if err != nil {
-		return errors.NewErrorList(
-			fmt.Errorf("erorr when flattening module steps: %w", err))
-	}
+func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, steps []*api.Step) *errors.ErrorList {
 	errList := errors.NewErrorList()
 	for i, step := range steps {
 		namePrefix := step.Name

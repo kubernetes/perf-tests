@@ -1,0 +1,4 @@
+FROM scratch
+ARG FILENAME
+
+COPY $FILENAME /

@@ -1,6 +1,9 @@
 {{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 
+# If kube-apiserver is overloaded, we might get slower responses.
+{{$PROMETHEUS_SLOW_APISERVER := DefaultParam .CL2_PROMETHEUS_SLOW_APISERVER false}}
+
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -22,11 +25,16 @@ spec:
     port: node-exporter
     scrapeTimeout: 20s
   {{end}}
-  - interval: 5s
-    port: apiserver
+  - port: apiserver
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    {{if $PROMETHEUS_SLOW_APISERVER}}
+    interval: 30s
+    scrapeTimeout: 30s
+    {{else}}
+    interval: 5s
+    {{end}}
   - interval: 5s
     port: kubelet
     scheme: https

@@ -21,6 +21,7 @@ set -o pipefail
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE}")
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
+export NODE_PRELOAD_IMAGES=gcr.io/k8s-testimages/perf-tests-util/scratch:1,gcr.io/k8s-testimages/perf-tests-util/scratch:2,gcr.io/k8s-testimages/perf-tests-util/scratch:3,gcr.io/k8s-testimages/perf-tests-util/scratch:4,gcr.io/k8s-testimages/perf-tests-util/scratch:5,gcr.io/k8s-testimages/perf-tests-util/scratch:6,gcr.io/k8s-testimages/perf-tests-util/scratch:7,gcr.io/k8s-testimages/perf-tests-util/scratch:8,gcr.io/k8s-testimages/perf-tests-util/scratch:9,gcr.io/k8s-testimages/perf-tests-util/scratch:10
 
 # Deploy the GCP PD CSI Driver if required
 if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then

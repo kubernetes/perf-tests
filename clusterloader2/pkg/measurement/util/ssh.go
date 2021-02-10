@@ -94,7 +94,7 @@ func getSigner(provider string) (ssh.Signer, error) {
 			keyfile = "google_compute_engine"
 		}
 	case "aws", "eks":
-		keyfile := os.Getenv("AWS_SSH_KEY")
+		keyfile = os.Getenv("AWS_SSH_KEY")
 		if keyfile == "" {
 			keyfile = "kube_aws_rsa"
 		}

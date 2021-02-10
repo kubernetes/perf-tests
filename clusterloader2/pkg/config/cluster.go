@@ -77,6 +77,8 @@ type PrometheusConfig struct {
 	DefaultServiceMonitors  string
 	MasterIPServiceMonitors string
 	NodeExporterPod         string
+	StorageClassProvisioner string
+	StorageClassVolumeType  string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

@@ -168,9 +168,9 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 // node-roles may not be used for feature enablement.
 // DEPRECATED: this will be removed in Kubernetes 1.19
 func LegacyIsMasterNode(node *corev1.Node) bool {
-	for key, val := range node.GetLabels() {
+	for key := range node.GetLabels() {
 		if key == keyMasterNodeLabel {
-			return strings.ToLower(val) == "true"
+			return true
 		}
 	}
 

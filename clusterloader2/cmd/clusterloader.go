@@ -238,11 +238,11 @@ func main() {
 		klog.Exitf("Flag parse failed: %v", err)
 	}
 
-	provider, err := provider.NewProvider(&providerInitOptions)
+	pvd, err := provider.NewProvider(&providerInitOptions)
 	if err != nil {
 		klog.Exitf("Error init provider: %v", err)
 	}
-	clusterLoaderConfig.ClusterConfig.Provider = provider
+	clusterLoaderConfig.ClusterConfig.Provider = pvd
 
 	if errList := validateFlags(); !errList.IsEmpty() {
 		klog.Exitf("Parsing flags error: %v", errList.String())
@@ -297,7 +297,17 @@ func main() {
 			klog.Exitf("Error while setting up exec service: %v", err)
 		}
 	}
-	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
+
+	var imagepreloadFramework *framework.Framework
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KubemarkName {
+		imagepreloadFramework, err = framework.NewRootFramework(&clusterLoaderConfig.ClusterConfig, imagepreload.NumK8sClients)
+		if err != nil {
+			klog.Exitf("Error while setting up image preloader: %v", err)
+		}
+	} else {
+		imagepreloadFramework = f
+	}
+	if err := imagepreload.Setup(&clusterLoaderConfig, imagepreloadFramework); err != nil {
 		klog.Exitf("Error while preloading images: %v", err)
 	}
 

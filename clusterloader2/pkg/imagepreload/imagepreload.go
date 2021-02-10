@@ -43,6 +43,8 @@ const (
 	pollingInterval = 5 * time.Second
 	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
 	pollingTimeout = 5 * time.Minute
+	// NumK8sClients is used for initializing root framework on kubemark clusters.
+	NumK8sClients = 1
 )
 
 var images []string

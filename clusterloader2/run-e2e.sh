@@ -36,4 +36,3 @@ fi
 
 cd ${CLUSTERLOADER_ROOT}/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr --v=2 "$@"
-kubectl get nodes  -o custom-columns='NAME:.metadata.name,IMAGES:.status.images[*].names' | head -n 6

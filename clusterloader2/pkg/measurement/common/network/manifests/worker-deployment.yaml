@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: netperf
+  name: worker
+  labels:
+    group: network
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: worker
+  template:
+    metadata:
+      labels:
+        group: network
+        name: worker
+    spec:
+      containers:
+      - image:  vivekthrivikraman/netperfbenchmark:0.1
+        name: worker
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: "1"
+          requests:
+            cpu: "1"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+

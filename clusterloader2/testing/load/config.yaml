@@ -82,6 +82,7 @@
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 {{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 # END scheduler-throughput section
 
 # Set schedulerThroughputNamespaces to 0 on small clusters otherwise it will result
@@ -456,6 +457,18 @@ steps:
       action: start
       labelSelector: group = scheduler-throughput
       measurmentInterval: 1s
+{{if $ENABLE_HUGE_SERVICES}}
+- name: Creating huge services
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: huge-service
+      objectTemplatePath: service.yaml
+{{end}}
 - name: Creating scheduler throughput pods
   phases:
   - namespaceRange:
@@ -471,6 +484,9 @@ steps:
         Group: scheduler-throughput
         CpuRequest: 1m
         MemoryRequest: 10M
+{{if $ENABLE_HUGE_SERVICES}}
+        SvcName: huge-service
+{{end}}
 - name: Waiting for scheduler throughput pods to be created
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments
@@ -505,6 +521,24 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+{{if $ENABLE_HUGE_SERVICES}}
+- name: Deleting huge services
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: huge-service
+      objectTemplatePath: service.yaml
+- name: Sleeping after deleting huge services
+  measurements:
+  - Identifier: WaitAfterHugeServicesDeletion
+    Method: Sleep
+    Params:
+      duration: "3m"
+{{end}}
 # END scheduler throughput
 {{end}}
 

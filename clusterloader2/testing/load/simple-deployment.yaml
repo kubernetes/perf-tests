@@ -16,6 +16,9 @@ spec:
       labels:
         name: {{.Name}}
         group: {{.Group}}
+{{if .SvcName}}
+        svc: {{.SvcName}}-{{.Index}}
+{{end}}
     spec:
       hostNetwork: {{$HostNetworkMode}}
       containers:

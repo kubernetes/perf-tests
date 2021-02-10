@@ -1,0 +1,80 @@
+## Pod-startup-latency module provides a module for latency pod measurements
+
+## Input Params
+{{$namespaces := .namespaces}}
+{{$minPodsInSmallCluster := .minPodsInSmallCluster}}
+
+## CL2 Params
+# LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
+# Increasing allocation of both memory and cpu by 10%
+# decreases the value of priority function in scheduler by one point.
+# This results in decreased probability of choosing the same node again.
+# TODO(https://github.com/kubernetes/perf-tests/issues/1024): See whether we can get rid of this
+{{$LATENCY_POD_CPU := DefaultParam .CL2_LATENCY_POD_CPU 100}}
+{{$LATENCY_POD_MEMORY := DefaultParam .CL2_LATENCY_POD_MEMORY 350}}
+
+## Variables
+{{$totalLatencyPods := MaxInt $minPodsInSmallCluster .Nodes}}
+{{$latencyReplicas := DivideInt $totalLatencyPods $namespaces}}
+{{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+
+steps:
+- name: Starting latency pod measurements
+  measurements:
+    - Identifier: PodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: start
+        labelSelector: group = latency
+        threshold: {{$podStartupLatencyThreshold}}
+    - Identifier: WaitForRunningLatencyDeployments
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: start
+        apiVersion: apps/v1
+        kind: Deployment
+        labelSelector: group = latency
+        operationTimeout: 15m
+- name: Creating latency pods
+  phases:
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: {{$latencyReplicas}}
+      tuningSet: Uniform5qps
+      objectBundle:
+        - basename: latency-deployment
+          objectTemplatePath: simple-deployment.yaml
+          templateFillMap:
+            Replicas: 1
+            Group: latency
+            CpuRequest: {{$LATENCY_POD_CPU}}m
+            MemoryRequest: {{$LATENCY_POD_MEMORY}}M
+- name: Waiting for latency pods to be running
+  measurements:
+    - Identifier: WaitForRunningLatencyDeployments
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: gather
+- name: Deleting latency pods
+  phases:
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: 0
+      tuningSet: Uniform5qps
+      objectBundle:
+        - basename: latency-deployment
+          objectTemplatePath: simple-deployment.yaml
+- name: Waiting for latency pods to be deleted
+  measurements:
+    - Identifier: WaitForRunningLatencyDeployments
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: gather
+- name: Collecting pod startup latency
+  measurements:
+    - Identifier: PodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: gather

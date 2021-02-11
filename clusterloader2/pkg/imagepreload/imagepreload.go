@@ -18,6 +18,7 @@ package imagepreload
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 const (
@@ -43,8 +45,7 @@ const (
 	pollingInterval = 5 * time.Second
 	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
 	pollingTimeout = 5 * time.Minute
-	// NumK8sClients is used for initializing root framework on kubemark clusters.
-	NumK8sClients = 1
+	numK8sClients  = 1
 )
 
 var images []string
@@ -59,6 +60,7 @@ type controller struct {
 
 	config          *config.ClusterLoaderConfig
 	framework       *framework.Framework
+	rootFramework   *framework.Framework
 	templateMapping map[string]interface{}
 	images          []string
 }
@@ -76,10 +78,21 @@ func Setup(conf *config.ClusterLoaderConfig, f *framework.Framework) error {
 
 	ctl := &controller{
 		config:          conf,
-		framework:       f,
 		templateMapping: mapping,
 		images:          images,
 	}
+
+	if conf.ClusterConfig.Provider.Name() == provider.KubemarkName {
+		rf, err := framework.NewRootFramework(&conf.ClusterConfig, numK8sClients)
+		if err != nil {
+			return err
+		}
+		ctl.rootFramework = rf
+		ctl.framework = f
+	} else {
+		ctl.rootFramework = f
+	}
+
 	return ctl.PreloadImages()
 }
 
@@ -93,7 +106,7 @@ func (c *controller) PreloadImages() error {
 		return nil
 	}
 
-	kclient := c.framework.GetClientSets().GetClient()
+	kclient := c.rootFramework.GetClientSets().GetClient()
 
 	doneNodes := make(map[string]bool)
 	stopCh := make(chan struct{})
@@ -115,7 +128,7 @@ func (c *controller) PreloadImages() error {
 
 	klog.V(2).Info("Creating daemonset to preload images...")
 	c.templateMapping["Images"] = c.images
-	if err := c.framework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
+	if err := c.rootFramework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
 		return err
 	}
 
@@ -138,6 +151,24 @@ func (c *controller) PreloadImages() error {
 		return err
 	}
 	klog.V(2).Info("Waiting... done")
+
+	// Check whether preloaded images are reacheable on the hollow nodes
+	if c.config.ClusterConfig.Provider.Name() == provider.KubemarkName {
+		klog.V(2).Info("Checking hollow node objects for pulled images...")
+		kubemarkClient := c.framework.GetClientSets().GetClient()
+		hollowNodes, err := kubemarkClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{Limit: 500})
+		if err != nil {
+			return err
+		}
+
+		doneHollowNodes := make(map[string]bool)
+		for _, node := range hollowNodes.Items {
+			c.checkNode(&node, doneHollowNodes)
+		}
+		if len(doneHollowNodes) != len(hollowNodes.Items) {
+			return fmt.Errorf("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), len(hollowNodes.Items))
+		}
+	}
 
 	klog.V(2).Infof("Deleting namespace %s...", namespace)
 	if err := client.DeleteNamespace(kclient, namespace); err != nil {
@@ -167,7 +198,6 @@ func (c *controller) hasPreloadedImages(node *v1.Node) bool {
 	for _, nodeImg := range node.Status.Images {
 		nodeImages = append(nodeImages, nodeImg.Names...)
 	}
-	klog.V(2).Infof("Found the following images on node: %s", nodeImages)
 
 	for _, img := range c.images {
 		found := false

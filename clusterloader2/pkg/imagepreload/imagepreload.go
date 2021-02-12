@@ -18,7 +18,6 @@ package imagepreload
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -44,8 +43,10 @@ const (
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
 	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
-	pollingTimeout = 5 * time.Minute
-	numK8sClients  = 1
+	pollingTimeout            = 5 * time.Minute
+	numK8sClients             = 1
+	hollowNodePollingInterval = 60 * time.Second
+	hollowNodePrefix          = "hollow-node-"
 )
 
 var images []string
@@ -156,18 +157,28 @@ func (c *controller) PreloadImages() error {
 	if c.config.ClusterConfig.Provider.Name() == provider.KubemarkName {
 		klog.V(2).Info("Checking hollow node objects for pulled images...")
 		kubemarkClient := c.framework.GetClientSets().GetClient()
-		hollowNodes, err := kubemarkClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{Limit: 500})
-		if err != nil {
+		if err := wait.Poll(hollowNodePollingInterval, pollingTimeout, func() (bool, error) {
+			// TODO(lyzs90): list in chunks
+			kubemarkNodes, err := kubemarkClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			numHollowNodes := 0
+			doneHollowNodes := make(map[string]bool)
+			for _, node := range kubemarkNodes.Items {
+				if strings.HasPrefix(node.Name, hollowNodePrefix) {
+					numHollowNodes++
+					c.checkNode(&node, doneHollowNodes)
+				}
+			}
+			klog.V(2).Infof("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), numHollowNodes)
+
+			return len(doneHollowNodes) == numHollowNodes, nil
+		}); err != nil {
 			return err
 		}
-
-		doneHollowNodes := make(map[string]bool)
-		for _, node := range hollowNodes.Items {
-			c.checkNode(&node, doneHollowNodes)
-		}
-		if len(doneHollowNodes) != len(hollowNodes.Items) {
-			return fmt.Errorf("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), len(hollowNodes.Items))
-		}
+		klog.V(2).Info("Checking... done")
 	}
 
 	klog.V(2).Infof("Deleting namespace %s...", namespace)

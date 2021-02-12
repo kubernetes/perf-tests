@@ -188,7 +188,7 @@ steps:
 - module:
     path: modules/services.yaml
     params:
-      name: "Creating SVCs"
+      actionName: "Creating"
       namespaces: {{$namespaces}}
       smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
       mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
@@ -824,7 +824,7 @@ steps:
 - module:
     path: modules/services.yaml
     params:
-      name: "Deleting SVCs"
+      actionName: "Deleting"
       namespaces: {{$namespaces}}
       smallServicesPerNamespace: 0
       mediumServicesPerNamespace: 0

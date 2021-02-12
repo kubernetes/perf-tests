@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
@@ -47,6 +48,7 @@ const (
 	numK8sClients             = 1
 	hollowNodePollingInterval = 60 * time.Second
 	hollowNodePrefix          = "hollow-node-"
+	chunkSize                 = 50
 )
 
 var images []string
@@ -64,6 +66,23 @@ type controller struct {
 	rootFramework   *framework.Framework
 	templateMapping map[string]interface{}
 	images          []string
+}
+
+func listNodesInChunks(client kubernetes.Interface) ([]v1.Node, error) {
+	var nodes []v1.Node
+	opts := metav1.ListOptions{Limit: chunkSize}
+	for {
+		nodeList, err := client.CoreV1().Nodes().List(context.TODO(), opts)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, nodeList.Items...)
+		if nodeList.Continue == "" {
+			break
+		}
+		opts.Continue = nodeList.Continue
+	}
+	return nodes, nil
 }
 
 // Setup ensures every node in cluster preloads given list of images before starting tests.
@@ -158,15 +177,14 @@ func (c *controller) PreloadImages() error {
 		klog.V(2).Info("Checking hollow node objects for pulled images...")
 		kubemarkClient := c.framework.GetClientSets().GetClient()
 		if err := wait.Poll(hollowNodePollingInterval, pollingTimeout, func() (bool, error) {
-			// TODO(lyzs90): list in chunks
-			kubemarkNodes, err := kubemarkClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+			kubemarkNodes, err := listNodesInChunks(kubemarkClient)
 			if err != nil {
 				return false, err
 			}
 
 			numHollowNodes := 0
 			doneHollowNodes := make(map[string]bool)
-			for _, node := range kubemarkNodes.Items {
+			for _, node := range kubemarkNodes {
 				if strings.HasPrefix(node.Name, hollowNodePrefix) {
 					numHollowNodes++
 					c.checkNode(&node, doneHollowNodes)

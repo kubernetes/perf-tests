@@ -108,7 +108,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		return nil, err
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	mapping, errList := config.GetMapping(clusterLoaderConfig, nil)
 	if errList != nil {
 		return nil, errList
 	}

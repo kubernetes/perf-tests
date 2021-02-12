@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
@@ -37,47 +38,58 @@ var (
 	Test = createSimpleExecutor()
 )
 
-// RunTest runs test based on provided test configuration.
-func RunTest(
+// CreateTestContext creates the test context.
+func CreateTestContext(
 	clusterFramework *framework.Framework,
 	prometheusFramework *framework.Framework,
 	clusterLoaderConfig *config.ClusterLoaderConfig,
 	testReporter Reporter,
-) *errors.ErrorList {
+	testScenario *api.TestScenario,
+) (Context, *errors.ErrorList) {
 	if clusterFramework == nil {
-		return errors.NewErrorList(fmt.Errorf("framework must be provided"))
+		return nil, errors.NewErrorList(fmt.Errorf("framework must be provided"))
 	}
 	if clusterLoaderConfig == nil {
-		return errors.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
+		return nil, errors.NewErrorList(fmt.Errorf("cluster loader config must be provided"))
 	}
 	if CreateContext == nil {
-		return errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
-	}
-	if Test == nil {
-		return errors.NewErrorList(fmt.Errorf("no Test installed"))
+		return nil, errors.NewErrorList(fmt.Errorf("no CreateContext function installed"))
 	}
 
-	mapping, errList := config.GetMapping(clusterLoaderConfig)
+	mapping, errList := config.GetMapping(clusterLoaderConfig, testScenario.OverridePaths)
 	if errList != nil {
-		return errList
+		return nil, errList
 	}
-	ctx := CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping)
-	testConfigFilename := filepath.Base(clusterLoaderConfig.TestScenario.ConfigPath)
-	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
+
+	return CreateContext(clusterLoaderConfig, clusterFramework, prometheusFramework, state.NewState(), testReporter, mapping, testScenario), errors.NewErrorList()
+}
+
+// CompileTestConfig loads the test configuration and nested modules.
+func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
+	if Test == nil {
+		return nil, errors.NewErrorList(fmt.Errorf("no Test installed"))
+	}
+
+	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
+	testConfigFilename := filepath.Base(ctx.GetTestScenario().ConfigPath)
+	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
 	if err != nil {
-		return errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
+		return nil, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}
-	testName := clusterLoaderConfig.TestScenario.Identifier
-	if testName == "" {
-		testName = testConfig.Name
-	}
-	testReporter.SetTestName(testName)
 
 	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
-		return errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
+		return nil, errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
 	}
 
+	steps, err := flattenModuleSteps(ctx, testConfig.Steps)
+	if err != nil {
+		return nil, errors.NewErrorList(
+			fmt.Errorf("erorr when flattening module steps: %w", err))
+	}
+	testConfig.Steps = steps
+
 	// TODO: remove them after the deprecated command options are removed.
+	clusterFramework := ctx.GetClusterFramework()
 	if testConfig.Namespace.DeleteStaleNamespaces == nil {
 		testConfig.Namespace.DeleteStaleNamespaces = &clusterFramework.GetClusterConfig().DeleteStaleNamespaces
 	}
@@ -87,7 +99,25 @@ func RunTest(
 
 	testConfig.SetDefaults()
 	if err := testConfig.Validate(); err != nil {
-		return err
+		return nil, err
+	}
+
+	return testConfig, errors.NewErrorList()
+}
+
+// RunTest runs test based on provided test configuration.
+func RunTest(ctx Context) *errors.ErrorList {
+	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
+	testConfig := ctx.GetTestConfig()
+
+	testName := ctx.GetTestScenario().Identifier
+	if testName == "" {
+		testName = testConfig.Name
+	}
+	ctx.GetTestReporter().SetTestName(testName)
+
+	if err := modifier.NewModifier(&clusterLoaderConfig.ModifierConfig).ChangeTest(testConfig); err != nil {
+		return errors.NewErrorList(fmt.Errorf("config mutation error: %v", err))
 	}
 
 	return Test.ExecuteTest(ctx, testConfig)

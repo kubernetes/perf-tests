@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
@@ -44,11 +43,9 @@ const (
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
 	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
-	pollingTimeout            = 5 * time.Minute
-	numK8sClients             = 1
-	hollowNodePollingInterval = 60 * time.Second
-	hollowNodePrefix          = "hollow-node-"
-	chunkSize                 = 50
+	pollingTimeout   = 5 * time.Minute
+	numK8sClients    = 1
+	hollowNodePrefix = "hollow-node-"
 )
 
 var images []string
@@ -66,23 +63,6 @@ type controller struct {
 	rootFramework   *framework.Framework
 	templateMapping map[string]interface{}
 	images          []string
-}
-
-func listNodesInChunks(client kubernetes.Interface) ([]v1.Node, error) {
-	var nodes []v1.Node
-	opts := metav1.ListOptions{Limit: chunkSize}
-	for {
-		nodeList, err := client.CoreV1().Nodes().List(context.TODO(), opts)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, nodeList.Items...)
-		if nodeList.Continue == "" {
-			break
-		}
-		opts.Continue = nodeList.Continue
-	}
-	return nodes, nil
 }
 
 // Setup ensures every node in cluster preloads given list of images before starting tests.
@@ -174,29 +154,36 @@ func (c *controller) PreloadImages() error {
 
 	// Check whether preloaded images are reacheable on the hollow nodes
 	if c.config.ClusterConfig.Provider.Name() == provider.KubemarkName {
-		klog.V(2).Info("Checking hollow node objects for pulled images...")
+		klog.V(2).Info("Checking for pulled images on kubemark cluster...")
 		kubemarkClient := c.framework.GetClientSets().GetClient()
-		if err := wait.Poll(hollowNodePollingInterval, pollingTimeout, func() (bool, error) {
-			kubemarkNodes, err := listNodesInChunks(kubemarkClient)
-			if err != nil {
-				return false, err
-			}
+		numHollowNodes := 0
+		doneHollowNodes := make(map[string]bool)
+		stopKubemarkCh := make(chan struct{})
+		defer close(stopKubemarkCh)
 
-			numHollowNodes := 0
-			doneHollowNodes := make(map[string]bool)
-			for _, node := range kubemarkNodes {
+		kubemarkNodeInformer := informer.NewInformer(
+			kubemarkClient,
+			"nodes",
+			util.NewObjectSelector(),
+			func(old, new interface{}) {
+				node := new.(*v1.Node)
 				if strings.HasPrefix(node.Name, hollowNodePrefix) {
 					numHollowNodes++
-					c.checkNode(&node, doneHollowNodes)
+					c.checkNode(node, doneHollowNodes)
 				}
-			}
-			klog.V(2).Infof("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), numHollowNodes)
+			})
+		if err := informer.StartAndSync(kubemarkNodeInformer, stopKubemarkCh, informerTimeout); err != nil {
+			return err
+		}
 
+		klog.V(2).Infof("Waiting for hollow %d Node objects to be updated...", numHollowNodes)
+		if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
+			klog.V(2).Infof("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), numHollowNodes)
 			return len(doneHollowNodes) == numHollowNodes, nil
 		}); err != nil {
 			return err
 		}
-		klog.V(2).Info("Checking... done")
+		klog.V(2).Info("Waiting... done")
 	}
 
 	klog.V(2).Infof("Deleting namespace %s...", namespace)

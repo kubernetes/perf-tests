@@ -21,6 +21,7 @@
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
+{{$DISABLE_DAEMONSETS := DefaultParam .CL2_DISABLE_DAEMONSETS false}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_NODE_LOCAL_DNS_LATENCY := DefaultParam .CL2_ENABLE_NODE_LOCAL_DNS_LATENCY false}}
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
@@ -231,6 +232,7 @@ steps:
 
 - name: Creating objects
   phases:
+{{if not $DISABLE_DAEMONSETS}}
   - namespaceRange:
       min: 1
       max: 1
@@ -241,6 +243,7 @@ steps:
       objectTemplatePath: daemonset.yaml
       templateFillMap:
         Image: k8s.gcr.io/pause:3.0
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -607,6 +610,7 @@ steps:
         templateFillMap:
           ReplicasMin: {{MultiplyInt $MEDIUM_GROUP_SIZE 0.5}}
           ReplicasMax: {{MultiplyInt $MEDIUM_GROUP_SIZE 1.5}}
+{{if not $DISABLE_DAEMONSETS}}
   - namespaceRange:
       min: 1
       max: 1
@@ -617,6 +621,7 @@ steps:
         objectTemplatePath: daemonset.yaml
         templateFillMap:
           Image: k8s.gcr.io/pause:3.1
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

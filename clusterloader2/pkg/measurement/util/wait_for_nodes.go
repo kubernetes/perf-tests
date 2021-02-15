@@ -63,7 +63,7 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 func getNumReadyNodes(nodes []*v1.Node) int {
 	nReady := 0
 	for _, n := range nodes {
-		if util.IsNodeSchedulableAndUntainted(n) {
+		if util.IsNodeSchedulable(n) {
 			nReady++
 		}
 	}

@@ -107,7 +107,7 @@ func (k *NodeKiller) Run(stopCh <-chan struct{}, wg *sync.WaitGroup) {
 }
 
 func (k *NodeKiller) pickNodes() ([]v1.Node, error) {
-	allNodes, err := util.GetSchedulableUntainedNodes(k.client)
+	allNodes, err := util.GetSchedulableNodes(k.client)
 	if err != nil {
 		return nil, err
 	}

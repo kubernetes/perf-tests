@@ -28,21 +28,21 @@ import (
 
 const keyMasterNodeLabel = "node-role.kubernetes.io/master"
 
-// GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
-func GetSchedulableUntainedNodesNumber(c clientset.Interface) (int, error) {
-	nodes, err := GetSchedulableUntainedNodes(c)
+// GetSchedulableNodesNumber returns number of nodes in the cluster.
+func GetSchedulableNodesNumber(c clientset.Interface) (int, error) {
+	nodes, err := GetSchedulableNodes(c)
 	return len(nodes), err
 }
 
-// GetSchedulableUntainedNodes returns nodes in the cluster.
-func GetSchedulableUntainedNodes(c clientset.Interface) ([]corev1.Node, error) {
+// GetSchedulableNodes returns nodes in the cluster.
+func GetSchedulableNodes(c clientset.Interface) ([]corev1.Node, error) {
 	nodeList, err := client.ListNodes(c)
 	if err != nil {
 		return nil, err
 	}
 	var filtered []corev1.Node
 	for i := range nodeList {
-		if IsNodeSchedulableAndUntainted(&nodeList[i]) {
+		if IsNodeSchedulable(&nodeList[i]) {
 			filtered = append(filtered, nodeList[i])
 		}
 	}
@@ -58,7 +58,7 @@ func LogClusterNodes(c clientset.Interface) error {
 	klog.V(2).Infof("Listing cluster nodes:")
 	for i := range nodeList {
 		var internalIP, externalIP string
-		isSchedulable := isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i])
+		isSchedulable := IsNodeSchedulable(&nodeList[i])
 		for _, address := range nodeList[i].Status.Addresses {
 			if address.Type == corev1.NodeInternalIP {
 				internalIP = address.Address
@@ -72,30 +72,15 @@ func LogClusterNodes(c clientset.Interface) error {
 	return nil
 }
 
-// IsNodeSchedulableAndUntainted returns true whether node is schedulable and untainted.
-func IsNodeSchedulableAndUntainted(node *corev1.Node) bool {
-	return isNodeSchedulable(node) && isNodeUntainted(node)
-}
-
-// Node is schedulable if:
-// 1) doesn't have "unschedulable" field set
-// 2) it's Ready condition is set to true
-// 3) doesn't have NetworkUnavailable condition set to true
-func isNodeSchedulable(node *corev1.Node) bool {
+// IsNodeSchedulable returns true for a particular node iff:
+// 1) it doesn't have "unschedulable" field set,
+// 2) its Ready condition is set to true,
+// 3) it doesn't have NetworkUnavailable condition set to true.
+func IsNodeSchedulable(node *corev1.Node) bool {
 	nodeReady := isNodeConditionSetAsExpected(node, corev1.NodeReady, true)
 	networkReady := isNodeConditionUnset(node, corev1.NodeNetworkUnavailable) ||
 		isNodeConditionSetAsExpected(node, corev1.NodeNetworkUnavailable, false)
 	return !node.Spec.Unschedulable && nodeReady && networkReady
-}
-
-// Tests whether node doesn't have any taint with "NoSchedule" or "NoExecute" effect.
-func isNodeUntainted(node *corev1.Node) bool {
-	for i := range node.Spec.Taints {
-		if node.Spec.Taints[i].Effect == corev1.TaintEffectNoSchedule || node.Spec.Taints[i].Effect == corev1.TaintEffectNoExecute {
-			return false
-		}
-	}
-	return true
 }
 
 func isNodeConditionSetAsExpected(node *corev1.Node, conditionType corev1.NodeConditionType, wantTrue bool) bool {

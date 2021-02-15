@@ -138,7 +138,7 @@ func validateFlags() *errors.ErrorList {
 
 func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.Nodes == 0 {
-		nodes, err := util.GetSchedulableUntainedNodesNumber(m.GetClient())
+		nodes, err := util.GetSchedulableNodesNumber(m.GetClient())
 		if err != nil {
 			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
@@ -181,7 +181,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 }
 
 func verifyCluster(c kubernetes.Interface) error {
-	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c)
+	numSchedulableNodes, err := util.GetSchedulableNodesNumber(c)
 	if err != nil {
 		return err
 	}

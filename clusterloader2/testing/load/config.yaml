@@ -26,6 +26,7 @@
 {{$ENABLE_NODE_LOCAL_DNS_LATENCY := DefaultParam .CL2_ENABLE_NODE_LOCAL_DNS_LATENCY false}}
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+{{$TURN_OFF_LOGGING_TO_FILE_FOR_PROBES := DefaultParam .CL2_TURN_OFF_LOGGING_TO_FILE_FOR_PROBES false}}
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
 {{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
@@ -151,6 +152,7 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+      turnOffLoggingToFile: {{$TURN_OFF_LOGGING_TO_FILE_FOR_PROBES}}
 {{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
   - Identifier: NodeLocalDNSLatency
     Method: NodeLocalDNSLatencyPrometheus
@@ -163,6 +165,7 @@ steps:
       action: start
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+      turnOffLoggingToFile: {{$TURN_OFF_LOGGING_TO_FILE_FOR_PROBES}}
   {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency

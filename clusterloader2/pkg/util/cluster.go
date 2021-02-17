@@ -28,6 +28,22 @@ import (
 
 const keyMasterNodeLabel = "node-role.kubernetes.io/master"
 
+// Based on the following docs:
+// https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions
+// https://kubernetes.io/docs/reference/labels-annotations-taints/
+var builtInTaintsKeys = []string{
+	"node.kubernetes.io/not-ready",
+	"node.kubernetes.io/unreachable",
+	"node.kubernetes.io/pid-pressure",
+	"node.kubernetes.io/out-of-disk",
+	"node.kubernetes.io/memory-pressure",
+	"node.kubernetes.io/disk-pressure",
+	"node.kubernetes.io/network-unavailable",
+	"node.kubernetes.io/unschedulable",
+	"node.cloudprovider.kubernetes.io/uninitialized",
+	"node.cloudprovider.kubernetes.io/shutdown",
+}
+
 // GetSchedulableUntainedNodesNumber returns number of nodes in the cluster.
 func GetSchedulableUntainedNodesNumber(c clientset.Interface) (int, error) {
 	nodes, err := GetSchedulableUntainedNodes(c)
@@ -58,7 +74,7 @@ func LogClusterNodes(c clientset.Interface) error {
 	klog.V(2).Infof("Listing cluster nodes:")
 	for i := range nodeList {
 		var internalIP, externalIP string
-		isSchedulable := isNodeSchedulable(&nodeList[i]) && isNodeUntainted(&nodeList[i])
+		isSchedulable := IsNodeSchedulableAndUntainted(&nodeList[i])
 		for _, address := range nodeList[i].Status.Addresses {
 			if address.Type == corev1.NodeInternalIP {
 				internalIP = address.Address
@@ -88,11 +104,16 @@ func isNodeSchedulable(node *corev1.Node) bool {
 	return !node.Spec.Unschedulable && nodeReady && networkReady
 }
 
-// Tests whether node doesn't have any taint with "NoSchedule" or "NoExecute" effect.
+// Tests whether node doesn't have any built-in taint with "NoSchedule" or "NoExecute" effect.
 func isNodeUntainted(node *corev1.Node) bool {
-	for i := range node.Spec.Taints {
-		if node.Spec.Taints[i].Effect == corev1.TaintEffectNoSchedule || node.Spec.Taints[i].Effect == corev1.TaintEffectNoExecute {
-			return false
+	for _, nodeTaint := range node.Spec.Taints {
+		if nodeTaint.Effect != corev1.TaintEffectNoSchedule && nodeTaint.Effect != corev1.TaintEffectNoExecute {
+			continue
+		}
+		for _, evictingTaintKey := range builtInTaintsKeys {
+			if nodeTaint.Key == evictingTaintKey {
+				return false
+			}
 		}
 	}
 	return true

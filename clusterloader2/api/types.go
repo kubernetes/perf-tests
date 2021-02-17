@@ -42,8 +42,7 @@ type TestScenario struct {
 type Config struct {
 	// Name of the test case.
 	Name string `json:"name"`
-	// Deprecated: a number of automanaged namespaces.
-	// Use Namespace.Number instead.
+	// TODO(#1696): Clean up after removing automanagedNamespaces
 	AutomanagedNamespaces int32 `json:"automanagedNamespaces,omitempty"`
 	// Namespace is a structure for namespace configuration.
 	Namespace NamespaceConfig `json:"namespace"`

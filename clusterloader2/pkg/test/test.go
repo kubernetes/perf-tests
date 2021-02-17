@@ -71,7 +71,8 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	}
 
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
-	testConfigFilename := filepath.Base(ctx.GetTestScenario().ConfigPath)
+	testScenario := ctx.GetTestScenario()
+	testConfigFilename := filepath.Base(testScenario.ConfigPath)
 	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
@@ -98,7 +99,9 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	}
 
 	testConfig.SetDefaults()
-	if err := testConfig.Validate(); err != nil {
+	basePath := filepath.Dir(testScenario.ConfigPath)
+	configValidator := api.NewConfigValidator(basePath, testConfig)
+	if err := configValidator.Validate(); err != nil {
 		return nil, err
 	}
 

@@ -53,6 +53,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -175,6 +178,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -297,6 +303,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -419,6 +428,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -515,6 +527,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -611,6 +626,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -707,6 +725,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -813,6 +834,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": "null",
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -935,6 +959,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": "null",
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1044,6 +1071,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": "null",
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1140,6 +1170,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": "null",
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,

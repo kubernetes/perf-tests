@@ -57,7 +57,7 @@ def api_call_latency_panel(expression):
         api_call_latency(
             title="Mutating API call latency (threshold=1s)",
             verb=d.any_of("CREATE", "DELETE", "PATCH", "POST", "PUT"),
-            scope=d.any_of("namespace", "cluster"),
+            scope=d.any_of("namespace", "cluster", "resource"),
             threshold=1,
         ),
     ]

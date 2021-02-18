@@ -243,5 +243,9 @@ func (v *ConfigValidator) validateGlobalQPSLoad(gl *GlobalQPSLoad, fldPath *fiel
 func (v *ConfigValidator) fileExists(path string) bool {
 	cwd, _ := os.Getwd()
 	_, err := os.Stat(fmt.Sprintf("%s/%s/%s", cwd, v.configDir, path))
+	if os.IsNotExist(err) {
+		// If relative path didn't work, we also try absolute path.
+		_, err = os.Stat(fmt.Sprintf("%s/%s", v.configDir, path))
+	}
 	return !os.IsNotExist(err)
 }

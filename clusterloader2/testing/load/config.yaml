@@ -77,7 +77,6 @@
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 {{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
-{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 # END scheduler-throughput section
 
 # Set schedulerThroughputNamespaces to 0 on small clusters otherwise it will result
@@ -423,114 +422,14 @@ steps:
 {{if not $EXIT_AFTER_EXEC}}
 
 {{if not $IS_SMALL_CLUSTER}}
-# BEGIN scheduler throughput
-- name: Creating scheduler throughput measurements
-  measurements:
-  - Identifier: HighThroughputPodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = scheduler-throughput
-      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
-  - Identifier: WaitForSchedulerThroughputDeployments
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: start
-      apiVersion: apps/v1
-      kind: Deployment
-      labelSelector: group = scheduler-throughput
-      # The operation timeout shouldn't be less than 20m to make sure that ~10m node
-      # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
-      operationTimeout: 20m
-  - Identifier: SchedulingThroughput
-    Method: SchedulingThroughput
-    Params:
-      action: start
-      labelSelector: group = scheduler-throughput
-      measurmentInterval: 1s
-{{if $ENABLE_HUGE_SERVICES}}
-- name: Creating huge services
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 1
-    tuningSet: Sequence
-    objectBundle:
-    - basename: huge-service
-      objectTemplatePath: service.yaml
-{{end}}
-- name: Creating scheduler throughput pods
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 1
-    tuningSet: SchedulerThroughputParallel
-    objectBundle:
-    - basename: scheduler-throughput-deployment
-      objectTemplatePath: simple-deployment.yaml
-      templateFillMap:
-        Replicas: {{$schedulerThroughputPodsPerDeployment}}
-        Group: scheduler-throughput
-        CpuRequest: 1m
-        MemoryRequest: 10M
-{{if $ENABLE_HUGE_SERVICES}}
-        SvcName: huge-service
-{{end}}
-- name: Waiting for scheduler throughput pods to be created
-  measurements:
-  - Identifier: WaitForSchedulerThroughputDeployments
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-- name: Collecting scheduler throughput measurements
-  measurements:
-  - Identifier: HighThroughputPodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
-  - Identifier: SchedulingThroughput
-    Method: SchedulingThroughput
-    Params:
-      action: gather
-      enableViolations: true
-      threshold: {{$schedulerThroughputThreshold}}
-- name: Deleting scheduler throughput pods
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 0
-    tuningSet: SchedulerThroughputParallel
-    objectBundle:
-    - basename: scheduler-throughput-deployment
-      objectTemplatePath: simple-deployment.yaml
-- name: Waiting for scheduler throughput pods to be deleted
-  measurements:
-  - Identifier: WaitForSchedulerThroughputDeployments
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-{{if $ENABLE_HUGE_SERVICES}}
-- name: Deleting huge services
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Sequence
-    objectBundle:
-    - basename: huge-service
-      objectTemplatePath: service.yaml
-- name: Sleeping after deleting huge services
-  measurements:
-  - Identifier: WaitAfterHugeServicesDeletion
-    Method: Sleep
-    Params:
-      duration: "3m"
-{{end}}
-# END scheduler throughput
+- module:
+    path: modules/scheduler-throughput.yaml
+    params:
+      namespaces: {{$namespaces}}
+      minPodsInSmallCluster: {{$MIN_PODS_IN_SMALL_CLUSTERS}}
+      schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
+      schedulerThroughputThreshold: {{$schedulerThroughputThreshold}}
 {{end}}
 
 {{if not $IS_SMALL_CLUSTER}}

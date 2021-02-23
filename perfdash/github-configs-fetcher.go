@@ -79,7 +79,7 @@ func getGithubDirContents(url string) ([]githubDirContent, error) {
 	var decoded []githubDirContent
 	err = yaml.Unmarshal(b, &decoded)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshall github response %s: %v", string(b), err)
 	}
 	return decoded, nil
 }

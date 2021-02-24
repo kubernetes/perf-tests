@@ -19,6 +19,7 @@ package api
 import (
 	"fmt"
 	"os"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -85,6 +86,11 @@ func (v *ConfigValidator) validateNamespace(ns *NamespaceConfig, fldPath *field.
 
 func (v *ConfigValidator) validateStep(s *Step, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+	if s == nil || reflect.DeepEqual(*s, Step{}) {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("steps"), s, "steps can't be empty"))
+		return allErrs
+	}
+
 	for i := range s.Phases {
 		allErrs = append(allErrs, v.validatePhase(s.Phases[i], fldPath.Child("phases").Index(i))...)
 	}

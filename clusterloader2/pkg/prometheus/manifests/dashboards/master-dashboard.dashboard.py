@@ -79,6 +79,38 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   resource=~"${resource:regex}s*",
 }[5d])""")
 
+PAF_PANELS = [
+    d.simple_graph(
+        "Requests waiting time",
+        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket[1m]))  by (le, priority_level))",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
+    d.simple_graph(
+        "Execution time",
+        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_execution_seconds_bucket[1m]))  by (le, priority_level))",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
+    d.simple_graph(
+        "Total execution time per second",
+        "sum(irate(apiserver_flowcontrol_request_execution_seconds_sum[1m]))  by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
+    d.simple_graph(
+        "Requests rate by priority level",
+        "sum(irate(apiserver_flowcontrol_dispatched_requests_total[1m])) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Concurrency limits",
+        "avg(apiserver_flowcontrol_request_concurrency_limit) by (priority_level)",
+        legend="{{priority_level}}",
+    ),
+]
+
 HEALTH_PANELS = [
     d.simple_graph(
         "Unhealthy nodes",
@@ -503,6 +535,7 @@ dashboard = d.Dashboard(
     rows=[
         d.Row(title="API call latency", panels=API_CALL_LATENCY_PANELS),
         d.Row(title="API call latency aggregated with quantile", panels=QUANTILE_API_CALL_LATENCY_PANELS, collapse=True),
+        d.Row(title="P&F metrics", panels=PAF_PANELS, collapse=True),
         d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
         d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
         d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),

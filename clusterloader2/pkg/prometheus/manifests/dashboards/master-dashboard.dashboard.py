@@ -39,7 +39,7 @@ def api_call_latency_panel(expression):
         api_call_latency(
             title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
             verb="GET",
-            scope="namespace",
+            scope="resource",
             threshold=1,
         ),
         api_call_latency(

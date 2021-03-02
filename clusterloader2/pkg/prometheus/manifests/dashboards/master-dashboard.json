@@ -3,6 +3,7 @@
     "annotations": {
         "list": []
     },
+    "description": "",
     "editable": true,
     "gnetId": null,
     "hideControls": false,
@@ -80,7 +81,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -538,7 +539,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -1067,6 +1068,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1163,6 +1167,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1259,6 +1266,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1355,6 +1365,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,
@@ -1461,6 +1474,9 @@
                     "links": [],
                     "minSpan": null,
                     "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
                     "percentage": false,
                     "pointradius": 5,
                     "points": false,

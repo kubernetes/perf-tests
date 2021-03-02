@@ -38,7 +38,7 @@ def create_slo_panel(metric="apiserver:apiserver_request_latency:histogram_quant
             title="Read-only API call latency (scope=resource, threshold=1s)",
             metric=metric,
             verb="GET",
-            scope="namespace",
+            scope="resource",
             threshold=1,
         ),
         api_call_latency(

@@ -3,6 +3,7 @@
     "annotations": {
         "list": []
     },
+    "description": "",
     "editable": true,
     "gnetId": null,
     "hideControls": false,
@@ -80,7 +81,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"namespace\"}[12h])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -538,7 +539,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"namespace\"}[12h])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",

@@ -297,8 +297,8 @@ func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, 
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
-		falseVar := false
-		deleteOption := metav1.DeleteOptions{OrphanDependents: &falseVar}
+		policy := metav1.DeletePropagationBackground
+		deleteOption := metav1.DeleteOptions{PropagationPolicy: &policy}
 		return dynamicClient.Resource(gvr).Namespace(namespace).Delete(context.TODO(), name, deleteOption)
 	}
 	options = append(options, Allow(apierrs.IsNotFound))

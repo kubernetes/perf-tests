@@ -73,8 +73,8 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 		select {
 		case <-stopCh:
 			klog.V(2).Infof("%s: %s: pods status: %v", options.CallerName, options.Selector.String(), ComputePodsStatus(oldPods, options.DesiredPodCount))
-			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - only %d found running",
-				options.DesiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.Running)
+			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - summary of pods : %s",
+				options.DesiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
 			pods := ps.List()
 			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount, options.IsPodUpdated)

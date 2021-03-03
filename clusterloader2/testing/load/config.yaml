@@ -80,9 +80,9 @@
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 # END scheduler-throughput section
 
-# Set schedulerThroughputNamespaces to 0 on small clusters otherwise it will result
+# Set schedulerThroughputNamespaces to 1 on small clusters otherwise it will result
 # in an unnecessary number of namespaces.
-{{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 0 $schedulerThroughputNamespaces}}
+{{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 1 $schedulerThroughputNamespaces}}
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}

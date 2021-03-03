@@ -227,7 +227,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		return w.opResourceVersion >= maxResourceVersion && objectKeys.Equal(w.objectKeys), nil
 	}
 	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
-		return fmt.Errorf("timed out while waiting for controlled pods")
+		return fmt.Errorf("timed out while waiting for controlled pods: %v", err)
 	}
 
 	w.handlingGroup.Wait()

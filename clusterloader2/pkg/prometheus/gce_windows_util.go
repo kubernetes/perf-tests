@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,11 @@ import (
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+)
+
+const (
+	installWmiExporterRetryInterval = 10 * time.Second
+	installWmiExporterRetryTimes    = 6
 )
 
 // gceNode is a struct storing gce node info
@@ -72,19 +78,25 @@ func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, ma
 	// 		invoke-webrequest : Win32 internal error "Access is denied" 0x5 occurred while reading the console output buffer.
 	// 		Contact Microsoft Customer Support Services.
 	// After wrap it up in script block, it works well, also support timeout setting.
-	installWmiCmdTemplate := `Start-Job -Name InstallWmiExporter -ScriptBlock {invoke-webrequest -uri %s -outfile C:\wmi_exporter.exe; New-Service -Name wmi_exporter -BinaryPathName 'C:\wmi_exporter.exe --collectors.enabled="%s" --telemetry.addr=":5000"'; Start-Service wmi_exporter}; Wait-Job -Timeout 300 -Name InstallWmiExporter`
+	installWmiCmdTemplate := `Remove-Job -Name InstallWmiExporter 2>&1 | Out-Null; Start-Job -Name InstallWmiExporter -ScriptBlock {invoke-webrequest -uri %s -outfile C:\wmi_exporter.exe; New-Service -Name wmi_exporter -BinaryPathName 'C:\wmi_exporter.exe --collectors.enabled="%s" --telemetry.addr=":5000"'; Start-Service wmi_exporter}; Wait-Job -Timeout 300 -Name InstallWmiExporter`
 	installWmiExporterCmd := fmt.Sprintf(installWmiCmdTemplate, wmiExporterURL, wmiExporterCollectors)
 	powershellCmd := fmt.Sprintf(`powershell.exe -Command "%s"`, installWmiExporterCmd)
 	if windowsNode == nil {
 		return fmt.Errorf("no windows nodes available to install wmi exporter")
 	}
 	klog.V(2).Infof("Installing wmi exporter onto projectId: %s, zone: %s, nodeName: %s with cmd: %s", windowsNode.projectID, windowsNode.zone, windowsNode.nodeName, installWmiExporterCmd)
-	cmd := exec.Command("gcloud", "compute", "ssh", "--project", windowsNode.projectID, "--zone", windowsNode.zone, windowsNode.nodeName, "--command", powershellCmd)
-	err := cmd.Run()
-	if err != nil {
-		return err
+	var err error
+	for i := 0; i < installWmiExporterRetryTimes; i++ {
+		cmd := exec.Command("gcloud", "compute", "ssh", "--project", windowsNode.projectID, "--zone", windowsNode.zone, windowsNode.nodeName, "--command", powershellCmd)
+		err = cmd.Run()
+		if err == nil {
+			break
+		} else {
+			klog.V(2).Infof("Retried %d times to install wmi exporter with error: %+v", i, err)
+		}
+		time.Sleep(installWmiExporterRetryInterval)
 	}
-	return nil
+	return err
 }
 
 func getGceWindowsNodeFromKubernetesService(k8sClient kubernetes.Interface) (*gceNode, error) {

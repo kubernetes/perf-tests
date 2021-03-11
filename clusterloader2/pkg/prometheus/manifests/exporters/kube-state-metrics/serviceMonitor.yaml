@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-state-metrics
+    app.kubernetes.io/version: 2.0.0-rc.0
+  name: kube-state-metrics
+  namespace: kube-state-metrics-perf-test
+spec:
+  endpoints:
+  - honorLabels: true
+    interval: 30s
+    port: http-metrics
+    scrapeTimeout: 30s
+  - interval: 30s
+    port: telemetry
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+      app.kubernetes.io/version: 2.0.0-rc.0

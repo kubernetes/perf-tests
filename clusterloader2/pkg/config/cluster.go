@@ -64,22 +64,24 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
-	EnableServer            bool
-	TearDownServer          bool
-	ScrapeEtcd              bool
-	ScrapeNodeExporter      bool
-	ScrapeKubelets          bool
-	ScrapeKubeProxy         bool
-	ScrapeNodeLocalDNS      bool
-	ScrapeAnet              bool
-	SnapshotProject         string
-	ManifestPath            string
-	CoreManifests           string
-	DefaultServiceMonitors  string
-	MasterIPServiceMonitors string
-	NodeExporterPod         string
-	StorageClassProvisioner string
-	StorageClassVolumeType  string
+	EnableServer              bool
+	TearDownServer            bool
+	ScrapeEtcd                bool
+	ScrapeNodeExporter        bool
+	ScrapeKubelets            bool
+	ScrapeKubeProxy           bool
+	ScrapeKubeStateMetrics    bool
+	ScrapeNodeLocalDNS        bool
+	ScrapeAnet                bool
+	SnapshotProject           string
+	ManifestPath              string
+	CoreManifests             string
+	DefaultServiceMonitors    string
+	MasterIPServiceMonitors   string
+	KubeStateMetricsManifests string
+	NodeExporterPod           string
+	StorageClassProvisioner   string
+	StorageClassVolumeType    string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

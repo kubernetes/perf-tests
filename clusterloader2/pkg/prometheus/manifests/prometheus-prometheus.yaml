@@ -46,7 +46,7 @@ spec:
   serviceMonitorSelector: {}
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}
-  version: v2.24.0
+  version: v2.25.0
   retention: 7d
   storage:
     volumeClaimTemplate:

@@ -4,28 +4,34 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    k8s-app: prometheus-operator
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: prometheus-operator
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 0.46.0
   name: prometheus-operator
   namespace: monitoring
 spec:
   replicas: 1
   selector:
     matchLabels:
-      k8s-app: prometheus-operator
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: prometheus-operator
+      app.kubernetes.io/part-of: kube-prometheus
   template:
     metadata:
       labels:
-        k8s-app: prometheus-operator
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: prometheus-operator
+        app.kubernetes.io/part-of: kube-prometheus
+        app.kubernetes.io/version: 0.46.0
     spec:
       containers:
       - args:
-        - --logtostderr=true
-        - --config-reloader-image=gcr.io/k8s-testimages/quay.io/coreos/configmap-reload:v0.0.1
-        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/coreos/prometheus-config-reloader:v0.30.0
         {{if $PROMETHEUS_SCRAPE_KUBELETS}}
         - --kubelet-service=kube-system/kubelet
         {{end}}
-        image: gcr.io/k8s-testimages/quay.io/coreos/prometheus-operator:v0.31.0
+        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.46.0
+        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.46.0
         name: prometheus-operator
         ports:
         - containerPort: 8080

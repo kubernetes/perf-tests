@@ -17,5 +17,5 @@
 set -euxo pipefail
 
 # Push Kubernetes build to GCS.
-cd /go/src/k8s.io/kubernetes
+cd $ROOT_DIR/k8s.io/kubernetes
 ../release/push-build.sh --nomock --ci --bucket=$GCS_BUCKET --private-bucket

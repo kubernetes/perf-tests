@@ -18,32 +18,28 @@ set -euxo pipefail
 
 # Initialize necessary environment variables and git identity.
 function init {
-  cd go
-  export GOROOT=/go/src/k8s.io/perf-tests/golang/go
+  export GOROOT=$ROOT_DIR/golang
+  cd $GOROOT
   export TAG=$(date +v%Y%m%d)-$(git rev-parse --short HEAD)
   cd ..
   git config --global user.email "scalability@k8s.io"
   git config --global user.name "k8s scalability"
 }
 
-function clone_release {
-  git clone https://github.com/kubernetes/release.git /go/src/k8s.io/release
-  cd /go/src/k8s.io/release
-  git checkout $K8S_RELEASE_COMMIT
+function build_kube_cross {
+  cd $ROOT_DIR/k8s.io/release
   # Note that you can't really move the tool itself around since it has
   # references to binaries that live relative to its GOROOT.
   # This is solved by copying the whole GOROOT directory below.
-  cp -r $GOROOT /go/src/k8s.io/release/images/build/cross
-}
+  cp -r $GOROOT $ROOT_DIR/k8s.io/release/images/build/cross
 
-function build_kube_cross {
-  cd /go/src/k8s.io/release/images/build/cross
+  cd $ROOT_DIR/k8s.io/release/images/build/cross
 
   # Modify Dockerfile to use previously built custom version.
   # The following assumes that $GOROOT was moved to Dockerfile directory.
   sed -i 's#FROM golang.*$#FROM buildpack-deps:stretch-scm\
 \
-COPY go /usr/local/go\
+COPY golang /usr/local/go\
 RUN chmod -R a+rx /usr/local/go\
 \
 RUN export PATH="/usr/local/go/bin:$PATH"; go version\
@@ -62,9 +58,7 @@ WORKDIR $GOPATH#' Dockerfile
 }
 
 function build_kubernetes {
-  git clone https://github.com/kubernetes/kubernetes.git /go/src/k8s.io/kubernetes
-  cd /go/src/k8s.io/kubernetes/build/build-image
-  git checkout $K8S_COMMIT
+  cd $ROOT_DIR/k8s.io/kubernetes/build/build-image
 
   # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/90806 which
   # artifically increases Kubemark cluster nodes objects.
@@ -75,7 +69,7 @@ function build_kubernetes {
   # hollow node pod.
   # TODO: Get rid of this cherry-pick once we start testing against k8s v1.20+.
   git cherry-pick -m 1 1698af78be83db748415d224ec1ea217755ea932
-  
+
   # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/97843 and https://github.com/kubernetes/kubernetes/pull/98141 rebased to 1.18.
   # Used for debugging failing golang tests.
   # TODO: Get rid of this cherry-pick once we fix the regression.
@@ -84,7 +78,7 @@ function build_kubernetes {
   # Change the base image of kube-build to our own kube-cross image.
   sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:'"$TAG"'#' Dockerfile
 
-  cd /go/src/k8s.io/kubernetes
+  cd $ROOT_DIR/k8s.io/kubernetes
   # Commit changes - needed to not create a "dirty" build, so we can push the
   # build to <bucket>/ci directory and update latest.txt file.
   git commit -am "Upgrade cross Dockerfile to use kube-cross with newest golang"
@@ -93,6 +87,5 @@ function build_kubernetes {
 }
 
 init
-clone_release
 build_kube_cross
 build_kubernetes

@@ -24,8 +24,7 @@ function install_go_compiler {
 }
 
 function build_go {
-  git clone https://go.googlesource.com/go
-  cd go/src
+  cd $ROOT_DIR/golang/src
   ./make.bash
 }
 

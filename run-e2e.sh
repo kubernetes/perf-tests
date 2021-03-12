@@ -24,9 +24,9 @@ echo "TOOL_NAME: $1"
 # to check the exact k8s.io/perf-tests commit (commits) a test was run against.
 if [[ "${PERF_TESTS_PRINT_COMMIT_HISTORY:-false}" == "true" ]]; then
   # The output file location assumes the script works inside a prow job.
-  output_file="/workspace/_artifacts/perf-tests.gitlog"
+  output_file="${ARTIFACTS}/perf-tests.gitlog"
   echo "k8s.io/perf-tests git log:" | tee $output_file || true
-  git -C /go/src/k8s.io/perf-tests log -n 10 --format="%H - %ad (%s)" --date=local | tee -a $output_file || true
+  git -C $PERFTEST_ROOT log -n 10 --format="%H - %ad (%s)" --date=local | tee -a $output_file || true
 fi
 
 case "$1" in

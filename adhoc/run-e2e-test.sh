@@ -24,9 +24,9 @@ set -o pipefail
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 
 # If you need your test to persist any output files (e.g. test results) dump
-# them into the /workspace/_artifacts. Content of this directory will get
+# them into the ARTIFACTS directory. Content of this directory will get
 # automatically uploaded to gcs after the test completion (successful or not).
-export ARTIFACTS_DIR=/workspace/_artifacts
+export ARTIFACTS_DIR="${ARTIFACTS}"
 
 
 # Implement ad-hoc test here, e.g. install extra addons via kubectl then run

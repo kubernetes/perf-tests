@@ -21,6 +21,8 @@ DIRNAME=$(dirname "$(readlink -f "$0")")
 
 TARGETS=("access-tokens" "probes")
 
+# TEST
+
 for target in "${TARGETS[@]}"; do
   cd "${DIRNAME}/${target}"
   make build

@@ -62,104 +62,12 @@ steps:
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 
-- name: Creating ServiceAccounts
-  phases:
-    - namespaceRange:
-        min: 1
-        max: {{$namespaces}}
-      replicasPerNamespace: 1
-      tuningSet: Sequence
-      objectBundle:
-        - basename: service-account-getter
-          objectTemplatePath: role.yaml
-    - namespaceRange:
-        min: 1
-        max: {{$namespaces}}
-      replicasPerNamespace: {{$serviceAccounts}}
-      tuningSet: Sequence
-      objectBundle:
-        - basename: account
-          objectTemplatePath: serviceAccount.yaml
-        - basename: account
-          objectTemplatePath: roleBinding.yaml
-          templateFillMap:
-            RoleName: service-account-getter
-
-- name: Creating Tokens
-  phases:
-    {{range $i := Loop $serviceAccounts}}
-    - namespaceRange:
-        min: 1
-        max: {{$namespaces}}
-      replicasPerNamespace: {{$tokensPerServiceAccount}}
-      tuningSet: Sequence
-      objectBundle:
-        - basename: account-{{$i}}
-          objectTemplatePath: token.yaml
-    {{end}}
-
-
-- name: Starting measurement for waiting for pods
-  measurements:
-    - Identifier: WaitForRunningPods
-      Method: WaitForControlledPodsRunning
-      Params:
-        action: start
-        apiVersion: apps/v1
-        kind: Deployment
-        labelSelector: group = access-tokens
-        operationTimeout: 15m
-
-- name: Creating pods
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$serviceAccounts}}
-    tuningSet: Sequence
-    objectBundle:
-    - basename: account
-      objectTemplatePath: deployment.yaml
-      templateFillMap:
-        QpsPerWorker: {{$qpsPerWorker}}
-        Replicas: {{$replicas}}
-        Tokens: {{$tokensPerServiceAccount}}
-
-- name: Waiting for pods to be running
-  measurements:
-    - Identifier: WaitForRunningPods
-      Method: WaitForControlledPodsRunning
-      Params:
-        action: gather
-
-- name: Wait 5min
+- name: Wait 1min
   measurements:
     - Identifier: Wait
       Method: Sleep
       Params:
-        duration: 5m
-
-- name: Deleting pods
-  phases:
-    - namespaceRange:
-        min: 1
-        max: {{$namespaces}}
-      replicasPerNamespace: 0
-      tuningSet: Sequence
-      objectBundle:
-        - basename: account
-          objectTemplatePath: deployment.yaml
-          templateFillMap:
-            QpsPerWorker: {{$qpsPerWorker}}
-            Replicas: {{$replicas}}
-            Tokens: {{$tokensPerServiceAccount}}
-
-- name: Waiting for pods to be deleted
-  measurements:
-    - Identifier: WaitForRunningPods
-      Method: WaitForControlledPodsRunning
-      Params:
-        action: gather
+        duration: 1m
 
 - name: Collecting measurements
   measurements:

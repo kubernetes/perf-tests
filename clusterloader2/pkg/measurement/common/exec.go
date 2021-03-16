@@ -73,7 +73,7 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 	defer cancel()
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	out, err := cmd.CombinedOutput()
-	klog.V(3).Infof("output: %v", string(out))
+	klog.V(2).Infof("Exec command output: %v", string(out))
 	if err != nil {
 		return nil, fmt.Errorf("command %v failed: %v", command, err)
 	}

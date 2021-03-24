@@ -26,6 +26,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
@@ -56,6 +57,7 @@ type apiAvailabilityMeasurement struct {
 	hostIPs             []string
 	summaries           []measurement.Summary
 	clusterLevelMetrics *apiAvailabilityMetrics
+	threshold           float64
 	// Metrics per host internal IP.
 	hostLevelMetrics       map[string]*apiAvailabilityMetrics
 	hostPollTimeoutSeconds int
@@ -177,6 +179,12 @@ func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) erro
 	}
 	a.pollFrequency = frequency
 
+	threshold, err := util.GetFloat64OrDefault(config.Params, "threshold", 0.0)
+	if err != nil {
+		return err
+	}
+	a.threshold = threshold
+
 	a.clusterLevelMetrics = &apiAvailabilityMetrics{}
 	if config.ClusterLoaderConfig.EnableExecService {
 		a.hostIPs = config.ClusterFramework.GetClusterConfig().MasterInternalIPs
@@ -252,7 +260,10 @@ func (a *apiAvailabilityMeasurement) gather() ([]measurement.Summary, error) {
 	}
 	summary := measurement.CreateSummary(apiAvailabilityMeasurementName, "json", content)
 	a.summaries = append(a.summaries, summary)
-	return a.summaries, nil
+	if sli := output.ClusterSummary.AvailabilityPercentage; sli < a.threshold {
+		err = errors.NewMetricViolationError("API availability", fmt.Sprintf("SLO not fulfilled (expected >= %.2f, got: %.2f)", a.threshold, sli))
+	}
+	return a.summaries, err
 }
 
 func (a *apiAvailabilityMeasurement) Dispose() {}

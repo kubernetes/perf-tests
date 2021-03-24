@@ -29,7 +29,7 @@ type apiAvailabilityMetrics struct {
 
 type apiAvailabilitySummary struct {
 	IP                       string  `json:"IP,omitempty"`
-	AvailabilityPercentage   float32 `json:"availabilityPercentage"`
+	AvailabilityPercentage   float64 `json:"availabilityPercentage"`
 	LongestUnavailablePeriod string  `json:"longestUnavailablePeriod"`
 }
 
@@ -51,9 +51,9 @@ func (a *apiAvailabilityMetrics) update(availability bool) {
 }
 
 func (a *apiAvailabilityMetrics) buildSummary(pollFrequency time.Duration, hostIP string) apiAvailabilitySummary {
-	availabilityPercentage := float32(100)
+	availabilityPercentage := float64(100)
 	if a.numSuccesses > 0 || a.numFailures > 0 {
-		availabilityPercentage = (float32(a.numSuccesses) / float32(a.numSuccesses+a.numFailures)) * 100
+		availabilityPercentage = (float64(a.numSuccesses) / float64(a.numSuccesses+a.numFailures)) * 100
 	}
 	longestUnavailablePeriod := time.Duration(a.maxConsecutiveFailedProbes) * pollFrequency
 	return apiAvailabilitySummary{

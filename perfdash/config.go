@@ -340,6 +340,40 @@ var (
 					Parser:           parsePerfData,
 				}},
 		},
+		"Network_Baseline": {
+			"TCP_P2P": []TestDescription{{
+				Name:             "network_performance_tcp-1:1",
+				OutputFilePrefix: "NetworkPerformanceMetrics_1:1_TCP_P2P",
+				Parser:           parsePerfData,
+			}},
+			"UDP_P2P": []TestDescription{{
+				Name:             "network_performance_udp-1:1",
+				OutputFilePrefix: "NetworkPerformanceMetrics_1:1_UDP_P2P",
+				Parser:           parsePerfData,
+			}},
+			"HTTP_P2P": []TestDescription{{
+				Name:             "network_performance_http-1:1",
+				OutputFilePrefix: "NetworkPerformanceMetrics_1:1_HTTP_P2P",
+				Parser:           parsePerfData,
+			}},
+		},
+		"Network_Scale": {
+			"TCP_P2P_N:M": []TestDescription{{
+				Name:             "network_performance_tcp-50:50",
+				OutputFilePrefix: "NetworkPerformanceMetrics_N:M_TCP_P2P",
+				Parser:           parsePerfData,
+			}},
+			"UDP_P2P_N:M": []TestDescription{{
+				Name:             "network_performance_udp-50:50",
+				OutputFilePrefix: "NetworkPerformanceMetrics_N:M_UDP_P2P",
+				Parser:           parsePerfData,
+			}},
+			"HTTP_P2P_N:M": []TestDescription{{
+				Name:             "network_performance_http-50:50",
+				OutputFilePrefix: "NetworkPerformanceMetrics_N:M_HTTP_P2P",
+				Parser:           parsePerfData,
+			}},
+		},
 		"DNS": {
 			"Load_DNSLookupLatency": []TestDescription{{
 				Name:             "load",

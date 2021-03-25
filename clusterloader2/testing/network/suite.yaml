@@ -1,0 +1,30 @@
+-  identifier: tcp-1:1
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/tcp_protocol_override.yaml 
+     - testing/network/1_1_ratio_override.yaml 
+-  identifier: udp-1:1
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/udp_protocol_override.yaml
+     - testing/network/1_1_ratio_override.yaml
+-  identifier: http-1:1
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/http_protocol_override.yaml
+     - testing/network/1_1_ratio_override.yaml
+-  identifier: tcp-50:50
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/tcp_protocol_override.yaml
+     - testing/network/50_50_ratio_override.yaml
+-  identifier: udp-50:50
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/udp_protocol_override.yaml
+     - testing/network/50_50_ratio_override.yaml
+-  identifier: http-50:50
+   configPath: testing/network/config.yaml
+   overridePaths:
+     - testing/network/http_protocol_override.yaml
+     - testing/network/50_50_ratio_override.yaml

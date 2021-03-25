@@ -1,0 +1,23 @@
+{{$PROTOCOL := .CL2_PROTOCOL}}
+{{$NUMBER_OF_SERVERS := .CL2_NUMBER_OF_SERVERS}}
+{{$NUMBER_OF_CLIENTS := .CL2_NUMBER_OF_CLIENTS}}
+
+name: Network Performance
+automanagedNamespaces: 1
+steps:
+- name: Start network performance measurement
+  measurements:
+    - Identifier: NetworkPerformanceMetrics
+      Method: NetworkPerformanceMetrics
+      Params:
+        action: start
+        duration: 10s
+        protocol: {{$PROTOCOL}}
+        numberOfServers: {{$NUMBER_OF_SERVERS}}
+        numberOfClients: {{$NUMBER_OF_CLIENTS}}
+- name: Gather network performance measurement
+  measurements:
+    - Identifier: NetworkPerformanceMetrics
+      Method: NetworkPerformanceMetrics
+      Params:
+        action: gather 

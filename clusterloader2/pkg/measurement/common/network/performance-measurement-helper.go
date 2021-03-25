@@ -31,7 +31,7 @@ import (
 
 func (npm *networkPerformanceMeasurement) validate(config *measurement.Config) error {
 	var err error
-	if npm.testDuration, err = util.GetInt(config.Params, "duration"); err != nil {
+	if npm.testDuration, err = util.GetDuration(config.Params, "duration"); err != nil {
 		return err
 	}
 	if npm.protocol, err = util.GetString(config.Params, "protocol"); err != nil {
@@ -82,7 +82,7 @@ func (npm *networkPerformanceMeasurement) populateTemplate(podPair podPair, inde
 		"clientPodIP":          podPair.sourcePodIP,
 		"serverPodIP":          podPair.destinationPodIP,
 		"protocol":             npm.protocol,
-		"duration":             npm.testDuration,
+		"duration":             npm.testDuration.Seconds(),
 		"clientStartTimestamp": npm.startTimeStampForTestExecution,
 		"numberOfClients":      1,
 	}

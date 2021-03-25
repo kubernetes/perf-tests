@@ -78,6 +78,10 @@ func CreateKSMLatencyMeasurement() measurement.Measurement {
 // it also collects initial latency metrics.
 // - gather - gathers latency metrics and creates a latency summary.
 func (m *ksmLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	if !config.CloudProvider.Features().SupportKubeStateMetrics {
+		klog.Infof("not executing KSMLatencyMeasurement: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider.Name())
+		return nil, nil
+	}
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err

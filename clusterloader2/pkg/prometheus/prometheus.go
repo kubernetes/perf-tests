@@ -197,7 +197,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 
-	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics {
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportKubeStateMetrics {
 		klog.V(2).Infof("Applying kube-state-metrics in the cluster.")
 		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.KubeStateMetricsManifests); err != nil {
 			return err

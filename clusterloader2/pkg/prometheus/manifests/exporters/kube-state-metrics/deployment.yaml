@@ -31,12 +31,10 @@ spec:
             cpu: {{AddInt 200 (MultiplyInt 500 (DivideInt .Nodes 1000))}}m
             # Start with 2Gi and add 2Gi for each 1K nodes.
             memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
-            {{end}}
           limits:
             cpu: {{AddInt 200 (MultiplyInt 500 (DivideInt .Nodes 1000))}}m
             # Start with 2Gi and add 2Gi for each 1K nodes.
             memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
-            {{end}}
         ports:
         - containerPort: 8080
           name: http-metrics

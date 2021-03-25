@@ -2,7 +2,7 @@
 {{$NUMBER_OF_SERVERS := .CL2_NUMBER_OF_SERVERS}}
 {{$NUMBER_OF_CLIENTS := .CL2_NUMBER_OF_CLIENTS}}
 
-name: Network Performance
+name: network_performance 
 automanagedNamespaces: 1
 steps:
 - name: Start network performance measurement

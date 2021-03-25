@@ -276,7 +276,7 @@ func (npm *networkPerformanceMeasurement) gather() (measurement.Summary, error) 
 	if err != nil {
 		klog.Infof("Failed to print metrics: %v", err)
 	}
-	summaryName := fmt.Sprintf(npm.String() + resultSummary.podRatio + resultSummary.protocol + resultSummary.service)
+	summaryName := fmt.Sprintf(npm.String() + "_" + resultSummary.podRatio + "_" + resultSummary.protocol + "_" + resultSummary.service)
 	return measurement.CreateSummary(summaryName, "json", content), nil
 }
 

@@ -133,10 +133,13 @@ func (c *controller) PreloadImages() error {
 	if err != nil {
 		return err
 	}
-	clusterSize := int(size)
+	if err := size.Start(stopCh); err != nil {
+		return err
+	}
 
-	klog.V(2).Infof("Waiting for %d Node objects to be updated...", clusterSize)
+	klog.V(2).Infof("Waiting for %d Node objects to be updated...", size.Replicas())
 	if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
+		clusterSize := size.Replicas()
 		klog.V(3).Infof("%d out of %d nodes have pulled images", len(doneNodes), clusterSize)
 		return len(doneNodes) == clusterSize, nil
 	}); err != nil {

@@ -17,7 +17,6 @@ limitations under the License.
 package runtimeobjects_test
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -521,29 +520,23 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		daemonsetReplicas,
 	}
 
-	fakeClient := fake.NewSimpleClientset()
-	// construct node1 which match daemonset's nodeSelector.
-	_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), &node1, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("construct node1 failed: %v", err)
-	}
-	// construct node2 which match daemonset's nodeSelector and nodeAffinity.
-	_, err = fakeClient.CoreV1().Nodes().Create(context.TODO(), &node2, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("construct node2 failed: %v", err)
-	}
-
+	fakeClient := fake.NewSimpleClientset(&node1, &node2)
 	for i, obj := range objects {
 		unstructured := &unstructured.Unstructured{}
 		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
 			t.Fatalf("error converting controller to unstructured: %v", err)
 		}
-		replicas, err := runtimeobjects.GetReplicasFromRuntimeObject(fakeClient, unstructured)
+		replicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(fakeClient, unstructured)
 		if err != nil {
 			t.Fatalf("get replicas from runtime object failed: %v", err)
 		}
 
-		if expected[i] != replicas {
+		replicas, err := runtimeobjects.GetReplicasOnce(replicasWatcher)
+		if err != nil {
+			t.Fatalf("got unexpected error while getting number of replicas: %v", err)
+		}
+
+		if int(expected[i]) != replicas {
 			t.Fatalf("Unexpected replicas from runtime object, expected: %d, actual: %d", expected[i], replicas)
 		}
 	}

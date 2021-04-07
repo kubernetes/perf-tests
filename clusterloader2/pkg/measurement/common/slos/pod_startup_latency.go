@@ -24,7 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -115,9 +118,16 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 	p.isRunning = true
 	p.stopCh = make(chan struct{})
 	i := informer.NewInformer(
-		c,
-		"pods",
-		p.selector,
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				p.selector.ApplySelectors(&options)
+				return c.CoreV1().Pods(p.selector.Namespace).List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				p.selector.ApplySelectors(&options)
+				return c.CoreV1().Pods(p.selector.Namespace).Watch(context.TODO(), options)
+			},
+		},
 		p.checkPod,
 	)
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)

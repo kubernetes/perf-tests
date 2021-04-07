@@ -62,6 +62,12 @@ func (o *ObjectSelector) String() string {
 	return CreateSelectorsString(o.Namespace, o.LabelSelector, o.FieldSelector)
 }
 
+// ApplySelectors sets label and field selectors in a given ListOptions object.
+func (o *ObjectSelector) ApplySelectors(options *metav1.ListOptions) {
+	options.FieldSelector = o.FieldSelector
+	options.LabelSelector = o.LabelSelector
+}
+
 // CreateSelectorsString creates a string representation for given namespace, label selector and field selector.
 func CreateSelectorsString(namespace, labelSelector, fieldSelector string) string {
 	var selectorsStrings []string

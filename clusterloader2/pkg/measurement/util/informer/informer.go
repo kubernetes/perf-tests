@@ -24,28 +24,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
-// NewInformer creates a new informer
-// for given kind, namespace, fieldSelector and labelSelector.
+// NewInformer creates a new informer.
 func NewInformer(
-	c clientset.Interface,
-	kind string,
-	selector *measurementutil.ObjectSelector,
+	lw cache.ListerWatcher,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
-	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = selector.FieldSelector
-		options.LabelSelector = selector.LabelSelector
-	}
-	listerWatcher := cache.NewFilteredListWatchFromClient(c.CoreV1().RESTClient(), kind, selector.Namespace, optionsModifier)
-	informer := cache.NewSharedInformer(listerWatcher, nil, 0)
+	informer := cache.NewSharedInformer(lw, nil, 0)
 	addEventHandler(informer, handleObj)
-
 	return informer
 }
 

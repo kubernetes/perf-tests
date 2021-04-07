@@ -36,8 +36,8 @@ const (
 // WaitForPodOptions is an options used by WaitForPods methods.
 type WaitForPodOptions struct {
 	Selector            *ObjectSelector
-	DesiredPodCount     int
-	MinDesiredPodCount  int
+	DesiredPodCount     func() int
+	CountErrorMargin    int
 	CallerName          string
 	WaitForPodsInterval time.Duration
 
@@ -60,24 +60,27 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	scaling := uninitialized
 	var podsStatus PodsStartupStatus
 
-	switch {
-	case len(oldPods) == options.DesiredPodCount:
-		scaling = none
-	case len(oldPods) < options.DesiredPodCount:
-		scaling = up
-	case len(oldPods) > options.DesiredPodCount:
-		scaling = down
-	}
-
 	for {
 		select {
 		case <-stopCh:
-			klog.V(2).Infof("%s: %s: pods status: %v", options.CallerName, options.Selector.String(), ComputePodsStatus(oldPods, options.DesiredPodCount))
+			desiredPodCount := options.DesiredPodCount()
+			klog.V(2).Infof("%s: %s: pods status: %v", options.CallerName, options.Selector.String(), ComputePodsStatus(oldPods, desiredPodCount))
 			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - summary of pods : %s",
-				options.DesiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.String())
+				desiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
+			desiredPodCount := options.DesiredPodCount()
+
+			switch {
+			case len(oldPods) == desiredPodCount:
+				scaling = none
+			case len(oldPods) < desiredPodCount:
+				scaling = up
+			case len(oldPods) > desiredPodCount:
+				scaling = down
+			}
+
 			pods := ps.List()
-			podsStatus = ComputePodsStartupStatus(pods, options.DesiredPodCount, options.IsPodUpdated)
+			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 
 			diff := DiffPods(oldPods, pods)
 			deletedPods := diff.DeletedPods()
@@ -91,12 +94,12 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
-			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == options.DesiredPodCount {
+			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {
 				return nil
 			}
 			// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
 			// Overall number of pods (especially Inactive pods) should not grow unchecked.
-			if options.MinDesiredPodCount > 0 && podsStatus.RunningUpdated >= options.MinDesiredPodCount && len(pods) <= options.DesiredPodCount {
+			if options.CountErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-options.CountErrorMargin && len(pods) <= desiredPodCount {
 				return nil
 			}
 			oldPods = pods

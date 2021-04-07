@@ -232,7 +232,7 @@ func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 	})
 	options := &measurementutil.WaitForPodOptions{
 		Selector:            &measurementutil.ObjectSelector{Namespace: netperfNamespace},
-		DesiredPodCount:     npm.numberOfClients + npm.numberOfServers,
+		DesiredPodCount:     func() int { return npm.numberOfClients + npm.numberOfServers },
 		CallerName:          networkPerformanceMetricsName,
 		WaitForPodsInterval: 2 * time.Second,
 	}

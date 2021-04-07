@@ -19,10 +19,11 @@ package common
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"sync"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -352,11 +353,19 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj in
 }
 
 func (w *waitForControlledPodsRunningMeasurement) checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
-	oldReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), oldObj)
+	oldReplicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), oldObj)
 	if err != nil {
 		return false, err
 	}
-	newReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), newObj)
+	oldReplicas, err := runtimeobjects.GetReplicasOnce(oldReplicasWatcher)
+	if err != nil {
+		return false, err
+	}
+	newReplicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), newObj)
+	if err != nil {
+		return false, err
+	}
+	newReplicas, err := runtimeobjects.GetReplicasOnce(newReplicasWatcher)
 	if err != nil {
 		return false, err
 	}
@@ -509,7 +518,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		}
 	}
 	if isDeleted {
-		runtimeObjectReplicas = 0
+		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{0}
 	}
 	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
 	if err != nil {
@@ -520,9 +529,14 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
-		var minDesiredPodCount int
-		if w.countErrorMargin > 0 {
-			minDesiredPodCount = int(runtimeObjectReplicas) - w.countErrorMargin
+		// We cannot use o.stopCh for runtimeObjectReplicas.Start as it's not clear if it's closed on happy path (no errors, no timeout).
+		// TODO(mborsz): Migrate to o.stopCh.
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		if err := runtimeObjectReplicas.Start(stopCh); err != nil {
+			klog.Errorf("%s: error while starting runtimeObjectReplicas: %v", key, err)
+			o.err = fmt.Errorf("failed to start runtimeObjectReplicas: %v", err)
+			return
 		}
 		options := &measurementutil.WaitForPodOptions{
 			Selector: &measurementutil.ObjectSelector{
@@ -530,8 +544,8 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 				LabelSelector: runtimeObjectSelector.String(),
 				FieldSelector: "",
 			},
-			DesiredPodCount:     int(runtimeObjectReplicas),
-			MinDesiredPodCount:  minDesiredPodCount,
+			DesiredPodCount:     runtimeObjectReplicas.Replicas,
+			CountErrorMargin:    w.countErrorMargin,
 			CallerName:          w.String(),
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,

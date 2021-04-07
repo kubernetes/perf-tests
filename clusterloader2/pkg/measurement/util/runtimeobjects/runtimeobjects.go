@@ -228,108 +228,93 @@ func getSpecFromUnstrutured(obj *unstructured.Unstructured) (map[string]interfac
 }
 
 // GetReplicasFromRuntimeObject returns replicas number from given runtime object.
-func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (int32, error) {
+func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (ReplicasWatcher, error) {
 	if obj == nil {
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	}
 	switch typed := obj.(type) {
 	case *unstructured.Unstructured:
 		return getReplicasFromUnstrutured(c, typed)
 	case *corev1.ReplicationController:
 		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
+			return &ConstReplicas{int(*typed.Spec.Replicas)}, nil
 		}
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	case *appsv1.ReplicaSet:
 		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
+			return &ConstReplicas{int(*typed.Spec.Replicas)}, nil
 		}
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	case *appsv1.Deployment:
 		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
+			return &ConstReplicas{int(*typed.Spec.Replicas)}, nil
 		}
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	case *appsv1.StatefulSet:
 		if typed.Spec.Replicas != nil {
-			return *typed.Spec.Replicas, nil
+			return &ConstReplicas{int(*typed.Spec.Replicas)}, nil
 		}
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	case *appsv1.DaemonSet:
 		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, typed.Spec.Template.Spec.NodeSelector, typed.Spec.Template.Spec.Affinity)
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {
-			return *typed.Spec.Parallelism, nil
+			return &ConstReplicas{int(*typed.Spec.Parallelism)}, nil
 		}
-		return 0, nil
+		return &ConstReplicas{0}, nil
 	default:
-		return -1, fmt.Errorf("unsupported kind when getting number of replicas: %v", obj)
+		return nil, fmt.Errorf("unsupported kind when getting number of replicas: %v", obj)
 	}
 }
 
 // getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
-func getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c clientset.Interface, nodeSelector map[string]string, affinity *corev1.Affinity) (int32, error) {
+func getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c clientset.Interface, nodeSelector map[string]string, affinity *corev1.Affinity) (ReplicasWatcher, error) {
 	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(nodeSelector))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	listOpts := metav1.ListOptions{LabelSelector: selector.String()}
-	nodeList, err := client.ListNodesWithOptions(c, listOpts)
-	if err != nil {
-		return 0, err
-	}
-	var numSchedulableNodes int32
-	for i := range nodeList {
-		matched, err := podMatchesNodeAffinity(affinity, &nodeList[i])
-		if err != nil {
-			return 0, err
-		}
-		if !nodeList[i].Spec.Unschedulable && matched {
-			numSchedulableNodes++
-		}
-	}
-	return numSchedulableNodes, nil
+	return NewNodeCounter(c, selector, affinity), nil
 }
 
 // Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
-func getReplicasFromUnstrutured(c clientset.Interface, obj *unstructured.Unstructured) (int32, error) {
+func getReplicasFromUnstrutured(c clientset.Interface, obj *unstructured.Unstructured) (ReplicasWatcher, error) {
 	spec, err := getSpecFromUnstrutured(obj)
 	if err != nil {
-		return -1, err
+		return nil, err
 	}
 	return tryAcquireReplicasFromUnstructuredSpec(c, spec, obj.GetKind())
 }
 
-func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[string]interface{}, kind string) (int32, error) {
+func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[string]interface{}, kind string) (ReplicasWatcher, error) {
 	switch kind {
 	case "DaemonSet":
 		nodeSelector, err := getDaemonSetNodeSelectorFromUnstructuredSpec(spec)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		affinity, err := getDaemonSetAffinityFromUnstructuredSpec(spec)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, nodeSelector, affinity)
 	case "Job":
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
-			return -1, fmt.Errorf("try to acquire job parallelism failed, %v", err)
+			return nil, fmt.Errorf("try to acquire job parallelism failed, %v", err)
 		}
 		if !found {
-			return 0, nil
+			return &ConstReplicas{0}, nil
 		}
-		return int32(replicas), nil
+		return &ConstReplicas{int(replicas)}, nil
 	default:
 		replicas, found, err := unstructured.NestedInt64(spec, "replicas")
 		if err != nil {
-			return -1, fmt.Errorf("try to acquire replicas failed, %v", err)
+			return nil, fmt.Errorf("try to acquire replicas failed, %v", err)
 		}
 		if !found {
-			return 0, nil
+			return &ConstReplicas{0}, nil
 		}
-		return int32(replicas), nil
+		return &ConstReplicas{int(replicas)}, nil
 	}
 }
 

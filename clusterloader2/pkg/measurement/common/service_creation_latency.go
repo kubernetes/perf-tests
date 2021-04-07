@@ -17,12 +17,17 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -137,9 +142,16 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 	s.stopCh = make(chan struct{})
 
 	i := informer.NewInformer(
-		s.client,
-		"services",
-		s.selector,
+		&cache.ListWatch{
+			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+				s.selector.ApplySelectors(&options)
+				return s.client.CoreV1().Services(s.selector.Namespace).List(context.TODO(), options)
+			},
+			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+				s.selector.ApplySelectors(&options)
+				return s.client.CoreV1().Services(s.selector.Namespace).Watch(context.TODO(), options)
+			},
+		},
 		func(oldObj, newObj interface{}) {
 			f := func() {
 				s.handleObject(oldObj, newObj)

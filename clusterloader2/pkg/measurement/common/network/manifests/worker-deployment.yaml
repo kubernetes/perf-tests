@@ -17,14 +17,14 @@ spec:
         name: worker
     spec:
       containers:
-      - image:  vivekthrivikraman/netperfbenchmark:0.1
+      - image: gcr.io/k8s-testimages/netperfbenchmark:0.1
         name: worker
         imagePullPolicy: IfNotPresent
         resources:
           limits:
-            cpu: "1"
+            cpu: "500m"
           requests:
-            cpu: "1"
+            cpu: "500m"
         env:
         - name: POD_NAME
           valueFrom:

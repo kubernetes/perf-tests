@@ -108,6 +108,10 @@ var (
 				OutputFilePrefix: "StatelessPodStartupLatency_PodStartupLatency",
 				Parser:           parsePerfData,
 			}},
+			"Resources": []TestDescription{{
+				OutputFilePrefix: "ResourceUsageSummary",
+				Parser:           parseResourceUsageData,
+			}},
 		},
 		"APIServer": {
 			"DensityResponsiveness": []TestDescription{{
@@ -187,6 +191,38 @@ var (
 			}},
 			"LoadInitEventsCount": []TestDescription{{
 				Name:             "load",
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverInitEventsCount,
+			}},
+			"Responsiveness": []TestDescription{{
+				OutputFilePrefix: "APIResponsiveness",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount": []TestDescription{{
+				OutputFilePrefix: "APIResponsiveness",
+				Parser:           parseRequestCountData,
+			}},
+			"Responsiveness_Prometheus": []TestDescription{{
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount_Prometheus": []TestDescription{{
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parseRequestCountData,
+			}},
+			"Responsiveness_PrometheusSimple": []TestDescription{{
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount_PrometheusSimple": []TestDescription{{
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
+			}},
+			"RequestCountByClient": []TestDescription{{
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverRequestCount,
+			}},
+			"InitEventsCount": []TestDescription{{
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverInitEventsCount,
 			}},
@@ -385,6 +421,10 @@ var (
 				OutputFilePrefix: "DnsLookupLatency",
 				Parser:           parsePerfData,
 			}},
+			"DNSLookupLatency": []TestDescription{{
+				OutputFilePrefix: "DnsLookupLatency",
+				Parser:           parsePerfData,
+			}},
 		},
 		"SystemPodMetrics": {
 			"Load_SystemPodMetrics": []TestDescription{{
@@ -394,6 +434,10 @@ var (
 			}},
 			"Density_SystemPodMetrics": []TestDescription{{
 				Name:             "density",
+				OutputFilePrefix: "SystemPodMetrics",
+				Parser:           parseSystemPodMetrics,
+			}},
+			"SystemPodMetrics": []TestDescription{{
 				OutputFilePrefix: "SystemPodMetrics",
 				Parser:           parseSystemPodMetrics,
 			}},

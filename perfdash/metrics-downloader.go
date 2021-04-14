@@ -120,7 +120,10 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
-					filePrefix := fmt.Sprintf("%v_%v", testDescription.OutputFilePrefix, testDescription.Name)
+					filePrefix := testDescription.OutputFilePrefix
+					if testDescription.Name != "" {
+						filePrefix = fmt.Sprintf("%v_%v", filePrefix, testDescription.Name)
+					}
 					searchPrefix := g.artifactName(tests, filePrefix)
 					artifacts, err := g.MetricsBkt.ListFilesInBuild(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {

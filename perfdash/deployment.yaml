@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-testimages/perfdash:2.33
+        # TODO: Bump to 2.33 and increase the memory limit once https://github.com/kubernetes/k8s.io/pull/1604 gets merged
+        image: gcr.io/k8s-testimages/perfdash:2.32
         command:
           - /perfdash
           -   --www=true

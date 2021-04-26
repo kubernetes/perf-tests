@@ -392,45 +392,6 @@ steps:
     Params:
       action: gather
 
-{{if $EXEC_COMMAND}}
-
-{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Pausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: pause
-{{end}}
-
-- name: Exec command
-  measurements:
-  - Identifier: ExecCommand
-    Method: Exec
-    Params:
-      command:
-      {{range $EXEC_COMMAND}}
-      - {{.}}
-      {{end}}
-
-{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Unpausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: unpause
-{{end}}
-
-- name: Sleep
-  measurements:
-  - Identifier: WaitAfterExec
-    Method: Sleep
-    Params:
-      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
-{{end}}
-{{if not $EXIT_AFTER_EXEC}}
-
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
 - name: Creating scheduler throughput measurements
@@ -505,6 +466,49 @@ steps:
       action: gather
       enableViolations: true
       threshold: {{$schedulerThroughputThreshold}}
+{{end}}
+
+{{if $EXEC_COMMAND}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Pausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: pause
+{{end}}
+
+- name: Exec command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Unpausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: unpause
+{{end}}
+
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+{{end}}
+
+{{if not $EXIT_AFTER_EXEC}}
+
+{{if not $IS_SMALL_CLUSTER}}
 - name: Deleting scheduler throughput pods
   phases:
   - namespaceRange:

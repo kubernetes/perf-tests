@@ -99,7 +99,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			}
 			// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
 			// Overall number of pods (especially Inactive pods) should not grow unchecked.
-			if options.CountErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-options.CountErrorMargin && len(pods) <= desiredPodCount {
+			if options.CountErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-options.CountErrorMargin && len(pods)-podsStatus.Inactive <= desiredPodCount && podsStatus.Inactive <= options.CountErrorMargin {
 				return nil
 			}
 			oldPods = pods

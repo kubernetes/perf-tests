@@ -75,7 +75,7 @@
 
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
-{{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) (MultiplyInt 2 .Nodes)}}
+{{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) .Nodes}}
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 {{$schedulerThroughputThreshold := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}

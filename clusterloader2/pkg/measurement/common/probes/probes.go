@@ -151,9 +151,16 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	if err != nil {
 		return err
 	}
+	turnOffLoggingToFile, err := util.GetBoolOrDefault(config.Params, "turnOffLoggingToFile", false)
+	if err != nil {
+		return err
+	}
 	p.framework = config.ClusterFramework
 	p.replicasPerProbe = replicasPerProbe
-	p.templateMapping = map[string]interface{}{"Replicas": replicasPerProbe}
+	p.templateMapping = map[string]interface{}{
+		"Replicas":                 replicasPerProbe,
+		"TURN_OFF_LOGGING_TO_FILE": turnOffLoggingToFile,
+	}
 	return nil
 }
 

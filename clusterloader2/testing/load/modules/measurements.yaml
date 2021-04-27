@@ -30,11 +30,16 @@
 steps:
 - name: "{{$action}}ing measurements"
   measurements:
-{{if $is_start}}
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
     Params:
       action: {{$action}}
+{{if $is_gather}}
+  {{if not $USE_SIMPLE_LATENCY_QUERY}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+  {{end}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
@@ -46,17 +51,6 @@ steps:
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-{{end}}
-{{if $is_gather}}
-  {{if not $USE_SIMPLE_LATENCY_QUERY}}
-  - Identifier: APIResponsivenessPrometheus
-    Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
-      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-  {{end}}
 {{end}}
   - Identifier: CreatePhasePodStartupLatency
     Method: PodStartupLatency
@@ -121,8 +115,8 @@ steps:
       action: {{$action}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
 {{if $is_start}}
       clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
 {{end}}
-      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
-      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

@@ -3,8 +3,6 @@
 ## Input params
 # Valid actions: "start", "gather"
 {{$action := .action}}
-{{$is_start := (eq $action "start")}}
-{{$is_gather := (eq $action "gather")}}
 
 ## Feature-gates and configs:
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
@@ -34,58 +32,46 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: {{$action}}
-{{if $is_gather}}
-  {{if not $USE_SIMPLE_LATENCY_QUERY}}
+{{if not $USE_SIMPLE_LATENCY_QUERY}}
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-  {{end}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
       action: {{$action}}
-{{if $is_gather}}
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
-{{end}}
   - Identifier: CreatePhasePodStartupLatency
     Method: PodStartupLatency
     Params:
       action: {{$action}}
-{{if $is_start}}
       labelSelector: group = load
       threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
-{{end}}
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
     Params:
       action: {{$action}}
-{{if $is_start}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-{{end}}
 {{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
   - Identifier: NodeLocalDNSLatency
     Method: NodeLocalDNSLatencyPrometheus
     Params:
       action: {{$action}}
-  {{if $is_gather}}
       enableViolations: true
       threshold: {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD}}
-  {{end}}
 {{end}}
   - Identifier: SLOMeasurement
     Method: SLOMeasurement
     Params:
       action: {{$action}}
-{{if $is_start}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
-{{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency
@@ -103,20 +89,16 @@ steps:
     Method: APIAvailability
     Params:
       action: {{$action}}
-  {{if $is_start}}
       pollFrequency: "5s"
       hostPollTimeoutSeconds: 5
       threshold: {{$API_AVAILABILITY_PERCENTAGE_THRESHOLD}}
-  {{end}}
 {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
       action: {{$action}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      clusterOOMsIgnoredProcesses: {{YamlQuote $CLUSTER_OOMS_IGNORED_PROCESSES 4}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
-{{if $is_start}}
-      clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
-{{end}}

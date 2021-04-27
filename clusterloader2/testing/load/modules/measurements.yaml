@@ -1,0 +1,104 @@
+## Measurement module defines test scoped measurement.
+
+## Input params
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+## Feature-gates and configs:
+{{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
+{{$API_AVAILABILITY_PERCENTAGE_THRESHOLD := DefaultParam .CL2_API_AVAILABILITY_PERCENTAGE_THRESHOLD 0.0}}
+{{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
+{{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
+{{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
+{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
+{{$ENABLE_NODE_LOCAL_DNS_LATENCY := DefaultParam .CL2_ENABLE_NODE_LOCAL_DNS_LATENCY false}}
+{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
+{{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
+{{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
+{{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
+{{$PROMETHEUS_SCRAPE_KUBE_STATE_METRICS := DefaultParam .PROMETHEUS_SCRAPE_KUBE_STATE_METRICS false}}
+{{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
+
+# Probe measurements shared parameter
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+
+steps:
+- name: "{{$action}}ing measurements"
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+{{if not $USE_SIMPLE_LATENCY_QUERY}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+{{end}}
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+  - Identifier: CreatePhasePodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: {{$action}}
+      labelSelector: group = load
+      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
+    Params:
+      action: {{$action}}
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
+  - Identifier: NodeLocalDNSLatency
+    Method: NodeLocalDNSLatencyPrometheus
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      threshold: {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD}}
+{{end}}
+  - Identifier: SLOMeasurement
+    Method: SLOMeasurement
+    Params:
+      action: {{$action}}
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
+  - Identifier: NetworkProgrammingLatency
+    Method: NetworkProgrammingLatency
+    Params:
+      action: {{$action}}
+{{end}}
+{{if $PROMETHEUS_SCRAPE_KUBE_STATE_METRICS}}
+  - Identifier: KubeStateMetricsLatency
+    Method: KubeStateMetricsLatency
+    Params:
+      action: {{$action}}
+{{end}}
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: {{$action}}
+      pollFrequency: "5s"
+      hostPollTimeoutSeconds: 5
+      threshold: {{$API_AVAILABILITY_PERCENTAGE_THRESHOLD}}
+{{end}}
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: {{$action}}
+      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      clusterOOMsIgnoredProcesses: {{YamlQuote $CLUSTER_OOMS_IGNORED_PROCESSES 4}}
+      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

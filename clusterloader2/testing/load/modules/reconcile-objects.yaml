@@ -1,17 +1,20 @@
 ## Input params
-# Valid actions: "creating", "scaling and updating"
+# Valid actions: "create", "scale and update", "delete"
 {{$actionName := printf "%s objects" .actionName}}
+{{$checkIfPodsAreUpdated := .checkIfPodsAreUpdated}}
 {{$namespaces := .namespaces}}
 
-# Derivative values
-{{$is_creating := (eq .actionName "creating")}}
-{{$is_scaling := (eq .actionName "scaling and updating")}}
+# Derivative variables
+{{$is_creating := (eq .actionName "create")}}
+{{$is_scaling := (eq .actionName "scale and update")}}
+{{$is_deleting := (eq .actionName "delete")}}
 {{$tuning_set := "N/A"}}
 {{if $is_creating}}{{$tuning_set = "RandomizedSaturationTimeLimited"}}{{end}}
 {{if $is_scaling}}{{$tuning_set = "RandomizedScalingTimeLimited"}}{{end}}
-
-## TODO: Document this one
+{{if $is_deleting}}{{$tuning_set = "RandomizedDeletionTimeLimited"}}{{end}}
 {{$randomScaleFactor := DefaultParam .randomScaleFactor 0}}
+{{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
+{{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
 
 # DaemonSets
 {{$daemonSetImage := DefaultParam .daemonSetImage "k8s.gcr.io/pause:3.0"}}
@@ -43,10 +46,8 @@
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
-
-## Variables
-{{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
-{{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
+{{$SMALL_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .SMALL_STATEFUL_SETS_PER_NAMESPACE 1}}
+{{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 
 steps:
 {{if $is_creating}}
@@ -72,7 +73,7 @@ steps:
         kind: Job
     Params:
       action: start
-      checkIfPodsAreUpdated: true
+      checkIfPodsAreUpdated: {{$checkIfPodsAreUpdated}}
       labelSelector: group = load
       operationTimeout: 15m
 {{end}}
@@ -97,7 +98,7 @@ steps:
     replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
     tuningSet: {{$tuning_set}}
     objectBundle:
-{{if $is_creating}}
+{{if not $is_scaling}}
     - basename: big-deployment
       objectTemplatePath: configmap.yaml
     - basename: big-deployment
@@ -109,6 +110,7 @@ steps:
 {{end}}
     - basename: big-deployment
       objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
       templateFillMap:
         # DNS Test clients are enabled only in the medium-size deployment.
         EnableDNSTests: false
@@ -116,13 +118,14 @@ steps:
         ReplicasMax: {{MultiplyInt $bigDeploymentSize $maxReplicaFactor}}
         SvcName: big-service
         CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
     tuningSet: {{$tuning_set}}
     objectBundle:
-{{if $is_creating}}
+{{if not $is_scaling}}
     - basename: medium-deployment
       objectTemplatePath: configmap.yaml
     - basename: medium-deployment
@@ -134,19 +137,21 @@ steps:
 {{end}}
     - basename: medium-deployment
       objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
       templateFillMap:
         EnableDNSTests: {{$ENABLE_DNSTESTS}}
         ReplicasMin: {{MultiplyInt $mediumDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumDeploymentSize $maxReplicaFactor}}
         SvcName: medium-service
         CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
     tuningSet: {{$tuning_set}}
     objectBundle:
-{{if $is_creating}}
+{{if not $is_scaling}}
     - basename: small-deployment
       objectTemplatePath: configmap.yaml
     - basename: small-deployment
@@ -158,6 +163,7 @@ steps:
 {{end}}
     - basename: small-deployment
       objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
       templateFillMap:
         # DNS Test clients are enabled only in the medium-size deployment.
         EnableDNSTests: false
@@ -165,47 +171,54 @@ steps:
         ReplicasMax: {{MultiplyInt $smallDeploymentSize $maxReplicaFactor}}
         SvcName: small-service
         CpuRequest: 5m
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$smallStatefulSetsPerNamespace}}
     tuningSet: {{$tuning_set}}
     objectBundle:
-{{if $is_creating}}
+{{if not $is_scaling}}
     - basename: small-statefulset
       objectTemplatePath: statefulset_service.yaml
 {{end}}
     - basename: small-statefulset
       objectTemplatePath: statefulset.yaml
+{{if not $is_deleting}}
       templateFillMap:
         ReplicasMin: {{MultiplyInt $smallStatefulSetSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallStatefulSetSize $maxReplicaFactor}}
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$mediumStatefulSetsPerNamespace}}
     tuningSet: {{$tuning_set}}
     objectBundle:
-{{if $is_creating}}
+{{if not $is_scaling}}
     - basename: medium-statefulset
       objectTemplatePath: statefulset_service.yaml
 {{end}}
     - basename: medium-statefulset
       objectTemplatePath: statefulset.yaml
+{{if not $is_deleting}}
       templateFillMap:
         ReplicasMin: {{MultiplyInt $mediumStatefulSetSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumStatefulSetSize $maxReplicaFactor}}
-{{if $is_scaling}}
+{{end}}
+{{if not $is_creating}}
   - namespaceRange:
       min: 1
       max: 1
     replicasPerNamespace: {{$daemonSetReplicas}}
-    tuningset: RandomizedScalingTimeLimited
+    tuningset: {{$tuning_set}}
     objectBundle:
     - basename: daemonset
       objectTemplatePath: daemonset.yaml
+  {{if $is_scaling}}
       templateFillMap:
         Image: {{$daemonSetImage}}
+  {{end}}
 {{end}}
   - namespaceRange:
       min: 1
@@ -215,9 +228,11 @@ steps:
     objectBundle:
     - basename: small-job
       objectTemplatePath: job.yaml
+{{if not $is_deleting}}
       templateFillMap:
         ReplicasMin: {{MultiplyInt $smallJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallJobSize $maxReplicaFactor}}
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -226,9 +241,11 @@ steps:
     objectBundle:
     - basename: medium-job
       objectTemplatePath: job.yaml
+{{if not $is_deleting}}
       templateFillMap:
         ReplicasMin: {{MultiplyInt $mediumJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumJobSize $maxReplicaFactor}}
+{{end}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -237,9 +254,40 @@ steps:
     objectBundle:
     - basename: big-job
       objectTemplatePath: job.yaml
+{{if not $is_deleting}}
       templateFillMap:
         ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
+{{else if $ENABLE_PVS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedDeletionTimeLimited
+    objectBundle:
+  {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-small-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: small-statefulset-{{$ssIndex}}
+  {{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedDeletionTimeLimited
+    objectBundle:
+  {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-medium-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: medium-statefulset-{{$ssIndex}}
+  {{end}}
+{{end}}
 
 - name: Waiting for '{{$actionName}}' to be completed
   measurements:
@@ -251,3 +299,11 @@ steps:
     - Identifier: WaitForRunningJobs
     Params:
       action: gather
+{{if and $is_deleting $ENABLE_PVS}}
+  - Identifier: WaitForPVCsToBeDeleted
+    Method: WaitForBoundPVCs
+    Params:
+      desiredPVCCount: 0
+      labelSelector: group = load
+      timeout: 15m
+{{end}}

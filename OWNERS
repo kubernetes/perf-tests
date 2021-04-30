@@ -4,3 +4,6 @@ approvers:
 - shyamjvs
 - timothysc
 - wojtek-t
+
+reviewers:
+- sig-scalability-reviewers

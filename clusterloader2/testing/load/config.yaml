@@ -23,7 +23,7 @@
 {{$DISABLE_DAEMONSETS := DefaultParam .CL2_DISABLE_DAEMONSETS false}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
-{{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
+{{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -69,6 +69,10 @@
 {{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 1 $schedulerThroughputNamespaces}}
 # END scheduler-throughput section
 
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
+{{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 name: load
 namespace:
@@ -307,6 +311,44 @@ steps:
      - Identifier: WaitForRunningJobs
     Params:
       action: gather
+
+{{if $EXEC_COMMAND}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Pausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: pause
+{{end}}
+
+- name: Exec command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+
+{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+- name: Unpausing APIAvailability measurement
+  measurements:
+  - Identifier: APIAvailability
+    Method: APIAvailability
+    Params:
+      action: unpause
+{{end}}
+
+- name: Sleep
+  measurements:
+  - Identifier: WaitAfterExec
+    Method: Sleep
+    Params:
+      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+{{end}}
 
 - module:
     path: /modules/scheduler-throughput.yaml

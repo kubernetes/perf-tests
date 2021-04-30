@@ -2,13 +2,10 @@
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 {{$schedulerThroughputPodsPerDeployment := .schedulerThroughputPodsPerDeployment}}
 
-{{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
-{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
 {{$IS_SMALL_CLUSTER := lt .Nodes 100}}
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
-{{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 steps:
 {{if not $IS_SMALL_CLUSTER}}
@@ -84,40 +81,6 @@ steps:
       action: gather
       enableViolations: true
       threshold: {{$SCHEDULER_THROUGHPUT_THRESHOLD}}
-{{end}}
-
-{{if $EXEC_COMMAND}}
-  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Pausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: pause
-  {{end}}
-- name: Exec command
-  measurements:
-  - Identifier: ExecCommand
-    Method: Exec
-    Params:
-      command:
-  {{range $EXEC_COMMAND}}
-      - {{.}}
-  {{end}}
-  {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Unpausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: unpause
-  {{end}}
-- name: Sleep
-  measurements:
-  - Identifier: WaitAfterExec
-    Method: Sleep
-    Params:
-      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
 {{end}}
 
 {{if not $EXIT_AFTER_EXEC}}

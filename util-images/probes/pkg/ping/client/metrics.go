@@ -19,6 +19,7 @@ package pingclient
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/perf-tests/util-images/probes/pkg/common"
+	"k8s.io/perf-tests/util-images/probes/pkg/util"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 	inClusterNetworkLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: common.ProbeNamespace,
 		Name:      "in_cluster_network_latency_seconds",
-		Buckets: merge(
+		Buckets: util.MergeBuckets(
 			prometheus.LinearBuckets(0.025, 0.025, 3), // 25ms, 50ms, 75ms
 			prometheus.LinearBuckets(0.1, 0.05, 18),   // 100ms, 150ms, 200ms... 950ms
 			prometheus.LinearBuckets(1, 1, 5),         // 1s, 2s, 3s, 4s, 5s

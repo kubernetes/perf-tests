@@ -58,6 +58,14 @@ var (
 		Manifests:        "dnsLookup/*yaml",
 		ProbeLabelValues: []string{"dns"},
 	}
+
+	metricsServerLatencyConfig = proberConfig{
+		Name:             "InClusterAPIServerRequestLatency",
+		MetricVersion:    "v1",
+		Query:            "quantile_over_time(0.99, probes:in_cluster_apiserver_request_latency:histogram_quantile[%v])",
+		Manifests:        "metricsServer/*.yaml",
+		ProbeLabelValues: []string{"kube-client"},
+	}
 )
 
 func init() {
@@ -68,6 +76,10 @@ func init() {
 	create = func() measurement.Measurement { return createProber(dnsLookupConfig) }
 	if err := measurement.Register(dnsLookupConfig.Name, create); err != nil {
 		klog.Errorf("cannot register %s: %v", dnsLookupConfig.Name, err)
+	}
+	create = func() measurement.Measurement { return createProber(metricsServerLatencyConfig) }
+	if err := measurement.Register(metricsServerLatencyConfig.Name, create); err != nil {
+		klog.Errorf("cannot register %s: %v", metricsServerLatencyConfig.Name, err)
 	}
 }
 

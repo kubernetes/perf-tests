@@ -105,6 +105,9 @@ func validateClusterFlags() *errors.ErrorList {
 			errList.Append(fmt.Errorf("no kubeconfig path specified when --run-from-cluster is unset"))
 		}
 	}
+	if clusterLoaderConfig.PrometheusConfig.PreInstallServer && clusterLoaderConfig.PrometheusConfig.EnableServer {
+		errList.Append(fmt.Errorf("can not enable prometheus server and use preinstall prometheus server at the same time"))
+	}
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportEnablePrometheusServer {
 			errList.Append(fmt.Errorf("cannot enable prometheus server for provider %s", clusterLoaderConfig.ClusterConfig.Provider.Name()))
@@ -290,6 +293,13 @@ func main() {
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
 			klog.Exitf("Error while setting up prometheus stack: %v", err)
 		}
+	} else if clusterLoaderConfig.PrometheusConfig.PreInstallServer {
+		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
+			klog.Exitf("Error while creating Prometheus Controller: %v", err)
+		}
+
+		prometheusFramework = prometheusController.GetFramework()
+		// TODO: verify endpoint is up?
 	}
 	if clusterLoaderConfig.EnableExecService {
 		if err := execservice.SetUpExecService(f); err != nil {

@@ -162,6 +162,20 @@ Allows to scrape metrics from all pods in service. Here you can find example [Se
 - **PodMonitor** \
 Allows to scrape metrics from all pods with specific label. Here you can find example [Pod monitor]
 
+### Use preinstall Prometheus server
+
+If you already have a prometheus server to use in the cluster, you can ask CL2 to scrape metrics from that target server
+instead of setting up new prometheus and deleting it after the test.
+
+Following options are used to enable preinstall prometheus server and specify service details
+
+```
+--preinstall-prometheus-server
+--preinstall-prometheus-service-namespace
+--preinstall-prometheus-service-name
+--preinstall-prometheus-service-port
+```
+
 ## Vendor
 
 Vendor is created using [Go modules].

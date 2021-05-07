@@ -36,6 +36,7 @@ func NewKubemarkProvider(config map[string]string) *KubemarkProvider {
 	return &KubemarkProvider{
 		features: Features{
 			SupportSSHToMaster:                  true,
+			SupportImagePreload:                 true,
 			SupportEnablePrometheusServer:       supportEnablePrometheusServer,
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportSnapshotPrometheusDisk:       true,

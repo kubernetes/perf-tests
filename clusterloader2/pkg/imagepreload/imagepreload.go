@@ -35,6 +35,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
 const (
@@ -44,7 +45,9 @@ const (
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
 	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
-	pollingTimeout = 5 * time.Minute
+	pollingTimeout   = 5 * time.Minute
+	numK8sClients    = 1
+	hollowNodePrefix = "hollow-node-"
 )
 
 var images []string
@@ -59,6 +62,7 @@ type controller struct {
 
 	config          *config.ClusterLoaderConfig
 	framework       *framework.Framework
+	rootFramework   *framework.Framework
 	templateMapping map[string]interface{}
 	images          []string
 }
@@ -76,10 +80,21 @@ func Setup(conf *config.ClusterLoaderConfig, f *framework.Framework) error {
 
 	ctl := &controller{
 		config:          conf,
-		framework:       f,
 		templateMapping: mapping,
 		images:          images,
 	}
+
+	if conf.ClusterConfig.Provider.Name() == provider.KubemarkName {
+		rf, err := framework.NewRootFramework(&conf.ClusterConfig, numK8sClients)
+		if err != nil {
+			return err
+		}
+		ctl.rootFramework = rf
+		ctl.framework = f
+	} else {
+		ctl.rootFramework = f
+	}
+
 	return ctl.PreloadImages()
 }
 
@@ -93,7 +108,7 @@ func (c *controller) PreloadImages() error {
 		return nil
 	}
 
-	kclient := c.framework.GetClientSets().GetClient()
+	kclient := c.rootFramework.GetClientSets().GetClient()
 
 	doneNodes := make(map[string]bool)
 	stopCh := make(chan struct{})
@@ -120,7 +135,7 @@ func (c *controller) PreloadImages() error {
 
 	klog.V(2).Info("Creating daemonset to preload images...")
 	c.templateMapping["Images"] = c.images
-	if err := c.framework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
+	if err := c.rootFramework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
 		return err
 	}
 
@@ -147,6 +162,13 @@ func (c *controller) PreloadImages() error {
 	}
 	klog.V(2).Info("Waiting... done")
 
+	if c.config.ClusterConfig.Provider.Name() == provider.KubemarkName {
+		err := c.checkImagesOnHollowNodes()
+		if err != nil {
+			return err
+		}
+	}
+
 	klog.V(2).Infof("Deleting namespace %s...", namespace)
 	if err := client.DeleteNamespace(kclient, namespace); err != nil {
 		return err
@@ -154,6 +176,41 @@ func (c *controller) PreloadImages() error {
 	if err := client.WaitForDeleteNamespace(kclient, namespace); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (c *controller) checkImagesOnHollowNodes() error {
+	klog.V(2).Info("Checking for pulled images on kubemark cluster...")
+	kubemarkClient := c.framework.GetClientSets().GetClient()
+	numHollowNodes := 0
+	doneHollowNodes := make(map[string]bool)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	kubemarkNodeInformer := informer.NewInformer(
+		kubemarkClient,
+		"nodes",
+		util.NewObjectSelector(),
+		func(old, new interface{}) {
+			node := new.(*v1.Node)
+			if strings.HasPrefix(node.Name, hollowNodePrefix) {
+				numHollowNodes++
+				c.checkNode(node, doneHollowNodes)
+			}
+		})
+	if err := informer.StartAndSync(kubemarkNodeInformer, stopCh, informerTimeout); err != nil {
+		return err
+	}
+
+	klog.V(2).Infof("Waiting for hollow %d Node objects to be updated...", numHollowNodes)
+	if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
+		klog.V(2).Infof("%d out of %d hollow nodes have pulled images", len(doneHollowNodes), numHollowNodes)
+		return len(doneHollowNodes) == numHollowNodes, nil
+	}); err != nil {
+		return err
+	}
+	klog.V(2).Info("Waiting... done")
+
 	return nil
 }
 

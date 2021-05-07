@@ -47,6 +47,8 @@ spec:
           requests:
             cpu: {{$CpuRequest}}
             memory: {{$MemoryRequest}}
+          limits:
+            memory: {{$MemoryRequest}}
         volumeMounts:
         {{if or $EnableImmutableSecretsAndConfigmaps (eq (Mod .Index 20) 0 19) }}
           - name: configmap

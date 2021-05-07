@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -73,7 +74,9 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	clusterLoaderConfig := ctx.GetClusterLoaderConfig()
 	testScenario := ctx.GetTestScenario()
 	testConfigFilename := filepath.Base(testScenario.ConfigPath)
-	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, ctx.GetTemplateMappingCopy())
+	mapping := ctx.GetTemplateMappingCopy()
+	klog.Infof("Running %q with mapping %v", testConfigFilename, mapping)
+	testConfig, err := ctx.GetTemplateProvider().TemplateToConfig(testConfigFilename, mapping)
 	if err != nil {
 		return nil, errors.NewErrorList(fmt.Errorf("config reading error: %v", err))
 	}

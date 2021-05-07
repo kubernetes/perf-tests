@@ -54,6 +54,8 @@ type Features struct {
 	SupportGrabMetricsFromKubelets bool
 	// SupportKubeStateMetrics determines if running kube-state-metrics is supported.
 	SupportKubeStateMetrics bool
+	// SupportMetricsServerMetrics determines if running metrics server is supported.
+	SupportMetricsServerMetrics bool
 
 	// ShouldPrometheusScrapeApiserverOnly determines if we should set PROMETHEUS_SCRAPE_APISERVER_ONLY by default.
 	ShouldPrometheusScrapeApiserverOnly bool

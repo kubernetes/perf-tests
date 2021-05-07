@@ -45,6 +45,7 @@ func NewGCEProvider(_ map[string]string) Provider {
 			SupportGrabMetricsFromKubelets:      true,
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportKubeStateMetrics:             true,
+			SupportMetricsServerMetrics:         true,
 		},
 	}
 }

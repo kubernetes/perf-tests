@@ -1,0 +1,309 @@
+## Input params
+# Valid actions: "create", "scale and update", "delete"
+{{$actionName := printf "%s objects" .actionName}}
+{{$checkIfPodsAreUpdated := .checkIfPodsAreUpdated}}
+{{$namespaces := .namespaces}}
+
+# Derivative variables
+{{$is_creating := (eq .actionName "create")}}
+{{$is_scaling := (eq .actionName "scale and update")}}
+{{$is_deleting := (eq .actionName "delete")}}
+{{$tuning_set := "N/A"}}
+{{if $is_creating}}{{$tuning_set = "RandomizedSaturationTimeLimited"}}{{end}}
+{{if $is_scaling}}{{$tuning_set = "RandomizedScalingTimeLimited"}}{{end}}
+{{if $is_deleting}}{{$tuning_set = "RandomizedDeletionTimeLimited"}}{{end}}
+{{$randomScaleFactor := DefaultParam .randomScaleFactor 0}}
+{{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
+{{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
+
+# DaemonSets
+{{$daemonSetImage := DefaultParam .daemonSetImage "k8s.gcr.io/pause:3.0"}}
+{{$daemonSetReplicas := .daemonSetReplicas}}
+
+# Deployments
+{{$bigDeploymentSize := .bigDeploymentSize}}
+{{$bigDeploymentsPerNamespace := .bigDeploymentsPerNamespace}}
+{{$mediumDeploymentSize := .mediumDeploymentSize}}
+{{$mediumDeploymentsPerNamespace := .mediumDeploymentsPerNamespace}}
+{{$smallDeploymentSize := .smallDeploymentSize}}
+{{$smallDeploymentsPerNamespace := .smallDeploymentsPerNamespace}}
+
+# StatefulSets
+{{$smallStatefulSetSize := .smallStatefulSetSize}}
+{{$smallStatefulSetsPerNamespace := .smallStatefulSetsPerNamespace}}
+{{$mediumStatefulSetSize := .mediumStatefulSetSize}}
+{{$mediumStatefulSetsPerNamespace := .mediumStatefulSetsPerNamespace}}
+
+# Jobs
+{{$bigJobSize := .bigJobSize}}
+{{$bigJobsPerNamespace := .bigJobsPerNamespace}}
+{{$mediumJobSize := .mediumJobSize}}
+{{$mediumJobsPerNamespace := .mediumJobsPerNamespace}}
+{{$smallJobSize := .smallJobSize}}
+{{$smallJobsPerNamespace := .smallJobsPerNamespace}}
+
+## CL2 params
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+{{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
+{{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
+{{$SMALL_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .SMALL_STATEFUL_SETS_PER_NAMESPACE 1}}
+{{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
+
+steps:
+{{if $is_creating}}
+- name: Starting measurement for '{{$actionName}}'
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    - Identifier: WaitForRunningStatefulSets
+      Params:
+        apiVersion: apps/v1
+        kind: StatefulSet
+    - Identifier: WaitForRunningDaemonSets
+      Params:
+        apiVersion: apps/v1
+        kind: DaemonSet
+    - Identifier: WaitForRunningJobs
+      Params:
+        apiVersion: batch/v1
+        kind: Job
+    Params:
+      action: start
+      checkIfPodsAreUpdated: {{$checkIfPodsAreUpdated}}
+      labelSelector: group = load
+      operationTimeout: 15m
+{{end}}
+
+- name: {{$actionName}}
+  phases:
+{{if $is_creating}}
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$daemonSetReplicas}}
+    tuningSet: RandomizedSaturationTimeLimited
+    objectBundle:
+    - basename: daemonset
+      objectTemplatePath: daemonset.yaml
+      templateFillMap:
+        Image: {{$daemonSetImage}}
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+{{if not $is_scaling}}
+    - basename: big-deployment
+      objectTemplatePath: configmap.yaml
+    - basename: big-deployment
+      objectTemplatePath: secret.yaml
+  {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: big-deployment
+      objectTemplatePath: networkpolicy.yaml
+  {{end}}
+{{end}}
+    - basename: big-deployment
+      objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
+        ReplicasMin: {{MultiplyInt $bigDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $bigDeploymentSize $maxReplicaFactor}}
+        SvcName: big-service
+        CpuRequest: 5m
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+{{if not $is_scaling}}
+    - basename: medium-deployment
+      objectTemplatePath: configmap.yaml
+    - basename: medium-deployment
+      objectTemplatePath: secret.yaml
+  {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: medium-deployment
+      objectTemplatePath: networkpolicy.yaml
+  {{end}}
+{{end}}
+    - basename: medium-deployment
+      objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        EnableDNSTests: {{$ENABLE_DNSTESTS}}
+        ReplicasMin: {{MultiplyInt $mediumDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $mediumDeploymentSize $maxReplicaFactor}}
+        SvcName: medium-service
+        CpuRequest: 5m
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+{{if not $is_scaling}}
+    - basename: small-deployment
+      objectTemplatePath: configmap.yaml
+    - basename: small-deployment
+      objectTemplatePath: secret.yaml
+  {{if $ENABLE_NETWORKPOLICIES}}
+    - basename: small-deployment
+      objectTemplatePath: networkpolicy.yaml
+  {{end}}
+{{end}}
+    - basename: small-deployment
+      objectTemplatePath: deployment.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        # DNS Test clients are enabled only in the medium-size deployment.
+        EnableDNSTests: false
+        ReplicasMin: {{MultiplyInt $smallDeploymentSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $smallDeploymentSize $maxReplicaFactor}}
+        SvcName: small-service
+        CpuRequest: 5m
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallStatefulSetsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+{{if not $is_scaling}}
+    - basename: small-statefulset
+      objectTemplatePath: statefulset_service.yaml
+{{end}}
+    - basename: small-statefulset
+      objectTemplatePath: statefulset.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $smallStatefulSetSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $smallStatefulSetSize $maxReplicaFactor}}
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumStatefulSetsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+{{if not $is_scaling}}
+    - basename: medium-statefulset
+      objectTemplatePath: statefulset_service.yaml
+{{end}}
+    - basename: medium-statefulset
+      objectTemplatePath: statefulset.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $mediumStatefulSetSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $mediumStatefulSetSize $maxReplicaFactor}}
+{{end}}
+{{if not $is_creating}}
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$daemonSetReplicas}}
+    tuningset: {{$tuning_set}}
+    objectBundle:
+    - basename: daemonset
+      objectTemplatePath: daemonset.yaml
+  {{if $is_scaling}}
+      templateFillMap:
+        Image: {{$daemonSetImage}}
+  {{end}}
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallJobsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+    - basename: small-job
+      objectTemplatePath: job.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $smallJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $smallJobSize $maxReplicaFactor}}
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumJobsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+    - basename: medium-job
+      objectTemplatePath: job.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $mediumJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $mediumJobSize $maxReplicaFactor}}
+{{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigJobsPerNamespace}}
+    tuningSet: {{$tuning_set}}
+    objectBundle:
+    - basename: big-job
+      objectTemplatePath: job.yaml
+{{if not $is_deleting}}
+      templateFillMap:
+        ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
+{{else if $ENABLE_PVS}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedDeletionTimeLimited
+    objectBundle:
+  {{range $ssIndex := Loop $SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-small-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: small-statefulset-{{$ssIndex}}
+  {{end}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: RandomizedDeletionTimeLimited
+    objectBundle:
+  {{range $ssIndex := Loop $MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+      - basename: pv-medium-statefulset-{{$ssIndex}}
+        objectTemplatePath: pvc.yaml
+        listUnknownObjectOptions:
+          labelSelector:
+            matchLabels:
+              name: medium-statefulset-{{$ssIndex}}
+  {{end}}
+{{end}}
+
+- name: Waiting for '{{$actionName}}' to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    - Identifier: WaitForRunningStatefulSets
+    - Identifier: WaitForRunningDaemonSets
+    - Identifier: WaitForRunningJobs
+    Params:
+      action: gather
+{{if and $is_deleting $ENABLE_PVS}}
+  - Identifier: WaitForPVCsToBeDeleted
+    Method: WaitForBoundPVCs
+    Params:
+      desiredPVCCount: 0
+      labelSelector: group = load
+      timeout: 15m
+{{end}}

@@ -15,7 +15,9 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-testimages/perfdash:2.33
+        # Version 2.33 consumes > 32GiB of memory.
+        # TODO: Introduce 2.34 version which conditionally disables functionality added in 2.32 and disable it in this perf-dash instance.
+        image: gcr.io/k8s-testimages/perfdash:2.32
         command:
           - /perfdash
           -   --www=true
@@ -36,9 +38,9 @@ spec:
           timeoutSeconds: 1
         resources:
           requests:
-            cpu: "5"
-            memory: 20Gi
+            cpu: "3"
+            memory: 10Gi
           limits:
-            cpu: "5"
-            memory: 20Gi
+            cpu: "3"
+            memory: 10Gi
       restartPolicy: Always

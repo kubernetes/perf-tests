@@ -66,6 +66,13 @@ type ModifierConfig struct {
 type PrometheusConfig struct {
 	EnableServer              bool
 	TearDownServer            bool
+	PreInstallServer          bool
+	PreInstallNamespace       string
+	PreInstallServiceName     string
+	PreInstallServicePort     int
+	Namespace                 string
+	ServiceName               string
+	ServicePort               int
 	ScrapeEtcd                bool
 	ScrapeNodeExporter        bool
 	ScrapeKubelets            bool

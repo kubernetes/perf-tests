@@ -18,6 +18,7 @@ package common
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/common/model"
@@ -34,7 +35,7 @@ func CreatePrometheusMeasurement(gatherer Gatherer) measurement.Measurement {
 	}
 }
 
-// QueryExecutor is an interface for queryning Prometheus server.
+// QueryExecutor is an interface for querying Prometheus server.
 type QueryExecutor interface {
 	Query(query string, queryTime time.Time) ([]*model.Sample, error)
 }
@@ -83,7 +84,8 @@ func (m *prometheusMeasurement) Execute(config *measurement.Config) ([]measureme
 		}
 
 		c := config.PrometheusFramework.GetClientSets().GetClient()
-		executor := measurementutil.NewQueryExecutor(c)
+		prometheusSvcConfig := config.ClusterLoaderConfig.PrometheusConfig
+		executor := measurementutil.NewQueryExecutor(c, prometheusSvcConfig.Namespace, prometheusSvcConfig.ServiceName, strconv.Itoa(prometheusSvcConfig.ServicePort))
 
 		summary, err := m.gatherer.Gather(executor, m.startTime, config)
 		if err != nil {

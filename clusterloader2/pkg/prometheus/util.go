@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 )
 
 const allTargets = -1
@@ -44,16 +46,17 @@ type Target struct {
 
 // CheckAllTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // all of them are ready.
-func CheckAllTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int) (bool, error) {
-	return CheckTargetsReady(k8sClient, selector, minActiveTargets, allTargets)
+func CheckAllTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int, config config.PrometheusConfig) (bool, error) {
+	return CheckTargetsReady(k8sClient, selector, minActiveTargets, allTargets, config)
 }
 
 // CheckTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // at least minReadyTargets of them are ready.
-func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
+func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int, config config.PrometheusConfig) (bool, error) {
 	raw, err := k8sClient.CoreV1().
-		Services(namespace).
-		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
+		// Pass config to utility
+		Services(config.Namespace).
+		ProxyGet("http", config.ServiceName, strconv.Itoa(config.ServicePort), "api/v1/targets", nil /*params*/).
 		DoRaw(context.TODO())
 	if err != nil {
 		response := "(empty)"

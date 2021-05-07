@@ -42,7 +42,9 @@ import (
 )
 
 const (
-	namespace                    = "monitoring"
+	defaultNamespace             = "monitoring"
+	defaultServiceName           = "prometheus-k8s"
+	defaultServicePort           = 9090
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
 	checkPrometheusReadyTimeout  = 15 * time.Minute
@@ -53,6 +55,10 @@ const (
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
+	flags.BoolEnvVar(&p.PreInstallServer, "preinstall-prometheus-server", "PREINSTALL_PROMETHEUS_SERVER", false, "Whether to use preinstall prometheus server in the tests.")
+	flags.StringEnvVar(&p.PreInstallNamespace, "preinstall-prometheus-service-namespace", "PREINSTALL_PROMETHEUS_SERVICE_NAMESPACE", "", "The namespace of preinstall prometheus service.")
+	flags.StringEnvVar(&p.PreInstallServiceName, "preinstall-prometheus-service-name", "PREINSTALL_PROMETHEUS_SERVICE_NAME", "", "The name of preinstall prometheus service.")
+	flags.IntEnvVar(&p.PreInstallServicePort, "preinstall-prometheus-service-port", "PREINSTALL_PROMETHEUS_SERVICE_PORT", 0, "The port of preinstall prometheus service.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
 	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
@@ -92,13 +98,23 @@ type Controller struct {
 	ssh util.SSHExecutor
 }
 
-// CompleteConfig completes Prometheus manifest file path config
+// CompleteConfig completes Prometheus manifest file path config and preinstall server config
 func CompleteConfig(p *config.PrometheusConfig) {
 	p.CoreManifests = p.ManifestPath + "/*.yaml"
 	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
 	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
 	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
+	p.Namespace = defaultNamespace
+	p.ServiceName = defaultServiceName
+	p.ServicePort = defaultServicePort
+
+	// Override default value if user wants to use preinstalled prometheus server
+	if p.PreInstallServer {
+		p.Namespace = p.PreInstallNamespace
+		p.ServiceName = p.PreInstallServiceName
+		p.ServicePort = p.PreInstallServicePort
+	}
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -170,7 +186,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	k8sClient := pc.framework.GetClientSets().GetClient()
 
 	klog.V(2).Info("Setting up prometheus stack")
-	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
+	if err := client.CreateNamespace(k8sClient, pc.clusterLoaderConfig.PrometheusConfig.Namespace); err != nil {
 		return err
 	}
 	// If enabled scraping windows node, need to setup windows node and template mapping
@@ -212,7 +228,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
-		dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient)
+		dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient, pc.clusterLoaderConfig.PrometheusConfig)
 		return err
 	}
 	klog.V(2).Info("Prometheus stack set up successfully")
@@ -240,10 +256,10 @@ func (pc *Controller) TearDownPrometheusStack() error {
 
 	klog.V(2).Info("Tearing down prometheus stack")
 	k8sClient := pc.framework.GetClientSets().GetClient()
-	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
+	if err := client.DeleteNamespace(k8sClient, pc.clusterLoaderConfig.PrometheusConfig.Namespace); err != nil {
 		return err
 	}
-	if err := client.WaitForDeleteNamespace(k8sClient, namespace); err != nil {
+	if err := client.WaitForDeleteNamespace(k8sClient, pc.clusterLoaderConfig.PrometheusConfig.Namespace); err != nil {
 		return err
 	}
 	return nil
@@ -362,7 +378,8 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
-			expectedTargets)
+			expectedTargets,
+			pc.clusterLoaderConfig.PrometheusConfig)
 		if err != nil || !ok {
 			return ok, err
 		}
@@ -370,12 +387,14 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
-			1) // one of them should be healthy
+			1, // one of them should be healthy
+			pc.clusterLoaderConfig.PrometheusConfig)
 	}
 	return CheckAllTargetsReady(
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
-		expectedTargets)
+		expectedTargets,
+		pc.clusterLoaderConfig.PrometheusConfig)
 }
 
 func retryCreateFunction(f func() error) error {
@@ -388,9 +407,9 @@ func (pc *Controller) isKubemark() bool {
 	return pc.provider.Name() == "kubemark"
 }
 
-func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {
+func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface, config config.PrometheusConfig) {
 	klog.V(2).Info("Dumping monitoring/prometheus-k8s events...")
-	list, err := client.ListEvents(k8sClient, namespace, "prometheus-k8s")
+	list, err := client.ListEvents(k8sClient, config.Namespace, config.ServiceName)
 	if err != nil {
 		klog.Warningf("Error while listing monitoring/prometheus-k8s events: %v", err)
 		return

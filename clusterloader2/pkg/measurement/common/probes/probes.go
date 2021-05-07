@@ -19,10 +19,12 @@ package probes
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
@@ -92,6 +94,7 @@ type probesMeasurement struct {
 	replicasPerProbe int
 	templateMapping  map[string]interface{}
 	startTime        time.Time
+	prometheusConfig config.PrometheusConfig
 }
 
 // Execute supports two actions:
@@ -115,7 +118,7 @@ func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.S
 	case "start":
 		return nil, p.start(config)
 	case "gather":
-		summary, err := p.gather(config.Params)
+		summary, err := p.gather(config.Params, config.ClusterLoaderConfig.PrometheusConfig)
 		if err != nil && !errors.IsMetricViolationError(err) {
 			return nil, err
 		}
@@ -154,6 +157,7 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	p.framework = config.ClusterFramework
 	p.replicasPerProbe = replicasPerProbe
 	p.templateMapping = map[string]interface{}{"Replicas": replicasPerProbe}
+	p.prometheusConfig = config.ClusterLoaderConfig.PrometheusConfig
 	return nil
 }
 
@@ -179,7 +183,7 @@ func (p *probesMeasurement) start(config *measurement.Config) error {
 	return nil
 }
 
-func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.Summary, error) {
+func (p *probesMeasurement) gather(params map[string]interface{}, config config.PrometheusConfig) (measurement.Summary, error) {
 	klog.V(2).Info("Gathering metrics from probes...")
 	if p.startTime.IsZero() {
 		return nil, fmt.Errorf("measurement %s has not been started", p)
@@ -191,7 +195,8 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 	measurementEnd := time.Now()
 
 	query := prepareQuery(p.config.Query, p.startTime, measurementEnd)
-	executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
+	executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient(),
+		config.Namespace, config.ServiceName, strconv.Itoa(config.ServicePort))
 	samples, err := executor.Query(query, measurementEnd)
 	if err != nil {
 		return nil, err
@@ -247,7 +252,7 @@ func (p *probesMeasurement) checkProbesReady() (bool, error) {
 	}
 	expectedTargets := p.replicasPerProbe * len(p.config.ProbeLabelValues)
 	return prometheus.CheckAllTargetsReady(
-		p.framework.GetClientSets().GetClient(), selector, expectedTargets)
+		p.framework.GetClientSets().GetClient(), selector, expectedTargets, p.prometheusConfig)
 }
 
 func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {

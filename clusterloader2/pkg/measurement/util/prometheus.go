@@ -85,13 +85,21 @@ type promResponseData struct {
 }
 
 // NewQueryExecutor creates instance of PrometheusQueryExecutor.
-func NewQueryExecutor(c clientset.Interface) *PrometheusQueryExecutor {
-	return &PrometheusQueryExecutor{client: c}
+func NewQueryExecutor(c clientset.Interface, namespace, name, port string) *PrometheusQueryExecutor {
+	return &PrometheusQueryExecutor{
+		client:           c,
+		serviceNamespace: namespace,
+		serviceName:      name,
+		servicePort:      port,
+	}
 }
 
 // PrometheusQueryExecutor executes queries against Prometheus instance running inside test cluster.
 type PrometheusQueryExecutor struct {
-	client clientset.Interface
+	client           clientset.Interface
+	serviceNamespace string
+	serviceName      string
+	servicePort      string
 }
 
 // Query executes given prometheus query at given point in time.
@@ -109,8 +117,9 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 	klog.V(2).Infof("Executing %q at %v", query, queryTime.Format(time.RFC3339))
 	if err := wait.PollImmediate(queryInterval, queryTimeout, func() (bool, error) {
 		body, queryErr = e.client.CoreV1().
-			Services("monitoring").
-			ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
+			// We have to make this part of the configuration. if config doesn't existing, then load from default.
+			Services(e.serviceNamespace).
+			ProxyGet("http", e.serviceName, e.servicePort, "api/v1/query", params).
 			DoRaw(context.TODO())
 		if queryErr != nil {
 			return false, nil

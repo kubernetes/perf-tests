@@ -1,0 +1,95 @@
+# LOAD_BALANCER_BACKEND_SIZE specifies the number of backend pods behind each LB
+{{$LOAD_BALANCER_BACKEND_SIZE := DefaultParam .CL2_LOAD_BALANCER_BACKEND_SIZE 5}}
+# LOAD_BALANCER_REPLICAS specifies the number of Load balancer type service
+{{$LOAD_BALANCER_REPLICAS := DefaultParam .CL2_LOAD_BALANCER_REPLICAS 3}}
+# LOAD_BALANCER_TYPE specifies the type of L4 LB created. Valid values are "INTERNAL" and "EXTERNAL"
+{{$LOAD_BALANCER_TYPE := DefaultParam .CL2_LOAD_BALANCER_TYPE "EXTERNAL"}}
+# $EXTERNAL_TRAFFIC_POLICY specifies the externalTrafficPolicy on LB type service. Valid values are "Cluster" and "Local"
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+# $NODE_SYNC_TIMEOUT specifies the timeout to wait for nodesync to complete
+{{$NODE_SYNC_TIMEOUT := DefaultParam .CL2_NODE_SYNC_TIMEOUT "30m"}}
+# adding a fixed value for first version of the test, rate of pod creation not a concern yet.
+{{$lbQPS := 20}}
+{{$namespaces := 1}}
+
+name: l4lbload
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: LBConstantQPS
+  qpsLoad:
+    qps: {{$lbQPS}}
+steps:
+- name: Initialize Measurements
+  measurements:
+  - Identifier: LBServiceCreationLatency
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      labelSelector: test = l4lb-load
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: test = l4lb-load
+      operationTimeout: 15m
+- name: Creating LBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LOAD_BALANCER_REPLICAS}}
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: lb-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: lb-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        LoadBalancerType: {{$LOAD_BALANCER_TYPE}}
+    - basename: lb-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LOAD_BALANCER_BACKEND_SIZE}}
+- name: Wait for LBs to be ready
+  measurements:
+  - Identifier: LBServiceCreationLatency
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Measure NodeSync latency
+  measurements:
+  - Identifier: NodeSyncLatency
+    Method: LoadBalancerNodeSyncLatency
+    Params:
+      action: measure
+      labelSelector: test = l4lb-load
+      waitTimeout: {{$NODE_SYNC_TIMEOUT}}
+- name: Deleting LBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: lb-service
+      objectTemplatePath: service.yaml
+    - basename: lb-dep
+      objectTemplatePath: dep.yaml
+- name: Gather Measurements
+  measurements:
+  - Identifier: LBServiceCreationLatency
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: NodeSyncLatency
+    Method: LoadBalancerNodeSyncLatency
+    Params:
+      action: gather

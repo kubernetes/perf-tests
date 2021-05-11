@@ -1,0 +1,6 @@
+CUSTOM_API_CALL_THRESHOLDS: |
+  - verb: PATCH
+    resource: nodes
+    subresource: status
+    scope: resource
+    threshold: 3s

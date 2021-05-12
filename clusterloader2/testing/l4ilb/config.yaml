@@ -5,6 +5,9 @@
 {{$LARGE_BACKEND_LABEL := "ilb-large"}}
 {{$MEDIUM_BACKEND_LABEL := "ilb-medium"}}
 {{$SMALL_BACKEND_LABEL := "ilb-small"}}
+{{$LARGE_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 2}}
+{{$MEDIUM_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 2}}
+{{$SMALL_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 2}}
 # adding a fixed value for first version of the test, rate of pod creation not a concern yet.
 {{$ilbQPS := 500}}
 {{$namespaces := 1}}
@@ -50,7 +53,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
     tuningSet: ILBConstantQPS
     objectBundle:
     - basename: large-backends-service
@@ -65,7 +68,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
     tuningSet: ILBConstantQPS
     objectBundle:
     - basename: medium-backends-service
@@ -80,7 +83,7 @@ steps:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
     tuningSet: ILBConstantQPS
     objectBundle:
     - basename: small-backends-service

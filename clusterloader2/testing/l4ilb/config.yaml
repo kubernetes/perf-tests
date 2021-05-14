@@ -8,8 +8,7 @@
 {{$LARGE_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 2}}
 {{$MEDIUM_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 2}}
 {{$SMALL_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 2}}
-# adding a fixed value for first version of the test, rate of pod creation not a concern yet.
-{{$ilbQPS := 500}}
+{{$ilbQPS := DefaultParam .CL2_ILB_TEST_QPS 20}}
 {{$namespaces := 1}}
 
 #Test
@@ -19,7 +18,7 @@ namespace:
 tuningSets:
 - name: ILBConstantQPS
   qpsLoad:
-    averageQps: {{$ilbQPS}}
+    qps: {{$ilbQPS}}
 steps:
 # Mesure each of the ILB services separately, this will provide insight on how long programming
 # ILB takes as a function of number of backends.

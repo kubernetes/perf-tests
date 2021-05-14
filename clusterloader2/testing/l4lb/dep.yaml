@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    test: l4lb-load
+spec:
+  replicas: {{.NumReplicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        test: l4lb-load
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: nginx
+        ports:
+        - containerPort: 80

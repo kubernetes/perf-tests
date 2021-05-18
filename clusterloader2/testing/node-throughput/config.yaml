@@ -9,7 +9,8 @@
 {{$OPERATION_TIMEOUT := DefaultParam .OPERATION_TIMEOUT "15m"}}
 
 name: node-throughput
-automanagedNamespaces: {{$POD_COUNT}}
+namespace:
+  number: {{$POD_COUNT}}
 tuningSets:
 - name: UniformQPS
   qpsLoad:

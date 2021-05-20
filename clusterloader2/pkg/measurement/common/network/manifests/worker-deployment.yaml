@@ -17,7 +17,7 @@ spec:
         name: worker
     spec:
       containers:
-      - image: gcr.io/k8s-testimages/netperfbenchmark:0.1
+      - image: gcr.io/k8s-testimages/netperfbenchmark:0.2
         name: worker
         imagePullPolicy: IfNotPresent
         args:

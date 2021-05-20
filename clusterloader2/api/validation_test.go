@@ -342,6 +342,15 @@ func TestValidate(t *testing.T) {
 				Namespace: NamespaceConfig{
 					Number: 1,
 				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								ReplicasPerNamespace: 10,
+							},
+						},
+					},
+				},
 			},
 			expected: nil,
 		},
@@ -351,6 +360,15 @@ func TestValidate(t *testing.T) {
 				AutomanagedNamespaces: -10,
 				Namespace: NamespaceConfig{
 					Number: 1,
+				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								ReplicasPerNamespace: 10,
+							},
+						},
+					},
 				},
 			},
 			expected: errors.NewErrorList(fmt.Errorf("automanagedNamespaces: Invalid value: -10: must be non-negative")),
@@ -362,8 +380,47 @@ func TestValidate(t *testing.T) {
 				Namespace: NamespaceConfig{
 					Number: 0,
 				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								ReplicasPerNamespace: 10,
+							},
+						},
+					},
+				},
 			},
 			expected: errors.NewErrorList(fmt.Errorf("namespace.number: Invalid value: 0: must be positive")),
+		},
+		{
+			name: "zero number of steps",
+			input: Config{
+				AutomanagedNamespaces: 10,
+				Namespace: NamespaceConfig{
+					Number: 1,
+				},
+				Steps: []*Step{},
+			},
+			expected: errors.NewErrorList(fmt.Errorf("steps: Invalid value: 0: cannot be empty")),
+		},
+		{
+			name: "non zero number of steps",
+			input: Config{
+				AutomanagedNamespaces: 10,
+				Namespace: NamespaceConfig{
+					Number: 1,
+				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								ReplicasPerNamespace: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

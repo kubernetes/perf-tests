@@ -17,9 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+
+	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/network/netperfbenchmark/pkg/worker"
 )
 
 func main() {
+	klog.InitFlags(flag.CommandLine)
+	flag.Parse()
 	worker.NewWorker().Start()
 }

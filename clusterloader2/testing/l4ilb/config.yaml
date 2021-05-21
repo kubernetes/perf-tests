@@ -9,6 +9,7 @@
 {{$MEDIUM_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 2}}
 {{$SMALL_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 2}}
 {{$ilbQPS := DefaultParam .CL2_ILB_TEST_QPS 20}}
+{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
 {{$namespaces := 1}}
 
 #Test
@@ -27,16 +28,19 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: start
+      waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$LARGE_BACKEND_LABEL}}
   - Identifier: ServiceCreationLatencyMedium
     Method: ServiceCreationLatency
     Params:
       action: start
+      waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$MEDIUM_BACKEND_LABEL}}
   - Identifier: ServiceCreationLatencySmall
     Method: ServiceCreationLatency
     Params:
       action: start
+      waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$SMALL_BACKEND_LABEL}}
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning

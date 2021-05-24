@@ -19,6 +19,7 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
+{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -155,6 +156,15 @@ steps:
 
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
+  {{if $ENABLE_HUGE_SERVICES}}
+- module:
+    path: modules/huge-services.yaml
+    params:
+      action: create
+      namespaces: {{$namespaces}}
+      replicasPerNamespace: 1
+      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
+  {{end}}
 - module:
     path: modules/scheduler-throughput.yaml
     params:
@@ -163,6 +173,9 @@ steps:
       replicasPerNamespace: 1
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+  {{if $ENABLE_HUGE_SERVICES}}
+      serviceName: huge-service
+  {{end}}
 {{end}}
 
 {{if $EXEC_COMMAND}}
@@ -214,6 +227,16 @@ steps:
       replicasPerNamespace: 0
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+  {{if $ENABLE_HUGE_SERVICES}}
+      serviceName: huge-service
+- module:
+    path: modules/huge-services.yaml
+    params:
+      action: delete
+      namespaces: {{$namespaces}}
+      replicasPerNamespace: 0
+      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
+  {{end}}
 # END scheduler throughput
 {{end}}
 

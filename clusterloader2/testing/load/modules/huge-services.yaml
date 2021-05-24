@@ -1,0 +1,28 @@
+# Valid actions: "create", "delete"
+{{$action := .action}}
+{{$namespaces := .namespaces}}
+{{$replicasPerNamespace := .replicasPerNamespace}}
+{{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
+
+## Derivative variables
+{{$is_deleting := (eq .action "delete")}}
+
+steps:
+- name: {{$action}} huge services
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: huge-service
+      objectTemplatePath: service.yaml
+{{if $is_deleting}}
+- name: Sleeping after deleting huge services
+  measurements:
+  - Identifier: WaitAfterHugeServicesDeletion
+    Method: Sleep
+    Params:
+      duration: "3m"
+{{end}}

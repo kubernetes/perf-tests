@@ -5,13 +5,13 @@
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 {{$schedulerThroughputPodsPerDeployment := .schedulerThroughputPodsPerDeployment}}
+# .serviceName is optional
+{{$serviceName := DefaultParam .serviceName ""}}
 
 ## Derivative variables
 {{$is_creating := (eq .action "create")}}
-{{$is_deleting := (eq .action "delete")}}
 
 ## CL2 params
-{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
 
 steps:
@@ -40,18 +40,6 @@ steps:
       action: start
       labelSelector: group = scheduler-throughput
       measurmentInterval: 1s
-  {{if $ENABLE_HUGE_SERVICES}}
-- name: Creating huge services
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 1
-    tuningSet: Sequence
-    objectBundle:
-    - basename: huge-service
-      objectTemplatePath: service.yaml
-  {{end}}
 {{end}}
 - name: {{$action}} scheduler throughput pods
   phases:
@@ -68,33 +56,13 @@ steps:
         Group: scheduler-throughput
         CpuRequest: 1m
         MemoryRequest: 10M
-{{if $ENABLE_HUGE_SERVICES}}
-        SvcName: huge-service
-{{end}}
+        SvcName: {{$serviceName}}
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-{{if and $is_deleting $ENABLE_HUGE_SERVICES}}
-- name: Deleting huge services
-  phases:
-  - namespaceRange:
-      min: {{AddInt $namespaces 1}}
-      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
-    replicasPerNamespace: 0
-    tuningSet: Sequence
-    objectBundle:
-    - basename: huge-service
-      objectTemplatePath: service.yaml
-- name: Sleeping after deleting huge services
-  measurements:
-  - Identifier: WaitAfterHugeServicesDeletion
-    Method: Sleep
-    Params:
-      duration: "3m"
-{{end}}
 {{if $is_creating}}
 - name: Collecting scheduler throughput measurements
   measurements:

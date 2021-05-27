@@ -20,6 +20,7 @@
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
+{{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 {{$totalPods := MultiplyInt $namespaces $NODES_PER_NAMESPACE $PODS_PER_NODE}}
@@ -135,6 +136,7 @@ steps:
       actionName: "create"
       namespaces: {{$namespaces}}
       tuningSet: RandomizedSaturationTimeLimited
+      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: k8s.gcr.io/pause:3.0
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
@@ -255,7 +257,8 @@ steps:
       actionName: "scale and update"
       namespaces: {{$namespaces}}
       tuningSet: RandomizedScalingTimeLimited
-      randomScaleFactor: 0.5
+      randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
+      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: k8s.gcr.io/pause:3.1
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
@@ -281,6 +284,7 @@ steps:
       actionName: "delete"
       namespaces: {{$namespaces}}
       tuningSet: RandomizedDeletionTimeLimited
+      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: k8s.gcr.io/pause:3.1
       daemonSetReplicas: 0
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}

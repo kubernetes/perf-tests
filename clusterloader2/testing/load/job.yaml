@@ -9,6 +9,7 @@ metadata:
 spec:
   manualSelector: true
   parallelism: {{RandIntRange .ReplicasMin .ReplicasMax}}
+  completions: {{.Completions}}
   selector:
     matchLabels:
       name: {{.Name}}
@@ -27,7 +28,7 @@ spec:
           requests:
             cpu: 10m
             memory: "10M"
-      restartPolicy: Never
+      restartPolicy: OnFailure
       terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.

@@ -9,6 +9,7 @@
 {{$randomScaleFactor := DefaultParam .randomScaleFactor 0}}
 {{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
 {{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
+{{$testMaxReplicaFactor := AddFloat 1 .testMaxReplicaFactor}}
 
 # DaemonSets
 {{$daemonSetImage := DefaultParam .daemonSetImage "k8s.gcr.io/pause:3.0"}}
@@ -35,6 +36,7 @@
 {{$mediumJobsPerNamespace := .mediumJobsPerNamespace}}
 {{$smallJobSize := .smallJobSize}}
 {{$smallJobsPerNamespace := .smallJobsPerNamespace}}
+{{$completionsFactor := MultiplyFloat 2 $testMaxReplicaFactor}}
 
 # PV
 {{$pvSmallStatefulSetSize := DefaultParam .pvSmallStatefulSetSize 0}}
@@ -191,6 +193,7 @@ steps:
     - basename: small-job
       objectTemplatePath: job.yaml
       templateFillMap:
+        Completions: {{MultiplyInt $smallJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $smallJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallJobSize $maxReplicaFactor}}
   - namespaceRange:
@@ -202,6 +205,7 @@ steps:
     - basename: medium-job
       objectTemplatePath: job.yaml
       templateFillMap:
+        Completions: {{MultiplyInt $mediumJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $mediumJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumJobSize $maxReplicaFactor}}
   - namespaceRange:
@@ -213,6 +217,7 @@ steps:
     - basename: big-job
       objectTemplatePath: job.yaml
       templateFillMap:
+        Completions: {{MultiplyInt $bigJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
 {{if and $is_deleting $ENABLE_PVS}}

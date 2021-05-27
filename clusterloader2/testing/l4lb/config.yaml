@@ -8,6 +8,9 @@
 {{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
 # $NODE_SYNC_TIMEOUT specifies the timeout to wait for nodesync to complete
 {{$NODE_SYNC_TIMEOUT := DefaultParam .CL2_NODE_SYNC_TIMEOUT "30m"}}
+# L4LB_SYNC_TIMEOUT specifies the timeout to wait for LB creation to complete
+{{$L4LB_SYNC_TIMEOUT := DefaultParam .CL2_L4LB_SYNC_TIMEOUT "30m"}}
+
 # adding a fixed value for first version of the test, rate of pod creation not a concern yet.
 {{$lbQPS := 20}}
 {{$namespaces := 1}}
@@ -27,6 +30,7 @@ steps:
     Params:
       action: start
       labelSelector: test = l4lb-load
+      waitTimeout: {{$L4LB_SYNC_TIMEOUT}}
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:

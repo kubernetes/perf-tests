@@ -48,6 +48,7 @@ const (
 	orchestratorPort = 5202
 	iperf3Port       = 5201
 	netperfPort      = 12865
+	netperfPortData  = 12866
 )
 
 var (
@@ -208,6 +209,12 @@ func createServices(c *kubernetes.Clientset) bool {
 					Protocol:   api.ProtocolTCP,
 					Port:       netperfPort,
 					TargetPort: intstr.FromInt(netperfPort),
+				},
+				{
+					Name:       "netperf-w2-netperf-data",
+					Protocol:   api.ProtocolTCP,
+					Port:       netperfPortData,
+					TargetPort: intstr.FromInt(netperfPortData),
 				},
 			},
 			Type: api.ServiceTypeClusterIP,

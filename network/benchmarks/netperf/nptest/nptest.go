@@ -80,6 +80,7 @@ const (
 	parallelStreams      = "8"
 	rpcServicePort       = "5202"
 	localhostIPv4Address = "127.0.0.1"
+	netperfDataPort      = "12866" // necessary to match firewall port for "Virtual IP"
 )
 
 const (
@@ -590,6 +591,7 @@ func startWork() {
 		var client *rpc.Client
 		var err error
 
+		is_ipv6 := isIPv6(getMyIP())
 		address := host
 		if isIPv6(address) {
 			address = "[" + address + "]"
@@ -623,7 +625,7 @@ func startWork() {
 
 			case workItem.IsServerItem == true:
 				fmt.Println("Orchestrator requests worker run iperf and netperf servers")
-				go iperfServer()
+				go iperfServer(is_ipv6)
 				go netperfServer()
 				time.Sleep(1 * time.Second)
 
@@ -635,8 +637,12 @@ func startWork() {
 }
 
 // Invoke and indefinitely run an iperf server
-func iperfServer() {
-	output, success := cmdExec(iperf3Path, []string{iperf3Path, "-s", host, "-J", "-i", "60"}, 15)
+func iperfServer(is_ipv6 bool) {
+	protocol := "-4"
+	if is_ipv6 {
+		protocol = "-6"
+	}
+	output, success := cmdExec(iperf3Path, []string{iperf3Path, "-s", host, "-J", protocol, "-i", "60"}, 15)
 	if success {
 		fmt.Println(output)
 	}
@@ -676,7 +682,7 @@ func iperfClient(serverHost, serverPort string, mss int, workItemType int) (rv s
 
 // Invoke and run a netperf client and return the output if successful.
 func netperfClient(serverHost, serverPort string, workItemType int) (rv string) {
-	output, success := cmdExec(netperfPath, []string{netperfPath, "-H", serverHost}, 15)
+	output, success := cmdExec(netperfPath, []string{netperfPath, "-H", serverHost, "--", "-P", netperfDataPort}, 15)
 	if success {
 		fmt.Println(output)
 		rv = output

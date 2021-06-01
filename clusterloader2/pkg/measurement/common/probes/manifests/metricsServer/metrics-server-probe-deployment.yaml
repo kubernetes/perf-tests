@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: probes
+  name: metrics-server-prober
+  labels:
+    probe: metrics-server-probe
+spec:
+  selector:
+    matchLabels:
+      probe: metrics-server-probe
+  replicas: {{.Replicas}}
+  template:
+    metadata:
+      labels:
+        probe: metrics-server-probe
+    spec:
+      containers:
+        - name: prober
+          image: gcr.io/k8s-testimages/probes:v0.0.4
+          args:
+            - --metric-bind-address=0.0.0.0:8080
+            - --mode=kubeclient
+            - --kubeclient-probe-resourceGroup=metrics.k8s.io
+            - --kubeclient-probe-resourceVersion=v1beta1
+            - --kubeclient-probe-resourceName=pods
+            - --kubeclient-probe-interval=30s
+            - --logtostderr=false
+            - --log_file=/var/log/cl2-kube-client.log
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
+              name: metrics
+          volumeMounts:
+            - name: logs-volume
+              mountPath: /var/log
+      serviceAccountName: metrics-server-prober
+      volumes:
+        - name: logs-volume
+          hostPath:
+            path: /var/log

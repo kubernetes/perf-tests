@@ -71,11 +71,3 @@ func ping(serverAddress string) error {
 	}
 	return err
 }
-
-func merge(slices ...[]float64) []float64 {
-	result := make([]float64, 1)
-	for _, s := range slices {
-		result = append(result, s...)
-	}
-	return result
-}

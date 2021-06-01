@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"k8s.io/perf-tests/util-images/probes/pkg/kubeclient"
 	"net/http"
 	_ "net/http/pprof"
 
@@ -30,7 +31,7 @@ import (
 
 var (
 	metricAddress = flag.String("metric-bind-address", "0.0.0.0:8080", "The address to serve the Prometheus metrics on.")
-	mode          = flag.String("mode", "", "Mode that should be run. Supported values: ping-server, ping-client, dns")
+	mode          = flag.String("mode", "", "Mode that should be run. Supported values: ping-server, ping-client, dns, kube-client")
 )
 
 func main() {
@@ -50,6 +51,8 @@ func main() {
 		pingserver.Run(pingserver.NewDefaultConfig())
 	case "dns":
 		dns.Run()
+	case "kubeclient":
+		kubeclient.Run(kubeclient.NewDefaultConfig())
 	default:
 		klog.Fatalf("Unrecognized mode: %q", *mode)
 	}

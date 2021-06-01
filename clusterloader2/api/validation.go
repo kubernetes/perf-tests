@@ -55,10 +55,13 @@ func (v *ConfigValidator) Validate() *errors.ErrorList {
 		allErrs = append(allErrs, v.validateTuningSet(c.TuningSets[i], field.NewPath("tuningSets").Index(i))...)
 	}
 
+	// validate steps
+	if len(c.Steps) == 0 {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("steps"), 0, "cannot be empty"))
+	}
 	for i := range c.Steps {
 		allErrs = append(allErrs, v.validateStep(c.Steps[i], field.NewPath("steps").Index(i))...)
 	}
-
 	if len(allErrs) == 0 {
 		return nil
 	}

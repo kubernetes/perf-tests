@@ -44,11 +44,6 @@ func (v *ConfigValidator) Validate() *errors.ErrorList {
 	allErrs := field.ErrorList{}
 	c := v.config
 
-	// TODO(#1696): Clean up after removing automanagedNamespaces
-	if c.AutomanagedNamespaces < 0 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("automanagedNamespaces"), c.AutomanagedNamespaces, "must be non-negative"))
-	}
-
 	allErrs = append(allErrs, v.validateNamespace(&c.Namespace, field.NewPath("namespace"))...)
 
 	for i := range c.TuningSets {

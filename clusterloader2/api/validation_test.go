@@ -301,7 +301,6 @@ func TestVerifyStep(t *testing.T) {
 	}
 }
 
-// TODO(#1696): Remove deprecated automanagedNamespaces
 func TestFileExists(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -338,7 +337,6 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid config",
 			input: Config{
-				AutomanagedNamespaces: 10,
 				Namespace: NamespaceConfig{
 					Number: 1,
 				},
@@ -346,19 +344,8 @@ func TestValidate(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name: "negative automanaged namespaces",
-			input: Config{
-				AutomanagedNamespaces: -10,
-				Namespace: NamespaceConfig{
-					Number: 1,
-				},
-			},
-			expected: errors.NewErrorList(fmt.Errorf("automanagedNamespaces: Invalid value: -10: must be non-negative")),
-		},
-		{
 			name: "non-positive number of namespaces",
 			input: Config{
-				AutomanagedNamespaces: 10,
 				Namespace: NamespaceConfig{
 					Number: 0,
 				},

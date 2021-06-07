@@ -84,9 +84,17 @@ tuningSets:
   parallelismLimitedLoad:
     parallelismLimit: {{$schedulerThroughputNamespaces}}
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): This TuningSet is used only for pod-startup-latency, get rid of it
+# Uniform5qps: for each running phase, use 5 qps.
 - name: Uniform5qps
   qpsLoad:
     qps: 5
+# Global100qps: use 100 qps globally:
+# * split equally qps among all running phases
+# * if some phase finishes, other phases will get more qps.
+- name: Global100qps
+  globalQPSLoad:
+    qps: 100
+    burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$saturationTime}}s
@@ -129,6 +137,18 @@ steps:
     objectBundle:
       - basename: daemonset-priorityclass
         objectTemplatePath: daemonset-priorityclass.yaml
+
+# Moved from reconcile-objects.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
+# TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects.yaml once the k/k bug is fixed.
+- module:
+    path: /modules/configmaps-secrets.yaml
+    params:
+      actionName: create
+      tuningSet: Global100qps
+      namespaces: {{$namespaces}}
+      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
+      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
+      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
 
 - module:
     path: /modules/reconcile-objects.yaml
@@ -305,6 +325,16 @@ steps:
       smallJobsPerNamespace: 0
       pvSmallStatefulSetSize: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       pvMediumStatefulSetSize: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+
+- module:
+    path: /modules/configmaps-secrets.yaml
+    params:
+      actionName: delete
+      tuningSet: Global100qps
+      namespaces: {{$namespaces}}
+      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
+      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
+      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
 
 - name: Deleting PriorityClass for DaemonSets
   phases:

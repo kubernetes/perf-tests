@@ -99,7 +99,7 @@ steps:
       objectTemplatePath: dep.yaml
       templateFillMap:
         NumReplicas: {{$SMALL_BACKEND_SIZE}}
-- name: Waiting for creation to be completed
+- name: Waiting for objects creation to be completed
   measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency
@@ -150,7 +150,7 @@ steps:
       objectTemplatePath: service.yaml
     - basename: small-backends-dep
       objectTemplatePath: dep.yaml
-- name: Waiting for delete to be completed
+- name: Waiting for objects deletion to be completed
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning

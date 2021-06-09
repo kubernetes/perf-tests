@@ -23,7 +23,8 @@ tuningSets:
 steps:
 # Mesure each of the ILB services separately, this will provide insight on how long programming
 # ILB takes as a function of number of backends.
-- measurements:
+- name: Starting measurements
+  measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency
     Params:
@@ -98,7 +99,8 @@ steps:
       objectTemplatePath: dep.yaml
       templateFillMap:
         NumReplicas: {{$SMALL_BACKEND_SIZE}}
-- measurements:
+- name: Waiting for creation to be completed
+  measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency
     Params:
@@ -148,7 +150,14 @@ steps:
       objectTemplatePath: service.yaml
     - basename: small-backends-dep
       objectTemplatePath: dep.yaml
-- measurements:
+- name: Waiting for delete to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Gathering measurements
+  measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency
     Params:

@@ -332,9 +332,9 @@ steps:
       actionName: delete
       tuningSet: Global100qps
       namespaces: {{$namespaces}}
-      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
-      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
-      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
+      bigDeploymentsPerNamespace: 0
+      mediumDeploymentsPerNamespace: 0
+      smallDeploymentsPerNamespace: 0
 
 - name: Deleting PriorityClass for DaemonSets
   phases:

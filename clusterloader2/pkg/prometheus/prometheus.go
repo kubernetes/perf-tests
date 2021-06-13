@@ -138,9 +138,10 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter = mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"].(bool)
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"]; !exists {
+		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldScrapeKubeProxy
 		mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy
 	} else {
-		// Backward compatibility.
+		// Backward compatibility
 		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"].(bool)
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ANET"]; !exists {

@@ -36,6 +36,7 @@ func NewGKEProvider(_ map[string]string) Provider {
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportNodeKiller:                   true,
 			ShouldPrometheusScrapeApiserverOnly: true,
+			ShouldScrapeKubeProxy:               false,
 		},
 	}
 }

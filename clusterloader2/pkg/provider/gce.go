@@ -46,6 +46,7 @@ func NewGCEProvider(_ map[string]string) Provider {
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportKubeStateMetrics:             true,
 			SupportMetricsServerMetrics:         true,
+			ShouldScrapeKubeProxy:               true,
 		},
 	}
 }

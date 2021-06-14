@@ -9,6 +9,7 @@ RESTART_COUNT_THRESHOLD_OVERRIDES: |
   metadata-proxy: 2
   prometheus-to-sd-exporter: 2
   coredns: 2
+  konnectivity-agent: 2
 
   # Allow for a single restart of master components.
   # As long as tests are passing, a single restart shouldn't be a problem

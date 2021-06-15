@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.33
+TAG = 2.34
 
 REPO = gcr.io/k8s-testimages
 

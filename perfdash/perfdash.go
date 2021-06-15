@@ -56,6 +56,8 @@ var (
 
 	// AWS S3 Specific flags
 	awsRegion = pflag.String("aws-region", "us-west-2", "AWS region of the S3 bucket")
+
+	allowParsersForAllTests = pflag.Bool("allow-parsers-matching-all-tests", true, "Allow parsers for common measurement matching any test name")
 )
 
 func initDownloaderOptions() {
@@ -103,7 +105,7 @@ func run() error {
 		return fmt.Errorf("error creating metrics bucket downloader: %v", err)
 	}
 
-	downloader := NewDownloader(options, metricsBucket)
+	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests)
 	result := make(JobToCategoryData)
 
 	if !*www {

@@ -42,15 +42,17 @@ type DownloaderOptions struct {
 
 // Downloader that gets data about results from a storage service (GCS) repository.
 type Downloader struct {
-	MetricsBkt MetricsBucket
-	Options    *DownloaderOptions
+	MetricsBkt              MetricsBucket
+	Options                 *DownloaderOptions
+	allowParsersForAllTests bool
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket) *Downloader {
+func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bool) *Downloader {
 	return &Downloader{
-		MetricsBkt: bkt,
-		Options:    opt,
+		MetricsBkt:              bkt,
+		Options:                 opt,
+		allowParsersForAllTests: allowAllParsers,
 	}
 }
 
@@ -120,6 +122,9 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
+					if !g.allowParsersForAllTests && testDescription.Name == "" {
+						continue
+					}
 					filePrefix := testDescription.OutputFilePrefix
 					if testDescription.Name != "" {
 						filePrefix = fmt.Sprintf("%v_%v", filePrefix, testDescription.Name)

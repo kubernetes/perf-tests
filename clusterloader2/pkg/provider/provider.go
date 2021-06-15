@@ -62,6 +62,9 @@ type Features struct {
 
 	// SchedulerInsecurePortDisabled determines if kube-scheduler listens on insecure port.
 	SchedulerInsecurePortDisabled bool
+
+	// ShouldScrapeKubeProxy determines if ScrapeKubeProxy
+	ShouldScrapeKubeProxy bool
 }
 
 // Config is the config of the provider.

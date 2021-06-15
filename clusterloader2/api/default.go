@@ -25,11 +25,6 @@ import (
 // SetDefaults set the default configuration parameters.
 func (conf *Config) SetDefaults() {
 	conf.Namespace.SetDefaults()
-
-	// TODO(#1696): Clean up after removing automanagedNamespaces
-	if conf.Namespace.Number == 1 && conf.AutomanagedNamespaces > 1 {
-		conf.Namespace.Number = conf.AutomanagedNamespaces
-	}
 }
 
 // SetDefaults specifies the default values for namespace parameters.

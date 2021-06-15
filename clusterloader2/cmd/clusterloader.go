@@ -74,12 +74,6 @@ func initClusterFlags() {
 	if err != nil {
 		klog.Fatalf("unable to mark flag delete-stale-namespaces deprecated %v", err)
 	}
-	// TODO(#1696): Clean up after removing automanagedNamespaces
-	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteAutomanagedNamespaces, "delete-automanaged-namespaces", "DELETE_AUTOMANAGED_NAMESPACES", true, "DEPRECATED: Whether to delete all automanaged namespaces after the test execution.")
-	err = flags.MarkDeprecated("delete-automanaged-namespaces", "specify deleteAutomanagedNamespaces in testconfig file instead.")
-	if err != nil {
-		klog.Fatalf("unable to mark flag delete-automanaged-namespaces deprecated %v", err)
-	}
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterName, "mastername", "MASTER_NAME", "", "Name of the masternode")
 	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")

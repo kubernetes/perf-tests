@@ -42,8 +42,6 @@ type TestScenario struct {
 type Config struct {
 	// Name of the test case.
 	Name string `json:"name"`
-	// TODO(#1696): Clean up after removing automanagedNamespaces
-	AutomanagedNamespaces int32 `json:"automanagedNamespaces,omitempty"`
 	// Namespace is a structure for namespace configuration.
 	Namespace NamespaceConfig `json:"namespace"`
 	// Steps is a sequence of test steps executed in serial.

@@ -94,9 +94,6 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	if testConfig.Namespace.DeleteStaleNamespaces == nil {
 		testConfig.Namespace.DeleteStaleNamespaces = &clusterFramework.GetClusterConfig().DeleteStaleNamespaces
 	}
-	if testConfig.Namespace.DeleteAutomanagedNamespaces == nil {
-		testConfig.Namespace.DeleteAutomanagedNamespaces = &clusterFramework.GetClusterConfig().DeleteAutomanagedNamespaces
-	}
 
 	testConfig.SetDefaults()
 	basePath := filepath.Dir(testScenario.ConfigPath)

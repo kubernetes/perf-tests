@@ -334,7 +334,7 @@ func main() {
 		}
 		testConfig, errList := test.CompileTestConfig(ctx)
 		if !errList.IsEmpty() {
-			klog.Exitf("Test compliation failed: %s", errList.String())
+			klog.Exitf("Test compilation failed: %s", errList.String())
 		}
 		if err := dumpTestConfig(ctx, testConfig); err != nil {
 			klog.Errorf("Error while dumping test config: %v", err)

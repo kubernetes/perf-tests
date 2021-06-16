@@ -62,6 +62,9 @@ func (v *ConfigValidator) Validate() *errors.ErrorList {
 	for i := range c.Steps {
 		allErrs = append(allErrs, v.validateStep(c.Steps[i], field.NewPath("steps").Index(i))...)
 	}
+	// Ensure that the tuning set referenced in a phase has been declared
+	allErrs = append(allErrs, v.handleTuningSetInPhase()...)
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -101,6 +104,35 @@ func (v *ConfigValidator) validateStep(s *Step, fldPath *field.Path) field.Error
 	}
 	if !isPhasesEmpty && !isMeasurementsEmpty {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("measurements"), s.Measurements, "can't be non-empty with non-empty phases"))
+	}
+	return allErrs
+}
+
+func (v *ConfigValidator) handleTuningSetInPhase() field.ErrorList {
+	allErrs := field.ErrorList{}
+	c := v.config
+	for i := range c.Steps {
+		allErrs = append(allErrs, validateTuningSetInPhase(c.Steps[i], c.TuningSets, field.NewPath("steps").Index(i))...)
+	}
+	return allErrs
+}
+
+func validateTuningSetInPhase(s *Step, ts []*TuningSet, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i := range s.Phases {
+		if s.Phases[i].TuningSet != "" {
+			found := false
+			for j := range ts {
+				if s.Phases[i].TuningSet == ts[j].Name {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("phases").Index(i).Child("tuningSet"), s.Phases[i].TuningSet, "tuning set referenced has not been declared"))
+			}
+		}
 	}
 	return allErrs
 }

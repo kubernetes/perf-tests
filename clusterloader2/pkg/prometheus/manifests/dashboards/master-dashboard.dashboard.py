@@ -410,6 +410,12 @@ sum(
         legend="{{type}}: {{name}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    d.simple_graph(
+        "Request filter latency for each filter type (99th percentile)",
+        "histogram_quantile(0.99, sum(rate(apiserver_request_filter_duration_seconds_bucket[1m])) by (le, filter))",
+        legend="{{filter}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
 ]
 
 VM_PANELS = [

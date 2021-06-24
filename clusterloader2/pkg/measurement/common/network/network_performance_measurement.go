@@ -358,6 +358,12 @@ func (npm *networkPerformanceMeasurement) calculateMetricDataValue(dataElem *mea
 	case manyToMany:
 		for _, metricResponse = range npm.metricVal {
 			if len(metricResponse) > 0 {
+				// Sometimes iperf gives negative values for latency. As short-term fix
+				// we are considering them as zero.
+				if metricIndex == udpLatencyAverage && metricResponse[metricIndex] < 0 {
+					aggregatePodPairMetrics = append(aggregatePodPairMetrics, 0)
+					continue
+				}
 				aggregatePodPairMetrics = append(aggregatePodPairMetrics, metricResponse[metricIndex])
 			}
 		}
@@ -379,6 +385,7 @@ func (npm *networkPerformanceMeasurement) createResultSummary() testResultSummar
 		npm.getMetricData(&resultSummary, udpPacketPerSecond, packetPerSecond)
 		npm.getMetricData(&resultSummary, udpJitter, jitter)
 		npm.getMetricData(&resultSummary, udpLatencyAverage, latency)
+		npm.getMetricData(&resultSummary, udpLostPacketsPercentage, lostPackets)
 		resultSummary.protocol = protocolUDP
 	case protocolHTTP:
 		npm.getMetricData(&resultSummary, httpResponseTime, responseTime)

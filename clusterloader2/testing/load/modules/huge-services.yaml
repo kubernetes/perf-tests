@@ -1,5 +1,6 @@
 # Valid actions: "create", "delete"
 {{$action := .action}}
+{{$enableMultipleDeployments := .enableMultipleDeployments}}
 {{$namespaces := .namespaces}}
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
@@ -15,3 +16,11 @@ steps:
     objectBundle:
     - basename: huge-service
       objectTemplatePath: service.yaml
+{{if and (eq .action "delete") $enableMultipleDeployments}}
+- name: Sleeping after deleting huge services
+  measurements:
+  - Identifier: WaitAfterHugeServicesDeletion
+    Method: Sleep
+    Params:
+      duration: "3m"
+{{end}}

@@ -47,7 +47,7 @@ steps:
       min: {{AddInt $namespaces 1}}
       max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
     replicasPerNamespace: {{$replicasPerNamespace}}
-    tuningSet: SchedulerThroughputParallel
+    tuningSet: {{IfThenElse $is_creating "SchedulerThroughputParallel" "DeletionTimeLimited"}}
     objectBundle:
     - basename: scheduler-throughput-deployment
       objectTemplatePath: simple-deployment.yaml

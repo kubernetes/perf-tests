@@ -23,8 +23,18 @@ import (
 	"k8s.io/perf-tests/util-images/network/netperfbenchmark/pkg/worker"
 )
 
+var (
+	extraArgumentsMap = map[string]*string{
+		"client_UDP":  flag.String("udpClientExtraArguments", "", "Extra arguments for udp client command"),
+		"server_UDP":  flag.String("udpServerExtraArguments", "", "Extra arguments for udp server command"),
+		"client_TCP":  flag.String("tcpClientExtraArguments", "", "Extra arguments for tcp client command"),
+		"server_TCP":  flag.String("tcpServerExtraArguments", "", "Extra arguments for tcp server command"),
+		"client_HTTP": flag.String("httpClientExtraArguments", "", "Extra arguments for http client command"),
+	}
+)
+
 func main() {
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
-	worker.NewWorker().Start()
+	worker.NewWorker().Start(extraArgumentsMap)
 }

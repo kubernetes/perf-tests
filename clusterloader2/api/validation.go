@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 )
 
 // ConfigValidator contains metadata for config validation.
@@ -48,7 +49,7 @@ func (v *ConfigValidator) Validate() *errors.ErrorList {
 	if c.AutomanagedNamespaces < 0 {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("automanagedNamespaces"), c.AutomanagedNamespaces, "must be non-negative"))
 	}
-
+	
 	allErrs = append(allErrs, v.validateNamespace(&c.Namespace, field.NewPath("namespace"))...)
 
 	for i := range c.TuningSets {
@@ -180,8 +181,15 @@ func (v *ConfigValidator) validateTuningSet(ts *TuningSet, fldPath *field.Path) 
 	return allErrs
 }
 
-func (v *ConfigValidator) validateMeasurement(_ *Measurement, _ *field.Path) field.ErrorList {
-	return nil
+func (v *ConfigValidator) validateMeasurement(ms *Measurement, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	methodName := ms.Method
+	isRegistered := measurement.isRegistered(methodName)
+	if !isRegistered {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("Method"),methodName,"is not registered!"))
+	}
+	return allErrs
 }
 
 func (v *ConfigValidator) validateQPSLoad(ql *QPSLoad, fldPath *field.Path) field.ErrorList {

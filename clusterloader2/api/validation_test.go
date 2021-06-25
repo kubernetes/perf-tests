@@ -441,3 +441,29 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+func TestValidateMeasurement(t *testing.T) {
+	for _,test := range []struct {
+		name string
+		input Measurement
+		expected *errors.ErrorList
+	}{
+		{
+			name: "first-test",
+			input: Measurement{
+				Method : "Exec",
+				Identifier : "ExecCommand",
+			},
+			expected:nil,
+		},
+	}{
+		t.Run(test.name,func(t *testing.T) {
+			v := NewConfigValidator("", &Config{})
+			got := v.validateMeasurement(&test.input, field.NewPath(""))
+			if test.expected != got {
+				t.Errorf("wanted: %v, got: %v", test.expected, got)
+			}
+		})
+	}
+
+
+}

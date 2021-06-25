@@ -57,6 +57,13 @@ func (mc *measurementFactory) createMeasurement(methodName string) (Measurement,
 	return createFunc(), nil
 }
 
+func (mc *measurementFactory) checkMeasurement(methodName string) bool {
+	mc.lock.RLock()
+	defer mc.lock.RUnlock()
+	_,exists := mc.createFuncs[methodName]
+	return exists
+}
+
 // Register registers create measurement function in measurement factory.
 func Register(methodName string, createFunc createMeasurementFunc) error {
 	return factory.register(methodName, createFunc)
@@ -66,3 +73,8 @@ func Register(methodName string, createFunc createMeasurementFunc) error {
 func CreateMeasurement(methodName string) (Measurement, error) {
 	return factory.createMeasurement(methodName)
 }
+
+func isRegistered(methodName string) bool {
+	return factory.checkMeasurement(methodName)
+}
+

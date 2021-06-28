@@ -16,7 +16,7 @@ steps:
     objectBundle:
     - basename: huge-service
       objectTemplatePath: service.yaml
-{{if and (eq .action "delete") $enableMultipleDeployments}}
+{{if and (eq .action "delete") (not $enableMultipleDeployments)}}
 - name: Sleeping after deleting huge services
   measurements:
   - Identifier: WaitAfterHugeServicesDeletion

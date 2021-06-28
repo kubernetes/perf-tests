@@ -1,11 +1,9 @@
 # Valid actions: "create", "delete"
 {{$action := .action}}
+{{$enableMultipleDeployments := .enableMultipleDeployments}}
 {{$namespaces := .namespaces}}
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
-
-## Derivative variables
-{{$is_deleting := (eq .action "delete")}}
 
 steps:
 - name: {{$action}} huge services
@@ -18,7 +16,7 @@ steps:
     objectBundle:
     - basename: huge-service
       objectTemplatePath: service.yaml
-{{if $is_deleting}}
+{{if and (eq .action "delete") $enableMultipleDeployments}}
 - name: Sleeping after deleting huge services
   measurements:
   - Identifier: WaitAfterHugeServicesDeletion

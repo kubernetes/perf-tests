@@ -37,19 +37,19 @@ def api_call_latency_panel(expression):
 
     return [
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+            title="GET resource latency (percentaile=99, scope=resource, threshold=1s)",
             verb="GET",
             scope="resource",
             threshold=1,
         ),
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+            title="LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
             verb="LIST",
             scope="namespace",
             threshold=5,
         ),
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+            title="LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
             verb="LIST",
             scope="cluster",
             threshold=30,

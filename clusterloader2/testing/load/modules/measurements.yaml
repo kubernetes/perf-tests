@@ -19,6 +19,7 @@
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$PROMETHEUS_SCRAPE_KUBE_STATE_METRICS := DefaultParam .PROMETHEUS_SCRAPE_KUBE_STATE_METRICS false}}
+{{$PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS := DefaultParam .PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS false}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 
@@ -84,6 +85,13 @@ steps:
     Params:
       action: {{$action}}
 {{end}}
+{{if $PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS}}
+  - Identifier: MetricsServerPrometheus
+    Method: MetricsServerPrometheus
+    Params:
+      action: {{$action}}
+{{end}}
+
 {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
   - Identifier: APIAvailability
     Method: APIAvailability

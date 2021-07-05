@@ -29,10 +29,10 @@ Application server runs as a deployment on kubernetes cluster. It is hosted on
   one specified in the `Makefile`
 * Submit a PR, get required approvals and wait until it's merged
 * Run `make push` to push new image to container registry
-* Refer to [perf-dash.k8s.io/README.md](https://github.com/kubernetes/k8s.io/blob/master/perf-dash.k8s.io/README.md) for the deploy instructions
+* Refer to [perf-dash.k8s.io/README.md](https://github.com/kubernetes/k8s.io/blob/main/perf-dash.k8s.io/README.md) for the deploy instructions
   
   Note: Since 2020-04-21, perf-dash.k8s.io is hosted in the public **aaa** (sic!) cluster. 
-  Instructions on connecting to **aaa** cluster can be found [here](https://github.com/kubernetes/k8s.io/blob/master/running-in-community-clusters.md#access-the-cluster). 
+  Instructions on connecting to **aaa** cluster can be found [here](https://github.com/kubernetes/k8s.io/blob/main/running-in-community-clusters.md#access-the-cluster). 
 
 ## Application images
 

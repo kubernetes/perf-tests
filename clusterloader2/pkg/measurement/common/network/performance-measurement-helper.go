@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -111,6 +112,7 @@ func getPercentile(values float64Slice) metricPercentiles {
 	if length == 0 {
 		return metricPercentiles{0, 0, 0}
 	}
+	sort.Float64s(values)
 	perc05 := values[int(math.Ceil(float64(length*05)/100))-1]
 	perc50 := values[int(math.Ceil(float64(length*50)/100))-1]
 	perc95 := values[int(math.Ceil(float64(length*95)/100))-1]

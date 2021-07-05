@@ -95,7 +95,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+                    "title": "GET resource latency (percentaile=99, scope=resource, threshold=1s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -207,7 +207,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+                    "title": "LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -319,7 +319,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+                    "title": "LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -553,7 +553,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+                    "title": "GET resource latency (percentaile=99, scope=resource, threshold=1s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -665,7 +665,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+                    "title": "LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -777,7 +777,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+                    "title": "LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,

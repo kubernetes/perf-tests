@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 from grafanalib import core as g
 import defaults as d
 
@@ -68,6 +67,7 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   verb=~"%(verb)s",
   scope=~"%(scope)s",
   resource=~"${resource:regex}s*",
+  subresource!~"exec|proxy",
 }""")
 
 QUANTILE_API_CALL_LATENCY_PANELS = api_call_latency_panel("""
@@ -77,6 +77,7 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   verb=~"%(verb)s",
   scope=~"%(scope)s",
   resource=~"${resource:regex}s*",
+  subresource!~"exec|proxy",
 }[5d])""")
 
 PAF_PANELS = [

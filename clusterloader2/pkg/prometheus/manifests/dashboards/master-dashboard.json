@@ -81,7 +81,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -193,7 +193,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -305,7 +305,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", }",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -417,7 +417,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", }",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -539,7 +539,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -651,7 +651,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -763,7 +763,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -875,7 +875,7 @@
                         },
                         {
                             "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",

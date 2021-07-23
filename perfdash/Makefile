@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.34
+TAG = 2.35
 
 REPO = gcr.io/k8s-testimages
 
@@ -20,7 +20,7 @@ run: perfdash
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability \
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
 
-container: perfdash
+container:
 	docker build --pull -t $(REPO)/perfdash:$(TAG) .
 
 push: container

@@ -12,8 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM debian:jessie
-RUN apt-get update
-RUN apt-get install -y -qq ca-certificates
-ADD perfdash /perfdash
-ADD www /www
+ARG GOLANG_VERSION=1.13
+FROM golang:${GOLANG_VERSION} as builder
+
+WORKDIR /workspace
+
+# Copy the Go Modules manifests
+COPY go.sum go.sum
+COPY go.mod go.mod
+RUN go mod download
+
+COPY *.go /workspace/
+RUN GO111MODULE=on go build -a -installsuffix cgo -ldflags '-w' -o $PWD/perfdash
+
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/base:nonroot
+COPY www/ /www/
+COPY --from=builder /workspace/perfdash /
+
+EXPOSE 8080

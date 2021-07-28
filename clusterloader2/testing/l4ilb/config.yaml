@@ -12,6 +12,9 @@
 {{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
 {{$namespaces := 1}}
 
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+
 #Test
 name: ilbload
 namespace:
@@ -23,6 +26,8 @@ tuningSets:
 steps:
 # Mesure each of the ILB services separately, this will provide insight on how long programming
 # ILB takes as a function of number of backends.
+
+{{if not $EXEC_COMMAND}}
 - name: Starting measurements
   measurements:
   - Identifier: ServiceCreationLatencyLarge
@@ -43,6 +48,9 @@ steps:
       action: start
       waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$SMALL_BACKEND_LABEL}}
+{{end}}
+- name: Starting measurement for deployment creation
+  measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
@@ -99,7 +107,8 @@ steps:
       objectTemplatePath: dep.yaml
       templateFillMap:
         NumReplicas: {{$SMALL_BACKEND_SIZE}}
-- name: Waiting for objects creation to be completed
+{{if not $EXEC_COMMAND}}
+- name: Measuring service creation latency
   measurements:
   - Identifier: ServiceCreationLatencyLarge
     Method: ServiceCreationLatency
@@ -113,10 +122,38 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: waitForReady
+{{end}}
+- name: Waiting for objects creation to be complete
+  measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+{{if $EXEC_COMMAND}}
+- name: Starting measurements for nodepool upgrade
+  measurements:
+  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = {{$LARGE_BACKEND_LABEL}}
+- name: Exec command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+- name: Waiting for connections to stabilize after nodepool upgrade
+  measurements:
+  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+{{end}}
 # Delete ILBs
 - name: Deleting ILBs
   phases:
@@ -156,6 +193,7 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+{{if not $EXEC_COMMAND}}
 - name: Gathering measurements
   measurements:
   - Identifier: ServiceCreationLatencyLarge
@@ -170,3 +208,13 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: gather
+{{end}}
+
+{{if $EXEC_COMMAND}}
+- name: Gathering measurements for nodepool upgrade
+  measurements:
+  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+{{end}}

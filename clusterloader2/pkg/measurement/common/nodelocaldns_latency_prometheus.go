@@ -53,7 +53,7 @@ func (n *nodelocaldnsLatencyGatherer) Gather(executor QueryExecutor, startTime t
 	if err != nil {
 		return nil, err
 	}
-	content, err := util.PrettyPrintJSON(result)
+	content, err := util.PrettyPrintJSON(result.ToPerfData(n.String()))
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@
 {{$namespaces := 1}}
 
 # Command to be executed
-{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$NODEPOOL_UPGRADE_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 
 #Test
 name: ilbload
@@ -120,27 +120,47 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-{{if $EXEC_COMMAND}}
+{{if $NODEPOOL_UPGRADE_COMMAND}}
 - name: Starting measurements for nodepool upgrade
   measurements:
-  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
     Method: ServiceCreationLatency
     Params:
       action: start
       waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$LARGE_BACKEND_LABEL}}
-- name: Exec command
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = {{$MEDIUM_BACKEND_LABEL}}
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeSmall
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = {{$SMALL_BACKEND_LABEL}}
+- name: Execute command for nodepool upgrade
   measurements:
-  - Identifier: ExecCommand
+  - Identifier: ExecNodepoolUpgrade
     Method: Exec
     Params:
       command:
-      {{range $EXEC_COMMAND}}
+      {{range $NODEPOOL_UPGRADE_COMMAND}}
       - {{.}}
       {{end}}
 - name: Waiting for connections to stabilize after nodepool upgrade
   measurements:
-  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeSmall
     Method: ServiceCreationLatency
     Params:
       action: waitForReady
@@ -198,10 +218,18 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: gather
-{{if $EXEC_COMMAND}}
+{{if $NODEPOOL_UPGRADE_COMMAND}}
 - name: Gathering measurements for nodepool upgrade
   measurements:
-  - Identifier: ServiceCreationLatencyNodepoolUpgrade
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeSmall
     Method: ServiceCreationLatency
     Params:
       action: gather

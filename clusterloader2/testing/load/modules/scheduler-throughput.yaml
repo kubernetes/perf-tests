@@ -10,7 +10,7 @@
 
 ## Derivative variables
 {{$is_creating := (eq .action "create")}}
-{{$tuningSet := IfThenElse (and (eq .action "delete") .enableMultipleDeployments) "DeletionTimeLimited" "SchedulerThroughputParallel"}}
+{{$tuningSet := IfThenElse (eq .action "delete") "DeletionTimeLimited" "SchedulerThroughputParallel"}}
 
 ## CL2 params
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}

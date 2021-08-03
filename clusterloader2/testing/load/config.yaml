@@ -20,7 +20,6 @@
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
-{{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS := DefaultParam .CL2_ENABLE_HUGE_SERVICES_MULTIPLE_REPLICAS false}}
 # Determines number of pods per deployment. Should be a divider of .Nodes.
 {{$HUGE_SERVICES_SIZE := DefaultParam .CL2_HUGE_SERVICES_SIZE 1000}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
@@ -65,7 +64,7 @@
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 
-{{if and $ENABLE_HUGE_SERVICES $ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS (ge .Nodes $HUGE_SERVICES_SIZE)}}
+{{if and $ENABLE_HUGE_SERVICES (ge .Nodes $HUGE_SERVICES_SIZE)}}
   {{$schedulerThroughputReplicasPerNamespace = DivideInt .Nodes $HUGE_SERVICES_SIZE}}
   {{$schedulerThroughputPodsPerDeployment = DivideInt .Nodes $schedulerThroughputReplicasPerNamespace}}
   {{$schedulerThroughputNamespaces = 1}}
@@ -196,7 +195,6 @@ steps:
     path: modules/huge-services.yaml
     params:
       action: create
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: 1
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
@@ -205,7 +203,6 @@ steps:
     path: modules/scheduler-throughput.yaml
     params:
       action: create
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: {{$schedulerThroughputReplicasPerNamespace}}
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
@@ -260,7 +257,6 @@ steps:
     path: modules/scheduler-throughput.yaml
     params:
       action: delete
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: 0
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
@@ -271,7 +267,6 @@ steps:
     path: modules/huge-services.yaml
     params:
       action: delete
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: 0
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}

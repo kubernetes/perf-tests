@@ -178,6 +178,20 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: waitForReady
+- name: Gathering measurements for nodepool upgrade
+  measurements:
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyNodepoolUpgradeSmall
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
 {{end}}
 # Delete ILBs
 - name: Deleting ILBs
@@ -218,19 +232,3 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-{{if $NODEPOOL_UPGRADE_COMMAND}}
-- name: Gathering measurements for nodepool upgrade
-  measurements:
-  - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencyNodepoolUpgradeMedium
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencyNodepoolUpgradeSmall
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-{{end}}

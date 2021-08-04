@@ -120,6 +120,20 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Gathering measurements for service creation
+  measurements:
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
 {{if $NODEPOOL_UPGRADE_COMMAND}}
 - name: Starting measurements for nodepool upgrade
   measurements:
@@ -202,20 +216,6 @@ steps:
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-- name: Gathering measurements
-  measurements:
-  - Identifier: ServiceCreationLatencyLarge
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencyMedium
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencySmall
-    Method: ServiceCreationLatency
     Params:
       action: gather
 {{if $NODEPOOL_UPGRADE_COMMAND}}

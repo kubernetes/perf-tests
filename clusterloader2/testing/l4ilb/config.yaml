@@ -155,6 +155,10 @@ steps:
       action: start
       waitTimeout: {{$ilbWaitTimeout}}
       labelSelector: size = {{$SMALL_BACKEND_LABEL}}
+  - Identifier: NodepoolUpgradeServiceRecoveryTimer
+    Method: Timer
+    Params:
+      label: start
 - name: Execute command for nodepool upgrade
   measurements:
   - Identifier: ExecNodepoolUpgrade
@@ -178,6 +182,11 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: waitForReady
+- name: Stop nodepool upgrade timer
+  - Identifier: NodepoolUpgradeServiceRecoveryTimer
+    Method: Timer
+    Params:
+      label: stop
 - name: Gathering measurements for nodepool upgrade
   measurements:
   - Identifier: ServiceCreationLatencyNodepoolUpgradeLarge
@@ -192,6 +201,10 @@ steps:
     Method: ServiceCreationLatency
     Params:
       action: gather
+  - Identifier: NodepoolUpgradeServiceRecoveryTimer
+    Method: Timer
+    Params:
+      label: gather
 {{end}}
 # Delete ILBs
 - name: Deleting ILBs

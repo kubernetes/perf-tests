@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -89,6 +90,12 @@ type Controller struct {
 	templateMapping map[string]interface{}
 	// diskMetadata store name and zone of Prometheus persistent disk.
 	diskMetadata prometheusDiskMetadata
+	// snapshotLock makes sure that only single Prometheus snapshot is happening
+	snapshotLock sync.Mutex
+	// snapshotted is a check if the Prometheus snapshot is already done - protected by snapshotLock
+	snapshotted bool
+	// snapshotError contains error from snapshot attempt - protected by snapshotLock
+	snapshotError error
 	// ssh executor to run commands in cluster nodes via ssh
 	ssh util.SSHExecutor
 }
@@ -240,7 +247,7 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	}
 	defer func() {
 		klog.V(2).Info("Snapshotting prometheus disk")
-		if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
+		if err := pc.snapshotPrometheusDiskIfEnabledSynchronized(); err != nil {
 			klog.Warningf("Error while snapshotting prometheus disk: %v", err)
 		}
 		if err := pc.deletePrometheusDiskIfEnabled(); err != nil {

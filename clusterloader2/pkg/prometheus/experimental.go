@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"os/signal"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -37,7 +39,7 @@ type prometheusDiskMetadata struct {
 
 const (
 	gcloudRetryInterval  = 20 * time.Second
-	snapshotRetryTimeout = 10 * time.Minute
+	snapshotRetryTimeout = 5 * time.Minute
 	deleteRetryTimeout   = 2 * time.Minute
 )
 
@@ -107,6 +109,16 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	pc.diskMetadata.name = pdName
 	pc.diskMetadata.zone = zone
 	return true, nil
+}
+func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
+	pc.snapshotLock.Lock()
+	defer pc.snapshotLock.Unlock()
+	if pc.snapshotted {
+		return pc.snapshotError
+	}
+	pc.snapshotted = true
+	pc.snapshotError = pc.snapshotPrometheusDiskIfEnabled()
+	return pc.snapshotError
 }
 
 func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
@@ -198,4 +210,18 @@ func (pc *Controller) tryDeletePrometheusDisk(pdName, zone string) error {
 	}
 	klog.V(2).Infof("Deleting disk finished with: %q", string(output))
 	return nil
+}
+
+func (pc *Controller) EnableTearDownPrometheusStackOnInterrupt() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		// Block until a signal is received.
+		s := <-c
+		klog.V(2).Infof("Received signal: %v", s)
+		if err := pc.snapshotPrometheusDiskIfEnabledSynchronized(); err != nil {
+			klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+		}
+		os.Exit(1)
+	}()
 }

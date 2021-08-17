@@ -292,6 +292,9 @@ func main() {
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
 			klog.Exitf("Error while setting up prometheus stack: %v", err)
 		}
+		if clusterLoaderConfig.PrometheusConfig.TearDownServer {
+			prometheusController.EnableTearDownPrometheusStackOnInterrupt()
+		}
 	}
 	if clusterLoaderConfig.EnableExecService {
 		if err := execservice.SetUpExecService(f); err != nil {

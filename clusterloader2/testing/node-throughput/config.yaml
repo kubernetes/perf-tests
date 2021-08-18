@@ -16,7 +16,8 @@ tuningSets:
   qpsLoad:
     qps: {{$POD_THROUGHPUT}}
 steps:
-- measurements:
+- name: Starting measurements
+  measurements:
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:
@@ -27,7 +28,8 @@ steps:
       action: start
       labelSelector: group = latency
       threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
-- measurements:
+- name: Starting pods measurements
+  measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
@@ -36,7 +38,8 @@ steps:
       kind: ReplicationController
       labelSelector: group = latency
       operationTimeout: {{$OPERATION_TIMEOUT}}
-- phases:
+- name: Creating pods
+  phases:
   - namespaceRange:
       min: 1
       max: {{$POD_COUNT}}
@@ -49,12 +52,14 @@ steps:
         Replicas: 1
         Group: latency
         Image: {{$CONTAINER_IMAGE}}
-- measurements:
+- name: Waiting for pods to be running
+  measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- phases:
+- name: Deleting pods
+  phases:
   - namespaceRange:
       min: 1
       max: {{$POD_COUNT}}
@@ -63,18 +68,21 @@ steps:
     objectBundle:
     - basename: latency-pod-rc
       objectTemplatePath: rc.yaml
-- measurements:
+- name: Waiting for pods to be deleted
+  measurements:
   - Identifier: WaitForRunningLatencyRCs
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
 # Collect measurements
-- measurements:
+- name: Collecting pods measurements
+  measurements:
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
-- measurements:
+- name: Collecting measurements
+  measurements:
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:

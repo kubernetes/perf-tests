@@ -48,6 +48,9 @@ type ClusterConfig struct {
 	DeleteStaleNamespaces bool
 	// TODO(#1696): Clean up after removing automanagedNamespaces
 	DeleteAutomanagedNamespaces bool
+	// ParallelEventDeletions says how many goroutines to run for fast deletion of events, before deleting a namespace
+	// Zero means do not delete events (just let namespace deletion implicitly delete the events)
+	ParallelEventDeletions int
 	// APIServerPprofByClientEnabled determines whether kube-apiserver pprof endpoint can be accessed
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
 	APIServerPprofByClientEnabled bool

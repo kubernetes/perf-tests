@@ -41,6 +41,8 @@ import (
 
 var namespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
 
+const ParallelEventDeletionsName = "parallel-event-deletions"
+
 // Framework allows for interacting with Kubernetes cluster via
 // official Kubernetes client.
 type Framework struct {
@@ -162,15 +164,20 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
 }
 
 func (f *Framework) deleteNamespace(namespace string) error {
-	// TODO: parameterize whether we do the fast delete
-	f.tryFastDeleteEvents(namespace)
+	if f.clusterConfig.ParallelEventDeletions > 0 {
+		f.tryFastDeleteEvents(namespace)
+	}
 
 	clientSet := f.clientSets.GetClient()
 	if err := client.DeleteNamespace(clientSet, namespace); err != nil {
 		return err
 	}
+	startWait := time.Now()
 	if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
 		return err
+	}
+	if time.Since(startWait) > time.Minute && f.clusterConfig.ParallelEventDeletions == 0 {
+		klog.V(2).Infof("For faster cleanup of namespaces, consider setting %s on the command line", ParallelEventDeletionsName)
 	}
 	return nil
 }
@@ -182,7 +189,7 @@ func (f *Framework) deleteNamespace(namespace string) error {
 // (e.g. 30 secs instead of 5 mins).
 // Returns no error because, if it fails, deleting the namespace will delete the events
 // anyway (but more slowly).
-func (f *Framework) tryFastDeleteEvents(namespace string)  {
+func (f *Framework) tryFastDeleteEvents(namespace string) {
 	klog.V(2).Infof("Deleting events in parallel to speed up namespace deletion")
 	start := time.Now()
 	totalDeletions := int32(0)
@@ -190,7 +197,7 @@ func (f *Framework) tryFastDeleteEvents(namespace string)  {
 	wg := &sync.WaitGroup{}
 
 	// define worker
-	deleteEventsWorker := func(){
+	deleteEventsWorker := func() {
 		defer wg.Done()
 		eventClient := f.clientSets.GetClient().EventsV1beta1().Events(namespace)
 		opts := metav1.DeleteOptions{}
@@ -209,7 +216,7 @@ func (f *Framework) tryFastDeleteEvents(namespace string)  {
 	}
 
 	// feed event names into the channel
-	go func(){
+	go func() {
 		continuation := ""
 		eventClient := f.clientSets.GetClient().EventsV1beta1().Events(namespace)
 		for {
@@ -233,7 +240,7 @@ func (f *Framework) tryFastDeleteEvents(namespace string)  {
 	}()
 
 	// delete in parallel
-	concurrentOps := 100 // TODO parameterize
+	concurrentOps := f.clusterConfig.ParallelEventDeletions
 	for grNum := 0; grNum < concurrentOps; grNum++ {
 		wg.Add(1)
 		go deleteEventsWorker()

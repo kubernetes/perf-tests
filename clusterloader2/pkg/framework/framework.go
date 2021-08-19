@@ -17,10 +17,15 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -157,6 +162,9 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
 }
 
 func (f *Framework) deleteNamespace(namespace string) error {
+	// TODO: parameterize whether we do the fast delete
+	f.tryFastDeleteEvents(namespace)
+
 	clientSet := f.clientSets.GetClient()
 	if err := client.DeleteNamespace(clientSet, namespace); err != nil {
 		return err
@@ -165,6 +173,74 @@ func (f *Framework) deleteNamespace(namespace string) error {
 		return err
 	}
 	return nil
+}
+
+// tryDeleteEvents tries to delete events quickly. This is useful for faster
+// cleanup in cases where there are large numbers of events - e.g. 100,000.
+// Testing suggests that, in at least some cases, it's an order of magnitude faster
+// to call this before deleting the namespace, versus just deleting the namespace.
+// (e.g. 30 secs instead of 5 mins).
+// Returns no error because, if it fails, deleting the namespace will delete the events
+// anyway (but more slowly).
+func (f *Framework) tryFastDeleteEvents(namespace string)  {
+	klog.V(2).Infof("Deleting events in parallel to speed up namespace deletion")
+	start := time.Now()
+	totalDeletions := int32(0)
+	eventNames := make(chan string, 10000)
+	wg := &sync.WaitGroup{}
+
+	// define worker
+	deleteEventsWorker := func(){
+		defer wg.Done()
+		eventClient := f.clientSets.GetClient().EventsV1beta1().Events(namespace)
+		opts := metav1.DeleteOptions{}
+		for {
+			name, ok := <-eventNames
+			if !ok {
+				return
+			}
+			err := eventClient.Delete(context.Background(), name, opts)
+			if err != nil {
+				klog.V(2).Infof("Error deleting event: %v", err)
+				return
+			}
+			atomic.AddInt32(&totalDeletions, 1)
+		}
+	}
+
+	// feed event names into the channel
+	go func(){
+		continuation := ""
+		eventClient := f.clientSets.GetClient().EventsV1beta1().Events(namespace)
+		for {
+			options := metav1.ListOptions{Limit: 1000, Continue: continuation}
+			list, err := eventClient.List(context.Background(), options)
+			if err != nil {
+				close(eventNames)
+				klog.V(2).Infof("Error listing events: %v", err)
+				return
+			}
+			for _, e := range list.Items {
+				eventNames <- e.Name
+			}
+			if list.Continue == "" {
+				close(eventNames)
+				return
+			} else {
+				continuation = list.Continue
+			}
+		}
+	}()
+
+	// delete in parallel
+	concurrentOps := 100 // TODO parameterize
+	for grNum := 0; grNum < concurrentOps; grNum++ {
+		wg.Add(1)
+		go deleteEventsWorker()
+	}
+	wg.Wait()
+
+	klog.V(2).Infof("Deleted %d events in %v", atomic.LoadInt32(&totalDeletions), time.Since(start))
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.

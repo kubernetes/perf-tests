@@ -112,6 +112,18 @@ func getMinionNodes(ctx context.Context, c *kubernetes.Clientset) *api.NodeList 
 
 func cleanup(ctx context.Context, c *kubernetes.Clientset) {
 	// Cleanup existing rcs, pods and services in our namespace
+	rcs, err := c.CoreV1().ReplicationControllers(testNamespace).List(ctx, everythingSelector)
+	if err != nil {
+		fmt.Println("Failed to get replication controllers", err)
+		return
+	}
+	for _, rc := range rcs.Items {
+		fmt.Println("Deleting rc", rc.GetName())
+		if err := c.CoreV1().ReplicationControllers(testNamespace).Delete(ctx,
+			rc.GetName(), metav1.DeleteOptions{}); err != nil {
+			fmt.Println("Failed to delete rc", rc.GetName(), err)
+		}
+	}
 	pods, err := c.CoreV1().Pods(testNamespace).List(ctx, everythingSelector)
 	if err != nil {
 		fmt.Println("Failed to get pods", err)
@@ -184,12 +196,6 @@ func createServices(ctx context.Context, c *kubernetes.Clientset) bool {
 				{
 					Name:       "netperf-w2",
 					Protocol:   api.ProtocolTCP,
-					Port:       iperf3Port,
-					TargetPort: intstr.FromInt(iperf3Port),
-				},
-				{
-					Name:       "netperf-w2-sctp",
-					Protocol:   api.ProtocolSCTP,
 					Port:       iperf3Port,
 					TargetPort: intstr.FromInt(iperf3Port),
 				},
@@ -267,7 +273,6 @@ func createRCs(ctx context.Context, c *kubernetes.Clientset) bool {
 		if i > 1 {
 			// Worker W1 is a client-only pod - no ports are exposed
 			portSpec = append(portSpec, api.ContainerPort{ContainerPort: iperf3Port, Protocol: api.ProtocolTCP})
-			portSpec = append(portSpec, api.ContainerPort{ContainerPort: iperf3Port, Protocol: api.ProtocolSCTP})
 		}
 
 		workerEnv := []api.EnvVar{

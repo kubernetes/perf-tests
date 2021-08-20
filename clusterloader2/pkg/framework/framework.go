@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/flowcontrol"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -195,18 +197,27 @@ func (f *Framework) tryFastDeleteEvents(namespace string) {
 	totalDeletions := int32(0)
 	eventNames := make(chan string, 10000)
 	wg := &sync.WaitGroup{}
+	// Define one rate limiter for all deletions.
+	// It allows deletions to proceed at a very high rate, so that in all but the most
+	// extreme cases the rate will be governed only by f.ParallelEventDeletions and not
+	// constrained by any rate limiting
+	deleteRateLimiter := flowcontrol.NewTokenBucketRateLimiter(3000, 3000)
 
 	// define worker
 	deleteEventsWorker := func() {
 		defer wg.Done()
-		eventClient := f.clientSets.GetClient().EventsV1beta1().Events(namespace)
-		opts := metav1.DeleteOptions{}
+		eventClient := f.clientSets.GetClient().EventsV1beta1().RESTClient()
 		for {
 			name, ok := <-eventNames
 			if !ok {
 				return
 			}
-			err := eventClient.Delete(context.Background(), name, opts)
+			err := f.deleteWithRateLimiter(context.Background(),
+				eventClient,
+				namespace,
+				"events",
+				name,
+				deleteRateLimiter)
 			if err != nil {
 				klog.V(2).Infof("Error deleting event: %v", err)
 				return
@@ -248,6 +259,26 @@ func (f *Framework) tryFastDeleteEvents(namespace string) {
 	wg.Wait()
 
 	klog.V(2).Infof("Deleted %d events in %v", atomic.LoadInt32(&totalDeletions), time.Since(start))
+}
+
+// deleteWithRateLimiter is just like func (c *events) Delete in event.go, except it allows
+// overriding the rate limiter.
+// An alternative would be to mess with the rate limiter in the underlying REST client, but
+// that seems inconsistent with the patterns in the rest of ClusterLoader2, hence the creation of
+// this method.
+// BTW, without this method, we end up constrained by the 100 QPS limits of CL2s default rest client(s)
+// and that means our event deletion isn't fast enough.  The whole point of parallel event deletion is
+// to delete them quickly!
+func (_ *Framework) deleteWithRateLimiter(ctx context.Context, client rest.Interface, namespace string, resourceType string, name string, r flowcontrol.RateLimiter) error {
+	opts := metav1.DeleteOptions{}
+	return client.Verb("DELETE").
+		Namespace(namespace).
+		Resource(resourceType).
+		Name(name).
+		Body(&opts).
+		Throttle(r). // replace rate limiter on this request (not on underlying Rest Client)
+		Do(ctx).
+		Error()
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.

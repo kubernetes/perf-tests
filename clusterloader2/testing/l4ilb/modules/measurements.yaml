@@ -1,0 +1,25 @@
+# Valid actions: "start", "waitForReady" and "gather"
+{{$action := .action}}
+{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
+
+steps:
+- name: Service creation latency measurements - '{{$action}}'
+  measurements:
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = ilb-large
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = ilb-medium
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = ilb-small

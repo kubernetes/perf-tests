@@ -45,7 +45,7 @@ const (
 
 	currentAPICallMetricsVersion = "v1"
 
-	filters = `verb!="WATCH", subresource!~"exec|proxy"`
+	filters = `verb!="WATCH", subresource!~"log|exec|portforward|attach|proxy"`
 
 	// latencyQuery matches description of the API call latency SLI and measure 99th percentaile over 5m windows
 	//

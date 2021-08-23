@@ -294,7 +294,8 @@ func createRCs(ctx context.Context, c *kubernetes.Clientset) bool {
 						Labels: map[string]string{"app": name},
 					},
 					Spec: api.PodSpec{
-						NodeName: kubeNode,
+						HostNetwork: hostnetworking,
+						NodeName:    kubeNode,
 						Containers: []api.Container{
 							{
 								Name:            name,

@@ -1,0 +1,61 @@
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+{{$LARGE_BACKEND_SIZE := DefaultParam .CL2_LARGE_BACKEND_SIZE 300}}
+{{$MEDIUM_BACKEND_SIZE := DefaultParam .CL2_MEDIUM_BACKEND_SIZE 150}}
+{{$SMALL_BACKEND_SIZE := DefaultParam .CL2_SMALL_BACKEND_SIZE 10}}
+{{$LARGE_BACKEND_LB_SERVICE_COUNT := .largeBackendLbServiceCount}}
+{{$MEDIUM_BACKEND_LB_SERVICE_COUNT := .mediumBackendLbServiceCount}}
+{{$SMALL_BACKEND_LB_SERVICE_COUNT := .smallBackendLbServiceCount}}
+{{$actionName := .actionName}}
+{{$namespaces := 1}}
+
+steps:
+- name: {{$actionName}} ILBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: large-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: large-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        ILBSizeLabel: ilb-large
+    - basename: large-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LARGE_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: medium-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: medium-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        ILBSizeLabel: ilb-medium
+    - basename: medium-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$MEDIUM_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: small-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: small-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        ILBSizeLabel: ilb-small
+    - basename: small-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$SMALL_BACKEND_SIZE}}

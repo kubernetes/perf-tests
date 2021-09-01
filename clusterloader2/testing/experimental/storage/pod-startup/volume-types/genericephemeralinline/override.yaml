@@ -1,0 +1,4 @@
+PROVISION_VOLUME: false
+WAIT_FOR_PVS_BOUND: false
+WAIT_FOR_PVS_DELETED: false
+DEPLOYMENT_TEMPLATE_PATH: "volume-types/genericephemeralinline/deployment_with_inline.yaml"

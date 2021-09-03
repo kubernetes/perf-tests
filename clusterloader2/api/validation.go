@@ -181,6 +181,10 @@ func (v *ConfigValidator) validateTuningSet(ts *TuningSet, fldPath *field.Path) 
 		tuningSetsNumber++
 		allErrs = append(allErrs, v.validateQPSLoad(ts.QPSLoad, fldPath.Child("qpsLoad"))...)
 	}
+	if ts.TimedQPSLoad != nil {
+		tuningSetsNumber++
+		allErrs = append(allErrs, v.validateTimedQPSLoad(ts.TimedQPSLoad, fldPath.Child("timedQPSLoad"))...)
+	}
 	if ts.RandomizedLoad != nil {
 		tuningSetsNumber++
 		allErrs = append(allErrs, v.validateRandomizedLoad(ts.RandomizedLoad, fldPath.Child("randomizedLoad"))...)
@@ -220,6 +224,17 @@ func (v *ConfigValidator) validateQPSLoad(ql *QPSLoad, fldPath *field.Path) fiel
 	allErrs := field.ErrorList{}
 	if ql.QPS <= 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("qps"), ql.QPS, "must have positive value"))
+	}
+	return allErrs
+}
+
+func (v *ConfigValidator) validateTimedQPSLoad(ql *TimedQPSLoad, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if ql.QPS <= 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("qps"), ql.QPS, "must have positive value"))
+	}
+	if ql.Duration < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("duration"), ql.Duration, "must have positive value"))
 	}
 	return allErrs
 }

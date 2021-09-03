@@ -167,6 +167,8 @@ type TuningSet struct {
 	InitialDelay Duration `json:"initialDelay"`
 	// QPSLoad is a definition for QPSLoad tuning set.
 	QPSLoad *QPSLoad `json:"qpsLoad"`
+	// TimedQPSLoad is a definition for the TimedQPSLoad tuning set.
+	TimedQPSLoad *TimedQPSLoad `json:"timedQPSLoad"`
 	// RandomizedLoad is a definition for RandomizedLoad tuning set.
 	RandomizedLoad *RandomizedLoad `json:"randomizedLoad"`
 	// SteppedLoad is a definition for SteppedLoad tuning set.
@@ -212,6 +214,18 @@ type Measurement struct {
 type QPSLoad struct {
 	// QPS specifies requested qps.
 	QPS float64 `json:"qps"`
+}
+
+type TimedQPSLoad struct {
+	// QPS specifies requested qps.
+	QPS float64 `json:"qps"`
+
+	// How long to exert QPS load for
+	Duration Duration `json:"duration"`
+
+	// TODO:
+	// * some sort of kill signal that monitors a configmap
+	// killSignal string
 }
 
 // RandomizedLoad defines a load that is spread randomly

@@ -34,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/runtimeinjection"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -299,6 +300,10 @@ func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namesp
 		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
+		}
+		err := runtimeinjection.SubstituteRuntimeInjections(obj)
+		if err != nil {
+			return errors.NewErrorList(fmt.Errorf("runtime injection error: %v", err))
 		}
 	case deleteObject:
 		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)

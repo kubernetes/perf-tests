@@ -50,6 +50,8 @@ func (tf *simpleFactory) CreateTuningSet(name string) (TuningSet, error) {
 		return nil, fmt.Errorf("tuningset %s not found", name)
 	}
 	switch {
+	case tuningSet.TimedQPSLoad != nil:
+		return newTimedQPSLoad(tuningSet.TimedQPSLoad), nil
 	case tuningSet.QPSLoad != nil:
 		return newQPSLoad(tuningSet.QPSLoad), nil
 	case tuningSet.RandomizedLoad != nil:

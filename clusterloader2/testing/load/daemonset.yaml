@@ -1,5 +1,6 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
+{{$Env := DefaultParam .Env ""}}
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -24,6 +25,9 @@ spec:
       containers:
       - name: {{.Name}}
         image: {{$Image}}
+        env:
+          - name: TEST_ENV
+            value: {{$Env}}
         resources:
           requests:
             cpu: 10m

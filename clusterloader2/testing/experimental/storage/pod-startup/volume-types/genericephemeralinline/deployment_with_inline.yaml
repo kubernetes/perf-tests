@@ -1,0 +1,67 @@
+{{$index := .Index}}
+{{$volumesPerPod := .VolumesPerPod}}
+{{$name := .Name}}
+{{$group := .Group}}
+{{$provisioner := .Provisioner}}
+{{$storageclass := .StorageClass}}
+{{$volsize := .VolSize}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{.Group}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: {{.Group}}
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: k8s.gcr.io/pause:3.1
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        {{ range $volumeIndex := Loop .VolumesPerPod }}
+        - name: vol-{{$volumeIndex}}
+          mountPath: /usr/share/{{$volumeIndex}}
+        {{ end }}
+      volumes:
+      {{ range $volumeIndex := Loop .VolumesPerPod }}
+      - name: vol-{{$volumeIndex}}
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              labels:
+                app: {{$name}}
+                group: {{$group}}
+              {{ if $provisioner }}
+              annotations:
+                volume.beta.kubernetes.io/storage-provisioner: {{$provisioner}}
+              {{ end }}
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              {{ if $storageclass }}
+              storageClassName: {{$storageclass}}
+              {{ end }}
+              resources:
+                requests:
+                  storage: {{$volsize}}
+      {{ end }}
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900

@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +79,7 @@ type serviceCreationLatencyMeasurement struct {
 	client        clientset.Interface
 	creationTimes *measurementutil.ObjectTransitionTimes
 	pingCheckers  checker.Map
+	lock          sync.Mutex
 }
 
 // Execute executes service startup latency measurement actions.
@@ -123,6 +125,8 @@ func (s *serviceCreationLatencyMeasurement) Dispose() {
 		close(s.stopCh)
 	}
 	s.queue.Stop()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.pingCheckers.Dispose()
 }
 
@@ -257,6 +261,8 @@ func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) er
 	if err != nil {
 		return fmt.Errorf("meta key created error: %v", err)
 	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.pingCheckers.DeleteAndStop(key)
 	return nil
 }
@@ -290,6 +296,8 @@ func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) er
 		stopCh:        make(chan struct{}),
 	}
 	pc.run()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.pingCheckers.Add(key, pc)
 
 	return nil

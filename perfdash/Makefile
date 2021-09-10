@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.35
+TAG = 2.36
 
 REPO = gcr.io/k8s-testimages
 
@@ -28,4 +28,3 @@ push: container
 
 clean:
 	rm -f perfdash
-

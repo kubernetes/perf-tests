@@ -61,3 +61,9 @@ func (o *PodsMetadata) FilterStateless(key string) bool {
 	meta, ok := o.metadata[key]
 	return ok && meta.stateless
 }
+
+// FilterStatefull returns true iff a pod associated with a given key is
+// not marked as stateless.
+func (o *PodsMetadata) FilterStatefull(key string) bool {
+	return !o.FilterStateless(key)
+}

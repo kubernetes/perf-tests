@@ -324,7 +324,7 @@ func createMetaNamespaceKey(namespace, name string) string {
 
 func isPodStateless(pod *corev1.Pod) bool {
 	for _, volume := range pod.Spec.Volumes {
-		if volume.EmptyDir != nil || volume.DownwardAPI != nil || volume.ConfigMap != nil || volume.Secret != nil {
+		if volume.EmptyDir != nil || volume.DownwardAPI != nil || volume.ConfigMap != nil || volume.Secret != nil || volume.Projected != nil {
 			continue
 		}
 		klog.V(4).Infof("pod %s/%s classified as stateful", pod.Namespace, pod.Name)

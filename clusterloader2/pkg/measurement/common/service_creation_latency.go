@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"k8s.io/klog"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -49,6 +51,15 @@ const (
 	defaultCheckInterval                 = 10 * time.Second
 	pingBackoff                          = 1 * time.Second
 	pingChecks                           = 10
+	// backendThreshold used to check whether total backend number curled from the services is
+	// larger than/equal to this value.
+	// 0 means that the testing disabled this check.
+	// regexString is the regex expression string, which is used to filter the main caring info from the service curl output
+	// regexString define depends on the container image used by services' pod.
+	// backendThreshold need to be enabled with regexString, align with the container image.
+	// example is in testing/svc/
+	backendThreshold = 0
+	regexString      = ""
 
 	creatingPhase     = "creating"
 	ipAssigningPhase  = "ipAssigning"
@@ -64,22 +75,28 @@ func init() {
 func createServiceCreationLatencyMeasurement() measurement.Measurement {
 	return &serviceCreationLatencyMeasurement{
 		selector:      measurementutil.NewObjectSelector(),
-		queue:         workerqueue.NewWorkerQueue(serviceCreationLatencyWorkers),
 		creationTimes: measurementutil.NewObjectTransitionTimes(serviceCreationLatencyName),
+		svcBackends:   measurementutil.NewSvcBackends(serviceCreationLatencyName),
 		pingCheckers:  checker.NewMap(),
 	}
 }
 
 type serviceCreationLatencyMeasurement struct {
-	selector      *measurementutil.ObjectSelector
-	waitTimeout   time.Duration
-	stopCh        chan struct{}
-	isRunning     bool
-	queue         workerqueue.Interface
-	client        clientset.Interface
-	creationTimes *measurementutil.ObjectTransitionTimes
-	pingCheckers  checker.Map
-	lock          sync.Mutex
+	selector         *measurementutil.ObjectSelector
+	waitTimeout      time.Duration
+	stopCh           chan struct{}
+	isRunning        bool
+	queue            workerqueue.Interface
+	client           clientset.Interface
+	creationTimes    *measurementutil.ObjectTransitionTimes
+	svcBackends      *measurementutil.SvcBackends
+	pingCheckers     checker.Map
+	lock             sync.Mutex
+	succeedCheckNums int
+	checkerWorkers   int
+	backendThreshold int
+	regexString      string
+	regexpObj        *regexp.Regexp
 }
 
 // Execute executes service startup latency measurement actions.
@@ -107,6 +124,31 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) 
 		s.waitTimeout, err = util.GetDurationOrDefault(config.Params, "waitTimeout", defaultServiceCreationLatencyTimeout)
 		if err != nil {
 			return nil, err
+		}
+		s.checkerWorkers, err = util.GetIntOrDefault(config.Params, "parallel_checker_workers", serviceCreationLatencyWorkers)
+		if err != nil {
+			return nil, err
+		}
+		s.queue = workerqueue.NewWorkerQueue(s.checkerWorkers)
+		s.succeedCheckNums, err = util.GetIntOrDefault(config.Params, "consecutive_succeed_checks", pingChecks)
+		if err != nil {
+			return nil, err
+		}
+		s.backendThreshold, err = util.GetIntOrDefault(config.Params, "backendThreshold", backendThreshold)
+		if err != nil {
+			return nil, err
+		}
+		s.regexString, err = util.GetStringOrDefault(config.Params, "regexString", regexString)
+		if err != nil {
+			return nil, err
+		}
+		if s.regexString != "" {
+			s.regexpObj, err = regexp.Compile(s.regexString)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			s.regexpObj = nil
 		}
 		return nil, s.start()
 	case "waitForReady":
@@ -204,6 +246,8 @@ var serviceCreationTransitions = map[string]measurementutil.Transition{
 }
 
 func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measurement.Summary, error) {
+	var summaries []measurement.Summary
+
 	klog.V(2).Infof("%s: gathering service created latency measurement...", s)
 	if !s.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", s)
@@ -216,8 +260,34 @@ func (s *serviceCreationLatencyMeasurement) gather(identifier string) ([]measure
 	if err != nil {
 		return nil, err
 	}
+
 	summary := measurement.CreateSummary(fmt.Sprintf("%s_%s", serviceCreationLatencyName, identifier), "json", content)
-	return []measurement.Summary{summary}, nil
+	summaries = append(summaries, summary)
+
+	if s.backendThreshold != 0 {
+		svcBackendNum := s.svcBackends.CalculateBackendNum()
+		content, err = util.PrettyPrintJSON(svcBackendNum)
+		if err != nil {
+			return nil, err
+		}
+		summary = measurement.CreateSummary(fmt.Sprintf("%s_%s_BackendNums", serviceCreationLatencyName, identifier), "json", content)
+		summaries = append(summaries, summary)
+
+		if len(svcBackendNum) == 0 {
+			err = errors.NewMetricViolationError(
+				"service creation latency",
+				fmt.Sprintf("%s_%s can not get any backends following pattern %s", serviceCreationLatencyName, identifier, s.regexString))
+		}
+		for svc, num := range svcBackendNum {
+			if num < s.backendThreshold {
+				klog.Errorf("only found %d backends for svc %s, expected at least %d backends", num, svc, s.backendThreshold)
+				err = errors.NewMetricViolationError(
+					"service creation latency",
+					fmt.Sprintf("some services can not get at least %d backends", s.backendThreshold))
+			}
+		}
+	}
+	return summaries, err
 }
 
 func (s *serviceCreationLatencyMeasurement) handleObject(oldObj, newObj interface{}) {
@@ -290,10 +360,13 @@ func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) er
 		s.creationTimes.Set(key, phaseName(ipAssigningPhase, svc.Spec.Type), time.Now())
 	}
 	pc := &pingChecker{
-		callerName:    s.String(),
-		svc:           svc,
-		creationTimes: s.creationTimes,
-		stopCh:        make(chan struct{}),
+		callerName:       s.String(),
+		svc:              svc,
+		creationTimes:    s.creationTimes,
+		svcBackends:      s.svcBackends,
+		succeedCheckNums: s.succeedCheckNums,
+		regexpObj:        s.regexpObj,
+		stopCh:           make(chan struct{}),
 	}
 	pc.run()
 	s.lock.Lock()
@@ -308,10 +381,13 @@ func phaseName(phase string, serviceType corev1.ServiceType) string {
 }
 
 type pingChecker struct {
-	callerName    string
-	svc           *corev1.Service
-	creationTimes *measurementutil.ObjectTransitionTimes
-	stopCh        chan struct{}
+	callerName       string
+	svc              *corev1.Service
+	creationTimes    *measurementutil.ObjectTransitionTimes
+	svcBackends      *measurementutil.SvcBackends
+	stopCh           chan struct{}
+	succeedCheckNums int
+	regexpObj        *regexp.Regexp
 }
 
 func (p *pingChecker) run() {
@@ -337,24 +413,34 @@ func (p *pingChecker) run() {
 				time.Sleep(pingBackoff)
 				continue
 			}
+			msg := ""
 			switch p.svc.Spec.Type {
 			case corev1.ServiceTypeClusterIP:
-				cmd := fmt.Sprintf("curl %s:%d", p.svc.Spec.ClusterIP, p.svc.Spec.Ports[0].Port)
-				_, err = execservice.RunCommand(pod, cmd)
+				// curl parameter is https://www.mit.edu/afs.new/sipb/user/ssen/src/curl-7.11.1/docs/curl.html
+				// we use 3 as the value of -m, instead of the default timeout value 120s, to make the service creation time more precise
+				cmd := fmt.Sprintf("curl -m 3 -s -S %s:%d", p.svc.Spec.ClusterIP, p.svc.Spec.Ports[0].Port)
+				msg, err = execservice.RunCommand(pod, cmd)
 			case corev1.ServiceTypeNodePort:
-				cmd := fmt.Sprintf("curl %s:%d", pod.Status.HostIP, p.svc.Spec.Ports[0].NodePort)
-				_, err = execservice.RunCommand(pod, cmd)
+				cmd := fmt.Sprintf("curl -m 3 -s -S %s:%d", pod.Status.HostIP, p.svc.Spec.Ports[0].NodePort)
+				msg, err = execservice.RunCommand(pod, cmd)
 			case corev1.ServiceTypeLoadBalancer:
-				cmd := fmt.Sprintf("curl %s:%d", p.svc.Status.LoadBalancer.Ingress[0].IP, p.svc.Spec.Ports[0].Port)
-				_, err = execservice.RunCommand(pod, cmd)
+				cmd := fmt.Sprintf("curl -m 3 -s -S %s:%d", p.svc.Status.LoadBalancer.Ingress[0].IP, p.svc.Spec.Ports[0].Port)
+				msg, err = execservice.RunCommand(pod, cmd)
 			}
 			if err != nil {
 				success = 0
 				time.Sleep(pingBackoff)
 				continue
 			}
+			if p.regexpObj != nil {
+				ip := p.regexpObj.FindStringSubmatch(msg)
+				// [luwang-vmware] will think a more generic method to filter the user expected value
+				if len(ip) >= 2 {
+					p.svcBackends.Set(p.svc.Spec.ClusterIP, ip[1])
+				}
+			}
 			success++
-			if success == pingChecks {
+			if success == p.succeedCheckNums {
 				p.creationTimes.Set(key, phaseName(reachabilityPhase, p.svc.Spec.Type), time.Now())
 			}
 		}

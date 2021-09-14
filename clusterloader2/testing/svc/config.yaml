@@ -1,0 +1,440 @@
+# ASSUMPTIONS:
+# - This test is designed for 100+ node cluster.
+
+#Constants
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 5}}
+{{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$OPERATION_TIMEOUT := DefaultParam .OPERATION_TIMEOUT "11m"}}
+{{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
+{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
+{{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
+{{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
+
+#Constants
+{{$CONTAINER_IMAGE := "gcr.io/eminent-nation-87317/webserver:v1"}}
+{{$REGEXP_PATTERN := "Server address: ([0-9.]+):80"}}
+{{$BASE_BACKEND_SIZE := 3}}
+{{$SMALL_BACKEND_SIZE := 10}}
+{{$MEDIUM_BACKEND_SIZE := 50}}
+{{$BIG_BACKEND_SIZE:= 250}}
+
+{{$BASE_BACKEND_LABEL := "base"}}
+{{$SMALL_BACKEND_LABEL := "small"}}
+{{$MEDIUM_BACKEND_LABEL := "medium"}}
+{{$BIG_BACKEND_LABEL := "big"}}
+
+{{$BASE_REPLICAS_NS := 30}}
+{{$SMALL_REPLICAS_NS := 1}}
+{{$MEDIUM_REPLICAS_NS := 1}}
+{{$BIG_REPLICAS_NS := 1}}
+
+{{$BASE_NS := 30}}
+{{$SMALL_NS := 10}}
+{{$MEDIUM_NS := 10}}
+{{$BIG_NS := 10}}
+
+{{$svcQPS := 1}}
+
+#Test
+name: svc
+namespace:
+  number: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS $BIG_NS}}
+  
+tuningSets:
+- name: SVCConstantQPS
+  qpsLoad:
+    averageQps: {{$svcQPS}}
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$POD_THROUGHPUT}}
+- name: SlowQPS
+  qpsLoad:
+    qps: 1
+  
+steps:
+- name: Start monitoring
+  measurements:
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: start
+      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      clusterOOMsIgnoredProcesses: {{$CLUSTER_OOMS_IGNORED_PROCESSES}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = svc-load
+      threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = svc-load
+      operationTimeout: 120m
+
+- name: Create Base Deployment
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$BASE_NS}}
+    replicasPerNamespace: {{$BASE_REPLICAS_NS}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: base-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$BASE_BACKEND_SIZE}}
+        Image: {{$CONTAINER_IMAGE}}
+
+- name: Create Small Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS}}
+    replicasPerNamespace: {{$SMALL_REPLICAS_NS}}
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: small-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$SMALL_BACKEND_SIZE}}
+        Image: {{$CONTAINER_IMAGE}}
+    
+- name: Create Medium Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS}}
+    replicasPerNamespace: {{$MEDIUM_REPLICAS_NS}}
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: medium-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$MEDIUM_BACKEND_SIZE}}
+        Image: {{$CONTAINER_IMAGE}}
+
+- name: Create Big Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS $BIG_NS}}
+    replicasPerNamespace: {{$BIG_REPLICAS_NS}}
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: big-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$BIG_BACKEND_SIZE}}
+        Image: {{$CONTAINER_IMAGE}}
+
+- name: Wait Pods Running
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+
+- name: Start Base Svc Monitor
+  measurements:
+  - Identifier: Base
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      parallel_checker_workers: 10
+      consecutive_succeed_checks: {{$BASE_BACKEND_SIZE}}
+      labelSelector: size = {{$BASE_BACKEND_LABEL}}
+
+- name: Create Base Svc
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$BASE_NS}}
+    replicasPerNamespace: {{$BASE_REPLICAS_NS}}
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: base-dep-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: base-dep
+        SVCSizeLabel: {{$BASE_BACKEND_LABEL}}
+
+- name: Wait Base Svc Ready
+  measurements:
+  - Identifier: Base
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+
+- name: Collect Base Svc Data
+  measurements:
+  - Identifier: Base
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+
+- name: Wait 2 min
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- name: Start Small Svc Monitor
+  measurements:
+  - Identifier: Small
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      parallel_checker_workers: {{MultiplyInt $SMALL_NS $SMALL_REPLICAS_NS}}
+      consecutive_succeed_checks: {{$SMALL_BACKEND_SIZE}}
+      backendThreshold: {{DivideInt $SMALL_BACKEND_SIZE 3}}
+      regexString: {{$REGEXP_PATTERN}}
+      labelSelector: size = {{$SMALL_BACKEND_LABEL}}
+    
+- name: Create Small Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS}}
+    replicasPerNamespace: {{$SMALL_REPLICAS_NS}}
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: small-dep-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: small-dep
+        SVCSizeLabel: {{$SMALL_BACKEND_LABEL}}
+
+- name: Wait Small Svc Ready
+  measurements:
+  - Identifier: Small
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+
+- name: Collect Small Svc Data
+  measurements:
+  - Identifier: Small
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+
+- name: Wait 2 min
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- name: Start Medium Svc
+  measurements:
+  - Identifier: Medium
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      parallel_checker_workers: {{MultiplyInt $MEDIUM_NS $MEDIUM_REPLICAS_NS}}
+      consecutive_succeed_checks: {{DivideInt $MEDIUM_BACKEND_SIZE 2}}
+      backendThreshold: {{DivideInt $MEDIUM_BACKEND_SIZE 5}}
+      regexString: {{$REGEXP_PATTERN}}
+      labelSelector: size = {{$MEDIUM_BACKEND_LABEL}}
+
+- name: Create Medium Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS}}
+    replicasPerNamespace: {{$MEDIUM_REPLICAS_NS}}
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: medium-dep-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: medium-dep
+        SVCSizeLabel: {{$MEDIUM_BACKEND_LABEL}}
+
+- name: Wait Medium Svc Ready
+  measurements:
+  - Identifier: Medium
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+
+- name: Collect Medium Svc Data
+  measurements:
+  - Identifier: Medium
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+
+- name: Wait 2 min
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- name: Start Big Svc
+  measurements:
+  - Identifier: Big
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      parallel_checker_workers: {{MultiplyInt $BIG_NS $BIG_REPLICAS_NS}}
+      consecutive_succeed_checks: {{DivideInt $BIG_BACKEND_SIZE 5}}
+      backendThreshold: {{DivideInt $BIG_BACKEND_SIZE 15}}
+      regexString: {{$REGEXP_PATTERN}}
+      labelSelector: size = {{$BIG_BACKEND_LABEL}}
+
+- name: Create Big Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS $BIG_NS}}
+    replicasPerNamespace: {{$BIG_REPLICAS_NS}}
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: bigall-dep-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: big-dep
+        SVCSizeLabel: {{$BIG_BACKEND_LABEL}}
+
+- name: Wait Big Svc Ready
+  measurements:
+  - Identifier: Big
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+
+- name: Collect Big Data
+  measurements:
+  - Identifier: Big
+    Method: ServiceCreationLatency
+    Params:
+      action: gather
+
+- name: Wait 2 min
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 2m    
+
+- name: Delete Base Svc
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$BASE_NS }}
+    replicasPerNamespace: 0
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: base-dep-svc
+      objectTemplatePath: service.yaml
+
+- name: Delete Small Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: small-dep-svc
+      objectTemplatePath: service.yaml
+
+- name: Delete Medium Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: medium-dep-svc
+      objectTemplatePath: service.yaml
+
+- name: Delete Big Svc
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS $BIG_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SVCConstantQPS
+    objectBundle:
+    - basename: big-dep-svc
+      objectTemplatePath: service.yaml
+
+- name: Delete Base Deployment
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$BASE_NS}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: base-dep
+      objectTemplatePath: dep.yaml
+  
+- name: Delete Small Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: small-dep
+      objectTemplatePath: dep.yaml
+
+- name: Delete Medium Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: medium-dep
+      objectTemplatePath: dep.yaml
+
+- name: Delete Big Deployment
+  phases:
+  - namespaceRange:
+      min: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS 1}}
+      max: {{AddInt $BASE_NS $SMALL_NS $MEDIUM_NS $BIG_NS}}
+    replicasPerNamespace: 0
+    tuningSet: SlowQPS
+    objectBundle:
+    - basename: big-dep
+      objectTemplatePath: dep.yaml
+    
+- name: Wait Pod Disappear
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+- name: Collect Data
+  measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: gather
+      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}

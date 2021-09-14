@@ -167,3 +167,58 @@ func LatencyMapToPerfData(latency map[string]*LatencyMetric) *PerfData {
 	}
 	return perfData
 }
+
+type BackendSet struct {
+	members map[string]struct{}
+}
+
+func (b *BackendSet) Add(m string) {
+	if _, exists := b.members[m]; !exists {
+		b.members[m] = struct{}{}
+	}
+}
+
+func (b *BackendSet) Len() int {
+	return len(b.members)
+}
+
+func NewBackendSet() *BackendSet {
+	return &BackendSet{
+		members: make(map[string]struct{}),
+	}
+}
+
+type SvcBackends struct {
+	name string
+	lock sync.Mutex
+	// map of svc_ip -> BackendSet
+	svcBackendsMap map[string]*BackendSet
+}
+
+// NewSvcBackends creates new SvcBackends instance.
+func NewSvcBackends(name string) *SvcBackends {
+	return &SvcBackends{
+		name:           name,
+		svcBackendsMap: make(map[string]*BackendSet),
+	}
+}
+
+// Set backend_ip for a given svc
+func (s *SvcBackends) Set(svc, backend string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if _, exists := s.svcBackendsMap[svc]; !exists {
+		s.svcBackendsMap[svc] = NewBackendSet()
+	}
+	s.svcBackendsMap[svc].Add(backend)
+}
+
+func (s *SvcBackends) CalculateBackendNum() map[string]int {
+	data := make(map[string]int)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for k := range s.svcBackendsMap {
+		data[k] = s.svcBackendsMap[k].Len()
+	}
+	return data
+}

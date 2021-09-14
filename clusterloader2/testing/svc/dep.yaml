@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: svc-load
+spec:
+  replicas: {{.NumReplicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: svc-load
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: {{.Image}}
+        ports:
+        - containerPort: 8080

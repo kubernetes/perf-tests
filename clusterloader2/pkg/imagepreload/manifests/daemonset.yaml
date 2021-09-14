@@ -15,16 +15,21 @@ spec:
       initContainers:
       {{range $idx, $image := .Images}}
       - name: preload-{{$idx}}
-        image: docker
-        command: ["docker", "pull", "{{$image}}"]
+        image: gcr.io/k8s-testimages/perf-tests-util/containerd:v0.0.1
+        command: ["sh", "-c", "ctr -n=k8s.io image pull {{$image}} 2>&1 | tee /var/log/cl2-image-preload-{{$idx}}.log"]
         volumeMounts:
-        - name: docker
-          mountPath: /var/run
+        - name: containerd
+          mountPath: /run/containerd
+        - name: logs-volume
+          mountPath: /var/log
       {{end}}
       volumes:
-      - name: docker
+      - name: containerd
         hostPath:
-          path: /var/run
+          path: /run/containerd
+      - name: logs-volume
+        hostPath:
+          path: /var/log
       containers:
       - name: pause
         image: gcr.io/google_containers/pause

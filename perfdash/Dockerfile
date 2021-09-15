@@ -27,7 +27,7 @@ RUN GO111MODULE=on go build -a -installsuffix cgo -ldflags '-w' -o $PWD/perfdash
 
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/base:nonroot
-COPY www/ /www/
+COPY --chmod=0644 www/ /www/
 COPY --from=builder /workspace/perfdash /
 
 EXPOSE 8080

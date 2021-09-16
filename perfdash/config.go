@@ -108,6 +108,21 @@ var (
 				OutputFilePrefix: "StatelessPodStartupLatency_PodStartupLatency",
 				Parser:           parsePerfData,
 			}},
+			"LoadCreatePhaseStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_CreatePhasePodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadHighThroughputStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_HighThroughputPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_PodStartupLatency",
+				Parser:           parsePerfData,
+			}},
 			"Resources": []TestDescription{{
 				OutputFilePrefix: "ResourceUsageSummary",
 				Parser:           parseResourceUsageData,

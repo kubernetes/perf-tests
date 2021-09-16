@@ -239,8 +239,8 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 			filter:     p.podMetadata.FilterStateless,
 		},
 		{
-			namePrefix: "Statefull",
-			filter:     p.podMetadata.FilterStatefull,
+			namePrefix: "Stateful",
+			filter:     p.podMetadata.FilterStateful,
 		},
 	}
 

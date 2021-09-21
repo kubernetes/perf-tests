@@ -43,8 +43,7 @@ const (
 	namespace       = "preload"
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
-	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
-	pollingTimeout = 5 * time.Minute
+	pollingTimeout  = 15 * time.Minute
 )
 
 var images []string

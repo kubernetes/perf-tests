@@ -104,6 +104,8 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		return NewAKSProvider(configs), nil
 	case AWSName:
 		return NewAWSProvider(configs), nil
+	case AutopilotName:
+		return NewAutopilotProvider(configs), nil
 	case EKSName:
 		return NewEKSProvider(configs), nil
 	case GCEName:

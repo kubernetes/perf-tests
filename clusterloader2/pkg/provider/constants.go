@@ -17,16 +17,17 @@ limitations under the License.
 package provider
 
 const (
-	AKSName      = "aks"
-	AWSName      = "aws"
-	EKSName      = "eks"
-	GCEName      = "gce"
-	GKEName      = "gke"
-	KindName     = "kind"
-	KubemarkName = "kubemark"
-	LocalName    = "local"
-	SkeletonName = "skeleton"
-	VsphereName  = "vsphere"
+	AKSName       = "aks"
+	AWSName       = "aws"
+	AutopilotName = "autopilot"
+	EKSName       = "eks"
+	GCEName       = "gce"
+	GKEName       = "gke"
+	KindName      = "kind"
+	KubemarkName  = "kubemark"
+	LocalName     = "local"
+	SkeletonName  = "skeleton"
+	VsphereName   = "vsphere"
 )
 
 const (

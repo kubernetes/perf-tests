@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: resource-consumer
-        image: gcr.io/kubernetes-e2e-test-images/resource-consumer:1.5
+        image: k8s.gcr.io/e2e-test-images/resource-consumer:1.9
         command:
           - ./consume-cpu/consume-cpu
         args:

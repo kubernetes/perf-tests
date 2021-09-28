@@ -29,7 +29,7 @@ func NewAutopilotProvider(_ map[string]string) Provider {
 	return &AutopilotProvider{
 		features: Features{
 			SupportProbe:                        false,
-			SupportImagePreload:                 true,
+			SupportImagePreload:                 false,
 			SupportSnapshotPrometheusDisk:       true,
 			SupportEnablePrometheusServer:       true,
 			SupportGrabMetricsFromKubelets:      true,

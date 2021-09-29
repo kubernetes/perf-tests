@@ -288,7 +288,7 @@ func MergeMappings(a, b map[string]interface{}) error {
 			continue
 		}
 		if !reflect.DeepEqual(av, bv) {
-			return goerrors.Errorf("merge conflict for key '%v': old value=%v, new value=%v", k, av, bv)
+			return goerrors.Errorf("merge conflict for key '%v': old value=%v (%T), new value=%v (%T)", k, av, av, bv, bv)
 		}
 	}
 	return nil

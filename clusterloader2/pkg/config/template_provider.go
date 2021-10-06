@@ -255,7 +255,7 @@ func LoadCL2Envs() (map[string]interface{}, error) {
 		if !strings.HasPrefix(keyValue, "CL2_") {
 			continue
 		}
-		split := strings.Split(keyValue, "=")
+		split := strings.SplitN(keyValue, "=", 2)
 		if len(split) != 2 {
 			return nil, goerrors.Errorf("unparsable string in os.Eviron(): %v", keyValue)
 		}

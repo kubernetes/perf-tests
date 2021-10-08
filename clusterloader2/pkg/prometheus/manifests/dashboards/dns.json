@@ -67,7 +67,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -80,7 +80,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -93,7 +93,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -192,7 +192,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
                             "instant": false,
@@ -205,7 +205,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
                             "instant": false,
@@ -218,7 +218,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
                             "instant": false,
@@ -317,7 +317,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_dns_lookup_count{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "format": "time_series",
                             "instant": false,
@@ -330,7 +330,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "format": "time_series",
                             "instant": false,
@@ -429,7 +429,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "count(container_memory_usage_bytes{namespace=\"probes\", container=\"dns\"}) by (container, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -528,7 +528,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "min(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -541,7 +541,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "avg(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -554,7 +554,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "max(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -663,7 +663,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "count(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -762,7 +762,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "min(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -775,7 +775,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "avg(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -788,7 +788,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "max(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
                             "instant": false,

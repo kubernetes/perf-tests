@@ -48,7 +48,7 @@ class Row(g.Row):
 
 @attr.s
 class Target(g.Target):
-    pass
+    datasource = attr.ib(default="$source")
 
 
 @attr.s

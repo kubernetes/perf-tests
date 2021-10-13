@@ -101,11 +101,11 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 
 // prepareTestNamespaces prepares k8s namespaces for the test.
 func (ste *simpleExecutor) prepareTestNamespaces(ctx Context, conf *api.Config) error {
-	automanagedNamespacesList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
+	automanagedNamespacesCurrentPrefixList, staleNamespaces, err := ctx.GetClusterFramework().ListAutomanagedNamespaces()
 	if err != nil {
 		return fmt.Errorf("automanaged namespaces listing failed: %w", err)
 	}
-	if len(automanagedNamespacesList) > 0 && *conf.Namespace.EnableExistingNamespaces == false {
+	if len(automanagedNamespacesCurrentPrefixList) > 0 && *conf.Namespace.EnableExistingNamespaces == false {
 		return fmt.Errorf("pre-existing automanaged namespaces found")
 	}
 	var deleteStaleNS = *conf.Namespace.DeleteStaleNamespaces
@@ -115,7 +115,7 @@ func (ste *simpleExecutor) prepareTestNamespaces(ctx Context, conf *api.Config) 
 			klog.Errorf("stale automanaged namespaces cleanup error: %s", errList.String())
 		}
 	}
-	if err := ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.Namespace.Number)); err != nil {
+	if err := ctx.GetClusterFramework().CreateAutomanagedNamespaces(int(conf.Namespace.Number), *conf.Namespace.EnableExistingNamespaces, *conf.Namespace.DeleteAutomanagedNamespaces); err != nil {
 		return fmt.Errorf("automanaged namespaces creation failed: %w", err)
 	}
 	return nil

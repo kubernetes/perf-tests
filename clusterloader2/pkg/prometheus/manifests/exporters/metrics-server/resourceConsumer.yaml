@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-consumer
+  namespace: default
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: resource-consumer
+  template:
+    metadata:
+      labels:
+        app: resource-consumer
+    spec:
+      containers:
+      - name: resource-consumer
+        image: k8s.gcr.io/e2e-test-images/resource-consumer:1.9
+        command:
+          - ./consume-cpu/consume-cpu
+        args:
+          - --duration-sec=3600
+          - --millicores=10
+        resources:
+          requests:
+            cpu: 10m
+          limits:  
+            cpu: 10m

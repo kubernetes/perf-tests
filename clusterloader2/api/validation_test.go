@@ -422,6 +422,63 @@ func TestValidate(t *testing.T) {
 			},
 			expected: nil,
 		},
+		{
+			name: "tuning set referenced in a phase has not been declared",
+			input: Config{
+				Namespace: NamespaceConfig{
+					Number: 1,
+				},
+				TuningSets: []*TuningSet{
+					{
+						Name: "Sequence",
+						QPSLoad: &QPSLoad{
+							QPS: 10,
+						},
+					},
+				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								TuningSet:            "Sequence",
+								ReplicasPerNamespace: 10,
+							},
+							{
+								TuningSet: "Uniform5qps",
+							},
+						},
+					},
+				},
+			},
+			expected: errors.NewErrorList(fmt.Errorf("steps[0].phases[1].tuningSet: Invalid value: \"Uniform5qps\": tuning set referenced has not been declared")),
+		},
+		{
+			name: "tuning set referenced in a phase has been declared",
+			input: Config{
+				Namespace: NamespaceConfig{
+					Number: 1,
+				},
+				TuningSets: []*TuningSet{
+					{
+						Name: "Sequence",
+						QPSLoad: &QPSLoad{
+							QPS: 10,
+						},
+					},
+				},
+				Steps: []*Step{
+					{
+						Phases: []*Phase{
+							{
+								TuningSet:            "Sequence",
+								ReplicasPerNamespace: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var failed bool

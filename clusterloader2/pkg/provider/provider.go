@@ -62,6 +62,9 @@ type Features struct {
 
 	// SchedulerInsecurePortDisabled determines if kube-scheduler listens on insecure port.
 	SchedulerInsecurePortDisabled bool
+
+	// ShouldScrapeKubeProxy determines if ScrapeKubeProxy
+	ShouldScrapeKubeProxy bool
 }
 
 // Config is the config of the provider.
@@ -101,6 +104,8 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		return NewAKSProvider(configs), nil
 	case AWSName:
 		return NewAWSProvider(configs), nil
+	case AutopilotName:
+		return NewAutopilotProvider(configs), nil
 	case EKSName:
 		return NewEKSProvider(configs), nil
 	case GCEName:

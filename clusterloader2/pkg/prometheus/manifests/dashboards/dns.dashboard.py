@@ -43,11 +43,11 @@ PROBER_PANEL = [
     d.Graph(
         title="probe: lookup rate",
         targets=[
-            g.Target(
+            d.Target(
                 expr='sum(rate(probes_in_cluster_dns_lookup_count{namespace="probes", job="dns"}[1m]))',
                 legendFormat="lookup rate",
             ),
-            g.Target(
+            d.Target(
                 expr='sum(rate(probes_in_cluster_network_latency_error{namespace="probes", job="dns"}[1m]))',
                 legendFormat="error rate",
             ),
@@ -56,7 +56,7 @@ PROBER_PANEL = [
     d.Graph(
         title="probe: # running",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='count(container_memory_usage_bytes{namespace="probes", container="dns"}) by (container, namespace)'
             )
         ],
@@ -78,7 +78,7 @@ SERVICE_PANELS = [
     d.Graph(
         title="Service: # running",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='count(process_resident_memory_bytes{namespace="kube-system", job="kube-dns"}) by (job, namespace)'
             )
         ],

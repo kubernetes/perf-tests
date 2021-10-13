@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -58,13 +59,22 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 		selector:          measurementutil.NewObjectSelector(),
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 		podMetadata:       measurementutil.NewPodsMetadata(podStartupLatencyMeasurementName),
+		eventQueue:        workqueue.New(),
 	}
 }
 
+type eventData struct {
+	obj      interface{}
+	recvTime time.Time
+}
+
 type podStartupLatencyMeasurement struct {
-	selector          *measurementutil.ObjectSelector
-	isRunning         bool
-	stopCh            chan struct{}
+	selector  *measurementutil.ObjectSelector
+	isRunning bool
+	stopCh    chan struct{}
+	// This queue can potentially grow indefinitely, beacause we put all changes here.
+	// Usually it's not recommended pattern, but we need it for measuring PodStartupLatency.
+	eventQueue        *workqueue.Type
 	podStartupEntries *measurementutil.ObjectTransitionTimes
 	podMetadata       *measurementutil.PodsMetadata
 	threshold         time.Duration
@@ -128,15 +138,43 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 				return c.CoreV1().Pods(p.selector.Namespace).Watch(context.TODO(), options)
 			},
 		},
-		p.checkPod,
+		p.addEvent,
 	)
+	go p.processEvents()
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
+}
+
+func (p *podStartupLatencyMeasurement) addEvent(_, obj interface{}) {
+	event := &eventData{obj: obj, recvTime: time.Now()}
+	p.eventQueue.Add(event)
+}
+
+func (p *podStartupLatencyMeasurement) processEvents() {
+	for p.processNextWorkItem() {
+	}
+}
+
+func (p *podStartupLatencyMeasurement) processNextWorkItem() bool {
+	item, quit := p.eventQueue.Get()
+	if quit {
+		return false
+	}
+	defer p.eventQueue.Done(item)
+
+	event, ok := item.(*eventData)
+	if !ok {
+		klog.Warningf("Couldn't convert work item to evetData: %v", item)
+		return true
+	}
+	p.processEvent(event)
+	return true
 }
 
 func (p *podStartupLatencyMeasurement) stop() {
 	if p.isRunning {
 		p.isRunning = false
 		close(p.stopCh)
+		p.eventQueue.ShutDown()
 	}
 }
 
@@ -200,6 +238,10 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 			namePrefix: "Stateless",
 			filter:     p.podMetadata.FilterStateless,
 		},
+		{
+			namePrefix: "Stateful",
+			filter:     p.podMetadata.FilterStateful,
+		},
 	}
 
 	var summaries []measurement.Summary
@@ -246,7 +288,8 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	return nil
 }
 
-func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
+func (p *podStartupLatencyMeasurement) processEvent(event *eventData) {
+	obj, recvTime := event.obj, event.recvTime
 	if obj == nil {
 		return
 	}
@@ -260,7 +303,7 @@ func (p *podStartupLatencyMeasurement) checkPod(_, obj interface{}) {
 
 	if pod.Status.Phase == corev1.PodRunning {
 		if _, found := p.podStartupEntries.Get(key, createPhase); !found {
-			p.podStartupEntries.Set(key, watchPhase, time.Now())
+			p.podStartupEntries.Set(key, watchPhase, recvTime)
 			p.podStartupEntries.Set(key, createPhase, pod.CreationTimestamp.Time)
 			var startTime metav1.Time
 			for _, cs := range pod.Status.ContainerStatuses {
@@ -285,7 +328,7 @@ func createMetaNamespaceKey(namespace, name string) string {
 
 func isPodStateless(pod *corev1.Pod) bool {
 	for _, volume := range pod.Spec.Volumes {
-		if volume.EmptyDir != nil || volume.DownwardAPI != nil || volume.ConfigMap != nil || volume.Secret != nil {
+		if volume.EmptyDir != nil || volume.DownwardAPI != nil || volume.ConfigMap != nil || volume.Secret != nil || volume.Projected != nil {
 			continue
 		}
 		klog.V(4).Infof("pod %s/%s classified as stateful", pod.Namespace, pod.Name)

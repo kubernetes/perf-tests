@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.33
+TAG = 2.37
 
 REPO = gcr.io/k8s-testimages
 
@@ -20,12 +20,12 @@ run: perfdash
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability \
 		--githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
 
-container: perfdash
-	docker build --pull -t $(REPO)/perfdash:$(TAG) .
+# Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
+container:
+	DOCKER_BUILDKIT=1 docker build --pull -t $(REPO)/perfdash:$(TAG) .
 
 push: container
 	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
 
 clean:
 	rm -f perfdash
-

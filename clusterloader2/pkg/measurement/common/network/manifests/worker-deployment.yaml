@@ -17,13 +17,14 @@ spec:
         name: worker
     spec:
       containers:
-      - image: gcr.io/k8s-testimages/netperfbenchmark:0.2
+      - image: gcr.io/k8s-testimages/netperfbenchmark:0.3
         name: worker
         imagePullPolicy: IfNotPresent
         args:
           - --log_file=/var/log/cl2-netperf-worker.log
           - --logtostderr=false
           - --v=4
+          - --udpClientExtraArguments=-b 750M
         resources:
           limits:
             cpu: "500m"

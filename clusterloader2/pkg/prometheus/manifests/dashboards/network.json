@@ -67,7 +67,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -80,7 +80,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -93,7 +93,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "format": "time_series",
                             "instant": false,
@@ -192,7 +192,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
                             "instant": false,
@@ -205,7 +205,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
                             "instant": false,
@@ -218,7 +218,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
                             "instant": false,
@@ -317,7 +317,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
                             "instant": false,
@@ -330,7 +330,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.90, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
                             "instant": false,
@@ -343,7 +343,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.50, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
                             "instant": false,
@@ -442,7 +442,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(kubeproxy_sync_proxy_rules_service_changes_total[5m]))",
                             "format": "time_series",
                             "instant": false,
@@ -541,7 +541,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(kubeproxy_sync_proxy_rules_service_changes_pending)",
                             "format": "time_series",
                             "instant": false,
@@ -640,7 +640,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(kubeproxy_sync_proxy_rules_endpoint_changes_total[5m]))",
                             "format": "time_series",
                             "instant": false,
@@ -739,7 +739,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(kubeproxy_sync_proxy_rules_endpoint_changes_pending)",
                             "format": "time_series",
                             "instant": false,
@@ -848,7 +848,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
                             "instant": false,
@@ -861,7 +861,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
                             "instant": false,
@@ -874,7 +874,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
                             "instant": false,
@@ -973,7 +973,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_ping_count{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "format": "time_series",
                             "instant": false,
@@ -986,7 +986,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "format": "time_series",
                             "instant": false,
@@ -1085,7 +1085,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "count(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container, namespace)",
                             "format": "time_series",
                             "instant": false,
@@ -1184,7 +1184,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "min(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
                             "instant": false,
@@ -1197,7 +1197,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "avg(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
                             "instant": false,
@@ -1210,7 +1210,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "max(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
                             "instant": false,

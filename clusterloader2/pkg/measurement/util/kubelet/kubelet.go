@@ -32,7 +32,8 @@ const (
 )
 
 // GetOneTimeResourceUsageOnNode queries the node's /stats/summary endpoint
-// and returns the resource usage of all containerNames returned by the containerNames function.
+// and returns the resource usage of all systemContainers and containerNames
+// returned by the containerNames function.
 func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port int, containerNames func() []string) (util.ResourceUsagePerContainer, error) {
 	// Get information of all containers on the node.
 	summary, err := getStatsSummary(c, nodeName, port)
@@ -56,7 +57,7 @@ func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port 
 	}
 	// Process container infos that are relevant to us.
 	containers := containerNames()
-	usageMap := make(util.ResourceUsagePerContainer, len(containers))
+	usageMap := make(util.ResourceUsagePerContainer, len(containers)+len(summary.Node.SystemContainers))
 	for _, pod := range summary.Pods {
 		for _, container := range pod.Containers {
 			isInteresting := false
@@ -72,6 +73,13 @@ func GetOneTimeResourceUsageOnNode(c clientset.Interface, nodeName string, port 
 			if usage := f(pod.PodRef.Name+"/"+container.Name, &container); usage != nil {
 				usageMap[pod.PodRef.Name+"/"+container.Name] = usage
 			}
+		}
+	}
+
+	// Always process the system container information: kubelet and pods
+	for _, sysContainer := range summary.Node.SystemContainers {
+		if usage := f(nodeName+"/"+sysContainer.Name, &sysContainer); usage != nil {
+			usageMap[nodeName+"/"+sysContainer.Name] = usage
 		}
 	}
 	return usageMap, nil

@@ -255,7 +255,7 @@ func LoadCL2Envs() (map[string]interface{}, error) {
 		if !strings.HasPrefix(keyValue, "CL2_") {
 			continue
 		}
-		split := strings.Split(keyValue, "=")
+		split := strings.SplitN(keyValue, "=", 2)
 		if len(split) != 2 {
 			return nil, goerrors.Errorf("unparsable string in os.Eviron(): %v", keyValue)
 		}
@@ -288,7 +288,7 @@ func MergeMappings(a, b map[string]interface{}) error {
 			continue
 		}
 		if !reflect.DeepEqual(av, bv) {
-			return goerrors.Errorf("merge conflict for key '%v': old value=%v, new value=%v", k, av, bv)
+			return goerrors.Errorf("merge conflict for key '%v': old value=%v (%T), new value=%v (%T)", k, av, av, bv, bv)
 		}
 	}
 	return nil

@@ -35,9 +35,10 @@ const (
 // UDP result array Index mapping
 // Other unused metrics are not included
 const (
-	udpJitter          = 2
-	udpLatencyAverage  = 6
-	udpPacketPerSecond = 10
+	udpJitter                = 2
+	udpLostPacketsPercentage = 5
+	udpLatencyAverage        = 6
+	udpPacketPerSecond       = 10
 )
 
 // HTTP result array Index mapping
@@ -65,6 +66,7 @@ const (
 	throughput      = "Throughput"
 	latency         = "Latency"
 	jitter          = "Jitter"
+	lostPackets     = "Lost_Packets"
 	packetPerSecond = "Packet_Per_Second"
 	responseTime    = "Response_Time"
 )
@@ -73,6 +75,7 @@ var metricUnitMap = map[string]string{
 	throughput:      "kbytes/sec",
 	latency:         "ms",
 	jitter:          "ms",
+	lostPackets:     "percentage",
 	packetPerSecond: "pps",
 	responseTime:    "seconds",
 }

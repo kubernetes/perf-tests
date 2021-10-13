@@ -292,6 +292,9 @@ func main() {
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
 			klog.Exitf("Error while setting up prometheus stack: %v", err)
 		}
+		if clusterLoaderConfig.PrometheusConfig.TearDownServer {
+			prometheusController.EnableTearDownPrometheusStackOnInterrupt()
+		}
 	}
 	if clusterLoaderConfig.EnableExecService {
 		if err := execservice.SetUpExecService(f); err != nil {
@@ -334,7 +337,7 @@ func main() {
 		}
 		testConfig, errList := test.CompileTestConfig(ctx)
 		if !errList.IsEmpty() {
-			klog.Exitf("Test compliation failed: %s", errList.String())
+			klog.Exitf("Test compilation failed: %s", errList.String())
 		}
 		if err := dumpTestConfig(ctx, testConfig); err != nil {
 			klog.Errorf("Error while dumping test config: %v", err)

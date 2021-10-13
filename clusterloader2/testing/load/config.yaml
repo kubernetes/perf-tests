@@ -20,6 +20,9 @@
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
+{{$HUGE_SERVICES_SIZE := DefaultParam .CL2_HUGE_SERVICES_SIZE .Nodes}}
+# Determines number of pods per deployment. Should be a divider of $HUGE_SERVICES_SIZE.
+{{$HUGE_SERVICES_PODS_PER_DEPLOYMENT := DefaultParam .CL2_HUGE_SERVICES_PODS_PER_DEPLOYMENT 1000}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -58,13 +61,20 @@
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
 {{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) .Nodes}}
+{{$schedulerThroughputReplicasPerNamespace := 1}}
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
-# END scheduler-throughput section
+
+{{if and $ENABLE_HUGE_SERVICES (ge $HUGE_SERVICES_SIZE $HUGE_SERVICES_PODS_PER_DEPLOYMENT)}}
+  {{$schedulerThroughputReplicasPerNamespace = DivideInt $HUGE_SERVICES_SIZE $HUGE_SERVICES_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputPodsPerDeployment = $HUGE_SERVICES_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputNamespaces = 1}}
+{{end}}
 
 # Set schedulerThroughputNamespaces to 1 on small clusters otherwise it will result
 # in an unnecessary number of namespaces.
 {{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 1 $schedulerThroughputNamespaces}}
+# END scheduler-throughput section
 
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
@@ -82,11 +92,19 @@ tuningSets:
 # parallel creation of deployments.
 - name: SchedulerThroughputParallel
   parallelismLimitedLoad:
-    parallelismLimit: {{$schedulerThroughputNamespaces}}
+    parallelismLimit: {{MultiplyInt $schedulerThroughputNamespaces $schedulerThroughputReplicasPerNamespace}}
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): This TuningSet is used only for pod-startup-latency, get rid of it
+# Uniform5qps: for each running phase, use 5 qps.
 - name: Uniform5qps
   qpsLoad:
     qps: 5
+# Global100qps: use 100 qps globally:
+# * split equally qps among all running phases
+# * if some phase finishes, other phases will get more qps.
+- name: Global100qps
+  globalQPSLoad:
+    qps: 100
+    burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$saturationTime}}s
@@ -96,6 +114,9 @@ tuningSets:
     # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
     timeLimit: {{DivideInt $saturationTime 4}}s
+- name: DeletionTimeLimited
+  TimeLimitedLoad:
+    timeLimit: 5m
 - name: RandomizedDeletionTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$deletionTime}}s
@@ -129,6 +150,18 @@ steps:
     objectBundle:
       - basename: daemonset-priorityclass
         objectTemplatePath: daemonset-priorityclass.yaml
+
+# Moved from reconcile-objects.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
+# TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects.yaml once the k/k bug is fixed.
+- module:
+    path: /modules/configmaps-secrets.yaml
+    params:
+      actionName: create
+      tuningSet: Global100qps
+      namespaces: {{$namespaces}}
+      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
+      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
+      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
 
 - module:
     path: /modules/reconcile-objects.yaml
@@ -172,7 +205,7 @@ steps:
     params:
       action: create
       namespaces: {{$namespaces}}
-      replicasPerNamespace: 1
+      replicasPerNamespace: {{$schedulerThroughputReplicasPerNamespace}}
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
   {{if $ENABLE_HUGE_SERVICES}}
@@ -305,6 +338,16 @@ steps:
       smallJobsPerNamespace: 0
       pvSmallStatefulSetSize: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       pvMediumStatefulSetSize: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+
+- module:
+    path: /modules/configmaps-secrets.yaml
+    params:
+      actionName: delete
+      tuningSet: Global100qps
+      namespaces: {{$namespaces}}
+      bigDeploymentsPerNamespace: 0
+      mediumDeploymentsPerNamespace: 0
+      smallDeploymentsPerNamespace: 0
 
 - name: Deleting PriorityClass for DaemonSets
   phases:

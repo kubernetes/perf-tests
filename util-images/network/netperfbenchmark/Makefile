@@ -1,6 +1,6 @@
 PROJECT = k8s-testimages
 IMG = gcr.io/$(PROJECT)/netperfbenchmark
-TAG = 0.2
+TAG = 0.3
 
 all: push
 

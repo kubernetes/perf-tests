@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -92,10 +93,10 @@ var (
 	// -e : enhanced reports, gives more metrics for udp.
 	// -s : run in server mode.
 	// -P numOfClients: handle <numOfClients> number of clients before disconnecting.
-	udpClientArguments = []string{"-c", "{serverPodIP}", "-u", "-f", "K", "-l", "20", "-b", "1M", "-e", "-i", "1", "-t", "{duration}"}
+	udpClientArguments = []string{"-c", "{serverPodIP}", "-u", "-f", "K", "-e", "-i", "1", "-t", "{duration}"}
 	udpServerArguments = []string{"-s", "-f", "K", "-u", "-e", "-i", "{duration}", "-P", "{numberOfClients}"}
 	tcpServerArguments = []string{"-s", "-f", "K", "-i", "{duration}", "-P", "{numberOfClients}"}
-	tcpClientArguments = []string{"-c", "{serverPodIP}", "-f", "K", "-l", "20", "-b", "1M", "-i", "1", "-t", "{duration}"}
+	tcpClientArguments = []string{"-c", "{serverPodIP}", "-f", "K", "-i", "1", "-t", "{duration}"}
 	// Siege command args:
 	// -d1 : random delay between 0 to 1 sec.
 	// -t<duration>S : run test for <duration> seconds.
@@ -122,12 +123,13 @@ func NewWorker() *Worker {
 }
 
 // Start starts the worker.
-func (w *Worker) Start() {
+func (w *Worker) Start(extraArguments map[string]*string) {
 	w.populatePodName()
-	w.initialize()
+	w.initialize(extraArguments)
 }
 
-func (w *Worker) initialize() {
+func (w *Worker) initialize(extraArguments map[string]*string) {
+	w.addExtraArguments(extraArguments)
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	k8sClient, err := getDynamicClient()
 	if err != nil {
@@ -145,6 +147,20 @@ func (w *Worker) initialize() {
 	})
 	w.stopCh = make(chan struct{})
 	informer.Run(w.stopCh)
+}
+
+func (w *Worker) addExtraArguments(extraAguments map[string]*string) {
+	for argumentName, argumentValue := range extraAguments {
+		if *argumentValue == "" {
+			continue
+		}
+		split := strings.Split(argumentName, "_")
+		if len(split) < 2 {
+			klog.Errorf("Extra argument name should be in format <type_protocol>: %s", argumentName)
+			return
+		}
+		protocolArgumentMap[split[0]][split[1]] = append(protocolArgumentMap[split[0]][split[1]], *argumentValue)
+	}
 }
 
 func (w *Worker) populatePodName() {

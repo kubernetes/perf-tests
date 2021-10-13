@@ -1,21 +1,22 @@
 # ClusterLoader
 
-## Running ClusterLoader
+ClusterLoader2 (CL2) is a "bring your own yaml" Kubernetes load testing tool
+being an official K8s scalability and performance testing framework.
 
-To run ClusterLoader type:
-```
-go run cmd/clusterloader.go --kubeconfig=kubeConfig.yaml --testconfig=config.yaml --provider=local
-```
-OR
-```
-./run-e2e.sh --testconfig=config.yaml --provider=local
-```
+The CL2 tests are written in yaml using the semi-declarative paradigm.
+A test defines a set of states in which a cluster should be
+(e.g. I want to run 10k pods, 2k cluster-ip services, 5 daemon-sets, etc.)
+and specifies how fast (e.g. pod throughput) a given state should be reached.
+In addition, it defines which performance characteristics
+should be measured [Measurements list](#Measurement).
+Last but not least, CL2 provides an extra observability of the cluster
+during the test with [Prometheus](#prometheus-metrics).
 
-The simplest way to get acquainted with ClusterLoader is using [kind](https://kind.sigs.k8s.io/). Provision a cluster and ensure you can SSH to localhost. Eg. running the load test:
+The CL2 test API is described [here][api].
 
-```
-go run cmd/clusterloader.go --testconfig=testing/load/config.yaml --nodes=1 --provider=kind --kubeconfig=<path-to-kubeconfig> --masterip=127.0.0.1 --mastername=kind-control-plane --master-internal-ip=127.0.0.1
-```
+## Getting started
+
+See [Getting started] guide if you are new user of ClusterLoader.
 
 ### Flags
 
@@ -176,6 +177,7 @@ Vendor is created using [Go modules].
 [exec service]: https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/pkg/execservice
 [design doc]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [Go modules]: https://blog.golang.org/using-go-modules
+[Getting started]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/GETTING_STARTED.md
 [load deployment template]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/deployment.yaml
 [load test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/load/config.yaml
 [overrides]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/testing/density/scheduler/pod-affinity/overrides.yaml

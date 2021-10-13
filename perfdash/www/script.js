@@ -34,7 +34,7 @@ var PerfDashApp = function(http, scope, route) {
 
 PerfDashApp.prototype.onClickInternal_ = function(data, evt, chart) {
     console.log(this, data, evt, chart);
-    if (evt.ctrlKey) {
+    if (evt.ctrlKey || evt.metaKey) {
       this.cap = (chart.scale.min + chart.scale.max) / 2;
       this.labelChanged();
       return;

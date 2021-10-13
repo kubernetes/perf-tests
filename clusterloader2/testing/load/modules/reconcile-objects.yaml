@@ -96,10 +96,6 @@ steps:
     replicasPerNamespace: {{$bigDeploymentsPerNamespace}}
     tuningSet: {{$tuningSet}}
     objectBundle:
-    - basename: big-deployment
-      objectTemplatePath: configmap.yaml
-    - basename: big-deployment
-      objectTemplatePath: secret.yaml
 {{if $ENABLE_NETWORKPOLICIES}}
     - basename: big-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -119,10 +115,6 @@ steps:
     replicasPerNamespace: {{$mediumDeploymentsPerNamespace}}
     tuningSet: {{$tuningSet}}
     objectBundle:
-    - basename: medium-deployment
-      objectTemplatePath: configmap.yaml
-    - basename: medium-deployment
-      objectTemplatePath: secret.yaml
 {{if $ENABLE_NETWORKPOLICIES}}
     - basename: medium-deployment
       objectTemplatePath: networkpolicy.yaml
@@ -141,10 +133,6 @@ steps:
     replicasPerNamespace: {{$smallDeploymentsPerNamespace}}
     tuningSet: {{$tuningSet}}
     objectBundle:
-    - basename: small-deployment
-      objectTemplatePath: configmap.yaml
-    - basename: small-deployment
-      objectTemplatePath: secret.yaml
 {{if $ENABLE_NETWORKPOLICIES}}
     - basename: small-deployment
       objectTemplatePath: networkpolicy.yaml

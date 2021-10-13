@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -58,6 +59,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
 	flags.BoolEnvVar(&p.ScrapeKubeStateMetrics, "prometheus-scrape-kube-state-metrics", "PROMETHEUS_SCRAPE_KUBE_STATE_METRICS", false, "Whether to scrape kube-state-metrics. Only run occasionally.")
+	flags.BoolEnvVar(&p.ScrapeMetricsServerMetrics, "prometheus-scrape-metrics-server", "PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS", false, "Whether to scrape metrics-server. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeNodeLocalDNS, "prometheus-scrape-node-local-dns", "PROMETHEUS_SCRAPE_NODE_LOCAL_DNS", false, "Whether to scrape node-local-dns pods.")
 	flags.BoolEnvVar(&p.ScrapeAnet, "prometheus-scrape-anet", "PROMETHEUS_SCRAPE_ANET", false, "Whether to scrape anet pods.")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
@@ -88,6 +90,12 @@ type Controller struct {
 	templateMapping map[string]interface{}
 	// diskMetadata store name and zone of Prometheus persistent disk.
 	diskMetadata prometheusDiskMetadata
+	// snapshotLock makes sure that only single Prometheus snapshot is happening
+	snapshotLock sync.Mutex
+	// snapshotted is a check if the Prometheus snapshot is already done - protected by snapshotLock
+	snapshotted bool
+	// snapshotError contains error from snapshot attempt - protected by snapshotLock
+	snapshotError error
 	// ssh executor to run commands in cluster nodes via ssh
 	ssh util.SSHExecutor
 }
@@ -99,6 +107,7 @@ func CompleteConfig(p *config.PrometheusConfig) {
 	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
 	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
+	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -138,9 +147,10 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter = mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"].(bool)
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"]; !exists {
+		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldScrapeKubeProxy
 		mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy
 	} else {
-		// Backward compatibility.
+		// Backward compatibility
 		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"].(bool)
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ANET"]; !exists {
@@ -150,6 +160,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	}
 	mapping["PROMETHEUS_SCRAPE_NODE_LOCAL_DNS"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeLocalDNS
 	mapping["PROMETHEUS_SCRAPE_KUBE_STATE_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics
+	mapping["PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics
 	mapping["PROMETHEUS_SCRAPE_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets
 	mapping["PROMETHEUS_STORAGE_CLASS_PROVISIONER"] = clusterLoaderConfig.PrometheusConfig.StorageClassProvisioner
 	mapping["PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE"] = clusterLoaderConfig.PrometheusConfig.StorageClassVolumeType
@@ -203,6 +214,12 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			return err
 		}
 	}
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportMetricsServerMetrics {
+		klog.V(2).Infof("Applying metrics server in the cluster.")
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MetricsServerManifests); err != nil {
+			return err
+		}
+	}
 	if _, ok := pc.templateMapping["MasterIps"]; ok {
 		if err := pc.exposeAPIServerMetrics(); err != nil {
 			return err
@@ -230,7 +247,7 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	}
 	defer func() {
 		klog.V(2).Info("Snapshotting prometheus disk")
-		if err := pc.snapshotPrometheusDiskIfEnabled(); err != nil {
+		if err := pc.snapshotPrometheusDiskIfEnabledSynchronized(); err != nil {
 			klog.Warningf("Error while snapshotting prometheus disk: %v", err)
 		}
 		if err := pc.deletePrometheusDiskIfEnabled(); err != nil {

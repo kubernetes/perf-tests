@@ -35,6 +35,7 @@ func NewKindProvider(_ map[string]string) Provider {
 			SupportEnablePrometheusServer:       true,
 			SupportGrabMetricsFromKubelets:      true,
 			SupportAccessAPIServerPprofEndpoint: true,
+			ShouldScrapeKubeProxy:               true,
 		},
 	}
 }

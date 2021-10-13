@@ -67,7 +67,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -80,8 +80,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }",
+                            "datasource": "$source",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -95,7 +95,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+                    "title": "GET resource latency (percentaile=99, scope=resource, threshold=1s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -179,7 +179,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
                             "instant": false,
@@ -192,8 +192,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }",
+                            "datasource": "$source",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -207,7 +207,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+                    "title": "LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -291,7 +291,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
                             "instant": false,
@@ -304,8 +304,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", }",
+                            "datasource": "$source",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -319,7 +319,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+                    "title": "LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -403,7 +403,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -416,8 +416,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", }",
+                            "datasource": "$source",
+                            "expr": "apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -525,7 +525,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -538,8 +538,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "datasource": "$source",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -553,7 +553,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+                    "title": "GET resource latency (percentaile=99, scope=resource, threshold=1s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -637,7 +637,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
                             "instant": false,
@@ -650,8 +650,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "datasource": "$source",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -665,7 +665,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+                    "title": "LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -749,7 +749,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
                             "instant": false,
@@ -762,8 +762,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "datasource": "$source",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -777,7 +777,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+                    "title": "LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -861,7 +861,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -874,8 +874,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", }[5d])",
+                            "datasource": "$source",
+                            "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster|resource\", resource=~\"${resource:regex}s*\", subresource!~\"exec|proxy\", }[5d])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -983,7 +983,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket[1m]))  by (le, priority_level))",
                             "format": "time_series",
                             "instant": false,
@@ -1082,7 +1082,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_execution_seconds_bucket[1m]))  by (le, priority_level))",
                             "format": "time_series",
                             "instant": false,
@@ -1181,7 +1181,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_flowcontrol_request_execution_seconds_sum[1m]))  by (priority_level)",
                             "format": "time_series",
                             "instant": false,
@@ -1280,7 +1280,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_flowcontrol_dispatched_requests_total[1m])) by (priority_level)",
                             "format": "time_series",
                             "instant": false,
@@ -1379,7 +1379,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "avg(apiserver_flowcontrol_request_concurrency_limit) by (priority_level)",
                             "format": "time_series",
                             "instant": false,
@@ -1488,7 +1488,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(node_collector_unhealthy_nodes_in_zone) by (zone)",
                             "format": "time_series",
                             "instant": false,
@@ -1587,7 +1587,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_request_total{verb=\"POST\", resource=\"pods\", subresource=\"\"}[1m]))",
                             "format": "time_series",
                             "instant": false,
@@ -1686,7 +1686,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_request_total{verb=\"POST\", resource=\"pods\", subresource=\"binding\"}[1m]))",
                             "format": "time_series",
                             "instant": false,
@@ -1785,7 +1785,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(process_start_time_seconds[1m]) > bool 0) by (job, endpoint)",
                             "format": "time_series",
                             "instant": false,
@@ -1884,7 +1884,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(min_over_time(container_start_time_seconds{container!=\"\",container!=\"POD\"}[2m])) by (container)",
                             "format": "time_series",
                             "instant": false,
@@ -1983,7 +1983,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(leader_election_master_status) by (name, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -2092,7 +2092,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "etcd_server_is_leader",
                             "format": "time_series",
                             "instant": false,
@@ -2191,7 +2191,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "rate(etcd_network_client_grpc_sent_bytes_total[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -2290,7 +2290,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(etcd_request_duration_seconds_count{operation=~\"${etcd_operation:regex}\", type=~\".*(${etcd_type:pipe})\"}[1m])) by (operation, type)",
                             "format": "time_series",
                             "instant": false,
@@ -2389,7 +2389,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket{operation=~\"${etcd_operation:regex}\", type=~\".*(${etcd_type:pipe})\"}[1m])) by (le, operation, type, instance))",
                             "format": "time_series",
                             "instant": false,
@@ -2488,7 +2488,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.50, sum(rate(etcd_request_duration_seconds_bucket{operation=~\"${etcd_operation:regex}\", type=~\".*(${etcd_type:pipe})\"}[1m])) by (le, operation, type, instance))",
                             "format": "time_series",
                             "instant": false,
@@ -2587,7 +2587,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(etcd_server_id) by (instance, server_id)",
                             "format": "time_series",
                             "instant": false,
@@ -2686,7 +2686,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[1m])) by (le, instance, To))",
                             "format": "time_series",
                             "instant": false,
@@ -2785,7 +2785,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "delta(etcd_debugging_mvcc_db_compaction_keys_total[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -2884,7 +2884,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_sum[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -2983,7 +2983,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "delta(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_count[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -3082,7 +3082,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[1m])) by (le, instance))",
                             "format": "time_series",
                             "instant": false,
@@ -3181,7 +3181,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(1.0, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (le, endpoint))",
                             "format": "time_series",
                             "instant": false,
@@ -3280,7 +3280,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(1.0, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket[1m])) by (le, instance))",
                             "format": "time_series",
                             "instant": false,
@@ -3379,7 +3379,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(etcd_object_counts) by (resource, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -3478,7 +3478,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "etcd_mvcc_db_total_size_in_bytes",
                             "format": "time_series",
                             "instant": false,
@@ -3491,7 +3491,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "etcd_mvcc_db_total_size_in_use_in_bytes",
                             "format": "time_series",
                             "instant": false,
@@ -3504,7 +3504,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "etcd_server_quota_backend_bytes",
                             "format": "time_series",
                             "instant": false,
@@ -3613,7 +3613,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "go_goroutines{job=\"master\", endpoint=\"apiserver\"}",
                             "format": "time_series",
                             "instant": false,
@@ -3712,7 +3712,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "rate(go_gc_duration_seconds_count{job=\"master\", endpoint=\"apiserver\"}[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -3811,7 +3811,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "rate(go_memstats_alloc_bytes_total{job=\"master\", endpoint=\"apiserver\"}[1m])",
                             "format": "time_series",
                             "instant": false,
@@ -3910,7 +3910,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(apiserver_registered_watchers{kind=~\"(?i:(${resource:regex}))s*\"}) by (instance, group, version, kind)",
                             "format": "time_series",
                             "instant": false,
@@ -4009,7 +4009,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_watch_events_total{kind=~\"(?i:(${resource:regex}))s*\"}[1m])) by (instance, group, version, kind)",
                             "format": "time_series",
                             "instant": false,
@@ -4108,7 +4108,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(irate(apiserver_watch_events_sizes_sum{kind=~\"(?i:(${resource:regex}))s*\"}[1m])) by (instance, group, version, kind)",
                             "format": "time_series",
                             "instant": false,
@@ -4207,7 +4207,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(apiserver_watch_events_sizes_sum{kind=~\"(?i:(${resource:regex}))s*\"}[1m])/rate(apiserver_watch_events_sizes_count{kind=~\"(?i:(${resource:regex}))s*\"}[1m])) by (instance, group, version, kind)",
                             "format": "time_series",
                             "instant": false,
@@ -4306,7 +4306,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -4405,7 +4405,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(apiserver_request_total{verb=~\"${verb:regex}\", resource=~\"${resource:regex}s*\"}[1m])) by (verb, resource, subresource, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -4504,7 +4504,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(apiserver_request_total[1m])) by (code, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -4603,7 +4603,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.50\", verb!=\"WATCH\", verb=~\"${verb:regex}\", resource=~\"${resource:regex}s*\"}",
                             "format": "time_series",
                             "instant": false,
@@ -4702,7 +4702,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb!=\"WATCH\", verb=~\"${verb:regex}\", resource=~\"${resource:regex}s*\"}",
                             "format": "time_series",
                             "instant": false,
@@ -4801,7 +4801,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(apiserver_response_sizes_sum{verb!=\"WATCH\", verb=~\"${verb:regex}\", resource=~\"${resource:regex}s*\"}[1m])) by (verb, version, resource, subresource, scope, instance)",
                             "format": "time_series",
                             "instant": false,
@@ -4900,7 +4900,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(apiserver_admission_webhook_admission_duration_seconds_bucket[1m])) by (le, type, name))",
                             "format": "time_series",
                             "instant": false,
@@ -4916,6 +4916,105 @@
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Webhook admission duration (99th percentile)",
+                    "tooltip": {
+                        "msResolution": true,
+                        "shared": true,
+                        "sort": 2,
+                        "value_type": "cumulative"
+                    },
+                    "transparent": false,
+                    "type": "graph",
+                    "xaxis": {
+                        "show": true
+                    },
+                    "yaxes": [
+                        {
+                            "decimals": null,
+                            "format": "s",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        },
+                        {
+                            "decimals": null,
+                            "format": "short",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        }
+                    ]
+                },
+                {
+                    "aliasColors": {},
+                    "bars": false,
+                    "datasource": "$source",
+                    "description": null,
+                    "editable": true,
+                    "error": false,
+                    "fill": 1,
+                    "grid": {
+                        "threshold1": null,
+                        "threshold1Color": "rgba(216, 200, 27, 0.27)",
+                        "threshold2": null,
+                        "threshold2Color": "rgba(234, 112, 112, 0.22)"
+                    },
+                    "id": 49,
+                    "isNew": true,
+                    "legend": {
+                        "alignAsTable": false,
+                        "avg": false,
+                        "current": false,
+                        "hideEmpty": false,
+                        "hideZero": false,
+                        "max": false,
+                        "min": false,
+                        "rightSide": false,
+                        "show": true,
+                        "sideWidth": null,
+                        "sort": null,
+                        "sortDesc": false,
+                        "total": false,
+                        "values": false
+                    },
+                    "lines": true,
+                    "linewidth": 2,
+                    "links": [],
+                    "minSpan": null,
+                    "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
+                    "percentage": false,
+                    "pointradius": 5,
+                    "points": false,
+                    "renderer": "flot",
+                    "repeat": null,
+                    "seriesOverrides": [],
+                    "span": 12,
+                    "stack": false,
+                    "steppedLine": false,
+                    "targets": [
+                        {
+                            "datasource": "$source",
+                            "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_filter_duration_seconds_bucket[1m])) by (le, filter))",
+                            "format": "time_series",
+                            "instant": false,
+                            "interval": "5s",
+                            "intervalFactor": 1,
+                            "legendFormat": "{{filter}}",
+                            "metric": "",
+                            "refId": "",
+                            "step": 10,
+                            "target": ""
+                        }
+                    ],
+                    "timeFrom": null,
+                    "timeShift": null,
+                    "title": "Request filter latency for each filter type (99th percentile)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -4972,7 +5071,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 49,
+                    "id": 50,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5009,7 +5108,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "workqueue_depth{endpoint=\"kube-controller-manager\"}",
                             "format": "time_series",
                             "instant": false,
@@ -5081,105 +5180,6 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 50,
-                    "isNew": true,
-                    "legend": {
-                        "alignAsTable": false,
-                        "avg": false,
-                        "current": false,
-                        "hideEmpty": false,
-                        "hideZero": false,
-                        "max": false,
-                        "min": false,
-                        "rightSide": false,
-                        "show": true,
-                        "sideWidth": null,
-                        "sort": null,
-                        "sortDesc": false,
-                        "total": false,
-                        "values": false
-                    },
-                    "lines": true,
-                    "linewidth": 2,
-                    "links": [],
-                    "minSpan": null,
-                    "nullPointMode": null,
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 5,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeat": null,
-                    "seriesOverrides": [],
-                    "span": 12,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "datasource": "",
-                            "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container, instance)",
-                            "format": "time_series",
-                            "instant": false,
-                            "interval": "5s",
-                            "intervalFactor": 1,
-                            "legendFormat": "{{instance}}: {{container}}",
-                            "metric": "",
-                            "refId": "",
-                            "step": 10,
-                            "target": ""
-                        }
-                    ],
-                    "timeFrom": null,
-                    "timeShift": null,
-                    "title": "fs bytes reads by container",
-                    "tooltip": {
-                        "msResolution": true,
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "cumulative"
-                    },
-                    "transparent": false,
-                    "type": "graph",
-                    "xaxis": {
-                        "show": true
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": null,
-                            "format": "bytes",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": 0,
-                            "show": true
-                        },
-                        {
-                            "decimals": null,
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": 0,
-                            "show": true
-                        }
-                    ]
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "datasource": "$source",
-                    "description": null,
-                    "editable": true,
-                    "error": false,
-                    "fill": 1,
-                    "grid": {
-                        "threshold1": null,
-                        "threshold1Color": "rgba(216, 200, 27, 0.27)",
-                        "threshold2": null,
-                        "threshold2Color": "rgba(234, 112, 112, 0.22)"
-                    },
                     "id": 51,
                     "isNew": true,
                     "legend": {
@@ -5217,8 +5217,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(rate(container_fs_reads_total[1m])) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(rate(container_fs_reads_bytes_total[1m])) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5232,7 +5232,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "fs reads by container",
+                    "title": "fs bytes reads by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5247,7 +5247,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "short",
+                            "format": "bytes",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -5316,8 +5316,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(rate(container_fs_reads_total[1m])) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5331,7 +5331,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "fs bytes writes by container",
+                    "title": "fs reads by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5346,7 +5346,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "bytes",
+                            "format": "short",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -5415,8 +5415,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(rate(container_fs_writes_total[1m])) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(rate(container_fs_writes_bytes_total[1m])) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5430,7 +5430,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "fs writes by container",
+                    "title": "fs bytes writes by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5445,7 +5445,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "short",
+                            "format": "bytes",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -5514,8 +5514,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(rate(container_fs_writes_total[1m])) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5525,24 +5525,11 @@
                             "refId": "",
                             "step": 10,
                             "target": ""
-                        },
-                        {
-                            "datasource": "",
-                            "expr": "machine_cpu_cores",
-                            "format": "time_series",
-                            "instant": false,
-                            "interval": "5s",
-                            "intervalFactor": 1,
-                            "legendFormat": "limit",
-                            "metric": "",
-                            "refId": "",
-                            "step": 10,
-                            "target": ""
                         }
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "CPU usage by container",
+                    "title": "fs writes by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5626,8 +5613,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5639,8 +5626,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "machine_memory_bytes",
+                            "datasource": "$source",
+                            "expr": "machine_cpu_cores",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5654,7 +5641,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "memory usage by container",
+                    "title": "CPU usage by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5669,7 +5656,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "bytes",
+                            "format": "short",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -5738,8 +5725,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) by (container, instance)",
+                            "datasource": "$source",
+                            "expr": "sum(container_memory_usage_bytes{container!=\"\"}) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
                             "interval": "5s",
@@ -5751,7 +5738,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "machine_memory_bytes",
                             "format": "time_series",
                             "instant": false,
@@ -5766,7 +5753,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "memory working set by container",
+                    "title": "memory usage by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5850,26 +5837,26 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_transmit_bytes_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) by (container, instance)",
                             "format": "time_series",
                             "instant": false,
-                            "interval": "",
-                            "intervalFactor": 2,
-                            "legendFormat": "{{instance}} transmit",
+                            "interval": "5s",
+                            "intervalFactor": 1,
+                            "legendFormat": "{{instance}}: {{container}}",
                             "metric": "",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_receive_bytes_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "machine_memory_bytes",
                             "format": "time_series",
                             "instant": false,
-                            "interval": "",
-                            "intervalFactor": 2,
-                            "legendFormat": "{{instance}} receive",
+                            "interval": "5s",
+                            "intervalFactor": 1,
+                            "legendFormat": "limit",
                             "metric": "",
                             "refId": "",
                             "step": 10,
@@ -5878,7 +5865,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Network usage (bytes)",
+                    "title": "memory working set by container",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -5893,7 +5880,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "Bps",
+                            "format": "bytes",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -5962,8 +5949,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_transmit_packets_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "rate(container_network_transmit_bytes_total{id=\"/\"}[1m])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -5975,8 +5962,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_receive_packets_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "rate(container_network_receive_bytes_total{id=\"/\"}[1m])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -5990,7 +5977,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Network usage (packets)",
+                    "title": "Network usage (bytes)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -6005,7 +5992,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "short",
+                            "format": "Bps",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -6074,8 +6061,8 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_transmit_bytes_total{id=\"/\"}[1m]) / rate(container_network_transmit_packets_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "rate(container_network_transmit_packets_total{id=\"/\"}[1m])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -6087,8 +6074,8 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
-                            "expr": "rate(container_network_receive_bytes_total{id=\"/\"}[1m]) / rate(container_network_receive_packets_total{id=\"/\"}[1m])",
+                            "datasource": "$source",
+                            "expr": "rate(container_network_receive_packets_total{id=\"/\"}[1m])",
                             "format": "time_series",
                             "instant": false,
                             "interval": "",
@@ -6102,7 +6089,7 @@
                     ],
                     "timeFrom": null,
                     "timeShift": null,
-                    "title": "Network usage (avg packet size)",
+                    "title": "Network usage (packets)",
                     "tooltip": {
                         "msResolution": true,
                         "shared": true,
@@ -6117,7 +6104,7 @@
                     "yaxes": [
                         {
                             "decimals": null,
-                            "format": "bytes",
+                            "format": "short",
                             "label": null,
                             "logBase": 1,
                             "max": null,
@@ -6186,7 +6173,119 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
+                            "expr": "rate(container_network_transmit_bytes_total{id=\"/\"}[1m]) / rate(container_network_transmit_packets_total{id=\"/\"}[1m])",
+                            "format": "time_series",
+                            "instant": false,
+                            "interval": "",
+                            "intervalFactor": 2,
+                            "legendFormat": "{{instance}} transmit",
+                            "metric": "",
+                            "refId": "",
+                            "step": 10,
+                            "target": ""
+                        },
+                        {
+                            "datasource": "$source",
+                            "expr": "rate(container_network_receive_bytes_total{id=\"/\"}[1m]) / rate(container_network_receive_packets_total{id=\"/\"}[1m])",
+                            "format": "time_series",
+                            "instant": false,
+                            "interval": "",
+                            "intervalFactor": 2,
+                            "legendFormat": "{{instance}} receive",
+                            "metric": "",
+                            "refId": "",
+                            "step": 10,
+                            "target": ""
+                        }
+                    ],
+                    "timeFrom": null,
+                    "timeShift": null,
+                    "title": "Network usage (avg packet size)",
+                    "tooltip": {
+                        "msResolution": true,
+                        "shared": true,
+                        "sort": 2,
+                        "value_type": "cumulative"
+                    },
+                    "transparent": false,
+                    "type": "graph",
+                    "xaxis": {
+                        "show": true
+                    },
+                    "yaxes": [
+                        {
+                            "decimals": null,
+                            "format": "bytes",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        },
+                        {
+                            "decimals": null,
+                            "format": "short",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        }
+                    ]
+                },
+                {
+                    "aliasColors": {},
+                    "bars": false,
+                    "datasource": "$source",
+                    "description": null,
+                    "editable": true,
+                    "error": false,
+                    "fill": 1,
+                    "grid": {
+                        "threshold1": null,
+                        "threshold1Color": "rgba(216, 200, 27, 0.27)",
+                        "threshold2": null,
+                        "threshold2Color": "rgba(234, 112, 112, 0.22)"
+                    },
+                    "id": 61,
+                    "isNew": true,
+                    "legend": {
+                        "alignAsTable": false,
+                        "avg": false,
+                        "current": false,
+                        "hideEmpty": false,
+                        "hideZero": false,
+                        "max": false,
+                        "min": false,
+                        "rightSide": false,
+                        "show": true,
+                        "sideWidth": null,
+                        "sort": null,
+                        "sortDesc": false,
+                        "total": false,
+                        "values": false
+                    },
+                    "lines": true,
+                    "linewidth": 2,
+                    "links": [],
+                    "minSpan": null,
+                    "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
+                    "percentage": false,
+                    "pointradius": 5,
+                    "points": false,
+                    "renderer": "flot",
+                    "repeat": null,
+                    "seriesOverrides": [],
+                    "span": 12,
+                    "stack": false,
+                    "steppedLine": false,
+                    "targets": [
+                        {
+                            "datasource": "$source",
                             "expr": "sum(rate(node_netstat_Tcp_InSegs[1m])) by (instance)",
                             "format": "time_series",
                             "instant": false,
@@ -6199,7 +6298,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(node_netstat_Tcp_OutSegs[1m])) by (instance)",
                             "format": "time_series",
                             "instant": false,
@@ -6212,7 +6311,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "sum(rate(node_netstat_Tcp_RetransSegs[1m])) by (instance)",
                             "format": "time_series",
                             "instant": false,

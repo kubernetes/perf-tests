@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 from grafanalib import core as g
 import defaults as d
 
@@ -24,8 +23,8 @@ def api_call_latency_panel(expression):
         return d.Graph(
             title=title,
             targets=[
-                g.Target(expr=str(threshold), legendFormat="threshold"),
-                g.Target(
+                d.Target(expr=str(threshold), legendFormat="threshold"),
+                d.Target(
                     expr=d.one_line(expression % {"verb": verb, "scope": scope}
                                     ),
                     # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
@@ -37,19 +36,19 @@ def api_call_latency_panel(expression):
 
     return [
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=resource, threshold=1s)",
+            title="GET resource latency (percentaile=99, scope=resource, threshold=1s)",
             verb="GET",
             scope="resource",
             threshold=1,
         ),
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=namespace, threshold=5s)",
+            title="LIST namespace latency (percentaile=99, scope=namespace, threshold=5s)",
             verb="LIST",
             scope="namespace",
             threshold=5,
         ),
         api_call_latency(
-            title="Read-only API call latency (percentaile=99, scope=cluster, threshold=30s)",
+            title="LIST cluster latency (percentaile=99, scope=cluster, threshold=30s)",
             verb="LIST",
             scope="cluster",
             threshold=30,
@@ -68,6 +67,7 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   verb=~"%(verb)s",
   scope=~"%(scope)s",
   resource=~"${resource:regex}s*",
+  subresource!~"exec|proxy",
 }""")
 
 QUANTILE_API_CALL_LATENCY_PANELS = api_call_latency_panel("""
@@ -77,6 +77,7 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   verb=~"%(verb)s",
   scope=~"%(scope)s",
   resource=~"${resource:regex}s*",
+  subresource!~"exec|proxy",
 }[5d])""")
 
 PAF_PANELS = [
@@ -239,7 +240,7 @@ histogram_quantile(
         points=True,
         lines=False,
         targets=[
-            g.Target(
+            d.Target(
                 expr="histogram_quantile(1.0, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket[1m])) by (le, instance))"
             )
         ],
@@ -410,6 +411,12 @@ sum(
         legend="{{type}}: {{name}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    d.simple_graph(
+        "Request filter latency for each filter type (99th percentile)",
+        "histogram_quantile(0.99, sum(rate(apiserver_request_filter_duration_seconds_bucket[1m])) by (le, filter))",
+        legend="{{filter}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    ),
 ]
 
 VM_PANELS = [
@@ -438,43 +445,43 @@ VM_PANELS = [
     d.Graph(
         title="CPU usage by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_cpu_cores", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_cpu_cores", legendFormat="limit"),
         ],
     ),
     d.Graph(
         title="memory usage by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(container_memory_usage_bytes{container!=""}) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.Graph(
         title="memory working set by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(container_memory_working_set_bytes{container!=""}) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.Graph(
         title="Network usage (bytes)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_bytes_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_bytes_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -484,11 +491,11 @@ VM_PANELS = [
     d.Graph(
         title="Network usage (packets)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -497,11 +504,11 @@ VM_PANELS = [
     d.Graph(
         title="Network usage (avg packet size)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_bytes_total{id="/"}[1m]) / rate(container_network_transmit_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_bytes_total{id="/"}[1m]) / rate(container_network_receive_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -511,15 +518,15 @@ VM_PANELS = [
     d.Graph(
         title="Network tcp segments",
         targets=[
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_InSegs[1m])) by (instance)",
                 legendFormat="InSegs {{instance}}",
             ),
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_OutSegs[1m])) by (instance)",
                 legendFormat="OutSegs {{instance}}",
             ),
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_RetransSegs[1m])) by (instance)",
                 legendFormat="RetransSegs {{instance}}",
             ),

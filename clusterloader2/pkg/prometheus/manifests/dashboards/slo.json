@@ -67,7 +67,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -80,7 +80,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -179,7 +179,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
                             "instant": false,
@@ -192,7 +192,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -291,7 +291,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
                             "instant": false,
@@ -304,7 +304,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -403,7 +403,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -416,7 +416,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -525,7 +525,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -538,7 +538,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -637,7 +637,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
                             "instant": false,
@@ -650,7 +650,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -749,7 +749,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
                             "instant": false,
@@ -762,7 +762,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "format": "time_series",
                             "instant": false,
@@ -861,7 +861,7 @@
                     "steppedLine": false,
                     "targets": [
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
                             "instant": false,
@@ -874,7 +874,7 @@
                             "target": ""
                         },
                         {
-                            "datasource": "",
+                            "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "format": "time_series",
                             "instant": false,

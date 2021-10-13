@@ -15,9 +15,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        # Version 2.33 consumes > 32GiB of memory.
-        # TODO: Introduce 2.34 version which conditionally disables functionality added in 2.32 and disable it in this perf-dash instance.
-        image: gcr.io/k8s-testimages/perfdash:2.32
+        image: gcr.io/k8s-testimages/perfdash:2.37
         command:
           - /perfdash
           -   --www=true
@@ -26,6 +24,7 @@ spec:
           -   --builds=100
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
+          -   --allow-parsers-matching-all-tests=false
         imagePullPolicy: Always
         ports:
         - name: status

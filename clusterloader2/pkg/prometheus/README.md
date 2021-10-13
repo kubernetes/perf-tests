@@ -13,3 +13,11 @@ Prometheus stack in ClusterLoader2 framework.
 1. ``kubectl --namespace monitoring port-forward svc/grafana 3000 --address=0.0.0.0``
 2. Visit http://localhost:3000
 3. Login/password: admin/admin
+
+## How to measure the Latency of metrics-server
+
+Make sure to configure the following flags
+
+- `--provider=gce`
+- `--enable-prometheus-server=true`
+- `--prometheus-scrape-metrics-server=true`

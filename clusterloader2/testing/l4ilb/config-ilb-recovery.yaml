@@ -1,0 +1,130 @@
+# Timer measurement is used to measure the time between the start of an action executed by the
+# Exec command and when the ILB services are running and reachable.
+# ServiceCreationLatency measurement is used only for determining the moment when all of the
+# ILBs are reachable. Since it reports time based on the initial creation of the service, and
+# not from the start of the action, the measured time will not be shown.
+
+# Constants
+{{$LB_REPLICAS_PER_NS := DefaultParam .CL2_LB_REPLICAS_PER_NS 5}}
+{{$LB_BACKEND_SIZE := DefaultParam .CL2_LB_BACKEND_SIZE 10}}
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
+{{$ilbQPS := DefaultParam .CL2_ILB_TEST_QPS 20}}
+{{$ILB_RECOVERY_LABEL := "ilb-recovery"}}
+{{$namespaces := 1}}
+
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "60m"}}
+{{$EXEC_ADDITIONAL_ARGUMENT := DefaultParam .CL2_EXEC_ADDITIONAL_ARGUMENT ""}}
+
+name: l4ilb-recovery
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: ILBConstantQPS
+  qpsLoad:
+    qps: {{$ilbQPS}}
+steps:
+- name: Start measurement for running pods
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = ilb-load
+      operationTimeout: 15m
+- name: Creating ILBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LB_REPLICAS_PER_NS}}
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: ilb-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: ilb-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        ILBSizeLabel: {{$ILB_RECOVERY_LABEL}}
+    - basename: ilb-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LB_BACKEND_SIZE}}
+- name: Waiting for objects creation to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+{{if $EXEC_COMMAND}}
+- name: Starting measurements
+  measurements:
+  - Identifier: ServiceCreationLatency
+    Method: ServiceCreationLatency
+    Params:
+      action: start
+      waitTimeout: {{$ilbWaitTimeout}}
+      labelSelector: size = {{$ILB_RECOVERY_LABEL}}
+- name: Starting ILB recovery timer
+  measurements:
+  - Identifier: ILBRecoveryTimer
+    Method: Timer
+    Params:
+      action: start
+      label: {{$ILB_RECOVERY_LABEL}}
+- name: Execute command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: {{$EXEC_TIMEOUT}}
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+      {{if $EXEC_ADDITIONAL_ARGUMENT}}
+      - {{$EXEC_ADDITIONAL_ARGUMENT}}
+      {{end}}
+- name: Waiting for ILBs to be reachable after the command is executed
+  measurements:
+  - Identifier: ServiceCreationLatency
+    Method: ServiceCreationLatency
+    Params:
+      action: waitForReady
+- name: Stopping ILB recovery timer
+  measurements:
+  - Identifier: ILBRecoveryTimer
+    Method: Timer
+    Params:
+      action: stop
+      label: {{$ILB_RECOVERY_LABEL}}
+{{end}}
+- name: Deleting ILBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: ILBConstantQPS
+    objectBundle:
+    - basename: ilb-service
+      objectTemplatePath: service.yaml
+    - basename: ilb-dep
+      objectTemplatePath: dep.yaml
+- name: Waiting for objects deletion to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Gathering measurements
+  measurements:
+  - Identifier: ILBRecoveryTimer
+    Method: Timer
+    Params:
+      action: gather
+      label: {{$ILB_RECOVERY_LABEL}}

@@ -4,9 +4,6 @@
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 
-## Derivative variables
-{{$is_deleting := (eq .action "delete")}}
-
 steps:
 - name: {{$action}} huge services
   phases:
@@ -18,11 +15,3 @@ steps:
     objectBundle:
     - basename: huge-service
       objectTemplatePath: service.yaml
-{{if $is_deleting}}
-- name: Sleeping after deleting huge services
-  measurements:
-  - Identifier: WaitAfterHugeServicesDeletion
-    Method: Sleep
-    Params:
-      duration: "3m"
-{{end}}

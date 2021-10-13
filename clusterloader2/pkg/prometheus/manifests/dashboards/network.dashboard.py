@@ -100,11 +100,11 @@ NETWORK_LATENCY_PANEL = [
     d.Graph(
         title="probes: ping rate",
         targets=[
-            g.Target(
+            d.Target(
                 expr='sum(rate(probes_in_cluster_network_latency_ping_count{namespace="probes", job="ping-client"}[1m])) by (job)',
                 legendFormat="rate",
             ),
-            g.Target(
+            d.Target(
                 expr='sum(rate(probes_in_cluster_network_latency_error{namespace="probes", job="ping-client"}[1m])) by (job)',
                 legendFormat="error rate",
             ),
@@ -114,7 +114,7 @@ NETWORK_LATENCY_PANEL = [
     d.Graph(
         title="probe: # running",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='count(container_memory_usage_bytes{namespace="probes", container=~"ping-client|ping-server"}) by (container, namespace)'
             )
         ],
@@ -123,15 +123,15 @@ NETWORK_LATENCY_PANEL = [
     d.Graph(
         title="probes: memory usage",
         targets=[
-            g.Target(
+            d.Target(
                 expr='min(container_memory_usage_bytes{namespace="probes", container=~"ping-client|ping-server"}) by (container)',
                 legendFormat="min {{container}}",
             ),
-            g.Target(
+            d.Target(
                 expr='avg(container_memory_usage_bytes{namespace="probes", container=~"ping-client|ping-server"}) by (container)',
                 legendFormat="avg {{container}}",
             ),
-            g.Target(
+            d.Target(
                 expr='max(container_memory_usage_bytes{namespace="probes", container=~"ping-client|ping-server"}) by (container)',
                 legendFormat="max {{container}}",
             ),

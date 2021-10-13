@@ -3,7 +3,8 @@
 {{$NUMBER_OF_CLIENTS := .CL2_NUMBER_OF_CLIENTS}}
 
 name: network_performance 
-automanagedNamespaces: 1
+namespace:
+  number: 1
 steps:
 - name: Start network performance measurement
   measurements:

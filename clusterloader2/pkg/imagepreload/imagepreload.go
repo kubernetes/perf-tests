@@ -43,8 +43,7 @@ const (
 	namespace       = "preload"
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
-	// TODO(oxddr): verify whether 5 minutes is a sufficient timeout
-	pollingTimeout = 5 * time.Minute
+	pollingTimeout  = 15 * time.Minute
 )
 
 var images []string
@@ -95,7 +94,7 @@ func (c *controller) PreloadImages() error {
 
 	kclient := c.framework.GetClientSets().GetClient()
 
-	doneNodes := make(map[string]bool)
+	doneNodes := make(map[string]struct{})
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
@@ -108,7 +107,7 @@ func (c *controller) PreloadImages() error {
 				return kclient.CoreV1().Nodes().Watch(context.TODO(), options)
 			},
 		},
-		func(old, new interface{}) { c.checkNode(new, doneNodes) })
+		func(old, new interface{}) { c.checkNode(doneNodes, old, new) })
 	if err := informer.StartAndSync(nodeInformer, stopCh, informerTimeout); err != nil {
 		return err
 	}
@@ -140,8 +139,9 @@ func (c *controller) PreloadImages() error {
 	klog.V(2).Infof("Waiting for %d Node objects to be updated...", size.Replicas())
 	if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
 		clusterSize := size.Replicas()
-		klog.V(3).Infof("%d out of %d nodes have pulled images", len(doneNodes), clusterSize)
-		return len(doneNodes) == clusterSize, nil
+		doneCount := c.countDone(doneNodes)
+		klog.V(3).Infof("%d out of %d nodes have pulled images", doneCount, clusterSize)
+		return doneCount == clusterSize, nil
 	}); err != nil {
 		return err
 	}
@@ -157,17 +157,35 @@ func (c *controller) PreloadImages() error {
 	return nil
 }
 
-func (c *controller) checkNode(obj interface{}, done map[string]bool) {
-	if obj == nil {
+func (c *controller) checkNode(set map[string]struct{}, old, new interface{}) {
+	if new != nil {
+		node := new.(*v1.Node)
+		preloaded := c.hasPreloadedImages(node)
+		c.markDone(set, node.Name, preloaded)
+		return
+	}
+	if old != nil {
+		node := old.(*v1.Node)
+		c.markDone(set, node.Name, false)
 		return
 	}
 
-	node := obj.(*v1.Node)
-	if c.hasPreloadedImages(node) {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-		done[node.Name] = true
+}
+
+func (c *controller) markDone(set map[string]struct{}, node string, done bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if done {
+		set[node] = struct{}{}
+	} else {
+		delete(set, node)
 	}
+}
+
+func (c *controller) countDone(set map[string]struct{}) int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return len(set)
 }
 
 func (c *controller) hasPreloadedImages(node *v1.Node) bool {

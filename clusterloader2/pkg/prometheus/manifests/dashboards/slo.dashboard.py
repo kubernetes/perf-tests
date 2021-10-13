@@ -22,8 +22,8 @@ def api_call_latency(title, metric, verb, scope, threshold):
     return d.Graph(
         title=title,
         targets=[
-            g.Target(expr=str(threshold), legendFormat="threshold"),
-            g.Target(
+            d.Target(expr=str(threshold), legendFormat="threshold"),
+            d.Target(
                 expr='quantile_over_time(0.99, %(metric)s{quantile="0.99", verb=~"%(verb)s", scope=~"%(scope)s"}[12h])'
                 % {"metric": metric, "verb": verb, "scope": scope}
             ),

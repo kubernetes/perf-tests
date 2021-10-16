@@ -47,6 +47,8 @@ const (
 	runUUID          = "latest"
 	orchestratorPort = 5202
 	iperf3Port       = 5201
+	qperf19766       = 19766
+	qperf19765       = 19765
 	netperfPort      = 12865
 )
 
@@ -190,6 +192,18 @@ func createServices(c *kubernetes.Clientset) bool {
 					Protocol:   api.ProtocolTCP,
 					Port:       iperf3Port,
 					TargetPort: intstr.FromInt(iperf3Port),
+				},
+				{
+					Name:       "netperf-w2-qperf19766",
+					Protocol:   api.ProtocolTCP,
+					Port:       qperf19766,
+					TargetPort: intstr.FromInt(qperf19766),
+				},
+				{
+					Name:       "netperf-w2-qperf19765",
+					Protocol:   api.ProtocolTCP,
+					Port:       qperf19765,
+					TargetPort: intstr.FromInt(qperf19765),
 				},
 				{
 					Name:       "netperf-w2-sctp",
@@ -399,7 +413,7 @@ func executeTests(c *kubernetes.Clientset) bool {
 		fmt.Println("Orchestrator Pod is", orchestratorPodName)
 
 		// The pods orchestrate themselves, we just wait for the results file to show up in the orchestrator container
-		for true {
+		for {
 			// Monitor the orchestrator pod for the CSV results file
 			csvdata := getCsvResultsFromPod(c, orchestratorPodName)
 			if csvdata == nil {

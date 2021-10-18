@@ -81,6 +81,8 @@
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
+{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
+
 name: load
 namespace:
   number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
@@ -170,7 +172,13 @@ steps:
       namespaces: {{$namespaces}}
       tuningSet: RandomizedSaturationTimeLimited
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.0
+      # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.
+      # The goal is to cache the image to all nodes before we start any latency pod,
+      # so that when we measure pod startup latency, the image is already present on all nodes.
+      # This way, the pod startup latency we measure excludes (or limits impact) of image pulling,
+      # whuch matches our SLO definition: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md.
+      daemonSetImage: {{$latencyPodImage}}
+      daemonSetEnv: "before update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
@@ -282,6 +290,7 @@ steps:
     params:
       namespaces: {{$namespaces}}
       minPodsInSmallCluster: {{$MIN_PODS_IN_SMALL_CLUSTERS}}
+      image: {{$latencyPodImage}}
 {{end}}
 
 - module:
@@ -292,7 +301,8 @@ steps:
       tuningSet: RandomizedScalingTimeLimited
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.1
+      daemonSetImage: {{$latencyPodImage}}
+      daemonSetEnv: "after update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
@@ -318,7 +328,6 @@ steps:
       namespaces: {{$namespaces}}
       tuningSet: RandomizedDeletionTimeLimited
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.1
       daemonSetReplicas: 0
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: 0

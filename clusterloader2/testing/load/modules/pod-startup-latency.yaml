@@ -3,6 +3,7 @@
 ## Input Params
 {{$namespaces := .namespaces}}
 {{$minPodsInSmallCluster := .minPodsInSmallCluster}}
+{{$image := .image}}
 
 ## CL2 Params
 # LATENCY_POD_MEMORY and LATENCY_POD_CPU are calculated for 1-core 4GB node.
@@ -50,6 +51,7 @@ steps:
             Group: latency
             CpuRequest: {{$LATENCY_POD_CPU}}m
             MemoryRequest: {{$LATENCY_POD_MEMORY}}M
+            Image: {{$image}}
 - name: Waiting for latency pods to be running
   measurements:
     - Identifier: WaitForRunningLatencyDeployments

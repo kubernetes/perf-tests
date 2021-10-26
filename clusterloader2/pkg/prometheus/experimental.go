@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -44,8 +45,9 @@ const (
 )
 
 var (
-	shouldSnapshotPrometheusDisk = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
-	prometheusDiskSnapshotName   = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
+	shouldSnapshotPrometheusDisk        = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
+	shouldSnapshotPrometheusToArtifacts = pflag.Bool("experimental-prometheus-snapshot-to-artifacts", false, "(experimental) whether to save prometheus snapshot to artifacts")
+	prometheusDiskSnapshotName          = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
 func (pc *Controller) isEnabled() (bool, error) {
@@ -119,6 +121,16 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
 	pc.snapshotted = true
 	pc.snapshotError = pc.snapshotPrometheusDiskIfEnabled()
 	return pc.snapshotError
+}
+func (pc *Controller) snapshotPrometheusIfEnabled() error {
+	if !*shouldSnapshotPrometheusToArtifacts {
+		return nil
+	}
+
+	k8sClient := pc.framework.GetClientSets().GetClient()
+	restClient := pc.framework.GetRestClient()
+	filePath := path.Join(pc.clusterLoaderConfig.ReportDir, "prometheus_snapshot.tar.gz")
+	return makeSnapshot(k8sClient, restClient, filePath)
 }
 
 func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {

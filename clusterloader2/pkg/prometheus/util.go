@@ -20,6 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
+	"os"
 	"regexp"
 
 	"k8s.io/client-go/kubernetes"
@@ -97,6 +105,45 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 	return true, nil
 }
 
+type snapshotResponse struct {
+	Data snapshotData `json:"data"`
+}
+
+type snapshotData struct {
+	Name string `json:"name"`
+}
+
+func makeSnapshot(k8sClient kubernetes.Interface, config *restclient.Config, filePath string) error {
+	raw, err := k8sClient.CoreV1().RESTClient().Post().
+		Namespace(namespace).
+		Resource("services").
+		SubResource("proxy").
+		Name(net.JoinSchemeNamePort("http", "prometheus-k8s", "9090")).
+		Suffix("api/v1/admin/tsdb/snapshot").
+		DoRaw(context.TODO())
+	if err != nil {
+		return err
+	}
+	var response snapshotResponse
+
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return err
+	}
+
+	klog.V(2).Infof("Snapshot made: %v", response)
+
+	svc, err := k8sClient.CoreV1().Services(namespace).Get(context.TODO(), "prometheus-k8s", metav1.GetOptions{})
+	labelSelector := labels.Set(svc.Spec.Selector).AsSelector().String()
+	pods, err := k8sClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
+
+	if len(pods.Items) != 1 {
+		return fmt.Errorf("unexpected number of pods in prometheus service: %d", len(pods.Items))
+	}
+
+	pod := pods.Items[0]
+	return copyFromPod(k8sClient, config, "/prometheus/snapshots/"+response.Data.Name, filePath, pod.Name, namespace)
+}
+
 const snapshotNamePattern = `^(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?)$`
 
 var re = regexp.MustCompile(snapshotNamePattern)
@@ -107,4 +154,37 @@ func VerifySnapshotName(name string) error {
 		return nil
 	}
 	return fmt.Errorf("disk name doesn't match %v", snapshotNamePattern)
+}
+
+func copyFromPod(k8sClient kubernetes.Interface, config *restclient.Config, srcPath, destPath string, podName, namespace string) error {
+	cmdArr := []string{"tar", "cfz", "-", srcPath}
+	outStream, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer outStream.Close()
+	req := k8sClient.CoreV1().RESTClient().
+		Post().
+		Namespace(namespace).
+		Resource("pods").
+		Name(podName).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: "prometheus",
+			Command:   cmdArr,
+			Stdin:     false,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	return exec.Stream(remotecommand.StreamOptions{
+		Stdout: outStream,
+		Stderr: os.Stderr,
+		Tty:    false,
+	})
 }

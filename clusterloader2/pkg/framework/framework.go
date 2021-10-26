@@ -30,6 +30,9 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	frconfig "k8s.io/perf-tests/clusterloader2/pkg/framework/config"
+
+	restclient "k8s.io/client-go/rest"
 
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -47,6 +50,7 @@ type Framework struct {
 	clientSets            *MultiClientSet
 	dynamicClients        *MultiDynamicClient
 	clusterConfig         *config.ClusterConfig
+	restClientConfig      *restclient.Config
 }
 
 // NewFramework creates new framework based on given clusterConfig.
@@ -76,6 +80,10 @@ func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeCo
 	if f.dynamicClients, err = NewMultiDynamicClient(kubeConfigPath, clientsNumber); err != nil {
 		return nil, fmt.Errorf("multi dynamic client creation error: %v", err)
 	}
+
+	if f.restClientConfig, err = frconfig.GetConfig(kubeConfigPath); err != nil {
+		return nil, fmt.Errorf("rest client creation error: %v", err)
+	}
 	return &f, nil
 }
 
@@ -97,6 +105,10 @@ func (f *Framework) GetClientSets() *MultiClientSet {
 // GetDynamicClients returns dynamic clients.
 func (f *Framework) GetDynamicClients() *MultiDynamicClient {
 	return f.dynamicClients
+}
+
+func (f *Framework) GetRestClient() *restclient.Config {
+	return f.restClientConfig
 }
 
 // GetClusterConfig returns cluster config.

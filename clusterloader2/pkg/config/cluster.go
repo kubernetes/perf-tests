@@ -52,6 +52,7 @@ type ClusterConfig struct {
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
 	APIServerPprofByClientEnabled bool
 	KubeletPort                   int
+	K8SClientsNumber              int
 }
 
 // ModifierConfig represent all flags used by test modification

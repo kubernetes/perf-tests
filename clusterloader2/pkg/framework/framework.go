@@ -65,6 +65,7 @@ func NewRootFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*
 }
 
 func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeConfigPath string) (*Framework, error) {
+	klog.Infof("Creating framework with %d clients and %q kubeconfig.", clientsNumber, kubeConfigPath)
 	var err error
 	f := Framework{
 		automanagedNamespaces: map[string]bool{},

@@ -356,6 +356,10 @@ func main() {
 
 	testReporter.EndTestSuite()
 
+	if err := prometheusController.MakePrometheusSnapshotIfEnabled(); err != nil {
+		klog.Errorf("Error while making prometheus snapshot: %v", err)
+	}
+
 	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
 		if err := prometheusController.TearDownPrometheusStack(); err != nil {
 			klog.Errorf("Error while tearing down prometheus stack: %v", err)

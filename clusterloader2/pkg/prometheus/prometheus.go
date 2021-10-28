@@ -239,6 +239,16 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	return nil
 }
 
+func (pc *Controller) MakePrometheusSnapshotIfEnabled() error {
+	klog.V(2).Info("Get snapshot from Prometheus")
+	if err := pc.snapshotPrometheusIfEnabled(); err != nil {
+		klog.Warningf("Error while getting prometheus snapshot: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // TearDownPrometheusStack tears down prometheus stack, releasing all prometheus resources.
 func (pc *Controller) TearDownPrometheusStack() error {
 	// Get disk metadata again to be sure

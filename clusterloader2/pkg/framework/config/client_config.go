@@ -36,8 +36,19 @@ const (
 )
 
 // PrepareConfig creates and initializes client config.
-// If kubeconfig path is empty, creates in-cluster client configuration.
 func PrepareConfig(path string) (config *restclient.Config, err error) {
+	config, err = GetConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	if err = transportHack(config); err != nil {
+		return nil, fmt.Errorf("config initialization error: %v", err)
+	}
+	return config, nil
+}
+
+// GetConfig returns client config without additional initialization.
+func GetConfig(path string) (config *restclient.Config, err error) {
 	if path != "" {
 		config, err = loadConfig(path)
 	} else {
@@ -46,10 +57,8 @@ func PrepareConfig(path string) (config *restclient.Config, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = initializeWithDefaults(config); err != nil {
-		return nil, fmt.Errorf("config initialization error: %v", err)
-	}
-	return config, nil
+	initializeWithDefaults(config)
+	return
 }
 
 func restclientConfig(path string) (*clientcmdapi.Config, error) {
@@ -68,11 +77,13 @@ func loadConfig(path string) (*restclient.Config, error) {
 	return clientcmd.NewDefaultClientConfig(*c, &clientcmd.ConfigOverrides{}).ClientConfig()
 }
 
-func initializeWithDefaults(config *restclient.Config) error {
+func initializeWithDefaults(config *restclient.Config) {
 	config.ContentType = contentType
 	config.QPS = qps
 	config.Burst = burst
+}
 
+func transportHack(config *restclient.Config) error {
 	// For the purpose of this test, we want to force that clients
 	// do not share underlying transport (which is a default behavior
 	// in Kubernetes). Thus, we are explicitly creating transport for

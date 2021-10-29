@@ -46,7 +46,7 @@ const (
 
 var (
 	shouldSnapshotPrometheusDisk        = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
-	shouldSnapshotPrometheusToArtifacts = pflag.Bool("experimental-prometheus-snapshot-to-artifacts", false, "(experimental) whether to save prometheus snapshot to artifacts")
+	shouldSnapshotPrometheusToReportDir = pflag.Bool("experimental-prometheus-snapshot-to-report-dir", false, "(experimental) whether to save prometheus snapshot to the report-dir")
 	prometheusDiskSnapshotName          = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
@@ -123,7 +123,7 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
 	return pc.snapshotError
 }
 func (pc *Controller) snapshotPrometheusIfEnabled() error {
-	if !*shouldSnapshotPrometheusToArtifacts {
+	if !*shouldSnapshotPrometheusToReportDir {
 		return nil
 	}
 

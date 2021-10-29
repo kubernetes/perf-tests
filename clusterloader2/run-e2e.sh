@@ -28,9 +28,22 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
       echo "Env var E2E_GOOGLE_APPLICATION_CREDENTIALS must be set to deploy driver"
       exit 1
    fi
-   kubectl create secret generic cloud-sa --from-file="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}"
    kubectl apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
-   kubectl wait pods -l app=gcp-compute-persistent-disk-csi-driver --for condition=Ready --timeout=300s
+   kubectl create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
+   kubectl wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
+   
+   # make sure there's a default storage class
+   names=( $(kubectl get sc -o name) )
+   i=0
+   for name in "${names[@]}"
+   do
+      if [[ $(kubectl get $name -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}') = true ]]; then
+         ((i+=1))
+      fi
+   done
+   if [[ $i < 1 ]]; then
+      kubectl patch storageclass csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+   fi
 fi
 
 cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'

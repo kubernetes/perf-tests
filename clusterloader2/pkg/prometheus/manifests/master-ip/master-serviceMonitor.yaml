@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
+{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 
 # If kube-apiserver is overloaded, we might get slower responses.
@@ -29,12 +30,13 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-    {{if $PROMETHEUS_SLOW_APISERVER}}
+  {{if $PROMETHEUS_SLOW_APISERVER}}
     interval: 30s
     scrapeTimeout: 30s
-    {{else}}
+  {{else}}
     interval: 5s
-    {{end}}
+  {{end}}
+  {{if $PROMETHEUS_SCRAPE_KUBELETS}}
   - interval: 5s
     port: kubelet
     scheme: https
@@ -46,6 +48,7 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+  {{end}}
   - interval: 5s
     port: kube-scheduler
     scheme: https

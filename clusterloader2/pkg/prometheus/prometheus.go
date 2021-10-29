@@ -53,6 +53,7 @@ const (
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
+	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
 	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
@@ -107,10 +108,11 @@ type Controller struct {
 func CompleteConfig(p *config.PrometheusConfig) {
 	p.CoreManifests = p.ManifestPath + "/*.yaml"
 	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
-	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
-	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
 	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
+	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
+	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
+	p.PushgatewayManifests = p.ManifestPath + "/pushgateway/*.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -230,6 +232,12 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			return err
 		}
 		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MasterIPServiceMonitors); err != nil {
+			return err
+		}
+	}
+	if pc.clusterLoaderConfig.PrometheusConfig.EnablePushgateway {
+		klog.V(2).Infof("Applying Pushgateway in the cluster.")
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.PushgatewayManifests); err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,7 @@ subsets:
     {{end}}
     ports:
       - name: apiserver
-        port: 443
+        port: 6443
       {{if not $PROMETHEUS_SCRAPE_APISERVER_ONLY}}
       - name: etcd-2379
         port: 2379

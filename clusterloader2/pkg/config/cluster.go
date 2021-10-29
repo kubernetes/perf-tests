@@ -69,6 +69,7 @@ type ModifierConfig struct {
 type PrometheusConfig struct {
 	EnableServer               bool
 	TearDownServer             bool
+	EnablePushgateway          bool
 	ScrapeEtcd                 bool
 	ScrapeNodeExporter         bool
 	ScrapeKubelets             bool
@@ -82,10 +83,11 @@ type PrometheusConfig struct {
 	ManifestPath               string
 	CoreManifests              string
 	DefaultServiceMonitors     string
-	MasterIPServiceMonitors    string
 	KubeStateMetricsManifests  string
+	MasterIPServiceMonitors    string
 	MetricsServerManifests     string
 	NodeExporterPod            string
+	PushgatewayManifests       string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string
 	ReadyTimeout               time.Duration

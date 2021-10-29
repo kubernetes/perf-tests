@@ -46,6 +46,8 @@ const (
 	runUUID          = "latest"
 	orchestratorPort = 5202
 	iperf3Port       = 5201
+	qperf19766       = 19766
+	qperf19765       = 19765
 	netperfPort      = 12865
 )
 
@@ -62,6 +64,8 @@ var (
 
 	primaryNode   api.Node
 	secondaryNode api.Node
+
+	testFrom, testTo int
 )
 
 func init() {
@@ -77,6 +81,8 @@ func init() {
 		"Location of the kube configuration file ($HOME/.kube/config")
 	flag.BoolVar(&cleanupOnly, "cleanup", false,
 		"(boolean) Run the cleanup resources phase only (use this flag to clean up orphaned resources from a test run)")
+	flag.IntVar(&testFrom, "testFrom", 0, "start from test number testFrom")
+	flag.IntVar(&testTo, "testTo", 5, "end at test number testTo")
 }
 
 func setupClient() *kubernetes.Clientset {
@@ -194,6 +200,18 @@ func createServices(c *kubernetes.Clientset) bool {
 					TargetPort: intstr.FromInt(iperf3Port),
 				},
 				{
+					Name:       "netperf-w2-qperf19766",
+					Protocol:   api.ProtocolTCP,
+					Port:       qperf19766,
+					TargetPort: intstr.FromInt(qperf19766),
+				},
+				{
+					Name:       "netperf-w2-qperf19765",
+					Protocol:   api.ProtocolTCP,
+					Port:       qperf19765,
+					TargetPort: intstr.FromInt(qperf19765),
+				},
+				{
 					Name:       "netperf-w2-sctp",
 					Protocol:   api.ProtocolSCTP,
 					Port:       iperf3Port,
@@ -242,10 +260,14 @@ func createRCs(c *kubernetes.Clientset) bool {
 				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
-							Name:            name,
-							Image:           netperfImage,
-							Ports:           []api.ContainerPort{{ContainerPort: orchestratorPort}},
-							Args:            []string{"--mode=orchestrator"},
+							Name:  name,
+							Image: netperfImage,
+							Ports: []api.ContainerPort{{ContainerPort: orchestratorPort}},
+							Args: []string{
+								"--mode=orchestrator",
+								fmt.Sprintf("--testFrom=%d", testFrom),
+								fmt.Sprintf("--testTo=%d", testTo),
+							},
 							ImagePullPolicy: "Always",
 						},
 					},

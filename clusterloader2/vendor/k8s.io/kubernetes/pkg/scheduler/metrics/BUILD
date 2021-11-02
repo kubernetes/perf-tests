@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "metric_recorder.go",
         "metrics.go",
+        "profile_metrics.go",
     ],
     importpath = "k8s.io/kubernetes/pkg/scheduler/metrics",
     deps = [
@@ -25,7 +26,10 @@ filegroup(
 
 filegroup(
     name = "all-srcs",
-    srcs = [":package-srcs"],
+    srcs = [
+        ":package-srcs",
+        "//pkg/scheduler/metrics/resources:all-srcs",
+    ],
     tags = ["automanaged"],
 )
 

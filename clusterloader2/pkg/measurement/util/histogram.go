@@ -30,8 +30,11 @@ import (
 
 // Histogram is a structure that represents distribution of data.
 type Histogram struct {
-	Labels  map[string]string `json:"labels"`
-	Buckets map[string]int    `json:"buckets"`
+	Labels map[string]string `json:"labels"`
+	// Buckets maps value to cumulative sample count:
+	// * key: float64 converted to string
+	// * value: cumulative count of all samples less or equal to the key.
+	Buckets map[string]int `json:"buckets"`
 }
 
 // Quantile calculates the quantile 'q' based on the given buckets of Histogram.

@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/master/ports"
 	schedulermetric "k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -44,6 +43,9 @@ const (
 	preemptionEvaluationMetricName            = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_preemption_evaluation_seconds_bucket")
 
 	singleRestCallTimeout = 5 * time.Minute
+
+	// kubeSchedulerPort is the default port for the scheduler status server.
+	kubeSchedulerPort = 10259
 )
 
 var (
@@ -301,7 +303,7 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 		body, err := c.CoreV1().RESTClient().Verb(opUpper).
 			Namespace(metav1.NamespaceSystem).
 			Resource("pods").
-			Name(fmt.Sprintf("https:kube-scheduler-%v:%v", masterName, ports.KubeSchedulerPort)).
+			Name(fmt.Sprintf("https:kube-scheduler-%v:%v", masterName, kubeSchedulerPort)).
 			SubResource("proxy").
 			Suffix("metrics").
 			Do(ctx).Raw()

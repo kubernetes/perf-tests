@@ -18,7 +18,7 @@ package provider
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
+	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
 type VsphereProvider struct {
@@ -56,12 +56,10 @@ func (p *VsphereProvider) GetConfig() Config {
 }
 
 func (p *VsphereProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
-	signer, err := sshSignerFromKeyFile("KUBE_SSH_KEY", "id_rsa")
-	if err != nil {
-		return "", "", 0, err
-	}
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
+	// skeleton provider takes ssh key from KUBE_SSH_KEY.
+	// TODO(mborsz): Migrate to "vsphere" and LOCAL_SSH_KEY?
+	r, err := sshutil.SSH(cmd, host, "skeleton")
+	return r.Stdout, r.Stderr, r.Code, err
 }
 
 func (p *VsphereProvider) Metadata(client clientset.Interface) (map[string]string, error) {

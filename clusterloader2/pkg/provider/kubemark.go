@@ -19,7 +19,7 @@ package provider
 import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
+	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
 type KubemarkProvider struct {
@@ -62,12 +62,9 @@ func (p *KubemarkProvider) GetConfig() Config {
 }
 
 func (p *KubemarkProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
-	signer, err := sshSignerFromKeyFile("KUBEMARK_SSH_KEY", "google_compute_engine")
-	if err != nil {
-		return "", "", 0, err
-	}
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
+	// kubemark provider takes ssh key from GCE_SSH_KEY.
+	r, err := sshutil.SSH(cmd, host, "kubemark")
+	return r.Stdout, r.Stderr, r.Code, err
 }
 
 // TODO(mborsz): Dump instanceIDs for master nodes (as in gce).

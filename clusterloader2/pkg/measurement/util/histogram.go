@@ -63,6 +63,12 @@ func (h *Histogram) Quantile(q float64) (float64, error) {
 		return *hist.Bucket[i].UpperBound < *hist.Bucket[j].UpperBound
 	})
 
+	// hist.Quantile is using hist.SampleCount, let's populate it.
+	if len(hist.Bucket) != 0 {
+		sampleCount := *hist.Bucket[len(hist.Bucket)-1].CumulativeCount
+		hist.SampleCount = &sampleCount
+	}
+
 	return hist.Quantile(q), nil
 }
 

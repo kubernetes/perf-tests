@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -405,29 +405,7 @@ func podMatchesNodeAffinity(affinity *corev1.Affinity, node *corev1.Node) (bool,
 		if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 			return true, nil
 		}
-		nodeSelectorTerms := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-		matched, err := nodeMatchesNodeSelectorTerms(node, nodeSelectorTerms)
-		if err != nil {
-			return false, err
-		}
-		if !matched {
-			return false, nil
-		}
+		return corev1helpers.MatchNodeSelectorTerms(node, nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
 	}
 	return true, nil
-}
-
-// nodeMatchesNodeSelectorTerms checks if a node's labels satisfy a list of node selector terms,
-// terms are ORed, and an empty list of terms will match nothing.
-func nodeMatchesNodeSelectorTerms(node *corev1.Node, nodeSelectorTerms []corev1.NodeSelectorTerm) (bool, error) {
-	for _, req := range nodeSelectorTerms {
-		nodeSelector, err := v1helper.NodeSelectorRequirementsAsSelector(req.MatchExpressions)
-		if err != nil {
-			return false, err
-		}
-		if nodeSelector.Matches(labels.Set(node.Labels)) {
-			return true, nil
-		}
-	}
-	return false, nil
 }

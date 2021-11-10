@@ -19,6 +19,7 @@ package runtimeobjects
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	goerrors "github.com/go-errors/errors"
@@ -172,13 +173,133 @@ func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1
 	}
 }
 
+func getIsPodUpdatedPodPredicateFromUnstructuredAppWrapper(obj *unstructured.Unstructured)  (map[string]interface{}) {
+	//itemsMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "resources", "GenericItems")
+	itemsMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "resources")
+	if err != nil || !ok || itemsMap == nil {
+		return nil
+	}
+
+	gi := itemsMap["GenericItems"]
+	if gi != nil {
+		gis := reflect.ValueOf(gi)
+		if gis.Kind() != reflect.Slice {
+			return nil
+		}
+
+		// Keep the distinction between nil and empty slice input
+		if gis.IsNil() {
+			return nil
+		}
+
+		if gis.Len() < 1 {
+			return nil
+		}
+
+		gia := make([]interface{}, gis.Len())
+
+		for i:=0; i<gis.Len(); i++ {
+			gia[i] = gis.Index(i).Interface()
+		}
+
+		fgi := gia[0]
+		rfgi := reflect.ValueOf(fgi)
+
+		if rfgi.Kind() != reflect.Map {
+			return nil
+		}
+
+		// Keep the distinction between nil and empty map input
+		if rfgi.IsNil() {
+			return nil
+		}
+
+		ugi, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&fgi)
+
+		if err != nil {
+			return nil
+		}
+
+		gt := ugi["generictemplate"]
+
+		if gt == nil {
+			return nil
+		}
+
+		// get spec
+		rgt := reflect.ValueOf(gt)
+
+		if rgt.Kind() != reflect.Map {
+			return nil
+		}
+
+		// Keep the distinction between nil and empty map input
+		if rgt.IsNil() {
+			return nil
+		}
+
+		ugt, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&gt)
+
+		if err != nil {
+			return nil
+		}
+
+		spec := ugt["spec"]
+
+		if spec == nil {
+			return nil
+		}
+
+		// get spec.template
+		rs := reflect.ValueOf(spec)
+
+		if rs.Kind() != reflect.Map {
+			return nil
+		}
+
+		// Keep the distinction between nil and empty map input
+		if rs.IsNil() {
+			return nil
+		}
+
+		urs, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&spec)
+
+		if err != nil {
+			return nil
+		}
+
+		template := urs["template"]
+
+		if template == nil {
+			return nil
+		}
+
+		utemplate, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)
+		if err != nil {
+			return nil
+		}
+
+		return utemplate
+	}
+	return nil
+
+}
+
 func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) bool, error) {
 	templateMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "template")
 	if err != nil {
 		return nil, goerrors.Errorf("failed to get pod template: %v", err)
 	}
 	if !ok {
-		return nil, goerrors.Errorf("spec.template is not set in object %v", obj.UnstructuredContent())
+		//Specific to AppWrappers - Begin
+		templateMap2 := getIsPodUpdatedPodPredicateFromUnstructuredAppWrapper(obj)
+		if templateMap2 != nil {
+			templateMap = templateMap2
+		} else {
+			//Specific to AppWrappers - End
+			return nil, goerrors.Errorf("spec.template is not set in object %v", obj.UnstructuredContent())
+		}
+		//return nil, goerrors.Errorf("spec.template is not set in object %v", obj.UnstructuredContent())
 	}
 	template := corev1.PodTemplateSpec{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, &template); err != nil {

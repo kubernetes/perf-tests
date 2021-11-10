@@ -37,3 +37,7 @@ clusterloader2/clusterloader
 
 # GoLand files
 .idea
+
+# Cluster Loader2 Configs
+clusterloader2/cl2-metadata.json
+clusterloader2/generatedConfig_*.yaml

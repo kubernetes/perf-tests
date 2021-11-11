@@ -174,19 +174,18 @@ func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1
 }
 
 func getIsPodUpdatedPodPredicateFromUnstructuredAppWrapper(obj *unstructured.Unstructured)  (map[string]interface{}) {
-	//itemsMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "resources", "GenericItems")
 	itemsMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "resources")
 	if err != nil || !ok || itemsMap == nil {
 		return nil
 	}
 
+	// get GenericItems[]
 	gi := itemsMap["GenericItems"]
 	if gi != nil {
 		gis := reflect.ValueOf(gi)
 		if gis.Kind() != reflect.Slice {
 			return nil
 		}
-
 		// Keep the distinction between nil and empty slice input
 		if gis.IsNil() {
 			return nil
@@ -195,87 +194,89 @@ func getIsPodUpdatedPodPredicateFromUnstructuredAppWrapper(obj *unstructured.Uns
 		if gis.Len() < 1 {
 			return nil
 		}
-
 		gia := make([]interface{}, gis.Len())
-
 		for i:=0; i<gis.Len(); i++ {
 			gia[i] = gis.Index(i).Interface()
 		}
 
-		fgi := gia[0]
-		rfgi := reflect.ValueOf(fgi)
+		// get GenericItems[0]
+		gi1 := gia[0]
 
-		if rfgi.Kind() != reflect.Map {
+		rgi1 := reflect.ValueOf(gi1)
+		if rgi1.Kind() != reflect.Map {
 			return nil
 		}
-
 		// Keep the distinction between nil and empty map input
-		if rfgi.IsNil() {
+		if rgi1.IsNil() {
 			return nil
 		}
 
-		ugi, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&fgi)
-
+		unstructuredGenericItem1, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&gi1)
 		if err != nil {
 			return nil
 		}
 
-		gt := ugi["generictemplate"]
+		// get GenericItems[0].generictemplate.spec.template
+		utemplate, ok, err := unstructured.NestedMap(unstructuredGenericItem1, "generictemplate", "spec", "template")
 
-		if gt == nil {
-			return nil
-		}
-
-		// get spec
-		rgt := reflect.ValueOf(gt)
-
-		if rgt.Kind() != reflect.Map {
-			return nil
-		}
-
-		// Keep the distinction between nil and empty map input
-		if rgt.IsNil() {
-			return nil
-		}
-
-		ugt, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&gt)
-
-		if err != nil {
-			return nil
-		}
-
-		spec := ugt["spec"]
-
-		if spec == nil {
-			return nil
-		}
-
-		// get spec.template
-		rs := reflect.ValueOf(spec)
-
-		if rs.Kind() != reflect.Map {
-			return nil
-		}
-
-		// Keep the distinction between nil and empty map input
-		if rs.IsNil() {
-			return nil
-		}
-
-		urs, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&spec)
-
-		if err != nil {
-			return nil
-		}
-
-		template := urs["template"]
-
-		if template == nil {
-			return nil
-		}
-
-		utemplate, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)
-		if err != nil {
+		//
+		//
+		//// get GenericItems[0].generictemplate
+		//gt := unstructuredGenericItem1["generictemplate"]
+		//if gt == nil {
+		//	return nil
+		//}
+		//
+		//rgt := reflect.ValueOf(gt)
+		//if rgt.Kind() != reflect.Map {
+		//	return nil
+		//}
+		//// Keep the distinction between nil and empty map input
+		//if rgt.IsNil() {
+		//	return nil
+		//}
+		//
+		//ugt, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&gt)
+		//if err != nil {
+		//	return nil
+		//}
+		//
+		//// get GenericItems[0].generictemplate.spec
+		//spec := ugt["spec"]
+		//if spec == nil {
+		//	return nil
+		//}
+		//
+		//rs := reflect.ValueOf(spec)
+		//if rs.Kind() != reflect.Map {
+		//	return nil
+		//}
+		//// Keep the distinction between nil and empty map input
+		//if rs.IsNil() {
+		//	return nil
+		//}
+		//
+		//urs, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&spec)
+		//if err != nil {
+		//	return nil
+		//}
+		//// get GenericItems[0].generictemplate.spec.template
+		//template := urs["template"]
+		//if template == nil {
+		//	return nil
+		//}
+		//
+		//rtemplate := reflect.ValueOf(template)
+		//if rtemplate.Kind() != reflect.Map {
+		//	return nil
+		//}
+		//// Keep the distinction between nil and empty map input
+		//if rtemplate.IsNil() {
+		//	return nil
+		//}
+		//
+		//utemplate, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)
+		if err != nil || !ok {
 			return nil
 		}
 
@@ -422,6 +423,63 @@ func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[stri
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
 			return nil, fmt.Errorf("try to acquire job parallelism failed, %v", err)
+		}
+		if !found {
+			return &ConstReplicas{0}, nil
+		}
+		return &ConstReplicas{int(replicas)}, nil
+	case "AppWrapper":
+		itemsMap, ok, err := unstructured.NestedMap(spec, "resources")
+		if err != nil {
+			return nil, fmt.Errorf("try to acquire appwrapper resources failed, %v", err)
+		}
+		if !ok {
+			return &ConstReplicas{0}, nil
+		}
+
+		// get GenericItems[]
+		gi := itemsMap["GenericItems"]
+		if gi == nil {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems failed, %v", err)
+		}
+		gis := reflect.ValueOf(gi)
+		if gis.Kind() != reflect.Slice {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems failed, expected Slice, %v", err)
+		}
+		// Keep the distinction between nil and empty slice input
+		if gis.IsNil() {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems failed, nil, %v", err)
+		}
+
+		if gis.Len() < 1 {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems failed, empty, %v", err)
+		}
+		gia := make([]interface{}, gis.Len())
+		for i:=0; i<gis.Len(); i++ {
+			gia[i] = gis.Index(i).Interface()
+		}
+
+		// get GenericItems[0]
+		gi1 := gia[0]
+
+		rgi1 := reflect.ValueOf(gi1)
+		if rgi1.Kind() != reflect.Map {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems[0] failed, expected Map, %v", err)
+		}
+		// Keep the distinction between nil and empty map input
+		if rgi1.IsNil() {
+			return nil, fmt.Errorf("try to acquire appwrapper GenericItems[0] failed, nil, %v", err)
+		}
+
+		unstructuredGenericItem1, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&gi1)
+		if err != nil {
+			return nil, fmt.Errorf("try to convert appwrapper GenericItems[0] to unstructure map failed, %v", err)
+		}
+
+		// get GenericItems[0].generictemplate.spec.replicas
+		replicas, found, err := unstructured.NestedInt64(unstructuredGenericItem1, "generictemplate", "spec", "replicas")
+		if err != nil {
+			return nil, fmt.Errorf("try to acquire appwrapper replicas failed, %v", err)
 		}
 		if !found {
 			return &ConstReplicas{0}, nil

@@ -20,8 +20,9 @@ set -o pipefail
 
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE[0]}")
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
-# If we are in kubemark (i.e. KUBEMARK_ROOT_KUBECONFIG is set), install CSI driver in this cluster.
-export CSI_DRIVER_KUBECONFIG=${KUBEMARK_ROOT_KUBECONFIG:-${KUBECONFIG}}
+# "${HOME}/.kube/config" always (both in kubemark and non-kubemark) points to "real"/root cluster.
+# TODO: eventually we need to move to use cloud-provider-gcp to bring up cluster which have pdcsi by default
+export CSI_DRIVER_KUBECONFIG="${HOME}/.kube/config"
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
 
 # Deploy the GCP PD CSI Driver if required

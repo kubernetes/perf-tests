@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"regexp"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -31,6 +32,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+)
+
+var (
+	csiVolumeHandlePattern = regexp.MustCompile(`projects/(?P<Project>[^/]+)/zones/(?P<Zone>[^/]+)/disks/(?P<Name>[^/]+)`)
 )
 
 type prometheusDiskMetadata struct {
@@ -89,11 +94,9 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 			continue
 		}
 		klog.V(2).Infof("Found Prometheus' PV with name: %s", pv.Name)
-		pdName = pv.Spec.GCEPersistentDisk.PDName
-		zone = pv.ObjectMeta.Labels["topology.kubernetes.io/zone"]
-		if zone == "" {
-			// Fallback to old label to make it work for old k8s versions.
-			zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		pdName, zone, err = nameAndZone(pv)
+		if err != nil {
+			return false, fmt.Errorf("failed to extract name and value from pv: %w", err)
 		}
 		klog.V(2).Infof("PD name=%s, zone=%s", pdName, zone)
 	}
@@ -112,6 +115,27 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	pc.diskMetadata.zone = zone
 	return true, nil
 }
+
+func nameAndZone(pv corev1.PersistentVolume) (name, zone string, err error) {
+	switch {
+	case pv.Spec.GCEPersistentDisk != nil:
+		name = pv.Spec.GCEPersistentDisk.PDName
+		zone = pv.ObjectMeta.Labels["topology.kubernetes.io/zone"]
+		if zone == "" {
+			// Fallback to old label to make it work for old k8s versions.
+			zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		}
+		return name, zone, err
+	case pv.Spec.CSI != nil:
+		r := csiVolumeHandlePattern.FindStringSubmatch(pv.Spec.CSI.VolumeHandle)
+		if len(r) != 4 {
+			return "", "", fmt.Errorf("unexpected format of volumeHandle: %q", pv.Spec.CSI.VolumeHandle)
+		}
+		return r[3], r[2], nil
+	}
+	return "", "", fmt.Errorf("unknown pv type: %+v", pv)
+}
+
 func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
 	pc.snapshotLock.Lock()
 	defer pc.snapshotLock.Unlock()

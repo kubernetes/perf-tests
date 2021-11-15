@@ -20,6 +20,8 @@ set -o pipefail
 
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE[0]}")
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
+# If we are in kubemark (i.e. KUBEMARK_ROOT_KUBECONFIG is set), install CSI driver in this cluster.
+export CSI_DRIVER_KUBECONFIG=${KUBEMARK_ROOT_KUBECONFIG:-${KUBECONFIG}}
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
 
 # Deploy the GCP PD CSI Driver if required
@@ -28,21 +30,21 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
       echo "Env var E2E_GOOGLE_APPLICATION_CREDENTIALS must be set to deploy driver"
       exit 1
    fi
-   kubectl apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
-   kubectl create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
-   kubectl wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
+   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
+   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
+   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
    
    # make sure there's a default storage class
-   names=( $(kubectl get sc -o name) )
+   names=( $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get sc -o name) )
    i=0
    for name in "${names[@]}"
    do
-      if [[ $(kubectl get $name -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}') = true ]]; then
+      if [[ $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get $name -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}') = true ]]; then
          ((i+=1))
       fi
    done
    if [[ $i < 1 ]]; then
-      kubectl patch storageclass csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" patch storageclass csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
    fi
 fi
 

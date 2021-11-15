@@ -18,11 +18,18 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Just to test! Remove me!!!
+export
+
 CLUSTERLOADER_ROOT=$(dirname "${BASH_SOURCE[0]}")
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
-# If we are in kubemark (i.e. KUBEMARK_ROOT_KUBECONFIG is set), install CSI driver in this cluster.
-export CSI_DRIVER_KUBECONFIG=${KUBEMARK_ROOT_KUBECONFIG:-${KUBECONFIG}}
+# "${HOME}/.kube/config" always (both in kubemark and non-kubemark) points to "real"/root cluster. 
+export CSI_DRIVER_KUBECONFIG="${HOME}/.kube/config"
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
+
+# Just to test! Remove me!!!
+export DEPLOY_GCI_DRIVER=true
+export PROMETHEUS_STORAGE_CLASS_PROVISIONER=pd.csi.storage.gke.io
 
 # Deploy the GCP PD CSI Driver if required
 if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then

@@ -46,7 +46,6 @@ const (
 	namespace                    = "monitoring"
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
-	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
 )
 
@@ -65,8 +64,9 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
-	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus")
-	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner")
+	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
+	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
+	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
 }
 
 // ValidatePrometheusFlags validates prometheus flags.
@@ -99,6 +99,8 @@ type Controller struct {
 	snapshotError error
 	// ssh executor to run commands in cluster nodes via ssh
 	ssh util.SSHExecutor
+	// timeout for waiting for Prometheus stack to become healthy
+	readyTimeout time.Duration
 }
 
 // CompleteConfig completes Prometheus manifest file path config
@@ -116,6 +118,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	pc = &Controller{
 		clusterLoaderConfig: clusterLoaderConfig,
 		provider:            clusterLoaderConfig.ClusterConfig.Provider,
+		readyTimeout:        clusterLoaderConfig.PrometheusConfig.ReadyTimeout,
 	}
 
 	if pc.framework, err = framework.NewRootFramework(&clusterLoaderConfig.ClusterConfig, numK8sClients); err != nil {
@@ -372,7 +375,7 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	klog.V(2).Info("Waiting for Prometheus stack to become healthy...")
 	return wait.Poll(
 		checkPrometheusReadyInterval,
-		checkPrometheusReadyTimeout,
+		pc.readyTimeout,
 		pc.isPrometheusReady)
 }
 

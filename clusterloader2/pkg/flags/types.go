@@ -19,6 +19,7 @@ package flags
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 )
@@ -146,4 +147,34 @@ func (b *boolFlagFunc) Set(val string) error {
 // Type returns flag type.
 func (*boolFlagFunc) Type() string {
 	return "bool"
+}
+
+type durationFlagFunc struct {
+	valPtr         *time.Duration
+	initializeFunc func() error
+}
+
+// initialize runs additional parsing function.
+func (d *durationFlagFunc) initialize() error {
+	return d.initializeFunc()
+}
+
+// String returns default string.
+func (*durationFlagFunc) String() string {
+	return "0s"
+}
+
+// Set handles flag value setting.
+func (d *durationFlagFunc) Set(val string) error {
+	dVal, err := time.ParseDuration(val)
+	if err != nil {
+		return err
+	}
+	*d.valPtr = dVal
+	return nil
+}
+
+// Type returns flag type.
+func (*durationFlagFunc) Type() string {
+	return "time.Duration"
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"time"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
@@ -86,6 +88,7 @@ type PrometheusConfig struct {
 	NodeExporterPod            string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string
+	ReadyTimeout               time.Duration
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

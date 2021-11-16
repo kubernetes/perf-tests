@@ -47,6 +47,13 @@ const (
 	// Parameters for namespace deletion operations.
 	defaultNamespaceDeletionTimeout  = 10 * time.Minute
 	defaultNamespaceDeletionInterval = 5 * time.Second
+
+	// The layout of the annotation holding the client-side create/update timestamp with millisecond precision.
+	TimestampLayout = "2006-01-02 15:04:05.000 -0700"
+
+	// The name of the annotation holding the client-side create/update timestamp with millisecond precision.
+	CreateTimestampAnnotation = "client-side/createTimestamp"
+	UpdateTimestampAnnotation = "client-side/updateTimestamp"
 )
 
 // RetryWithExponentialBackOff a utility for retrying the given function with exponential backoff.
@@ -264,6 +271,10 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
+
+	ti0 := time.Now()
+	obj.SetAnnotations(map[string]string{CreateTimestampAnnotation: ti0.Format(TimestampLayout)})
+
 	createFunc := func() error {
 		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(context.TODO(), obj, metav1.CreateOptions{})
 		return err
@@ -277,6 +288,10 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 	gvk := obj.GroupVersionKind()
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	obj.SetName(name)
+
+	ti0 := time.Now()
+	obj.SetAnnotations(map[string]string{UpdateTimestampAnnotation: ti0.Format(TimestampLayout)})
+	
 	updateFunc := func() error {
 		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {

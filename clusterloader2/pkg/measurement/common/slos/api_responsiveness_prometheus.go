@@ -115,8 +115,8 @@ func (cte *customThresholdEntry) getKey() string {
 
 type apiResponsivenessGatherer struct{}
 
-func (a *apiResponsivenessGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	apiCalls, err := a.gatherAPICalls(executor, startTime, config)
+func (a *apiResponsivenessGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	apiCalls, err := a.gatherAPICalls(executor, startTime, endTime, config)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +158,8 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
-func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
-	measurementEnd := time.Now()
-	measurementDuration := measurementEnd.Sub(startTime)
+func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
+	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 
 	useSimple, err := util.GetBoolOrDefault(config.Params, "useSimpleLatencyQuery", false)
@@ -173,7 +172,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 		quantiles := []float64{0.5, 0.9, 0.99}
 		for _, q := range quantiles {
 			query := fmt.Sprintf(simpleLatencyQuery, q, filters, promDuration)
-			samples, err := executor.Query(query, measurementEnd)
+			samples, err := executor.Query(query, endTime)
 			if err != nil {
 				return nil, err
 			}
@@ -193,14 +192,14 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 		duration := measurementutil.ToPrometheusTime(latencyMeasurementDuration)
 
 		query := fmt.Sprintf(latencyQuery, filters, duration)
-		latencySamples, err = executor.Query(query, measurementEnd)
+		latencySamples, err = executor.Query(query, endTime)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	query := fmt.Sprintf(countQuery, filters, promDuration)
-	countSamples, err := executor.Query(query, measurementEnd)
+	countSamples, err := executor.Query(query, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +208,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 	filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
 	for _, filter := range filters {
 		query := fmt.Sprintf(countFastQuery, filter, promDuration)
-		samples, err := executor.Query(query, measurementEnd)
+		samples, err := executor.Query(query, endTime)
 		if err != nil {
 			return nil, err
 		}

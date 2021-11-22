@@ -333,7 +333,7 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 				},
 			}
 
-			_, err := gatherer.Gather(executor, time.Now(), config)
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), config)
 			if tc.hasError {
 				assert.NotNil(t, err, "wanted error, but got none")
 			} else {
@@ -410,7 +410,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				},
 			}
 
-			summaries, err := gatherer.Gather(executor, time.Now(), config)
+			summaries, err := gatherer.Gather(executor, time.Now(), time.Now(), config)
 			if !errors.IsMetricViolationError(err) {
 				t.Fatal("unexpected error: ", err)
 			}
@@ -573,7 +573,7 @@ func TestLogging(t *testing.T) {
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{}
 
-			_, err := gatherer.Gather(executor, time.Now(), config)
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), config)
 			if err != nil && !errors.IsMetricViolationError(err) {
 				t.Errorf("error while gathering results: %v", err)
 			}
@@ -738,7 +738,7 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 			executor := &fakeQueryExecutor{samples: tc.samples}
 			gatherer := &apiResponsivenessGatherer{}
 
-			_, err := gatherer.Gather(executor, time.Now(), tc.config)
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), tc.config)
 			klog.Flush()
 			if tc.hasError {
 				assert.NotNil(t, err, "expected an error, but got none")

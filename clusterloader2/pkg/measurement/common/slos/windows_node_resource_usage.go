@@ -95,8 +95,8 @@ func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData 
 	return perfData
 }
 
-func getSummary(query string, converter convertFunc, metricsName string, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
-	samples, err := executor.Query(query, time.Now())
+func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
+	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +112,12 @@ func getSummary(query string, converter convertFunc, metricsName string, executo
 }
 
 // Gather gathers the metrics and convert to json summary
-func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, executor, config)
+func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, endTime, executor, config)
 	if err != nil {
 		return nil, err
 	}
-	memorySummary, err := getSummary(memoryUsageQueryTop10, convertToMemoryPerfData, memoryUsageMetricsName, executor, config)
+	memorySummary, err := getSummary(memoryUsageQueryTop10, convertToMemoryPerfData, memoryUsageMetricsName, endTime, executor, config)
 	if err != nil {
 		return nil, err
 	}

@@ -46,8 +46,8 @@ func init() {
 
 type metricsServerGatherer struct{}
 
-func (g *metricsServerGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	latencyMetrics, err := g.gatherLatencyMetrics(executor, startTime)
+func (g *metricsServerGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	latencyMetrics, err := g.gatherLatencyMetrics(executor, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,7 @@ func (g *metricsServerGatherer) String() string {
 	return metricsServerPrometheusMeasurementName
 }
 
-func (g *metricsServerGatherer) gatherLatencyMetrics(executor QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
-	endTime := time.Now()
+func (g *metricsServerGatherer) gatherLatencyMetrics(executor QueryExecutor, startTime, endTime time.Time) (*measurementutil.LatencyMetric, error) {
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 

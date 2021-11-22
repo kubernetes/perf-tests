@@ -42,8 +42,8 @@ func init() {
 
 type schedulingThroughputGatherer struct{}
 
-func (a *schedulingThroughputGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	throughputSummary, err := a.getThroughputSummary(executor, startTime, config)
+func (a *schedulingThroughputGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	throughputSummary, err := a.getThroughputSummary(executor, startTime, endTime, config)
 	if err != nil {
 		return nil, err
 	}
@@ -67,13 +67,12 @@ func (a *schedulingThroughputGatherer) Gather(executor QueryExecutor, startTime 
 	return summaries, err
 }
 
-func (a *schedulingThroughputGatherer) getThroughputSummary(executor QueryExecutor, startTime time.Time, config *measurement.Config) (*schedulingThroughputPrometheus, error) {
-	measurementEnd := time.Now()
-	measurementDuration := measurementEnd.Sub(startTime)
+func (a *schedulingThroughputGatherer) getThroughputSummary(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) (*schedulingThroughputPrometheus, error) {
+	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 	query := fmt.Sprintf(maxSchedulingThroughputQuery, promDuration)
 
-	samples, err := executor.Query(query, measurementEnd)
+	samples, err := executor.Query(query, endTime)
 	if err != nil {
 		return nil, err
 	}

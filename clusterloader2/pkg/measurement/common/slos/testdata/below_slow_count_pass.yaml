@@ -1,0 +1,11 @@
+interval: 1m
+comment: One call in bucket less than 50seconds should be enough to raise 0.99 percentile to >1s, but measurement should not report an error because alloweSlowCalls is 1
+input_series:
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="r1",scope="namespace",subresource="",verb="POST",version="v1",le="1"}
+    values: 0 0 0 0 0 0 1 51 51 51 51 
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="r1",scope="namespace",subresource="",verb="POST",version="v1",le="50"}
+    values: 0 0 0 0 0 0 1 52 52 52 52 
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="r1",scope="namespace",subresource="",verb="POST",version="v1",le="+Inf"}
+    values: 0 0 0 0 0 0 1 52 52 52 52 
+  - series: apiserver_request_duration_seconds_count{component="apiserver",dry_run="",group="storage.k8s.io",resource="r1",scope="namespace",subresource="",verb="POST",version="v1"}
+    values: 0 0 0 0 0 0 1 52 52 52 52 

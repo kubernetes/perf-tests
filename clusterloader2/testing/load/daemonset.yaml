@@ -1,6 +1,7 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
 {{$Env := DefaultParam .Env ""}}
+{{$DaemonSetSurge := DefaultParam .CL2_DS_SURGE (MaxInt 10 (DivideInt .Nodes 20))}} # 5% of nodes, but not less than 10
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -11,7 +12,7 @@ metadata:
 spec:
   updateStrategy:
     rollingUpdate:
-      maxUnavailable: {{MaxInt 10 (DivideInt .Nodes 20)}} # 5% of nodes, but not less than 10
+      maxUnavailable: {{$DaemonSetSurge}}
   selector:
     matchLabels:
       name: {{.Name}}

@@ -24,6 +24,7 @@ const (
 	GCEName         = "gce"
 	GKEName         = "gke"
 	GKEKubemarkName = "gkekubemark"
+	KCPName         = "kcp"
 	KindName        = "kind"
 	KubemarkName    = "kubemark"
 	LocalName       = "local"

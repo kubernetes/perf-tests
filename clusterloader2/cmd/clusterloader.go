@@ -146,6 +146,9 @@ func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.Nodes == 0 {
 		nodes, err := util.GetSchedulableUntainedNodesNumber(m.GetClient())
 		if err != nil {
+			if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName {
+				return fmt.Errorf("getting number of nodes error: %v, please create nodes.core CRD", err)
+			}
 			return fmt.Errorf("getting number of nodes error: %v", err)
 		}
 		clusterLoaderConfig.ClusterConfig.Nodes = nodes
@@ -190,6 +193,9 @@ func completeConfig(m *framework.MultiClientSet) error {
 }
 
 func verifyCluster(c kubernetes.Interface) error {
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName {
+		return nil
+	}
 	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c)
 	if err != nil {
 		return err
@@ -201,6 +207,9 @@ func verifyCluster(c kubernetes.Interface) error {
 }
 
 func getClientsNumber(nodesNumber int) int {
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName {
+		return 1
+	}
 	return (nodesNumber + nodesPerClients - 1) / nodesPerClients
 }
 

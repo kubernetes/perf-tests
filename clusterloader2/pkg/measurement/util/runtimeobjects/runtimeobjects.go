@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	goerrors "github.com/go-errors/errors"
+	gocmp "github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -163,7 +164,7 @@ func getSelectorFromUnstrutured(obj *unstructured.Unstructured) (labels.Selector
 
 // GetIsPodUpdatedPredicateFromRuntimeObject returns a func(*corev1.Pod) bool predicate
 // that can be used to check if given pod represents the desired state of pod.
-func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1.Pod) bool, error) {
+func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1.Pod) error, error) {
 	switch typed := obj.(type) {
 	case *unstructured.Unstructured:
 		return getIsPodUpdatedPodPredicateFromUnstructured(typed)
@@ -172,7 +173,7 @@ func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1
 	}
 }
 
-func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) bool, error) {
+func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) error, error) {
 	templateMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "template")
 	if err != nil {
 		return nil, goerrors.Errorf("failed to get pod template: %v", err)
@@ -185,8 +186,11 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 		return nil, goerrors.Errorf("failed to parse spec.teemplate as v1.PodTemplateSpec")
 	}
 
-	return func(pod *corev1.Pod) bool {
-		return equality.Semantic.DeepDerivative(template.Spec, pod.Spec)
+	return func(pod *corev1.Pod) error {
+		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
+			return goerrors.Errorf("Not matching templates, diff: %v", gocmp.Diff(template.Spec, pod.Spec))
+		}
+		return nil
 	}, nil
 }
 

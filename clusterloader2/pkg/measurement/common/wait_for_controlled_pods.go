@@ -510,7 +510,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	if err != nil {
 		return nil, err
 	}
-	var isPodUpdated func(*v1.Pod) bool
+	var isPodUpdated func(*v1.Pod) error
 	if w.checkIfPodsAreUpdated {
 		isPodUpdated, err = runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(obj)
 		if err != nil {

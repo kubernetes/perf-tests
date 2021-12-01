@@ -9,6 +9,9 @@ metadata:
     service.kubernetes.io/service-proxy-name: foo
 {{end}}
 spec:
+{{if .HeadlessService}}
+  clusterIP: None
+{{end}}
   selector:
     svc: {{.Name}}
   ports:

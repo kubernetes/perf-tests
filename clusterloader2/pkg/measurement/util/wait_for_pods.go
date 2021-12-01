@@ -43,7 +43,7 @@ type WaitForPodOptions struct {
 
 	// IsPodUpdated can be used to detect which pods have been already updated.
 	// nil value means all pods are updated.
-	IsPodUpdated func(*v1.Pod) bool
+	IsPodUpdated func(*v1.Pod) error
 }
 
 // WaitForPods waits till desired number of pods is running.
@@ -59,6 +59,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	oldPods := ps.List()
 	scaling := uninitialized
 	var podsStatus PodsStartupStatus
+	var lastIsPodUpdatedError error
 
 	for {
 		select {
@@ -67,6 +68,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			pods := ComputePodsStatus(oldPods)
 			klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, options.Selector.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
 			klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, options.Selector.String(), pods)
+			klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, options.Selector.String(), lastIsPodUpdatedError)
 			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - summary of pods : %s",
 				desiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
@@ -83,6 +85,9 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 
 			pods := ps.List()
 			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
+			if podsStatus.LastIsPodUpdatedError != nil {
+				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
+			}
 
 			diff := DiffPods(oldPods, pods)
 			deletedPods := diff.DeletedPods()

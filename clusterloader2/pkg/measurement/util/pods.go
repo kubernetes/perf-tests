@@ -41,17 +41,18 @@ const (
 
 // PodsStartupStatus represents status of a pods group.
 type PodsStartupStatus struct {
-	Expected           int
-	Terminating        int
-	Running            int
-	Scheduled          int
-	RunningButNotReady int
-	Waiting            int
-	Pending            int
-	Unknown            int
-	Inactive           int
-	Created            int
-	RunningUpdated     int
+	Expected              int
+	Terminating           int
+	Running               int
+	Scheduled             int
+	RunningButNotReady    int
+	Waiting               int
+	Pending               int
+	Unknown               int
+	Inactive              int
+	Created               int
+	RunningUpdated        int
+	LastIsPodUpdatedError error
 }
 
 // String returns string representation for podsStartupStatus.
@@ -92,7 +93,7 @@ func podStatus(p *corev1.Pod) status {
 
 // ComputePodsStartupStatus computes PodsStartupStatus for a group of pods.
 // TODO(mborsz): Migrate to podStatus instead of recalculating per pod status here.
-func ComputePodsStartupStatus(pods []*corev1.Pod, expected int, isPodUpdated func(*corev1.Pod) bool) PodsStartupStatus {
+func ComputePodsStartupStatus(pods []*corev1.Pod, expected int, isPodUpdated func(*corev1.Pod) error) PodsStartupStatus {
 	startupStatus := PodsStartupStatus{
 		Expected: expected,
 	}
@@ -113,8 +114,14 @@ func ComputePodsStartupStatus(pods []*corev1.Pod, expected int, isPodUpdated fun
 			if ready {
 				// Only count a pod is running when it is also ready.
 				startupStatus.Running++
-				if isPodUpdated == nil || isPodUpdated(p) {
+				if isPodUpdated == nil {
 					startupStatus.RunningUpdated++
+				} else {
+					if err := isPodUpdated(p); err != nil {
+						startupStatus.LastIsPodUpdatedError = err
+					} else {
+						startupStatus.RunningUpdated++
+					}
 				}
 			} else {
 				startupStatus.RunningButNotReady++

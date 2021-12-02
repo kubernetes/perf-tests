@@ -90,6 +90,37 @@ func TestVerifyRandomizedLoad(t *testing.T) {
 	}
 }
 
+func TestVerifyPoissonLoad(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		input    PoissonLoad
+		expected bool
+	}{
+		{
+			name: "positive rate parameter",
+			input: PoissonLoad{
+				ExpectedActionsPerSecond: 5,
+			},
+			expected: true,
+		},
+		{
+			name: "negative rate parameter",
+			input: PoissonLoad{
+				ExpectedActionsPerSecond: -1,
+			},
+			expected: false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			v := NewConfigValidator("", &Config{})
+			got := isValid(v.validatePoissonLoad(&test.input, field.NewPath("")))
+			if test.expected != got {
+				t.Errorf("wanted: %v, got: %v", test.expected, got)
+			}
+		})
+	}
+}
+
 func TestVerifySteppedLoad(t *testing.T) {
 	for _, test := range []struct {
 		name     string

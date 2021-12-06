@@ -46,7 +46,15 @@ func (rl *poissonLoad) Execute(actions []func()) {
 
 //Simulating inter-arrival times in a Poisson process
 func interArrivalTimes(RatePS float64) time.Duration {
+	var duration, max_duration time.Duration
 	p := rand.Float64()
 
-	return time.Duration(int(float64(time.Second) * (math.Log(1 - p)/RatePS)))
+	max_duration = time.Duration(int(float64(time.Minute))) //setting a bound for the largest inter-arrival interval in the Poisson process
+	duration = time.Duration(int(float64(time.Second) * (-math.Log(1 - p)/RatePS)))
+
+	if duration > max_duration{
+		duration = time.Duration(int(float64(time.Nanosecond)))
+	}
+
+	return duration
 }

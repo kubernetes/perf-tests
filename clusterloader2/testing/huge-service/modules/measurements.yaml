@@ -1,0 +1,48 @@
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+{{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
+{{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
+
+{{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
+{{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
+{{$ENABLE_SYSTEM_POD_METRICS := DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
+{{$RESTART_COUNT_THRESHOLD_OVERRIDES := DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
+
+steps:
+- name: {{$action}}ing measurements
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+{{if not $USE_SIMPLE_LATENCY_QUERY}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+{{end}}
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple
+      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: {{$action}}
+      systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
+      enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+  - Identifier: InClusterNetworkLatency
+    Method: InClusterNetworkLatency
+    Params:
+      action: {{$action}}
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}

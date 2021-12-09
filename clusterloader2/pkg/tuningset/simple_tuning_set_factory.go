@@ -54,8 +54,6 @@ func (tf *simpleFactory) CreateTuningSet(name string) (TuningSet, error) {
 		return newQPSLoad(tuningSet.QPSLoad), nil
 	case tuningSet.RandomizedLoad != nil:
 		return newRandomizedLoad(tuningSet.RandomizedLoad), nil
-	case tuningSet.PoissonLoad != nil:
-		return newPoissonLoad(tuningSet.PoissonLoad), nil
 	case tuningSet.SteppedLoad != nil:
 		return newSteppedLoad(tuningSet.SteppedLoad), nil
 	case tuningSet.TimeLimitedLoad != nil:

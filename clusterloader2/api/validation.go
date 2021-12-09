@@ -185,12 +185,6 @@ func (v *ConfigValidator) validateTuningSet(ts *TuningSet, fldPath *field.Path) 
 		tuningSetsNumber++
 		allErrs = append(allErrs, v.validateRandomizedLoad(ts.RandomizedLoad, fldPath.Child("randomizedLoad"))...)
 	}
-
-    if ts.PoissonLoad != nil {
-		tuningSetsNumber++
-		allErrs = append(allErrs, v.validatePoissonLoad(ts.PoissonLoad, fldPath.Child("poissonLoad"))...)
-	}
-
 	if ts.SteppedLoad != nil {
 		tuningSetsNumber++
 		allErrs = append(allErrs, v.validateSteppedLoad(ts.SteppedLoad, fldPath.Child("steppedLoad"))...)
@@ -234,15 +228,6 @@ func (v *ConfigValidator) validateRandomizedLoad(rl *RandomizedLoad, fldPath *fi
 	allErrs := field.ErrorList{}
 	if rl.AverageQPS <= 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("averageQps"), rl.AverageQPS, "must have positive value"))
-	}
-	return allErrs
-}
-
-
-func (v *ConfigValidator) validatePoissonLoad(rl *PoissonLoad, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-	if rl.RatePS <= 0 {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("ratePS"), rl.RatePS, "must have positive value"))
 	}
 	return allErrs
 }

@@ -170,8 +170,6 @@ type TuningSet struct {
 	QPSLoad *QPSLoad `json:"qpsLoad"`
 	// RandomizedLoad is a definition for RandomizedLoad tuning set.
 	RandomizedLoad *RandomizedLoad `json:"randomizedLoad"`
-	// PoissonLoad is a definition for PoissonLoad tuning set.
-	PoissonLoad *PoissonLoad `json:"poissonLoad"`
 	// SteppedLoad is a definition for SteppedLoad tuning set.
 	SteppedLoad *SteppedLoad `json:"steppedLoad"`
 	// TimeLimitedLoad is a definition for TimeLimitedLoad tuning set.
@@ -222,14 +220,6 @@ type QPSLoad struct {
 type RandomizedLoad struct {
 	// AverageQPS specifies the expected average qps.
 	AverageQPS float64 `json:"averageQps"`
-}
-
-
-// PoissonLoad defines a load with with Poisson arrival time
-// for a given rate parameter λ
-type PoissonLoad struct {
-	// RatePS specifies the possion rate parameter per second.
-	RatePS float64 `json:"ratePS"`
 }
 
 // SteppedLoad defines a load that starts a burst of

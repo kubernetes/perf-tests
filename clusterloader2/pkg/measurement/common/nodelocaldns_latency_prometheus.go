@@ -65,6 +65,9 @@ func (n *nodelocaldnsLatencyGatherer) String() string {
 	return nodelocaldnsLatencyPrometheusMeasurementName
 }
 
+func (n *nodelocaldnsLatencyGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
 func (n *nodelocaldnsLatencyGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }

@@ -48,6 +48,10 @@ func init() {
 
 type netProgGatherer struct{}
 
+func (n *netProgGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
+
 func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	// Disable NetworkProgrammingLatency measurement if scraping kube-proxy is disabled.
 	if !config.ClusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy {

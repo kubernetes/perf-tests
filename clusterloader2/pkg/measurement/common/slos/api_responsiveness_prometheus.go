@@ -154,6 +154,10 @@ func (a *apiResponsivenessGatherer) String() string {
 	return apiResponsivenessPrometheusMeasurementName
 }
 
+func (a *apiResponsivenessGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
+
 func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }

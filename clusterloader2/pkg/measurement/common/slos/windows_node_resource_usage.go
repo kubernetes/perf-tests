@@ -44,6 +44,10 @@ const (
 type convertFunc func([]*model.Sample) *measurementutil.PerfData
 type windowsResourceUsageGatherer struct{}
 
+func (w *windowsResourceUsageGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
+
 func (w *windowsResourceUsageGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }

@@ -1,0 +1,34 @@
+# Simple example of the use of generic query measurement.
+#
+# Notes on parameters:
+#       metricName will be logged in place of "GenericPrometheusQuery"
+#       rawQuery must be parametrized by duration
+
+{{$duration := "240s"}}
+{{$namespaces := 1}}
+
+name: generic-query
+namespace:
+  number: {{$namespaces}}
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: gq
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: API request latency
+      metricVersion: v1
+      rawQuery:  quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{verb!="WATCH", subresource!~"log|exec|portforward|attach|proxy"}[%v])
+- name: Sleep
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+- name: Gather measurements
+  measurements:
+  - Identifier: gq
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather

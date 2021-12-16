@@ -59,6 +59,10 @@ func (g *metricsServerGatherer) Gather(executor QueryExecutor, startTime, endTim
 	return summaries, nil
 }
 
+func (g *metricsServerGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
+
 func (g *metricsServerGatherer) IsEnabled(config *measurement.Config) bool {
 	return config.CloudProvider.Features().SupportMetricsServerMetrics
 }

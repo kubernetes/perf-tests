@@ -97,7 +97,7 @@ func (g *genericQueryGatherer) query(executor QueryExecutor, startTime, endTime 
 func (g *genericQueryGatherer) createSummary(latency *measurementutil.LatencyMetric) (measurement.Summary, error) {
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version:   g.metricVersion,
-		DataItems: []measurementutil.DataItem{latency.ToPerfData(name)},
+		DataItems: []measurementutil.DataItem{latency.ToPerfData(g.metricName)},
 	})
 	if err != nil {
 		return nil, err

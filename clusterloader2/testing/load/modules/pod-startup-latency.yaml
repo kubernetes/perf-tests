@@ -18,6 +18,7 @@
 ## Variables
 {{$latencyReplicas := DivideInt $LATENCY_POD_COUNT $namespaces}}
 {{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
 steps:
 - name: Starting latency pod measurements
@@ -32,6 +33,7 @@ steps:
       Method: WaitForControlledPodsRunning
       Params:
         action: start
+        checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
         apiVersion: apps/v1
         kind: Deployment
         labelSelector: group = latency

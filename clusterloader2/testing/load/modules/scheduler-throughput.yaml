@@ -14,6 +14,7 @@
 
 ## CL2 params
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
 steps:
 {{if $is_creating}}
@@ -29,6 +30,7 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
+      checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = scheduler-throughput

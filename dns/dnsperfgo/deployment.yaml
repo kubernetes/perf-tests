@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dnsperfgo-deploy
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      name: dnsperfgo-deploy
+  template:
+    metadata:
+      labels:
+        name: dnsperfgo-deploy
+    spec:
+      containers:
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.0.0
+      # Fetches the dns server from /etc/resolv.conf and sends 10 queries per second.
+      # With searchpath expansion, this amounts to 120 queries per second.
+      # dnsperf has a client timeout of 5s. It sends queries for 60s,
+      # then sleeps for 10s, to mimic bursts of DNS queries.
+        command:
+        - sh
+        - -c
+        - server=$(cat /etc/resolv.conf | grep nameserver | cut -d ' ' -f 2); echo
+          "Using nameserver ${server}";
+          ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps 10;
+        name: dnsperfgo
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10M
+        volumeMounts:
+          - name: configmap
+            mountPath: /var/configmap
+      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      volumes:
+        - name: configmap
+          configMap:
+            name: dnsqueries
+

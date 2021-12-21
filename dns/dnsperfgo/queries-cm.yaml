@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dnsqueries
+data:
+  all-queries: |
+    kubernetes.default
+    google.com
+    metrics-server.kube-system
+    microsoft.com
+    8.8.8.8
+    kube-dns.kube-system
+    8.8.4.4
+    facebook.com
+    apple.com
+    metadata.google.internal

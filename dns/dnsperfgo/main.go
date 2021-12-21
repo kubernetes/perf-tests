@@ -58,7 +58,7 @@ type LookupFunc func(string) ([]string, error)
 func main() {
 	config := Config{}
 	flag.IntVar(&config.qps, "qps", 10, "The number of DNS queries per second to issue")
-	flag.DurationVar(&config.testDuration, "duration", 30*time.Second, "The duration(in seconds) to run the test.")
+	flag.DurationVar(&config.testDuration, "duration", 30*time.Second, "The duration(in seconds) to run, before sleeping.")
 	flag.DurationVar(&config.idleDuration, "idle-duration", 10*time.Second, "The duration(in seconds) to stop for between consecutive test runs. This simulates burst of queries followed by idle time.")
 	flag.DurationVar(&config.queryTimeout, "timeout", 5*time.Second, "The timeout for the DNS query.")
 	flag.StringVar(&config.hostnameFile, "inputfile", "", "Path to the file containing hostnames to lookup. Hostnames should be newline-separated.")
@@ -191,6 +191,7 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 	}
 }
 
+// nslookup returns error for queries that result in NXDOMAIN as well.
 func nsLookup(name string) ([]string, error) {
 	cmd := exec.Command("nslookup", name)
 	out, err := cmd.Output()

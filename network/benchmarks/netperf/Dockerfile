@@ -21,24 +21,29 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-FROM debian:jessie
-ENV LD_LIBRARY_PATH=/usr/local/lib
+# Compile the application first (stage 1)
+FROM golang:1.17-bullseye as gobuilder
 
-MAINTAINER Girish Kalele <gkalele@google.com>
-# install binary and remove cache
-RUN apt-get update \
-    && apt-get install -y  curl wget net-tools gcc make libsctp-dev \
-    && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /tmp
+WORKDIR /src
 
-# Download and build iperf3 from sources
-RUN curl -LO https://downloads.es.net/pub/iperf/iperf-3.1.tar.gz && tar zxf iperf-3.1.tar.gz
-RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
+COPY nptest/go.mod .
+RUN go mod download
 
-# Download and build netperf from sources
-RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
-RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
+COPY nptest/nptest.go .
 
-COPY nptests /usr/bin/
+# Build executable
+RUN GOOS=linux go build -o nptests .
+
+# Start from a fresh image so we can only tranfer over the binary (stage 2)
+FROM debian:bullseye-slim
+
+# Install CA certs and useful tools
+RUN set -eux; \
+    sed -i 's/ main$/ main contrib non-free/g' /etc/apt/sources.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl wget iperf3 netperf; \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=gobuilder /src/nptests /usr/bin/
 
 ENTRYPOINT ["nptests"]

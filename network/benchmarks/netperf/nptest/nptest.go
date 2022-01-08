@@ -70,13 +70,13 @@ var globalLock sync.Mutex
 const (
 	workerMode           = "worker"
 	orchestratorMode     = "orchestrator"
-	iperf3Path           = "/usr/local/bin/iperf3"
-	netperfPath          = "/usr/local/bin/netperf"
-	netperfServerPath    = "/usr/local/bin/netserver"
+	iperf3Path           = "/usr/bin/iperf3"
+	netperfPath          = "/usr/bin/netperf"
+	netperfServerPath    = "/usr/bin/netserver"
 	outputCaptureFile    = "/tmp/output.txt"
 	mssMin               = 96
 	mssMax               = 1460
-	mssStepSize          = 64
+	mssStepSize          = 256
 	parallelStreams      = "8"
 	rpcServicePort       = "5202"
 	localhostIPv4Address = "127.0.0.1"
@@ -294,7 +294,11 @@ func allocateWorkToClient(workerS *workerState, reply *WorkItem) {
 			reply.ClientItem.Port = "5201"
 			reply.ClientItem.MSS = v.MSS
 
-			v.MSS = v.MSS + mssStepSize
+			if (v.MSS != mssMax) && ((v.MSS + mssStepSize) > mssMax) {
+				v.MSS = mssMax
+			} else {
+				v.MSS = v.MSS + mssStepSize
+			}
 			if v.MSS > mssMax {
 				v.Finished = true
 			}
@@ -654,13 +658,13 @@ func netperfServer() {
 func iperfClient(serverHost, serverPort string, mss int, workItemType int) (rv string) {
 	switch {
 	case workItemType == iperfTCPTest:
-		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
+		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
 		if success {
 			rv = output
 		}
 
 	case workItemType == iperfSctpTest:
-		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss), "--sctp"}, 15)
+		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss), "--sctp"}, 15)
 		if success {
 			rv = output
 		}

@@ -70,7 +70,7 @@ func init() {
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
-	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&netperfImage, "image", "ghcr.io/lostwire/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 	flag.BoolVar(&cleanupOnly, "cleanup", false,
@@ -94,7 +94,8 @@ func setupClient() *kubernetes.Clientset {
 func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
 	nodes, err := c.Core().Nodes().List(
 		metav1.ListOptions{
-			FieldSelector: "spec.unschedulable=false",
+			LabelSelector: "netperf=true",
+			//FieldSelector: "spec.unschedulable=false",
 		})
 	if err != nil {
 		fmt.Println("Failed to fetch nodes", err)
@@ -399,11 +400,12 @@ func executeTests(c *kubernetes.Clientset) bool {
 		fmt.Println("Orchestrator Pod is", orchestratorPodName)
 
 		// The pods orchestrate themselves, we just wait for the results file to show up in the orchestrator container
+		fmt.Print("Waiting for orchestrator to write CSV file...")
 		for true {
 			// Monitor the orchestrator pod for the CSV results file
 			csvdata := getCsvResultsFromPod(c, orchestratorPodName)
 			if csvdata == nil {
-				fmt.Println("Scanned orchestrator pod filesystem - no results file found yet...waiting for orchestrator to write CSV file...")
+				fmt.Print(".")
 				time.Sleep(60 * time.Second)
 				continue
 			}

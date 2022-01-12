@@ -109,6 +109,7 @@ steps:
     Method: ContainerRestarts
     Params:
       action: {{$action}}
+      enableViolations: true
       defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
       customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
 {{end}}

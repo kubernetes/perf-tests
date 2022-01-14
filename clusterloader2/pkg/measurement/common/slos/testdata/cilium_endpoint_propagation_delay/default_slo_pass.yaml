@@ -1,0 +1,18 @@
+interval: 10m
+input_series:
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="1", namespace="kube-system", pod="anetd-bbbb2"}
+    values: 0 0 0 0 0 10 25 25 25 25
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="120", namespace="kube-system", pod="anetd-bbbb2"}
+    values: 0 0 0 0 0 10 70 70 70 70
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="600", namespace="kube-system", pod="anetd-bbbb2"}
+    values: 0 0 0 0 0 10 100 100 100 100
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="+Inf", namespace="kube-system", pod="anetd-bbbb2"}
+    values: 0 0 0 0 0 10 100 100 100 100
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="1", namespace="kube-system", pod="anetd-cccc2"}
+    values: 0 0 0 0 0 10 25 25 25 25
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="120", namespace="kube-system", pod="anetd-cccc2"}
+    values: 0 0 0 0 0 10 70 70 70 70
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="600", namespace="kube-system", pod="anetd-cccc2"}
+    values: 0 0 0 0 0 10 100 100 100 100
+  - series: cilium_endpoint_propagation_delay_seconds_bucket{container="cilium-agent", endpoint="advdpmetrics", instance="10.120.32.100:9990", job="cilium", le="+Inf", namespace="kube-system", pod="anetd-cccc2"}
+    values: 0 0 0 0 0 10 100 100 100 100

@@ -84,6 +84,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			}
 
 			pods := ps.List()
+			rv := ps.ObjectStore.Reflector.LastSyncResourceVersion()
 			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 			if podsStatus.LastIsPodUpdatedError != nil {
 				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
@@ -98,7 +99,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			if scaling != up && len(addedPods) > 0 {
 				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
-			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
+			klog.V(2).Infof("%s: %s: %s, rv=%s", options.CallerName, options.Selector.String(), podsStatus.String(), rv)
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {

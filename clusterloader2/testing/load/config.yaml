@@ -136,15 +136,6 @@ steps:
     params:
       action: start
 
-- module:
-    path: modules/services.yaml
-    params:
-      actionName: "Creating"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
-      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
-      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
-
 - name: Creating PriorityClass for DaemonSets
   phases:
   - replicasPerNamespace: 1
@@ -366,14 +357,6 @@ steps:
         - basename: daemonset-priorityclass
           objectTemplatePath: daemonset-priorityclass.yaml
 
-- module:
-    path: modules/services.yaml
-    params:
-      actionName: "Deleting"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: 0
-      mediumServicesPerNamespace: 0
-      bigServicesPerNamespace: 0
 {{end}} # not EXIT_AFTER_EXEC
 
 - module:

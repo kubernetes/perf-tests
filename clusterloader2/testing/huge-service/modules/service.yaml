@@ -2,6 +2,9 @@
 {{$isHeadless := .isHeadless}}
 {{$serviceName := .serviceName}}
 
+## CL2 params
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
+
 steps:
 - name: Create {{$serviceName}}
   phases:
@@ -22,6 +25,7 @@ steps:
     Params:
       action: start
       apiVersion: apps/v1
+      checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
       kind: Deployment
       labelSelector: group = {{$serviceName}}
       operationTimeout: 20m

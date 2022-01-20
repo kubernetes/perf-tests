@@ -47,6 +47,12 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Wait 5min
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 5m
 - name: Deleting {{$serviceName}} pods
   phases:
   - namespaceRange:

@@ -57,7 +57,7 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 	}
 	command, err := util.GetStringArray(config.Params, "command")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing command: %v", err)
 	}
 	if len(command) == 0 {
 		return nil, fmt.Errorf("command is a required argument. Got empty slice instead")

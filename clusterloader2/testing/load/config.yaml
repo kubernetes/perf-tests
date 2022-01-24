@@ -19,10 +19,13 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
-{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
+# The following two parameters are deprecated and should be replaced by their
+# SCHEDULER_THROUGHPUT counterparts
 {{$HUGE_SERVICES_SIZE := DefaultParam .CL2_HUGE_SERVICES_SIZE .Nodes}}
-# Determines number of pods per deployment. Should be a divider of $HUGE_SERVICES_SIZE.
 {{$HUGE_SERVICES_PODS_PER_DEPLOYMENT := DefaultParam .CL2_HUGE_SERVICES_PODS_PER_DEPLOYMENT 1000}}
+{{$SCHEDULER_THROUGHPUT_SIZE := DefaultParam .CL2_SCHEDULER_THROUGHPUT_SIZE $HUGE_SERVICES_SIZE}}
+# Determines number of pods per deployment. Should be a divider of $SCHEDULER_THROUGHPUT_SIZE.
+{{$SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT $HUGE_SERVICES_PODS_PER_DEPLOYMENT}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -65,10 +68,9 @@
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 
-{{if and $ENABLE_HUGE_SERVICES (ge $HUGE_SERVICES_SIZE $HUGE_SERVICES_PODS_PER_DEPLOYMENT)}}
-  {{$schedulerThroughputReplicasPerNamespace = DivideInt $HUGE_SERVICES_SIZE $HUGE_SERVICES_PODS_PER_DEPLOYMENT}}
-  {{$schedulerThroughputPodsPerDeployment = $HUGE_SERVICES_PODS_PER_DEPLOYMENT}}
-  {{$schedulerThroughputNamespaces = 1}}
+{{if ge $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputReplicasPerNamespace = DivideInt $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputPodsPerDeployment = $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
 {{end}}
 
 # Set schedulerThroughputNamespaces to 1 on small clusters otherwise it will result
@@ -199,15 +201,6 @@ steps:
 
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
-  {{if $ENABLE_HUGE_SERVICES}}
-- module:
-    path: modules/huge-services.yaml
-    params:
-      action: create
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 1
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-  {{end}}
 - module:
     path: modules/scheduler-throughput.yaml
     params:
@@ -216,9 +209,6 @@ steps:
       replicasPerNamespace: {{$schedulerThroughputReplicasPerNamespace}}
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-  {{if $ENABLE_HUGE_SERVICES}}
-      serviceName: huge-service
-  {{end}}
 {{end}}
 
 {{if $EXEC_COMMAND}}
@@ -270,16 +260,6 @@ steps:
       replicasPerNamespace: 0
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-  {{if $ENABLE_HUGE_SERVICES}}
-      serviceName: huge-service
-- module:
-    path: modules/huge-services.yaml
-    params:
-      action: delete
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 0
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-  {{end}}
 # END scheduler throughput
 {{end}}
 

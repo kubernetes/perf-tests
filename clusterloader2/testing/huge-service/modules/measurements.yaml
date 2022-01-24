@@ -2,6 +2,7 @@
 {{$action := .action}}
 
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
+{{$HUGE_SERVICE_ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_HUGE_SERVICE_ALLOWED_SLOW_API_CALLS 2}}
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
@@ -12,6 +13,8 @@
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES := DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 
+{{$allowedSlowCalls := AddInt $ALLOWED_SLOW_API_CALLS $HUGE_SERVICE_ALLOWED_SLOW_API_CALLS}}
+
 steps:
 - name: {{$action}}ing measurements
   measurements:
@@ -21,7 +24,7 @@ steps:
       action: {{$action}}
 {{if not $USE_SIMPLE_LATENCY_QUERY}}
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
@@ -31,7 +34,7 @@ steps:
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE}}
       useSimpleLatencyQuery: true
       summaryName: APIResponsivenessPrometheus_simple
-      allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+      allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
   - Identifier: TestMetrics
     Method: TestMetrics

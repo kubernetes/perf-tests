@@ -1,0 +1,37 @@
+name: batch
+
+namespace:
+  number: 1
+
+tuningSets:
+- name: Uniform1qps
+  qpsLoad:
+    qps: 1
+
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: start
+      labelSelector: group = test-job
+- name: Create job
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: Uniform1qps
+    objectBundle:
+    - basename: test-job
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: 10
+- name: Wait for jobs to finish
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: gather
+      timeout: 1m

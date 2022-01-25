@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: test-job
+spec:
+  parallelism: {{.Replicas}}
+  completions: {{.Replicas}}
+  template:
+    metadata:
+      labels:
+        group: test-pod
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: bash
+        args: ["-c", "exit"]
+      restartPolicy: Never

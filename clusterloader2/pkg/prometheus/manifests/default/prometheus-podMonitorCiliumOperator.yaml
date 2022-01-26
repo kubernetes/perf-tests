@@ -1,0 +1,22 @@
+{{$PROMETHEUS_SCRAPE_CILIUM_OPERATOR := DefaultParam .PROMETHEUS_SCRAPE_CILIUM_OPERATOR false}}
+
+{{if $PROMETHEUS_SCRAPE_CILIUM_OPERATOR}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: cilium-operator-pods
+  name: cilium-operator-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10s
+      port: advdpopmetrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      io.cilium/app: operator
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

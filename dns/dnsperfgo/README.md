@@ -24,3 +24,15 @@ This client pushes up the following metrics:
 make push
 
 ```
+
+The project "k8s-staging-perf-tests" can be used for pushing the image used by CI runs.
+
+## Spin up a test deployment on an existing cluster
+
+```
+kubectl create -f queries-cm.yaml
+kubectl create -f deployment.yaml
+```
+
+Note that the dns client counts NXDOMAIN responses as errors, so the configmap needs to contain names that are expected
+to resolve. Otherwise, non-zero error metric is expected.

@@ -9,8 +9,10 @@ immutable: true
 # added below. That allows us to avoid complicating it with ifs.
 data:
   # all-queries is used by DNS tests. Since dnsperfgo counts NXDOMAINs as errors, this config contains only valid names.
+  # kubernetes.default results in 4 queries - kubernetes.default.default.svc.cluster.local(A, AAAA), kubernetes.default.svc.cluster.local(A, AAAA)
+  # metadata.google.internal is subject to 5 searchpaths(A, AAAA) + original query (A, AAAA) - 12 queries.
+  # google.com also results in 12 queries.
   all-queries: |
       kubernetes.default
-      metrics-server.kube-system
-      kube-dns.kube-system
       metadata.google.internal
+      google.com

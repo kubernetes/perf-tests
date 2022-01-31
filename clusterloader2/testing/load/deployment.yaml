@@ -24,10 +24,11 @@ spec:
       hostNetwork: {{$HostNetworkMode}}
       containers:
 {{if .EnableDNSTests}}
-      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.1.0
+      # TODO need to push this image.
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
       # Fetches the dns server from /etc/resolv.conf and
       # sends 1 query per second.
-      # With searchpath expansion, this amounts to roughly 12 queries per second.
+      # With searchpath expansion, this is upto 12 queries per second.
       # dnsperfgo has a default client timeout of 5s. It sends queries for 60s,
       # then sleeps for 10s, to mimic bursts of DNS queries.
         command:

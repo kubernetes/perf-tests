@@ -2,9 +2,10 @@
 #
 # Notes on parameters:
 #       metricName will be logged in place of "GenericPrometheusQuery"
-#       rawQuery must be parametrized by duration
+#       query must be parametrized by duration and return exactly 1 sample
+#       threshold is optional
 
-{{$duration := "240s"}}
+{{$duration := "60s"}}
 {{$namespaces := 1}}
 
 name: generic-query
@@ -19,7 +20,19 @@ steps:
       action: start
       metricName: API request latency
       metricVersion: v1
-      rawQuery:  quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{verb!="WATCH", subresource!~"log|exec|portforward|attach|proxy"}[%v])
+      unit: ms
+      queries:
+        - name: Perc99
+          query: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 60
+        - name: Perc90
+          query: histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+        - name: Perc50
+          query: histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 5
+        - name: non-existent
+          query: histogram_quantile(0.5, sum(rate(fake_apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 42
 - name: Sleep
   measurements:
   - Identifier: sleep
@@ -32,3 +45,4 @@ steps:
     Method: GenericPrometheusQuery
     Params:
       action: gather
+      enableViolations: true

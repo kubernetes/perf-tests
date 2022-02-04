@@ -126,6 +126,13 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 		}
 
 		val := float64(samples[0].Value)
+
+		thresholdMsg := "none"
+		if q.hasThreshold {
+			thresholdMsg = fmt.Sprintf("%v", q.threshold)
+		}
+		klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.metricName, q.name, val, thresholdMsg)
+
 		if q.hasThreshold && val > q.threshold {
 			errs = append(errs, errors.NewMetricViolationError(q.name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", q.threshold, val)))
 		}

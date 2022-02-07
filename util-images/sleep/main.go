@@ -20,7 +20,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+)
+
+var (
+	terminationGracePeriod = flag.Duration("termination-grace-period", 0, "The duration of time to sleep after receiving SIGTERM")
 )
 
 func init() {
@@ -45,5 +51,17 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, syscall.SIGTERM)
+
+	go func() {
+		<-stopCh
+		if *terminationGracePeriod != 0 {
+			time.Sleep(*terminationGracePeriod)
+		}
+
+		os.Exit(0)
+	}()
+
 	time.Sleep(duration)
 }

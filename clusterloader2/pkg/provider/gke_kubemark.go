@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,53 +22,52 @@ import (
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
-type KubemarkProvider struct {
+type GKEKubemarkProvider struct {
 	features Features
 	config   Config
 }
 
-func NewKubemarkProvider(config map[string]string) *KubemarkProvider {
+func NewGKEKubemarkProvider(config map[string]string) *GKEKubemarkProvider {
 	supportEnablePrometheusServer := true
 	if config[RootKubeConfigKey] == "" {
 		klog.Warningf("no kubemark-root-kubeconfig path specified. SupportEnablePrometheusServer will be false.")
 		supportEnablePrometheusServer = false
 	}
-	return &KubemarkProvider{
+	return &GKEKubemarkProvider{
 		features: Features{
 			IsKubemarkProvider:                  true,
-			SupportSSHToMaster:                  true,
 			SupportEnablePrometheusServer:       supportEnablePrometheusServer,
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportSnapshotPrometheusDisk:       true,
-			ShouldScrapeKubeProxy:               true,
+			ShouldScrapeKubeProxy:               false,
+			ShouldPrometheusScrapeApiserverOnly: true,
 		},
 		config: config,
 	}
 }
 
-func (p *KubemarkProvider) Name() string {
-	return KubemarkName
+func (p *GKEKubemarkProvider) Name() string {
+	return GKEKubemarkName
 }
 
-func (p *KubemarkProvider) Features() *Features {
+func (p *GKEKubemarkProvider) Features() *Features {
 	return &p.features
 }
 
-func (p *KubemarkProvider) GetComponentProtocolAndPort(componentName string) (string, int, error) {
+func (p *GKEKubemarkProvider) GetComponentProtocolAndPort(componentName string) (string, int, error) {
 	return getComponentProtocolAndPort(componentName)
 }
 
-func (p *KubemarkProvider) GetConfig() Config {
+func (p *GKEKubemarkProvider) GetConfig() Config {
 	return p.config
 }
 
-func (p *KubemarkProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
-	// kubemark provider takes ssh key from GCE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "kubemark")
+func (p *GKEKubemarkProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
+	// gke provider takes ssh key from GCE_SSH_KEY.
+	r, err := sshutil.SSH(cmd, host, "gke")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 
-// TODO(mborsz): Dump instanceIDs for master nodes (as in gce).
-func (p *KubemarkProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *GKEKubemarkProvider) Metadata(client clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }

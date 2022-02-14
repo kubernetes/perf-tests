@@ -432,8 +432,7 @@ func retryCreateFunction(f func() error) error {
 }
 
 func (pc *Controller) isKubemark() bool {
-	// TODO(#1399): we should not depend on provider name
-	return pc.provider.Name() == "kubemark"
+	return pc.provider.Features().IsKubemarkProvider
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {

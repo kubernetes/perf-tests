@@ -30,15 +30,15 @@ import (
 )
 
 const (
-	name = "GenericPrometheusQuery"
+	genericPrometheusQueryMeasurementName = "GenericPrometheusQuery"
 )
 
 func init() {
 	create := func() measurement.Measurement {
 		return CreatePrometheusMeasurement(&genericQueryGatherer{})
 	}
-	if err := measurement.Register(name, create); err != nil {
-		klog.Fatalf("Cannot register %s: %v", name, err)
+	if err := measurement.Register(genericPrometheusQueryMeasurementName, create); err != nil {
+		klog.Fatalf("Cannot register %s: %v", genericPrometheusQueryMeasurementName, err)
 	}
 }
 
@@ -150,7 +150,7 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 }
 
 func (g *genericQueryGatherer) String() string {
-	return name
+	return genericPrometheusQueryMeasurementName
 }
 
 func (g *genericQueryGatherer) query(q genericQuery, executor QueryExecutor, startTime, endTime time.Time) ([]*model.Sample, error) {
@@ -160,18 +160,22 @@ func (g *genericQueryGatherer) query(q genericQuery, executor QueryExecutor, sta
 	return executor.Query(boundedQuery, endTime)
 }
 
-func (g *genericQueryGatherer) createSummary(name string, data map[string]float64) (measurement.Summary, error) {
+func (g *genericQueryGatherer) createSummary(metricName string, data map[string]float64) (measurement.Summary, error) {
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version: g.metricVersion,
 		DataItems: []measurementutil.DataItem{
 			{
 				Data: data,
 				Unit: g.unit,
+				Labels: map[string]string{
+					"MetricName": metricName,
+				},
 			},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return measurement.CreateSummary(name, "json", content), nil
+	// Replace '_' by spaces as '_' is used as delimiter to extract metricName from file name
+	return measurement.CreateSummary(genericPrometheusQueryMeasurementName+" "+metricName, "json", content), nil
 }

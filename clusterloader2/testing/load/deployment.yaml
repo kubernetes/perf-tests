@@ -38,7 +38,11 @@ spec:
           ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps 1;
         name: {{.Name}}-dnsperf
 {{else}}
-      - image: k8s.gcr.io/pause:3.1
+      - image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.2
+        command:
+        - /sleep
+        - --termination-grace-period=25s
+        - 10h
         name: {{.Name}}
 {{end}}
         resources:
@@ -50,7 +54,7 @@ spec:
             mountPath: /var/configmap
           - name: secret
             mountPath: /var/secret
-      terminationGracePeriodSeconds: 1
+      terminationGracePeriodSeconds: 30
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:

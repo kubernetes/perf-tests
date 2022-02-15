@@ -18,6 +18,7 @@ package common
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -146,6 +147,14 @@ func TestGather(t *testing.T) {
 			}
 			for _, s := range tc.notWantedData {
 				assert.False(t, strings.Contains(content, s), "summary contains extra data: got: %v, want: no %v", content, s)
+			}
+			metricNameLabelPattern := fmt.Sprintf("\"labels\":\\s*\\{\\s*\"MetricName\":\\s*\"%v\"\\s*\\}", tc.name)
+			if match, err := regexp.MatchString(metricNameLabelPattern, content); !match {
+				if err != nil {
+					t.Errorf("failed to match MetricName label, got err: %v", err)
+				} else {
+					t.Errorf("MetricName label not matched, got: %v, wanted to match, %v", content, metricNameLabelPattern)
+				}
 			}
 		})
 	}

@@ -73,6 +73,7 @@ type PrometheusConfig struct {
 	ScrapeEtcd                 bool
 	ScrapeNodeExporter         bool
 	ScrapeKubelets             bool
+	ScrapeMasterKubelets       bool
 	ScrapeKubeProxy            bool
 	ScrapeKubeStateMetrics     bool
 	ScrapeMetricsServerMetrics bool

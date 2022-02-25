@@ -8,5 +8,5 @@ WORKDIR /go/src/$gopkg
 RUN CGO_ENABLED=0 go build -o /go/bin/sleep main.go
 
 FROM gcr.io/distroless/static
-COPY --from=build-env /go/bin/sleep /
-ENTRYPOINT ["/sleep"]
+COPY --from=build-env /go/bin/sleep /usr/bin/
+ENTRYPOINT ["sleep"]

@@ -137,7 +137,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 					}
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
-						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts)
+						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts, testDescription.ForceConstantCategory)
 						fileName := g.artifactName(tests, metricsFileName)
 						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber, fileName)
 						if err != nil {
@@ -157,8 +157,8 @@ func (g *Downloader) artifactName(jobAttrs Tests, file string) string {
 	return path.Join(jobAttrs.ArtifactsDir, file)
 }
 
-func getResultCategory(metricsFileName string, filePrefix string, category string, artifacts []string) string {
-	if len(artifacts) <= 1 {
+func getResultCategory(metricsFileName string, filePrefix string, category string, artifacts []string, forceConstantCategory bool) string {
+	if len(artifacts) <= 1 || forceConstantCategory {
 		return category
 	}
 	// If there are more artifacts, assume that this is a test suite run.

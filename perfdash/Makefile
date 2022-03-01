@@ -1,9 +1,9 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG = 2.37
+TAG = 2.38
 
-REPO = gcr.io/k8s-testimages
+REPO = gcr.io/k8s-staging-perf-tests
 
 test: perfdash.go parser.go config.go metrics-downloader-helper.go metrics-downloader.go gcs_metrics_bucket.go s3_metrics_bucket.go
 	go test

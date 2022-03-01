@@ -1,12 +1,22 @@
+{{$mode := (DefaultParam .MODE "Indexed")}}
+{{$pods_per_node_per_size := 20}}
+{{$total_pods_per_size := MultiplyInt .Nodes $pods_per_node_per_size}}
+{{$small_job_size := 5}}
+{{$small_jobs_count := DivideInt $total_pods_per_size $small_job_size}}
+{{$medium_job_size := 20}}
+{{$medium_jobs_count := DivideInt $total_pods_per_size $medium_job_size}}
+{{$large_job_size := 400}}
+{{$large_jobs_count := DivideInt $total_pods_per_size $large_job_size}}
+
 name: batch
 
 namespace:
   number: 1
 
 tuningSets:
-- name: Uniform1qps
+- name: Uniform5qps
   qpsLoad:
-    qps: 1
+    qps: 5
 
 steps:
 - name: Start measurements
@@ -16,22 +26,45 @@ steps:
     Params:
       action: start
       labelSelector: group = test-job
-- name: Create job
+- name: Create {{$mode}} jobs
   phases:
   - namespaceRange:
       min: 1
       max: 1
-    replicasPerNamespace: 1
-    tuningSet: Uniform1qps
+    replicasPerNamespace: {{$small_jobs_count}}
+    tuningSet: Uniform5qps
     objectBundle:
-    - basename: test-job
+    - basename: small
       objectTemplatePath: "job.yaml"
       templateFillMap:
-        Replicas: 10
-- name: Wait for jobs to finish
+        Replicas: {{$small_job_size}}
+        Mode: {{$mode}}
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$medium_jobs_count}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: medium
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$medium_job_size}}
+        Mode: {{$mode}}
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$large_jobs_count}}
+    tuningSet: Uniform5qps
+    objectBundle:
+    - basename: large
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$large_job_size}}
+        Mode: {{$mode}}
+- name: Wait for {{$mode}} jobs to finish
   measurements:
   - Identifier: WaitForFinishedJobs
     Method: WaitForFinishedJobs
     Params:
       action: gather
-      timeout: 1m
+      timeout: 10m

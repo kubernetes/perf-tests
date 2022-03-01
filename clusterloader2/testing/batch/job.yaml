@@ -7,6 +7,7 @@ metadata:
 spec:
   parallelism: {{.Replicas}}
   completions: {{.Replicas}}
+  completionMode: {{.Mode}}
   template:
     metadata:
       labels:
@@ -14,6 +15,5 @@ spec:
     spec:
       containers:
       - name: {{.Name}}
-        image: bash
-        args: ["-c", "exit"]
+        image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.3
       restartPolicy: Never

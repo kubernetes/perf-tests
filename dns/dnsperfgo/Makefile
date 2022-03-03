@@ -1,21 +1,18 @@
-PROJECT := $(shell gcloud config get-value project)
-REGISTRY ?= gcr.io/${PROJECT}
+REGISTRY ?= gcr.io/k8s-staging-perf-tests
+IMAGE_NAME = dnsperfgo
+VERSION ?= v1.2.0
 
-IMAGE_NAME ?= dnsperfgo
+all: push
 
-VERSION ?= $(shell git describe --tags --always --dirty)
-
-ifneq (,$(findstring dirty,$(VERSION)))
-        VERSION := latest
-endif
-
+.PHONY: build_bin
 build_bin:
-			CGO_ENABLED=1 go build -o dnsperfcgo
-			CGO_ENABLED=0 go build -o dnsperfgo
+	CGO_ENABLED=1 go build -o dnsperfcgo
+	CGO_ENABLED=0 go build -o dnsperfgo
 
-build:	build_bin
-		docker build -t $(REGISTRY)/$(IMAGE_NAME):$(VERSION) .
+.PHONY: build
+build: build_bin
+	docker build -t $(REGISTRY)/$(IMAGE_NAME):$(VERSION) .
 
-
-push:	build
-		docker push "$(REGISTRY)/$(IMAGE_NAME):$(VERSION)"
+.PHONY: push
+push: build
+	docker push "$(REGISTRY)/$(IMAGE_NAME):$(VERSION)"

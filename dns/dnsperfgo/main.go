@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 	"sync"
@@ -123,9 +123,7 @@ func (c *dnsClient) run() {
 			default:
 				break
 			}
-			// Use nsLookup command rather than net.LookupHost because nslookup sends A and AAAA lookups in parallel(with the same source port) in Alpine base image.
-			// Go program sends them with different source ports. The same source port behavior will trigger the DNS race conditions described in https://www.weave.works/blog/racy-conntrack-and-dns-lookup-timeouts.
-			go c.runQuery(h, c.config.queryTimeout, nsLookup)
+			go c.runQuery(h, c.config.queryTimeout, net.LookupHost)
 			time.Sleep(qpsSleepDuration)
 		}
 	}
@@ -191,8 +189,13 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 	}
 }
 
-// nslookup returns error for queries that result in NXDOMAIN as well.
-func nsLookup(name string) ([]string, error) {
+// Use nsLookup instead of net.LookupHost because nslookup sends A and AAAA lookups in parallel(with the same source port) in Alpine base image.
+// net.LookupHost sends them with different source ports. The same source port behavior will trigger the DNS race conditions described in https://www.weave.works/blog/racy-conntrack-and-dns-lookup-timeouts.
+// In order to get this behavior, bind-tools must be uninstalled on the base image. Once bind-tools is installed, nslookup does not do parallel A + AAAA lookups anymore.
+// When bind-tools is uninstalled, nslookup also performs a PTR lookup on every IP in the dns response.
+// runQuery uses net.LookupHost since its behavior is more consistent and reliable.
+// note - nslookup returns error for queries that result in NXDOMAIN as well.
+/*func nsLookup(name string) ([]string, error) {
 	cmd := exec.Command("nslookup", name)
 	out, err := cmd.Output()
 	if err != nil {
@@ -214,4 +217,4 @@ func nsLookup(name string) ([]string, error) {
 	}
 
 	return ips, nil
-}
+}*/

@@ -33,6 +33,8 @@ type InitOptions struct {
 
 // Features represents all features supported by this provider.
 type Features struct {
+	// Some features do not work for kubemark-like providers or have separate implementation.
+	IsKubemarkProvider bool
 	// SupportWindowsNodeScraping determines wheter scraping windows node in supported.
 	SupportWindowsNodeScraping bool
 	// SupportProbe determines whether probe is supported.
@@ -112,6 +114,8 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		return NewGCEProvider(configs), nil
 	case GKEName:
 		return NewGKEProvider(configs), nil
+	case GKEKubemarkName:
+		return NewGKEKubemarkProvider(configs), nil
 	case KindName:
 		return NewKindProvider(configs), nil
 	case KubemarkName:

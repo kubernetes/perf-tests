@@ -21,6 +21,9 @@
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
 {{$HUGE_SERVICES_SIZE := DefaultParam .CL2_HUGE_SERVICES_SIZE .Nodes}}
+{{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
+{{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
+{{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 # Determines number of pods per deployment. Should be a divider of $HUGE_SERVICES_SIZE.
 {{$HUGE_SERVICES_PODS_PER_DEPLOYMENT := DefaultParam .CL2_HUGE_SERVICES_PODS_PER_DEPLOYMENT 1000}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
@@ -249,6 +252,18 @@ steps:
     Method: APIAvailability
     Params:
       action: unpause
+{{end}}
+
+{{if $ENABLE_CONTAINER_RESTARTS_MEASUREMENT}}
+- name: Start container restarts measurement
+  measurements:
+  - Identifier: ContainerRestarts
+    Method: ContainerRestarts
+    Params:
+      action: start
+      enableViolations: true
+      defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
+      customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
 {{end}}
 
 - name: Sleep

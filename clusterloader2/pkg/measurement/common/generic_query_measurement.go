@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	goerrors "errors"
 	"fmt"
 	"time"
 
@@ -43,65 +44,60 @@ func init() {
 }
 
 type genericQueryGatherer struct {
-	metricName    string
-	metricVersion string
-	queries       []genericQuery
-	unit          string
+	StartParams
 }
 
-type genericQuery struct {
-	name         string
-	query        string
-	hasThreshold bool
-	threshold    float64
+// StartParams represents configuration that can be passed as params
+// with action: start.
+type StartParams struct {
+	MetricName    string
+	MetricVersion string
+	Queries       []GenericQuery
+	Unit          string
+}
+
+// TODO(mborsz): github.com/go-playground/validator or similar project?
+func (p *StartParams) Validate() error {
+	if p.MetricName == "" {
+		return goerrors.New("metricName is required")
+	}
+	if p.MetricVersion == "" {
+		return goerrors.New("metricVersion is required")
+	}
+	if p.Unit == "" {
+		return goerrors.New("unit is required")
+	}
+
+	for idx, query := range p.Queries {
+		if err := query.Validate(); err != nil {
+			return fmt.Errorf("params.queries[%d] validation failed: %v", idx, err)
+		}
+	}
+
+	return nil
+}
+
+type GenericQuery struct {
+	Name      string
+	Query     string
+	Threshold *float64
+}
+
+func (q *GenericQuery) Validate() error {
+	if q.Name == "" {
+		return goerrors.New("name is required")
+	}
+	if q.Query == "" {
+		return goerrors.New("query is required")
+	}
+	return nil
 }
 
 func (g *genericQueryGatherer) Configure(config *measurement.Config) error {
-	metricName, err := util.GetString(config.Params, "metricName")
-	if err != nil {
+	if err := util.ToStruct(config.Params, &g.StartParams); err != nil {
 		return err
 	}
-
-	metricVersion, err := util.GetString(config.Params, "metricVersion")
-	if err != nil {
-		return err
-	}
-
-	unit, err := util.GetString(config.Params, "unit")
-	if err != nil {
-		return err
-	}
-
-	queries, err := util.GetMapArray(config.Params, "queries")
-	if err != nil {
-		return err
-	}
-	var genericQueries []genericQuery
-	for _, q := range queries {
-		query, err := util.GetString(q, "query")
-		if err != nil {
-			return err
-		}
-		name, err := util.GetString(q, "name")
-		if err != nil {
-			return err
-		}
-		hasThreshold := true
-		threshold, err := util.GetFloat64(q, "threshold")
-		if util.IsErrKeyNotFound(err) {
-			klog.V(2).Infof("No threshold set for %v: %v", metricName, name)
-			hasThreshold = false
-		} else if err != nil {
-			return err
-		}
-		genericQueries = append(genericQueries, genericQuery{name, query, hasThreshold, threshold})
-	}
-
-	g.metricName = metricName
-	g.metricVersion = metricVersion
-	g.unit = unit
-	g.queries = genericQueries
-	return nil
+	return g.StartParams.Validate()
 }
 
 func (g *genericQueryGatherer) IsEnabled(config *measurement.Config) bool {
@@ -111,40 +107,40 @@ func (g *genericQueryGatherer) IsEnabled(config *measurement.Config) bool {
 func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	var errs []error
 	data := map[string]float64{}
-	for _, q := range g.queries {
+	for _, q := range g.Queries {
 		samples, err := g.query(q, executor, startTime, endTime)
 		if err != nil {
 			return nil, err
 		}
 
 		if len(samples) > 1 {
-			errs = append(errs, errors.NewMetricViolationError(q.name, fmt.Sprintf("too many samples: query returned %v streams, expected 1", len(samples))))
+			errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("too many samples: query returned %v streams, expected 1", len(samples))))
 		}
 		if len(samples) == 0 {
-			klog.Warningf("query returned no samples for %v: %v", g.metricName, q.name)
+			klog.Warningf("query returned no samples for %v: %v", g.MetricName, q.Name)
 			continue
 		}
 
 		val := float64(samples[0].Value)
 
 		thresholdMsg := "none"
-		if q.hasThreshold {
-			thresholdMsg = fmt.Sprintf("%v", q.threshold)
+		if q.Threshold != nil {
+			thresholdMsg = fmt.Sprintf("%v", *q.Threshold)
 		}
-		klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.metricName, q.name, val, thresholdMsg)
+		klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
 
-		if q.hasThreshold && val > q.threshold {
-			errs = append(errs, errors.NewMetricViolationError(q.name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", q.threshold, val)))
+		if q.Threshold != nil && val > *q.Threshold {
+			errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", q.Threshold, val)))
 		}
 
-		data[q.name] = val
+		data[q.Name] = val
 	}
-	summary, err := g.createSummary(g.metricName, data)
+	summary, err := g.createSummary(g.MetricName, data)
 	if err != nil {
 		return nil, err
 	}
 	if len(errs) > 0 {
-		err = errors.NewMetricViolationError(g.metricName, fmt.Sprintf("%v", errs))
+		err = errors.NewMetricViolationError(g.MetricName, fmt.Sprintf("%v", errs))
 	}
 	return []measurement.Summary{summary}, err
 }
@@ -153,20 +149,20 @@ func (g *genericQueryGatherer) String() string {
 	return genericPrometheusQueryMeasurementName
 }
 
-func (g *genericQueryGatherer) query(q genericQuery, executor QueryExecutor, startTime, endTime time.Time) ([]*model.Sample, error) {
+func (g *genericQueryGatherer) query(q GenericQuery, executor QueryExecutor, startTime, endTime time.Time) ([]*model.Sample, error) {
 	duration := endTime.Sub(startTime)
-	boundedQuery := fmt.Sprintf(q.query, measurementutil.ToPrometheusTime(duration))
+	boundedQuery := fmt.Sprintf(q.Query, measurementutil.ToPrometheusTime(duration))
 	klog.V(2).Infof("bounded query: %s, duration: %v", boundedQuery, duration)
 	return executor.Query(boundedQuery, endTime)
 }
 
 func (g *genericQueryGatherer) createSummary(metricName string, data map[string]float64) (measurement.Summary, error) {
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version: g.metricVersion,
+		Version: g.MetricVersion,
 		DataItems: []measurementutil.DataItem{
 			{
 				Data: data,
-				Unit: g.unit,
+				Unit: g.Unit,
 				Labels: map[string]string{
 					"MetricName": metricName,
 				},

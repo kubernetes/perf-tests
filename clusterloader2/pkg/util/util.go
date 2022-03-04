@@ -41,6 +41,18 @@ func IsErrKeyNotFound(err error) bool {
 	return isErrKeyNotFound
 }
 
+// ToStruct converts map[string]interface{} to standard object (e.g. struct).
+func ToStruct(dict map[string]interface{}, out interface{}) error {
+	output := &bytes.Buffer{}
+	if err := json.NewEncoder(output).Encode(dict); err != nil {
+		return fmt.Errorf("error encoding data: %w", err)
+	}
+	if err := json.NewDecoder(output).Decode(out); err != nil {
+		return fmt.Errorf("error decoding data: %w", err)
+	}
+	return nil
+}
+
 // GetString tries to return value from map cast to string type. If value doesn't exist, error is returned.
 func GetString(dict map[string]interface{}, key string) (string, error) {
 	return getString(dict, key)

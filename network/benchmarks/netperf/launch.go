@@ -41,7 +41,6 @@ import (
 )
 
 const (
-	testNamespace    = "netperf"
 	csvDataMarker    = "GENERATING CSV OUTPUT"
 	csvEndDataMarker = "END CSV DATA"
 	runUUID          = "latest"
@@ -55,6 +54,7 @@ var (
 	hostnetworking bool
 	tag            string
 	kubeConfig     string
+	testNamespace  string
 	netperfImage   string
 	cleanupOnly    bool
 
@@ -71,6 +71,7 @@ func init() {
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&testNamespace, "namespace", "netperf", "Test namespace to run netperf pods")
 	flag.StringVar(&kubeConfig, "kubeConfig", "",
 		"Location of the kube configuration file ($HOME/.kube/config")
 	flag.BoolVar(&cleanupOnly, "cleanup", false,

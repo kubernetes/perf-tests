@@ -72,7 +72,8 @@ func init() {
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
 	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&testNamespace, "namespace", "netperf", "Test namespace to run netperf pods")
-	flag.StringVar(&kubeConfig, "kubeConfig", "",
+	defaultKubeConfig := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
+	flag.StringVar(&kubeConfig, "kubeConfig", defaultKubeConfig,
 		"Location of the kube configuration file ($HOME/.kube/config")
 	flag.BoolVar(&cleanupOnly, "cleanup", false,
 		"(boolean) Run the cleanup resources phase only (use this flag to clean up orphaned resources from a test run)")
@@ -400,7 +401,7 @@ func executeTests(c *kubernetes.Clientset) bool {
 		fmt.Println("Orchestrator Pod is", orchestratorPodName)
 
 		// The pods orchestrate themselves, we just wait for the results file to show up in the orchestrator container
-		for true {
+		for {
 			// Monitor the orchestrator pod for the CSV results file
 			csvdata := getCsvResultsFromPod(c, orchestratorPodName)
 			if csvdata == nil {
@@ -423,6 +424,7 @@ func main() {
 	fmt.Println("Parameters :")
 	fmt.Println("Iterations      : ", iterations)
 	fmt.Println("Host Networking : ", hostnetworking)
+	fmt.Println("Test Namespace  : ", testNamespace)
 	fmt.Println("Docker image    : ", netperfImage)
 	fmt.Println("------------------------------------------------------------")
 

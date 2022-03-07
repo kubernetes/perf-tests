@@ -106,6 +106,24 @@ PAF_PANELS = [
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
+        "Concurrency in use",
+        "sum(apiserver_flowcontrol_request_concurrency_in_use) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Current executing requests",
+        "sum(apiserver_flowcontrol_current_executing_requests) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Inqueue requests",
+        "sum(apiserver_flowcontrol_current_inqueue_requests) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
         "Concurrency limits",
         "avg(apiserver_flowcontrol_request_concurrency_limit) by (priority_level)",
         legend="{{priority_level}}",

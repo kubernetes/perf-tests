@@ -80,7 +80,7 @@ func addEventHandler(i cache.SharedInformer,
 }
 
 // StartAndSync starts informer and waits for it to be synced.
-func StartAndSync(i cache.SharedInformer, stopCh chan struct{}, timeout time.Duration) error {
+func StartAndSync(i cache.SharedInformer, stopCh <-chan struct{}, timeout time.Duration) error {
 	go i.Run(stopCh)
 	timeoutCh := make(chan struct{})
 	timeoutTimer := time.AfterFunc(timeout, func() {

@@ -48,8 +48,8 @@ func init() {
 
 type nodelocaldnsLatencyGatherer struct{}
 
-func (n *nodelocaldnsLatencyGatherer) Gather(executor QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	result, err := n.getPercentileLatencies(executor, startTime)
+func (n *nodelocaldnsLatencyGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	result, err := n.getPercentileLatencies(executor, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,9 @@ func (n *nodelocaldnsLatencyGatherer) String() string {
 	return nodelocaldnsLatencyPrometheusMeasurementName
 }
 
+func (n *nodelocaldnsLatencyGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
 func (n *nodelocaldnsLatencyGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
@@ -82,8 +85,7 @@ func (n *nodelocaldnsLatencyGatherer) validateResult(config *measurement.Config,
 	return nil
 }
 
-func (n *nodelocaldnsLatencyGatherer) getPercentileLatencies(executor QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
-	endTime := time.Now()
+func (n *nodelocaldnsLatencyGatherer) getPercentileLatencies(executor QueryExecutor, startTime, endTime time.Time) (*measurementutil.LatencyMetric, error) {
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 	errList := errors.NewErrorList()

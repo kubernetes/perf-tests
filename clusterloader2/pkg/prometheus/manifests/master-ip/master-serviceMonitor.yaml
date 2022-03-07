@@ -1,5 +1,5 @@
 {{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
-{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_MASTER_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_MASTER_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 
 # If kube-apiserver is overloaded, we might get slower responses.
@@ -36,7 +36,7 @@ spec:
   {{else}}
     interval: 5s
   {{end}}
-  {{if $PROMETHEUS_SCRAPE_KUBELETS}}
+  {{if $PROMETHEUS_SCRAPE_MASTER_KUBELETS}}
   - interval: 5s
     port: kubelet
     scheme: https

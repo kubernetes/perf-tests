@@ -46,7 +46,6 @@ const (
 	namespace                    = "monitoring"
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
-	checkPrometheusReadyTimeout  = 15 * time.Minute
 	numK8sClients                = 1
 )
 
@@ -54,19 +53,23 @@ const (
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
+	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
 	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
-	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
+	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets (nodes + master). Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
+	flags.BoolEnvVar(&p.ScrapeMasterKubelets, "prometheus-scrape-master-kubelets", "PROMETHEUS_SCRAPE_MASTER_KUBELETS", false, "Whether to scrape kubelets running on master nodes.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
 	flags.BoolEnvVar(&p.ScrapeKubeStateMetrics, "prometheus-scrape-kube-state-metrics", "PROMETHEUS_SCRAPE_KUBE_STATE_METRICS", false, "Whether to scrape kube-state-metrics. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeMetricsServerMetrics, "prometheus-scrape-metrics-server", "PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS", false, "Whether to scrape metrics-server. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeNodeLocalDNS, "prometheus-scrape-node-local-dns", "PROMETHEUS_SCRAPE_NODE_LOCAL_DNS", false, "Whether to scrape node-local-dns pods.")
 	flags.BoolEnvVar(&p.ScrapeAnet, "prometheus-scrape-anet", "PROMETHEUS_SCRAPE_ANET", false, "Whether to scrape anet pods.")
+	flags.BoolEnvVar(&p.ScrapeCiliumOperator, "prometheus-scrape-cilium-operator", "PROMETHEUS_SCRAPE_CILIUM_OPERATOR", false, "Whether to scrape cilium-operator pods.")
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
-	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus")
-	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner")
+	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
+	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
+	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
 }
 
 // ValidatePrometheusFlags validates prometheus flags.
@@ -99,16 +102,19 @@ type Controller struct {
 	snapshotError error
 	// ssh executor to run commands in cluster nodes via ssh
 	ssh util.SSHExecutor
+	// timeout for waiting for Prometheus stack to become healthy
+	readyTimeout time.Duration
 }
 
 // CompleteConfig completes Prometheus manifest file path config
 func CompleteConfig(p *config.PrometheusConfig) {
 	p.CoreManifests = p.ManifestPath + "/*.yaml"
 	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
-	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
-	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
 	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
+	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
+	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
+	p.PushgatewayManifests = p.ManifestPath + "/pushgateway/*.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -116,6 +122,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	pc = &Controller{
 		clusterLoaderConfig: clusterLoaderConfig,
 		provider:            clusterLoaderConfig.ClusterConfig.Provider,
+		readyTimeout:        clusterLoaderConfig.PrometheusConfig.ReadyTimeout,
 	}
 
 	if pc.framework, err = framework.NewRootFramework(&clusterLoaderConfig.ClusterConfig, numK8sClients); err != nil {
@@ -159,10 +166,16 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	} else {
 		clusterLoaderConfig.PrometheusConfig.ScrapeAnet = mapping["PROMETHEUS_SCRAPE_ANET"].(bool)
 	}
+	if _, exists := mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"]; !exists {
+		mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"] = clusterLoaderConfig.PrometheusConfig.ScrapeCiliumOperator
+	} else {
+		clusterLoaderConfig.PrometheusConfig.ScrapeCiliumOperator = mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"].(bool)
+	}
 	mapping["PROMETHEUS_SCRAPE_NODE_LOCAL_DNS"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeLocalDNS
 	mapping["PROMETHEUS_SCRAPE_KUBE_STATE_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics
 	mapping["PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics
 	mapping["PROMETHEUS_SCRAPE_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets
+	mapping["PROMETHEUS_SCRAPE_MASTER_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets || clusterLoaderConfig.PrometheusConfig.ScrapeMasterKubelets
 	mapping["PROMETHEUS_APISERVER_SCRAPE_PORT"] = clusterLoaderConfig.PrometheusConfig.APIServerScrapePort
 	mapping["PROMETHEUS_STORAGE_CLASS_PROVISIONER"] = clusterLoaderConfig.PrometheusConfig.StorageClassProvisioner
 	mapping["PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE"] = clusterLoaderConfig.PrometheusConfig.StorageClassVolumeType
@@ -227,6 +240,12 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			return err
 		}
 		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MasterIPServiceMonitors); err != nil {
+			return err
+		}
+	}
+	if pc.clusterLoaderConfig.PrometheusConfig.EnablePushgateway {
+		klog.V(2).Infof("Applying Pushgateway in the cluster.")
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.PushgatewayManifests); err != nil {
 			return err
 		}
 	}
@@ -372,7 +391,7 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	klog.V(2).Info("Waiting for Prometheus stack to become healthy...")
 	return wait.Poll(
 		checkPrometheusReadyInterval,
-		checkPrometheusReadyTimeout,
+		pc.readyTimeout,
 		pc.isPrometheusReady)
 }
 
@@ -413,8 +432,7 @@ func retryCreateFunction(f func() error) error {
 }
 
 func (pc *Controller) isKubemark() bool {
-	// TODO(#1399): we should not depend on provider name
-	return pc.provider.Name() == "kubemark"
+	return pc.provider.Features().IsKubemarkProvider
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {

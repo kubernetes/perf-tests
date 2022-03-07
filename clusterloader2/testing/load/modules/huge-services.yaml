@@ -4,6 +4,9 @@
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 
+## CL2 params
+{{$HEADLESS_HUGE_SERVICES := DefaultParam .CL2_HEADLESS_HUGE_SERVICES false}}
+
 steps:
 - name: {{$action}} huge services
   phases:
@@ -15,3 +18,5 @@ steps:
     objectBundle:
     - basename: huge-service
       objectTemplatePath: service.yaml
+      templateFillMap:
+        HeadlessService: {{$HEADLESS_HUGE_SERVICES}}

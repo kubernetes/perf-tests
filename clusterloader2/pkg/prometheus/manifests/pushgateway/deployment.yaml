@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: monitoring
+  name: pushgateway
+  labels:
+    k8s-app: pushgateway
+  annotations:
+    prometheus.io/scrape: 'true'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: pushgateway
+  template:
+    metadata:
+      name: pushgateway
+      labels:
+        k8s-app: pushgateway
+    spec:
+      containers:
+      - name: pushgateway
+        image: gcr.io/k8s-staging-perf-tests/pushgateway:v1.4.2
+        ports:
+        - name: web
+          containerPort: 9091
+        requests:
+          limits:
+            cpu: 200m
+            memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi
+          requests:
+            cpu: 200m
+            memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi

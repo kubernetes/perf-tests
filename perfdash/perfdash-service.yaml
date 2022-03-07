@@ -4,6 +4,8 @@ metadata:
   name: perfdash-status
   labels:
     app: perfdash
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
 spec:
   selector:
     app: perfdash
@@ -11,4 +13,4 @@ spec:
   - name: status
     port: 80
     targetPort: status
-  type: NodePort
+  type: ClusterIP

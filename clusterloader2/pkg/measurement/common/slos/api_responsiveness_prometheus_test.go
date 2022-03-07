@@ -21,15 +21,19 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v2"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common/executors"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -86,6 +90,55 @@ type fakeQueryExecutor struct {
 	samples []*sample
 }
 
+type rule struct {
+	Expr   string `yaml:"expr"`
+	Record string `yaml:"record"`
+	Labels struct {
+		Quantile string `yaml:"quantile"`
+	} `yaml:"labels"`
+}
+
+type group struct {
+	Name  string `yaml:"name"`
+	Rules []rule `yaml:"rules"`
+}
+
+//prometheusRuleManifest mimics the structure of PrometheusRule object used by prometheus operator
+//https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/types.go#L1393
+type prometheusRuleManifest struct {
+	Spec struct {
+		Groups []group `yaml:"groups"`
+	} `yaml:"spec"`
+}
+
+func createRulesFile(rulesManifestFile string) (*os.File, error) {
+	r, err := ioutil.ReadFile(rulesManifestFile)
+	if err != nil {
+		return nil, err
+	}
+
+	rulesManifest := new(prometheusRuleManifest)
+	err = yaml.Unmarshal(r, rulesManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	tempFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, err
+	}
+	b, err := yaml.Marshal(rulesManifest.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tempFile.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	return tempFile, nil
+}
+
 func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
 	samples := make([]*model.Sample, 0)
 	for _, s := range ex.samples {
@@ -124,207 +177,106 @@ func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.
 
 func TestAPIResponsivenessSLOFailures(t *testing.T) {
 	cases := []struct {
-		name        string
-		samples     []*sample
-		useSimple   bool
-		allowedSlow int
-		hasError    bool
+		name               string
+		useSimple          bool
+		allowedSlow        int
+		hasError           bool
+		testSeriesFile     string
+		testSeriesDuration time.Duration
 	}{
 		{
-			name:     "slo_pass",
-			hasError: false,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  0.2,
-				},
-				{
-					resource: "pod",
-					verb:     "GET",
-					scope:    "namespace",
-					latency:  0.2,
-				},
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "cluster",
-					latency:  5.2,
-				},
-			},
+			name:               "slo_pass",
+			hasError:           false,
+			testSeriesFile:     "slo_pass.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:        "below_slow_count_pass",
-			hasError:    false,
-			allowedSlow: 1,
-			samples: []*sample{
-				{
-					resource:  "r1",
-					verb:      "POST",
-					scope:     "namespace",
-					latency:   1.5,
-					slowCount: 1,
-				},
-			},
+			name:               "below_slow_count_pass",
+			hasError:           false,
+			allowedSlow:        1,
+			testSeriesFile:     "below_slow_count_pass.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:        "above_slow_count_failure",
-			hasError:    true,
-			allowedSlow: 1,
-			samples: []*sample{
-				{
-					resource:  "r1",
-					verb:      "POST",
-					scope:     "namespace",
-					latency:   1.5,
-					slowCount: 2,
-				},
-			},
-		},
-
-		{
-			name:     "mutating_slo_failure",
-			hasError: true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-			},
+			name:               "above_slow_count_failure",
+			hasError:           true,
+			allowedSlow:        1,
+			testSeriesFile:     "above_slow_count_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:     "get_slo_failure",
-			hasError: true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "GET",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-			},
+			name:               "mutating_slo_failure",
+			hasError:           true,
+			testSeriesFile:     "mutating_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:     "namespace_list_slo_failure",
-			hasError: true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "namespace",
-					latency:  5.2,
-				},
-			},
+			name:               "get_slo_failure",
+			hasError:           true,
+			testSeriesFile:     "get_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:     "cluster_list_slo_failure",
-			hasError: true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "cluster",
-					latency:  30.2,
-				},
-			},
+			name:               "namespace_list_slo_failure",
+			hasError:           true,
+			testSeriesFile:     "namespace_list_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:      "slo_pass_simple",
-			useSimple: true,
-			hasError:  false,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  0.2,
-				},
-				{
-					resource: "pod",
-					verb:     "GET",
-					scope:    "namespace",
-					latency:  0.2,
-				},
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "cluster",
-					latency:  5.2,
-				},
-			},
+			name:               "cluster_list_slo_failure",
+			hasError:           true,
+			testSeriesFile:     "cluster_list_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:      "mutating_slo_failure_simple",
-			useSimple: true,
-			hasError:  true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-			},
+			name:               "slo_pass_simple",
+			useSimple:          true,
+			hasError:           false,
+			testSeriesFile:     "slo_pass.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:      "get_slo_failure_simple",
-			useSimple: true,
-			hasError:  true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "GET",
-					scope:    "namespace",
-					latency:  1.2,
-				},
-			},
+			name:               "mutating_slo_failure_simple",
+			useSimple:          true,
+			hasError:           true,
+			testSeriesFile:     "mutating_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:      "namespace_list_slo_failure_simple",
-			useSimple: true,
-			hasError:  true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "namespace",
-					latency:  5.2,
-				},
-			},
+			name:               "get_slo_failure_simple",
+			useSimple:          true,
+			hasError:           true,
+			testSeriesFile:     "get_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 		{
-			name:      "cluster_list_slo_failure_simple",
-			useSimple: true,
-			hasError:  true,
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "LIST",
-					scope:    "cluster",
-					latency:  30.2,
-				},
-			},
+			name:               "namespace_list_slo_failure_simple",
+			useSimple:          true,
+			hasError:           true,
+			testSeriesFile:     "namespace_list_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
+		},
+		{
+			name:               "cluster_list_slo_failure_simple",
+			useSimple:          true,
+			hasError:           true,
+			testSeriesFile:     "cluster_list_slo_failure.yaml",
+			testSeriesDuration: 10 * time.Minute,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			executor := &fakeQueryExecutor{samples: tc.samples}
+			f, err := createRulesFile("../../../prometheus/manifests/prometheus-rules.yaml")
+			if err != nil {
+				t.Fatalf("failed to create ruels file: %v", err)
+			}
+			defer os.Remove(f.Name())
+			executor, err := executors.NewPromqlExecutor(fmt.Sprintf("testdata/%s", tc.testSeriesFile), f.Name())
+			if err != nil {
+				t.Fatalf("failed to create ruels file: %v", err)
+			}
+			defer executor.Close()
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{
 				Params: map[string]interface{}{
@@ -332,8 +284,9 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 					"allowedSlowCalls":      tc.allowedSlow,
 				},
 			}
-
-			_, err := gatherer.Gather(executor, time.Now(), config)
+			start := time.Unix(0, 0).UTC()
+			end := start.Add(tc.testSeriesDuration)
+			_, err = gatherer.Gather(executor, start, end, config)
 			if tc.hasError {
 				assert.NotNil(t, err, "wanted error, but got none")
 			} else {
@@ -410,7 +363,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				},
 			}
 
-			summaries, err := gatherer.Gather(executor, time.Now(), config)
+			summaries, err := gatherer.Gather(executor, time.Now(), time.Now(), config)
 			if !errors.IsMetricViolationError(err) {
 				t.Fatal("unexpected error: ", err)
 			}
@@ -573,7 +526,7 @@ func TestLogging(t *testing.T) {
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{}
 
-			_, err := gatherer.Gather(executor, time.Now(), config)
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), config)
 			if err != nil && !errors.IsMetricViolationError(err) {
 				t.Errorf("error while gathering results: %v", err)
 			}
@@ -738,7 +691,7 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 			executor := &fakeQueryExecutor{samples: tc.samples}
 			gatherer := &apiResponsivenessGatherer{}
 
-			_, err := gatherer.Gather(executor, time.Now(), tc.config)
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), tc.config)
 			klog.Flush()
 			if tc.hasError {
 				assert.NotNil(t, err, "expected an error, but got none")

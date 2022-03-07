@@ -1,0 +1,87 @@
+{{$endpoints := .endpoints}}
+{{$isHeadless := .isHeadless}}
+{{$serviceName := .serviceName}}
+
+## CL2 params
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
+
+steps:
+- name: Create {{$serviceName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: {{$serviceName}}
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        HeadlessService: {{$isHeadless}}
+- name: Creating {{$serviceName}} measurements
+  measurements:
+  - Identifier: WaitForHugeServiceDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
+      kind: Deployment
+      labelSelector: group = {{$serviceName}}
+      operationTimeout: 20m
+- name: Creating {{$serviceName}} pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: huge-service-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: {{$endpoints}}
+        Group: huge-service
+        CpuRequest: 1m
+        MemoryRequest: 10M
+        SvcName: {{$serviceName}}
+- name: Waiting for {{$serviceName}} pods to be created
+  measurements:
+  - Identifier: WaitForHugeServiceDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting {{$serviceName}} pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: huge-service-deployment
+      objectTemplatePath: simple-deployment.yaml
+      templateFillMap:
+        Replicas: {{$endpoints}}
+        Group: {{$serviceName}}
+        CpuRequest: 1m
+        MemoryRequest: 10M
+        SvcName: {{$serviceName}}
+- name: Waiting for {{$serviceName}} pods to be deleted
+  measurements:
+  - Identifier: WaitForHugeServiceDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Delete {{$serviceName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: {{$serviceName}}
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        HeadlessService: {{$isHeadless}}

@@ -1,0 +1,10 @@
+interval: 1m
+input_series:
+- series: container_start_time_seconds{container="kube-apiserver",namespace="kube-system",pod="kube-apiserver-good"}
+  values: 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000
+
+- series: container_start_time_seconds{container="kube-apiserver",namespace="kube-system",pod="kube-apiserver-bad1"}
+  values: 1600000000 1600000000 1600000120 1600000120 1600000120 1600000120 1600000120 1600000120 1600000120 1600000120 1600000120
+
+- series: container_start_time_seconds{container="kube-apiserver",namespace="kube-system",pod="kube-apiserver-bad2"}
+  values: 1600000000 1600000000 1600000120 1600000120 1600000120 1600000300 1600000300 1600000300 1600000300 1600000300 1600000300

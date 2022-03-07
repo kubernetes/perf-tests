@@ -104,7 +104,6 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]me
 	case "gather":
 		schedulerName, err := util.GetString(config.Params, "schedulerName")
 		if err != nil {
-			//"corev1.DefaultSchedulerName"
 			return nil, err
 		}
 		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier, schedulerName)

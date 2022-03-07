@@ -1,6 +1,6 @@
 REGISTRY ?= gcr.io/k8s-staging-perf-tests
 IMAGE_NAME = dnsperfgo
-VERSION ?= v1.2.0
+VERSION ?= v1.3.0
 
 all: push
 

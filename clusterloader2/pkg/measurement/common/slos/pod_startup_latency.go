@@ -265,6 +265,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	return summaries, err
 }
 
+// TODO(#2006): gatherScheduleTimes is currently listing events at the end of the test.
+//  Given that events by default have 1h TTL, for measurements across longer periods
+//  it just returns incomplete results.
+//  Given that we don't 100% accuracy, we should switch to a mechanism that is similar
+//  to the one that slo-monitor is using (added in #1477).
 func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface) error {
 	selector := fields.Set{
 		"involvedObject.kind": "Pod",

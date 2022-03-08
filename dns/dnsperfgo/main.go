@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net"
 	"net/http"
@@ -31,7 +32,11 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
+
+const clusterDomain = "cluster.local"
 
 type Config struct {
 	qps                                      int
@@ -87,9 +92,57 @@ func hostnamesFromConfig(config *Config) []string {
 				hostnamesArr = append(hostnamesArr, h)
 			}
 		}
+	} else if config.queryClusterNames {
+		k8sClient, err := newK8sClient()
+		if err != nil {
+			log.Fatalf("Failed to create k8s client, err - %v", err)
+		}
+		hostnamesArr = dnsNamesFromK8s(k8sClient)
+	} else {
+		log.Fatalf("Neither hostname file nor -query-cluster-names flag specified, exiting")
 	}
-	// TODO(prameshj) implement reading from k8s API server
+	log.Printf("Got hostnames - %v\n", hostnamesArr)
 	return hostnamesArr
+}
+
+func newK8sClient() (*clientset.Clientset, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	return clientset.NewForConfig(config)
+}
+
+func dnsNamesFromK8s(k8sClient *clientset.Clientset) []string {
+	svcs, err := k8sClient.CoreV1().Services("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("Failed to list Services, err - %v", err)
+		return nil
+	}
+	var hostnames []string
+	for _, svc := range svcs.Items {
+		switch {
+		case svc.Spec.ClusterIP == "None":
+			// list endpoints and fetch the hostnames
+			eps, err := k8sClient.CoreV1().Endpoints(svc.Namespace).Get(context.Background(), svc.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Printf("Failed to get endpoints for %s/%s, err - %v", svc.Namespace, svc.Name, err)
+				continue
+			}
+			// This will only list upto 1000 endpoints. This should be changed to read endpoint slices if we test with larger endpoints.
+			for _, ep := range eps.Subsets {
+				for _, addr := range ep.Addresses {
+					if addr.Hostname != "" {
+						hostnames = append(hostnames, fmt.Sprintf("%s.%s.%s.svc.%s", addr.Hostname, svc.Name, svc.Namespace, clusterDomain))
+					}
+				}
+			}
+			fallthrough
+		case svc.Spec.ClusterIP != "", svc.Spec.ExternalName != "":
+			hostnames = append(hostnames, fmt.Sprintf("%s.%s.svc.%s", svc.Name, svc.Namespace, clusterDomain))
+		}
+	}
+	return hostnames
 }
 
 func (c *dnsClient) run() {

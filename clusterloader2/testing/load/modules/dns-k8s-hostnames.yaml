@@ -1,0 +1,41 @@
+# This module creates deployments of dns clients that run queries for all of the
+# reachable k8s hostnames (services and endpoints), and generate metrics.
+# The default test duration is 5 minutes.
+
+{{$tuningSet := .tuningSet}}
+
+# CL2 params
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+{{$DNS_K8S_HOSTNAMES_TEST_DURATION := DefaultParam .CL2_DNS_K8S_HOSTNAMES_TEST_DURATION "5m"}}
+
+{{if .ENABLE_DNSTESTS}}
+steps:
+- name: Create dns-clients
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: dns-clients
+      objectTemplatePath: dns-client.yaml
+
+- name: Wait for test to complete
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$DNS_K8S_HOSTNAMES_TEST_DURATION}}
+
+- name: Delete dns-clients
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: dns-clients
+      objectTemplatePath: dns-client.yaml
+{{end}}

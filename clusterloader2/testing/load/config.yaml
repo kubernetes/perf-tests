@@ -221,6 +221,11 @@ steps:
   {{end}}
 {{end}}
 
+- module:
+    path: modules/dns-k8s-hostnames.yaml
+    params:
+      tuningSet: Global100qps
+
 {{if $EXEC_COMMAND}}
 
 {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}

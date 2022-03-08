@@ -4,13 +4,9 @@ VERSION ?= v1.2.0
 
 all: push
 
-.PHONY: build_bin
-build_bin:
-	CGO_ENABLED=1 go build -o dnsperfcgo
-	CGO_ENABLED=0 go build -o dnsperfgo
 
 .PHONY: build
-build: build_bin
+build: 
 	docker build -t $(REGISTRY)/$(IMAGE_NAME):$(VERSION) .
 
 .PHONY: push

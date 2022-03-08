@@ -39,6 +39,7 @@ import (
 
 const (
 	defaultPodStartupLatencyThreshold = 5 * time.Second
+	defaultSchedulerName              = corev1.DefaultSchedulerName
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
 
@@ -102,7 +103,11 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]me
 		}
 		return nil, p.start(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
-		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier)
+		schedulerName, err := util.GetStringOrDefault(config.Params, "schedulerName", defaultSchedulerName)
+		if err != nil {
+			return nil, err
+		}
+		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier, schedulerName)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -217,7 +222,7 @@ type podStartupLatencyCheck struct {
 	filter     measurementutil.KeyFilterFunc
 }
 
-func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string) ([]measurement.Summary, error) {
+func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier string, schedulerName string) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering pod startup latency measurement...", p)
 	if !p.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", podStartupLatencyMeasurementName)
@@ -225,7 +230,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 
 	p.stop()
 
-	if err := p.gatherScheduleTimes(c); err != nil {
+	if err := p.gatherScheduleTimes(c, schedulerName); err != nil {
 		return nil, err
 	}
 
@@ -270,10 +275,10 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 //  it just returns incomplete results.
 //  Given that we don't 100% accuracy, we should switch to a mechanism that is similar
 //  to the one that slo-monitor is using (added in #1477).
-func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface) error {
+func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface, schedulerName string) error {
 	selector := fields.Set{
 		"involvedObject.kind": "Pod",
-		"source":              corev1.DefaultSchedulerName,
+		"source":              schedulerName,
 	}.AsSelector().String()
 	options := metav1.ListOptions{FieldSelector: selector}
 	schedEvents, err := c.CoreV1().Events(p.selector.Namespace).List(context.TODO(), options)

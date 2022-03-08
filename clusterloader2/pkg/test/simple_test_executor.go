@@ -146,28 +146,24 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	stepStart := time.Now()
-	if step.IsMeasurement() {
-		for i := range step.Measurements {
-			// index is created to make i value unchangeable during thread execution.
-			index := i
-			wg.Start(func() {
-				err := measurement.Execute(ctx.GetManager(), step.Measurements[index])
-				if err != nil {
-					errList.Append(fmt.Errorf("measurement call %s - %s error: %v", step.Measurements[index].Method, step.Measurements[index].Identifier, err))
-				}
-			})
-		}
-	} else if step.IsPhase() {
-		for i := range step.Phases {
-			phase := step.Phases[i]
-			wg.Start(func() {
-				if phaseErrList := ste.ExecutePhase(ctx, phase); !phaseErrList.IsEmpty() {
-					errList.Concat(phaseErrList)
-				}
-			})
-		}
-	} else {
-		errList.Append(fmt.Errorf("non-executable step: %v", step))
+
+	// We already have validation so we know that either Measurements or Phases is non-empty.
+	for i := range step.Measurements {
+		// index is created to make i value unchangeable during thread execution.
+		currentMeasurement := step.Measurements[i]
+		wg.Start(func() {
+			if errs := measurement.Execute(ctx.GetManager(), currentMeasurement); !errs.IsEmpty() {
+				errList.Concat(&errs)
+			}
+		})
+	}
+	for i := range step.Phases {
+		phase := step.Phases[i]
+		wg.Start(func() {
+			if phaseErrList := ste.ExecutePhase(ctx, phase); !phaseErrList.IsEmpty() {
+				errList.Concat(phaseErrList)
+			}
+		})
 	}
 	wg.Wait()
 	klog.V(2).Infof("Step %q ended", step.Name)

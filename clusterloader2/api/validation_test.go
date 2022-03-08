@@ -241,6 +241,64 @@ func TestVerifyPhase(t *testing.T) {
 	}
 }
 
+func TestVerifyMeasurement(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		input    Measurement
+		expected bool
+	}{
+		{
+			name: "Identifier specified only",
+			input: Measurement{
+				Identifier: "Measurement",
+			},
+			expected: true,
+		},
+		{
+			name: "Instances specified only",
+			input: Measurement{
+				Instances: []*MeasurementInstanceConfig{
+					{
+						Identifier: "Measurement1",
+					},
+					{
+						Identifier: "Measurement2",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Both identifier and instances specified",
+			input: Measurement{
+				Identifier: "Measurement",
+				Instances: []*MeasurementInstanceConfig{
+					{
+						Identifier: "Measurement1",
+					},
+					{
+						Identifier: "Measurement2",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:     "Identifier and instances empty",
+			input:    Measurement{},
+			expected: false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			v := NewConfigValidator("", &Config{})
+			got := isValid(v.validateMeasurement(&test.input, field.NewPath("")))
+			if test.expected != got {
+				t.Errorf("wanted: %v, got: %v", test.expected, got)
+			}
+		})
+	}
+}
+
 func TestVerifyStep(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -263,7 +321,8 @@ func TestVerifyStep(t *testing.T) {
 			input: Step{
 				Measurements: []*Measurement{
 					{
-						Method: "test1",
+						Method:     "test1",
+						Identifier: "measurement1",
 					},
 				},
 			},
@@ -284,7 +343,8 @@ func TestVerifyStep(t *testing.T) {
 				},
 				Measurements: []*Measurement{
 					{
-						Method: "test1",
+						Method:     "test1",
+						Identifier: "measurement1",
 					},
 				},
 			},

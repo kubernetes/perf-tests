@@ -24,18 +24,26 @@ import (
 )
 
 // Execute executes a measurement, which can be a single measurement or a wrapper for multiple measurements.
-// It throws an error if both identifier and Instances has been supplied in the config.
-func Execute(mm Manager, m *api.Measurement) error {
-	if len(m.Instances) != 0 && m.Identifier != "" {
-		return fmt.Errorf("only one of instances or identifier must be supplied. Measurement method - %s, identifier - %s, instances - %v", m.Identifier, m.Method, m.Instances)
-	}
+func Execute(mm Manager, m *api.Measurement) errors.ErrorList {
 	if m.Identifier != "" {
-		return mm.Execute(m.Method, m.Identifier, m.Params)
+		return executeSingleMeasurement(mm, m)
 	}
 	return executeWrapperMeasurement(mm, m)
 }
 
-func executeWrapperMeasurement(mm Manager, m *api.Measurement) error {
+func formatError(method, identifier string, err error) error {
+	return fmt.Errorf("measurement call %s - %s error: %v", method, identifier, err)
+}
+
+func executeSingleMeasurement(mm Manager, m *api.Measurement) errors.ErrorList {
+	errList := errors.NewErrorList()
+	if err := mm.Execute(m.Method, m.Identifier, m.Params); err != nil {
+		errList.Append(formatError(m.Method, m.Identifier, err))
+	}
+	return *errList
+}
+
+func executeWrapperMeasurement(mm Manager, m *api.Measurement) errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for i := range m.Instances {
@@ -52,13 +60,10 @@ func executeWrapperMeasurement(mm Manager, m *api.Measurement) error {
 		}
 		wg.Start(func() {
 			if err := mm.Execute(m.Method, identifier, measurementParams); err != nil {
-				errList.Append(fmt.Errorf("measurement call %s - %s error: %v", m.Method, identifier, err))
+				errList.Append(formatError(m.Method, identifier, err))
 			}
 		})
 	}
 	wg.Wait()
-	if errList.IsEmpty() {
-		return nil
-	}
-	return errList
+	return *errList
 }

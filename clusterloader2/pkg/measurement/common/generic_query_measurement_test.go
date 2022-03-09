@@ -25,6 +25,7 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 )
 
 type fakeQueryExecutor struct {
@@ -45,33 +46,35 @@ func (f fakeQueryExecutor) Query(query string, _ time.Time) ([]*model.Sample, er
 
 func TestGather(t *testing.T) {
 	testCases := []struct {
-		desc          string
-		name          string
-		queries       []genericQuery
-		samples       map[string][]float64
-		expectedData  map[string]float64
-		notWantedData []string
-		expectedErr   string
+		desc             string
+		params           map[string]interface{}
+		samples          map[string][]float64
+		expectedData     map[string]float64
+		notWantedData    []string
+		wantConfigureErr string
+		wantErr          string
 	}{
 		{
 			desc: "happy path",
-			name: "happy-path",
-			queries: []genericQuery{
-				{
-					name:         "no-samples",
-					query:        "no-samples-query[%v]",
-					hasThreshold: true,
-					threshold:    42,
-				},
-				{
-					name:         "below-threshold",
-					query:        "below-threshold-query[%v]",
-					hasThreshold: true,
-					threshold:    30,
-				},
-				{
-					name:  "no-threshold",
-					query: "no-threshold-query[%v]",
+			params: map[string]interface{}{
+				"metricName":    "happy-path",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":      "no-samples",
+						"query":     "no-samples-query[%v]",
+						"threshold": 42,
+					},
+					{
+						"name":      "below-threshold",
+						"query":     "below-threshold-query[%v]",
+						"threshold": 30,
+					},
+					{
+						"name":  "no-threshold",
+						"query": "no-threshold-query[%v]",
+					},
 				},
 			},
 			samples: map[string][]float64{
@@ -88,50 +91,84 @@ func TestGather(t *testing.T) {
 		},
 		{
 			desc: "too many samples",
-			name: "many-samples",
-			queries: []genericQuery{
-				{
-					name:  "many-samples",
-					query: "many-samples-query[%v]",
+			params: map[string]interface{}{
+				"metricName":    "many-samples",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":  "many-samples",
+						"query": "many-samples-query[%v]",
+					},
 				},
 			},
 			samples: map[string][]float64{
 				"many-samples-query[1m]": {1, 2, 3, 4, 5},
 			},
-			expectedErr: "too many samples",
+			wantErr: "too many samples",
 		},
 		{
 			desc: "sample above threshold",
-			name: "above-threshold",
-			queries: []genericQuery{
-				{
-					name:         "above-threshold",
-					query:        "above-threshold-query[%v]",
-					hasThreshold: true,
-					threshold:    60,
+			params: map[string]interface{}{
+				"metricName":    "above-threshold",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":      "above-threshold",
+						"query":     "above-threshold-query[%v]",
+						"threshold": 60,
+					},
 				},
 			},
 			samples: map[string][]float64{
 				"above-threshold-query[1m]": {113},
 			},
-			expectedErr: "sample above threshold",
+			wantErr: "sample above threshold",
+		},
+		{
+			desc: "missing field metricName",
+			params: map[string]interface{}{
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":      "no-samples",
+						"query":     "no-samples-query[%v]",
+						"threshold": 42,
+					},
+					{
+						"name":      "below-threshold",
+						"query":     "below-threshold-query[%v]",
+						"threshold": 30,
+					},
+					{
+						"name":  "no-threshold",
+						"query": "no-threshold-query[%v]",
+					},
+				},
+			},
+			wantConfigureErr: "metricName is required",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			gatherer := &genericQueryGatherer{
-				metricName: tc.name,
-				queries:    tc.queries,
+			gatherer := &genericQueryGatherer{}
+			err := gatherer.Configure(&measurement.Config{Params: tc.params})
+			if tc.wantConfigureErr != "" {
+				assert.EqualError(t, err, tc.wantConfigureErr)
+				return
 			}
+			assert.Nil(t, err)
 			startTime := time.Now()
 			endTime := startTime.Add(1 * time.Minute)
 			executor := fakeQueryExecutor{tc.samples}
 
 			summaries, err := gatherer.Gather(executor, startTime, endTime, nil)
 			if err != nil {
-				if tc.expectedErr != "" {
-					assert.True(t, strings.Contains(err.Error(), tc.expectedErr), "unexpected err: got %v, want: %v", err, tc.expectedErr)
+				if tc.wantErr != "" {
+					assert.True(t, strings.Contains(err.Error(), tc.wantErr), "unexpected err: got %v, want: %v", err, tc.wantErr)
 				} else {
 					t.Fatalf("got: %v, want no error", err)
 				}
@@ -148,7 +185,8 @@ func TestGather(t *testing.T) {
 			for _, s := range tc.notWantedData {
 				assert.False(t, strings.Contains(content, s), "summary contains extra data: got: %v, want: no %v", content, s)
 			}
-			metricNameLabelPattern := fmt.Sprintf("\"labels\":\\s*\\{\\s*\"MetricName\":\\s*\"%v\"\\s*\\}", tc.name)
+			name := tc.params["metricName"].(string)
+			metricNameLabelPattern := fmt.Sprintf("\"labels\":\\s*\\{\\s*\"MetricName\":\\s*\"%v\"\\s*\\}", name)
 			if match, err := regexp.MatchString(metricNameLabelPattern, content); !match {
 				if err != nil {
 					t.Errorf("failed to match MetricName label, got err: %v", err)

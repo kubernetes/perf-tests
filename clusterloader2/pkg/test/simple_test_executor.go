@@ -144,39 +144,37 @@ func (ste *simpleExecutor) ExecuteTestSteps(ctx Context, steps []*api.Step) *err
 func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.ErrorList {
 	klog.V(2).Infof("Step %q started", step.Name)
 	var wg wait.Group
-	errList := errors.NewErrorList()
-	stepStart := time.Now()
+	stepResults := NewStepResult(step.Name)
 
 	// We already have validation so we know that either Measurements or Phases is non-empty.
 	for i := range step.Measurements {
-		// index is created to make i value unchangeable during thread execution.
 		currentMeasurement := step.Measurements[i]
+		substepName := fmt.Sprintf("Measurement[%02d] - %s - %s", i, currentMeasurement.Method, currentMeasurement.Identifier)
+		substepID := i
 		wg.Start(func() {
-			if errs := measurement.Execute(ctx.GetManager(), currentMeasurement); !errs.IsEmpty() {
-				errList.Concat(&errs)
-			}
+			errList := measurement.Execute(ctx.GetManager(), currentMeasurement)
+			stepResults.AddSubStepResult(substepName, substepID, errList)
 		})
 	}
 	for i := range step.Phases {
 		phase := step.Phases[i]
 		wg.Start(func() {
-			if phaseErrList := ste.ExecutePhase(ctx, phase); !phaseErrList.IsEmpty() {
-				errList.Concat(phaseErrList)
-			}
+			errList := ste.ExecutePhase(ctx, phase)
+			stepResults.AddStepError(errList)
 		})
 	}
 	wg.Wait()
 	klog.V(2).Infof("Step %q ended", step.Name)
-	if !errList.IsEmpty() {
-		klog.Warningf("Got errors during step execution: %v", errList)
+	allErrors := stepResults.GetAllErrors()
+	if !allErrors.IsEmpty() {
+		klog.Warningf("Got errors during step execution: %v", allErrors)
 	}
-	ctx.GetTestReporter().ReportTestStepFinish(time.Since(stepStart), step.Name, errList)
-	return errList
+	ctx.GetTestReporter().ReportTestStep(stepResults)
+	return &allErrors
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.
 func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
-	// TODO: add tuning set
 	errList := errors.NewErrorList()
 	nsList := createNamespacesList(ctx, phase.NamespaceRange)
 	tuningSet, err := ctx.GetFactory().CreateTuningSet(phase.TuningSet)

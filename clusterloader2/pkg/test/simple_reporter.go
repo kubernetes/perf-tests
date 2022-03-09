@@ -70,6 +70,12 @@ func (str *simpleReporter) ReportTestStepFinish(duration time.Duration, stepName
 	str.stepsSummaries = append(str.stepsSummaries, stepSummary)
 }
 
+func (str *simpleReporter) ReportTestStep(result StepResult) {
+	for _, subtestResult := range result.getAllResults() {
+		str.ReportTestStepFinish(subtestResult.duration, subtestResult.name, &subtestResult.err)
+	}
+}
+
 func (str *simpleReporter) ReportTestFinish(duration time.Duration, testConfigPath string, errList *errors.ErrorList) {
 	testSummary := &ginkgotypes.SpecSummary{
 		ComponentTexts: []string{str.suiteSummary.SuiteDescription, fmt.Sprintf("%s overall (%s)", str.testName, testConfigPath)},

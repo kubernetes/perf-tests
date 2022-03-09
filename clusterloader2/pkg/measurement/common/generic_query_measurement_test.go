@@ -17,40 +17,31 @@ limitations under the License.
 package common
 
 import (
-	"fmt"
-	"regexp"
-	"strings"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 type fakeQueryExecutor struct {
-	samples map[string][]float64
+	samples map[string][]*model.Sample
 }
 
 func (f fakeQueryExecutor) Query(query string, _ time.Time) ([]*model.Sample, error) {
-	samples, found := f.samples[query]
-	if !found {
-		return nil, nil
-	}
-	res := []*model.Sample{}
-	for _, s := range samples {
-		res = append(res, &model.Sample{Value: model.SampleValue(s)})
-	}
-	return res, nil
+	return f.samples[query], nil
 }
 
 func TestGather(t *testing.T) {
 	testCases := []struct {
 		desc             string
 		params           map[string]interface{}
-		samples          map[string][]float64
-		expectedData     map[string]float64
-		notWantedData    []string
+		samples          map[string][]*model.Sample
+		wantDataItems    []measurementutil.DataItem
 		wantConfigureErr string
 		wantErr          string
 	}{
@@ -77,16 +68,19 @@ func TestGather(t *testing.T) {
 					},
 				},
 			},
-			samples: map[string][]float64{
-				"below-threshold-query[1m]": {7},
-				"no-threshold-query[1m]":    {120},
+			samples: map[string][]*model.Sample{
+				"below-threshold-query[1m]": {{Value: model.SampleValue(7)}},
+				"no-threshold-query[1m]":    {{Value: model.SampleValue(120)}},
 			},
-			expectedData: map[string]float64{
-				"below-threshold": 7.0,
-				"no-threshold":    120.0,
-			},
-			notWantedData: []string{
-				"no-samples",
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{"MetricName": "happy-path"},
+					Unit:   "ms",
+					Data: map[string]float64{
+						"below-threshold": 7.0,
+						"no-threshold":    120.0,
+					},
+				},
 			},
 		},
 		{
@@ -102,10 +96,23 @@ func TestGather(t *testing.T) {
 					},
 				},
 			},
-			samples: map[string][]float64{
-				"many-samples-query[1m]": {1, 2, 3, 4, 5},
+			samples: map[string][]*model.Sample{
+				"many-samples-query[1m]": {
+					{Value: model.SampleValue(1)},
+					{Value: model.SampleValue(2)},
+				},
 			},
 			wantErr: "too many samples",
+			// When too many samples, first value is returned and error is raised.
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{"MetricName": "many-samples"},
+					Unit:   "ms",
+					Data: map[string]float64{
+						"many-samples": 1.0,
+					},
+				},
+			},
 		},
 		{
 			desc: "sample above threshold",
@@ -121,10 +128,19 @@ func TestGather(t *testing.T) {
 					},
 				},
 			},
-			samples: map[string][]float64{
-				"above-threshold-query[1m]": {113},
+			samples: map[string][]*model.Sample{
+				"above-threshold-query[1m]": {{Value: model.SampleValue(123)}},
 			},
-			wantErr: "sample above threshold",
+			wantErr: "sample above threshold: want: less or equal than 60, got: 123",
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{"MetricName": "above-threshold"},
+					Unit:   "ms",
+					Data: map[string]float64{
+						"above-threshold": 123.0,
+					},
+				},
+			},
 		},
 		{
 			desc: "missing field metricName",
@@ -150,6 +166,158 @@ func TestGather(t *testing.T) {
 			},
 			wantConfigureErr: "metricName is required",
 		},
+		{
+			desc: "dimensions",
+			params: map[string]interface{}{
+				"metricName":    "dimensions",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"dimensions": []interface{}{
+					"d1",
+					"d2",
+				},
+				"queries": []map[string]interface{}{
+					{
+						"name":  "perc99",
+						"query": "query-perc99[%v]",
+					},
+					{
+						"name":  "perc90",
+						"query": "query-perc90[%v]",
+					},
+				},
+			},
+			samples: map[string][]*model.Sample{
+				"query-perc99[1m]": {
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val1"),
+							model.LabelName("d3"): model.LabelValue("d3-val1"), // Ignored
+						},
+						Value: model.SampleValue(1),
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val2"),
+						},
+						Value: model.SampleValue(2),
+					},
+				},
+				"query-perc90[1m]": {
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val1"),
+						},
+						Value: model.SampleValue(3),
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val2"),
+						},
+						Value: model.SampleValue(4),
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							// d2 not set
+						},
+						Value: model.SampleValue(5),
+					},
+				},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{
+						"MetricName": "dimensions",
+						"d1":         "d1-val1",
+						"d2":         "d2-val1",
+					},
+					Unit: "ms",
+					Data: map[string]float64{
+						"perc99": 1.0,
+						"perc90": 3.0,
+					},
+				},
+				{
+					Labels: map[string]string{
+						"MetricName": "dimensions",
+						"d1":         "d1-val1",
+						"d2":         "d2-val2",
+					},
+					Unit: "ms",
+					Data: map[string]float64{
+						"perc99": 2.0,
+						"perc90": 4.0,
+					},
+				},
+				{
+					Labels: map[string]string{
+						"MetricName": "dimensions",
+						"d1":         "d1-val1",
+						"d2":         "",
+					},
+					Unit: "ms",
+					Data: map[string]float64{
+						// perc99 doesn't return this combination.
+						"perc90": 5.0,
+					},
+				},
+			},
+		},
+		{
+			desc: "multiple values for single dimension",
+			params: map[string]interface{}{
+				"metricName":    "dimensions",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"dimensions": []interface{}{
+					"d1",
+					"d2",
+				},
+				"queries": []map[string]interface{}{
+					{
+						"name":  "perc99",
+						"query": "query-perc99[%v]",
+					},
+				},
+			},
+			samples: map[string][]*model.Sample{
+				"query-perc99[1m]": {
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val1"),
+						},
+						Value: model.SampleValue(1),
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("d1"): model.LabelValue("d1-val1"),
+							model.LabelName("d2"): model.LabelValue("d2-val1"),
+						},
+						Value: model.SampleValue(2),
+					},
+				},
+			},
+			wantErr: "too many samples for [d1-val1 d2-val1]",
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{
+						"MetricName": "dimensions",
+						"d1":         "d1-val1",
+						"d2":         "d2-val1",
+					},
+					Unit: "ms",
+					Data: map[string]float64{
+						"perc99": 1.0,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -157,7 +325,7 @@ func TestGather(t *testing.T) {
 			gatherer := &genericQueryGatherer{}
 			err := gatherer.Configure(&measurement.Config{Params: tc.params})
 			if tc.wantConfigureErr != "" {
-				assert.EqualError(t, err, tc.wantConfigureErr)
+				assert.Contains(t, err.Error(), tc.wantConfigureErr)
 				return
 			}
 			assert.Nil(t, err)
@@ -166,34 +334,17 @@ func TestGather(t *testing.T) {
 			executor := fakeQueryExecutor{tc.samples}
 
 			summaries, err := gatherer.Gather(executor, startTime, endTime, nil)
-			if err != nil {
-				if tc.wantErr != "" {
-					assert.True(t, strings.Contains(err.Error(), tc.wantErr), "unexpected err: got %v, want: %v", err, tc.wantErr)
-				} else {
-					t.Fatalf("got: %v, want no error", err)
-				}
+			if tc.wantErr != "" {
+				assert.Contains(t, err.Error(), tc.wantErr)
+			} else {
+				assert.Nil(t, err)
 			}
-
-			if len(summaries) != 1 {
-				t.Fatalf("wrong number of summaries, got: %v, want: 1", len(summaries))
-			}
+			require.Len(t, summaries, 1)
 			content := summaries[0].SummaryContent()
-			for k, v := range tc.expectedData {
-				entry := fmt.Sprintf("\"%v\": %v", k, v)
-				assert.True(t, strings.Contains(content, entry), "summary missing data: got: %v, want: %v", content, entry)
-			}
-			for _, s := range tc.notWantedData {
-				assert.False(t, strings.Contains(content, s), "summary contains extra data: got: %v, want: no %v", content, s)
-			}
-			name := tc.params["metricName"].(string)
-			metricNameLabelPattern := fmt.Sprintf("\"labels\":\\s*\\{\\s*\"MetricName\":\\s*\"%v\"\\s*\\}", name)
-			if match, err := regexp.MatchString(metricNameLabelPattern, content); !match {
-				if err != nil {
-					t.Errorf("failed to match MetricName label, got err: %v", err)
-				} else {
-					t.Errorf("MetricName label not matched, got: %v, wanted to match, %v", content, metricNameLabelPattern)
-				}
-			}
+			perfData := measurementutil.PerfData{}
+			err = json.Unmarshal([]byte(content), &perfData)
+			require.Nil(t, err)
+			assert.ElementsMatch(t, perfData.DataItems, tc.wantDataItems)
 		})
 	}
 }

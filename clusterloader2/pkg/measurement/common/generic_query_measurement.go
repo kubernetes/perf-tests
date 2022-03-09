@@ -54,6 +54,7 @@ type StartParams struct {
 	MetricVersion string
 	Queries       []GenericQuery
 	Unit          string
+	Dimensions    []string
 }
 
 // TODO(mborsz): github.com/go-playground/validator or similar project?
@@ -104,38 +105,70 @@ func (g *genericQueryGatherer) IsEnabled(config *measurement.Config) bool {
 	return true
 }
 
+func key(metric model.Metric, dimensions []string) (string, map[string]string) {
+	s := make([]string, 0)
+	m := make(map[string]string)
+	for _, dimension := range dimensions {
+		val := string(metric[model.LabelName(dimension)])
+		s = append(s, val)
+		m[dimension] = val
+	}
+	return fmt.Sprintf("%v", s), m
+}
+
+func getOrCreate(dataItems map[string]*measurementutil.DataItem, key, unit string, labels map[string]string) *measurementutil.DataItem {
+	dataItem, ok := dataItems[key]
+	if ok {
+		return dataItem
+	}
+	dataItem = &measurementutil.DataItem{
+		Data:   make(map[string]float64),
+		Unit:   unit,
+		Labels: labels,
+	}
+	dataItems[key] = dataItem
+	return dataItem
+}
+
 func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	var errs []error
-	data := map[string]float64{}
+	dataItems := map[string]*measurementutil.DataItem{}
 	for _, q := range g.Queries {
 		samples, err := g.query(q, executor, startTime, endTime)
 		if err != nil {
 			return nil, err
 		}
 
-		if len(samples) > 1 {
-			errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("too many samples: query returned %v streams, expected 1", len(samples))))
-		}
 		if len(samples) == 0 {
 			klog.Warningf("query returned no samples for %v: %v", g.MetricName, q.Name)
 			continue
 		}
 
-		val := float64(samples[0].Value)
+		for _, sample := range samples {
+			k, labels := key(sample.Metric, g.Dimensions)
+			// In addition to "key" labels, we need to put MetricName for perfdash.
+			labels["MetricName"] = g.MetricName
+			dataItem := getOrCreate(dataItems, k, g.Unit, labels)
 
-		thresholdMsg := "none"
-		if q.Threshold != nil {
-			thresholdMsg = fmt.Sprintf("%v", *q.Threshold)
+			val := float64(sample.Value)
+			prevVal, ok := dataItem.Data[q.Name]
+			if ok {
+				errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("too many samples for %s: query returned %v and %v, expected single value.", k, val, prevVal)))
+			} else {
+				dataItem.Data[q.Name] = val
+			}
+
+			thresholdMsg := "none"
+			if q.Threshold != nil {
+				thresholdMsg = fmt.Sprintf("%v", *q.Threshold)
+			}
+			klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
+			if q.Threshold != nil && val > *q.Threshold {
+				errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", *q.Threshold, val)))
+			}
 		}
-		klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
-
-		if q.Threshold != nil && val > *q.Threshold {
-			errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", q.Threshold, val)))
-		}
-
-		data[q.Name] = val
 	}
-	summary, err := g.createSummary(g.MetricName, data)
+	summary, err := g.createSummary(g.MetricName, dataItems)
 	if err != nil {
 		return nil, err
 	}
@@ -156,19 +189,17 @@ func (g *genericQueryGatherer) query(q GenericQuery, executor QueryExecutor, sta
 	return executor.Query(boundedQuery, endTime)
 }
 
-func (g *genericQueryGatherer) createSummary(metricName string, data map[string]float64) (measurement.Summary, error) {
-	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
-		Version: g.MetricVersion,
-		DataItems: []measurementutil.DataItem{
-			{
-				Data: data,
-				Unit: g.Unit,
-				Labels: map[string]string{
-					"MetricName": metricName,
-				},
-			},
-		},
-	})
+func (g *genericQueryGatherer) createSummary(metricName string, dataItems map[string]*measurementutil.DataItem) (measurement.Summary, error) {
+	perfData := &measurementutil.PerfData{
+		Version:   g.MetricVersion,
+		DataItems: nil,
+	}
+
+	for _, dataItem := range dataItems {
+		perfData.DataItems = append(perfData.DataItems, *dataItem)
+	}
+
+	content, err := util.PrettyPrintJSON(perfData)
 	if err != nil {
 		return nil, err
 	}

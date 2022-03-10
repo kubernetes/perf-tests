@@ -166,6 +166,14 @@ steps:
     objectBundle:
     - basename: deployment
       objectTemplatePath: {{$DEPLOYMENT_TEMPLATE_PATH}}
+- name: Waiting for pods to be deleted
+  measurements:
+    - Identifier: WaitForDeletedPods
+      Method: WaitForRunningPods
+      Params:
+        desiredPodCount: 0
+        labelSelector: group = volume-test
+        timeout: {{$POD_STARTUP_TIMEOUT}}
 {{ end }}
 {{ if $PROVISION_VOLUME }}
 # Delete volumes

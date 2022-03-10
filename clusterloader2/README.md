@@ -148,6 +148,11 @@ This measurement works as a barrier that waits until specified controlling objec
 (ReplicationController, ReplicaSet, Deployment, DaemonSet and Job) have all pods running.
 Controlling objects can be specified by label selector, field selector and namespace.
 In case of timeout test continues to run, with error (causing marking test as failed) being logged.
+Supports "start", "gather" and "stop" as actions. "Starts" begins the measurement, "gather"
+waits pods to be running or (if called again) to be stopped, and "stop" ends the measurement
+and cleans up. Calling "stop" is optional and not needed when the test terminates anyway.
+Calling it is useful in long-running tests because otherwise the measurement keeps
+running in the background and may start emitting unexpected log output.
 - **WaitForRunningPods** \
 This is a barrier that waits until required number of pods are running.
 Pods can be specified by label selector, field selector and namespace.

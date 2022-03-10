@@ -147,6 +147,9 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 			return nil, err
 		}
 		return nil, w.gather(syncTimeout)
+	case "stop":
+		w.Dispose()
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -158,6 +161,9 @@ func (w *waitForControlledPodsRunningMeasurement) Dispose() {
 		return
 	}
 	w.isRunning = false
+	// This does not actually wait for the informer to stop!
+	// informer.StartAndSync would have to be extended to support
+	// a WaitGroup that we then can wait on here.
 	close(w.stopCh)
 	w.queue.Stop()
 	w.lock.Lock()
@@ -210,6 +216,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	if !w.isRunning {
 		return fmt.Errorf("metric %s has not been started", w)
 	}
+
 	objectKeys, maxResourceVersion, err := w.getObjectKeysAndMaxVersion()
 	if err != nil {
 		return err

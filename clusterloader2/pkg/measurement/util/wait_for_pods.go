@@ -21,8 +21,11 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	clientset "k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog"
 )
 
@@ -41,6 +44,7 @@ type WaitForPodOptions struct {
 	CallerName          string
 	WaitForPodsInterval time.Duration
 	SilentProgress      bool
+	Lister              corev1listers.PodLister
 
 	// IsPodUpdated can be used to detect which pods have been already updated.
 	// nil value means all pods are updated.
@@ -51,13 +55,35 @@ type WaitForPodOptions struct {
 // Pods are be specified by namespace, field and/or label selectors.
 // If stopCh is closed before all pods are running, the error will be returned.
 func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) (finalErr error) {
-	ps, err := NewPodStore(clientSet, options.Selector)
-	if err != nil {
-		return fmt.Errorf("pod store creation error: %v", err)
+	var lister func() []*corev1.Pod
+	if options.Selector.FieldSelector == "" && options.Lister != nil {
+		// This is more efficient, which is crucial when WaitForPods gets called
+		// for a single pod and a lot of those get created.
+		labelSelector, err := labels.Parse(options.Selector.LabelSelector)
+		if err != nil {
+			return fmt.Errorf("invalid WaitForPodOptions.Selector.LabelSelector: %v", err)
+		}
+		lister = func() []*corev1.Pod {
+			pods, err := options.Lister.Pods(options.Selector.Namespace).List(labelSelector)
+			if err != nil {
+				// Should never happen when Lister is a local cache.
+				panic(err)
+			}
+			return pods
+		}
+	} else {
+		// We have to create our own watch because filtering by field
+		// is implemented inside the apiserver or we don't have
+		// a shared PodLister.
+		ps, err := NewPodStore(clientSet, options.Selector)
+		if err != nil {
+			return fmt.Errorf("pod store creation error: %v", err)
+		}
+		defer ps.Stop()
+		lister = ps.List
 	}
-	defer ps.Stop()
 
-	oldPods := ps.List()
+	oldPods := lister()
 	scaling := uninitialized
 	var podsStatus PodsStartupStatus
 	var lastIsPodUpdatedError error
@@ -100,7 +126,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				scaling = down
 			}
 
-			pods := ps.List()
+			pods := lister()
 			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 			if podsStatus.LastIsPodUpdatedError != nil {
 				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError

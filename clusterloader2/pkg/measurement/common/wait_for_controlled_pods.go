@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
@@ -97,6 +99,7 @@ type waitForControlledPodsRunningMeasurement struct {
 	checkerMap            checker.Map
 	clusterFramework      *framework.Framework
 	checkIfPodsAreUpdated bool
+	podLister             corev1listers.PodLister
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -182,6 +185,12 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
+
+	// Reuse the same informer for all WaitForPods calls.
+	informerFactory := informers.NewSharedInformerFactory(w.clusterFramework.GetClientSets().GetClient(), informerSyncTimeout)
+	w.podLister = informerFactory.Core().V1().Pods().Lister()
+	informerFactory.Start(w.stopCh)
+
 	i := informer.NewDynamicInformer(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr,
@@ -550,6 +559,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,
 			SilentProgress:      true,
+			Lister:              w.podLister,
 		}
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.

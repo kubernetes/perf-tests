@@ -40,6 +40,7 @@ type WaitForPodOptions struct {
 	CountErrorMargin    int
 	CallerName          string
 	WaitForPodsInterval time.Duration
+	SilentProgress      bool
 
 	// IsPodUpdated can be used to detect which pods have been already updated.
 	// nil value means all pods are updated.
@@ -49,7 +50,7 @@ type WaitForPodOptions struct {
 // WaitForPods waits till desired number of pods is running.
 // Pods are be specified by namespace, field and/or label selectors.
 // If stopCh is closed before all pods are running, the error will be returned.
-func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) error {
+func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForPodOptions) (finalErr error) {
 	ps, err := NewPodStore(clientSet, options.Selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
@@ -61,10 +62,28 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	var podsStatus PodsStartupStatus
 	var lastIsPodUpdatedError error
 
+	desiredPodCount := options.DesiredPodCount()
+	klog.V(2).Infof("%s: %s: start waiting for pod count %d", options.CallerName, options.Selector.String(), desiredPodCount)
+	defer func() {
+		if finalErr != nil {
+			klog.Errorf("%s: %s: failed: %v", options.CallerName, options.Selector.String(), finalErr)
+		} else {
+			klog.V(2).Infof("%s: %s: completed successfully", options.CallerName, options.Selector.String())
+		}
+	}()
+
+	// The periodic status dumps below only make sense when there is a
+	// single WaitForPods running, for example in the WaitForRunningPods
+	// measurements. When WaitForControlledPodsRunning invokes it for every
+	// single deployment in parallel, then the log output is too verbose.
+	klogVProgress := klog.V(2)
+	if options.SilentProgress {
+		klogVProgress = klog.V(5)
+	}
+
 	for {
 		select {
 		case <-stopCh:
-			desiredPodCount := options.DesiredPodCount()
 			pods := ComputePodsStatus(oldPods)
 			klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, options.Selector.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
 			klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, options.Selector.String(), pods)
@@ -72,8 +91,6 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			return fmt.Errorf("timeout while waiting for %d pods to be running in namespace '%v' with labels '%v' and fields '%v' - summary of pods : %s",
 				desiredPodCount, options.Selector.Namespace, options.Selector.LabelSelector, options.Selector.FieldSelector, podsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
-			desiredPodCount := options.DesiredPodCount()
-
 			switch {
 			case len(oldPods) == desiredPodCount:
 				scaling = none
@@ -98,7 +115,7 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 			if scaling != up && len(addedPods) > 0 {
 				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, options.Selector.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
-			klog.V(2).Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
+			klogVProgress.Infof("%s: %s: %s", options.CallerName, options.Selector.String(), podsStatus.String())
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {

@@ -1,0 +1,6 @@
+periodics:
+- cron: '1 17 * * *' # Run daily at 9:01PST (17:01 UTC)
+  name: ci-kubernetes-e2e-gce-scale-performance
+  tags:
+  - "perfDashPrefix: gce-5000Nodes"
+  - "perfDashJobType: performance"

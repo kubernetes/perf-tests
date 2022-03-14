@@ -92,9 +92,15 @@ func (b *GCSMetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix 
 	var files []string
 	ctx := context.Background()
 	jobPrefix := joinStringsAndInts(b.logPath, job, buildNumber, prefix)
-	it := b.bucket.Objects(ctx, &storage.Query{
+	query := &storage.Query{
 		Prefix: jobPrefix,
-	})
+	}
+	err := query.SetAttrSelection([]string{"Name"})
+	if err != nil {
+		return nil, err
+	}
+
+	it := b.bucket.Objects(ctx, query)
 	for {
 		attrs, err := it.Next()
 		if err == iterator.Done {
@@ -107,6 +113,10 @@ func (b *GCSMetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix 
 		files = append(files, attrs.Name)
 	}
 	return files, nil
+}
+
+func (b *GCSMetricsBucket) GetFilePrefix(job string, buildNumber int, prefix string) string {
+	return joinStringsAndInts(b.logPath, job, buildNumber, prefix)
 }
 
 // ReadFile reads the file contents from the GCS bucket.

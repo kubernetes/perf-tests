@@ -95,6 +95,10 @@ func (s *S3MetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix s
 	return files, nil
 }
 
+func (s *S3MetricsBucket) GetFilePrefix(job string, buildNumber int, prefix string) string {
+	return joinStringsAndInts(s.logPath, job, buildNumber, prefix)
+}
+
 // ReadFile reads the file contents from the S3 bucket.
 func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
 	filePath := joinStringsAndInts(s.logPath, job, buildNumber, path)

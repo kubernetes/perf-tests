@@ -5,8 +5,6 @@
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 {{$schedulerThroughputPodsPerDeployment := .schedulerThroughputPodsPerDeployment}}
-# .serviceName is optional
-{{$serviceName := DefaultParam .serviceName ""}}
 
 ## Derivative variables
 {{$is_creating := (eq .action "create")}}
@@ -59,7 +57,6 @@ steps:
         Group: scheduler-throughput
         CpuRequest: 1m
         MemoryRequest: 10M
-        SvcName: {{$serviceName}}
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments

@@ -232,6 +232,9 @@ func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (stri
 	}
 
 	var command string
+	if p.config.componentName == "kube-apiserver" && profilePort != config.ClusterFramework.GetClusterConfig().KubeApiserverPort {
+		profilePort = config.ClusterFramework.GetClusterConfig().KubeApiserverPort
+	}
 	if p.config.componentName == "etcd" {
 		etcdCert := config.ClusterFramework.GetClusterConfig().EtcdCertificatePath
 		etcdKey := config.ClusterFramework.GetClusterConfig().EtcdKeyPath

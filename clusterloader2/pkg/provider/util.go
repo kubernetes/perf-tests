@@ -27,7 +27,7 @@ func getComponentProtocolAndPort(componentName string) (string, int, error) {
 	case "etcd":
 		return "https://", 2379, nil
 	case "kube-apiserver":
-		return "https://", 6443, nil
+		return "https://", 443, nil
 	case "kube-controller-manager":
 		return "https://", 10257, nil
 	case "kube-scheduler":

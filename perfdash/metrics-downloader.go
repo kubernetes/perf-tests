@@ -92,6 +92,45 @@ func (g *Downloader) getData() (JobToCategoryData, error) {
 	return result, nil
 }
 
+type artifactsCache struct {
+	cache  map[string][]string
+	bucket MetricsBucket
+}
+
+func newArtifactsCache(bucket MetricsBucket) artifactsCache {
+	return artifactsCache{
+		cache:  make(map[string][]string),
+		bucket: bucket,
+	}
+}
+
+func (a *artifactsCache) getMatchingFiles(job string, buildNumber int, prefix string) ([]string, error) {
+	dirPrefix := a.bucket.GetFilePrefix(job, buildNumber, "/")
+	searchPrefix := a.bucket.GetFilePrefix(job, buildNumber, prefix)
+
+	if _, ok := a.cache[dirPrefix]; !ok {
+		result, err := a.bucket.ListFilesInBuild(job, buildNumber, "/")
+		if err != nil {
+			return nil, err
+		}
+
+		a.cache[dirPrefix] = result
+	}
+
+	val, ok := a.cache[dirPrefix]
+	if !ok {
+		return nil, fmt.Errorf("couldn't get list of files from cache")
+	}
+	matchedFiles := []string{}
+	for _, file := range val {
+		if strings.HasPrefix(file, searchPrefix) {
+			matchedFiles = append(matchedFiles, file)
+		}
+	}
+
+	return matchedFiles, nil
+}
+
 /*
 getJobData fetches build numbers, reads metrics data from GCS and
 updates result with parsed metrics for a given prow job. Assumptions:
@@ -118,6 +157,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
+		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
@@ -130,11 +170,13 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 						filePrefix = fmt.Sprintf("%v_%v", filePrefix, testDescription.Name)
 					}
 					searchPrefix := g.artifactName(tests, filePrefix)
-					artifacts, err := g.MetricsBkt.ListFilesInBuild(job, buildNumber, searchPrefix)
+
+					artifacts, err := cache.getMatchingFiles(job, buildNumber, searchPrefix)
 					if err != nil || len(artifacts) == 0 {
 						klog.Infof("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
 						continue
 					}
+
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
 						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts, testDescription.ForceConstantCategory)
@@ -186,6 +228,7 @@ func getBuildData(result JobToCategoryData, prefix string, category string, labe
 type MetricsBucket interface {
 	GetBuildNumbers(job string) ([]int, error)
 	ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error)
+	GetFilePrefix(job string, buildNumber int, prefix string) string
 	ReadFile(job string, buildNumber int, path string) ([]byte, error)
 }
 

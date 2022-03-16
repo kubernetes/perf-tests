@@ -352,6 +352,11 @@ sum(
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
     ),
     d.simple_graph(
+        "Watch terminated total",
+        "sum(rate(apiserver_terminated_watchers_total{}[1m])) by (resource, instance)",
+        legend="{{instance}}: {{resource}}",
+    ),
+    d.simple_graph(
         "Inflight requests",
         "sum(apiserver_current_inflight_requests) by (requestKind, instance)",
         legend="{{instance}}: {{requestKind}}",

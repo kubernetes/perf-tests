@@ -1,0 +1,44 @@
+# Simple example of the use of chaos monkey measurement.
+#
+# Notes on parameters:
+#    failureRate is a percentage of all nodes that could fail simultinously.
+#    interval is the time between node failures.
+#    jitterFactor is a factor used to jitter node failures within [Interval, Interval + (1.0 + JitterFactor)] range.
+#    simulatedDowntime is a duration between node is killed and recreated.
+
+{{$duration := "60s"}}
+{{$namespaces := 1}}
+
+name: chaos-monkey
+namespace:
+  number: {{$namespaces}}
+steps:
+- name: Start chaos monkey
+  measurements:
+  - Identifier: chaosMonkey
+    Method: ChaosMonkey
+    Params:
+      action: start
+      failureRate: 0.1
+      interval: 10s
+      jitterFactor: 0.1
+      simulatedDowntime: 10s
+- name: Sleep
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+- name: Stop chaos monkey
+  measurements:
+  - Identifier: chaosMonkey
+    Method: ChaosMonkey
+    Params:
+      action: stop
+# Give nodes time to recover - 'stop chaos monkey' step ends once reboot is triggered, not completed
+- name: Sleep
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$duration}}

@@ -46,7 +46,7 @@ const (
 	defaultWaitForFinishedJobsTimeout = 10 * time.Minute
 	waitForFinishedJobsName           = "WaitForFinishedJobs"
 	waitForFinishedJobsWorkers        = 1
-	checkFinishedJobsInterval         = 5 * time.Second
+	checkFinishedJobsInterval         = time.Second
 )
 
 func init() {

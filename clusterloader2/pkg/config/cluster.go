@@ -55,6 +55,7 @@ type ClusterConfig struct {
 	APIServerPprofByClientEnabled bool
 	KubeletPort                   int
 	K8SClientsNumber              int
+	SkipClusterVerification       bool
 }
 
 // ModifierConfig represent all flags used by test modification

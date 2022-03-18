@@ -19,10 +19,9 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
-{{$ENABLE_HUGE_SERVICES := DefaultParam .CL2_ENABLE_HUGE_SERVICES false}}
-{{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS := DefaultParam .CL2_ENABLE_HUGE_SERVICES_MULTIPLE_REPLICAS false}}
-# Determines number of pods per deployment. Should be a divider of .Nodes.
-{{$HUGE_SERVICES_SIZE := DefaultParam .CL2_HUGE_SERVICES_SIZE 1000}}
+{{$SCHEDULER_THROUGHPUT_SIZE := DefaultParam .CL2_SCHEDULER_THROUGHPUT_SIZE .Nodes}}
+# Determines number of pods per deployment. Should be a divider of $SCHEDULER_THROUGHPUT_SIZE.
+{{$SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT 1000}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -65,10 +64,9 @@
 {{$schedulerThroughputPodsPerDeployment := .Nodes}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
 
-{{if and $ENABLE_HUGE_SERVICES $ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS (ge .Nodes $HUGE_SERVICES_SIZE)}}
-  {{$schedulerThroughputReplicasPerNamespace = DivideInt .Nodes $HUGE_SERVICES_SIZE}}
-  {{$schedulerThroughputPodsPerDeployment = DivideInt .Nodes $schedulerThroughputReplicasPerNamespace}}
-  {{$schedulerThroughputNamespaces = 1}}
+{{if ge $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputReplicasPerNamespace = DivideInt $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
+  {{$schedulerThroughputPodsPerDeployment = $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
 {{end}}
 
 # Set schedulerThroughputNamespaces to 1 on small clusters otherwise it will result
@@ -80,6 +78,8 @@
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
+
+{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
 
 name: load
 namespace:
@@ -170,7 +170,13 @@ steps:
       namespaces: {{$namespaces}}
       tuningSet: RandomizedSaturationTimeLimited
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.0
+      # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.
+      # The goal is to cache the image to all nodes before we start any latency pod,
+      # so that when we measure pod startup latency, the image is already present on all nodes.
+      # This way, the pod startup latency we measure excludes (or limits impact) of image pulling,
+      # whuch matches our SLO definition: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md.
+      daemonSetImage: {{$latencyPodImage}}
+      daemonSetEnv: "before update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
@@ -191,28 +197,14 @@ steps:
 
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
-  {{if $ENABLE_HUGE_SERVICES}}
-- module:
-    path: modules/huge-services.yaml
-    params:
-      action: create
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 1
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-  {{end}}
 - module:
     path: modules/scheduler-throughput.yaml
     params:
       action: create
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: {{$schedulerThroughputReplicasPerNamespace}}
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-  {{if $ENABLE_HUGE_SERVICES}}
-      serviceName: huge-service
-  {{end}}
 {{end}}
 
 {{if $EXEC_COMMAND}}
@@ -260,22 +252,10 @@ steps:
     path: modules/scheduler-throughput.yaml
     params:
       action: delete
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
       namespaces: {{$namespaces}}
       replicasPerNamespace: 0
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-  {{if $ENABLE_HUGE_SERVICES}}
-      serviceName: huge-service
-- module:
-    path: modules/huge-services.yaml
-    params:
-      action: delete
-      enableMultipleDeployments: {{$ENABLE_HUGE_SERVICES_MULTIPLE_DEPLOYMENTS}}
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 0
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-  {{end}}
 # END scheduler throughput
 {{end}}
 
@@ -286,6 +266,7 @@ steps:
     params:
       namespaces: {{$namespaces}}
       minPodsInSmallCluster: {{$MIN_PODS_IN_SMALL_CLUSTERS}}
+      image: {{$latencyPodImage}}
 {{end}}
 
 - module:
@@ -296,7 +277,8 @@ steps:
       tuningSet: RandomizedScalingTimeLimited
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.1
+      daemonSetImage: {{$latencyPodImage}}
+      daemonSetEnv: "after update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
@@ -322,7 +304,6 @@ steps:
       namespaces: {{$namespaces}}
       tuningSet: RandomizedDeletionTimeLimited
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: k8s.gcr.io/pause:3.1
       daemonSetReplicas: 0
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: 0

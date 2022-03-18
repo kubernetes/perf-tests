@@ -16,6 +16,13 @@
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
+{{$ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT := DefaultParam .CL2_ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT false}}
+{{$CEP_PROPAGATION_DELAY_SLO_BUCKET := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_BUCKET 600}}
+{{$CEP_PROPAGATION_DELAY_SLO_PERCENTILE := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_PERCENTILE 95.0}}
+{{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
+{{$ENABLE_CONTAINER_RESOURCES_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESOURCES_MEASUREMENT false}}
+{{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
+{{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
 {{$PROMETHEUS_SCRAPE_KUBE_STATE_METRICS := DefaultParam .PROMETHEUS_SCRAPE_KUBE_STATE_METRICS false}}
@@ -100,6 +107,58 @@ steps:
       pollFrequency: "5s"
       hostPollTimeoutSeconds: 5
       threshold: {{$API_AVAILABILITY_PERCENTAGE_THRESHOLD}}
+{{end}}
+{{if $ENABLE_CONTAINER_RESTARTS_MEASUREMENT}}
+  - Identifier: ContainerRestarts
+    Method: ContainerRestarts
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
+      customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
+{{end}}
+{{if $ENABLE_CONTAINER_RESOURCES_MEASUREMENT}}
+  - Identifier: ContainerCPU
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Container CPU
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - container
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+      - name: Perc90
+        query: quantile_over_time(0.90, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+      - name: Perc50
+        query: quantile_over_time(0.50, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+  - Identifier: ContainerMemory
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Container Memory
+      metricVersion: v1
+      unit: MiB
+      dimensions:
+      - container
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+      - name: Perc90
+        query: quantile_over_time(0.90, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+      - name: Perc50
+        query: quantile_over_time(0.50, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+{{end}}
+{{if $ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT}}
+  - Identifier: CiliumEndpointPropagationDelay
+    Method: CiliumEndpointPropagationDelay
+    Params:
+      action: {{$action}}
+      bucketSLO: {{$CEP_PROPAGATION_DELAY_SLO_BUCKET}}
+      percentileSLO: {{$CEP_PROPAGATION_DELAY_SLO_PERCENTILE}}
+      enableViolations: true
 {{end}}
   - Identifier: TestMetrics
     Method: TestMetrics

@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
@@ -48,6 +49,11 @@ func IntVar(i *int, flagName string, defaultValue int, description string) {
 // BoolVar creates a bool flag with given parameters.
 func BoolVar(b *bool, flagName string, defaultValue bool, description string) {
 	pflag.BoolVar(b, flagName, defaultValue, description)
+}
+
+// DurationVar creates a time.Duration flag with given parameters.
+func DurationVar(d *time.Duration, flagName string, defaultValue time.Duration, description string) {
+	pflag.DurationVar(d, flagName, defaultValue, description)
 }
 
 // StringEnvVar creates string flag with given parameters.
@@ -99,6 +105,17 @@ func BoolEnvVar(b *bool, flagName, envVariable string, defaultValue bool, descri
 	// Set NoOptDefValue, to make --flag-name equivalent to --flag-name=true
 	pflag.CommandLine.VarPF(boolFlag, flagName, "", description).NoOptDefVal = "true"
 	flags = append(flags, boolFlag)
+}
+
+// DurationEnvVar creates time.Duration flag with given parameters.
+// If flag is not provided, it will try to get env variable.
+func DurationEnvVar(d *time.Duration, flagName, envVariable string, defaultValue time.Duration, description string) {
+	durationFlag := &durationFlagFunc{
+		valPtr:         d,
+		initializeFunc: func() error { return parseEnvDuration(d, envVariable, defaultValue) },
+	}
+	pflag.Var(durationFlag, flagName, description)
+	flags = append(flags, durationFlag)
 }
 
 // Parse parses provided flags and env variables.
@@ -164,6 +181,21 @@ func parseEnvBool(b *bool, envVariable string, defaultValue bool) error {
 				return fmt.Errorf("parsing env variable %s failed", envVariable)
 			}
 			*b = bVal
+			return nil
+		}
+	}
+	return nil
+}
+
+func parseEnvDuration(d *time.Duration, envVariable string, defaultValue time.Duration) error {
+	*d = defaultValue
+	if envVariable != "" {
+		if val, ok := os.LookupEnv(envVariable); ok {
+			dVal, err := time.ParseDuration(val)
+			if err != nil {
+				return fmt.Errorf("parsing env variable %s failed", envVariable)
+			}
+			*d = dVal
 			return nil
 		}
 	}

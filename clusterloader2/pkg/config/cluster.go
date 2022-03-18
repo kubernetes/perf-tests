@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"time"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 )
 
@@ -52,6 +54,7 @@ type ClusterConfig struct {
 	// using kubernetes client. If false, clusterloader will avoid collecting kube-apiserver profiles.
 	APIServerPprofByClientEnabled bool
 	KubeletPort                   int
+	K8SClientsNumber              int
 }
 
 // ModifierConfig represent all flags used by test modification
@@ -66,24 +69,30 @@ type ModifierConfig struct {
 type PrometheusConfig struct {
 	EnableServer               bool
 	TearDownServer             bool
+	EnablePushgateway          bool
 	ScrapeEtcd                 bool
 	ScrapeNodeExporter         bool
 	ScrapeKubelets             bool
+	ScrapeMasterKubelets       bool
 	ScrapeKubeProxy            bool
 	ScrapeKubeStateMetrics     bool
 	ScrapeMetricsServerMetrics bool
 	ScrapeNodeLocalDNS         bool
 	ScrapeAnet                 bool
+	ScrapeCiliumOperator       bool
+	APIServerScrapePort        int
 	SnapshotProject            string
 	ManifestPath               string
 	CoreManifests              string
 	DefaultServiceMonitors     string
-	MasterIPServiceMonitors    string
 	KubeStateMetricsManifests  string
+	MasterIPServiceMonitors    string
 	MetricsServerManifests     string
 	NodeExporterPod            string
+	PushgatewayManifests       string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string
+	ReadyTimeout               time.Duration
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

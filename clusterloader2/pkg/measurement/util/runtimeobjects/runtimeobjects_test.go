@@ -19,6 +19,7 @@ package runtimeobjects_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	apps "k8s.io/api/apps/v1"
@@ -426,55 +427,147 @@ func changeEnv(in *v1.Pod) *v1.Pod {
 	return out
 }
 
+func noWhitespace(s string) string {
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, " ", "") //non-breaking space
+	return strings.ReplaceAll(s, "\t", "")
+}
+
+const fullCompareErrorDifferentEnv = `Not matching templates, diff:   v1.PodSpec{
+    Volumes:        nil,
+    InitContainers: nil,
+    Containers: []v1.Container{
+            {
+                    ... // 5 identical fields
+                    Ports:   nil,
+                    EnvFrom: nil,
+                    Env: []v1.EnvVar{
+                            {
+                                    Name:      "env1",
+-                                   Value:     "val1",
++                                   Value:     "val1-diff",
+                                    ValueFrom: nil,
+                            },
+                    },
+                    Resources:    {Requests: {s"cpu": {i: {...}, Format: "DecimalSI"}, s"memory": {i: {...}, s: "50M", Format: "DecimalSI"}, s"pods": {i: {...}, s: "100", Format: "DecimalSI"}}},
+                    VolumeMounts: nil,
+                    ... // 12 identical fields
+            },
+    },
+    EphemeralContainers:           nil,
+    RestartPolicy:                 "",
+-   TerminationGracePeriodSeconds: nil,
++   TerminationGracePeriodSeconds: &30,
+-   ActiveDeadlineSeconds:         nil,
++   ActiveDeadlineSeconds:         &30,
+    DNSPolicy:                     "",
+    NodeSelector:                  nil,
+    ServiceAccountName:            "",
+    DeprecatedServiceAccount:      "",
+    AutomountServiceAccountToken:  nil,
+-   NodeName:                      "",
++   NodeName:                      "node1",
+    HostNetwork:                   false,
+    HostPID:                       false,
+    ... // 6 identical fields
+    Affinity:      nil,
+    SchedulerName: "",
+    Tolerations: []v1.Toleration{
+            {Key: "default-toleration", Value: "default-value", Effect: "NoSchedule"},
++           {Key: "test", Value: "value", Effect: "NoExecute"},
+    },
+    HostAliases:       nil,
+    PriorityClassName: "",
+    ... // 9 identical fields
+  }
+`
+
+const fullCompareErrorDifferentImage = `Not matching templates, diff:   v1.PodSpec{
+    Volumes:        nil,
+    InitContainers: nil,
+    Containers: []v1.Container{
+            {
+                    Name:    "",
+-                   Image:   "gcr.io/some-project/some-image",
++                   Image:   "gcr.io/some-project/some-image-diff",
+                    Command: nil,
+                    Args:    nil,
+                    ... // 18 identical fields
+            },
+    },
+    EphemeralContainers:           nil,
+    RestartPolicy:                 "",
+-   TerminationGracePeriodSeconds: nil,
++   TerminationGracePeriodSeconds: &30,
+-   ActiveDeadlineSeconds:         nil,
++   ActiveDeadlineSeconds:         &30,
+    DNSPolicy:                     "",
+    NodeSelector:                  nil,
+    ServiceAccountName:            "",
+    DeprecatedServiceAccount:      "",
+    AutomountServiceAccountToken:  nil,
+-   NodeName:                      "",
++   NodeName:                      "node1",
+    HostNetwork:                   false,
+    HostPID:                       false,
+    ... // 6 identical fields
+    Affinity:      nil,
+    SchedulerName: "",
+    Tolerations: []v1.Toleration{
+            {Key: "default-toleration", Value: "default-value", Effect: "NoSchedule"},
++           {Key: "test", Value: "value", Effect: "NoExecute"},
+    },
+    HostAliases:       nil,
+    PriorityClassName: "",
+    ... // 9 identical fields
+  }`
+
 func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 	testCases := []struct {
-		name    string
-		obj     runtime.Object
-		pod     *corev1.Pod
-		wantErr bool
-		want    bool
+		name                 string
+		obj                  runtime.Object
+		pod                  *corev1.Pod
+		wantErr              bool
+		wantfullCompareError string
 	}{
 		{
 			name: "deployment, positive",
 			obj:  deployment,
 			pod:  pod,
-			want: true,
 		},
 		{
-			name: "deployment, different env",
-			obj:  deployment,
-			pod:  changeEnv(pod),
-			want: false,
+			name:                 "deployment, different env",
+			obj:                  deployment,
+			pod:                  changeEnv(pod),
+			wantfullCompareError: fullCompareErrorDifferentEnv,
 		},
 		{
-			name: "deployment, different image",
-			obj:  deployment,
-			pod:  changeImage(pod),
-			want: false,
+			name:                 "deployment, different image",
+			obj:                  deployment,
+			pod:                  changeImage(pod),
+			wantfullCompareError: fullCompareErrorDifferentImage,
 		},
 		{
 			name: "replicaset, positive",
 			obj:  replicaset,
 			pod:  pod,
-			want: true,
 		},
 		{
 			name: "replicationcontroller, positive",
 			obj:  replicationcontroller,
 			pod:  pod,
-			want: true,
 		},
 		{
 			name: "daemonset, positive",
 			obj:  daemonset,
 			pod:  daemonsetPod,
-			want: true,
 		},
 		{
 			name: "job, positive",
 			obj:  job,
 			pod:  pod,
-			want: true,
 		},
 		{
 			name:    "no spec.template",
@@ -497,8 +590,13 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if got := pred(tc.pod); got != tc.want {
-				t.Errorf("pred(tc.pod) = %v; want %v", got, tc.want)
+			gotErr := pred(tc.pod)
+			var gotErrString string
+			if gotErr != nil {
+				gotErrString = gotErr.Error()
+			}
+			if noWhitespace(gotErrString) != noWhitespace(tc.wantfullCompareError) {
+				t.Errorf("pred(tc.pod) = %v; want %v", noWhitespace(gotErrString), noWhitespace(tc.wantfullCompareError))
 			}
 		})
 	}

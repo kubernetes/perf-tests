@@ -30,8 +30,11 @@ import (
 
 // Histogram is a structure that represents distribution of data.
 type Histogram struct {
-	Labels  map[string]string `json:"labels"`
-	Buckets map[string]int    `json:"buckets"`
+	Labels map[string]string `json:"labels"`
+	// Buckets maps value to cumulative sample count:
+	// * key: float64 converted to string
+	// * value: cumulative count of all samples less or equal to the key.
+	Buckets map[string]int `json:"buckets"`
 }
 
 // Quantile calculates the quantile 'q' based on the given buckets of Histogram.
@@ -59,6 +62,12 @@ func (h *Histogram) Quantile(q float64) (float64, error) {
 	sort.Slice(hist.Bucket, func(i, j int) bool {
 		return *hist.Bucket[i].UpperBound < *hist.Bucket[j].UpperBound
 	})
+
+	// hist.Quantile is using hist.SampleCount, let's populate it.
+	if len(hist.Bucket) != 0 {
+		sampleCount := *hist.Bucket[len(hist.Bucket)-1].CumulativeCount
+		hist.SampleCount = &sampleCount
+	}
 
 	return hist.Quantile(q), nil
 }

@@ -23,8 +23,8 @@ def api_call_latency_panel(expression):
         return d.Graph(
             title=title,
             targets=[
-                g.Target(expr=str(threshold), legendFormat="threshold"),
-                g.Target(
+                d.Target(expr=str(threshold), legendFormat="threshold"),
+                d.Target(
                     expr=d.one_line(expression % {"verb": verb, "scope": scope}
                                     ),
                     # TODO(github.com/grafana/grafana/issues/19410): uncomment once fixed
@@ -102,6 +102,24 @@ PAF_PANELS = [
     d.simple_graph(
         "Requests rate by priority level",
         "sum(irate(apiserver_flowcontrol_dispatched_requests_total[1m])) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Concurrency in use",
+        "sum(apiserver_flowcontrol_request_concurrency_in_use) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Current executing requests",
+        "sum(apiserver_flowcontrol_current_executing_requests) by (priority_level)",
+        legend="{{priority_level}}",
+        yAxes=g.single_y_axis(format=g.OPS_FORMAT),
+    ),
+    d.simple_graph(
+        "Inqueue requests",
+        "sum(apiserver_flowcontrol_current_inqueue_requests) by (priority_level)",
         legend="{{priority_level}}",
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
@@ -240,7 +258,7 @@ histogram_quantile(
         points=True,
         lines=False,
         targets=[
-            g.Target(
+            d.Target(
                 expr="histogram_quantile(1.0, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket[1m])) by (le, instance))"
             )
         ],
@@ -332,6 +350,11 @@ sum(
 ) by (instance, group, version, kind)"""
         ),
         legend="{{instance}}: {{version}}.{{group}}.{{kind}}",
+    ),
+    d.simple_graph(
+        "Watch terminated total",
+        "sum(rate(apiserver_terminated_watchers_total{}[1m])) by (resource, instance)",
+        legend="{{instance}}: {{resource}}",
     ),
     d.simple_graph(
         "Inflight requests",
@@ -445,43 +468,43 @@ VM_PANELS = [
     d.Graph(
         title="CPU usage by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_cpu_cores", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_cpu_cores", legendFormat="limit"),
         ],
     ),
     d.Graph(
         title="memory usage by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(container_memory_usage_bytes{container!=""}) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.Graph(
         title="memory working set by container",
         targets=[
-            d.Target(
+            d.TargetWithInterval(
                 expr='sum(container_memory_working_set_bytes{container!=""}) by (container, instance)',
                 legendFormat="{{instance}}: {{container}}",
             ),
-            d.Target(expr="machine_memory_bytes", legendFormat="limit"),
+            d.TargetWithInterval(expr="machine_memory_bytes", legendFormat="limit"),
         ],
         yAxes=g.single_y_axis(format=g.BYTES_FORMAT),
     ),
     d.Graph(
         title="Network usage (bytes)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_bytes_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_bytes_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -491,11 +514,11 @@ VM_PANELS = [
     d.Graph(
         title="Network usage (packets)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -504,11 +527,11 @@ VM_PANELS = [
     d.Graph(
         title="Network usage (avg packet size)",
         targets=[
-            g.Target(
+            d.Target(
                 expr='rate(container_network_transmit_bytes_total{id="/"}[1m]) / rate(container_network_transmit_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} transmit",
             ),
-            g.Target(
+            d.Target(
                 expr='rate(container_network_receive_bytes_total{id="/"}[1m]) / rate(container_network_receive_packets_total{id="/"}[1m])',
                 legendFormat="{{instance}} receive",
             ),
@@ -518,15 +541,15 @@ VM_PANELS = [
     d.Graph(
         title="Network tcp segments",
         targets=[
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_InSegs[1m])) by (instance)",
                 legendFormat="InSegs {{instance}}",
             ),
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_OutSegs[1m])) by (instance)",
                 legendFormat="OutSegs {{instance}}",
             ),
-            g.Target(
+            d.Target(
                 expr="sum(rate(node_netstat_Tcp_RetransSegs[1m])) by (instance)",
                 legendFormat="RetransSegs {{instance}}",
             ),

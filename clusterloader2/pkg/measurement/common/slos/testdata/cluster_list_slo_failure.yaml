@@ -1,0 +1,10 @@
+interval: 1m
+input_series:
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="pod",scope="cluster",subresource="",verb="LIST",version="v1",le="30"}
+    values: 0 0 0 0 0 0 1 71 71 71 71 
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="pod",scope="cluster",subresource="",verb="LIST",version="v1",le="45"}
+    values: 0 0 0 0 0 0 1 101 101 101 101
+  - series: apiserver_request_duration_seconds_bucket{component="apiserver",dry_run="",group="storage.k8s.io",resource="pod",scope="cluster",subresource="",verb="LIST",version="v1",le="+Inf"}
+    values: 0 0 0 0 0 0 1 101 101 101 101
+  - series: apiserver_request_duration_seconds_count{component="apiserver",dry_run="",group="storage.k8s.io",resource="pod",scope="cluster",subresource="",verb="LIST",version="v1"}
+    values: 0 0 0 0 0 0 1 101 101 101 101

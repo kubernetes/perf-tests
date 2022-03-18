@@ -1,4 +1,5 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+{{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -22,7 +23,7 @@ spec:
     spec:
       hostNetwork: {{$HostNetworkMode}}
       containers:
-      - image: k8s.gcr.io/pause:3.1
+      - image: {{$Image}}
         imagePullPolicy: IfNotPresent
         name: {{.Name}}
         ports:

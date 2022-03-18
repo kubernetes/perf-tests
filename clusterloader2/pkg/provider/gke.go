@@ -18,7 +18,7 @@ package provider
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
+	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
 type GKEProvider struct {
@@ -58,12 +58,9 @@ func (p *GKEProvider) GetConfig() Config {
 }
 
 func (p *GKEProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
-	signer, err := sshSignerFromKeyFile("GCE_SSH_KEY", "google_compute_engine")
-	if err != nil {
-		return "", "", 0, err
-	}
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
+	// gke provider takes ssh key from GCE_SSH_KEY.
+	r, err := sshutil.SSH(cmd, host, "gke")
+	return r.Stdout, r.Stderr, r.Code, err
 }
 
 func (p *GKEProvider) Metadata(client clientset.Interface) (map[string]string, error) {

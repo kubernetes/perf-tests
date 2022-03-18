@@ -1,0 +1,26 @@
+# Huge service test config
+{{$HUGE_SERVICE_HEADLESS := DefaultParam .CL2_HUGE_SERVICE_HEADLESS false}}
+{{$HUGE_SERVICE_ENDPOINTS := DefaultParam .CL2_HUGE_SERVICE_ENDPOINTS 1000}}
+
+name: huge-service
+namespace:
+  number: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+steps:
+- module:
+    path: modules/measurements.yaml
+    params:
+      action: start
+- module:
+    path: modules/service.yaml
+    params:
+      endpoints: {{$HUGE_SERVICE_ENDPOINTS}}
+      isHeadless: {{$HUGE_SERVICE_HEADLESS}}
+      serviceName: huge-service
+- module:
+    path: modules/measurements.yaml
+    params:
+      action: gather

@@ -146,6 +146,9 @@ steps:
       templateFillMap:
         Group: volume-test
         VolumesPerPod: {{$VOLUMES_PER_POD}}
+        VolSize: {{$VOL_SIZE}}
+        StorageClass: {{$STORAGE_CLASS}}
+        Provisioner: {{$PROVISIONER}}
 - name: Waiting for deployments to be running
   measurements:
   - Identifier: WaitForRunningDeployments

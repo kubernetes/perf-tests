@@ -19,9 +19,6 @@ set -euxo pipefail
 # Initialize necessary environment variables and git identity.
 function init {
   export GOROOT=$ROOT_DIR/golang
-  cd $GOROOT
-  export TAG=$(date +v%Y%m%d)-$(git rev-parse --short HEAD)
-  cd ..
   git config --global user.email "scalability@k8s.io"
   git config --global user.name "k8s scalability"
 }
@@ -35,9 +32,9 @@ function build_kube_cross {
 
   cd $ROOT_DIR/k8s.io/release/images/build/cross
 
-  # Modify Dockerfile to use previously built custom version.
+  # Modify Dockerfile to use previously built custom version of Go.
   # The following assumes that $GOROOT was moved to Dockerfile directory.
-  sed -i 's#FROM golang.*$#FROM buildpack-deps:stretch-scm\
+  sed -i 's#FROM .*$#FROM buildpack-deps:stretch-scm\
 \
 COPY golang /usr/local/go\
 RUN chmod -R a+rx /usr/local/go\
@@ -48,40 +45,29 @@ ENV GOPATH /go\
 ENV PATH $GOPATH\/bin:/usr/local/go/bin:$PATH\
 \
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" \&\& chmod -R 777 "$GOPATH"\
-WORKDIR $GOPATH#' Dockerfile
+WORKDIR $GOPATH#' default/Dockerfile
 
-  # Set VERSION contents to the tag of kube-cross Docker image.
-  sed -i 's#.*#'"$TAG"'#' VERSION
+  make container REGISTRY=gcr.io/k8s-testimages PLATFORMS=linux/amd64 GO_MAJOR_VERSION=-master OS_CODENAME=debian
 
-  REGISTRY=gcr.io/k8s-testimages
-  STAGING_REGISTRY=$REGISTRY PROD_REGISTRY=$REGISTRY TAG=$TAG make build
+  # The make command above changes the docker buildx builder from default
+  # to a custom one that uses "docker-container" driver (instead of "docker").
+  # This driver forces pulling images instead of looking for them in the
+  # local cache as a primary attempt. As we do not want to use any additional
+  # container registry, we set the builder back to default.
+  docker buildx use default
 }
 
 function build_kubernetes {
   cd $ROOT_DIR/k8s.io/kubernetes/build/build-image
 
-  # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/90806 which
-  # artifically increases Kubemark cluster nodes objects.
-  # TODO: Get rid of this cherry-pick once we start testing against k8s v1.19+.
-  git cherry-pick -m 1 fc2c410a5a37aba7ab0a3635c6b1195245b77e2b
-  # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/95494 which
-  # prevents from rate limiting by Docker Hub when pulling busybox image per
-  # hollow node pod.
-  # TODO: Get rid of this cherry-pick once we start testing against k8s v1.20+.
-  git cherry-pick -m 1 1698af78be83db748415d224ec1ea217755ea932
-
-  # Cherry-pick of https://github.com/kubernetes/kubernetes/pull/97843 and https://github.com/kubernetes/kubernetes/pull/98141 rebased to 1.18.
-  # Used for debugging failing golang tests.
-  # TODO: Get rid of this cherry-pick once we fix the regression.
-  git fetch https://github.com/mborsz/kubernetes.git cacher-1.18 && git cherry-pick FETCH_HEAD
-
   # Change the base image of kube-build to our own kube-cross image.
-  sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:'"$TAG"'#' Dockerfile
+  sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:latest-go-master-debian-default#' Dockerfile
 
   cd $ROOT_DIR/k8s.io/kubernetes
   # Commit changes - needed to not create a "dirty" build, so we can push the
   # build to <bucket>/ci directory and update latest.txt file.
   git commit -am "Upgrade cross Dockerfile to use kube-cross with newest golang"
+
   # Build Kubernetes using our kube-cross image.
   make quick-release
 }

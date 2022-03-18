@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +30,9 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	frconfig "k8s.io/perf-tests/clusterloader2/pkg/framework/config"
+
+	restclient "k8s.io/client-go/rest"
 
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -40,10 +44,13 @@ var namespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
 // official Kubernetes client.
 type Framework struct {
 	automanagedNamespacePrefix string
-	automanagedNamespaceCount  int
-	clientSets                 *MultiClientSet
-	dynamicClients             *MultiDynamicClient
-	clusterConfig              *config.ClusterConfig
+	mux                        sync.Mutex
+	// automanagedNamespaces stores values as infromation if should the namespace be deleted
+	automanagedNamespaces map[string]bool
+	clientSets            *MultiClientSet
+	dynamicClients        *MultiDynamicClient
+	clusterConfig         *config.ClusterConfig
+	restClientConfig      *restclient.Config
 }
 
 // NewFramework creates new framework based on given clusterConfig.
@@ -62,16 +69,21 @@ func NewRootFramework(clusterConfig *config.ClusterConfig, clientsNumber int) (*
 }
 
 func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeConfigPath string) (*Framework, error) {
+	klog.Infof("Creating framework with %d clients and %q kubeconfig.", clientsNumber, kubeConfigPath)
 	var err error
 	f := Framework{
-		automanagedNamespaceCount: 0,
-		clusterConfig:             clusterConfig,
+		automanagedNamespaces: map[string]bool{},
+		clusterConfig:         clusterConfig,
 	}
 	if f.clientSets, err = NewMultiClientSet(kubeConfigPath, clientsNumber); err != nil {
 		return nil, fmt.Errorf("multi client set creation error: %v", err)
 	}
 	if f.dynamicClients, err = NewMultiDynamicClient(kubeConfigPath, clientsNumber); err != nil {
 		return nil, fmt.Errorf("multi dynamic client creation error: %v", err)
+	}
+
+	if f.restClientConfig, err = frconfig.GetConfig(kubeConfigPath); err != nil {
+		return nil, fmt.Errorf("rest client creation error: %v", err)
 	}
 	return &f, nil
 }
@@ -96,17 +108,19 @@ func (f *Framework) GetDynamicClients() *MultiDynamicClient {
 	return f.dynamicClients
 }
 
+func (f *Framework) GetRestClient() *restclient.Config {
+	return f.restClientConfig
+}
+
 // GetClusterConfig returns cluster config.
 func (f *Framework) GetClusterConfig() *config.ClusterConfig {
 	return f.clusterConfig
 }
 
 // CreateAutomanagedNamespaces creates automanged namespaces.
-func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
-	if f.automanagedNamespaceCount != 0 {
-		return fmt.Errorf("automanaged namespaces already created")
-	}
-
+func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int, allowExistingNamespaces bool, deleteAutomanagedNamespaces bool) error {
+	f.mux.Lock()
+	defer f.mux.Unlock()
 	// get all pre-created namespaces and store in a hash set
 	namespacesList, err := client.ListNamespaces(f.clientSets.GetClient())
 	if err != nil {
@@ -123,26 +137,30 @@ func (f *Framework) CreateAutomanagedNamespaces(namespaceCount int) error {
 			if err := client.CreateNamespace(f.clientSets.GetClient(), name); err != nil {
 				return err
 			}
+		} else {
+			if !allowExistingNamespaces {
+				return fmt.Errorf("automanaged namespace %s already created", name)
+			}
 		}
-		f.automanagedNamespaceCount++
+		f.automanagedNamespaces[name] = deleteAutomanagedNamespaces
 	}
 	return nil
 }
 
 // ListAutomanagedNamespaces returns all existing automanged namespace names.
 func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
-	var automanagedNamespacesList, staleNamespaces []string
+	var automanagedNamespacesCurrentPrefixList, staleNamespaces []string
 	namespacesList, err := client.ListNamespaces(f.clientSets.GetClient())
 	if err != nil {
-		return automanagedNamespacesList, staleNamespaces, err
+		return automanagedNamespacesCurrentPrefixList, staleNamespaces, err
 	}
 	for _, namespace := range namespacesList {
-		matched, err := f.isAutomanagedNamespace(namespace.Name)
+		matched, err := f.isAutomanagedNamespaceCurrentPrefix(namespace.Name)
 		if err != nil {
-			return automanagedNamespacesList, staleNamespaces, err
+			return automanagedNamespacesCurrentPrefixList, staleNamespaces, err
 		}
 		if matched {
-			automanagedNamespacesList = append(automanagedNamespacesList, namespace.Name)
+			automanagedNamespacesCurrentPrefixList = append(automanagedNamespacesCurrentPrefixList, namespace.Name)
 		} else {
 			// check further whether the namespace is a automanaged namespace created in previous test execution.
 			// this could happen when the execution is aborted abornamlly, and the resource is not able to be
@@ -153,7 +171,7 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
 			}
 		}
 	}
-	return automanagedNamespacesList, staleNamespaces, nil
+	return automanagedNamespacesCurrentPrefixList, staleNamespaces, nil
 }
 
 func (f *Framework) deleteNamespace(namespace string) error {
@@ -164,6 +182,7 @@ func (f *Framework) deleteNamespace(namespace string) error {
 	if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
 		return err
 	}
+	f.removeAutomanagedNamespace(namespace)
 	return nil
 }
 
@@ -171,18 +190,34 @@ func (f *Framework) deleteNamespace(namespace string) error {
 func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
-	for i := 1; i <= f.automanagedNamespaceCount; i++ {
-		name := fmt.Sprintf("%v-%d", f.automanagedNamespacePrefix, i)
-		wg.Start(func() {
-			if err := f.deleteNamespace(name); err != nil {
-				errList.Append(err)
-				return
-			}
-		})
+	for namespace, shouldBeDeleted := range f.getAutomanagedNamespaces() {
+		if shouldBeDeleted {
+			wg.Start(func() {
+				if err := f.deleteNamespace(namespace); err != nil {
+					errList.Append(err)
+					return
+				}
+			})
+		}
 	}
 	wg.Wait()
-	f.automanagedNamespaceCount = 0
 	return errList
+}
+
+func (f *Framework) removeAutomanagedNamespace(namespace string) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	delete(f.automanagedNamespaces, namespace)
+}
+
+func (f *Framework) getAutomanagedNamespaces() map[string]bool {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	m := map[string]bool{}
+	for k, v := range f.automanagedNamespaces {
+		m[k] = v
+	}
+	return m
 }
 
 // DeleteNamespaces deletes the list of namespaces.
@@ -263,10 +298,14 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 	return nil
 }
 
-func (f *Framework) isAutomanagedNamespace(name string) (bool, error) {
+func (f *Framework) isAutomanagedNamespaceCurrentPrefix(name string) (bool, error) {
 	return regexp.MatchString(f.automanagedNamespacePrefix+"-[1-9][0-9]*", name)
 }
 
 func (f *Framework) isStaleAutomanagedNamespace(name string) bool {
-	return namespaceID.MatchString(name)
+	if namespaceID.MatchString(name) {
+		_, isFromThisExecution := f.getAutomanagedNamespaces()[name]
+		return !isFromThisExecution
+	}
+	return false
 }

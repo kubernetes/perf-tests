@@ -48,6 +48,10 @@ func init() {
 
 type netProgGatherer struct{}
 
+func (n *netProgGatherer) Configure(config *measurement.Config) error {
+	return nil
+}
+
 func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	// Disable NetworkProgrammingLatency measurement if scraping kube-proxy is disabled.
 	if !config.ClusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy {
@@ -57,8 +61,8 @@ func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	return config.CloudProvider.Name() != "kubemark"
 }
 
-func (n *netProgGatherer) Gather(executor common.QueryExecutor, startTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	latency, err := n.query(executor, startTime)
+func (n *netProgGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+	latency, err := n.query(executor, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +76,12 @@ func (n *netProgGatherer) String() string {
 	return netProg
 }
 
-func (n *netProgGatherer) query(executor common.QueryExecutor, startTime time.Time) (*measurementutil.LatencyMetric, error) {
-	end := time.Now()
-	duration := end.Sub(startTime)
+func (n *netProgGatherer) query(executor common.QueryExecutor, startTime, endTime time.Time) (*measurementutil.LatencyMetric, error) {
+	duration := endTime.Sub(startTime)
 
 	boundedQuery := fmt.Sprintf(query, measurementutil.ToPrometheusTime(duration))
 
-	samples, err := executor.Query(boundedQuery, end)
+	samples, err := executor.Query(boundedQuery, endTime)
 	if err != nil {
 		return nil, err
 	}

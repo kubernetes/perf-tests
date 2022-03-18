@@ -104,7 +104,7 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		klog.V(2).Infof("%s: starting resource usage collecting (mode %#v)...", e, nodesSet)
 		e.gatherer, err = gatherers.NewResourceUsageGatherer(config.ClusterFramework.GetClientSets().GetClient(), host, config.ClusterFramework.GetClusterConfig().KubeletPort,
 			provider, gatherers.ResourceGathererOptions{
-				InKubemark:                        provider.Name() == "kubemark",
+				InKubemark:                        provider.Features().IsKubemarkProvider,
 				Nodes:                             nodesSet,
 				ResourceDataGatheringPeriod:       60 * time.Second,
 				MasterResourceDataGatheringPeriod: 10 * time.Second,

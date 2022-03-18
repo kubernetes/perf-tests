@@ -1,0 +1,13 @@
+interval: 1m
+input_series:
+- series: container_start_time_seconds{container="kube-apiserver",namespace="kube-system",pod="kube-apiserver"}
+  values: 1600000000 1600000000 1600000120 1600000120 1600000120 1600000300 1600000300 1600000300 1600000300 1600000300 1600000300
+
+- series: container_start_time_seconds{container="kube-scheduler",namespace="kube-system",pod="kube-scheduler"}
+  values: 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000
+
+- series: container_start_time_seconds{container="kube-controller-manager",namespace="kube-system",pod="kube-controller-manager"}
+  values: 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000
+
+- series: container_start_time_seconds{container="etcd-container",namespace="kube-system",pod="etcd-server"}
+  values: 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000 1600000000

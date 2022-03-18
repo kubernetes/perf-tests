@@ -20,7 +20,6 @@ set -euo pipefail
 # exluding go.mod from vendor/ and _logviewer
 MODULE_BASED=$(find . -type d -name vendor -prune \
   -o -type f -name go.mod -printf "%h\n" \
-  | grep -v "_logviewer" \
   | sort -u)
 
 # Find all directrories with vendor/ directory

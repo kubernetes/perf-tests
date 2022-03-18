@@ -1,5 +1,6 @@
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 {{$PROMETHEUS_SCRAPE_APISERVER_ONLY := DefaultParam .PROMETHEUS_SCRAPE_APISERVER_ONLY false}}
+{{$PROMETHEUS_APISERVER_SCRAPE_PORT := DefaultParam .PROMETHEUS_APISERVER_SCRAPE_PORT 443}}
 
 # Endpoints object for the kubelet running on master node.
 apiVersion: v1
@@ -16,7 +17,7 @@ subsets:
     {{end}}
     ports:
       - name: apiserver
-        port: 443
+        port: {{$PROMETHEUS_APISERVER_SCRAPE_PORT}}
       {{if not $PROMETHEUS_SCRAPE_APISERVER_ONLY}}
       - name: etcd-2379
         port: 2379

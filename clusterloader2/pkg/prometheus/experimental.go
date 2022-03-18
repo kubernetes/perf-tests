@@ -20,7 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"os/signal"
+	"path"
+	"regexp"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -30,6 +34,10 @@ import (
 	"k8s.io/klog"
 )
 
+var (
+	csiVolumeHandlePattern = regexp.MustCompile(`projects/(?P<Project>[^/]+)/zones/(?P<Zone>[^/]+)/disks/(?P<Name>[^/]+)`)
+)
+
 type prometheusDiskMetadata struct {
 	name string
 	zone string
@@ -37,13 +45,14 @@ type prometheusDiskMetadata struct {
 
 const (
 	gcloudRetryInterval  = 20 * time.Second
-	snapshotRetryTimeout = 10 * time.Minute
+	snapshotRetryTimeout = 5 * time.Minute
 	deleteRetryTimeout   = 2 * time.Minute
 )
 
 var (
-	shouldSnapshotPrometheusDisk = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
-	prometheusDiskSnapshotName   = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
+	shouldSnapshotPrometheusDisk        = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
+	shouldSnapshotPrometheusToReportDir = pflag.Bool("experimental-prometheus-snapshot-to-report-dir", false, "(experimental) whether to save prometheus snapshot to the report-dir")
+	prometheusDiskSnapshotName          = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
 )
 
 func (pc *Controller) isEnabled() (bool, error) {
@@ -85,11 +94,9 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 			continue
 		}
 		klog.V(2).Infof("Found Prometheus' PV with name: %s", pv.Name)
-		pdName = pv.Spec.GCEPersistentDisk.PDName
-		zone = pv.ObjectMeta.Labels["topology.kubernetes.io/zone"]
-		if zone == "" {
-			// Fallback to old label to make it work for old k8s versions.
-			zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		pdName, zone, err = nameAndZone(pv)
+		if err != nil {
+			return false, fmt.Errorf("failed to extract name and value from pv: %w", err)
 		}
 		klog.V(2).Infof("PD name=%s, zone=%s", pdName, zone)
 	}
@@ -107,6 +114,47 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	pc.diskMetadata.name = pdName
 	pc.diskMetadata.zone = zone
 	return true, nil
+}
+
+func nameAndZone(pv corev1.PersistentVolume) (name, zone string, err error) {
+	switch {
+	case pv.Spec.GCEPersistentDisk != nil:
+		name = pv.Spec.GCEPersistentDisk.PDName
+		zone = pv.ObjectMeta.Labels["topology.kubernetes.io/zone"]
+		if zone == "" {
+			// Fallback to old label to make it work for old k8s versions.
+			zone = pv.ObjectMeta.Labels["failure-domain.beta.kubernetes.io/zone"]
+		}
+		return name, zone, err
+	case pv.Spec.CSI != nil:
+		r := csiVolumeHandlePattern.FindStringSubmatch(pv.Spec.CSI.VolumeHandle)
+		if len(r) != 4 {
+			return "", "", fmt.Errorf("unexpected format of volumeHandle: %q", pv.Spec.CSI.VolumeHandle)
+		}
+		return r[3], r[2], nil
+	}
+	return "", "", fmt.Errorf("unknown pv type: %+v", pv)
+}
+
+func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
+	pc.snapshotLock.Lock()
+	defer pc.snapshotLock.Unlock()
+	if pc.snapshotted {
+		return pc.snapshotError
+	}
+	pc.snapshotted = true
+	pc.snapshotError = pc.snapshotPrometheusDiskIfEnabled()
+	return pc.snapshotError
+}
+func (pc *Controller) snapshotPrometheusIfEnabled() error {
+	if !*shouldSnapshotPrometheusToReportDir {
+		return nil
+	}
+
+	k8sClient := pc.framework.GetClientSets().GetClient()
+	restClient := pc.framework.GetRestClient()
+	filePath := path.Join(pc.clusterLoaderConfig.ReportDir, "prometheus_snapshot.tar.gz")
+	return makeSnapshot(k8sClient, restClient, filePath)
 }
 
 func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
@@ -198,4 +246,18 @@ func (pc *Controller) tryDeletePrometheusDisk(pdName, zone string) error {
 	}
 	klog.V(2).Infof("Deleting disk finished with: %q", string(output))
 	return nil
+}
+
+func (pc *Controller) EnableTearDownPrometheusStackOnInterrupt() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		// Block until a signal is received.
+		s := <-c
+		klog.V(2).Infof("Received signal: %v", s)
+		if err := pc.snapshotPrometheusDiskIfEnabledSynchronized(); err != nil {
+			klog.Warningf("Error while snapshotting prometheus disk: %v", err)
+		}
+		os.Exit(1)
+	}()
 }

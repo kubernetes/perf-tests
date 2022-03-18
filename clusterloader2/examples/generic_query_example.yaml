@@ -1,0 +1,48 @@
+# Simple example of the use of generic query measurement.
+#
+# Notes on parameters:
+#       metricName will be logged in place of "GenericPrometheusQuery"
+#       query must be parametrized by duration and return exactly 1 sample
+#       threshold is optional
+
+{{$duration := "60s"}}
+{{$namespaces := 1}}
+
+name: generic-query
+namespace:
+  number: {{$namespaces}}
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: gq
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: API request latency
+      metricVersion: v1
+      unit: ms
+      queries:
+        - name: Perc99
+          query: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 60
+        - name: Perc90
+          query: histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+        - name: Perc50
+          query: histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 5
+        - name: non-existent
+          query: histogram_quantile(0.5, sum(rate(fake_apiserver_request_duration_seconds_bucket[%v])) by (le))
+          threshold: 42
+- name: Sleep
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+- name: Gather measurements
+  measurements:
+  - Identifier: gq
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      enableViolations: true

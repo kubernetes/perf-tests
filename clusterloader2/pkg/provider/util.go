@@ -18,11 +18,8 @@ package provider
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"golang.org/x/crypto/ssh"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
+	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
 func getComponentProtocolAndPort(componentName string) (string, int, error) {
@@ -40,57 +37,7 @@ func getComponentProtocolAndPort(componentName string) (string, int, error) {
 }
 
 func runSSHCommand(cmd, host string) (string, string, int, error) {
-	signer, err := defaultSSHSigner()
-	if err != nil {
-		return "", "", 0, err
-	}
-	if signer == nil {
-		return "", "", 0, fmt.Errorf("cannot find sshkey")
-	}
-
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
-}
-
-func defaultSSHUser() string {
-	// RunSSHCommand will default to Getenv("USER") if user == "", but we're
-	// defaulting here as well for logging clarity.
-	user := os.Getenv("KUBE_SSH_USER")
-	if user == "" {
-		user = os.Getenv("USER")
-	}
-	return user
-}
-
-func defaultSSHSigner() (ssh.Signer, error) {
-	if path := os.Getenv("KUBE_SSH_KEY_PATH"); len(path) > 0 {
-		return sshutil.MakePrivateKeySignerFromFile(path)
-	}
-	return nil, nil
-}
-
-func sshSignerFromKeyFile(KeyPathEnv string, defaultKeyPath string) (ssh.Signer, error) {
-	// honor a consistent SSH key across all providers
-	signer, err := defaultSSHSigner()
-	if signer != nil || err != nil {
-		return signer, err
-	}
-
-	keyfile := os.Getenv(KeyPathEnv)
-	if keyfile == "" {
-		keyfile = defaultKeyPath
-	}
-
-	// Respect absolute paths for keys given by user, fallback to assuming
-	// relative paths are in ~/.ssh
-	if !filepath.IsAbs(keyfile) {
-		keydir := filepath.Join(os.Getenv("HOME"), ".ssh")
-		keyfile = filepath.Join(keydir, keyfile)
-	}
-
-	if keyfile == "" {
-		return nil, fmt.Errorf("cannot find ssh key file")
-	}
-
-	return sshutil.MakePrivateKeySignerFromFile(keyfile)
+	// skeleton provider takes ssh key from KUBE_SSH_KEY_PATH and KUBE_SSH_KEY.
+	r, err := sshutil.SSH(cmd, host, "skeleton")
+	return r.Stdout, r.Stderr, r.Code, err
 }

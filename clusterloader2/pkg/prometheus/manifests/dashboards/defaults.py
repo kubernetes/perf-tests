@@ -48,6 +48,11 @@ class Row(g.Row):
 
 @attr.s
 class Target(g.Target):
+    datasource = attr.ib(default="$source")
+
+
+@attr.s
+class TargetWithInterval(Target):
     interval = attr.ib(default="5s")
     intervalFactor = attr.ib(default=1)
 
@@ -61,7 +66,7 @@ def simple_graph(title, exprs, legend="", interval="5s", **kwargs):
         title=title,
         # One graph per row.
         targets=[
-            g.Target(
+            Target(
                 expr=expr, legendFormat=legend, interval=interval, intervalFactor=1
             )
             for expr in exprs
@@ -76,13 +81,13 @@ def show_quantiles(queryTemplate, quantiles=None, legend=""):
     for quantile in quantiles:
         q = "{:.2f}".format(quantile)
         l = legend or q
-        targets.append(g.Target(expr=queryTemplate.format(quantile=q), legendFormat=l))
+        targets.append(Target(expr=queryTemplate.format(quantile=q), legendFormat=l))
     return targets
 
 
 def min_max_avg(base, by, legend=""):
     return [
-        g.Target(
+        Target(
             expr="{func}({query}) by ({by})".format(
                 func=f, query=base, by=", ".join(by)
             ),

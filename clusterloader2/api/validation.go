@@ -218,8 +218,15 @@ func (v *ConfigValidator) validateTuningSet(ts *TuningSet, fldPath *field.Path) 
 	return allErrs
 }
 
-func (v *ConfigValidator) validateMeasurement(_ *Measurement, _ *field.Path) field.ErrorList {
-	return nil
+func (v *ConfigValidator) validateMeasurement(m *Measurement, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if len(m.Instances) != 0 && m.Identifier != "" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("Identifier"), m.Identifier, " cannot be non empty when Instances specified"))
+	}
+	if len(m.Instances) == 0 && m.Identifier == "" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("Identifier"), m.Identifier, " and Instances cannot be both empty"))
+	}
+	return allErrs
 }
 
 func (v *ConfigValidator) validateQPSLoad(ql *QPSLoad, fldPath *field.Path) field.ErrorList {

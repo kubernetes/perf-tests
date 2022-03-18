@@ -104,29 +104,29 @@ func TestHistogramQuantile(t *testing.T) {
 		{
 			histogram: Histogram{
 				Buckets: map[string]int{
-					"4": 10,
-					"8": 20,
+					"4": 40,
+					"8": 60,
 					"1": 20,
-					"2": 10,
+					"2": 30,
 				},
 			},
-			q50: 0.5,
-			q90: 7.2,
-			q99: 7.92,
+			q50: 2.0,
+			q90: 6.8,
+			q99: 7.88,
 		},
-		// unsorted sequence
+		// sorted sequence
 		{
 			histogram: Histogram{
 				Buckets: map[string]int{
 					"1": 20,
-					"2": 10,
-					"4": 10,
-					"8": 20,
+					"2": 30,
+					"4": 40,
+					"8": 60,
 				},
 			},
-			q50: 0.5,
-			q90: 7.2,
-			q99: 7.92,
+			q50: 2.0,
+			q90: 6.8,
+			q99: 7.88,
 		},
 	}
 

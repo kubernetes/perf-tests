@@ -18,7 +18,7 @@ package provider
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
-	sshutil "k8s.io/kubernetes/pkg/ssh"
+	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 )
 
 type AWSProvider struct {
@@ -56,12 +56,9 @@ func (p *AWSProvider) GetConfig() Config {
 }
 
 func (p *AWSProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
-	signer, err := sshSignerFromKeyFile("AWS_SSH_KEY", "kube_aws_rsa")
-	if err != nil {
-		return "", "", 0, err
-	}
-	user := defaultSSHUser()
-	return sshutil.RunSSHCommand(cmd, user, host, signer)
+	// aws provider takes ssh key from AWS_SSH_KEY.
+	r, err := sshutil.SSH(cmd, host, "aws")
+	return r.Stdout, r.Stderr, r.Code, err
 }
 
 func (p *AWSProvider) Metadata(client clientset.Interface) (map[string]string, error) {

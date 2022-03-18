@@ -5,15 +5,14 @@
 {{$replicasPerNamespace := .replicasPerNamespace}}
 {{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
 {{$schedulerThroughputPodsPerDeployment := .schedulerThroughputPodsPerDeployment}}
-# .serviceName is optional
-{{$serviceName := DefaultParam .serviceName ""}}
 
 ## Derivative variables
 {{$is_creating := (eq .action "create")}}
-{{$tuningSet := IfThenElse (and (eq .action "delete") .enableMultipleDeployments) "DeletionTimeLimited" "SchedulerThroughputParallel"}}
+{{$tuningSet := IfThenElse (eq .action "delete") "DeletionTimeLimited" "SchedulerThroughputParallel"}}
 
 ## CL2 params
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
 steps:
 {{if $is_creating}}
@@ -29,6 +28,7 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: start
+      checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
       apiVersion: apps/v1
       kind: Deployment
       labelSelector: group = scheduler-throughput
@@ -57,7 +57,6 @@ steps:
         Group: scheduler-throughput
         CpuRequest: 1m
         MemoryRequest: 10M
-        SvcName: {{$serviceName}}
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments

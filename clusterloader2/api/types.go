@@ -158,7 +158,8 @@ type NamespaceRange struct {
 	Basename *string
 }
 
-// TuningSet defines the specific parameterization for the simulated load limit.
+// TuningSet defines the timing of the operations.
+// There is an initial delay, and then a way of choosing when to start each operation.
 // It is required to have exactly one of the load structure provided.
 type TuningSet struct {
 	// Name by which the TuningSet will be referenced.
@@ -210,14 +211,14 @@ type Measurement struct {
 	Instances []*MeasurementInstanceConfig
 }
 
-// QPSLoad defines a uniform load with a given QPS.
+// QPSLoad starts one operation every 1/QPS seconds.
 type QPSLoad struct {
 	// QPS specifies requested qps.
 	QPS float64 `json:"qps"`
 }
 
-// RandomizedLoad defines a load that is spread randomly
-// across a given total time.
+// RandomizedLoad says the time between operation starts is drawn uniformly at random
+// from the range [0, 2s/AverageQPS).
 type RandomizedLoad struct {
 	// AverageQPS specifies the expected average qps.
 	AverageQPS float64 `json:"averageQps"`
@@ -239,25 +240,27 @@ type SteppedLoad struct {
 	StepDelay Duration `json:"stepDelay"`
 }
 
-// TimeLimitedLoad defines a load that spreads operations over given time.
+// TimeLimitedLoad spreads the operation starts out evenly over a given amount of time.
 type TimeLimitedLoad struct {
-	// TimeLimit specifies the limit of the time that operation will be spread over.
+	// TimeLimit specifies the amount of time that the operations will be spread over.
 	TimeLimit Duration `json:"timeLimit"`
 }
 
-// RandomizedTimeLimitedLoad defines a load that randomly spreads operations over given time.
+// RandomizedTimeLimitedLoad makes an independent choice for each operation, choosing when
+// it starts uniformly at random from the given total duration.
 type RandomizedTimeLimitedLoad struct {
-	// TimeLimit specifies the limit of the time that operation will be spread over.
+	// TimeLimit specifies the amount of time that the operations will be spread over.
 	TimeLimit Duration `json:"timeLimit"`
 }
 
-// ParallelismLimitedLoad defines a load that executes actions with given parallelism.
+// ParallelismLimitedLoad does the operations as quickly as possible subject to a given
+// limit on the number running concurrently.
 type ParallelismLimitedLoad struct {
 	// ParallelismLimit specifies the limit of the parallelism for the action executions.
 	ParallelismLimit int32 `json:"parallelismLimit"`
 }
 
-// GlobalQPSLoad defines a uniform load with a given QPS.
+// GlobalQPSLoad defines a uniform load with a given QPS and Burst.
 // The rate limiter is shared across all phases using this tuning set.
 type GlobalQPSLoad struct {
 	// QPS defines desired average rate of actions.

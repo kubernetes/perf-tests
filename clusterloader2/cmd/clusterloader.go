@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/master/ports"
+	"k8s.io/kubernetes/pkg/cluster/ports"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -66,6 +66,7 @@ func initClusterFlags() {
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.RunFromCluster, "run-from-cluster", "RUN_FROM_CLUSTER", false, "Whether to use in-cluster client-config to create a client, --kubeconfig must be unset")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.KubeletPort, "kubelet-port", "KUBELET_PORT", ports.KubeletPort, "Port of the kubelet to use")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.K8SClientsNumber, "k8s-clients-number", "K8S_CLIENTS_NUMBER", 0, fmt.Sprintf("(Optional) Number of k8s clients to use. If 0, will create 1 client per %d nodes", nodesPerClients))
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdCertificatePath, "etcd-certificate", "ETCD_CERTIFICATE", "/etc/srv/kubernetes/pki/etcd-apiserver-server.crt", "Path to the etcd certificate on the master machine")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdInsecurePort, "etcd-insecure-port", "ETCD_INSECURE_PORT", 2382, "Inscure http port")
@@ -180,6 +181,9 @@ func completeConfig(m *framework.MultiClientSet) error {
 	if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportAccessAPIServerPprofEndpoint {
 		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
 	}
+	if clusterLoaderConfig.ClusterConfig.K8SClientsNumber == 0 {
+		clusterLoaderConfig.ClusterConfig.K8SClientsNumber = getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes)
+	}
 	prometheus.CompleteConfig(&clusterLoaderConfig.PrometheusConfig)
 	return nil
 }
@@ -276,7 +280,7 @@ func main() {
 
 	f, err := framework.NewFramework(
 		&clusterLoaderConfig.ClusterConfig,
-		getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes),
+		clusterLoaderConfig.ClusterConfig.K8SClientsNumber,
 	)
 	if err != nil {
 		klog.Exitf("Framework creation error: %v", err)
@@ -291,6 +295,9 @@ func main() {
 		prometheusFramework = prometheusController.GetFramework()
 		if err := prometheusController.SetUpPrometheusStack(); err != nil {
 			klog.Exitf("Error while setting up prometheus stack: %v", err)
+		}
+		if clusterLoaderConfig.PrometheusConfig.TearDownServer {
+			prometheusController.EnableTearDownPrometheusStackOnInterrupt()
 		}
 	}
 	if clusterLoaderConfig.EnableExecService {
@@ -348,6 +355,10 @@ func main() {
 	}
 
 	testReporter.EndTestSuite()
+
+	if err := prometheusController.MakePrometheusSnapshotIfEnabled(); err != nil {
+		klog.Errorf("Error while making prometheus snapshot: %v", err)
+	}
 
 	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
 		if err := prometheusController.TearDownPrometheusStack(); err != nil {

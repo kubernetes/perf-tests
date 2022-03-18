@@ -1,21 +1,12 @@
-#Constants
-{{$LARGE_BACKEND_SIZE := 300}}
-{{$MEDIUM_BACKEND_SIZE := 150}}
-{{$SMALL_BACKEND_SIZE := 10}}
-{{$LARGE_BACKEND_LABEL := "ilb-large"}}
-{{$MEDIUM_BACKEND_LABEL := "ilb-medium"}}
-{{$SMALL_BACKEND_LABEL := "ilb-small"}}
 {{$LARGE_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 2}}
 {{$MEDIUM_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 2}}
 {{$SMALL_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 2}}
 {{$ilbQPS := DefaultParam .CL2_ILB_TEST_QPS 20}}
-{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
-{{$namespaces := 1}}
 
-#Test
+# Test
 name: ilbload
 namespace:
-  number: {{$namespaces}}
+  number: 1
 tuningSets:
 - name: ILBConstantQPS
   qpsLoad:
@@ -23,26 +14,12 @@ tuningSets:
 steps:
 # Mesure each of the ILB services separately, this will provide insight on how long programming
 # ILB takes as a function of number of backends.
-- name: Starting measurements
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Start measurement for running pods
   measurements:
-  - Identifier: ServiceCreationLatencyLarge
-    Method: ServiceCreationLatency
-    Params:
-      action: start
-      waitTimeout: {{$ilbWaitTimeout}}
-      labelSelector: size = {{$LARGE_BACKEND_LABEL}}
-  - Identifier: ServiceCreationLatencyMedium
-    Method: ServiceCreationLatency
-    Params:
-      action: start
-      waitTimeout: {{$ilbWaitTimeout}}
-      labelSelector: size = {{$MEDIUM_BACKEND_LABEL}}
-  - Identifier: ServiceCreationLatencySmall
-    Method: ServiceCreationLatency
-    Params:
-      action: start
-      waitTimeout: {{$ilbWaitTimeout}}
-      labelSelector: size = {{$SMALL_BACKEND_LABEL}}
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
@@ -52,121 +29,38 @@ steps:
       labelSelector: group = ilb-load
       operationTimeout: 15m
 # Create ILBs
-- name: Creating ILBs
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: large-backends-service
-      objectTemplatePath: service.yaml
-      templateFillMap:
-        DeploymentBaseName: large-backends-dep
-        ILBSizeLabel: {{$LARGE_BACKEND_LABEL}}
-    - basename: large-backends-dep
-      objectTemplatePath: dep.yaml
-      templateFillMap:
-        NumReplicas: {{$LARGE_BACKEND_SIZE}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: medium-backends-service
-      objectTemplatePath: service.yaml
-      templateFillMap:
-        DeploymentBaseName: medium-backends-dep
-        ILBSizeLabel: {{$MEDIUM_BACKEND_LABEL}}
-    - basename: medium-backends-dep
-      objectTemplatePath: dep.yaml
-      templateFillMap:
-        NumReplicas: {{$MEDIUM_BACKEND_SIZE}}
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: small-backends-service
-      objectTemplatePath: service.yaml
-      templateFillMap:
-        DeploymentBaseName: small-backends-dep
-        ILBSizeLabel: {{$SMALL_BACKEND_LABEL}}
-    - basename: small-backends-dep
-      objectTemplatePath: dep.yaml
-      templateFillMap:
-        NumReplicas: {{$SMALL_BACKEND_SIZE}}
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Create
+      largeBackendLbServiceCount: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+      mediumBackendLbServiceCount: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+      smallBackendLbServiceCount: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: waitForReady
 - name: Waiting for objects creation to be completed
   measurements:
-  - Identifier: ServiceCreationLatencyLarge
-    Method: ServiceCreationLatency
-    Params:
-      action: waitForReady
-  - Identifier: ServiceCreationLatencyMedium
-    Method: ServiceCreationLatency
-    Params:
-      action: waitForReady
-  - Identifier: ServiceCreationLatencySmall
-    Method: ServiceCreationLatency
-    Params:
-      action: waitForReady
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
 # Delete ILBs
-- name: Deleting ILBs
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: large-backends-service
-      objectTemplatePath: service.yaml
-    - basename: large-backends-dep
-      objectTemplatePath: dep.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: medium-backends-service
-      objectTemplatePath: service.yaml
-    - basename: medium-backends-dep
-      objectTemplatePath: dep.yaml
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: ILBConstantQPS
-    objectBundle:
-    - basename: small-backends-service
-      objectTemplatePath: service.yaml
-    - basename: small-backends-dep
-      objectTemplatePath: dep.yaml
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Delete
+      largeBackendLbServiceCount: 0
+      mediumBackendLbServiceCount: 0
+      smallBackendLbServiceCount: 0
 - name: Waiting for objects deletion to be completed
   measurements:
   - Identifier: WaitForRunningDeployments
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
-- name: Gathering measurements
-  measurements:
-  - Identifier: ServiceCreationLatencyLarge
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencyMedium
-    Method: ServiceCreationLatency
-    Params:
-      action: gather
-  - Identifier: ServiceCreationLatencySmall
-    Method: ServiceCreationLatency
-    Params:
+- module:
+    path: /modules/measurements.yaml
+    params:
       action: gather

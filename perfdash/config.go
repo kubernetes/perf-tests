@@ -34,9 +34,10 @@ import (
 
 // TestDescription contains test name, output file prefix and parser function.
 type TestDescription struct {
-	Name             string
-	OutputFilePrefix string
-	Parser           func(data []byte, buildNumber int, testResult *BuildData)
+	Name                  string
+	OutputFilePrefix      string
+	Parser                func(data []byte, buildNumber int, testResult *BuildData)
+	ForceConstantCategory bool
 }
 
 // TestDescriptions is a map job->component->description.
@@ -52,6 +53,10 @@ type Tests struct {
 
 // Jobs is a map from job name to all supported tests in the job.
 type Jobs map[string]Tests
+
+const (
+	GenericPrometheusQueryMeasurementName = "GenericPrometheusQuery"
+)
 
 var (
 	// performanceDescriptions contains metrics exported by a --ginko.focus=[Feature:Performance]
@@ -106,6 +111,21 @@ var (
 			"LoadStatelessPodStartup": []TestDescription{{
 				Name:             "load",
 				OutputFilePrefix: "StatelessPodStartupLatency_PodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadCreatePhaseStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_CreatePhasePodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadHighThroughputStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_HighThroughputPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"LoadStatefulPodStartup": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "StatefulPodStartupLatency_PodStartupLatency",
 				Parser:           parsePerfData,
 			}},
 			"Resources": []TestDescription{{
@@ -440,6 +460,13 @@ var (
 			"SystemPodMetrics": []TestDescription{{
 				OutputFilePrefix: "SystemPodMetrics",
 				Parser:           parseSystemPodMetrics,
+			}},
+		},
+		"GenericMeasurements": {
+			"GenericMeasurements": []TestDescription{{
+				OutputFilePrefix:      GenericPrometheusQueryMeasurementName,
+				Parser:                parsePerfData,
+				ForceConstantCategory: true,
 			}},
 		},
 	}

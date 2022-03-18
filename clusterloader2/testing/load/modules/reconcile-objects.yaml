@@ -14,6 +14,7 @@
 # DaemonSets
 {{$daemonSetImage := DefaultParam .daemonSetImage "k8s.gcr.io/pause:3.0"}}
 {{$daemonSetReplicas := .daemonSetReplicas}}
+{{$daemonSetEnv := .daemonSetEnv}}
 
 # Deployments
 {{$bigDeploymentSize := .bigDeploymentSize}}
@@ -89,6 +90,7 @@ steps:
       objectTemplatePath: daemonset.yaml
       templateFillMap:
         Image: {{$daemonSetImage}}
+        Env: {{$daemonSetEnv}}
 {{end}}
   - namespaceRange:
       min: 1

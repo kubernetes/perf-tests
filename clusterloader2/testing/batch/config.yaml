@@ -1,0 +1,79 @@
+{{$MODE := DefaultParam .MODE "Indexed"}}
+{{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .NODES_PER_NAMESPACE 100)}}
+{{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+
+{{$totalPods := MultiplyInt $PODS_PER_NODE .Nodes}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$podsPerNamespace := DivideInt $totalPods $namespaces}}
+
+# small_job: 1/2 of namespace pods should be in small Jobs.
+{{$smallJobSize := 5}}
+{{$smallJobsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 2 $smallJobSize)}}
+# medium_job: 1/4 of namespace pods should be in medium Jobs.
+{{$mediumJobSize := 20}}
+{{$mediumJobsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $mediumJobSize)}}
+# Large_job: 1/4 of namespace pods should be in large Jobs.
+{{$largeJobSize := 400}}
+{{$largeJobsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $largeJobSize)}}
+
+name: batch
+
+namespace:
+  number: {{$namespaces}}
+
+tuningSets:
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: start
+      labelSelector: group = test-job
+- name: Create {{$MODE}} jobs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: small
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$smallJobSize}}
+        Mode: {{$MODE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: medium
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$mediumJobSize}}
+        Mode: {{$MODE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$largeJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: large
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$largeJobSize}}
+        Mode: {{$MODE}}
+- name: Wait for {{$MODE}} jobs to finish
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: gather
+      timeout: 10m

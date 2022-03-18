@@ -79,7 +79,7 @@
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
-{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
+{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.1"}}
 
 name: load
 namespace:

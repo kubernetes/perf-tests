@@ -86,6 +86,7 @@ func initClusterFlags() {
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
+	flags.BoolVar(&clusterLoaderConfig.ClusterConfig.SkipClusterVerification, "skip-cluster-verification", false, "Whether to skip the cluster verification, which expects at least one schedulable node in the cluster")
 
 	flags.StringEnvVar(&providerInitOptions.ProviderName, "provider", "PROVIDER", "", "Cluster provider name")
 	flags.StringSliceEnvVar(&providerInitOptions.ProviderConfigs, "provider-configs", "PROVIDER_CONFIGS", nil, "Cluster provider configurations")
@@ -274,8 +275,10 @@ func main() {
 		klog.Errorf("Nodes info logging error: %v", err)
 	}
 
-	if err = verifyCluster(mclient.GetClient()); err != nil {
-		klog.Exitf("Cluster verification error: %v", err)
+	if !clusterLoaderConfig.ClusterConfig.SkipClusterVerification {
+		if err = verifyCluster(mclient.GetClient()); err != nil {
+			klog.Exitf("Cluster verification error: %v", err)
+		}
 	}
 
 	f, err := framework.NewFramework(

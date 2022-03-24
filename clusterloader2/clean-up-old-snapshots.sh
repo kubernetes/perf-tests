@@ -23,7 +23,7 @@ print-usage-and-exit() {
   >&2 echo "    $0 delete|list <comma-sep-projects> <comma-sep-prefixes> <days-old>"
   >&2 echo "Example:"
   >&2 echo "    $0 list k8s-e2e-gce-1-1,k8s-e2e-gce-1-2  ci-e2e-scalability,ci-e2e-kubemark 30"
-  exit $1
+  exit "$1"
 }
 
 list-old-snapshots() {
@@ -94,4 +94,4 @@ main() {
   done
 }
 
-main $@
+main "$@"

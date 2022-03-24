@@ -110,7 +110,6 @@ steps:
         ReplicasMin: {{MultiplyInt $bigDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigDeploymentSize $maxReplicaFactor}}
         SvcName: big-service
-        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -128,7 +127,6 @@ steps:
         ReplicasMin: {{MultiplyInt $mediumDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumDeploymentSize $maxReplicaFactor}}
         SvcName: medium-service
-        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -147,7 +145,6 @@ steps:
         ReplicasMin: {{MultiplyInt $smallDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallDeploymentSize $maxReplicaFactor}}
         SvcName: small-service
-        CpuRequest: 5m
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

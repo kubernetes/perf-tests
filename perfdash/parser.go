@@ -52,6 +52,30 @@ func createRequestCountData(data *perftype.DataItem) error {
 	return nil
 }
 
+type ContainerRestartsInfo struct {
+	Container    string
+	Pod          string
+	Namespace    string
+	RestartCount int
+}
+
+func parseContainerRestarts(data []byte, buildNumber int, testResult *BuildData) {
+	build := fmt.Sprintf("%d", buildNumber)
+	restarts := make([]ContainerRestartsInfo, 0)
+	if err := json.Unmarshal(data, &restarts); err != nil {
+		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
+		return
+	}
+
+	restartsByContainer := make(map[string]float64)
+	for _, restart := range restarts {
+		restartsByContainer[restart.Container] = restartsByContainer[restart.Container] + float64(restart.RestartCount)
+	}
+
+	res := perftype.DataItem{Unit: "", Labels: map[string]string{"RestartCount": "RestartCount"}, Data: restartsByContainer}
+	testResult.Builds[build] = append(testResult.Builds[build], res)
+}
+
 func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
 	build := fmt.Sprintf("%d", buildNumber)
 	obj := perftype.PerfData{}

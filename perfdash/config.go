@@ -461,6 +461,10 @@ var (
 				OutputFilePrefix: "SystemPodMetrics",
 				Parser:           parseSystemPodMetrics,
 			}},
+			"ContainerRestarts": []TestDescription{{
+				OutputFilePrefix: "ContainerRestarts",
+				Parser:           parseContainerRestarts,
+			}},
 		},
 		"GenericMeasurements": {
 			"GenericMeasurements": []TestDescription{{

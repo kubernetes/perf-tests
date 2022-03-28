@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2019 The Kubernetes Authors.
+# Copyright 2022 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +14,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+from copy import deepcopy
+
 from grafanalib import core as g
 import defaults as d
+
 from master_panels import API_CALL_LATENCY_PANELS, QUANTILE_API_CALL_LATENCY_PANELS, PAF_PANELS, HEALTH_PANELS, ETCD_PANELS, APISERVER_PANELS, CONTROLLER_MANAGER_PANELS, VM_PANELS
 
 
-# The final dashboard must be named 'dashboard' so that grafanalib will find it.
+def extended_copy(panels):
+    extended_panels = []
+
+    for panel in panels:
+        # copy of an original panel
+        extended_panels.append(deepcopy(panel))
+
+        # secondary panel
+        # same criteria, different data source and starting point
+        panel.title = "[SECONDARY] " + panel.title
+        panel.dataSource = "$secondary_source"
+        panel.timeShift = "$timeshift"
+        extended_panels.append(panel)
+
+    return extended_panels
+
+
 dashboard = d.Dashboard(
-    title="Master dashboard",
+    title="Comparison Master dashboard",
     refresh="",
     rows=[
-        d.Row(title="API call latency", panels=API_CALL_LATENCY_PANELS),
-        d.Row(title="API call latency aggregated with quantile", panels=QUANTILE_API_CALL_LATENCY_PANELS, collapse=True),
-        d.Row(title="P&F metrics", panels=PAF_PANELS, collapse=True),
-        d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
-        d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
-        d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),
-        d.Row(title="kube-controller-manager", panels=CONTROLLER_MANAGER_PANELS, collapse=True),
-        d.Row(title="Master VM", panels=VM_PANELS, collapse=True),
+        d.Row(title="API call latency", panels=extended_copy(API_CALL_LATENCY_PANELS)),
+        d.Row(title="API call latency aggregated with quantile", panels=extended_copy(QUANTILE_API_CALL_LATENCY_PANELS), collapse=True),
+        d.Row(title="P&F metrics", panels=extended_copy(PAF_PANELS), collapse=True),
+        d.Row(title="Overall cluster health", panels=extended_copy(HEALTH_PANELS), collapse=True),
+        d.Row(title="etcd", panels=extended_copy(ETCD_PANELS), collapse=True),
+        d.Row(title="kube-apiserver", panels=extended_copy(APISERVER_PANELS), collapse=True),
+        d.Row(title="kube-controller-manager", panels=extended_copy(CONTROLLER_MANAGER_PANELS), collapse=True),
+        d.Row(title="Master VM", panels=extended_copy(VM_PANELS), collapse=True),
     ],
     templating=g.Templating(
         list=[
             d.SOURCE_TEMPLATE,
+            g.Template(
+                name="secondary_source",
+                type="datasource",
+                query="prometheus",
+            ),
+            g.Template(
+                name="timeshift",
+                type="interval",
+                query="",
+            ),
             g.Template(
                 name="etcd_type",
                 type="query",

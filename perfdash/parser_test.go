@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
@@ -90,4 +92,56 @@ func sameContainerInTwoPodsSummary() []byte {
 		]
 	}`
 	return []byte(json)
+}
+
+func Test_parseContainerRestarts(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+		want *BuildData
+	}{
+		{
+			name: "simple",
+			data: []byte(`[
+				{
+				  "Container": "container1",
+				  "Pod": "container1-hostname1",
+				  "Namespace": "default",
+				  "RestartCount": 1
+				},
+				{
+					"Container": "container2",
+					"Pod": "container2-hostname1",
+					"Namespace": "default",
+					"RestartCount": 3
+				},
+				{
+					"Container": "container1",
+					"Pod": "container1-hostname2",
+					"Namespace": "default",
+					"RestartCount": 4
+				}]`),
+			want: &BuildData{
+				Builds: map[string][]perftype.DataItem{
+					"123": {
+						{
+							Data: map[string]float64{
+								"container1": 5,
+								"container2": 3,
+							},
+							Labels: map[string]string{"RestartCount": "RestartCount"},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := &BuildData{Builds: map[string][]perftype.DataItem{}}
+			parseContainerRestarts(tc.data, 123, got)
+			require.NotNil(t, got.Builds)
+			assert.ElementsMatch(t, tc.want.Builds["123"], got.Builds["123"])
+		})
+	}
 }

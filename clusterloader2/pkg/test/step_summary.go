@@ -81,13 +81,7 @@ func (s *StepResult) getAllResults() []substepResult {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	results := []substepResult{
-		{
-			name:     s.name,
-			duration: time.Since(s.startTime),
-			err:      s.getAllErrorsUnsafe(),
-		},
-	}
+	results := []substepResult{}
 
 	sort.Slice(s.results, func(i, j int) bool {
 		return s.results[i].id < s.results[j].id
@@ -95,7 +89,7 @@ func (s *StepResult) getAllResults() []substepResult {
 
 	for _, result := range s.results {
 		results = append(results, substepResult{
-			name:     s.name + " / " + result.name,
+			name:     s.name + " " + result.name,
 			duration: result.duration,
 			err:      result.err,
 		})

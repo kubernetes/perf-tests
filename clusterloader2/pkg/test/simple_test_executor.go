@@ -149,7 +149,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	// We already have validation so we know that either Measurements or Phases is non-empty.
 	for i := range step.Measurements {
 		currentMeasurement := step.Measurements[i]
-		substepName := fmt.Sprintf("Measurement[%02d] - %s - %s", i, currentMeasurement.Method, currentMeasurement.Identifier)
+		substepName := fmt.Sprintf("[%02d] - %s", i, currentMeasurement.Identifier)
 		substepID := i
 		wg.Start(func() {
 			errList := measurement.Execute(ctx.GetManager(), currentMeasurement)

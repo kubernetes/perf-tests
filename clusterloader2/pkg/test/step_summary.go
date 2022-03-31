@@ -82,6 +82,14 @@ func (s *StepResult) getAllResults() []substepResult {
 	defer s.lock.Unlock()
 
 	results := []substepResult{}
+	// Special case for phases that do not report substeps.
+	if len(s.results) == 0 {
+		results = append(results, substepResult{
+			name:     s.name,
+			duration: time.Since(s.startTime),
+			err:      s.getAllErrorsUnsafe(),
+		})
+	}
 
 	sort.Slice(s.results, func(i, j int) bool {
 		return s.results[i].id < s.results[j].id

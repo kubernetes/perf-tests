@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
@@ -43,7 +44,7 @@ func NewMonkey(client clientset.Interface, provider provider.Provider) *Monkey {
 func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) (*sync.WaitGroup, error) {
 	wg := sync.WaitGroup{}
 	if config.NodeFailure != nil {
-		nodeKiller, err := NewNodeKiller(*config.NodeFailure, m.client, m.provider)
+		nodeKiller, err := NewNodeKiller(*config.NodeFailure, m.client, config.ExcludedNodes, m.provider)
 		if err != nil {
 			return nil, err
 		}
@@ -63,4 +64,12 @@ func (m *Monkey) Summary() string {
 		sb.WriteString(m.nodeKiller.Summary())
 	}
 	return sb.String()
+}
+
+// KilledNodes returns the set of nodes which shouldn't be restarted again.
+func (m *Monkey) KilledNodes() sets.String {
+	if m.nodeKiller != nil {
+		return m.nodeKiller.killedNodes
+	}
+	return sets.NewString()
 }

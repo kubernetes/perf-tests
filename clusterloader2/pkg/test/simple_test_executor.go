@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -60,6 +61,9 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 	ctx.GetFactory().Init(conf.TuningSets)
 
 	stopCh := make(chan struct{})
+	if conf.ChaosMonkey.ExcludedNodes == nil {
+		conf.ChaosMonkey.ExcludedNodes = sets.NewString()
+	}
 	chaosMonkeyWaitGroup, err := ctx.GetChaosMonkey().Init(conf.ChaosMonkey, stopCh)
 	if err != nil {
 		close(stopCh)

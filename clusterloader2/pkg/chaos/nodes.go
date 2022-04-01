@@ -82,13 +82,13 @@ func (r *eventRecorder) record(a nodeAction, nodeName string) {
 }
 
 // NewNodeKiller creates new NodeKiller.
-func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, provider provider.Provider) (*NodeKiller, error) {
+func NewNodeKiller(config api.NodeFailureConfig, client clientset.Interface, killedNodes sets.String, provider provider.Provider) (*NodeKiller, error) {
 	// TODO(#1399): node-killing code is provider specific, move it into provider
 	if !provider.Features().SupportNodeKiller {
 		return nil, fmt.Errorf("provider %q is not supported by NodeKiller", provider)
 	}
 	sshExecutor := &util.GCloudSSHExecutor{}
-	return &NodeKiller{config, client, sets.NewString(), newEventRecorder(), sshExecutor}, nil
+	return &NodeKiller{config, client, killedNodes, newEventRecorder(), sshExecutor}, nil
 }
 
 // Run starts NodeKiller until stopCh is closed.

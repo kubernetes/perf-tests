@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
@@ -33,7 +34,9 @@ const (
 
 func init() {
 	create := func() measurement.Measurement {
-		return &chaosMonkeyMeasurement{}
+		return &chaosMonkeyMeasurement{
+			killedNodes: sets.NewString(),
+		}
 	}
 	if err := measurement.Register(chaosMonkeyMeasurementName, create); err != nil {
 		klog.Fatalf("Cannot register %s: %v", chaosMonkeyMeasurementName, err)
@@ -45,6 +48,7 @@ type chaosMonkeyMeasurement struct {
 	stopChannel          chan struct{}
 	chaosMonkey          *chaos.Monkey
 	chaosMonkeyWaitGroup *sync.WaitGroup
+	killedNodes          sets.String
 }
 
 func (c *chaosMonkeyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
@@ -60,7 +64,7 @@ func (c *chaosMonkeyMeasurement) Execute(config *measurement.Config) ([]measurem
 		}
 		c.stopChannel = make(chan struct{})
 		c.chaosMonkey = chaos.NewMonkey(config.ClusterFramework.GetClientSets().GetClient(), config.CloudProvider)
-		c.chaosMonkeyWaitGroup, err = c.chaosMonkey.Init(api.ChaosMonkeyConfig{&c.NodeFailureConfig}, c.stopChannel)
+		c.chaosMonkeyWaitGroup, err = c.chaosMonkey.Init(api.ChaosMonkeyConfig{&c.NodeFailureConfig, c.killedNodes}, c.stopChannel)
 		if err != nil {
 			close(c.stopChannel)
 			return nil, fmt.Errorf("error while creating chaos monkey: %v", err)
@@ -74,6 +78,7 @@ func (c *chaosMonkeyMeasurement) Execute(config *measurement.Config) ([]measurem
 			c.chaosMonkeyWaitGroup.Wait()
 			klog.V(2).Info("Chaos monkey ended.")
 		}
+		c.killedNodes = c.chaosMonkey.KilledNodes()
 		klog.V(2).Infof(c.chaosMonkey.Summary())
 		// ChaosMonkey doesn't collect metrics and returns empty measurement.Summary.
 		return []measurement.Summary{}, nil

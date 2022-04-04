@@ -6,15 +6,36 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   labels:
-    prometheus: k8s
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 2.34.0
   name: k8s
   namespace: monitoring
 spec:
-  logLevel: debug
-  enableAdminAPI: true
-  baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
+  alerting:
+    alertmanagers:
+    - apiVersion: v2
+      name: alertmanager-main
+      namespace: monitoring
+      port: web
+  enableFeatures: []
+  externalLabels: {}
+  image: quay.io/prometheus/prometheus:v2.34.0
   nodeSelector:
     kubernetes.io/os: linux
+  podMetadata:
+    labels:
+      app.kubernetes.io/component: prometheus
+      app.kubernetes.io/instance: k8s
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/part-of: kube-prometheus
+      app.kubernetes.io/version: 2.34.0
+  podMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
+  probeNamespaceSelector: {}
+  probeSelector: {}
   replicas: 1
   resources:
     requests:
@@ -32,36 +53,13 @@ spec:
       # Default: Start with 2Gi and add 2Gi for each 1K nodes.
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_LIMIT_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
-  ruleSelector:
-    matchLabels:
-      prometheus: k8s
+  ruleNamespaceSelector: {}
+  ruleSelector: {}
   securityContext:
     fsGroup: 2000
     runAsNonRoot: true
     runAsUser: 1000
-  tolerations:
-  - key: "monitoring"
-    operator: "Exists"
-    effect: "NoSchedule"
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
-  podMonitorNamespaceSelector: {}
-  podMonitorSelector: {}
-  version: v2.25.0
-  retention: 7d
-  storage:
-    volumeClaimTemplate:
-      spec:
-        storageClassName: ssd
-        resources:
-          requests:
-            # Start with 10Gi, add 10Gi for each 1K nodes.
-            storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
-  query:
-    maxSamples: 100000000
-  {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}
-  additionalScrapeConfigs:
-    name: windows-scrape-configs
-    key: windows-scrape-configs.yaml
-  {{end}}
+  version: 2.34.0

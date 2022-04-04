@@ -7,7 +7,18 @@ metadata:
   name: ssd
 provisioner: {{$PROMETHEUS_STORAGE_CLASS_PROVISIONER}}
 parameters:
+  {{if eq $PROMETHEUS_STORAGE_CLASS_PROVISIONER "kubernetes.io/gce-pd"}}
   type: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
+  {{end}}
+  {{if eq $PROMETHEUS_STORAGE_CLASS_PROVISIONER "kubernetes.io/azure-disk"}}
+  kind: Managed
+  storageaccounttype: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
+  cachingmode: ReadOnly
+  {{end}}
 {{if .RetainPD}}
 reclaimPolicy: Retain
+{{end}}
+{{if eq $PROMETHEUS_STORAGE_CLASS_PROVISIONER "kubernetes.io/azure-disk"}}
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
 {{end}}

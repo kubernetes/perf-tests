@@ -2,13 +2,23 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    k8s-app: prometheus-operator
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: prometheus-operator
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 0.55.0
   name: prometheus-operator
   namespace: monitoring
 spec:
   endpoints:
-  - honorLabels: true
-    port: http
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    honorLabels: true
+    port: https
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
   selector:
     matchLabels:
-      k8s-app: prometheus-operator
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: prometheus-operator
+      app.kubernetes.io/part-of: kube-prometheus
+      app.kubernetes.io/version: 0.55.0

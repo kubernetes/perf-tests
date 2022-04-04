@@ -1,0 +1,132 @@
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: csi-azuredisk-node-win
+  namespace: kube-system
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: csi-azuredisk-node-win
+  template:
+    metadata:
+      labels:
+        app: csi-azuredisk-node-win
+    spec:
+      serviceAccountName: csi-azuredisk-node-sa
+      tolerations:
+        - key: "node.kubernetes.io/os"
+          operator: "Exists"
+          effect: "NoSchedule"
+      nodeSelector:
+        kubernetes.io/os: windows
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                      - virtual-kubelet
+      priorityClassName: system-node-critical
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
+      initContainers:
+        - name: init
+          image: mcr.microsoft.com/k8s/csi/azuredisk-csi:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - "powershell.exe"
+            - "-c"
+            - "New-Item"
+            - "-ItemType"
+            - "Directory"
+            - "-Path"
+            - "C:\\var\\lib\\kubelet\\plugins\\disk.csi.azure.com\\"
+            - "-Force"
+      containers:
+        - name: liveness-probe
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0
+          command:
+            - "livenessprobe.exe"
+          args:
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--probe-timeout=3s"
+            - "--health-port=29603"
+            - "--v=2"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix://C:\\var\\lib\\kubelet\\plugins\\disk.csi.azure.com\\csi.sock
+        - name: node-driver-registrar
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0
+          command:
+            - "csi-node-driver-registrar.exe"
+          args:
+            - "--v=2"
+            - "--csi-address=$(CSI_ENDPOINT)"
+            - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+            - "--plugin-registration-path=$(PLUGIN_REG_DIR)"
+          livenessProbe:
+            exec:
+              command:
+                - csi-node-driver-registrar.exe
+                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+                - --mode=kubelet-registration-probe
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+          env:
+            - name: CSI_ENDPOINT
+              value: unix://C:\\var\\lib\\kubelet\\plugins\\disk.csi.azure.com\\csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: C:\\var\\lib\\kubelet\\plugins\\disk.csi.azure.com\\csi.sock
+            - name: PLUGIN_REG_DIR
+              value: C:\\var\\lib\\kubelet\\plugins_registry\\
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+        - name: azuredisk
+          image: mcr.microsoft.com/k8s/csi/azuredisk-csi:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - "azurediskplugin.exe"
+          args:
+            - "--v=5"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--metrics-address=0.0.0.0:29605"
+            - "--allow-empty-cloud-config=true"
+          ports:
+            - containerPort: 29603
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          env:
+            - name: AZURE_CREDENTIAL_FILE
+              valueFrom:
+                configMapKeyRef:
+                  name: azure-cred-file
+                  key: path-windows
+                  optional: true
+            - name: CSI_ENDPOINT
+              value: unix://C:\\var\\lib\\kubelet\\plugins\\disk.csi.azure.com\\csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName

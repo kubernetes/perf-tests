@@ -34,7 +34,7 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
    kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
    kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
    kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
-   
+
    # make sure there's a default storage class
    names=( $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get sc -o name) )
    i=0
@@ -48,6 +48,12 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
       kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" patch storageclass csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
    fi
 fi
+
+if [[ "${DEPLOY_AZURE_CSI_DRIVER:-false}" == "true" ]]; then
+   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/*azuredisk*.yaml
+fi
+
+
 
 cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr --v="${CL2_VERBOSITY:-2}" "$@"

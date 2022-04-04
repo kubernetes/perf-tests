@@ -1,0 +1,15 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: windows-exporter-config
+  namespace: monitoring
+  labels:
+    app: windows-exporter
+data:
+  config.yml: |
+    collectors:
+      enabled: 'cpu,cs,net,service,os,container,logical_disk,memory,tcp,system,process'
+    collector:
+      service:
+        services-where: "Name='containerd' or Name='kubelet' or Name='windows-exporter'"

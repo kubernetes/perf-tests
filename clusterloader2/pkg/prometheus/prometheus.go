@@ -21,11 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -113,7 +111,7 @@ func CompleteConfig(p *config.PrometheusConfig) {
 	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
 	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
-	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
+	p.NodeExporterManifests = p.ManifestPath + "/exporters/node_exporter/*.yaml"
 	p.PushgatewayManifests = p.ManifestPath + "/pushgateway/*.yaml"
 }
 
@@ -213,9 +211,9 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		return err
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
-		if err := pc.runNodeExporter(); err != nil {
-			return err
-		}
+     	if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterManifests); err != nil {
+	    	return err
+	    }
 	}
 	if !pc.isKubemark() {
 		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.DefaultServiceMonitors); err != nil {
@@ -345,46 +343,6 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 		return err
 	}
 	return nil
-}
-
-// runNodeExporter adds node-exporter as master's static manifest pod.
-// TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
-// when master nodes have configured networking.
-func (pc *Controller) runNodeExporter() error {
-	klog.V(2).Infof("Starting node-exporter on master nodes.")
-	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
-	if err != nil {
-		return err
-	}
-
-	// Validate masters first
-	nodes, err := client.ListNodes(kubemarkFramework.GetClientSets().GetClient())
-	if err != nil {
-		return err
-	}
-
-	var g errgroup.Group
-	numMasters := 0
-	for _, node := range nodes {
-		node := node
-		if util.LegacyIsMasterNode(&node) {
-			numMasters++
-			g.Go(func() error {
-				f, err := os.Open(os.ExpandEnv(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterPod))
-				if err != nil {
-					return fmt.Errorf("unable to open manifest file: %v", err)
-				}
-				defer f.Close()
-				return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
-			})
-		}
-	}
-
-	if numMasters == 0 {
-		return fmt.Errorf("node-exporter requires master to be registered nodes")
-	}
-
-	return g.Wait()
 }
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {

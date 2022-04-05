@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/name: prometheus-operator
     app.kubernetes.io/part-of: kube-prometheus
-    app.kubernetes.io/version: 0.46.0
+    app.kubernetes.io/version: 0.55.0
   name: prometheus-operator
   namespace: monitoring
 spec:
@@ -19,20 +19,23 @@ spec:
       app.kubernetes.io/part-of: kube-prometheus
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: prometheus-operator
       labels:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: prometheus-operator
         app.kubernetes.io/part-of: kube-prometheus
-        app.kubernetes.io/version: 0.46.0
+        app.kubernetes.io/version: 0.55.0
     spec:
+      automountServiceAccountToken: true
       containers:
       - args:
         {{if $PROMETHEUS_SCRAPE_KUBELETS}}
         - --kubelet-service=kube-system/kubelet
         {{end}}
-        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.46.0
+        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.55.0
         - --secret-field-selector=type=prometheus-alert
-        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.46.0
+        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.55.0
         name: prometheus-operator
         ports:
         - containerPort: 8080
@@ -46,7 +49,36 @@ spec:
             memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
           readOnlyRootFilesystem: true
+      - args:
+        - --logtostderr
+        - --secure-listen-address=:8443
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - --upstream=http://127.0.0.1:8080/
+        image: gcr.io/k8s-testimages/quay.io/brancz/kube-rbac-proxy:v0.11.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+        resources:
+          limits:
+            cpu: 20m
+            memory: 40Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
       nodeSelector:
         kubernetes.io/os: linux
       securityContext:

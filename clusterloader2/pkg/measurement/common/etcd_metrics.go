@@ -232,7 +232,8 @@ func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provi
 		return 0, err
 	}
 	for _, sample := range samples {
-		if sample.Metric[model.MetricNameLabel] == "etcd_debugging_mvcc_db_total_size_in_bytes" {
+		if sample.Metric[model.MetricNameLabel] == "etcd_debugging_mvcc_db_total_size_in_bytes" ||
+			sample.Metric[model.MetricNameLabel] == "etcd_mvcc_db_total_size_in_bytes" {
 			return float64(sample.Value), nil
 		}
 	}

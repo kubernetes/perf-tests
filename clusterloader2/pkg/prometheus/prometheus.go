@@ -56,6 +56,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
 	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
+	flags.BoolEnvVar(&p.ScrapeWindowsNodeExporter, "prometheus-scrape-windows-node-exporter", "PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER", false, "Whether to scrape Windows node exporter metrics.")
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets (nodes + master). Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeMasterKubelets, "prometheus-scrape-master-kubelets", "PROMETHEUS_SCRAPE_MASTER_KUBELETS", false, "Whether to scrape kubelets running on master nodes.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
@@ -114,6 +115,7 @@ func CompleteConfig(p *config.PrometheusConfig) {
 	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
 	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
+	p.WindowsNodeExporterManifests = p.ManifestPath + "/exporters/windows_node_exporter/*.yaml"
 	p.PushgatewayManifests = p.ManifestPath + "/pushgateway/*.yaml"
 }
 
@@ -153,6 +155,12 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	} else {
 		// Backward compatibility.
 		clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter = mapping["PROMETHEUS_SCRAPE_NODE_EXPORTER"].(bool)
+	}
+	if _, exists := mapping["PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER"]; !exists {
+		mapping["PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER"] = clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter
+	} else {
+		// Backward compatibility.
+		clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter = mapping["PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER"].(bool)
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_KUBE_PROXY"]; !exists {
 		clusterLoaderConfig.PrometheusConfig.ScrapeKubeProxy = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldScrapeKubeProxy
@@ -199,10 +207,17 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
-	// If enabled scraping windows node, need to setup windows node and template mapping
-	if isWindowsNodeScrapingEnabled(pc.templateMapping, pc.clusterLoaderConfig) {
-		if err := setUpWindowsNodeAndTemplate(k8sClient, pc.templateMapping); err != nil {
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter {
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.WindowsNodeExporterManifests); err != nil {
 			return err
+		}
+	} else {
+		// Backward compatibility
+		// If enabled scraping windows node, need to setup windows node and template mapping
+		if isWindowsNodeScrapingEnabled(pc.templateMapping, pc.clusterLoaderConfig) {
+			if err := setUpWindowsNodeAndTemplate(k8sClient, pc.templateMapping); err != nil {
+				return err
+			}
 		}
 	}
 	// Removing Storage Class as Reclaim Policy cannot be changed

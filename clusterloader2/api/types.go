@@ -20,6 +20,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // TestSuite defines list of test scenarios to be run.
@@ -264,6 +265,8 @@ type GlobalQPSLoad struct {
 type ChaosMonkeyConfig struct {
 	// NodeFailure is a config for simulated node failures.
 	NodeFailure *NodeFailureConfig `json:"nodeFailure"`
+	// ExcludedNodes is a config for excluding certain nodes from failure.
+	ExcludedNodes sets.String `json:"excludedNodes"`
 }
 
 // NodeFailureConfig describes simulated node failures.

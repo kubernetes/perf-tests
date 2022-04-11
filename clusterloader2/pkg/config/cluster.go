@@ -88,7 +88,7 @@ type PrometheusConfig struct {
 	KubeStateMetricsManifests  string
 	MasterIPServiceMonitors    string
 	MetricsServerManifests     string
-	NodeExporterPod            string
+	NodeExporterManifests      string
 	PushgatewayManifests       string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string

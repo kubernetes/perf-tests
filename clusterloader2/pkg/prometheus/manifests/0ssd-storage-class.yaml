@@ -6,8 +6,17 @@ apiVersion: storage.k8s.io/v1
 metadata:
   name: ssd
 provisioner: {{$PROMETHEUS_STORAGE_CLASS_PROVISIONER}}
+{{if eq $PROMETHEUS_STORAGE_CLASS_PROVISIONER "kubernetes.io/azure-disk"}}
+parameters:
+  kind: Managed
+  storageaccounttype: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
+  cachingmode: ReadOnly
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+{{else}}
 parameters:
   type: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
+{{end}}
 {{if .RetainPD}}
 reclaimPolicy: Retain
 {{end}}

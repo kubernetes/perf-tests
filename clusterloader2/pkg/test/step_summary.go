@@ -28,14 +28,14 @@ type substepResult struct {
 	name     string
 	id       int
 	duration time.Duration
-	err      errors.ErrorList
+	err      *errors.ErrorList
 }
 
 type StepResult struct {
 	lock      sync.Mutex
 	startTime time.Time
 	name      string
-	err       errors.ErrorList
+	err       *errors.ErrorList
 
 	results []substepResult
 }
@@ -45,10 +45,11 @@ func NewStepResult(stepName string) StepResult {
 		name:      stepName,
 		startTime: time.Now(),
 		results:   []substepResult{},
+		err:       errors.NewErrorList(),
 	}
 }
 
-func (s *StepResult) AddSubStepResult(name string, id int, err errors.ErrorList) {
+func (s *StepResult) AddSubStepResult(name string, id int, err *errors.ErrorList) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -61,16 +62,16 @@ func (s *StepResult) AddSubStepResult(name string, id int, err errors.ErrorList)
 	})
 }
 
-func (s *StepResult) getAllErrorsUnsafe() errors.ErrorList {
+func (s *StepResult) getAllErrorsUnsafe() *errors.ErrorList {
 	errList := errors.NewErrorList()
-	errList.Concat(&s.err)
+	errList.Concat(s.err)
 	for _, value := range s.results {
-		errList.Concat(&value.err)
+		errList.Concat(value.err)
 	}
-	return *errList
+	return errList
 }
 
-func (s *StepResult) GetAllErrors() errors.ErrorList {
+func (s *StepResult) GetAllErrors() *errors.ErrorList {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

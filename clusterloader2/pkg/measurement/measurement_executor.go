@@ -18,13 +18,14 @@ package measurement
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
 // Execute executes a measurement, which can be a single measurement or a wrapper for multiple measurements.
-func Execute(mm Manager, m *api.Measurement) errors.ErrorList {
+func Execute(mm Manager, m *api.Measurement) *errors.ErrorList {
 	if m.Identifier != "" {
 		return executeSingleMeasurement(mm, m)
 	}
@@ -35,15 +36,15 @@ func formatError(method, identifier string, err error) error {
 	return fmt.Errorf("measurement call %s - %s error: %v", method, identifier, err)
 }
 
-func executeSingleMeasurement(mm Manager, m *api.Measurement) errors.ErrorList {
+func executeSingleMeasurement(mm Manager, m *api.Measurement) *errors.ErrorList {
 	errList := errors.NewErrorList()
 	if err := mm.Execute(m.Method, m.Identifier, m.Params); err != nil {
 		errList.Append(formatError(m.Method, m.Identifier, err))
 	}
-	return *errList
+	return errList
 }
 
-func executeWrapperMeasurement(mm Manager, m *api.Measurement) errors.ErrorList {
+func executeWrapperMeasurement(mm Manager, m *api.Measurement) *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for i := range m.Instances {
@@ -65,5 +66,5 @@ func executeWrapperMeasurement(mm Manager, m *api.Measurement) errors.ErrorList 
 		})
 	}
 	wg.Wait()
-	return *errList
+	return errList
 }

@@ -174,7 +174,7 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 		klog.Warningf("Got errors during step execution: %v", allErrors)
 	}
 	ctx.GetTestReporter().ReportTestStep(stepResults)
-	return &allErrors
+	return allErrors
 }
 
 // ExecutePhase executes single test phase based on provided phase configuration.

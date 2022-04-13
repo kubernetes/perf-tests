@@ -72,7 +72,7 @@ func (str *simpleReporter) ReportTestStepFinish(duration time.Duration, stepName
 
 func (str *simpleReporter) ReportTestStep(result StepResult) {
 	for _, subtestResult := range result.getAllResults() {
-		str.ReportTestStepFinish(subtestResult.duration, subtestResult.name, &subtestResult.err)
+		str.ReportTestStepFinish(subtestResult.duration, subtestResult.name, subtestResult.err)
 	}
 }
 

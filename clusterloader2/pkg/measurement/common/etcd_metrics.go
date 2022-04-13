@@ -194,9 +194,11 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.P
 	// need to provide the insecure http port number to access etcd, http://localhost:2382 for
 	// example.
 	cmd := fmt.Sprintf("curl http://localhost:%d/metrics", port)
-	if samples, err := e.sshEtcdMetrics(cmd, host, provider); err == nil {
+	samples, err := e.sshEtcdMetrics(cmd, host, provider)
+	if err == nil {
 		return samples, nil
 	}
+	klog.Warningf("%s: call on %d port (%s) failed due to %v. Falling back to default 2379 port.", e, port, cmd, err)
 
 	// Use old endpoint if new one fails, "2379" is hard-coded here as well, it is kept as is since
 	// we don't want to bloat the cluster config only for a fall-back attempt.
@@ -219,7 +221,7 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host string, provider provi
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
 	} else if sshResult.Code != 0 {
-		return nil, fmt.Errorf("failed running command: %s on the host: %s", cmd, host)
+		return nil, fmt.Errorf("failed running command: %s on the host: %s, result: %+v", cmd, host, sshResult)
 	}
 	data := sshResult.Stdout
 

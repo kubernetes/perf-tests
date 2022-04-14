@@ -1,0 +1,19 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor 
+metadata:
+  labels:
+    k8s-app: windows-exporter
+  name: windows-exporter
+  namespace: monitoring
+spec:
+  endpoints:
+  - interval: 30s
+    port: http
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  selector:
+    matchLabels:
+      k8s-app: windows-exporter

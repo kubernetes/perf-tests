@@ -49,7 +49,11 @@ const (
 	// bytes issued to I/O operations
 	processQueryTop10 = `topk(10, sum by (process) (windows_process_io_bytes_total{process!~"Idle|Total|System"}))`
 	// process metrics file name prefix
-	processMetricsName                        = "WindowsProcesses"
+	processMetricsName = "WindowsProcesses"
+	// total bytes received and transmitted by interface
+	networkQueryTop10 = `topk(10, sum by (nic) (windows_net_bytes_total))`
+	// network metrics file name prefix
+	networkMetricsName                        = "WindowsNetwork"
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 
@@ -162,6 +166,23 @@ func convertToProcessPerfData(samples []*model.Sample) *measurementutil.PerfData
 	return perfData
 }
 
+func convertToNetworkPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Network_Bytes_Total": math.Round(float64(sample.Value)*100/(1024*1024)) / 100,
+			},
+			Unit: "MB",
+			Labels: map[string]string{
+				"NIC": string(sample.Metric["nic"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
 func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
@@ -200,5 +221,9 @@ func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, sta
 	if err != nil {
 		return nil, err
 	}
-	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary}, nil
+	networkSummary, err := getSummary(networkQueryTop10, convertToNetworkPerfData, networkMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary, networkSummary}, nil
 }

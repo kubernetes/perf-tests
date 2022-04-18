@@ -50,6 +50,10 @@ const (
 	processQueryTop10 = `topk(10, sum by (process) (windows_process_io_bytes_total{process!~"Idle|Total|System"}))`
 	// process metrics file name prefix
 	processMetricsName = "WindowsProcesses"
+	// number of Windows containers
+	containerQueryTop10 = `topk(10, sum by (instance) (windows_container_count))`
+	// container metrics file name prefix
+	containerMetricsName = "WindowsContainers"
 	// total bytes received and transmitted by interface
 	networkQueryTop10 = `topk(10, sum by (nic) (windows_net_bytes_total))`
 	// network metrics file name prefix
@@ -183,6 +187,22 @@ func convertToNetworkPerfData(samples []*model.Sample) *measurementutil.PerfData
 	return perfData
 }
 
+func convertToContainerPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Windows Container Count": math.Round(float64(sample.Value)*100/(1024*1024)) / 100,
+			},
+			Unit: "Containers",
+			Labels: map[string]string{
+				"Instance": string(sample.Metric["instance"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
 func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
@@ -225,5 +245,9 @@ func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, sta
 	if err != nil {
 		return nil, err
 	}
-	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary, networkSummary}, nil
+	containerSummary, err := getSummary(containerQueryTop10, convertToContainerPerfData, containerMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary, networkSummary, containerSummary}, nil
 }

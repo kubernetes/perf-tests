@@ -38,6 +38,10 @@ const (
 	memoryUsageQueryTop10 = `topk(10, sum(windows_process_working_set_bytes{process!~"Idle|Total|System"}) by (process))`
 	// memory usage metrics file name prefix
 	memoryUsageMetricsName                    = "WindowsMemoryUsagePrometheus"
+    // get the total disk size by volume
+	nodeStorageUsageQuery       = `sum(windows_logical_disk_size_bytes) by (volume)`
+    // node storage usage file name prefix
+    nodeStorageUsageMetricsName = "WindowsNodeStorage"
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 
@@ -99,6 +103,23 @@ func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData 
 	return perfData
 }
 
+func convertToStoragePerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Storage_Used": math.Round(float64(sample.Value)*100/(1024*1024*1024)) / 100,
+			},
+			Unit: "GB",
+			Labels: map[string]string{
+				"Volume": string(sample.Metric["volume"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
 func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
@@ -125,5 +146,9 @@ func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, sta
 	if err != nil {
 		return nil, err
 	}
-	return []measurement.Summary{cpuSummary, memorySummary}, nil
+    nodeStorageSummary, err := getSummary(nodeStorageUsageQuery, convertToStoragePerfData, nodeStorageUsageMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary}, nil
 }

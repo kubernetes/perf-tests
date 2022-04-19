@@ -12,6 +12,11 @@
 {{$ENABLE_SYSTEM_POD_METRICS := DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES := DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
+{{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
+{{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
+{{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
+{{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
+{{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 
 {{$allowedSlowCalls := AddInt $ALLOWED_SLOW_API_CALLS $HUGE_SERVICE_ALLOWED_SLOW_API_CALLS}}
 
@@ -43,9 +48,20 @@ steps:
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+      clusterOOMsIgnoredProcesses: {{YamlQuote $CLUSTER_OOMS_IGNORED_PROCESSES 4}}
+      clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{if $ENABLE_CONTAINER_RESTARTS_MEASUREMENT}}
+  - Identifier: ContainerRestarts
+    Method: ContainerRestarts
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
+      customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
+{{end}}

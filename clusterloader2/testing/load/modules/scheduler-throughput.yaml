@@ -55,8 +55,6 @@ steps:
       templateFillMap:
         Replicas: {{$schedulerThroughputPodsPerDeployment}}
         Group: scheduler-throughput
-        CpuRequest: 1m
-        MemoryRequest: 10M
         SvcName: {{$serviceName}}
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:

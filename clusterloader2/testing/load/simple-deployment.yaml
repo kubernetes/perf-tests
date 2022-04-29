@@ -1,4 +1,8 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+# Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
+# For now we're setting it to 0.5%.
+{{$CpuRequest := DefaultParam .CpuRequest "5m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 {{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
 
 apiVersion: apps/v1
@@ -29,8 +33,8 @@ spec:
         ports:
         resources:
           requests:
-            cpu: {{.CpuRequest}}
-            memory: {{.MemoryRequest}}
+            cpu: {{$CpuRequest}}
+            memory: {{$MemoryRequest}}
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:

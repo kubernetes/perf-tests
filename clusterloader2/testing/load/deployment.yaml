@@ -1,6 +1,8 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
-{{$CpuRequest := DefaultParam .CpuRequest "10m"}}
-{{$MemoryRequest := DefaultParam .MemoryRequest "10M"}}
+# Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
+# For now we're setting it to 0.5%.
+{{$CpuRequest := DefaultParam .CpuRequest "5m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 # TODO(#1706): Remove CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS usage when support for 1.17 is dropped.
 {{$EnableImmutableSecretsAndConfigmaps := DefaultParam .CL2_ENABLE_IMMUTABLE_SECRETS_AND_CONFIGMAPS true}}
 

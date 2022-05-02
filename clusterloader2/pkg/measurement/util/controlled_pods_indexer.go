@@ -34,6 +34,8 @@ const (
 	controllerUIDIndex = "controllerUID"
 )
 
+// ControlledPodsIndexer is able to efficiently find pods with ownerReference pointing a given controller object.
+// For Deployments, it performs indirect lookup with ReplicaSets in the middle.
 type ControlledPodsIndexer struct {
 	podsIndexer cache.Indexer
 	podsSynced  cache.InformerSynced
@@ -54,21 +56,29 @@ func controllerUIDIndexFunc(obj interface{}) ([]string, error) {
 	return []string{string(controllerRef.UID)}, nil
 }
 
-func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer) *ControlledPodsIndexer {
-	podsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc})
-	rsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc})
+// NewControlledPodsIndexer creates a new ControlledPodsIndexer instance.
+func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer) (*ControlledPodsIndexer, error) {
+	if err := podsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc}); err != nil {
+		return nil, fmt.Errorf("failed to register indexer: %w", err)
+	}
+	if err := rsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc}); err != nil {
+		return nil, fmt.Errorf("failed to register indexer: %w", err)
+	}
 
 	return &ControlledPodsIndexer{
 		podsIndexer: podsInformer.Informer().GetIndexer(),
 		podsSynced:  podsInformer.Informer().HasSynced,
 		rsIndexer:   rsInformer.Informer().GetIndexer(),
 		rsSynced:    rsInformer.Informer().HasSynced,
-	}
-}
-func (p *ControlledPodsIndexer) WaitForCacheSync(ctx context.Context) bool {
-	return cache.WaitForNamedCacheSync("PodsIndexer", ctx.Done(), p.podsSynced, p.podsSynced)
+	}, nil
 }
 
+// WaitForCacheSync waits for all required informers to be initialized.
+func (p *ControlledPodsIndexer) WaitForCacheSync(ctx context.Context) bool {
+	return cache.WaitForNamedCacheSync("PodsIndexer", ctx.Done(), p.podsSynced, p.rsSynced)
+}
+
+// PodsControlledBy returns pods controlled by a given controller object.
 func (p *ControlledPodsIndexer) PodsControlledBy(obj interface{}) ([]*corev1.Pod, error) {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
@@ -78,29 +88,30 @@ func (p *ControlledPodsIndexer) PodsControlledBy(obj interface{}) ([]*corev1.Pod
 	if err != nil {
 		return nil, fmt.Errorf("object has unknown type: %w", err)
 	}
-	res, err := p.appendPodsControlledBy(nil, metaAccessor.GetUID())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods controlled by %v: %w", metaAccessor.GetUID(), err)
-	}
 
-	// Deployments use indirect ownership:
-	// Pods -- ownerReference --> ReplicaSet -- ownerReference --> Deployment.
-	// We want to also support this case.
-	if typeAccessor.GetKind() == "Deployment" {
+	var podOwners []types.UID
+	switch typeAccessor.GetKind() {
+	case "Deployment":
 		replicaSets, err := p.rsIndexer.ByIndex(controllerUIDIndex, string(metaAccessor.GetUID()))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get replicasets controlled by %v: %w", metaAccessor.GetUID(), err)
 		}
-
 		for _, replicaSet := range replicaSets {
 			replicaSet, ok := replicaSet.(*appsv1.ReplicaSet)
 			if !ok {
 				return nil, fmt.Errorf("expected *appsv1.ReplicaSet; got: %T", replicaSet)
 			}
-			res, err = p.appendPodsControlledBy(res, replicaSet.GetUID())
-			if err != nil {
-				return nil, fmt.Errorf("failed to get pods controlled by replicaset %v: %w", replicaSet.GetUID(), err)
-			}
+			podOwners = append(podOwners, replicaSet.GetUID())
+		}
+	default:
+		podOwners = append(podOwners, metaAccessor.GetUID())
+	}
+
+	var res []*corev1.Pod
+	for _, podOwner := range podOwners {
+		res, err = p.appendPodsControlledBy(res, podOwner)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get pods controlled by %v: %w", podOwner, err)
 		}
 	}
 
@@ -110,7 +121,7 @@ func (p *ControlledPodsIndexer) PodsControlledBy(obj interface{}) ([]*corev1.Pod
 func (p *ControlledPodsIndexer) appendPodsControlledBy(in []*corev1.Pod, uid types.UID) ([]*corev1.Pod, error) {
 	objs, err := p.podsIndexer.ByIndex(controllerUIDIndex, string(uid))
 	if err != nil {
-		return nil, fmt.Errorf("ByIndex failed: %w", err)
+		return nil, fmt.Errorf("method ByIndex failed: %w", err)
 	}
 
 	var res []*corev1.Pod

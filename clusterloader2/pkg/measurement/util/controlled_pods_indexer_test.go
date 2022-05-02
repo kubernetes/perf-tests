@@ -161,7 +161,10 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 			informerFactory := informers.NewSharedInformerFactory(fakeClient, 0 /* resyncPeriod */)
 			podsInformer := informerFactory.Core().V1().Pods()
 			rsInformer := informerFactory.Apps().V1().ReplicaSets()
-			p := NewControlledPodsIndexer(podsInformer, rsInformer)
+			p, err := NewControlledPodsIndexer(podsInformer, rsInformer)
+			if err != nil {
+				t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
+			}
 			informerFactory.Start(ctx.Done())
 			if !p.WaitForCacheSync(ctx) {
 				t.Fatalf("failed to sync informer")

@@ -154,7 +154,10 @@ func GetPod() (*corev1.Pod, error) {
 	if podStore == nil {
 		return nil, fmt.Errorf("exec service not started")
 	}
-	pods := podStore.List()
+	pods, err := podStore.List()
+	if err != nil {
+		return nil, fmt.Errorf("pod listing failed: %w", err)
+	}
 	if len(pods) == 0 {
 		return nil, fmt.Errorf("no exec pods found")
 	}

@@ -71,13 +71,19 @@ func (s *ObjectStore) Stop() {
 	close(s.stopCh)
 }
 
-// PodStore is a convenient wrapper around cache.Store.
-type PodStore struct {
+// PodStore is an interface around listing pods.
+type PodStore interface {
+	List() []*v1.Pod
+	Stop()
+}
+
+// podStore is a convenient wrapper around cache.Store.
+type podStore struct {
 	*ObjectStore
 }
 
 // NewPodStore creates PodStore based on given object selector.
-func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
+func NewPodStore(c clientset.Interface, selector *ObjectSelector) (PodStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -94,11 +100,11 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 	if err != nil {
 		return nil, err
 	}
-	return &PodStore{ObjectStore: objectStore}, nil
+	return &podStore{ObjectStore: objectStore}, nil
 }
 
 // List returns list of pods (that satisfy conditions provided to NewPodStore).
-func (s *PodStore) List() []*v1.Pod {
+func (s *podStore) List() []*v1.Pod {
 	objects := s.Store.List()
 	pods := make([]*v1.Pod, 0, len(objects))
 	for _, o := range objects {

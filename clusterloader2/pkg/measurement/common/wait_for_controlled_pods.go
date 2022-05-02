@@ -27,10 +27,12 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
@@ -97,6 +99,9 @@ type waitForControlledPodsRunningMeasurement struct {
 	checkerMap            checker.Map
 	clusterFramework      *framework.Framework
 	checkIfPodsAreUpdated bool
+	// podsIndexer is an indexer propagated via informers observing
+	// changes of all pods in the whole cluster.
+	podsIndexer cache.Indexer
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -144,6 +149,9 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 			return nil, err
 		}
 		return nil, w.gather(syncTimeout)
+	case "stop":
+		w.Dispose()
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -182,6 +190,29 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
+
+	indexers := map[string]cache.IndexFunc{
+		"metadata.namespace": cache.MetaNamespaceIndexFunc,
+	}
+	c := w.clusterFramework.GetClientSets().GetClient()
+	podsInformer := informer.NewIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return c.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return c.CoreV1().Pods(metav1.NamespaceAll).Watch(context.TODO(), options)
+			},
+		},
+		// We only care about propagating the underlying store.
+		func(_, _ interface{}) {},
+		indexers,
+	)
+	if err := informer.StartAndSync(podsInformer, w.stopCh, informerSyncTimeout); err != nil {
+		return err
+	}
+	w.podsIndexer = podsInformer.GetIndexer()
+
 	i := informer.NewDynamicInformer(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr,
@@ -497,6 +528,32 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (
 	return objectKeys, maxResourceVersion, nil
 }
 
+type wrapperPodStore struct {
+	indexer       cache.Indexer
+	namespace     string
+	labelSelector labels.Selector
+}
+
+func (w *wrapperPodStore) List() []*v1.Pod {
+	objects, err := w.indexer.ByIndex("metadata.namespace", w.namespace)
+	if err != nil {
+		// This should only happen if index isn't registered, which effectively means programmers error.
+		klog.Errorf("podIndexer.ByIndex failed: %v", err)
+		return nil
+	}
+	pods := []*v1.Pod{}
+	for _, o := range objects {
+		pod := o.(*v1.Pod)
+		if w.labelSelector.Matches(labels.Set(pod.Labels)) {
+			pods = append(pods, pod)
+		}
+	}
+	return pods
+}
+
+func (w *wrapperPodStore) Stop() {
+}
+
 func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
 	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
 	if err != nil {
@@ -550,9 +607,17 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,
 		}
+		// Instead of instantiating a dedicated pod store for every controller,
+		// use the already propagate podsIndexer and filter appropriate pods from there.
+		podStore := &wrapperPodStore{
+			indexer:       w.podsIndexer,
+			namespace:     runtimeObjectNamespace,
+			labelSelector: runtimeObjectSelector,
+		}
+
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = measurementutil.WaitForPods(w.clusterFramework.GetClientSets().GetClient(), o.stopCh, options)
+		err = measurementutil.WaitForPodsWithStore(podStore, o.stopCh, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

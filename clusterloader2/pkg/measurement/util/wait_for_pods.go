@@ -56,6 +56,12 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	}
 	defer ps.Stop()
 
+	return WaitForPodsWithStore(ps, stopCh, options)
+}
+
+// WaitForPodWithStore waits till desired number of pods is running.
+// The current set of pods are fetched by calling List() on the provided PodStore.
+func WaitForPodsWithStore(ps PodStore, stopCh <-chan struct{}, options *WaitForPodOptions) error {
 	oldPods := ps.List()
 	scaling := uninitialized
 	var podsStatus PodsStartupStatus

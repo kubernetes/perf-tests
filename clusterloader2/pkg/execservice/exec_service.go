@@ -48,7 +48,7 @@ const (
 
 var (
 	lock     sync.Mutex
-	podStore *measurementutil.PodStore
+	podStore measurementutil.PodStore
 )
 
 // SetUpExecService creates exec pod.

@@ -39,6 +39,17 @@ func NewInformer(
 	return informer
 }
 
+// NewIndexInformer creates a new indexed informer.
+func NewIndexInformer(
+	lw cache.ListerWatcher,
+	handleObj func(interface{}, interface{}),
+	indexers cache.Indexers,
+) cache.SharedIndexInformer {
+	informer := cache.NewSharedIndexInformer(lw, nil, 0, indexers)
+	addEventHandler(informer, handleObj)
+	return informer
+}
+
 // NewDynamicInformer creates a new dynamic informer
 // for given namespace, fieldSelector and labelSelector.
 func NewDynamicInformer(

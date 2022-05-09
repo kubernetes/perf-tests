@@ -32,8 +32,6 @@ import (
 	"k8s.io/klog"
 )
 
-const defaultIncludeFilepath = "$GOPATH/src/k8s.io/perf-tests/clusterloader2"
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -213,7 +211,10 @@ func includeFile(file interface{}) (string, error) {
 		return "", fmt.Errorf("incorrect argument type: got: %T want: string", file)
 	}
 	if !filepath.IsAbs(fileStr) {
-		fileStr = filepath.Join(defaultIncludeFilepath, fileStr)
+		defaultIncludeFilepath, err := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err == nil {
+			fileStr = filepath.Join(defaultIncludeFilepath, fileStr)
+		}
 	}
 	fileStr = os.ExpandEnv(fileStr)
 	data, err := ioutil.ReadFile(fileStr)

@@ -2,6 +2,7 @@
 # https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
 # with the command: kustomize build deploy/kubernetes/overlays/stable-master
 # and an additional storage class from examples/kubernetes/zonal-sc-example.yaml
+# and removed APIs removed in kube 1.25
 kind: Namespace
 apiVersion: v1
 metadata:
@@ -26,78 +27,6 @@ kind: ServiceAccount
 metadata:
   name: csi-gce-pd-node-sa-win
   namespace: gce-pd-csi-driver
----
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: csi-gce-pd-controller-psp
-spec:
-  fsGroup:
-    rule: RunAsAny
-  hostNetwork: true
-  runAsUser:
-    rule: RunAsAny
-  seLinux:
-    rule: RunAsAny
-  supplementalGroups:
-    rule: RunAsAny
-  volumes:
-  - emptyDir
-  - secret
----
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: csi-gce-pd-node-psp
-spec:
-  allowedHostPaths:
-  - pathPrefix: /var/lib/kubelet/plugins_registry/
-  - pathPrefix: /var/lib/kubelet
-  - pathPrefix: /var/lib/kubelet/plugins/pd.csi.storage.gke.io/
-  - pathPrefix: /dev
-  - pathPrefix: /etc/udev
-  - pathPrefix: /lib/udev
-  - pathPrefix: /run/udev
-  - pathPrefix: /sys
-  fsGroup:
-    rule: RunAsAny
-  hostNetwork: true
-  privileged: true
-  runAsUser:
-    rule: RunAsAny
-  seLinux:
-    rule: RunAsAny
-  supplementalGroups:
-    rule: RunAsAny
-  volumes:
-  - '*'
----
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: csi-gce-pd-node-psp-win
-spec:
-  allowedHostPaths:
-  - pathPrefix: \var\lib\kubelet
-  - pathPrefix: \var\lib\kubelet\plugins_registry
-  - pathPrefix: \var\lib\kubelet\plugins\pd.csi.storage.gke.io
-  - pathPrefix: \\.\pipe\csi-proxy-disk-v1
-  - pathPrefix: \\.\pipe\csi-proxy-volume-v1
-  - pathPrefix: \\.\pipe\csi-proxy-filesystem-v1
-  - pathPrefix: \\.\pipe\csi-proxy-disk-v1beta2
-  - pathPrefix: \\.\pipe\csi-proxy-volume-v1beta1
-  - pathPrefix: \\.\pipe\csi-proxy-filesystem-v1beta1
-  fsGroup:
-    rule: RunAsAny
-  hostNetwork: true
-  runAsUser:
-    rule: RunAsAny
-  seLinux:
-    rule: RunAsAny
-  supplementalGroups:
-    rule: RunAsAny
-  volumes:
-  - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

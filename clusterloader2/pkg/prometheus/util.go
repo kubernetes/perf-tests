@@ -69,7 +69,7 @@ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) boo
 			response = string(raw)
 		}
 		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warningf("error while calling prometheus api: %v, response: %q", err, response)
+		klog.Warningf("error while calling prometheus api: %v, response: %v", err, response)
 		return false, nil
 	}
 	var response targetsResponse

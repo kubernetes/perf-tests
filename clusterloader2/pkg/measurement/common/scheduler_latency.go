@@ -104,6 +104,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 			masterRegistered = true
 		}
 	}
+	klog.Errorf("AAA: masterRegistered=%v\n", masterRegistered)
 
 	if provider.Features().SchedulerInsecurePortDisabled || (!SSHToMasterSupported && !masterRegistered) {
 		klog.Warningf("unable to fetch scheduler metrics for provider: %s", provider.Name())
@@ -293,6 +294,16 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 	opUpper := strings.ToUpper(op)
 	if opUpper != "GET" && opUpper != "DELETE" {
 		return "", fmt.Errorf("unknown REST request")
+	}
+
+	klog.Errorf("BBB = %v\n", masterRegistered)
+	pods, err := c.CoreV1().Pods(metav1.NamespaceSystem).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		klog.Errorf("CCC = %v\n", err)
+	} else {
+		for _, p := range pods.Items {
+			klog.Errorf("--> %v\n", p.Name)
+		}
 	}
 
 	var responseText string

@@ -30,6 +30,8 @@ func NewAKSProvider(_ map[string]string) Provider {
 			SupportProbe:                        true,
 			SupportImagePreload:                 true,
 			SupportGrabMetricsFromKubelets:      true,
+			SupportSnapshotPrometheusDisk:       true,
+			SupportEnablePrometheusServer:       true,
 			ShouldPrometheusScrapeApiserverOnly: true,
 			ShouldScrapeKubeProxy:               true,
 		},

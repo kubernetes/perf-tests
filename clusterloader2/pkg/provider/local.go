@@ -34,6 +34,7 @@ func NewLocalProvider(_ map[string]string) Provider {
 			SupportEnablePrometheusServer:       true,
 			SupportGrabMetricsFromKubelets:      true,
 			SupportAccessAPIServerPprofEndpoint: true,
+			SupportMetricsServerMetrics:         true,
 			ShouldScrapeKubeProxy:               true,
 		},
 	}

@@ -25,8 +25,8 @@ export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 export CSI_DRIVER_KUBECONFIG="${HOME}/.kube/config"
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
 
-export AZUREDISK_CSI_DRIVER_VERSION="v1.15.0"
-export AZUREDISK_CSI_DRIVER_INSTALL_URL="https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/${AZUREDISK_CSI_DRIVER_VERSION}/deploy/install-driver.sh"
+export AZUREDISK_CSI_DRIVER_VERSION="${AZUREDISK_CSI_DRIVER_VERSION:-master}"
+export AZUREDISK_CSI_DRIVER_INSTALL_URL="${AZUREDISK_CSI_DRIVER_INSTALL_URL:-https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/${AZUREDISK_CSI_DRIVER_VERSION}/deploy/install-driver.sh}"
 export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 
 # Deploy the GCP PD CSI Driver if required

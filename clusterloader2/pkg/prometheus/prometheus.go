@@ -207,6 +207,18 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
+	// Removing Storage Class as Reclaim Policy cannot be changed
+	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
+		return err
+	}
+	if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.CoreManifests); err != nil {
+		return err
+	}
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
+		if err := pc.runNodeExporter(); err != nil {
+			return err
+		}
+	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter {
 		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.WindowsNodeExporterManifests); err != nil {
 			return err
@@ -218,18 +230,6 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			if err := setUpWindowsNodeAndTemplate(k8sClient, pc.templateMapping); err != nil {
 				return err
 			}
-		}
-	}
-	// Removing Storage Class as Reclaim Policy cannot be changed
-	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
-		return err
-	}
-	if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.CoreManifests); err != nil {
-		return err
-	}
-	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
-		if err := pc.runNodeExporter(); err != nil {
-			return err
 		}
 	}
 	if !pc.isKubemark() {

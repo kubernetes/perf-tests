@@ -39,6 +39,6 @@ RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && m
 RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
 RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
 
-COPY nptests /usr/bin/
+COPY nptest /usr/bin/
 
 ENTRYPOINT ["nptests"]

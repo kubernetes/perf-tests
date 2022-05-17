@@ -4,6 +4,7 @@ RESTART_COUNT_THRESHOLD_OVERRIDES: |
   coredns: 1
   fluentd-gcp: 1
   kube-proxy: 1
+  konnectivity-agent: 1
   metadata-proxy: 1
   prometheus-to-sd-exporter: 1
   volume-snapshot-controller: 1

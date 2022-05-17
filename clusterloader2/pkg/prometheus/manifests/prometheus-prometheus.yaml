@@ -1,5 +1,6 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
+{{$PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER false}}
 {{$PROMETHEUS_MEMORY_LIMIT_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR 2}}
 
 apiVersion: monitoring.coreos.com/v1
@@ -43,6 +44,12 @@ spec:
   - key: "monitoring"
     operator: "Exists"
     effect: "NoSchedule"
+  # Windows test jobs spawn clusters without Linux nodes. Add a toleration for Prometheus to be scheduled on the control-plane nodes
+  {{ if $PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER }}
+  - key: "node-role.kubernetes.io/master"
+    operator: "Exists"
+    effect: "NoSchedule"
+  {{ end }}
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
@@ -50,6 +57,7 @@ spec:
   podMonitorSelector: {}
   version: v2.25.0
   retention: 7d
+  {{if not $PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER}}
   storage:
     volumeClaimTemplate:
       spec:
@@ -58,6 +66,7 @@ spec:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+  {{ end }}
   query:
     maxSamples: 100000000
   {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}

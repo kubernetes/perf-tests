@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +50,13 @@ spec:
           readOnlyRootFilesystem: true
       nodeSelector:
         kubernetes.io/os: linux
+      # Windows test jobs spawn clusters without Linux nodes. Add a toleration for Prometheus to be scheduled on the control-plane nodes
+      {{ if $PROMETHEUS_SCRAPE_WINDOWS_NODE_EXPORTER }}
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+      {{ end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

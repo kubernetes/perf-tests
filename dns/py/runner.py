@@ -257,7 +257,7 @@ class Runner(object):
       fh.write('%s\n' % add_prefix('err | ', err))
 
       if code != 0:
-        raise Exception('error running dnsperf - %s, podname %s', err, podname)
+        raise Exception('error running dnsperf - %s, podname %s' %(err, podname))
 
     dt.join()
 
@@ -309,7 +309,7 @@ class Runner(object):
   def _select_nodes(self):
     code, out, _ = self._kubectl(None, 'get', 'nodes', '-o', 'yaml')
     if code != 0:
-      raise Exception('error gettings nodes: %d', code)
+      raise Exception('error gettings nodes: %d' % code)
 
     nodes = [n['metadata']['name'] for n in yaml.safe_load(out)['items']
              if not ('unschedulable' in n['spec'] \
@@ -431,7 +431,7 @@ class Runner(object):
           None, 'get', '-o', 'yaml', 'pods', '-l', _app_label)
       if code != 0:
         _log.error('Error: stderr\n%s', add_prefix('err | ', err))
-        raise Exception('error getting pod information: %d', code)
+        raise Exception('error getting pod information: %d' % code)
       pods = yaml.safe_load(out)
 
       _log.info('Waiting for server to be %s (%d pods active)',

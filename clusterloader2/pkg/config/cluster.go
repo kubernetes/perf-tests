@@ -26,7 +26,7 @@ import (
 type ClusterLoaderConfig struct {
 	ClusterConfig     ClusterConfig
 	ReportDir         string
-	EnableExecService bool
+	ExecServiceConfig ExecServiceConfig
 	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
 	// OverridePaths defines what override files should be applied
@@ -56,6 +56,14 @@ type ClusterConfig struct {
 	KubeletPort                   int
 	K8SClientsNumber              int
 	SkipClusterVerification       bool
+}
+
+// ExecServiceConfig represents all flags used by service config.
+type ExecServiceConfig struct {
+	// Determines if service config should be enabled.
+	Enable bool
+	// Sets path to the deployment definition.
+	DeploymentYaml string
 }
 
 // ModifierConfig represent all flags used by test modification

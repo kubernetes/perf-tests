@@ -186,7 +186,7 @@ func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) erro
 	a.threshold = threshold
 
 	a.clusterLevelMetrics = &apiAvailabilityMetrics{}
-	if config.ClusterLoaderConfig.EnableExecService {
+	if config.ClusterLoaderConfig.ExecServiceConfig.Enable {
 		a.hostIPs = config.ClusterFramework.GetClusterConfig().MasterInternalIPs
 		if len(a.hostIPs) == 0 {
 			klog.V(2).Infof("%s: host internal IP(s) are not provided, therefore only cluster-level availability will be measured", a)

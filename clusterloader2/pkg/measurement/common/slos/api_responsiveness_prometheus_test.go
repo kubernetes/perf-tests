@@ -35,6 +35,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common/executors"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+
+	_ "k8s.io/perf-tests/clusterloader2/pkg/flags" // init klog
 )
 
 var (
@@ -49,7 +51,6 @@ var (
 
 func turnOffLoggingToStderrInKlog(t *testing.T) {
 	if klogLogToStderr {
-		klog.InitFlags(nil)
 		err := flag.Set("logtostderr", "false")
 		if err != nil {
 			t.Errorf("Unable to set flag %v", err)

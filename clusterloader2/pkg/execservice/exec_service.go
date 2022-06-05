@@ -28,6 +28,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
 
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -36,7 +38,6 @@ import (
 const (
 	execDeploymentNamespace = "cluster-loader"
 	execDeploymentName      = "exec-pod"
-	execDeploymentPath      = "pkg/execservice/manifest/exec_deployment.yaml"
 	execPodReplicas         = 3
 	execPodSelector         = "feature = exec"
 
@@ -51,8 +52,25 @@ var (
 	podStore *measurementutil.PodStore
 )
 
+func InitFlags(c *config.ExecServiceConfig) {
+	flags.BoolEnvVar(
+		&c.Enable,
+		"enable-exec-service",
+		"ENABLE_EXEC_SERVICE",
+		true,
+		"Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.",
+	)
+	flags.StringEnvVar(
+		&c.DeploymentYaml,
+		"exec-deployment-yaml",
+		"EXEC_DEPLOYMENT_YAML",
+		"pkg/execservice/manifest/exec_deployment.yaml",
+		"Path to execservice deployment yaml.",
+	)
+}
+
 // SetUpExecService creates exec pod.
-func SetUpExecService(f *framework.Framework) error {
+func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error {
 	var err error
 	lock.Lock()
 	defer lock.Unlock()
@@ -68,7 +86,7 @@ func SetUpExecService(f *framework.Framework) error {
 		return fmt.Errorf("namespace %s creation error: %v", execDeploymentNamespace, err)
 	}
 	if err = f.ApplyTemplatedManifests(
-		execDeploymentPath,
+		c.DeploymentYaml,
 		mapping,
 		client.Retry(apierrs.IsNotFound)); err != nil {
 		return fmt.Errorf("pod %s creation error: %v", execDeploymentName, err)

@@ -310,7 +310,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				{
 					resource:  "pod",
 					verb:      "POST",
-					scope:     "namespace",
+					scope:     "resource",
 					latency:   1.2,
 					count:     123,
 					slowCount: 5,
@@ -320,7 +320,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				{
 					resource:  "pod",
 					verb:      "POST",
-					scope:     "namespace",
+					scope:     "resource",
 					p99:       1200.,
 					count:     "123",
 					slowCount: "5",
@@ -334,7 +334,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				{
 					resource:  "pod",
 					verb:      "POST",
-					scope:     "namespace",
+					scope:     "resource",
 					latency:   1.2,
 					count:     123,
 					slowCount: 5,
@@ -344,7 +344,7 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 				{
 					resource:  "pod",
 					verb:      "POST",
-					scope:     "namespace",
+					scope:     "resource",
 					p99:       1200.,
 					count:     "123",
 					slowCount: "5",
@@ -423,31 +423,37 @@ func TestLogging(t *testing.T) {
 				{
 					resource: "r1",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.2,
 				},
 				{
 					resource: "r2",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .9,
 				},
 				{
 					resource: "r3",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .8,
 				},
 				{
 					resource: "r4",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .7,
 				},
 				{
 					resource: "r5",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .6,
 				},
 				{
 					resource: "r6",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .5,
 				},
 			},
@@ -468,36 +474,43 @@ func TestLogging(t *testing.T) {
 				{
 					resource: "r1",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.2,
 				},
 				{
 					resource: "r2",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.9,
 				},
 				{
 					resource: "r3",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.8,
 				},
 				{
 					resource: "r4",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.7,
 				},
 				{
 					resource: "r5",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.6,
 				},
 				{
 					resource: "r6",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  1.5,
 				},
 				{
 					resource: "r7",
 					verb:     "POST",
+					scope:    "resource",
 					latency:  .5,
 				},
 			},

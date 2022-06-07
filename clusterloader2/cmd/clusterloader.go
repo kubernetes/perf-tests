@@ -119,12 +119,12 @@ func validateClusterFlags() *errors.ErrorList {
 
 func initFlags() {
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
-	flags.BoolEnvVar(&clusterLoaderConfig.EnableExecService, "enable-exec-service", "ENABLE_EXEC_SERVICE", true, "Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	initClusterFlags()
+	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
 }
@@ -312,8 +312,8 @@ func main() {
 			prometheusController.EnableTearDownPrometheusStackOnInterrupt()
 		}
 	}
-	if clusterLoaderConfig.EnableExecService {
-		if err := execservice.SetUpExecService(f); err != nil {
+	if clusterLoaderConfig.ExecServiceConfig.Enable {
+		if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {
 			klog.Exitf("Error while setting up exec service: %v", err)
 		}
 	}
@@ -377,7 +377,7 @@ func main() {
 			klog.Errorf("Error while tearing down prometheus stack: %v", err)
 		}
 	}
-	if clusterLoaderConfig.EnableExecService {
+	if clusterLoaderConfig.ExecServiceConfig.Enable {
 		if err := execservice.TearDownExecService(f); err != nil {
 			klog.Errorf("Error while tearing down exec service: %v", err)
 		}

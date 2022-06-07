@@ -95,7 +95,7 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) 
 	if err != nil {
 		return nil, err
 	}
-	if !config.ClusterLoaderConfig.EnableExecService {
+	if !config.ClusterLoaderConfig.ExecServiceConfig.Enable {
 		return nil, fmt.Errorf("enable-exec-service flag not enabled")
 	}
 

@@ -191,6 +191,7 @@ func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for namespace, shouldBeDeleted := range f.getAutomanagedNamespaces() {
+		namespace := namespace
 		if shouldBeDeleted {
 			wg.Start(func() {
 				if err := f.deleteNamespace(namespace); err != nil {

@@ -1,6 +1,7 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
 {{$PROMETHEUS_MEMORY_LIMIT_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR 2}}
+{{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -15,6 +16,7 @@ spec:
   baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
   nodeSelector:
     kubernetes.io/os: linux
+    {{$PROMETHEUS_NODE_SELECTOR}}
   replicas: 1
   resources:
     requests:

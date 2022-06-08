@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +50,7 @@ spec:
           readOnlyRootFilesystem: true
       nodeSelector:
         kubernetes.io/os: linux
+        {{$PROMETHEUS_NODE_SELECTOR}}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

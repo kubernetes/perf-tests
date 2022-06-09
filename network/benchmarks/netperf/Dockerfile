@@ -25,7 +25,7 @@ ARG GOLANG_VERSION=1.18
 FROM golang:${GOLANG_VERSION} as builder
 WORKDIR /workspace
 
-COPY nptests/nptest.go nptest.go
+COPY nptest/nptest.go nptest.go
 COPY go.sum go.sum
 COPY go.mod go.mod
 

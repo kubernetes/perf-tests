@@ -4,27 +4,27 @@ metadata:
   namespace: probes
   name: metrics-server-prober
   labels:
-    probe: metrics-server-probe
+    probe: metrics-server-prober
 spec:
   selector:
     matchLabels:
-      probe: metrics-server-probe
+      probe: metrics-server-prober
   replicas: {{.Replicas}}
   template:
     metadata:
       labels:
-        probe: metrics-server-probe
+        probe: metrics-server-prober
     spec:
       containers:
         - name: prober
-          image: gcr.io/k8s-testimages/probes:v0.0.4
+          image: gcr.io/k8s-testimages/probes:v0.0.5
           args:
             - --metric-bind-address=0.0.0.0:8080
             - --mode=kubeclient
             - --kubeclient-probe-resourceGroup=metrics.k8s.io
             - --kubeclient-probe-resourceVersion=v1beta1
             - --kubeclient-probe-resourceName=pods
-            - --kubeclient-probe-interval=30s
+            - --kubeclient-probe-interval=10s
             - --logtostderr=false
             - --log_file=/var/log/cl2-kube-client.log
           resources:

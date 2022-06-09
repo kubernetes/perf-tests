@@ -64,7 +64,7 @@ var (
 		MetricVersion:    "v1",
 		Query:            "quantile_over_time(0.99, probes:in_cluster_apiserver_request_latency:histogram_quantile[%v])",
 		Manifests:        "metricsServer/*.yaml",
-		ProbeLabelValues: []string{"kube-client"},
+		ProbeLabelValues: []string{"metrics-server-prober"},
 	}
 )
 

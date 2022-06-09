@@ -7,7 +7,7 @@ metadata:
   namespace: kube-system
 spec:
   endpoints:
-  - interval: 30s
+  - interval: 10s
     port: https
     scheme: https
     tlsConfig:

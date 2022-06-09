@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: probes
+  name: metrics-server-prober
+  labels:
+    probe: metrics-server-prober
+spec:
+  ports:
+    - name: metrics
+      port: 8080
+  selector:
+    probe: metrics-server-prober

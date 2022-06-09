@@ -39,9 +39,8 @@ const (
 
 	// Thresholds for API call latency as defined in the official K8s SLO
 	// https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
-	resourceThreshold  time.Duration = 1 * time.Second
-	namespaceThreshold time.Duration = 5 * time.Second
-	clusterThreshold   time.Duration = 30 * time.Second
+	singleResourceThreshold    time.Duration = 1 * time.Second
+	multipleResourcesThreshold time.Duration = 30 * time.Second
 
 	currentAPICallMetricsVersion = "v1"
 
@@ -405,11 +404,8 @@ func (ap *apiCallMetric) Validate(allowedSlowCalls int, threshold time.Duration)
 }
 
 func (ap *apiCallMetric) getSLOThreshold() time.Duration {
-	if ap.Verb != "LIST" {
-		return resourceThreshold
+	if ap.Scope == "resource" {
+		return singleResourceThreshold
 	}
-	if ap.Scope == "cluster" {
-		return clusterThreshold
-	}
-	return namespaceThreshold
+	return multipleResourcesThreshold
 }

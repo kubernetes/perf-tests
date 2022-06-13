@@ -1,6 +1,8 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
+{{$PROMETHEUS_CPU_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_CPU_SCALE_FACTOR 1}}
 {{$PROMETHEUS_MEMORY_LIMIT_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR 2}}
+{{$PROMETHEUS_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_SCALE_FACTOR $PROMETHEUS_MEMORY_LIMIT_FACTOR}}
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 
 apiVersion: monitoring.coreos.com/v1
@@ -20,19 +22,19 @@ spec:
   replicas: 1
   resources:
     requests:
-      cpu: {{AddInt 200 (MultiplyInt 500 (DivideInt .Nodes 1000))}}m
+      cpu: {{AddInt 200 (MultiplyInt $PROMETHEUS_CPU_SCALE_FACTOR 500 (DivideInt .Nodes 1000))}}m
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
       memory: 10Gi
       {{else}}
       # Start with 2Gi and add 2Gi for each 1K nodes.
-      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
     limits:
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
       memory: 10Gi
       {{else}}
       # Default: Start with 2Gi and add 2Gi for each 1K nodes.
-      memory: {{MultiplyInt $PROMETHEUS_MEMORY_LIMIT_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
   ruleSelector:
     matchLabels:

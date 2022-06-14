@@ -37,11 +37,19 @@ const (
 	// get top 10 non-system processes with highest memory usage
 	memoryUsageQueryTop10 = `topk(10, sum(windows_process_working_set_bytes{process!~"Idle|Total|System"}) by (process))`
 	// memory usage metrics file name prefix
-	memoryUsageMetricsName                    = "WindowsMemoryUsagePrometheus"
-    // get the total disk size by volume
-	nodeStorageUsageQuery       = `sum(windows_logical_disk_size_bytes) by (volume)`
-    // node storage usage file name prefix
-    nodeStorageUsageMetricsName = "WindowsNodeStorage"
+	memoryUsageMetricsName = "WindowsMemoryUsagePrometheus"
+	// get the total disk size by volume
+	nodeStorageUsageQuery = `sum(windows_logical_disk_size_bytes) by (volume)`
+	// node storage usage file name prefix
+	nodeStorageUsageMetricsName = "WindowsNodeStorage"
+	// get the total open file descriptors
+	openFilesQuery = `sum(process_open_fds{service="windows-exporter"})`
+	// open files metrics file name prefix
+	openFilesMetricsName = "WindowsOpenFiles"
+	// bytes issued to I/O operations
+	processQueryTop10 = `topk(10, sum by (process) (windows_process_io_bytes_total{process!~"Idle|Total|System"}))`
+	// process metrics file name prefix
+	processMetricsName                        = "WindowsProcesses"
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 
@@ -120,6 +128,40 @@ func convertToStoragePerfData(samples []*model.Sample) *measurementutil.PerfData
 	return perfData
 }
 
+func convertToOpenFilesPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Open File Handles": math.Round(float64(sample.Value)),
+			},
+			Unit: "Handles",
+			Labels: map[string]string{
+				"Job": string(sample.Metric["job"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func convertToProcessPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Process Handles": math.Round(float64(sample.Value)*100) / 100,
+			},
+			Unit: "Handles",
+			Labels: map[string]string{
+				"Process": string(sample.Metric["process"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
 func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
@@ -146,9 +188,17 @@ func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, sta
 	if err != nil {
 		return nil, err
 	}
-    nodeStorageSummary, err := getSummary(nodeStorageUsageQuery, convertToStoragePerfData, nodeStorageUsageMetricsName, endTime, executor, config)
+	nodeStorageSummary, err := getSummary(nodeStorageUsageQuery, convertToStoragePerfData, nodeStorageUsageMetricsName, endTime, executor, config)
 	if err != nil {
 		return nil, err
 	}
-	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary}, nil
+	openFilesSummary, err := getSummary(openFilesQuery, convertToOpenFilesPerfData, openFilesMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	processSummary, err := getSummary(processQueryTop10, convertToProcessPerfData, processMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary}, nil
 }

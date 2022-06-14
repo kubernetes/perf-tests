@@ -31,11 +31,11 @@ import (
 const (
 	windowsResourceUsagePrometheusMeasurementName = "WindowsResourceUsagePrometheus"
 	// get top 10 non-system processes with highest cpu usage within 1min query window size
-	cpuUsageQueryTop10 = `topk(10, sum by (process) (irate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
+	cpuUsageQueryTop10 = `topk(10, sum by (process) (irate(windows_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left windows_cs_logical_processors) * 100)`
 	// cpu usage metrics file name prefix
 	cpuUsageMetricsName = "WindowsCPUUsagePrometheus"
 	// get top 10 non-system processes with highest memory usage
-	memoryUsageQueryTop10 = `topk(10, sum(wmi_process_working_set{process!~"Idle|Total|System"}) by (process))`
+	memoryUsageQueryTop10 = `topk(10, sum(windows_process_working_set_bytes{process!~"Idle|Total|System"}) by (process))`
 	// memory usage metrics file name prefix
 	memoryUsageMetricsName                    = "WindowsMemoryUsagePrometheus"
 	currentWindowsResourceUsageMetricsVersion = "v1"

@@ -21,7 +21,7 @@ Usually measurement is specified two times in test config - once when we start m
 Two distinguish these two cases, you need to specify parameter called `action` that takes values `start` and `gather`.
 For example, for PodStartupLatency you specify action and some additional parameters when starting measurement:
 
-```
+```yaml
 - Identifier: PodStartupLatency
   Method: PodStartupLatency
   Params:
@@ -30,7 +30,7 @@ For example, for PodStartupLatency you specify action and some additional parame
     threshold: 20s
 ```
 And then later you can just gather results with:
-```
+```yaml
 - Identifier: PodStartupLatency
   Method: PodStartupLatency
   Params:
@@ -399,7 +399,7 @@ The more pods you want to scrape the smaller frequency should be and/or Promethe
 In this example we scrape up to 5k pods.
 
 If your pods are already within service, you can use ServiceMonitor to scrape metrics:
-```
+```yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -441,7 +441,7 @@ const (
 In case of measurement based on Prometheus metric, we only need to specify how results will be gathered.
 You can check interface [here][Prometheus interface], which looks like this:
 
-```
+```golang
 func CreatePrometheusMeasurement(gatherer Gatherer) measurement.Measurement
 
 type Gatherer interface {
@@ -452,13 +452,13 @@ type Gatherer interface {
 ```
 
 So let's start with creating structure:
-```
+```golang
 type schedulingThroughputGatherer struct{}
 ```
 
 Now, we can register our new measurement:
 
-```
+```golang
 func init() {
 	create := func() measurement.Measurement { return CreatePrometheusMeasurement(&schedulingThroughputGatherer{}) }
 	if err := measurement.Register(schedulingThroughputPrometheusMeasurementName, create); err != nil {
@@ -469,7 +469,7 @@ func init() {
 
 And let's define `IsEnabled` and `String` methods:
 
-```
+```golang
 func (a *schedulingThroughputGatherer) String() string {
 	return schedulingThroughputPrometheusMeasurementName
 }
@@ -496,7 +496,7 @@ type schedulingThroughputPrometheus struct {
 ```
 We can now implement method that will gather scheduling throughput data.
 We need to compute duration for measurement, execute query, check of any error and return previously defined structure:
-```
+```golang
 func (a *schedulingThroughputGatherer) getThroughputSummary(executor QueryExecutor, startTime time.Time, config *measurement.Config) (*schedulingThroughputPrometheus, error) {
 	measurementEnd := time.Now()
 	measurementDuration := measurementEnd.Sub(startTime)
@@ -552,6 +552,12 @@ If we want to add `threshold` to our measurement so it fails if scheduling throu
 ```
 You can check whole implementation [here][Scheduling throughput].
 
+### Unit testing of Prometheus measurements
+
+You can use our testing framework that runs a local Prometheus query executor to check whether your measurement works as intended in an end-to-end way without running Clusterloader2 on a live cluster.
+This works by providing sample files containing time series as inputs for the measurement's underlying PromQL queries.
+See an example of a [unit test][Container restarts test] written in this framework and the [input data][Test input data] used therein.
+
 [Design]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/design.md
 [Getting started]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/GETTING_STARTED.md
 [Measurement interface]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/measurement/interface.go
@@ -561,3 +567,5 @@ You can check whole implementation [here][Scheduling throughput].
 [Prometheus operator doc]: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/api.md
 [Rollout process]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/docs/experiments.md
 [Scheduling throughput]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/measurement/common/scheduling_throughput_prometheus.go
+[Container restarts test]: https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/pkg/measurement/common/container_restarts_test.go
+[Test input data]: https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/pkg/measurement/common/testdata/container_restarts

@@ -1,0 +1,21 @@
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+
+{{if $ENABLE_DNSTESTS}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: dns-client-pods
+  name: dns-client-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 30s
+      port: dnsperfmetrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      dns-test: dnsperfgo
+  namespaceSelector:
+    any: true
+{{end}}

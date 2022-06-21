@@ -18,67 +18,15 @@ package common
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common/executors"
 )
-
-type rule struct {
-	Expr   string `yaml:"expr"`
-	Record string `yaml:"record"`
-	Labels struct {
-		Quantile string `yaml:"quantile"`
-	} `yaml:"labels"`
-}
-
-type group struct {
-	Name  string `yaml:"name"`
-	Rules []rule `yaml:"rules"`
-}
-
-//prometheusRuleManifest mimics the structure of PrometheusRule object used by prometheus operator
-//https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/types.go#L1393
-type prometheusRuleManifest struct {
-	Spec struct {
-		Groups []group `yaml:"groups"`
-	} `yaml:"spec"`
-}
-
-func createRulesFile(rulesManifestFile string) (*os.File, error) {
-	r, err := ioutil.ReadFile(rulesManifestFile)
-	if err != nil {
-		return nil, err
-	}
-
-	rulesManifest := new(prometheusRuleManifest)
-	err = yaml.Unmarshal(r, rulesManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	tempFile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, err
-	}
-	b, err := yaml.Marshal(rulesManifest.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tempFile.Write(b)
-	if err != nil {
-		return nil, err
-	}
-	return tempFile, nil
-}
 
 func TestContainerRestartsMeasurement(t *testing.T) {
 	splitter := func(yamlLines []string) string {
@@ -166,14 +114,9 @@ func TestContainerRestartsMeasurement(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := createRulesFile("../../prometheus/manifests/prometheus-rules.yaml")
+			executor, err := executors.NewPromqlExecutor(fmt.Sprintf("testdata/container_restarts/%s", tc.testSeriesFile))
 			if err != nil {
-				t.Fatalf("failed to create rules file: %v", err)
-			}
-			defer os.Remove(f.Name())
-			executor, err := executors.NewPromqlExecutor(fmt.Sprintf("slos/testdata/container_restarts/%s", tc.testSeriesFile), f.Name())
-			if err != nil {
-				t.Fatalf("failed to create rules file: %v", err)
+				t.Fatalf("failed to create PromQL executor: %v", err)
 			}
 			defer executor.Close()
 			gatherer := &containerRestartsGatherer{}

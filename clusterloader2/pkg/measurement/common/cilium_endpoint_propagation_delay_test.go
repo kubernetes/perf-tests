@@ -18,7 +18,6 @@ package common
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -82,14 +81,9 @@ func TestCiliumEndpointPropagationDelayMeasurement(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := createRulesFile("../../prometheus/manifests/prometheus-rules.yaml")
+			executor, err := executors.NewPromqlExecutor(fmt.Sprintf("testdata/cilium_endpoint_propagation_delay/%s", tc.testSeriesFile))
 			if err != nil {
-				t.Fatalf("Failed to create rules file: %v", err)
-			}
-			defer os.Remove(f.Name())
-			executor, err := executors.NewPromqlExecutor(fmt.Sprintf("slos/testdata/cilium_endpoint_propagation_delay/%s", tc.testSeriesFile), f.Name())
-			if err != nil {
-				t.Fatalf("Failed to create PromQL executor: %v", err)
+				t.Fatalf("failed to create PromQL executor: %v", err)
 			}
 			defer executor.Close()
 			gatherer := &cepPropagationDelayGatherer{}

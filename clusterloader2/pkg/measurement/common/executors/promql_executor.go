@@ -20,12 +20,17 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	pathToPrometheusRules = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/prometheus-rules.yaml"
 )
 
 func toModelSample(s promql.Sample) *model.Sample {
@@ -82,8 +87,7 @@ type PromqlExecutor struct {
 
 // NewPromqlExecutor creates a new executor with time series and rules loaded from file
 // Samples loaded from test file starts at time.Time.UTC(0,0)
-func NewPromqlExecutor(timeSeriesFile, ruleFile string) (*PromqlExecutor, error) {
-
+func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
 	//Load time series from file
 	f, err := loadFromFile(timeSeriesFile)
 	if err != nil {
@@ -109,7 +113,13 @@ func NewPromqlExecutor(timeSeriesFile, ruleFile string) (*PromqlExecutor, error)
 		Logger:     nil,
 	}
 	m := rules.NewManager(opts)
-	groupsMap, ers := m.LoadGroups(interval, nil, ruleFile)
+
+	rulesFile, err := createRulesFile(os.ExpandEnv(pathToPrometheusRules))
+	if err != nil {
+		return nil, fmt.Errorf("could not create rules file: %v", err)
+	}
+	defer os.Remove(rulesFile.Name())
+	groupsMap, ers := m.LoadGroups(interval, nil, rulesFile.Name())
 	if ers != nil {
 		return nil, fmt.Errorf("could not load rules file: %v", ers)
 	}

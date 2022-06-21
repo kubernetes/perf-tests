@@ -543,6 +543,59 @@ var (
 			},
 		},
 	}
+	windowsDescriptions = TestDescriptions{
+		"E2E": {
+			"CPUUsage": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsCPUUsagePrometheus",
+					Parser:           parsePerfData,
+				},
+			},
+			"MemoryUsage": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsMemoryUsagePrometheus",
+					Parser:           parsePerfData,
+				},
+			},
+			"ContainersCount": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsContainers",
+					Parser:           parsePerfData,
+				},
+			},
+			"Network": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsNetwork",
+					Parser:           parsePerfData,
+				},
+			},
+			"NodeStorage": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsNodeStorage",
+					Parser:           parsePerfData,
+				},
+			},
+			"OpenFiles": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsOpenFiles",
+					Parser:           parsePerfData,
+				},
+			},
+			"Processes": []TestDescription{
+				{
+					Name:             "node-throughput",
+					OutputFilePrefix: "WindowsProcesses",
+					Parser:           parsePerfData,
+				},
+			},
+		},
+	}
 
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
@@ -550,6 +603,7 @@ var (
 		"dnsBenchmark": dnsBenchmarkDescriptions,
 		"storage":      storageDescriptions,
 		"throughput":   throughputDescriptions,
+		"windows":      windowsDescriptions,
 	}
 )
 

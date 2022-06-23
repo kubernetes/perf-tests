@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-all: docker nptests push launch runtests
+all: docker push launch runtests
 
 DOCKERREPO       := girishkalele/netperf-latest
 
-docker: nptests launch
-	mkdir -p Dockerbuild && \
+docker: launch
+	mkdir -p Dockerbuild/nptest && \
 	cp -f Dockerfile Dockerbuild/ && \
-	cp -f nptest/nptests Dockerbuild/ &&\
-	docker build -t $(DOCKERREPO) Dockerbuild/ 
+    cp -f nptest/nptest.go Dockerbuild/nptest/ && \
+    cp -f go.mod Dockerbuild/ && \
+    cp -f go.sum Dockerbuild/ && \
+	docker build -t $(DOCKERREPO) Dockerbuild/
 
 push: docker
 	gcloud docker push $(DOCKERREPO)
-
-nptests: nptest/nptest.go
-	cd nptest; GOOS=linux GOARCH=amd64 make nptests
 
 clean:
 	@rm -f Dockerbuild/*

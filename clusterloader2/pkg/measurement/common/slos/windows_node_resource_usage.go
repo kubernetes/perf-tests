@@ -31,13 +31,33 @@ import (
 const (
 	windowsResourceUsagePrometheusMeasurementName = "WindowsResourceUsagePrometheus"
 	// get top 10 non-system processes with highest cpu usage within 1min query window size
-	cpuUsageQueryTop10 = `topk(10, sum by (process) (irate(wmi_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left wmi_cs_logical_processors) * 100)`
+	cpuUsageQueryTop10 = `topk(10, sum by (process) (irate(windows_process_cpu_time_total{process!~"Idle|Total|System"}[5m]) / on(job) group_left windows_cs_logical_processors) * 100)`
 	// cpu usage metrics file name prefix
 	cpuUsageMetricsName = "WindowsCPUUsagePrometheus"
 	// get top 10 non-system processes with highest memory usage
-	memoryUsageQueryTop10 = `topk(10, sum(wmi_process_working_set{process!~"Idle|Total|System"}) by (process))`
+	memoryUsageQueryTop10 = `topk(10, sum(windows_process_working_set_bytes{process!~"Idle|Total|System"}) by (process))`
 	// memory usage metrics file name prefix
-	memoryUsageMetricsName                    = "WindowsMemoryUsagePrometheus"
+	memoryUsageMetricsName = "WindowsMemoryUsagePrometheus"
+	// get the total disk size by volume
+	nodeStorageUsageQuery = `sum(windows_logical_disk_size_bytes) by (volume)`
+	// node storage usage file name prefix
+	nodeStorageUsageMetricsName = "WindowsNodeStorage"
+	// get the total open file descriptors
+	openFilesQuery = `sum(process_open_fds{service="windows-exporter"})`
+	// open files metrics file name prefix
+	openFilesMetricsName = "WindowsOpenFiles"
+	// bytes issued to I/O operations
+	processQueryTop10 = `topk(10, sum by (process) (windows_process_io_bytes_total{process!~"Idle|Total|System"}))`
+	// process metrics file name prefix
+	processMetricsName = "WindowsProcesses"
+	// number of Windows containers
+	containerQueryTop10 = `topk(10, sum by (instance) (windows_container_count))`
+	// container metrics file name prefix
+	containerMetricsName = "WindowsContainers"
+	// total bytes received and transmitted by interface
+	networkQueryTop10 = `topk(10, sum by (nic) (windows_net_bytes_total))`
+	// network metrics file name prefix
+	networkMetricsName                        = "WindowsNetwork"
 	currentWindowsResourceUsageMetricsVersion = "v1"
 )
 
@@ -99,6 +119,90 @@ func convertToMemoryPerfData(samples []*model.Sample) *measurementutil.PerfData 
 	return perfData
 }
 
+func convertToStoragePerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Storage_Used": math.Round(float64(sample.Value)*100/(1024*1024*1024)) / 100,
+			},
+			Unit: "GB",
+			Labels: map[string]string{
+				"Volume": string(sample.Metric["volume"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func convertToOpenFilesPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Open File Handles": math.Round(float64(sample.Value)),
+			},
+			Unit: "Handles",
+			Labels: map[string]string{
+				"Job": string(sample.Metric["job"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func convertToProcessPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Process Handles": math.Round(float64(sample.Value)*100) / 100,
+			},
+			Unit: "Handles",
+			Labels: map[string]string{
+				"Process": string(sample.Metric["process"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func convertToNetworkPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Network_Bytes_Total": math.Round(float64(sample.Value)*100/(1024*1024)) / 100,
+			},
+			Unit: "MB",
+			Labels: map[string]string{
+				"NIC": string(sample.Metric["nic"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
+
+func convertToContainerPerfData(samples []*model.Sample) *measurementutil.PerfData {
+	perfData := &measurementutil.PerfData{Version: currentWindowsResourceUsageMetricsVersion}
+	for _, sample := range samples {
+		item := measurementutil.DataItem{
+			Data: map[string]float64{
+				"Windows Container Count": math.Round(float64(sample.Value)*100/(1024*1024)) / 100,
+			},
+			Unit: "Containers",
+			Labels: map[string]string{
+				"Instance": string(sample.Metric["instance"]),
+			},
+		}
+		perfData.DataItems = append(perfData.DataItems, item)
+	}
+	return perfData
+}
 func getSummary(query string, converter convertFunc, metricsName string, measurementTime time.Time, executor common.QueryExecutor, config *measurement.Config) (measurement.Summary, error) {
 	samples, err := executor.Query(query, measurementTime)
 	if err != nil {
@@ -125,5 +229,25 @@ func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, sta
 	if err != nil {
 		return nil, err
 	}
-	return []measurement.Summary{cpuSummary, memorySummary}, nil
+	nodeStorageSummary, err := getSummary(nodeStorageUsageQuery, convertToStoragePerfData, nodeStorageUsageMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	openFilesSummary, err := getSummary(openFilesQuery, convertToOpenFilesPerfData, openFilesMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	processSummary, err := getSummary(processQueryTop10, convertToProcessPerfData, processMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	networkSummary, err := getSummary(networkQueryTop10, convertToNetworkPerfData, networkMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	containerSummary, err := getSummary(containerQueryTop10, convertToContainerPerfData, containerMetricsName, endTime, executor, config)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{cpuSummary, memorySummary, nodeStorageSummary, openFilesSummary, processSummary, networkSummary, containerSummary}, nil
 }

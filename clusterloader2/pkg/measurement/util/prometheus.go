@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	queryTimeout  = 5 * time.Minute
+	queryTimeout  = 15 * time.Minute
 	queryInterval = 30 * time.Second
 )
 

@@ -4,6 +4,7 @@
 {{$PROMETHEUS_MEMORY_LIMIT_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR 2}}
 {{$PROMETHEUS_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_SCALE_FACTOR $PROMETHEUS_MEMORY_LIMIT_FACTOR}}
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
+{{$PROMETHEUS_TOLERATE_MASTER := DefaultParam .CL2_PROMETHEUS_TOLERATE_MASTER false}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -47,6 +48,14 @@ spec:
   - key: "monitoring"
     operator: "Exists"
     effect: "NoSchedule"
+  {{if $PROMETHEUS_TOLERATE_MASTER}}
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  {{end}}
   serviceAccountName: prometheus-k8s
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
@@ -54,6 +63,8 @@ spec:
   podMonitorSelector: {}
   version: v2.25.0
   retention: 7d
+  {{if not $PROMETHEUS_TOLERATE_MASTER}}
+  # We add node tolerations for control-plane nodes in Azure Windows test jobs which do not support Google PD
   storage:
     volumeClaimTemplate:
       spec:
@@ -62,6 +73,7 @@ spec:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+  {{ end }}
   query:
     maxSamples: 100000000
   {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}

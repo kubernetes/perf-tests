@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,8 +27,8 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 const (
@@ -85,13 +84,13 @@ type promResponseData struct {
 }
 
 // NewQueryExecutor creates instance of PrometheusQueryExecutor.
-func NewQueryExecutor(c clientset.Interface) *PrometheusQueryExecutor {
-	return &PrometheusQueryExecutor{client: c}
+func NewQueryExecutor(pc prom.Client) *PrometheusQueryExecutor {
+	return &PrometheusQueryExecutor{client: pc}
 }
 
-// PrometheusQueryExecutor executes queries against Prometheus instance running inside test cluster.
+// PrometheusQueryExecutor executes queries against Prometheus.
 type PrometheusQueryExecutor struct {
-	client clientset.Interface
+	client prom.Client
 }
 
 // Query executes given prometheus query at given point in time.
@@ -102,16 +101,10 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 
 	var body []byte
 	var queryErr error
-	params := map[string]string{
-		"query": query,
-		"time":  queryTime.Format(time.RFC3339),
-	}
+
 	klog.V(2).Infof("Executing %q at %v", query, queryTime.Format(time.RFC3339))
 	if err := wait.PollImmediate(queryInterval, queryTimeout, func() (bool, error) {
-		body, queryErr = e.client.CoreV1().
-			Services("monitoring").
-			ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
-			DoRaw(context.TODO())
+		body, queryErr = e.client.Query(query, queryTime)
 		if queryErr != nil {
 			return false, nil
 		}
@@ -129,7 +122,7 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 
 	samples, err := ExtractMetricSamples2(body)
 	if err != nil {
-		return nil, fmt.Errorf("exctracting error: %v", err)
+		return nil, fmt.Errorf("extracting error: %v", err)
 	}
 
 	var resultSamples []*model.Sample

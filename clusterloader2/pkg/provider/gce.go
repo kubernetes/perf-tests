@@ -25,6 +25,7 @@ import (
 	"k8s.io/klog"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -107,4 +108,8 @@ func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error)
 	}
 
 	return map[string]string{"masterInstanceIDs": strings.Join(masterInstanceIDs, ",")}, nil
+}
+
+func (p *GCEProvider) GetManagedPrometheusClient() (prom.Client, error) {
+	return prom.NewGCPManagedPrometheusClient()
 }

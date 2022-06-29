@@ -19,6 +19,7 @@ package provider
 import (
 	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 type SkeletonProvider struct {
@@ -67,4 +68,8 @@ func (p *SkeletonProvider) RunSSHCommand(cmd, host string) (string, string, int,
 
 func (p *SkeletonProvider) Metadata(client clientset.Interface) (map[string]string, error) {
 	return nil, nil
+}
+
+func (p *SkeletonProvider) GetManagedPrometheusClient() (prom.Client, error) {
+	return nil, ErrNoManagedPrometheus
 }

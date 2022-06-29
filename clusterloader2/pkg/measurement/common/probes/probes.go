@@ -29,6 +29,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/prometheus"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -203,7 +204,8 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 	measurementEnd := time.Now()
 
 	query := prepareQuery(p.config.Query, p.startTime, measurementEnd)
-	executor := measurementutil.NewQueryExecutor(p.framework.GetClientSets().GetClient())
+	pc := prom.NewInClusterPrometheusClient(p.framework.GetClientSets().GetClient())
+	executor := measurementutil.NewQueryExecutor(pc)
 	samples, err := executor.Query(query, measurementEnd)
 	if err != nil {
 		return nil, err

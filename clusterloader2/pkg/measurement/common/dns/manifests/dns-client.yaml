@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dnsperfgo
+  namespace: {{.Namespace}}
+spec:
+  replicas: {{.PodReplicas}}
+  selector:
+    matchLabels:
+      dns-test: dnsperfgo
+  template:
+    metadata:
+      labels:
+        dns-test: dnsperfgo
+    spec:
+      containers:
+      - name: dnsperfgo
+        ports:
+        - containerPort: 9153
+          name: dnsperfmetrics
+          protocol: TCP
+        image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.3.0
+        # Fetches the dns server from /etc/resolv.conf and sends 10 queries per second.
+        # With searchpath expansion, this is 120 queries per second.
+        # External names like google.com are expanded to 12 queries.
+        # FQDN lookups like kubernetes.default.svc.cluster.local are also expanded to 12 queries since they have < 5 dots in the name.
+        # Names like kubernetes.default will get partial search path expansion, since the query will succeed once "svc.cluster.local" path is applied.
+        # -query-cluster-names flag will generate FQDNs, in order to exercise searchpath expansion.
+        # dnsperf has a client timeout of 5s. It sends queries for 60s,
+        # then sleeps for 10s, to mimic bursts of DNS queries.
+        command:
+        - sh
+        - -c
+        - server=$(cat /etc/resolv.conf | grep nameserver | cut -d ' ' -f 2); echo
+          "Using nameserver ${server}";
+          ./dnsperfgo -duration 60s -idle-duration 10s -query-cluster-names -qps {{.QPSPerClient}};
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10M
+      serviceAccountName: {{.ServiceAccountName}}
+      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900

@@ -19,6 +19,8 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"time"
@@ -60,6 +62,7 @@ var (
 	providerInitOptions provider.InitOptions
 	testConfigPaths     []string
 	testSuiteConfigPath string
+	port                int
 )
 
 func initClusterFlags() {
@@ -124,6 +127,7 @@ func initFlags() {
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
 	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
+	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
@@ -255,6 +259,13 @@ func main() {
 	if err := flags.Parse(); err != nil {
 		klog.Exitf("Flag parse failed: %v", err)
 	}
+
+	// Start http server with pprof.
+	go func() {
+		klog.Infof("Listening on %d", port)
+		err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil)
+		klog.Errorf("http server unexpectedly ended: %v", err)
+	}()
 
 	provider, err := provider.NewProvider(&providerInitOptions)
 	if err != nil {

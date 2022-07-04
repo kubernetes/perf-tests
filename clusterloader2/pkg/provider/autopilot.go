@@ -19,6 +19,7 @@ package provider
 import (
 	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 type AutopilotProvider struct {
@@ -65,4 +66,8 @@ func (p *AutopilotProvider) RunSSHCommand(cmd, host string) (string, string, int
 
 func (p *AutopilotProvider) Metadata(client clientset.Interface) (map[string]string, error) {
 	return nil, nil
+}
+
+func (p *AutopilotProvider) GetManagedPrometheusClient() (prom.Client, error) {
+	return prom.NewGCPManagedPrometheusClient()
 }

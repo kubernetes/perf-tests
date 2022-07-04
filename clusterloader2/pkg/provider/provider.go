@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	clientset "k8s.io/client-go/kubernetes"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 // InitOptions encapsulates the fields needed to init provider.
@@ -85,6 +86,9 @@ type Provider interface {
 	Features() *Features
 
 	GetConfig() Config
+
+	// GetManagedPrometheusClient returns HTTP client for communicating with the relevant cloud provider's managed Prometheus service.
+	GetManagedPrometheusClient() (prom.Client, error)
 
 	// GetComponentProtocolAndPort returns the protocol and port for the control plane components.
 	GetComponentProtocolAndPort(componentName string) (string, int, error)

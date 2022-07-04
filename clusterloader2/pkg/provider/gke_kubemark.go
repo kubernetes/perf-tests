@@ -20,6 +20,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 type GKEKubemarkProvider struct {
@@ -70,4 +71,8 @@ func (p *GKEKubemarkProvider) RunSSHCommand(cmd, host string) (string, string, i
 
 func (p *GKEKubemarkProvider) Metadata(client clientset.Interface) (map[string]string, error) {
 	return nil, nil
+}
+
+func (p *GKEKubemarkProvider) GetManagedPrometheusClient() (prom.Client, error) {
+	return prom.NewGCPManagedPrometheusClient()
 }

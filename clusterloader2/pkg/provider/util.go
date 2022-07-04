@@ -17,9 +17,14 @@ limitations under the License.
 package provider
 
 import (
+	"errors"
 	"fmt"
 
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
+)
+
+var (
+	ErrNoManagedPrometheus = errors.New("no managed Prometheus service for this cloud provider")
 )
 
 func getComponentProtocolAndPort(componentName string) (string, int, error) {

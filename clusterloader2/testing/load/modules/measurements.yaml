@@ -21,6 +21,7 @@
 {{$CEP_PROPAGATION_DELAY_SLO_PERCENTILE := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_PERCENTILE 95.0}}
 {{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
 {{$ENABLE_CONTAINER_RESOURCES_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESOURCES_MEASUREMENT false}}
+{{$ENABLE_QUOTAS_USAGE_MEASUREMENT := DefaultParam .CL2_ENABLE_QUOTAS_USAGE_MEASUREMENT false}}
 {{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
 {{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
@@ -150,6 +151,23 @@ steps:
         query: quantile_over_time(0.90, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
       - name: Perc50
         query: quantile_over_time(0.50, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+{{end}}
+{{if $ENABLE_QUOTAS_USAGE_MEASUREMENT}}
+  - Identifier: Quotas total usage
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Quota usage
+      metricVersion: v1
+      prometheusClient: managed
+      unit: QPMs
+      dimensions:
+      - quota_metric
+      queries:
+      - name: perc99
+        query: quantile_over_time(0.99, sum by (quota_metric) (irate(serviceruntime_googleapis_com:quota_rate_net_usage{monitored_resource="consumer_quota"}[1m]))[%v:]) * 60
+      - name: max
+        query: max_over_time(sum by (quota_metric) (irate(serviceruntime_googleapis_com:quota_rate_net_usage{monitored_resource="consumer_quota"}[1m]))[%v:]) * 60
 {{end}}
 {{if $ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT}}
   - Identifier: CiliumEndpointPropagationDelay

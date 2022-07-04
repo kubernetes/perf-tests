@@ -25,6 +25,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -56,7 +57,14 @@ type prometheusMeasurement struct {
 }
 
 func (m *prometheusMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	if config.PrometheusFramework == nil {
+	prometheusClient, err := util.GetStringOrDefault(config.Params, "prometheusClient", "inCluster")
+	if err != nil {
+		return nil, err
+	}
+	if prometheusClient != "inCluster" && prometheusClient != "managed" {
+		return nil, fmt.Errorf("unknown Prometheus client")
+	}
+	if prometheusClient == "inCluster" && config.PrometheusFramework == nil {
 		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", config.Identifier)
 		return nil, nil
 	}
@@ -86,8 +94,17 @@ func (m *prometheusMeasurement) Execute(config *measurement.Config) ([]measureme
 			return nil, err
 		}
 
-		c := config.PrometheusFramework.GetClientSets().GetClient()
-		executor := measurementutil.NewQueryExecutor(c)
+		var pc prom.Client
+		switch prometheusClient {
+		case "inCluster":
+			pc = prom.NewInClusterPrometheusClient(config.PrometheusFramework.GetClientSets().GetClient())
+		case "managed":
+			pc, err = config.CloudProvider.GetManagedPrometheusClient()
+			if err != nil {
+				return nil, fmt.Errorf("error while creating managed Prometheus client: %w", err)
+			}
+		}
+		executor := measurementutil.NewQueryExecutor(pc)
 
 		summary, err := m.gatherer.Gather(executor, m.startTime, time.Now(), config)
 		if err != nil {

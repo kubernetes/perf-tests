@@ -207,6 +207,9 @@ steps:
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
 {{end}}
 
+- module:
+    path: modules/dns-k8s-hostnames.yaml
+
 {{if $EXEC_COMMAND}}
 
 {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}

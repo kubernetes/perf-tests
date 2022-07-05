@@ -3,6 +3,9 @@
 # For now we're setting it to 0.5%.
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
+{{$dnsQPSPerClient := DefaultParam .CL2_DNS_QPS_PER_CLIENT 1}}
+# Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
+{{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -22,12 +25,22 @@ spec:
         group: load
         name: {{.Name}}
         svc: {{.SvcName}}-{{.Index}}
+{{if and .EnableDNSTests $USE_ADVANCED_DNSTEST}}
+        dns-test: dnsperfgo
+{{end}}
     spec:
       hostNetwork: {{$HostNetworkMode}}
       containers:
 {{if .EnableDNSTests}}
-      # TODO need to push this image.
+{{if $USE_ADVANCED_DNSTEST}}
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.3.0
+        ports:
+        - containerPort: 9153
+          name: dnsperfmetrics
+          protocol: TCP
+{{else}}
       - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
+{{end}}
       # Fetches the dns server from /etc/resolv.conf and
       # sends 1 query per second.
       # With searchpath expansion, this is upto 12 queries per second.
@@ -38,7 +51,7 @@ spec:
         - -c
         - server=$(cat /etc/resolv.conf | grep nameserver | cut -d ' ' -f 2); echo
           "Using nameserver ${server}";
-          ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps 1;
+          ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps {{$dnsQPSPerClient}};
         name: {{.Name}}-dnsperf
 {{else}}
       - image: k8s.gcr.io/pause:3.1

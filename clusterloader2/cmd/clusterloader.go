@@ -63,6 +63,7 @@ var (
 	testConfigPaths     []string
 	testSuiteConfigPath string
 	port                int
+	dryRun              bool
 )
 
 func initClusterFlags() {
@@ -128,6 +129,7 @@ func initFlags() {
 	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
+	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
@@ -312,33 +314,36 @@ func main() {
 
 	var prometheusController *prometheus.Controller
 	var prometheusFramework *framework.Framework
-	if clusterLoaderConfig.PrometheusConfig.EnableServer {
-		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
-			klog.Exitf("Error while creating Prometheus Controller: %v", err)
-		}
-		prometheusFramework = prometheusController.GetFramework()
-		if err := prometheusController.SetUpPrometheusStack(); err != nil {
-			klog.Exitf("Error while setting up prometheus stack: %v", err)
-		}
-		if clusterLoaderConfig.PrometheusConfig.TearDownServer {
-			prometheusController.EnableTearDownPrometheusStackOnInterrupt()
-		}
-	}
-	if clusterLoaderConfig.ExecServiceConfig.Enable {
-		if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {
-			klog.Exitf("Error while setting up exec service: %v", err)
-		}
-	}
-	if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
-		klog.Exitf("Error while preloading images: %v", err)
-	}
+	var testReporter test.Reporter
 
-	if err := metadata.Dump(f, path.Join(clusterLoaderConfig.ReportDir, "cl2-metadata.json")); err != nil {
-		klog.Errorf("Error while dumping metadata: %v", err)
-	}
+	if !dryRun {
+		if clusterLoaderConfig.PrometheusConfig.EnableServer {
+			if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
+				klog.Exitf("Error while creating Prometheus Controller: %v", err)
+			}
+			prometheusFramework = prometheusController.GetFramework()
+			if err := prometheusController.SetUpPrometheusStack(); err != nil {
+				klog.Exitf("Error while setting up prometheus stack: %v", err)
+			}
+			if clusterLoaderConfig.PrometheusConfig.TearDownServer {
+				prometheusController.EnableTearDownPrometheusStackOnInterrupt()
+			}
+		}
+		if clusterLoaderConfig.ExecServiceConfig.Enable {
+			if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {
+				klog.Exitf("Error while setting up exec service: %v", err)
+			}
+		}
+		if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
+			klog.Exitf("Error while preloading images: %v", err)
+		}
 
-	testReporter := test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
-	testReporter.BeginTestSuite()
+		if err := metadata.Dump(f, path.Join(clusterLoaderConfig.ReportDir, "cl2-metadata.json")); err != nil {
+			klog.Errorf("Error while dumping metadata: %v", err)
+		}
+		testReporter = test.CreateSimpleReporter(path.Join(clusterLoaderConfig.ReportDir, "junit.xml"), "ClusterLoaderV2")
+		testReporter.BeginTestSuite()
+	}
 
 	var testScenarios []api.TestScenario
 	if testSuiteConfigPath != "" {
@@ -364,14 +369,22 @@ func main() {
 			klog.Exitf("Test context creation failed: %s", errList.String())
 		}
 		testConfig, errList := test.CompileTestConfig(ctx)
+		// Dump test config before checking errors - it can still be useful for debugging.
+		if testConfig != nil {
+			if err := dumpTestConfig(ctx, testConfig); err != nil {
+				klog.Errorf("Error while dumping test config: %v", err)
+			}
+		}
 		if !errList.IsEmpty() {
 			klog.Exitf("Test compilation failed: %s", errList.String())
 		}
-		if err := dumpTestConfig(ctx, testConfig); err != nil {
-			klog.Errorf("Error while dumping test config: %v", err)
-		}
 		ctx.SetTestConfig(testConfig)
 		contexts = append(contexts, ctx)
+	}
+
+	if dryRun {
+		// Dry run always exits with error so if it's ever enabled in CI, the test will fail.
+		klog.Exitf("Dry run mode enabled, exiting after dumping test config in %s.", path.Join(clusterLoaderConfig.ReportDir))
 	}
 
 	for i := range contexts {

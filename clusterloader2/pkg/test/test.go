@@ -85,7 +85,7 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	steps, err := flattenModuleSteps(ctx, testConfig.Steps)
 	if err != nil {
 		return nil, errors.NewErrorList(
-			fmt.Errorf("erorr when flattening module steps: %w", err))
+			fmt.Errorf("error flattening module steps: %w", err))
 	}
 	testConfig.Steps = steps
 
@@ -102,7 +102,8 @@ func CompileTestConfig(ctx Context) (*api.Config, *errors.ErrorList) {
 	basePath := filepath.Dir(testScenario.ConfigPath)
 	configValidator := api.NewConfigValidator(basePath, testConfig)
 	if err := configValidator.Validate(); err != nil {
-		return nil, err
+		// Returning test config which failed validation for debugging.
+		return testConfig, err
 	}
 
 	return testConfig, errors.NewErrorList()

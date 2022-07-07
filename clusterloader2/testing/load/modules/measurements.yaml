@@ -198,6 +198,7 @@ steps:
       metricName: DNS Performance
       metricVersion: v1
       unit: s
+      enableViolations: true
       queries:
       - name: DNS Lookup Count
         query: sum(increase(dns_lookups_total[%v]))

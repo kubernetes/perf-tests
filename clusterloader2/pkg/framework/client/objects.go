@@ -47,6 +47,10 @@ const (
 	// Parameters for namespace deletion operations.
 	defaultNamespaceDeletionTimeout  = 10 * time.Minute
 	defaultNamespaceDeletionInterval = 5 * time.Second
+
+	// String const defined in https://go.googlesource.com/net/+/749bd193bc2bcebc5f1a048da8af0392cfb2fa5d/http2/transport.go#1041
+	// TODO(mborsz): Migrate to error object comparison when the error type is exported.
+	http2ClientConnectionLostErr = "http2: client connection lost"
 )
 
 // RetryWithExponentialBackOff a utility for retrying the given function with exponential backoff.
@@ -93,6 +97,10 @@ func isResourceQuotaConflictError(err error) bool {
 func IsRetryableNetError(err error) bool {
 	if netError, ok := err.(net.Error); ok {
 		return netError.Temporary() || netError.Timeout()
+	}
+
+	if err.Error() == http2ClientConnectionLostErr {
+		return true
 	}
 	return false
 }

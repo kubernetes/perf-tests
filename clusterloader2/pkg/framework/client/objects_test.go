@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -93,6 +94,32 @@ func TestIsRetryableAPIError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := IsRetryableAPIError(tc.err); tc.want != got {
 				t.Errorf("want: %v, got: %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestIsRetryableNetError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "http2: client connection lost",
+			err:  errors.New("http2: client connection lost"),
+			want: true,
+		},
+		{
+			name: "http2: some other error",
+			err:  errors.New("http2: some other error"),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsRetryableNetError(tt.err); got != tt.want {
+				t.Errorf("IsRetryableNetError() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -38,12 +38,15 @@ type GCSMetricsBucket struct {
 
 // NewGCSMetricsBucket creates a new GCSMetricsBucket.
 func NewGCSMetricsBucket(bucket, path, credentialPath string) (MetricsBucket, error) {
+	var c *storage.Client
+	var err error
 	ctx := context.Background()
-	authOpt := option.WithoutAuthentication()
 	if credentialPath != "" {
-		authOpt = option.WithCredentialsFile(credentialPath)
+		authOpt := option.WithCredentialsFile(credentialPath)
+		c, err = storage.NewClient(ctx, authOpt)
+	} else {
+		c, err = storage.NewClient(ctx)
 	}
-	c, err := storage.NewClient(ctx, authOpt)
 	if err != nil {
 		return nil, err
 	}

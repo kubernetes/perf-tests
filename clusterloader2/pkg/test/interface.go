@@ -78,6 +78,6 @@ type Reporter interface {
 	BeginTestSuite()
 	EndTestSuite()
 	ReportTestStepFinish(duration time.Duration, stepName string, errList *errors.ErrorList)
-	ReportTestStep(result StepResult)
+	ReportTestStep(result *StepResult)
 	ReportTestFinish(duration time.Duration, testConfigPath string, errList *errors.ErrorList)
 }

@@ -40,8 +40,8 @@ type StepResult struct {
 	results []substepResult
 }
 
-func NewStepResult(stepName string) StepResult {
-	return StepResult{
+func NewStepResult(stepName string) *StepResult {
+	return &StepResult{
 		name:      stepName,
 		startTime: time.Now(),
 		results:   []substepResult{},

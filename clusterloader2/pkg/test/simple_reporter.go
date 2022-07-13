@@ -70,7 +70,7 @@ func (str *simpleReporter) ReportTestStepFinish(duration time.Duration, stepName
 	str.stepsSummaries = append(str.stepsSummaries, stepSummary)
 }
 
-func (str *simpleReporter) ReportTestStep(result StepResult) {
+func (str *simpleReporter) ReportTestStep(result *StepResult) {
 	for _, subtestResult := range result.getAllResults() {
 		str.ReportTestStepFinish(subtestResult.duration, subtestResult.name, subtestResult.err)
 	}

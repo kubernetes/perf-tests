@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
@@ -61,10 +63,42 @@ const (
 	waitForControlledPodsWorkers = 1
 )
 
+var podIndexerFactory = &sharedPodIndexerFactory{}
+
 func init() {
 	if err := measurement.Register(waitForControlledPodsRunningName, createWaitForControlledPodsRunningMeasurement); err != nil {
 		klog.Fatalf("Cannot register %s: %v", waitForControlledPodsRunningName, err)
 	}
+}
+
+type sharedPodIndexerFactory struct {
+	podsIndexer *measurementutil.ControlledPodsIndexer
+	err         error
+	once        sync.Once
+}
+
+func (s *sharedPodIndexerFactory) PodsIndexer(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
+	s.once.Do(func() {
+		s.podsIndexer, s.err = s.start(c)
+	})
+	return s.podsIndexer, s.err
+}
+
+func (s *sharedPodIndexerFactory) start(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
+	ctx := context.Background()
+	informerFactory := informers.NewSharedInformerFactory(c, 0)
+	podsIndexer, err := measurementutil.NewControlledPodsIndexer(
+		informerFactory.Core().V1().Pods(),
+		informerFactory.Apps().V1().ReplicaSets(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize controlledPodsIndexer: %w", err)
+	}
+	informerFactory.Start(ctx.Done())
+	if !podsIndexer.WaitForCacheSync(ctx) {
+		return nil, fmt.Errorf("failed to sync informers")
+	}
+	return podsIndexer, nil
 }
 
 func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
@@ -97,6 +131,9 @@ type waitForControlledPodsRunningMeasurement struct {
 	checkerMap            checker.Map
 	clusterFramework      *framework.Framework
 	checkIfPodsAreUpdated bool
+	// podsIndexer is an indexer propagated via informers observing
+	// changes of all pods in the whole cluster.
+	podsIndexer *measurementutil.ControlledPodsIndexer
 }
 
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
@@ -144,6 +181,9 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 			return nil, err
 		}
 		return nil, w.gather(syncTimeout)
+	case "stop":
+		w.Dispose()
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -182,6 +222,12 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
+	podsIndexer, err := podIndexerFactory.PodsIndexer(w.clusterFramework.GetClientSets().GetClient())
+	if err != nil {
+		return err
+	}
+	w.podsIndexer = podsIndexer
+
 	i := informer.NewDynamicInformer(
 		w.clusterFramework.GetDynamicClients().GetClient(),
 		w.gvr,
@@ -550,9 +596,11 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,
 		}
+		podStore := measurementutil.NewOwnerReferenceBasedPodStore(w.podsIndexer, obj)
+
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = measurementutil.WaitForPods(w.clusterFramework.GetClientSets().GetClient(), o.stopCh, options)
+		err = measurementutil.WaitForPodsWithLister(podStore, o.stopCh, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

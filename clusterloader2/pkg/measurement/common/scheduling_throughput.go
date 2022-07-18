@@ -128,7 +128,12 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 			case <-s.stopCh:
 				return
 			case <-time.After(measurmentInterval):
-				pods := ps.List()
+				pods, err := ps.List()
+				if err != nil {
+					// List in NewPodStore never returns error.
+					// TODO(mborsz): Even if this is a case now, it doesn't need to be true in future. Refactor this.
+					panic(fmt.Errorf("unexpected error on PodStore.List: %w", err))
+				}
 				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */)
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(measurmentInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)

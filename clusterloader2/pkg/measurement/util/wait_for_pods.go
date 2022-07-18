@@ -56,7 +56,21 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 	}
 	defer ps.Stop()
 
-	oldPods := ps.List()
+	return WaitForPodsWithLister(ps, stopCh, options)
+}
+
+// PodLister is an interface around listing pods.
+type PodLister interface {
+	List() ([]*v1.Pod, error)
+}
+
+// WaitForPodWithStore waits till desired number of pods is running.
+// The current set of pods are fetched by calling List() on the provided PodStore.
+func WaitForPodsWithLister(ps PodLister, stopCh <-chan struct{}, options *WaitForPodOptions) error {
+	oldPods, err := ps.List()
+	if err != nil {
+		return fmt.Errorf("failed to list pods: %w", err)
+	}
 	scaling := uninitialized
 	var podsStatus PodsStartupStatus
 	var lastIsPodUpdatedError error
@@ -83,7 +97,10 @@ func WaitForPods(clientSet clientset.Interface, stopCh <-chan struct{}, options 
 				scaling = down
 			}
 
-			pods := ps.List()
+			pods, err := ps.List()
+			if err != nil {
+				return fmt.Errorf("failed to list pods: %w", err)
+			}
 			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 			if podsStatus.LastIsPodUpdatedError != nil {
 				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError

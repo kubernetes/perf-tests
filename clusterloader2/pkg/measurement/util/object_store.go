@@ -27,7 +27,7 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -98,13 +98,38 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 }
 
 // List returns list of pods (that satisfy conditions provided to NewPodStore).
-func (s *PodStore) List() []*v1.Pod {
+func (s *PodStore) List() ([]*v1.Pod, error) {
 	objects := s.Store.List()
 	pods := make([]*v1.Pod, 0, len(objects))
 	for _, o := range objects {
 		pods = append(pods, o.(*v1.Pod))
 	}
-	return pods
+	return pods, nil
+}
+
+type controlledPodsIndexer interface {
+	PodsControlledBy(obj interface{}) ([]*v1.Pod, error)
+}
+
+// OwnerReferenceBasedPodStore returns pods with ownerReference set to the owner
+// (with exception for Deployment, see ControlledPodsIndexer implementation) and matching given labelSelector.
+type OwnerReferenceBasedPodStore struct {
+	controlledPodsIndexer controlledPodsIndexer
+	owner                 interface{}
+}
+
+func NewOwnerReferenceBasedPodStore(controlledPodsIndexer controlledPodsIndexer, owner interface{}) *OwnerReferenceBasedPodStore {
+	return &OwnerReferenceBasedPodStore{
+		controlledPodsIndexer: controlledPodsIndexer,
+		owner:                 owner,
+	}
+}
+
+// List returns controlled pods.
+func (s *OwnerReferenceBasedPodStore) List() ([]*v1.Pod, error) {
+	// Technically to be 100% correct we should check here label selectors here as this is how API of pod controllers is defined.
+	// In practice, comparing ownerReference only should be eventually consistent with label selectors, so it should be enough.
+	return s.controlledPodsIndexer.PodsControlledBy(s.owner)
 }
 
 // PVCStore is a convenient wrapper around cache.Store.

@@ -4,6 +4,7 @@
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 {{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
+{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -46,3 +47,9 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 900
+      {{if $RUN_ON_ARM_NODES}}
+      - key: "kubernetes.io/arch"
+        operator: Equal
+        value: arm64
+        effect: NoSchedule
+      {{end}}

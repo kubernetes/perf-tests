@@ -10,6 +10,8 @@
 {{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
 {{$CUSTOM_API_CALL_THRESHOLDS := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
+{{$ENABLE_IN_CLUSTER_NETWORK_LATENCY := DefaultParam .CL2_ENABLE_IN_CLUSTER_NETWORK_LATENCY true}}
+{{$ENABLE_SLO_MEASUREMENT := DefaultParam .CL2_ENABLE_SLO_MEASUREMENT true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
 # Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
@@ -64,12 +66,14 @@ steps:
       action: {{$action}}
       labelSelector: group = load
       threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
+{{if $ENABLE_IN_CLUSTER_NETWORK_LATENCY}}
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{end}}
 {{if $ENABLE_NODE_LOCAL_DNS_LATENCY}}
   - Identifier: NodeLocalDNSLatency
     Method: NodeLocalDNSLatencyPrometheus
@@ -78,12 +82,14 @@ steps:
       enableViolations: true
       threshold: {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD}}
 {{end}}
+{{if $ENABLE_SLO_MEASUREMENT}}
   - Identifier: SLOMeasurement
     Method: SLOMeasurement
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
+{{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
   - Identifier: NetworkProgrammingLatency
     Method: NetworkProgrammingLatency

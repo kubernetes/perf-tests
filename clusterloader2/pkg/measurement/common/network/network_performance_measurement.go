@@ -230,13 +230,17 @@ func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 	time.AfterFunc(podReadyTimeout, func() {
 		close(stopCh)
 	})
+	selector := &measurementutil.ObjectSelector{Namespace: netperfNamespace}
 	options := &measurementutil.WaitForPodOptions{
-		Selector:            &measurementutil.ObjectSelector{Namespace: netperfNamespace},
 		DesiredPodCount:     func() int { return npm.numberOfClients + npm.numberOfServers },
 		CallerName:          networkPerformanceMetricsName,
 		WaitForPodsInterval: 2 * time.Second,
 	}
-	return measurementutil.WaitForPods(npm.k8sClient, stopCh, options)
+	podStore, err := measurementutil.NewPodStore(npm.k8sClient, selector)
+	if err != nil {
+		return err
+	}
+	return measurementutil.WaitForPods(podStore, stopCh, options)
 }
 
 func (*networkPerformanceMeasurement) String() string {

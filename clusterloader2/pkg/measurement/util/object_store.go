@@ -28,6 +28,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -74,6 +75,7 @@ func (s *ObjectStore) Stop() {
 // PodStore is a convenient wrapper around cache.Store.
 type PodStore struct {
 	*ObjectStore
+	selector *ObjectSelector
 }
 
 // NewPodStore creates PodStore based on given object selector.
@@ -94,7 +96,7 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 	if err != nil {
 		return nil, err
 	}
-	return &PodStore{ObjectStore: objectStore}, nil
+	return &PodStore{ObjectStore: objectStore, selector: selector}, nil
 }
 
 // List returns list of pods (that satisfy conditions provided to NewPodStore).
@@ -107,6 +109,11 @@ func (s *PodStore) List() ([]*v1.Pod, error) {
 	return pods, nil
 }
 
+// String returns human readable identifier of pods kept in the store.
+func (s *PodStore) String() string {
+	return s.selector.String()
+}
+
 type controlledPodsIndexer interface {
 	PodsControlledBy(obj interface{}) ([]*v1.Pod, error)
 }
@@ -116,13 +123,20 @@ type controlledPodsIndexer interface {
 type OwnerReferenceBasedPodStore struct {
 	controlledPodsIndexer controlledPodsIndexer
 	owner                 interface{}
+	cachedString          string
 }
 
-func NewOwnerReferenceBasedPodStore(controlledPodsIndexer controlledPodsIndexer, owner interface{}) *OwnerReferenceBasedPodStore {
+func NewOwnerReferenceBasedPodStore(controlledPodsIndexer controlledPodsIndexer, owner interface{}) (*OwnerReferenceBasedPodStore, error) {
+	metaAccessor, err := meta.Accessor(owner)
+	if err != nil {
+		return nil, fmt.Errorf("object has no meta: %w", err)
+	}
+
 	return &OwnerReferenceBasedPodStore{
 		controlledPodsIndexer: controlledPodsIndexer,
 		owner:                 owner,
-	}
+		cachedString:          fmt.Sprintf("namespace(%s), controlledBy(%s)", metaAccessor.GetNamespace(), metaAccessor.GetName()),
+	}, nil
 }
 
 // List returns controlled pods.
@@ -130,6 +144,11 @@ func (s *OwnerReferenceBasedPodStore) List() ([]*v1.Pod, error) {
 	// Technically to be 100% correct we should check here label selectors here as this is how API of pod controllers is defined.
 	// In practice, comparing ownerReference only should be eventually consistent with label selectors, so it should be enough.
 	return s.controlledPodsIndexer.PodsControlledBy(s.owner)
+}
+
+// String returns human readable identifier of pods kept in the store.
+func (s *OwnerReferenceBasedPodStore) String() string {
+	return s.cachedString
 }
 
 // PVCStore is a convenient wrapper around cache.Store.

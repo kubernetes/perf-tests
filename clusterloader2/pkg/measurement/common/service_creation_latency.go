@@ -37,7 +37,6 @@ import (
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/checker"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -257,7 +256,7 @@ func (s *serviceCreationLatencyMeasurement) handleObject(oldObj, newObj interfac
 }
 
 func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) error {
-	key, err := runtimeobjects.CreateMetaNamespaceKey(svc)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(svc)
 	if err != nil {
 		return fmt.Errorf("meta key created error: %v", err)
 	}
@@ -272,7 +271,7 @@ func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) er
 	if svc.Spec.Type != corev1.ServiceTypeClusterIP && svc.Spec.Type != corev1.ServiceTypeNodePort && svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
 		return nil
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(svc)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(svc)
 	if err != nil {
 		return fmt.Errorf("meta key created error: %v", err)
 	}
@@ -315,7 +314,7 @@ type pingChecker struct {
 }
 
 func (p *pingChecker) run() {
-	key, err := runtimeobjects.CreateMetaNamespaceKey(p.svc)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(p.svc)
 	if err != nil {
 		klog.Errorf("%s: meta key created error: %v", p.callerName, err)
 		return

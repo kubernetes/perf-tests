@@ -430,7 +430,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, new
 	if isObjDeleted {
 		handledObj = oldObj
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(handledObj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(handledObj)
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
@@ -456,7 +456,7 @@ func (w *waitForControlledPodsRunningMeasurement) deleteObjectLocked(obj runtime
 	if obj == nil {
 		return nil
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
@@ -558,7 +558,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	if isDeleted {
 		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{0}
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(obj)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		return nil, fmt.Errorf("meta key creation error: %v", err)
 	}

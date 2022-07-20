@@ -65,20 +65,6 @@ func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResou
 	return runtimeObjectsList, nil
 }
 
-// GetNameFromRuntimeObject returns name of given runtime object.
-func GetNameFromRuntimeObject(obj runtime.Object) (string, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return typed.GetName(), nil
-	default:
-		metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-		if !ok {
-			return "", fmt.Errorf("unsupported kind when getting name: %v", obj)
-		}
-		return metaObjectAccessor.GetObjectMeta().GetName(), nil
-	}
-}
-
 // GetResourceVersionFromRuntimeObject returns resource version of given runtime object.
 func GetResourceVersionFromRuntimeObject(obj runtime.Object) (uint64, error) {
 	accessor, err := meta.Accessor(obj)
@@ -90,20 +76,6 @@ func GetResourceVersionFromRuntimeObject(obj runtime.Object) (uint64, error) {
 		return 0, nil
 	}
 	return strconv.ParseUint(version, 10, 64)
-}
-
-// GetNamespaceFromRuntimeObject returns namespace of given runtime object.
-func GetNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return typed.GetNamespace(), nil
-	default:
-		metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-		if !ok {
-			return "", fmt.Errorf("unsupported kind when getting namespace: %v", obj)
-		}
-		return metaObjectAccessor.GetObjectMeta().GetNamespace(), nil
-	}
 }
 
 // GetIsPodUpdatedPredicateFromRuntimeObject returns a func(*corev1.Pod) bool predicate
@@ -309,19 +281,6 @@ func IsEqualRuntimeObjectsSpec(runtimeObj1, runtimeObj2 runtime.Object) (bool, e
 	}
 
 	return equality.Semantic.DeepEqual(runtimeObj1Spec, runtimeObj2Spec), nil
-}
-
-// CreateMetaNamespaceKey returns meta key (namespace/name) for given runtime object.
-func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
-	namespace, err := GetNamespaceFromRuntimeObject(obj)
-	if err != nil {
-		return "", fmt.Errorf("retrieving namespace error: %v", err)
-	}
-	name, err := GetNameFromRuntimeObject(obj)
-	if err != nil {
-		return "", fmt.Errorf("retrieving name error: %v", err)
-	}
-	return namespace + "/" + name, nil
 }
 
 // GetNumObjectsMatchingSelector returns number of objects matching the given selector.

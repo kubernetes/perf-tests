@@ -263,55 +263,6 @@ func allocatableResources(memory, cpu string) v1.ResourceList {
 	}
 }
 
-func TestGetNameFromRuntimeObject(t *testing.T) {
-	objects := []runtime.Object{
-		replicationcontroller,
-		replicaset,
-		deployment,
-		job,
-		daemonset,
-	}
-
-	for _, obj := range objects {
-		unstructured := &unstructured.Unstructured{}
-		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
-			t.Fatalf("error converting controller to unstructured: %v", err)
-		}
-		name, err := runtimeobjects.GetNameFromRuntimeObject(unstructured)
-		if err != nil {
-			t.Fatalf("get name from runtime object failed: %v", err)
-		}
-
-		if controllerName != name {
-			t.Fatalf("Unexpected name from runtime object, expected: %s, actual: %s", controllerName, name)
-		}
-	}
-}
-
-func TestGetNamespaceFromRuntimeObject(t *testing.T) {
-	objects := []runtime.Object{
-		replicationcontroller,
-		replicaset,
-		deployment,
-		job,
-		daemonset,
-	}
-	for _, obj := range objects {
-		unstructured := &unstructured.Unstructured{}
-		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
-			t.Fatalf("error converting controller to unstructured: %v", err)
-		}
-		namespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(unstructured)
-		if err != nil {
-			t.Fatalf("get namespace from runtime object failed: %v", err)
-		}
-
-		if testNamespace != namespace {
-			t.Fatalf("Unexpected namespace from runtime object, expected: %s, actual: %s", testNamespace, namespace)
-		}
-	}
-}
-
 func TestGetResourceVersionFromRuntimeObject(t *testing.T) {
 	objects := []runtime.Object{
 		replicationcontroller,

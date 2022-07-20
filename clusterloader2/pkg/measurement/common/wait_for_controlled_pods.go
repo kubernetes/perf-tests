@@ -544,14 +544,6 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (
 }
 
 func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
-	runtimeObjectNamespace, err := runtimeobjects.GetNamespaceFromRuntimeObject(obj)
-	if err != nil {
-		return nil, err
-	}
-	runtimeObjectSelector, err := runtimeobjects.GetSelectorFromRuntimeObject(obj)
-	if err != nil {
-		return nil, err
-	}
 	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), obj)
 	if err != nil {
 		return nil, err
@@ -571,6 +563,11 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		return nil, fmt.Errorf("meta key creation error: %v", err)
 	}
 
+	podStore, err := measurementutil.NewOwnerReferenceBasedPodStore(w.podsIndexer, obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pod store: %w", err)
+	}
+
 	o := newObjectChecker(key)
 	o.lock.Lock()
 	defer o.lock.Unlock()
@@ -585,22 +582,16 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			return
 		}
 		options := &measurementutil.WaitForPodOptions{
-			Selector: &measurementutil.ObjectSelector{
-				Namespace:     runtimeObjectNamespace,
-				LabelSelector: runtimeObjectSelector.String(),
-				FieldSelector: "",
-			},
 			DesiredPodCount:     runtimeObjectReplicas.Replicas,
 			CountErrorMargin:    w.countErrorMargin,
 			CallerName:          w.String(),
 			WaitForPodsInterval: defaultWaitForPodsInterval,
 			IsPodUpdated:        isPodUpdated,
 		}
-		podStore := measurementutil.NewOwnerReferenceBasedPodStore(w.podsIndexer, obj)
 
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = measurementutil.WaitForPodsWithLister(podStore, o.stopCh, options)
+		err = measurementutil.WaitForPods(podStore, o.stopCh, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {

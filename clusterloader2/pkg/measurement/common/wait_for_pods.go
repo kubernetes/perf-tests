@@ -65,12 +65,15 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 		close(stopCh)
 	})
 	options := &measurementutil.WaitForPodOptions{
-		Selector:            selector,
 		DesiredPodCount:     func() int { return desiredPodCount },
 		CallerName:          w.String(),
 		WaitForPodsInterval: defaultWaitForPodsInterval,
 	}
-	return nil, measurementutil.WaitForPods(config.ClusterFramework.GetClientSets().GetClient(), stopCh, options)
+	podStore, err := measurementutil.NewPodStore(config.ClusterFramework.GetClientSets().GetClient(), selector)
+	if err != nil {
+		return nil, err
+	}
+	return nil, measurementutil.WaitForPods(podStore, stopCh, options)
 }
 
 // Dispose cleans up after the measurement.

@@ -336,37 +336,6 @@ func TestGetResourceVersionFromRuntimeObject(t *testing.T) {
 	}
 }
 
-func TestGetSelectorFromRuntimeObject(t *testing.T) {
-	objects := []runtime.Object{
-		replicationcontroller,
-		replicaset,
-		deployment,
-		job,
-		daemonset,
-	}
-
-	ps := &metav1.LabelSelector{
-		MatchLabels: simpleLabel,
-	}
-	expected, err := metav1.LabelSelectorAsSelector(ps)
-	if err != nil {
-		t.Fatalf("create label selector failed: %v", err)
-	}
-	for _, obj := range objects {
-		unstructured := &unstructured.Unstructured{}
-		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
-			t.Fatalf("error converting controller to unstructured: %v", err)
-		}
-		selector, err := runtimeobjects.GetSelectorFromRuntimeObject(unstructured)
-		if err != nil {
-			t.Fatalf("get selector from runtime object failed: %v", err)
-		}
-
-		if !reflect.DeepEqual(expected, selector) {
-			t.Fatalf("Unexpected selector from runtime object, expected: %d, actual: %d", expected, selector)
-		}
-	}
-}
 func TestGetSpecFromRuntimeObject(t *testing.T) {
 	objects := []runtime.Object{
 		replicationcontroller,

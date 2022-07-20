@@ -106,62 +106,6 @@ func GetNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {
 	}
 }
 
-// GetSelectorFromRuntimeObject returns selector of given runtime object.
-func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return getSelectorFromUnstrutured(typed)
-	case *corev1.ReplicationController:
-		return labels.SelectorFromSet(typed.Spec.Selector), nil
-	case *appsv1.ReplicaSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.Deployment:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.StatefulSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.DaemonSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *batch.Job:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	default:
-		return nil, fmt.Errorf("unsupported kind when getting selector: %v", obj)
-	}
-}
-
-// Note: This function assumes each controller has field Spec.Selector.
-// Moreover, Spec.Selector should be *metav1.LabelSelector, except for RelicationController.
-func getSelectorFromUnstrutured(obj *unstructured.Unstructured) (labels.Selector, error) {
-	spec, err := getSpecFromUnstrutured(obj)
-	if err != nil {
-		return nil, err
-	}
-	switch obj.GetKind() {
-	case "ReplicationController":
-		selectorMap, found, err := unstructured.NestedStringMap(spec, "selector")
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		if !found {
-			return nil, fmt.Errorf("try to selector failed, field selector not found")
-		}
-		return labels.SelectorFromSet(selectorMap), nil
-	default:
-		selectorMap, found, err := unstructured.NestedMap(spec, "selector")
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		if !found {
-			return nil, fmt.Errorf("try to selector failed, field selector not found")
-		}
-		var selector metav1.LabelSelector
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(selectorMap, &selector)
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		return metav1.LabelSelectorAsSelector(&selector)
-	}
-}
-
 // GetIsPodUpdatedPredicateFromRuntimeObject returns a func(*corev1.Pod) bool predicate
 // that can be used to check if given pod represents the desired state of pod.
 func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1.Pod) error, error) {

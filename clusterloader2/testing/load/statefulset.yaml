@@ -1,5 +1,6 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
+{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
 apiVersion: apps/v1
 kind: StatefulSet
@@ -51,6 +52,12 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 900
+      {{if $RUN_ON_ARM_NODES}}
+      - key: "kubernetes.io/arch"
+        operator: Equal
+        value: arm64
+        effect: NoSchedule
+      {{end}}
   {{if $EnablePVs}}
   # NOTE: PVs created this way should be cleaned-up manually, as deleting the StatefulSet doesn't automatically delete PVs.
   # To avoid deleting all the PVs at once during namespace deletion, they should be deleted explicitly via Phase.

@@ -7,6 +7,7 @@ metadata:
   labels:
     group: load
 spec:
+  backoffLimit: {{.ReplicasMin}}
   manualSelector: true
   parallelism: {{RandIntRange .ReplicasMin .ReplicasMax}}
   completions: {{.Completions}}

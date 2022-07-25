@@ -10,6 +10,9 @@
 {{$NODE_SYNC_TIMEOUT := DefaultParam .CL2_NODE_SYNC_TIMEOUT "30m"}}
 # L4LB_SYNC_TIMEOUT specifies the timeout to wait for LB creation to complete
 {{$L4LB_SYNC_TIMEOUT := DefaultParam .CL2_L4LB_SYNC_TIMEOUT "30m"}}
+# AFTER_DELETION_SLEEP_TIMEOUT specifies the timeout to sleep after marking resources for deletion
+# Set default to 0, cause only ILB tests need this wait
+{{$AFTER_DELETION_SLEEP_TIMEOUT := DefaultParam .CL2_AFTER_DELETION_SLEEP_TIMEOUT "0m"}}
 
 # adding a fixed value for first version of the test, rate of pod creation not a concern yet.
 {{$lbQPS := 20}}
@@ -87,6 +90,12 @@ steps:
       objectTemplatePath: service.yaml
     - basename: lb-dep
       objectTemplatePath: dep.yaml
+- name: Sleep
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$AFTER_DELETION_SLEEP_TIMEOUT}}
 - name: Gather Measurements
   measurements:
   - Identifier: LBServiceCreationLatency

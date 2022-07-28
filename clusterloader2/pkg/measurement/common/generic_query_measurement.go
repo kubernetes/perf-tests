@@ -146,8 +146,6 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 
 		for _, sample := range samples {
 			k, labels := key(sample.Metric, g.Dimensions)
-			// In addition to "key" labels, we need to put MetricName for perfdash.
-			labels["MetricName"] = g.MetricName
 			dataItem := getOrCreate(dataItems, k, g.Unit, labels)
 
 			val := float64(sample.Value)

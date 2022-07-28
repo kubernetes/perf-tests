@@ -179,12 +179,16 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 
 					for _, artifact := range artifacts {
 						metricsFileName := filepath.Base(artifact)
-						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts, testDescription.ForceConstantCategory)
+						resultCategory := getResultCategory(metricsFileName, filePrefix, categoryLabel, artifacts, testDescription.FetchMetricNameFromArtifact)
 						fileName := g.artifactName(tests, metricsFileName)
 						testDataResponse, err := g.MetricsBkt.ReadFile(job, buildNumber, fileName)
 						if err != nil {
 							klog.Infof("Error when reading response Body for %q: %v", fileName, err)
 							continue
+						}
+						if testDescription.FetchMetricNameFromArtifact {
+							trimmed := strings.TrimPrefix(metricsFileName, filePrefix+" ")
+							testLabel = strings.Split(trimmed, "_")[0]
 						}
 						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
 						testDescription.Parser(testDataResponse, buildNumber, buildData)

@@ -34,10 +34,10 @@ import (
 
 // TestDescription contains test name, output file prefix and parser function.
 type TestDescription struct {
-	Name                  string
-	OutputFilePrefix      string
-	Parser                func(data []byte, buildNumber int, testResult *BuildData)
-	ForceConstantCategory bool
+	Name                        string
+	OutputFilePrefix            string
+	Parser                      func(data []byte, buildNumber int, testResult *BuildData)
+	FetchMetricNameFromArtifact bool
 }
 
 // TestDescriptions is a map job->component->description.
@@ -468,9 +468,9 @@ var (
 		},
 		"GenericMeasurements": {
 			"GenericMeasurements": []TestDescription{{
-				OutputFilePrefix:      GenericPrometheusQueryMeasurementName,
-				Parser:                parsePerfData,
-				ForceConstantCategory: true,
+				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
 			}},
 		},
 	}

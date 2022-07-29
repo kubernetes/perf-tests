@@ -74,8 +74,7 @@ func TestGather(t *testing.T) {
 			},
 			wantDataItems: []measurementutil.DataItem{
 				{
-					Labels: map[string]string{"MetricName": "happy-path"},
-					Unit:   "ms",
+					Unit: "ms",
 					Data: map[string]float64{
 						"below-threshold": 7.0,
 						"no-threshold":    120.0,
@@ -106,8 +105,7 @@ func TestGather(t *testing.T) {
 			// When too many samples, first value is returned and error is raised.
 			wantDataItems: []measurementutil.DataItem{
 				{
-					Labels: map[string]string{"MetricName": "many-samples"},
-					Unit:   "ms",
+					Unit: "ms",
 					Data: map[string]float64{
 						"many-samples": 1.0,
 					},
@@ -134,8 +132,7 @@ func TestGather(t *testing.T) {
 			wantErr: "sample above threshold: want: less or equal than 60, got: 123",
 			wantDataItems: []measurementutil.DataItem{
 				{
-					Labels: map[string]string{"MetricName": "above-threshold"},
-					Unit:   "ms",
+					Unit: "ms",
 					Data: map[string]float64{
 						"above-threshold": 123.0,
 					},
@@ -232,9 +229,8 @@ func TestGather(t *testing.T) {
 			wantDataItems: []measurementutil.DataItem{
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val1",
+						"d1": "d1-val1",
+						"d2": "d2-val1",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -244,9 +240,8 @@ func TestGather(t *testing.T) {
 				},
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val2",
+						"d1": "d1-val1",
+						"d2": "d2-val2",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -256,9 +251,8 @@ func TestGather(t *testing.T) {
 				},
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "",
+						"d1": "d1-val1",
+						"d2": "",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -307,9 +301,8 @@ func TestGather(t *testing.T) {
 			wantDataItems: []measurementutil.DataItem{
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val1",
+						"d1": "d1-val1",
+						"d2": "d2-val1",
 					},
 					Unit: "ms",
 					Data: map[string]float64{

@@ -37,7 +37,7 @@ type GCSMetricsBucket struct {
 }
 
 // NewGCSMetricsBucket creates a new GCSMetricsBucket.
-func NewGCSMetricsBucket(bucket, path, credentialPath string) (MetricsBucket, error) {
+func NewGCSMetricsBucket(bucket, path, credentialPath string, useADC bool) (MetricsBucket, error) {
 	var c *storage.Client
 	var err error
 	ctx := context.Background()
@@ -45,7 +45,12 @@ func NewGCSMetricsBucket(bucket, path, credentialPath string) (MetricsBucket, er
 		authOpt := option.WithCredentialsFile(credentialPath)
 		c, err = storage.NewClient(ctx, authOpt)
 	} else {
-		c, err = storage.NewClient(ctx)
+		if useADC {
+			c, err = storage.NewClient(ctx)
+		} else {
+			authOpt := option.WithoutAuthentication()
+			c, err = storage.NewClient(ctx, authOpt)
+		}
 	}
 	if err != nil {
 		return nil, err

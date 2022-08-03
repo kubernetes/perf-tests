@@ -53,6 +53,7 @@ var (
 
 	// Google GCS Specific flags
 	credentialPath = pflag.String("credentialPath", "", "Path to the gcs credential json")
+	useADC         = pflag.Bool("useADC", false, "If true, use Application Default Credentials. See https://cloud.google.com/docs/authentication/production for details")
 
 	// AWS S3 Specific flags
 	awsRegion = pflag.String("aws-region", "us-west-2", "AWS region of the S3 bucket")
@@ -94,7 +95,7 @@ func run() error {
 
 	switch options.Mode {
 	case gcsMode:
-		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath)
+		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath, *useADC)
 	case s3Mode:
 		metricsBucket, err = NewS3MetricsBucket(*logsBucket, *logsPath, *awsRegion)
 	default:

@@ -434,20 +434,20 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, new
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted)
-	if err != nil {
-		return fmt.Errorf("waiting for %v error: %v", key, err)
-	}
 
 	operationTimeout := w.operationTimeout
 	if isObjDeleted || isScalingDown {
 		// In case of deleting pods, twice as much time is required.
 		// The pod deletion throughput equals half of the pod creation throughput.
+		// NOTE: Starting from k8s 1.23 it's not true anymore, at least not in all cases.
+		// TODO(mborsz): Can we remove this?
 		operationTimeout *= 2
 	}
-	time.AfterFunc(operationTimeout, func() {
-		checker.terminate(true)
-	})
+
+	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted, operationTimeout)
+	if err != nil {
+		return fmt.Errorf("waiting for %v error: %v", key, err)
+	}
 	w.checkerMap.Add(key, checker)
 	return nil
 }
@@ -543,7 +543,9 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (
 	return objectKeys, maxResourceVersion, nil
 }
 
-func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool) (*objectChecker, error) {
+func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runtime.Object, isDeleted bool, operationTimeout time.Duration) (*objectChecker, error) {
+	ctx := context.TODO()
+
 	runtimeObjectReplicas, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), obj)
 	if err != nil {
 		return nil, err
@@ -572,11 +574,14 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	w.handlingGroup.Start(func() {
-		// We cannot use o.stopCh for runtimeObjectReplicas.Start as it's not clear if it's closed on happy path (no errors, no timeout).
-		// TODO(mborsz): Migrate to o.stopCh.
-		stopCh := make(chan struct{})
-		defer close(stopCh)
-		if err := runtimeObjectReplicas.Start(stopCh); err != nil {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		o.SetCancel(cancel)
+		if operationTimeout != time.Duration(0) {
+			ctx, cancel = context.WithTimeout(ctx, operationTimeout)
+			defer cancel()
+		}
+		if err := runtimeObjectReplicas.Start(ctx.Done()); err != nil {
 			klog.Errorf("%s: error while starting runtimeObjectReplicas: %v", key, err)
 			o.err = fmt.Errorf("failed to start runtimeObjectReplicas: %v", err)
 			return
@@ -591,24 +596,24 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
-		err = measurementutil.WaitForPods(podStore, o.stopCh, options)
+		err := measurementutil.WaitForPods(ctx, podStore, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		if err != nil {
-			if o.isRunning {
-				// Log error only if checker wasn't terminated.
-				klog.Errorf("%s: error for %v: %v", w, key, err)
-				o.err = fmt.Errorf("%s: %v", key, err)
-			}
-			if o.status == timeout {
+			klog.Errorf("%s: error for %v: %v", w, key, err)
+			o.err = fmt.Errorf("%s: %v", key, err)
+
+			hasTimedOut := ctx.Err() != nil
+			if hasTimedOut {
 				if isDeleted {
 					o.status = deleteTimeout
+				} else {
+					o.status = timeout
 				}
 				klog.Errorf("%s: %s timed out", w, key)
 			}
 			return
 		}
-		o.isRunning = false
 		if isDeleted {
 			o.status = deleted
 			return
@@ -630,43 +635,36 @@ const (
 )
 
 type objectChecker struct {
-	lock      sync.Mutex
-	isRunning bool
-	stopCh    chan struct{}
-	status    objectStatus
-	err       error
+	lock   sync.Mutex
+	status objectStatus
+	err    error
 	// key of the object being checked. In the current implementation it's a namespaced name, but it
 	// may change in the future.
-	key string
+	key    string
+	cancel context.CancelFunc
 }
 
 func newObjectChecker(key string) *objectChecker {
 	return &objectChecker{
-		stopCh:    make(chan struct{}),
-		isRunning: true,
-		status:    unknown,
-		key:       key,
+		status: unknown,
+		key:    key,
 	}
 }
 
+func (o *objectChecker) SetCancel(cancel context.CancelFunc) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	o.cancel = cancel
+}
+
 func (o *objectChecker) Stop() {
-	o.terminate(false)
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	o.cancel()
 }
 
 func (o *objectChecker) getStatus() (objectStatus, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	return o.status, o.err
-}
-
-func (o *objectChecker) terminate(hasTimedOut bool) {
-	o.lock.Lock()
-	defer o.lock.Unlock()
-	if o.isRunning {
-		close(o.stopCh)
-		o.isRunning = false
-		if hasTimedOut {
-			o.status = timeout
-		}
-	}
 }

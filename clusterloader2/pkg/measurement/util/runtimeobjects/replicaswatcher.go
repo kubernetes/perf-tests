@@ -50,7 +50,7 @@ const (
 type ReplicasWatcher interface {
 	Replicas() int
 	// Start must block until Replicas() returns a correct value.
-	Start(stopCh chan struct{}) error
+	Start(stopCh <-chan struct{}) error
 }
 
 // ConstReplicas is a ReplicasWatcher implementation that returns a constant value.
@@ -62,7 +62,7 @@ func (c *ConstReplicas) Replicas() int {
 	return c.ReplicasCount
 }
 
-func (c *ConstReplicas) Start(_ chan struct{}) error {
+func (c *ConstReplicas) Start(_ <-chan struct{}) error {
 	return nil
 }
 
@@ -89,7 +89,7 @@ func NewNodeCounter(client clientset.Interface, nodeSelector labels.Selector, af
 	}
 }
 
-func (n *NodeCounter) Start(stopCh chan struct{}) error {
+func (n *NodeCounter) Start(stopCh <-chan struct{}) error {
 	i := informer.NewInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {

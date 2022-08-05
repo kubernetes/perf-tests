@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -52,7 +53,7 @@ type PodLister interface {
 
 // WaitForPods waits till desired number of pods is running.
 // The current set of pods are fetched by calling List() on the provided PodStore.
-func WaitForPods(ps PodLister, stopCh <-chan struct{}, options *WaitForPodOptions) error {
+func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) error {
 	oldPods, err := ps.List()
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
@@ -63,7 +64,7 @@ func WaitForPods(ps PodLister, stopCh <-chan struct{}, options *WaitForPodOption
 
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			desiredPodCount := options.DesiredPodCount()
 			pods := ComputePodsStatus(oldPods)
 			klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())

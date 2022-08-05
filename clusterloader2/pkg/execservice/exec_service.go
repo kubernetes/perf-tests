@@ -18,6 +18,7 @@ package execservice
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"os/exec"
@@ -92,10 +93,8 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 		return fmt.Errorf("pod %s creation error: %v", execDeploymentName, err)
 	}
 
-	stopCh := make(chan struct{})
-	time.AfterFunc(execPodCheckTimeout, func() {
-		close(stopCh)
-	})
+	ctx, cancel := context.WithTimeout(context.TODO(), execPodCheckTimeout)
+	defer cancel()
 	selector := &measurementutil.ObjectSelector{
 		Namespace:     execDeploymentNamespace,
 		LabelSelector: execPodSelector,
@@ -110,7 +109,7 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
-	if err = measurementutil.WaitForPods(podStore, stopCh, options); err != nil {
+	if err = measurementutil.WaitForPods(ctx, podStore, options); err != nil {
 		return err
 	}
 	klog.V(2).Infof("%v: service set up successfully!", execServiceName)

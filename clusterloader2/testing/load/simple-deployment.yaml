@@ -2,6 +2,7 @@
 # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
 # For now we're setting it to 0.5%.
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
+{{$EnvVar := DefaultParam .EnvVar "a"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 {{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
@@ -28,7 +29,10 @@ spec:
     spec:
       hostNetwork: {{$HostNetworkMode}}
       containers:
-      - image: {{$Image}}
+      - env:
+        - name: ENV_VAR
+          value: {{$EnvVar}}
+        image: {{$Image}}
         imagePullPolicy: IfNotPresent
         name: {{.Name}}
         ports:

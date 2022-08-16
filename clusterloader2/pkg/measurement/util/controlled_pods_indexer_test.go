@@ -18,11 +18,12 @@ package util
 
 import (
 	"context"
-	"reflect"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,24 +32,17 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+const (
+	ns1 = "namespace-1"
+)
+
 var (
 	daemonsetKind  = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 	replicaSetKind = appsv1.SchemeGroupVersion.WithKind("ReplicaSet")
 	deploymentKind = appsv1.SchemeGroupVersion.WithKind("Deployment")
 	podKind        = corev1.SchemeGroupVersion.WithKind("Pod")
-)
 
-func toUnstructured(t *testing.T, obj interface{}) *unstructured.Unstructured {
-	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		t.Fatalf("failed to convert %T to unstructured: %v", obj, err)
-	}
-	return &unstructured.Unstructured{Object: content}
-}
-
-func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
-	const ns1 = "namespace-1"
-	daemonset := &appsv1.DaemonSet{
+	daemonset = &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: daemonsetKind.GroupVersion().String(),
 			Kind:       daemonsetKind.Kind,
@@ -59,7 +53,7 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 			UID:       types.UID("uid-1"),
 		},
 	}
-	deployment := &appsv1.Deployment{
+	deployment = &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: deploymentKind.GroupVersion().String(),
 			Kind:       deploymentKind.Kind,
@@ -71,7 +65,7 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 		},
 	}
 
-	replicaSet := &appsv1.ReplicaSet{
+	replicaSet = &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: replicaSetKind.GroupVersion().String(),
 			Kind:       replicaSetKind.Kind,
@@ -86,7 +80,7 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 		},
 	}
 
-	daemonsetPod := &corev1.Pod{
+	daemonsetPod = &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: podKind.GroupVersion().String(),
 			Kind:       podKind.Kind,
@@ -101,7 +95,7 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 		},
 	}
 
-	replicaSetPod := &corev1.Pod{
+	replicaSetPod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-2",
 			Namespace: ns1,
@@ -111,7 +105,33 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 			},
 		},
 	}
+)
 
+func toUnstructured(t *testing.T, obj interface{}) *unstructured.Unstructured {
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		t.Fatalf("failed to convert %T to unstructured: %v", obj, err)
+	}
+	return &unstructured.Unstructured{Object: content}
+}
+
+func newMockedControlledPodsIndexer(ctx context.Context, t *testing.T, client *fake.Clientset) (*ControlledPodsIndexer, error) {
+	informerFactory := informers.NewSharedInformerFactory(client, 0 /* resyncPeriod */)
+	podsInformer := informerFactory.Core().V1().Pods()
+	rsInformer := informerFactory.Apps().V1().ReplicaSets()
+	p, err := NewControlledPodsIndexer(podsInformer, rsInformer)
+	if err != nil {
+		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
+	}
+	informerFactory.Start(ctx.Done())
+	if !p.WaitForCacheSync(ctx) {
+		t.Fatalf("failed to sync informer")
+	}
+
+	return p, nil
+}
+
+func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 	var allObjects = []runtime.Object{daemonset, deployment, replicaSet, daemonsetPod, replicaSetPod}
 	tests := []struct {
 		name    string
@@ -158,16 +178,9 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 			defer cancel()
 
 			fakeClient := fake.NewSimpleClientset(allObjects...)
-			informerFactory := informers.NewSharedInformerFactory(fakeClient, 0 /* resyncPeriod */)
-			podsInformer := informerFactory.Core().V1().Pods()
-			rsInformer := informerFactory.Apps().V1().ReplicaSets()
-			p, err := NewControlledPodsIndexer(podsInformer, rsInformer)
+			p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
 			if err != nil {
 				t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
-			}
-			informerFactory.Start(ctx.Done())
-			if !p.WaitForCacheSync(ctx) {
-				t.Fatalf("failed to sync informer")
 			}
 
 			got, err := p.PodsControlledBy(tt.obj)
@@ -175,9 +188,82 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 				t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !equality.Semantic.DeepEqual(got, tt.want) {
 				t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fakeClient := fake.NewSimpleClientset(deployment, replicaSet, replicaSetPod)
+	p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
+	if err != nil {
+		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
+	}
+
+	if err := fakeClient.AppsV1().Deployments(ns1).Delete(ctx, deployment.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during deployment deletion: %v", err)
+	}
+	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during replicaset deletion: %v", err)
+	}
+
+	// Sleeping in order for the replicaset informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	want := []*corev1.Pod{replicaSetPod}
+	got, err := p.PodsControlledBy(deployment)
+	if err != nil {
+		t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, nil)
+		return
+	}
+
+	if !equality.Semantic.DeepEqual(got, want) {
+		t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, want)
+	}
+}
+
+func TestControlledPodsIndexer_PodsControlledBy_PodUpdate(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fakeClient := fake.NewSimpleClientset(deployment, replicaSet, replicaSetPod)
+	p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
+	if err != nil {
+		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
+	}
+
+	if err := fakeClient.AppsV1().Deployments(ns1).Delete(ctx, deployment.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during deployment deletion: %v", err)
+	}
+	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during replicaset deletion: %v", err)
+	}
+
+	// Sleeping in order for the replicaset informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	changedReplicaSetPod := replicaSetPod.DeepCopy()
+	changedReplicaSetPod.Status.Phase = "Running"
+	if _, err := fakeClient.CoreV1().Pods(ns1).Update(ctx, changedReplicaSetPod, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("unexpected error during pod update: %v", err)
+	}
+
+	// Sleeping in order for the pod informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	want := []*corev1.Pod{changedReplicaSetPod.DeepCopy()}
+	got, err := p.PodsControlledBy(deployment)
+	if err != nil {
+		t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, nil)
+		return
+	}
+
+	if !equality.Semantic.DeepEqual(got, want) {
+		t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, want)
 	}
 }

@@ -40,6 +40,9 @@
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 
+# Configs
+{{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
+
 name: access-tokens
 namespace:
   number: {{$namespaces}}
@@ -61,6 +64,7 @@ steps:
         systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+        allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
 
 - name: Creating ServiceAccounts
   phases:

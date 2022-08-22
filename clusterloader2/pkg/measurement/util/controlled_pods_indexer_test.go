@@ -215,6 +215,15 @@ func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) 
 	// Sleeping in order for the replicaset informer to catch up with the changes.
 	time.Sleep(1 * time.Second)
 
+	_, exists, err := p.rsIndexer.GetByKey(string(replicaSet.UID))
+	if err != nil {
+		t.Fatalf("unexpected error while getting replicaset: %v", err)
+	}
+
+	if !exists {
+		t.Errorf("expected replicaSet to exists in store at this point, but exists=%v", exists)
+	}
+
 	want := []*corev1.Pod{replicaSetPod}
 	got, err := p.PodsControlledBy(deployment)
 	if err != nil {
@@ -224,6 +233,22 @@ func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) 
 
 	if !equality.Semantic.DeepEqual(got, want) {
 		t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, want)
+	}
+
+	if err := fakeClient.CoreV1().Pods(ns1).Delete(ctx, replicaSetPod.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during pod deletion: %v", err)
+	}
+
+	// Sleeping in order for the pod informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	_, exists, err = p.rsIndexer.GetByKey(string(replicaSet.UID))
+	if err != nil {
+		t.Fatalf("unexpected error while getting replicaset: %v", err)
+	}
+
+	if exists {
+		t.Errorf("expected replicaSet to be deleted in store at this point, but exists=%v", exists)
 	}
 }
 

@@ -280,8 +280,8 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	w.handlingGroup.Wait()
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	var numberRunning, numberDeleted, numberTimeout, numberUnknown int
-	unknowStatusErrList := errors.NewErrorList()
+	var numberRunning, numberDeleted, numberTimeout, numberFailed int
+	failedErrList := errors.NewErrorList()
 	timedOutObjects := []string{}
 	for _, checker := range w.checkerMap {
 		objChecker := checker.(*objectChecker)
@@ -302,15 +302,17 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 			if err != nil {
 				klog.Errorf("Error: %s while Force Deleting Pod, %s", err, objChecker.key)
 			}
-
-		default:
-			numberUnknown++
+		case failed:
+			numberFailed++
 			if err != nil {
-				unknowStatusErrList.Append(err)
+				failedErrList.Append(err)
 			}
+		default:
+			// Probably implementation bug.
+			return fmt.Errorf("got unknown status for %v: status=%v, err=%v", objChecker.key, status, err)
 		}
 	}
-	klog.V(2).Infof("%s: running %d, deleted %d, timeout: %d, unknown: %d", w, numberRunning, numberDeleted, numberTimeout, numberUnknown)
+	klog.V(2).Infof("%s: running %d, deleted %d, timeout: %d, failed: %d", w, numberRunning, numberDeleted, numberTimeout, numberFailed)
 	if numberTimeout > 0 {
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
@@ -319,9 +321,9 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
 		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
 	}
-	if numberUnknown > 0 {
-		klog.Errorf("%s: unknown status for %d %ss: %s", w, numberUnknown, w.kind, unknowStatusErrList.String())
-		return fmt.Errorf("unknown objects statuses: %v", unknowStatusErrList.String())
+	if numberFailed > 0 {
+		klog.Errorf("%s: failed status for %d %ss: %s", w, numberFailed, w.kind, failedErrList.String())
+		return fmt.Errorf("failed objects statuses: %v", failedErrList.String())
 	}
 
 	klog.V(2).Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
@@ -601,6 +603,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		defer o.lock.Unlock()
 		if err != nil {
 			klog.Errorf("%s: error for %v: %v", w, key, err)
+			o.status = failed
 			o.err = fmt.Errorf("%s: %v", key, err)
 
 			hasTimedOut := ctx.Err() != nil
@@ -627,11 +630,12 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 type objectStatus int
 
 const (
-	unknown objectStatus = iota
-	running
-	deleted
-	timeout
-	deleteTimeout
+	unknown       objectStatus = iota // WaitForPods hasn't finished yet. Result isn't determined yet.
+	running                           // WaitForPods finished and scale up/down to scale other than 0 succeeded.
+	deleted                           // WaitForPods finished and scale down to 0 succeeded.
+	failed                            // WaitForPods finished, but failed. o.err must be set.
+	timeout                           // WaitForPods has been interrupted due to timeout and target scale was other than 0.
+	deleteTimeout                     // WaitForPods has been interrupted due to timeout and target scale was 0.
 )
 
 type objectChecker struct {

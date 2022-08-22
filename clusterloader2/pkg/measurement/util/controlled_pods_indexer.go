@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	appsinformers "k8s.io/client-go/informers/apps/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 )
 
 const (
@@ -41,14 +43,14 @@ type ControlledPodsIndexer struct {
 	podsSynced  cache.InformerSynced
 	rsSynced    cache.InformerSynced
 
-	// deploymentUIDToRsUIDs is a map between a Deployment object's UID and the set of ReplicaSet objects' UIDs
-	// that are owned by that particular Deployment object.
-	deploymentUIDToRsUIDs map[types.UID]UIDSet
+	rsIndexer cache.Indexer
 
 	// rsUIDToState is a map between a ReplicaSet object's UID and its state.
 	rsUIDToState map[types.UID]*ReplicaSetState
 
-	// UIDLock is a lock for accessing rsUIDToState and deploymentUIDToRsUIDs fields in ControlledPodsIndexer.
+	// UIDLock is a lock for accessing rsUIDToState and rsIndexer fields in ControlledPodsIndexer.
+	// NOTE: rsIndexer is already thread-safe, so lock here is slightly redundant. We use it to make sure that
+	// state in rsUIDToState matches rsIndexer.
 	UIDLock sync.Mutex
 }
 
@@ -56,13 +58,19 @@ type ControlledPodsIndexer struct {
 // i.e. how many pods it owns exist, whether the RS object itself exists
 // and its latest known owner's UID.
 type ReplicaSetState struct {
-	NumPods  int
-	Exists   bool
-	OwnerUID types.UID
+	NumPods int
+	Exists  bool
 }
 
 // UIDSet is a collection of ReplicaSet objects UIDs.
 type UIDSet map[types.UID]bool
+
+func deletionHandlingUIDKeyFunc(obj interface{}) (string, error) {
+	if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		return d.Key, nil
+	}
+	return string(getObjUID(obj)), nil
+}
 
 // NewControlledPodsIndexer creates a new ControlledPodsIndexer instance.
 func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer) (*ControlledPodsIndexer, error) {
@@ -70,12 +78,15 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 		return nil, fmt.Errorf("failed to register indexer: %w", err)
 	}
 
+	// We need a separate storage from rsInformer as we postpone deletion until all pods are removed.
+	rsIndexer := cache.NewIndexer(deletionHandlingUIDKeyFunc, cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc})
+
 	cpi := &ControlledPodsIndexer{
-		podsIndexer:           podsInformer.Informer().GetIndexer(),
-		podsSynced:            podsInformer.Informer().HasSynced,
-		rsSynced:              rsInformer.Informer().HasSynced,
-		rsUIDToState:          make(map[types.UID]*ReplicaSetState),
-		deploymentUIDToRsUIDs: make(map[types.UID]UIDSet),
+		podsIndexer:  podsInformer.Informer().GetIndexer(),
+		podsSynced:   podsInformer.Informer().HasSynced,
+		rsIndexer:    rsIndexer,
+		rsSynced:     rsInformer.Informer().HasSynced,
+		rsUIDToState: make(map[types.UID]*ReplicaSetState),
 	}
 
 	podsInformer.Informer().AddEventHandler(
@@ -103,7 +114,9 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 
 				if oldOwnerUID != "" && oldOwnerKind == "ReplicaSet" {
 					cpi.updatePodRefCountLocked(oldOwnerUID, -1)
-					cpi.clearRSDataIfPossibleLocked(oldOwnerUID)
+					if err := cpi.clearRSDataIfPossibleLocked(oldOwnerUID); err != nil {
+						klog.Errorf("error while deleting %v: %v", oldOwnerUID, err)
+					}
 				}
 				if newOwnerUID != "" && newOwnerKind == "ReplicaSet" {
 					cpi.updatePodRefCountLocked(newOwnerUID, 1)
@@ -119,7 +132,9 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 				}
 
 				cpi.updatePodRefCountLocked(ownerUID, -1)
-				cpi.clearRSDataIfPossibleLocked(ownerUID)
+				if err := cpi.clearRSDataIfPossibleLocked(ownerUID); err != nil {
+					klog.Errorf("error while deleting %v: %v", ownerUID, err)
+				}
 			},
 		},
 	)
@@ -129,29 +144,26 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 				cpi.UIDLock.Lock()
 				defer cpi.UIDLock.Unlock()
 
-				cpi.handleIncomingRSAddEventLocked(obj)
+				if err := cpi.handleIncomingRSAddEventLocked(obj); err != nil {
+					klog.Errorf("error while adding %v: %v", obj, err)
+				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
+			UpdateFunc: func(_, newObj interface{}) {
 				cpi.UIDLock.Lock()
 				defer cpi.UIDLock.Unlock()
 
-				oldDeploymentUID, _ := getControllerInfo(oldObj)
-				newDeploymentUID, _ := getControllerInfo(newObj)
-				if oldDeploymentUID == newDeploymentUID {
-					return
+				if err := rsIndexer.Update(newObj); err != nil {
+					klog.Errorf("error while updating %v: %v", newObj, err)
 				}
-
-				if oldDeploymentUID != "" {
-					cpi.removeDeploymentDataLocked(oldDeploymentUID, getObjUID(oldObj))
-				}
-				cpi.handleIncomingRSAddEventLocked(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
 				cpi.UIDLock.Lock()
 				defer cpi.UIDLock.Unlock()
 				rsUID := getObjUID(obj)
 				cpi.rsUIDToState[rsUID].Exists = false
-				cpi.clearRSDataIfPossibleLocked(rsUID)
+				if err := cpi.clearRSDataIfPossibleLocked(rsUID); err != nil {
+					klog.Errorf("error while deleting %v: %v", obj, err)
+				}
 			},
 		},
 	)
@@ -179,22 +191,22 @@ func getObjUID(obj interface{}) types.UID {
 	return metaAccessor.GetUID()
 }
 
-func (p *ControlledPodsIndexer) clearRSDataIfPossibleLocked(rsUID types.UID) {
+func (p *ControlledPodsIndexer) clearRSDataIfPossibleLocked(rsUID types.UID) error {
 	state := p.rsUIDToState[rsUID]
 	if state != nil && !state.Exists && state.NumPods == 0 {
 		delete(p.rsUIDToState, rsUID)
-		ownerUID := state.OwnerUID
-		if _, ok := p.deploymentUIDToRsUIDs[ownerUID]; ok {
-			p.removeDeploymentDataLocked(ownerUID, rsUID)
-		}
-	}
-}
 
-func (p *ControlledPodsIndexer) removeDeploymentDataLocked(ownerUID, rsUID types.UID) {
-	delete(p.deploymentUIDToRsUIDs[ownerUID], rsUID)
-	if len(p.deploymentUIDToRsUIDs[ownerUID]) == 0 {
-		delete(p.deploymentUIDToRsUIDs, ownerUID)
+		obj, exists, err := p.rsIndexer.GetByKey(string(rsUID))
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
+
+		return p.rsIndexer.Delete(obj)
 	}
+	return nil
 }
 
 func (p *ControlledPodsIndexer) updatePodRefCountLocked(rsUID types.UID, diff int) {
@@ -204,21 +216,13 @@ func (p *ControlledPodsIndexer) updatePodRefCountLocked(rsUID types.UID, diff in
 	p.rsUIDToState[rsUID].NumPods += diff
 }
 
-func (p *ControlledPodsIndexer) handleIncomingRSAddEventLocked(obj interface{}) {
-	ownerUID, _ := getControllerInfo(obj)
+func (p *ControlledPodsIndexer) handleIncomingRSAddEventLocked(obj interface{}) error {
 	rsUID := getObjUID(obj)
 	if _, ok := p.rsUIDToState[rsUID]; !ok {
 		p.rsUIDToState[rsUID] = &ReplicaSetState{}
 	}
 	p.rsUIDToState[rsUID].Exists = true
-	p.rsUIDToState[rsUID].OwnerUID = ownerUID
-	if ownerUID == "" {
-		return
-	}
-	if _, ok := p.deploymentUIDToRsUIDs[ownerUID]; !ok {
-		p.deploymentUIDToRsUIDs[ownerUID] = UIDSet{}
-	}
-	p.deploymentUIDToRsUIDs[ownerUID][rsUID] = true
+	return p.rsIndexer.Add(obj)
 }
 
 func controllerUIDIndexFunc(obj interface{}) ([]string, error) {
@@ -253,8 +257,16 @@ func (p *ControlledPodsIndexer) PodsControlledBy(obj interface{}) ([]*corev1.Pod
 	switch typeAccessor.GetKind() {
 	case "Deployment":
 		p.UIDLock.Lock()
-		for k := range p.deploymentUIDToRsUIDs[metaAccessor.GetUID()] {
-			podOwners = append(podOwners, k)
+		replicaSets, err := p.rsIndexer.ByIndex(controllerUIDIndex, string(metaAccessor.GetUID()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get replicasets controlled by %v: %w", metaAccessor.GetUID(), err)
+		}
+		for _, replicaSet := range replicaSets {
+			replicaSet, ok := replicaSet.(*appsv1.ReplicaSet)
+			if !ok {
+				return nil, fmt.Errorf("expected *appsv1.ReplicaSet; got: %T", replicaSet)
+			}
+			podOwners = append(podOwners, replicaSet.GetUID())
 		}
 		p.UIDLock.Unlock()
 	default:

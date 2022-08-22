@@ -54,12 +54,13 @@ type PodLister interface {
 // WaitForPods waits till desired number of pods is running.
 // The current set of pods are fetched by calling List() on the provided PodStore.
 func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) error {
+	klog.V(2).Infof("%s: %s: starting...", options.CallerName, ps.String())
 	oldPods, err := ps.List()
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 	scaling := uninitialized
-	var podsStatus PodsStartupStatus
+	var oldPodsStatus PodsStartupStatus
 	var lastIsPodUpdatedError error
 
 	for {
@@ -71,7 +72,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
 			klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
 			return fmt.Errorf("timeout while waiting for %d pods to be running in %s - summary of pods : %s",
-				desiredPodCount, ps.String(), podsStatus.String())
+				desiredPodCount, ps.String(), oldPodsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
 			desiredPodCount := options.DesiredPodCount()
 
@@ -88,21 +89,23 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			if err != nil {
 				return fmt.Errorf("failed to list pods: %w", err)
 			}
-			podsStatus = ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
+			podsStatus := ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 			if podsStatus.LastIsPodUpdatedError != nil {
 				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
 			}
 
 			diff := DiffPods(oldPods, pods)
 			deletedPods := diff.DeletedPods()
-			if scaling != down && len(deletedPods) > 0 {
-				klog.Errorf("%s: %s: %d pods disappeared: %v", options.CallerName, ps.String(), len(deletedPods), strings.Join(deletedPods, ", "))
+			if scaling == up && len(deletedPods) > 0 {
+				klog.Warningf("%s: %s: %d pods disappeared: %v", options.CallerName, ps.String(), len(deletedPods), strings.Join(deletedPods, ", "))
 			}
 			addedPods := diff.AddedPods()
-			if scaling != up && len(addedPods) > 0 {
-				klog.Errorf("%s: %s: %d pods appeared: %v", options.CallerName, ps.String(), len(addedPods), strings.Join(addedPods, ", "))
+			if scaling == down && len(addedPods) > 0 {
+				klog.Warningf("%s: %s: %d pods appeared: %v", options.CallerName, ps.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
-			klog.V(2).Infof("%s: %s: %s", options.CallerName, ps.String(), podsStatus.String())
+			if podsStatus.String() != oldPodsStatus.String() {
+				klog.V(2).Infof("%s: %s: %s", options.CallerName, ps.String(), podsStatus.String())
+			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {
@@ -114,6 +117,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 				return nil
 			}
 			oldPods = pods
+			oldPodsStatus = podsStatus
 		}
 	}
 }

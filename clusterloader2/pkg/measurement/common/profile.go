@@ -96,6 +96,9 @@ func (p *profileMeasurement) start(config *measurement.Config, SSHToMasterSuppor
 		klog.Warning("Profile measurements will be disabled due to no MasterIps")
 		return nil
 	}
+	if p.config.componentName == "kube-apiserver" {
+		return nil
+	}
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
 	if p.shouldExposeAPIServerDebugEndpoint() {
 		if err := exposeAPIServerDebugEndpoint(k8sClient); err != nil {
@@ -188,6 +191,11 @@ func (p *profileMeasurement) gatherProfile(c clientset.Interface, SSHToMasterSup
 	}
 
 	var summaries []measurement.Summary
+
+	if p.config.componentName == "kube-apiserver" {
+		return summaries, nil
+	}
+
 	for _, host := range p.config.hosts {
 		profilePrefix := fmt.Sprintf("%s_%s_%s", host, p.config.componentName, p.name)
 

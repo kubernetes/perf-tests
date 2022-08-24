@@ -13,10 +13,10 @@
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): See whether we can get rid of this
 {{$LATENCY_POD_CPU := DefaultParam .CL2_LATENCY_POD_CPU 50}}
 {{$LATENCY_POD_MEMORY := DefaultParam .CL2_LATENCY_POD_MEMORY 200}}
-{{$LATENCY_POD_COUNT := DefaultParam .CL2_LATENCY_POD_COUNT (MaxInt $minPodsInSmallCluster .Nodes)}}
+{{$LATENCY_POD_COUNT := DefaultParam .CL2_LATENCY_POD_COUNT $minPodsInSmallCluster}}
 
 ## Variables
-{{$latencyReplicas := DivideInt $LATENCY_POD_COUNT $namespaces}}
+{{$latencyReplicas := Ceil (DivideFloat $LATENCY_POD_COUNT $namespaces)}}
 {{$podStartupLatencyThreshold := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 

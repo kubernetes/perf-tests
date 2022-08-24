@@ -41,6 +41,7 @@ func GetFuncs() template.FuncMap {
 	return template.FuncMap{
 		"AddFloat":      addFloat,
 		"AddInt":        addInt,
+		"Ceil":          ceil,
 		"DefaultParam":  defaultParam,
 		"DivideFloat":   divideFloat,
 		"DivideInt":     divideInt,
@@ -267,4 +268,8 @@ func loop(size interface{}) []int {
 		slice[i] = i
 	}
 	return slice
+}
+
+func ceil(i interface{}) float64 {
+	return math.Ceil(toFloat64(i))
 }

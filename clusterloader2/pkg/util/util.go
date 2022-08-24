@@ -41,7 +41,7 @@ func IsErrKeyNotFound(err error) bool {
 	return isErrKeyNotFound
 }
 
-// ToStruct converts map[string]interface{} to standard object (e.g. struct).
+// ToStruct converts map[string]interface{} to standard object (e.g. struct). It preserves fields that are not set in dict.
 func ToStruct(dict map[string]interface{}, out interface{}) error {
 	output := &bytes.Buffer{}
 	if err := json.NewEncoder(output).Encode(dict); err != nil {

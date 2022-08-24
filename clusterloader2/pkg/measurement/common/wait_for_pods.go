@@ -52,7 +52,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
-	selector := measurementutil.NewObjectSelector()
+	selector := util.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
 	}

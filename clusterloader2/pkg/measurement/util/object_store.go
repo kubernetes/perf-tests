@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // ObjectStore is a convenient wrapper around cache.Store.
@@ -45,7 +46,7 @@ type ObjectStore struct {
 }
 
 // newObjectStore creates ObjectStore based on given object selector.
-func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *ObjectSelector) (*ObjectStore, error) {
+func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *util.ObjectSelector) (*ObjectStore, error) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
 	name := fmt.Sprintf("%sStore: %s", reflect.TypeOf(obj).String(), selector.String())
@@ -75,11 +76,11 @@ func (s *ObjectStore) Stop() {
 // PodStore is a convenient wrapper around cache.Store.
 type PodStore struct {
 	*ObjectStore
-	selector *ObjectSelector
+	selector *util.ObjectSelector
 }
 
 // NewPodStore creates PodStore based on given object selector.
-func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
+func NewPodStore(c clientset.Interface, selector *util.ObjectSelector) (*PodStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -157,7 +158,7 @@ type PVCStore struct {
 }
 
 // NewPVCStore creates PVCStore based on a given object selector.
-func NewPVCStore(c clientset.Interface, selector *ObjectSelector) (*PVCStore, error) {
+func NewPVCStore(c clientset.Interface, selector *util.ObjectSelector) (*PVCStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -194,7 +195,7 @@ type PVStore struct {
 }
 
 // NewPVStore creates PVStore based on a given object selector.
-func NewPVStore(c clientset.Interface, selector *ObjectSelector, provisioner string) (*PVStore, error) {
+func NewPVStore(c clientset.Interface, selector *util.ObjectSelector, provisioner string) (*PVStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -234,7 +235,7 @@ type NodeStore struct {
 }
 
 // NewNodeStore creates NodeStore based on a given object selector.
-func NewNodeStore(c clientset.Interface, selector *ObjectSelector) (*NodeStore, error) {
+func NewNodeStore(c clientset.Interface, selector *util.ObjectSelector) (*NodeStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector

@@ -35,7 +35,6 @@ import (
 
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -56,14 +55,14 @@ func init() {
 
 func createWaitForFinishedJobsMeasurement() measurement.Measurement {
 	return &waitForFinishedJobsMeasurement{
-		selector:     measurementutil.NewObjectSelector(),
+		selector:     util.NewObjectSelector(),
 		queue:        workerqueue.NewWorkerQueue(waitForFinishedJobsWorkers),
 		finishedJobs: make(map[string]batchv1.JobConditionType),
 	}
 }
 
 type waitForFinishedJobsMeasurement struct {
-	selector *measurementutil.ObjectSelector
+	selector *util.ObjectSelector
 
 	queue            workerqueue.Interface
 	isRunning        bool

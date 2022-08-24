@@ -23,11 +23,12 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // WaitForPVOptions is an options used by WaitForPVs methods.
 type WaitForPVOptions struct {
-	Selector           *ObjectSelector
+	Selector           *util.ObjectSelector
 	DesiredPVCount     int
 	Provisioner        string
 	CallerName         string

@@ -34,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
@@ -95,7 +96,7 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 
 	ctx, cancel := context.WithTimeout(context.TODO(), execPodCheckTimeout)
 	defer cancel()
-	selector := &measurementutil.ObjectSelector{
+	selector := &util.ObjectSelector{
 		Namespace:     execDeploymentNamespace,
 		LabelSelector: execPodSelector,
 		FieldSelector: "",

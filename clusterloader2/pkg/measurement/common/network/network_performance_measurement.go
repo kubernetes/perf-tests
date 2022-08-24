@@ -228,7 +228,7 @@ func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 	// Wait for all worker pods to be ready
 	ctx, cancel := context.WithTimeout(context.TODO(), podReadyTimeout)
 	defer cancel()
-	selector := &measurementutil.ObjectSelector{Namespace: netperfNamespace}
+	selector := &util.ObjectSelector{Namespace: netperfNamespace}
 	options := &measurementutil.WaitForPodOptions{
 		DesiredPodCount:     func() int { return npm.numberOfClients + npm.numberOfServers },
 		CallerName:          networkPerformanceMetricsName,

@@ -103,7 +103,7 @@ func (s *sharedPodIndexerFactory) start(c clientset.Interface) (*measurementutil
 
 func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 	return &waitForControlledPodsRunningMeasurement{
-		selector:   measurementutil.NewObjectSelector(),
+		selector:   util.NewObjectSelector(),
 		queue:      workerqueue.NewWorkerQueue(waitForControlledPodsWorkers),
 		objectKeys: sets.NewString(),
 		checkerMap: checker.NewMap(),
@@ -113,7 +113,7 @@ func createWaitForControlledPodsRunningMeasurement() measurement.Measurement {
 type waitForControlledPodsRunningMeasurement struct {
 	apiVersion       string
 	kind             string
-	selector         *measurementutil.ObjectSelector
+	selector         *util.ObjectSelector
 	operationTimeout time.Duration
 	// countErrorMargin orders measurement to wait for number of pods to be in
 	// <desired count - countErrorMargin, desired count> range

@@ -57,7 +57,7 @@ func init() {
 
 func createPodStartupLatencyMeasurement() measurement.Measurement {
 	return &podStartupLatencyMeasurement{
-		selector:          measurementutil.NewObjectSelector(),
+		selector:          util.NewObjectSelector(),
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 		podMetadata:       measurementutil.NewPodsMetadata(podStartupLatencyMeasurementName),
 		eventQueue:        workqueue.New(),
@@ -70,7 +70,7 @@ type eventData struct {
 }
 
 type podStartupLatencyMeasurement struct {
-	selector  *measurementutil.ObjectSelector
+	selector  *util.ObjectSelector
 	isRunning bool
 	stopCh    chan struct{}
 	// This queue can potentially grow indefinitely, beacause we put all changes here.

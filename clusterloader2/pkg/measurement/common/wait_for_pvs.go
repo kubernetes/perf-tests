@@ -54,7 +54,7 @@ func (w *waitForAvailablePVsMeasurement) Execute(config *measurement.Config) ([]
 	if err != nil {
 		return nil, err
 	}
-	selector := measurementutil.NewObjectSelector()
+	selector := util.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
 	}

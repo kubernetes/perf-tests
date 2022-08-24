@@ -52,7 +52,7 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 		return nil, err
 	}
 
-	selector := measurementutil.NewObjectSelector()
+	selector := util.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
 	}

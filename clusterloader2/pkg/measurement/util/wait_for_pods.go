@@ -54,7 +54,11 @@ type PodLister interface {
 // WaitForPods waits till desired number of pods is running.
 // The current set of pods are fetched by calling List() on the provided PodStore.
 func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) error {
-	klog.V(2).Infof("%s: %s: starting...", options.CallerName, ps.String())
+	var timeout time.Duration
+	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
+		timeout = time.Until(deadline)
+	}
+	klog.V(2).Infof("%s: %s: starting with timeout: %v", options.CallerName, ps.String(), timeout)
 	oldPods, err := ps.List()
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)

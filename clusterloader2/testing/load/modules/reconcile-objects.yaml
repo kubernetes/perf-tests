@@ -10,6 +10,7 @@
 {{$minReplicaFactor := SubtractFloat 1 $randomScaleFactor}}
 {{$maxReplicaFactor := AddFloat 1 $randomScaleFactor}}
 {{$testMaxReplicaFactor := AddFloat 1 .testMaxReplicaFactor}}
+{{$operationTimeout := .operationTimeout}}
 
 # DaemonSets
 {{$daemonSetImage := DefaultParam .daemonSetImage "k8s.gcr.io/pause:3.0"}}
@@ -75,7 +76,7 @@ steps:
       action: start
       checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
       labelSelector: group = load
-      operationTimeout: 15m
+      operationTimeout: {{$operationTimeout}}
 
 - name: {{$actionName}}
   phases:
@@ -212,7 +213,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
+    tuningSet: {{$tuningSet}}
     objectBundle:
   {{range $ssIndex := Loop $pvSmallStatefulSetSize}}
       - basename: pv-small-statefulset-{{$ssIndex}}
@@ -226,7 +227,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: RandomizedDeletionTimeLimited
+    tuningSet: {{$tuningSet}}
     objectBundle:
   {{range $ssIndex := Loop $pvMediumStatefulSetSize}}
       - basename: pv-medium-statefulset-{{$ssIndex}}
@@ -254,5 +255,5 @@ steps:
     Params:
       desiredPVCCount: 0
       labelSelector: group = load
-      timeout: 15m
+      timeout: {{$operationTimeout}}
 {{end}}

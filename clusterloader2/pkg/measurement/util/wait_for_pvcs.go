@@ -23,11 +23,12 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // WaitForPVCOptions is an options used by WaitForPVCs methods.
 type WaitForPVCOptions struct {
-	Selector            *ObjectSelector
+	Selector            *util.ObjectSelector
 	DesiredPVCCount     int
 	CallerName          string
 	WaitForPVCsInterval time.Duration

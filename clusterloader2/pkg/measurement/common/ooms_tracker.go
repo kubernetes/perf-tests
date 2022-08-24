@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/tools/pager"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -63,7 +62,7 @@ func createClusterOOMsTrackerMeasurement() measurement.Measurement {
 }
 
 type clusterOOMsTrackerMeasurement struct {
-	selector                *measurementutil.ObjectSelector
+	selector                *util.ObjectSelector
 	msgRegex                *regexp.Regexp
 	isRunning               bool
 	startTime               time.Time
@@ -199,7 +198,7 @@ func (m *clusterOOMsTrackerMeasurement) initFields(config *measurement.Config) e
 	m.isRunning = true
 	m.startTime = time.Now()
 	m.stopCh = make(chan struct{})
-	m.selector = &measurementutil.ObjectSelector{
+	m.selector = &util.ObjectSelector{
 		FieldSelector: fields.Set{"reason": oomEventReason}.AsSelector().String(),
 		Namespace:     metav1.NamespaceAll,
 	}

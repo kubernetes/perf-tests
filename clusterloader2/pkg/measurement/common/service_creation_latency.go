@@ -62,7 +62,7 @@ func init() {
 
 func createServiceCreationLatencyMeasurement() measurement.Measurement {
 	return &serviceCreationLatencyMeasurement{
-		selector:      measurementutil.NewObjectSelector(),
+		selector:      util.NewObjectSelector(),
 		queue:         workerqueue.NewWorkerQueue(serviceCreationLatencyWorkers),
 		creationTimes: measurementutil.NewObjectTransitionTimes(serviceCreationLatencyName),
 		pingCheckers:  checker.NewMap(),
@@ -70,7 +70,7 @@ func createServiceCreationLatencyMeasurement() measurement.Measurement {
 }
 
 type serviceCreationLatencyMeasurement struct {
-	selector      *measurementutil.ObjectSelector
+	selector      *util.ObjectSelector
 	waitTimeout   time.Duration
 	stopCh        chan struct{}
 	isRunning     bool

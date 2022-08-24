@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,7 +36,6 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
-	"time"
 )
 
 const (
@@ -65,7 +66,7 @@ func init() {
 
 func createLoadBalancerNodeSyncMeasurement() measurement.Measurement {
 	return &LoadBalancerNodeSyncMeasurement{
-		selector:                  measurementutil.NewObjectSelector(),
+		selector:                  util.NewObjectSelector(),
 		svcNodeSyncLatencyTracker: measurementutil.NewObjectTransitionTimes(loadBalancerNodeSyncLatencyName),
 	}
 }
@@ -73,7 +74,7 @@ func createLoadBalancerNodeSyncMeasurement() measurement.Measurement {
 type LoadBalancerNodeSyncMeasurement struct {
 	client clientset.Interface
 	// selector used to select relevant load balancer type service used for measurement
-	selector *measurementutil.ObjectSelector
+	selector *util.ObjectSelector
 	// waitTimeout specify for the timeout for node sync on all LBs to complete
 	waitTimeout time.Duration
 	// svcNodeSyncLatencyTracker tracks the nodesync latency

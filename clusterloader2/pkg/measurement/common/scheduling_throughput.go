@@ -67,7 +67,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([
 			klog.V(3).Infof("%s: measurement already running", s)
 			return nil, nil
 		}
-		selector := measurementutil.NewObjectSelector()
+		selector := util.NewObjectSelector()
 		if err := selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func (*schedulingThroughputMeasurement) String() string {
 	return schedulingThroughputMeasurementName
 }
 
-func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *measurementutil.ObjectSelector, measurmentInterval time.Duration) error {
+func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *util.ObjectSelector, measurmentInterval time.Duration) error {
 	ps, err := measurementutil.NewPodStore(clientSet, selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)

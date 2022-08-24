@@ -25,8 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // NewInformer creates a new informer.
@@ -44,7 +43,7 @@ func NewInformer(
 func NewDynamicInformer(
 	c dynamic.Interface,
 	gvr schema.GroupVersionResource,
-	selector *measurementutil.ObjectSelector,
+	selector *util.ObjectSelector,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
 	optionsModifier := func(options *metav1.ListOptions) {

@@ -28,7 +28,7 @@ import (
 
 // WaitForNodeOptions is an options object used by WaitForNodes methods.
 type WaitForNodeOptions struct {
-	Selector             *ObjectSelector
+	Selector             *util.ObjectSelector
 	MinDesiredNodeCount  int
 	MaxDesiredNodeCount  int
 	CallerName           string

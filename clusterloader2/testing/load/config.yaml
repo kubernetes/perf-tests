@@ -19,9 +19,6 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
-{{$SCHEDULER_THROUGHPUT_SIZE := DefaultParam .CL2_SCHEDULER_THROUGHPUT_SIZE .Nodes}}
-# Determines number of pods per deployment. Should be a divider of $SCHEDULER_THROUGHPUT_SIZE.
-{{$SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT 1000}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -60,14 +57,9 @@
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
 {{$totalSchedulerThroughputPods := MaxInt (MultiplyInt 2 $MIN_PODS_IN_SMALL_CLUSTERS) .Nodes}}
-{{$schedulerThroughputReplicasPerNamespace := 1}}
-{{$schedulerThroughputPodsPerDeployment := .Nodes}}
+# Determines number of pods per deployment. Should be a divider of $totalSchedulerThroughputPods.
+{{$schedulerThroughputPodsPerDeployment := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT $totalSchedulerThroughputPods}}
 {{$schedulerThroughputNamespaces := DivideInt $totalSchedulerThroughputPods $schedulerThroughputPodsPerDeployment}}
-
-{{if ge $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
-  {{$schedulerThroughputReplicasPerNamespace = DivideInt $SCHEDULER_THROUGHPUT_SIZE $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
-  {{$schedulerThroughputPodsPerDeployment = $SCHEDULER_THROUGHPUT_PODS_PER_DEPLOYMENT}}
-{{end}}
 
 # Set schedulerThroughputNamespaces to 1 on small clusters otherwise it will result
 # in an unnecessary number of namespaces.
@@ -88,11 +80,6 @@ tuningSets:
 - name: Sequence
   parallelismLimitedLoad:
     parallelismLimit: 1
-# Dedicated tuningSet for SchedulerThroughput phases that results in fully
-# parallel creation of deployments.
-- name: SchedulerThroughputParallel
-  parallelismLimitedLoad:
-    parallelismLimit: {{MultiplyInt $schedulerThroughputNamespaces $schedulerThroughputReplicasPerNamespace}}
 # TODO(https://github.com/kubernetes/perf-tests/issues/1024): This TuningSet is used only for pod-startup-latency, get rid of it
 # Uniform5qps: for each running phase, use 5 qps.
 - name: Uniform5qps
@@ -114,9 +101,6 @@ tuningSets:
     # as each RS changes its size from X to a uniform random value in [X/2, 3X/2].
     # To match 10 [pods/s] requirement, we need to divide saturationTime by 4.
     timeLimit: {{DivideInt $saturationTime 4}}s
-- name: DeletionTimeLimited
-  TimeLimitedLoad:
-    timeLimit: 5m
 - name: RandomizedDeletionTimeLimited
   RandomizedTimeLimitedLoad:
     timeLimit: {{$deletionTime}}s
@@ -202,7 +186,7 @@ steps:
     params:
       action: create
       namespaces: {{$namespaces}}
-      replicasPerNamespace: {{$schedulerThroughputReplicasPerNamespace}}
+      replicasPerNamespace: 1
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
 {{end}}

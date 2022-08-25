@@ -8,7 +8,6 @@
 
 ## Derivative variables
 {{$is_creating := (eq .action "create")}}
-{{$tuningSet := IfThenElse (eq .action "delete") "DeletionTimeLimited" "SchedulerThroughputParallel"}}
 
 ## CL2 params
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
@@ -48,7 +47,7 @@ steps:
       min: {{AddInt $namespaces 1}}
       max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
     replicasPerNamespace: {{$replicasPerNamespace}}
-    tuningSet: {{$tuningSet}}
+    tuningSet: Global100qps
     objectBundle:
     - basename: scheduler-throughput-deployment
       objectTemplatePath: simple-deployment.yaml

@@ -12,7 +12,6 @@
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
-{{$RATE_LIMIT_POD_CREATION := DefaultParam .CL2_RATE_LIMIT_POD_CREATION true}}
 {{$BIG_GROUP_SIZE := DefaultParam .BIG_GROUP_SIZE 250}}
 {{$MEDIUM_GROUP_SIZE := DefaultParam .MEDIUM_GROUP_SIZE 30}}
 {{$SMALL_GROUP_SIZE := DefaultParam .SMALL_GROUP_SIZE 5}}
@@ -153,13 +152,7 @@ steps:
     params:
       actionName: "create"
       namespaces: {{$namespaces}}
-      {{if .RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedSaturationTimeLimited
-      operationTimeout: 15m
-      {{else}}
-      tuningSet: Global100qps
-      operationTimeout: {{AddInt $saturationTime 900}}s
-      {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.
       # The goal is to cache the image to all nodes before we start any latency pod,
@@ -268,13 +261,7 @@ steps:
     params:
       actionName: "scale and update"
       namespaces: {{$namespaces}}
-      {{if .RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedScalingTimeLimited
-      operationTimeout: 15m
-      {{else}}
-      tuningSet: Global100qps
-      operationTimeout: {{AddInt (DivideInt $saturationTime 4) 900}}s
-      {{end}}
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: {{$latencyPodImage}}
@@ -302,13 +289,7 @@ steps:
     params:
       actionName: "delete"
       namespaces: {{$namespaces}}
-      {{if .RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedDeletionTimeLimited
-      operationTimeout: 15m
-      {{else}}
-      tuningSet: Global100qps
-      operationTimeout: {{AddInt $deletionTime 900}}s
-      {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetReplicas: 0
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}

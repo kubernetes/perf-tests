@@ -284,9 +284,13 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	var numberRunning, numberDeleted, numberTimeout, numberFailed int
 	failedErrList := errors.NewErrorList()
 	timedOutObjects := []string{}
+	var maxDuration time.Duration
 	for _, checker := range w.checkerMap {
 		objChecker := checker.(*objectChecker)
 		status, err := objChecker.getStatus()
+		if objChecker.duration > maxDuration {
+			maxDuration = objChecker.duration
+		}
 		switch status {
 		case running:
 			numberRunning++
@@ -314,6 +318,11 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		}
 	}
 	klog.V(2).Infof("%s: running %d, deleted %d, timeout: %d, failed: %d", w, numberRunning, numberDeleted, numberTimeout, numberFailed)
+	var ratio float64
+	if w.operationTimeout != 0 {
+		ratio = float64(maxDuration) / float64(w.operationTimeout)
+	}
+	klog.V(2).Infof("%s: maxDuration=%v, operationTimeout=%v, ratio=%.2f", w, maxDuration, w.operationTimeout, ratio)
 	if numberTimeout > 0 {
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
@@ -603,9 +612,12 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
+		start := time.Now()
 		err := measurementutil.WaitForPods(ctx, podStore, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
+		o.duration = time.Since(start)
+
 		if err != nil {
 			klog.Errorf("%s: error for %v: %v", w, key, err)
 			o.status = failed
@@ -649,8 +661,9 @@ type objectChecker struct {
 	err    error
 	// key of the object being checked. In the current implementation it's a namespaced name, but it
 	// may change in the future.
-	key    string
-	cancel context.CancelFunc
+	key      string
+	cancel   context.CancelFunc
+	duration time.Duration
 }
 
 func newObjectChecker(key string) *objectChecker {

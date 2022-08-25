@@ -47,7 +47,7 @@ steps:
       min: {{AddInt $namespaces 1}}
       max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
     replicasPerNamespace: {{$replicasPerNamespace}}
-    tuningSet: Global100qps
+    tuningSet: default
     objectBundle:
     - basename: scheduler-throughput-deployment
       objectTemplatePath: simple-deployment.yaml

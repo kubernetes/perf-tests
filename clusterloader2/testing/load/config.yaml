@@ -73,6 +73,7 @@
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
+{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
 name: load
 namespace:
@@ -86,12 +87,10 @@ tuningSets:
 - name: Uniform5qps
   qpsLoad:
     qps: 5
-# Global100qps: use 100 qps globally:
-# * split equally qps among all running phases
-# * if some phase finishes, other phases will get more qps.
-- name: Global100qps
+# default is a tuningset that is meant to be used when we don't have any specific requirements on pace of operations.
+- name: default
   globalQPSLoad:
-    qps: 100
+    qps: {{$defaultQps}}
     burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
@@ -142,7 +141,7 @@ steps:
     path: /modules/configmaps-secrets.yaml
     params:
       actionName: create
-      tuningSet: Global100qps
+      tuningSet: default
       namespaces: {{$namespaces}}
       bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
       mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
@@ -157,7 +156,7 @@ steps:
       tuningSet: RandomizedSaturationTimeLimited
       operationTimeout: 15m
       {{else}}
-      tuningSet: Global100qps
+      tuningSet: default
       operationTimeout: {{AddInt $saturationTime 900}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
@@ -272,7 +271,7 @@ steps:
       tuningSet: RandomizedScalingTimeLimited
       operationTimeout: 15m
       {{else}}
-      tuningSet: Global100qps
+      tuningSet: default
       operationTimeout: {{AddInt (DivideInt $saturationTime 4) 900}}s
       {{end}}
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
@@ -306,7 +305,7 @@ steps:
       tuningSet: RandomizedDeletionTimeLimited
       operationTimeout: 15m
       {{else}}
-      tuningSet: Global100qps
+      tuningSet: default
       operationTimeout: {{AddInt $deletionTime 900}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
@@ -334,7 +333,7 @@ steps:
     path: /modules/configmaps-secrets.yaml
     params:
       actionName: delete
-      tuningSet: Global100qps
+      tuningSet: default
       namespaces: {{$namespaces}}
       bigDeploymentsPerNamespace: 0
       mediumDeploymentsPerNamespace: 0

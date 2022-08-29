@@ -66,18 +66,27 @@ type apiAvailabilityMeasurement struct {
 }
 
 func (a *apiAvailabilityMeasurement) updateHostAvailabilityMetrics(c clientset.Interface, provider provider.Provider) {
-	// TODO(#1683): Parallelize polling individual hosts.
+	wg := sync.WaitGroup{}
+	wg.Add(len(a.hostIPs))
+	mu := sync.Mutex{}
 	for _, ip := range a.hostIPs {
-		statusCode, err := a.pollHost(ip)
-		availability := statusCode == strconv.Itoa(http.StatusOK)
-		if err != nil {
-			klog.Warningf("execservice issue: %s", err.Error())
-		}
-		if !availability {
-			klog.Warningf("host %s not available; HTTP status code: %s", ip, statusCode)
-		}
-		a.hostLevelMetrics[ip].update(availability)
+		ip := ip
+		go func() {
+			defer wg.Done()
+			statusCode, err := a.pollHost(ip)
+			availability := statusCode == strconv.Itoa(http.StatusOK)
+			if err != nil {
+				klog.Warningf("execservice issue: %s", err.Error())
+			}
+			if !availability {
+				klog.Warningf("host %s not available; HTTP status code: %s", ip, statusCode)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			a.hostLevelMetrics[ip].update(availability)
+		}()
 	}
+	wg.Wait()
 }
 
 func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {

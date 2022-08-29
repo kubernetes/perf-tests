@@ -311,3 +311,55 @@ func TestControlledPodsIndexer_PodsControlledBy_PodUpdate(t *testing.T) {
 
 	assert.ElementsMatch(t, got, want)
 }
+
+func TestControlledPodsIndexer_PodsControlledBy_PodUpdateUID(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fakeClient := fake.NewSimpleClientset(deployment, replicaSet1, replicaSetPod1)
+	p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
+	if err != nil {
+		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
+	}
+
+	if err := fakeClient.AppsV1().Deployments(ns1).Delete(ctx, deployment.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during deployment deletion: %v", err)
+	}
+	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet1.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("unexpected error during replicaset deletion: %v", err)
+	}
+
+	// Sleeping in order for the replicaset informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	changedReplicaSetPod := replicaSetPod1.DeepCopy()
+	changedReplicaSetPod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		{
+			UID: "some-other-uid",
+		},
+	}
+	if _, err := fakeClient.CoreV1().Pods(ns1).Update(ctx, changedReplicaSetPod, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("unexpected error during pod update: %v", err)
+	}
+
+	// Sleeping in order for the pod informer to catch up with the changes.
+	time.Sleep(1 * time.Second)
+
+	want := []*corev1.Pod{}
+	got, err := p.PodsControlledBy(deployment)
+	if err != nil {
+		t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, nil)
+		return
+	}
+
+	assert.ElementsMatch(t, got, want)
+
+	_, exists, err := p.rsIndexer.GetByKey(string(replicaSet1.UID))
+	if err != nil {
+		t.Fatalf("unexpected error while getting replicaset: %v", err)
+	}
+
+	if exists {
+		t.Errorf("expected replicaSet to be deleted in store at this point, but exists=%v", exists)
+	}
+}

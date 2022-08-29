@@ -284,13 +284,12 @@ func (p *ControlledPodsIndexer) PodsControlledBy(obj interface{}) ([]*corev1.Pod
 	return res, nil
 }
 
-func (p *ControlledPodsIndexer) appendPodsControlledBy(in []*corev1.Pod, uid types.UID) ([]*corev1.Pod, error) {
+func (p *ControlledPodsIndexer) appendPodsControlledBy(res []*corev1.Pod, uid types.UID) ([]*corev1.Pod, error) {
 	objs, err := p.podsIndexer.ByIndex(controllerUIDIndex, string(uid))
 	if err != nil {
 		return nil, fmt.Errorf("method ByIndex failed: %w", err)
 	}
 
-	var res []*corev1.Pod
 	for _, obj := range objs {
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {

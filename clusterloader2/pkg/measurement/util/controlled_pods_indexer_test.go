@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +65,7 @@ var (
 		},
 	}
 
-	replicaSet = &appsv1.ReplicaSet{
+	replicaSet1 = &appsv1.ReplicaSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: replicaSetKind.GroupVersion().String(),
 			Kind:       replicaSetKind.Kind,
@@ -74,6 +74,20 @@ var (
 			Name:      "rs-1",
 			Namespace: ns1,
 			UID:       types.UID("uid-3"),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(deployment, deploymentKind),
+			},
+		},
+	}
+	replicaSet2 = &appsv1.ReplicaSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: replicaSetKind.GroupVersion().String(),
+			Kind:       replicaSetKind.Kind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs-2",
+			Namespace: ns1,
+			UID:       types.UID("uid-7"),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(deployment, deploymentKind),
 			},
@@ -95,13 +109,24 @@ var (
 		},
 	}
 
-	replicaSetPod = &corev1.Pod{
+	replicaSetPod1 = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod-2",
+			Name:      "rs-pod-1",
 			Namespace: ns1,
 			UID:       types.UID("uid-5"),
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(replicaSet, replicaSetKind),
+				*metav1.NewControllerRef(replicaSet1, replicaSetKind),
+			},
+		},
+	}
+
+	replicaSetPod2 = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs-pod-2",
+			Namespace: ns1,
+			UID:       types.UID("uid-6"),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(replicaSet2, replicaSetKind),
 			},
 		},
 	}
@@ -132,7 +157,7 @@ func newMockedControlledPodsIndexer(ctx context.Context, t *testing.T, client *f
 }
 
 func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
-	var allObjects = []runtime.Object{daemonset, deployment, replicaSet, daemonsetPod, replicaSetPod}
+	var allObjects = []runtime.Object{daemonset, deployment, replicaSet1, replicaSet2, daemonsetPod, replicaSetPod1, replicaSetPod2}
 	tests := []struct {
 		name    string
 		obj     interface{}
@@ -146,20 +171,20 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 		},
 		{
 			name: "replicaset",
-			obj:  replicaSet,
-			want: []*corev1.Pod{replicaSetPod},
+			obj:  replicaSet1,
+			want: []*corev1.Pod{replicaSetPod1},
 		},
 		{
 			name: "deployment",
 			obj:  deployment,
-			want: []*corev1.Pod{replicaSetPod},
+			want: []*corev1.Pod{replicaSetPod1, replicaSetPod2},
 		},
 		{
 			// When we fetch objects using dynamic informer, objects are returend as unstructured.
 			// We expect result to be the same as for static-typed deployment.
 			name: "deployment as unstructured",
 			obj:  toUnstructured(t, deployment),
-			want: []*corev1.Pod{replicaSetPod},
+			want: []*corev1.Pod{replicaSetPod1, replicaSetPod2},
 		},
 		{
 			name: "daemonset as unstructured",
@@ -188,9 +213,7 @@ func TestControlledPodsIndexer_PodsControlledBy(t *testing.T) {
 				t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !equality.Semantic.DeepEqual(got, tt.want) {
-				t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, tt.want)
-			}
+			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
 }
@@ -199,7 +222,7 @@ func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	fakeClient := fake.NewSimpleClientset(deployment, replicaSet, replicaSetPod)
+	fakeClient := fake.NewSimpleClientset(deployment, replicaSet1, replicaSetPod1)
 	p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
 	if err != nil {
 		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
@@ -208,14 +231,14 @@ func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) 
 	if err := fakeClient.AppsV1().Deployments(ns1).Delete(ctx, deployment.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("unexpected error during deployment deletion: %v", err)
 	}
-	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet.Name, metav1.DeleteOptions{}); err != nil {
+	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet1.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("unexpected error during replicaset deletion: %v", err)
 	}
 
 	// Sleeping in order for the replicaset informer to catch up with the changes.
 	time.Sleep(1 * time.Second)
 
-	_, exists, err := p.rsIndexer.GetByKey(string(replicaSet.UID))
+	_, exists, err := p.rsIndexer.GetByKey(string(replicaSet1.UID))
 	if err != nil {
 		t.Fatalf("unexpected error while getting replicaset: %v", err)
 	}
@@ -224,25 +247,23 @@ func TestControlledPodsIndexer_PodsControlledBy_ReplicasetDeleted(t *testing.T) 
 		t.Errorf("expected replicaSet to exists in store at this point, but exists=%v", exists)
 	}
 
-	want := []*corev1.Pod{replicaSetPod}
+	want := []*corev1.Pod{replicaSetPod1}
 	got, err := p.PodsControlledBy(deployment)
 	if err != nil {
 		t.Errorf("PodsIndexer.PodsControlledBy() error = %v, wantErr %v", err, nil)
 		return
 	}
 
-	if !equality.Semantic.DeepEqual(got, want) {
-		t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, want)
-	}
+	assert.ElementsMatch(t, got, want)
 
-	if err := fakeClient.CoreV1().Pods(ns1).Delete(ctx, replicaSetPod.Name, metav1.DeleteOptions{}); err != nil {
+	if err := fakeClient.CoreV1().Pods(ns1).Delete(ctx, replicaSetPod1.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("unexpected error during pod deletion: %v", err)
 	}
 
 	// Sleeping in order for the pod informer to catch up with the changes.
 	time.Sleep(1 * time.Second)
 
-	_, exists, err = p.rsIndexer.GetByKey(string(replicaSet.UID))
+	_, exists, err = p.rsIndexer.GetByKey(string(replicaSet1.UID))
 	if err != nil {
 		t.Fatalf("unexpected error while getting replicaset: %v", err)
 	}
@@ -256,7 +277,7 @@ func TestControlledPodsIndexer_PodsControlledBy_PodUpdate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	fakeClient := fake.NewSimpleClientset(deployment, replicaSet, replicaSetPod)
+	fakeClient := fake.NewSimpleClientset(deployment, replicaSet1, replicaSetPod1)
 	p, err := newMockedControlledPodsIndexer(ctx, t, fakeClient)
 	if err != nil {
 		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
@@ -265,14 +286,14 @@ func TestControlledPodsIndexer_PodsControlledBy_PodUpdate(t *testing.T) {
 	if err := fakeClient.AppsV1().Deployments(ns1).Delete(ctx, deployment.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("unexpected error during deployment deletion: %v", err)
 	}
-	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet.Name, metav1.DeleteOptions{}); err != nil {
+	if err := fakeClient.AppsV1().ReplicaSets(ns1).Delete(ctx, replicaSet1.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("unexpected error during replicaset deletion: %v", err)
 	}
 
 	// Sleeping in order for the replicaset informer to catch up with the changes.
 	time.Sleep(1 * time.Second)
 
-	changedReplicaSetPod := replicaSetPod.DeepCopy()
+	changedReplicaSetPod := replicaSetPod1.DeepCopy()
 	changedReplicaSetPod.Status.Phase = "Running"
 	if _, err := fakeClient.CoreV1().Pods(ns1).Update(ctx, changedReplicaSetPod, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("unexpected error during pod update: %v", err)
@@ -288,7 +309,5 @@ func TestControlledPodsIndexer_PodsControlledBy_PodUpdate(t *testing.T) {
 		return
 	}
 
-	if !equality.Semantic.DeepEqual(got, want) {
-		t.Errorf("PodsIndexer.PodsControlledBy() = %v, want %v", got, want)
-	}
+	assert.ElementsMatch(t, got, want)
 }

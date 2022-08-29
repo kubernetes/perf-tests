@@ -28,7 +28,7 @@ steps:
       checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
       kind: Deployment
       labelSelector: group = {{$serviceName}}
-      operationTimeout: 20m
+      operationTimeout: 30m
 - name: Creating {{$serviceName}} pods
   phases:
   - namespaceRange:

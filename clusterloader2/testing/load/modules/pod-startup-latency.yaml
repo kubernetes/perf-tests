@@ -66,7 +66,7 @@ steps:
         min: 1
         max: {{$namespaces}}
       replicasPerNamespace: 0
-      tuningSet: Uniform5qps
+      tuningSet: default
       objectBundle:
         - basename: latency-deployment
           objectTemplatePath: simple-deployment.yaml

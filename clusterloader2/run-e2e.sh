@@ -29,14 +29,36 @@ export AZUREDISK_CSI_DRIVER_VERSION="v1.15.0"
 export AZUREDISK_CSI_DRIVER_INSTALL_URL="https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/${AZUREDISK_CSI_DRIVER_VERSION}/deploy/install-driver.sh"
 export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 
-# Deploy the GCP PD CSI Driver if required
+# Deploy the GCE PD CSI Driver if required
 if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
-   if [[ -z "${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
-      echo "Env var E2E_GOOGLE_APPLICATION_CREDENTIALS must be set to deploy driver"
-      exit 1
+   if [[ -n "${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
+   else
+      echo "Env var E2E_GOOGLE_APPLICATION_CREDENTIALS is unset."
+      echo "Falling back to using Application Default Credentials for GCE PD CSI driver deployment."
+      if [[ ! -x "$(command -v yq)" ]]; then
+         echo "yq must be installed to set up GCE PD CSI Driver with Application Default Credentials."
+         echo "Please install this tool from https://github.com/mikefarah/yq."
+         exit 1
+      fi
+      # Running yq to patch GCE PD CSI Driver manifests so that it runs using
+      # Application Default Credentials instead of creating service account
+      # keys, hence avoiding security risks. See
+      # https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver/pull/610
+      # for more details.
+      tmpfile="$(mktemp /tmp/gcp-csi-driver-stable.XXXXXX.yaml)"
+      yq eval '
+         with(select(.metadata.name == "csi-gce-pd-controller" and .kind == "Deployment").spec.template.spec;
+            del(.volumes[] | select(.name == "cloud-sa-volume")) |
+            with(.containers[] | select(.name == "gce-pd-driver");
+               del(.env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS")) |
+               del(.volumeMounts[] | select(.name == "cloud-sa-volume"))
+            )
+         )' "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml > "${tmpfile}"
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${tmpfile}"
+      rm "${tmpfile}"
    fi
-   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
-   kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
    kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
 
    # make sure there's a default storage class

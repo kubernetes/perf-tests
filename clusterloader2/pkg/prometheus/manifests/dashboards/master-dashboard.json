@@ -5442,6 +5442,204 @@
                             "show": true
                         }
                     ]
+                },
+                {
+                    "aliasColors": {},
+                    "bars": false,
+                    "datasource": "$source",
+                    "description": null,
+                    "editable": true,
+                    "error": false,
+                    "fill": 1,
+                    "grid": {
+                        "threshold1": null,
+                        "threshold1Color": "rgba(216, 200, 27, 0.27)",
+                        "threshold2": null,
+                        "threshold2Color": "rgba(234, 112, 112, 0.22)"
+                    },
+                    "id": 54,
+                    "isNew": true,
+                    "legend": {
+                        "alignAsTable": false,
+                        "avg": false,
+                        "current": false,
+                        "hideEmpty": false,
+                        "hideZero": false,
+                        "max": false,
+                        "min": false,
+                        "rightSide": false,
+                        "show": true,
+                        "sideWidth": null,
+                        "sort": null,
+                        "sortDesc": false,
+                        "total": false,
+                        "values": false
+                    },
+                    "lines": true,
+                    "linewidth": 2,
+                    "links": [],
+                    "minSpan": null,
+                    "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
+                    "percentage": false,
+                    "pointradius": 5,
+                    "points": false,
+                    "renderer": "flot",
+                    "repeat": null,
+                    "seriesOverrides": [],
+                    "span": 12,
+                    "stack": false,
+                    "steppedLine": false,
+                    "targets": [
+                        {
+                            "datasource": "$source",
+                            "expr": "sum(rate(rest_client_requests_total{endpoint=\"apiserver\", code!=\"200\", host!=\"[::1]:443\"}[1m])) by (code, instance, method)",
+                            "format": "time_series",
+                            "instant": false,
+                            "interval": "5s",
+                            "intervalFactor": 1,
+                            "legendFormat": "{{instance}}: {{code}} {{method}}",
+                            "metric": "",
+                            "refId": "",
+                            "step": 10,
+                            "target": ""
+                        }
+                    ],
+                    "timeFrom": null,
+                    "timeShift": null,
+                    "title": "Failed external requests",
+                    "tooltip": {
+                        "msResolution": true,
+                        "shared": true,
+                        "sort": 2,
+                        "value_type": "cumulative"
+                    },
+                    "transparent": false,
+                    "type": "graph",
+                    "xaxis": {
+                        "show": true
+                    },
+                    "yaxes": [
+                        {
+                            "decimals": null,
+                            "format": "short",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        },
+                        {
+                            "decimals": null,
+                            "format": "short",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        }
+                    ]
+                },
+                {
+                    "aliasColors": {},
+                    "bars": false,
+                    "datasource": "$source",
+                    "description": null,
+                    "editable": true,
+                    "error": false,
+                    "fill": 1,
+                    "grid": {
+                        "threshold1": null,
+                        "threshold1Color": "rgba(216, 200, 27, 0.27)",
+                        "threshold2": null,
+                        "threshold2Color": "rgba(234, 112, 112, 0.22)"
+                    },
+                    "id": 55,
+                    "isNew": true,
+                    "legend": {
+                        "alignAsTable": false,
+                        "avg": false,
+                        "current": false,
+                        "hideEmpty": false,
+                        "hideZero": false,
+                        "max": false,
+                        "min": false,
+                        "rightSide": false,
+                        "show": true,
+                        "sideWidth": null,
+                        "sort": null,
+                        "sortDesc": false,
+                        "total": false,
+                        "values": false
+                    },
+                    "lines": true,
+                    "linewidth": 2,
+                    "links": [],
+                    "minSpan": null,
+                    "nullPointMode": null,
+                    "options": {
+                        "dataLinks": []
+                    },
+                    "percentage": false,
+                    "pointradius": 5,
+                    "points": false,
+                    "renderer": "flot",
+                    "repeat": null,
+                    "seriesOverrides": [],
+                    "span": 12,
+                    "stack": false,
+                    "steppedLine": false,
+                    "targets": [
+                        {
+                            "datasource": "$source",
+                            "expr": "histogram_quantile(0.99, sum(rate(rest_client_request_duration_seconds_bucket{endpoint=\"apiserver\", host!=\"[::1]:443\"}[1m])) by (verb, host, instance, le))",
+                            "format": "time_series",
+                            "instant": false,
+                            "interval": "5s",
+                            "intervalFactor": 1,
+                            "legendFormat": "{{instance}}: {{verb}} {{host}}",
+                            "metric": "",
+                            "refId": "",
+                            "step": 10,
+                            "target": ""
+                        }
+                    ],
+                    "timeFrom": null,
+                    "timeShift": null,
+                    "title": "Extrernal requests latency (99th percentile)",
+                    "tooltip": {
+                        "msResolution": true,
+                        "shared": true,
+                        "sort": 2,
+                        "value_type": "cumulative"
+                    },
+                    "transparent": false,
+                    "type": "graph",
+                    "xaxis": {
+                        "show": true
+                    },
+                    "yaxes": [
+                        {
+                            "decimals": null,
+                            "format": "s",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        },
+                        {
+                            "decimals": null,
+                            "format": "short",
+                            "label": null,
+                            "logBase": 1,
+                            "max": null,
+                            "min": 0,
+                            "show": true
+                        }
+                    ]
                 }
             ],
             "repeat": null,
@@ -5467,7 +5665,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 54,
+                    "id": 56,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5576,7 +5774,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 55,
+                    "id": 57,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5675,7 +5873,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 56,
+                    "id": 58,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5774,7 +5972,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 57,
+                    "id": 59,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5873,7 +6071,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 58,
+                    "id": 60,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -5972,7 +6170,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 59,
+                    "id": 61,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6084,7 +6282,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 60,
+                    "id": 62,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6196,7 +6394,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 61,
+                    "id": 63,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6308,7 +6506,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 62,
+                    "id": 64,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6420,7 +6618,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 63,
+                    "id": 65,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6532,7 +6730,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 64,
+                    "id": 66,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -6644,7 +6842,7 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
-                    "id": 65,
+                    "id": 67,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,

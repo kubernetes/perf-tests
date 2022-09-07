@@ -440,6 +440,17 @@ sum(
         legend="{{filter}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
+    d.simple_graph(
+        "Failed external requests",
+        'sum(rate(rest_client_requests_total{endpoint="apiserver", code!="200", host!="[::1]:443"}[1m])) by (code, instance, method)',
+        legend="{{instance}}: {{code}} {{method}}",
+    ),
+    d.simple_graph(
+        "Extrernal requests latency (99th percentile)",
+        'histogram_quantile(0.99, sum(rate(rest_client_request_duration_seconds_bucket{endpoint="apiserver", host!="[::1]:443"}[1m])) by (verb, host, instance, le))',
+        legend="{{instance}}: {{verb}} {{host}}",
+        yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
+    )
 ]
 
 CONTROLLER_MANAGER_PANELS = [

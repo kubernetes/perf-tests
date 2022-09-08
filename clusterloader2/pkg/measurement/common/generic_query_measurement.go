@@ -19,6 +19,7 @@ package common
 import (
 	goerrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/prometheus/common/model"
@@ -182,7 +183,8 @@ func (g *genericQueryGatherer) String() string {
 
 func (g *genericQueryGatherer) query(q GenericQuery, executor QueryExecutor, startTime, endTime time.Time) ([]*model.Sample, error) {
 	duration := endTime.Sub(startTime)
-	boundedQuery := fmt.Sprintf(q.Query, measurementutil.ToPrometheusTime(duration))
+	// Replace all provided duration placeholders (%v) with the test duration.
+	boundedQuery := strings.ReplaceAll(q.Query, "%v", measurementutil.ToPrometheusTime(duration))
 	klog.V(2).Infof("bounded query: %s, duration: %v", boundedQuery, duration)
 	return executor.Query(boundedQuery, endTime)
 }

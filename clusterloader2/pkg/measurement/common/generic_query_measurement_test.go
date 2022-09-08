@@ -66,18 +66,24 @@ func TestGather(t *testing.T) {
 						"name":  "no-threshold",
 						"query": "no-threshold-query[%v]",
 					},
+					{
+						"name":  "multiple-duration-placeholders",
+						"query": "placeholder-a[%v] + placeholder-b[%v]",
+					},
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"below-threshold-query[1m]": {{Value: model.SampleValue(7)}},
-				"no-threshold-query[1m]":    {{Value: model.SampleValue(120)}},
+				"below-threshold-query[1m]":             {{Value: model.SampleValue(7)}},
+				"no-threshold-query[1m]":                {{Value: model.SampleValue(120)}},
+				"placeholder-a[1m] + placeholder-b[1m]": {{Value: model.SampleValue(5)}},
 			},
 			wantDataItems: []measurementutil.DataItem{
 				{
 					Unit: "ms",
 					Data: map[string]float64{
-						"below-threshold": 7.0,
-						"no-threshold":    120.0,
+						"below-threshold":                7.0,
+						"no-threshold":                   120.0,
+						"multiple-duration-placeholders": 5.0,
 					},
 				},
 			},

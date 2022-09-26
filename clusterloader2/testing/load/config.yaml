@@ -70,6 +70,7 @@
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
+{{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "3600s"}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
@@ -216,6 +217,7 @@ steps:
   - Identifier: ExecCommand
     Method: Exec
     Params:
+      timeout: {{$EXEC_TIMEOUT}}
       command:
       {{range $EXEC_COMMAND}}
       - {{.}}

@@ -1,0 +1,40 @@
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+{{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
+# Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
+{{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
+# DNS test threshold parameters.
+{{$DNS_ERROR_PERC_THRESHOLD := DefaultParam .CL2_DNS_ERROR_PERC_THRESHOLD 0.1}}
+{{$DNS_LOOKUP_LATENCY_50_THRESHOLD := DefaultParam .CL2_DNS_LOOKUP_LATENCY_50_THRESHOLD 0.02}}
+{{$DNS_LOOKUP_LATENCY_99_THRESHOLD := DefaultParam .CL2_DNS_LOOKUP_LATENCY_99_THRESHOLD 0.1}}
+
+{{if and $ENABLE_DNSTESTS $USE_ADVANCED_DNSTEST}}
+steps:
+- name: "{{$action}}ing measurements"
+  measurements:
+  - Identifier: DNSPerformanceMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: DNS Performance
+      metricVersion: v1
+      unit: s
+      enableViolations: true
+      queries:
+      - name: DNS Lookup Count
+        query: sum(increase(dns_lookups_total[%v]))
+      - name: DNS Timeout Count
+        query: sum(increase(dns_timeouts_total[%v]))
+      - name: DNS Error Count
+        query: sum(increase(dns_errors_total[%v]))
+      - name: DNS Error Percentage
+        query: sum(increase(dns_errors_total[%v])) / sum(increase(dns_lookups_total[%v])) * 100
+        threshold: {{$DNS_ERROR_PERC_THRESHOLD}}
+      - name: DNS Lookup Latency - Perc50
+        query: histogram_quantile(0.5, sum(rate(dns_lookup_latency_bucket[%v])) by (le))
+        threshold: {{$DNS_LOOKUP_LATENCY_50_THRESHOLD}}
+      - name: DNS Lookup Latency - Perc99
+        query: histogram_quantile(0.99, sum(rate(dns_lookup_latency_bucket[%v])) by (le))
+        threshold: {{$DNS_LOOKUP_LATENCY_99_THRESHOLD}}
+{{end}}

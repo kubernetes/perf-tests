@@ -19,7 +19,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -433,11 +432,6 @@ func (w *waitForControlledPodsRunningMeasurement) checkScaledown(oldObj, newObj 
 
 func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, newObj runtime.Object) error {
 	isObjDeleted := newObj == nil
-	isScalingDown, err := w.checkScaledown(oldObj, newObj)
-	if err != nil {
-		return fmt.Errorf("checkScaledown error: %v", err)
-	}
-
 	handledObj := newObj
 	if isObjDeleted {
 		handledObj = oldObj
@@ -446,21 +440,7 @@ func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, new
 	if err != nil {
 		return fmt.Errorf("meta key creation error: %v", err)
 	}
-
-	operationTimeout := w.operationTimeout
-	// exactOperationTimeout controls whether we should skip multiplying by two operationTimeout on scale down/deletion.
-	// Defaults to false for backward compatibility.
-	// TODO(mborsz): Change default to true and remove.
-	_, exactOperationTimeout := os.LookupEnv("CL2_WAIT_FOR_CONTROLLED_PODS_USE_EXACT_OPERATION_TIMEOUT")
-	if !exactOperationTimeout && (isObjDeleted || isScalingDown) {
-		// In case of deleting pods, twice as much time is required.
-		// The pod deletion throughput equals half of the pod creation throughput.
-		// NOTE: Starting from k8s 1.23 it's not true anymore, at least not in all cases.
-		// TODO(mborsz): Can we remove this?
-		operationTimeout *= 2
-	}
-
-	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted, operationTimeout)
+	checker, err := w.waitForRuntimeObject(handledObj, isObjDeleted, w.operationTimeout)
 	if err != nil {
 		return fmt.Errorf("waiting for %v error: %v", key, err)
 	}

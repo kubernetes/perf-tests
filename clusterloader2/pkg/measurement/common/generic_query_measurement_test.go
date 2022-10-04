@@ -89,6 +89,36 @@ func TestGather(t *testing.T) {
 			},
 		},
 		{
+			desc: "no samples, but samples not required",
+			params: map[string]interface{}{
+				"metricName":    "no-samples",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":  "no-samples",
+						"query": "no-samples-query[%v]",
+					},
+				},
+			},
+		},
+		{
+			desc: "no samples, but samples required",
+			params: map[string]interface{}{
+				"metricName":    "no-samples",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":           "no-samples",
+						"query":          "no-samples-query[%v]",
+						"requireSamples": true,
+					},
+				},
+			},
+			wantErr: "no samples",
+		},
+		{
 			desc: "too many samples",
 			params: map[string]interface{}{
 				"metricName":    "many-samples",

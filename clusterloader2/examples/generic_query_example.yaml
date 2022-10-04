@@ -4,6 +4,7 @@
 #       metricName will be logged in place of "GenericPrometheusQuery"
 #       query must be parametrized by duration and return exactly 1 sample
 #       threshold is optional
+#       requireSamples is optional and causes the test to fail if no samples are found
 
 {{$duration := "60s"}}
 {{$namespaces := 1}}
@@ -30,6 +31,7 @@ steps:
         - name: Perc50
           query: histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
           threshold: 5
+          requireSamples: true
         - name: non-existent
           query: histogram_quantile(0.5, sum(rate(fake_apiserver_request_duration_seconds_bucket[%v])) by (le))
           threshold: 42

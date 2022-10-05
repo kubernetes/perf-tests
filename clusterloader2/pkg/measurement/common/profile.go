@@ -112,7 +112,7 @@ func (p *profileMeasurement) start(config *measurement.Config, SSHToMasterSuppor
 	// So for now we make the profiling frequency proportional to the cluster size.
 	// We may want to revisit ot adjust it in the future.
 	numNodes := config.ClusterFramework.GetClusterConfig().Nodes
-	profileFrequency := 5 * time.Minute
+	profileFrequency := time.Duration(5+numNodes/250) * time.Minute
 	go func() {
 		defer p.wg.Done()
 		for {

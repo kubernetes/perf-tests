@@ -80,9 +80,10 @@ func (p *StartParams) Validate() error {
 }
 
 type GenericQuery struct {
-	Name      string
-	Query     string
-	Threshold *float64
+	Name           string
+	Query          string
+	Threshold      *float64
+	RequireSamples bool
 }
 
 func (q *GenericQuery) Validate() error {
@@ -141,6 +142,9 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 		}
 
 		if len(samples) == 0 {
+			if q.RequireSamples {
+				errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("query returned no samples for %v", g.MetricName)))
+			}
 			klog.Warningf("query returned no samples for %v: %v", g.MetricName, q.Name)
 			continue
 		}

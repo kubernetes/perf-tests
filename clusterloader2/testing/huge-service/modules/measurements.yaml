@@ -68,3 +68,7 @@ steps:
       defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
       customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
 {{end}}
+- module:
+    path: ../load/modules/dns-performance-metrics.yaml
+    params:
+      action: {{$action}}

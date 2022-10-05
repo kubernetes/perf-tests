@@ -52,6 +52,10 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+
+- module:
+    path: ../load/modules/dns-k8s-hostnames.yaml
+
 - name: Updating {{$serviceName}} pods
   phases:
   - namespaceRange:

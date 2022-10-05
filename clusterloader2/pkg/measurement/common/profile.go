@@ -108,11 +108,7 @@ func (p *profileMeasurement) start(config *measurement.Config, SSHToMasterSuppor
 	p.stopCh = make(chan struct{})
 	p.wg.Add(1)
 
-	// Currently length of the test is proportional to the cluster size.
-	// So for now we make the profiling frequency proportional to the cluster size.
-	// We may want to revisit ot adjust it in the future.
-	numNodes := config.ClusterFramework.GetClusterConfig().Nodes
-	profileFrequency := time.Duration(5+numNodes/250) * time.Minute
+	profileFrequency := 5 * time.Minute
 	go func() {
 		defer p.wg.Done()
 		for {

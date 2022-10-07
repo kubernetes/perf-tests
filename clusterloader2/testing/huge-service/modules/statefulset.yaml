@@ -1,0 +1,47 @@
+# Valid actions: "create", "delete"
+{{$action := .action}}
+
+{{$replicasPerNamespace := .replicasPerNamespace}}
+{{$endpoints := DefaultParam .endpoints 100}}
+{{$serviceName := .serviceName}}
+
+steps:
+- name: {{$action}} {{$serviceName}}
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: {{$serviceName}}
+      objectTemplatePath: statefulset_service.yaml
+- name: Creating {{$serviceName}} measurements
+  measurements:
+  - Identifier: WaitForHugeServiceStatefulSet
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: StatefulSet
+      labelSelector: group = load
+      operationTimeout: 30m
+- name: {{$action}} {{$serviceName}} pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: Sequence
+    objectBundle:
+    - basename: {{$serviceName}}
+      objectTemplatePath: statefulset.yaml
+      templateFillMap:
+        ReplicasMin: {{$endpoints}}
+        ReplicasMax: {{$endpoints}}
+- name: Waiting for {{$serviceName}} pods to be {{$action}}d
+  measurements:
+  - Identifier: WaitForHugeServiceStatefulSet
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather

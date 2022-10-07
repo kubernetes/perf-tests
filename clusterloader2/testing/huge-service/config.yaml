@@ -1,6 +1,7 @@
 # Huge service test config
 {{$HUGE_SERVICE_HEADLESS := DefaultParam .CL2_HUGE_SERVICE_HEADLESS false}}
 {{$HUGE_SERVICE_ENDPOINTS := DefaultParam .CL2_HUGE_SERVICE_ENDPOINTS 1000}}
+{{$STATEFULSET_ENDPOINTS := DefaultParam .CL2_STATEFULSET_ENDPOINTS 100}}
 
 name: huge-service
 namespace:
@@ -18,6 +19,7 @@ steps:
     path: modules/service.yaml
     params:
       endpoints: {{$HUGE_SERVICE_ENDPOINTS}}
+      statefulsetEndpoints: {{$STATEFULSET_ENDPOINTS}}
       isHeadless: {{$HUGE_SERVICE_HEADLESS}}
       serviceName: huge-service
 - module:

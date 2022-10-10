@@ -46,6 +46,9 @@ func (mpc *gcpManagedPrometheusClient) Query(query string, queryTime time.Time) 
 	}
 	defer res.Body.Close()
 	resBody, err := ioutil.ReadAll(res.Body)
+	if statusCode := res.StatusCode; statusCode > 299 {
+		return resBody, fmt.Errorf("response failed with status code %d", statusCode)
+	}
 	if err != nil {
 		return nil, err
 	}

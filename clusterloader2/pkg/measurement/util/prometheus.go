@@ -74,9 +74,15 @@ func ExtractMetricSamples2(response []byte) ([]*model.Sample, error) {
 	return []*model.Sample(vector), nil
 }
 
+// promQueryResponse stores the response from the Prometheus server.
+// This struct follows the format described in the Prometheus documentation:
+// https://prometheus.io/docs/prometheus/latest/querying/api/#format-overview.
 type promQueryResponse struct {
-	Status string           `json:"status"`
-	Data   promResponseData `json:"data"`
+	Status    string           `json:"status"`
+	Data      promResponseData `json:"data"`
+	ErrorType string           `json:"errorType"`
+	Error     string           `json:"error"`
+	Warnings  []string         `json:"warnings"`
 }
 
 type promResponseData struct {

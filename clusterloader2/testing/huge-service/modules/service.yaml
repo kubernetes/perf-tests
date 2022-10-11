@@ -1,11 +1,23 @@
 {{$endpoints := .endpoints}}
+{{$statefulsetEndpoints := .statefulsetEndpoints}}
 {{$isHeadless := .isHeadless}}
 {{$serviceName := .serviceName}}
 
 ## CL2 params
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
+{{$ENABLE_LARGE_STATEFULSET := DefaultParam .CL2_ENABLE_LARGE_STATEFULSET false}}
 
 steps:
+{{if $ENABLE_LARGE_STATEFULSET}}
+- module:
+    path: modules/statefulset.yaml
+    params:
+      action: "create"
+      replicasPerNamespace: 1
+      endpoints: {{$statefulsetEndpoints}}
+      serviceName: {{$serviceName}}-statefulset
+{{end}}
+
 - name: Create {{$serviceName}}
   phases:
   - namespaceRange:
@@ -79,6 +91,16 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+
+{{if $ENABLE_LARGE_STATEFULSET}}
+- module:
+    path: modules/statefulset.yaml
+    params:
+      action: "delete"
+      replicasPerNamespace: 0
+      serviceName: {{$serviceName}}-statefulset
+{{end}}      
+
 - name: Deleting {{$serviceName}} pods
   phases:
   - namespaceRange:

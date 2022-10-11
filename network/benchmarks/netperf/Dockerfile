@@ -37,9 +37,16 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 MAINTAINER Girish Kalele <gkalele@google.com>
 # install binary and remove cache
 RUN apt-get update \
-    && apt-get install -y  curl wget net-tools gcc make libsctp-dev \
+    && apt-get install -y  curl wget net-tools gcc make libsctp-dev git autotools-dev automake \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /tmp
+
+RUN git clone https://github.com/linux-rdma/qperf.git \
+    && cd qperf \
+    && ./cleanup \
+    && ./autogen.sh \
+    && ./configure --prefix=/usr/local --bindir /usr/local/bin \
+    && make && make install
 
 # Download and build iperf3 from sources
 RUN curl -LO https://downloads.es.net/pub/iperf/iperf-3.1.tar.gz && tar zxf iperf-3.1.tar.gz

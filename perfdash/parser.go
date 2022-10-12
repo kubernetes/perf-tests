@@ -375,26 +375,25 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 		default:
 			klog.Errorf("unknown metric name: %s", metricName)
 		}
-		if histogramVecMetric != nil {
-			for i := range histogramVecMetric {
-				perfData := perftype.DataItem{Unit: "%", Labels: histogramVecMetric[i].Labels, Data: make(map[string]float64)}
-				delete(perfData.Labels, "__name__")
-				count, exists := histogramVecMetric[i].Buckets["+Inf"]
-				if !exists {
-					klog.Errorf("err in build %d: no +Inf bucket: %s", buildNumber, string(data))
-					continue
-				}
-				for kBucket, vBucket := range histogramVecMetric[i].Buckets {
-					if kBucket != "+Inf" {
-						if count == 0 {
-							perfData.Data["<= "+kBucket+"s"] = 0
-							continue
-						}
-						perfData.Data["<= "+kBucket+"s"] = float64(vBucket) / float64(count) * 100
-					}
-				}
-				testResult.Builds[build] = append(testResult.Builds[build], perfData)
+
+		for i := range histogramVecMetric {
+			perfData := perftype.DataItem{Unit: "%", Labels: histogramVecMetric[i].Labels, Data: make(map[string]float64)}
+			delete(perfData.Labels, "__name__")
+			count, exists := histogramVecMetric[i].Buckets["+Inf"]
+			if !exists {
+				klog.Errorf("err in build %d: no +Inf bucket: %s", buildNumber, string(data))
+				continue
 			}
+			for bucket, buckerVal := range histogramVecMetric[i].Buckets {
+				if bucket != "+Inf" {
+					if count == 0 {
+						perfData.Data["<= "+bucket+"s"] = 0
+						continue
+					}
+					perfData.Data["<= "+bucket+"s"] = float64(buckerVal) / float64(count) * 100
+				}
+			}
+			testResult.Builds[build] = append(testResult.Builds[build], perfData)
 		}
 	}
 }

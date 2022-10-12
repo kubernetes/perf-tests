@@ -19,13 +19,14 @@ set -euxo pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "$KUBE_ROOT"
 
-source "verify/lib/gopkg.sh"
+# Find all directories with go.mod file,
+# exluding go.mod from vendor/ and _logviewer
+MODULE_BASED=$(find . -type d -name vendor -prune \
+  -o -type f -name go.mod -printf "%h\n" \
+  | sort -u)
 
 set +e
 status=0
-targets=$(echo $VENDOR_ONLY | tr " " "\n" \
-  | sed -e "s/$/.../")
-GO111MODULE=off golangci-lint run $targets || status=1
 
 for mod in $MODULE_BASED; do
   (

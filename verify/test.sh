@@ -21,19 +21,16 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "$KUBE_ROOT"
 
-source "verify/lib/gopkg.sh"
+# Find all directories with go.mod file,
+# exluding go.mod from vendor/ and _logviewer
+MODULE_BASED=$(find . -type d -name vendor -prune \
+  -o -type f -name go.mod -printf "%h\n" \
+  | sort -u)
 
-KUBE_GO_PACKAGE="k8s.io/perf-tests"
-
-echo "Running tests with GO111MODULE=off..."
-targets=$(echo $VENDOR_ONLY | tr " " "\n" \
-  | sed -e "s|^\.|${KUBE_GO_PACKAGE}|" \
-  | sed -e "s/$/.../")
 set +x
 status=0
-GO111MODULE=off go test $targets || status=1
 
-echo "Running tests with GO111MODULE=on..."
+echo "Running tests..."
 for mod in $MODULE_BASED; do
   (
     cd "${KUBE_ROOT}/${mod}"

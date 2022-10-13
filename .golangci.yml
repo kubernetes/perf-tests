@@ -24,7 +24,7 @@ linters:
   disable-all: true
   enable:
     - gofmt
-    - golint
+    - revive
     - govet
     - errcheck
     - deadcode

@@ -1,0 +1,11 @@
+{{$bytes := DefaultParam .bytes 0}}
+{{$group := DefaultParam .group .Name}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{$group}}
+data:
+  key: "{{range $i := Loop $bytes}}{{RandIntRange 0 9}}{{end}}"

@@ -1,0 +1,36 @@
+{{$replicas := DefaultParam .replicas 0}}
+{{$inflight := DefaultParam .inflight 0}}
+{{$uri := DefaultParam .uri "/"}}
+
+steps:
+- name: Creating WaitForControlledPodsRunning measurement
+  measurements:
+  - Identifier: WaitForBenchmarkDeployment
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      checkIfPodsAreUpdated: true
+      kind: Deployment
+      labelSelector: group = benchmark
+      operationTimeout: 5m
+- name: Deploying benchmark
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: benchmark-deployment
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+        Inflight: {{$inflight}}
+        Uri: {{$uri}}
+- name: Waiting for WaitForControlledPodsRunning gather
+  measurements:
+  - Identifier: WaitForBenchmarkDeployment
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather

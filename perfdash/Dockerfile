@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG GOLANG_VERSION=1.18
-FROM golang:${GOLANG_VERSION} as builder
+FROM --platform=$BUILDPLATFORM golang:${GOLANG_VERSION} as builder
 
 WORKDIR /workspace
 
@@ -23,7 +23,8 @@ COPY go.mod go.mod
 RUN go mod download
 
 COPY *.go /workspace/
-RUN GO111MODULE=on go build -a -installsuffix cgo -ldflags '-w' -o $PWD/perfdash
+ARG TARGETOS TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -a -installsuffix cgo -ldflags '-w' -o $PWD/perfdash
 
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/base:nonroot

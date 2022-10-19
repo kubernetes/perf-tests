@@ -19,12 +19,14 @@ run: perfdash
 		--force-builds \
 		--githubConfigDir=https://api.github.com/repos/kubernetes/perf-tests/contents/perfdash/test
 
-# Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
 container:
-	DOCKER_BUILDKIT=1 docker build --pull -t $(REPO)/perfdash:$(TAG) .
+	docker buildx create --use
+	docker buildx build --load -t $(REPO)/perfdash:$(TAG) .
 
 push: container
-	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
+	gcloud auth configure-docker
+	docker buildx create --use
+	docker buildx build --push -t $(REPO)/perfdash:$(TAG) --platform "linux/amd64,linux/arm64" .
 
 clean:
 	rm -f perfdash

@@ -19,14 +19,17 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 )
 
-const NamespaceTmpl = "%namespace%"
+const (
+	HealthCheckRequests = 10
+	NamespaceTmpl       = "%namespace%"
+)
 
 var (
-	debug     = flag.Bool("debug", false, "Run in debug mode (more logging)")
 	inflight  = flag.Int("inflight", 0, "Benchmark inflight (number of parallel requests being made to the apiserver")
 	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
 	URI       = flag.String("uri", "", "Request URI")
@@ -45,26 +48,40 @@ func main() {
 	newURI := strings.ReplaceAll(*URI, NamespaceTmpl, *namespace)
 	URI = &newURI
 
+	if err := healthCheck(client); err != nil {
+		panic(err)
+	}
+
 	log.Printf("Sending requests to '%s' with inflight %d. Press Ctrl+C to stop...", *URI, *inflight)
 	for i := 0; i < *inflight; i++ {
-		go generateInflight1(client)
+		go func() {
+			for {
+				sendRequest(client)
+			}
+		}()
 	}
 
 	select {} // block main thread from ending
 }
 
-func generateInflight1(client *Client) {
-	for {
-		request := client.RESTClient().Get().RequestURI(*URI)
-		response := client.TimedRequest(context.Background(), request)
-
-		if err := response.Error; err != nil {
-			log.Printf("Got error after sending a request: %v", err)
-			if *debug {
-				log.Printf("Failed request's response:\n%s", string(response.Raw))
-			}
-			continue
+func healthCheck(client *Client) error {
+	for i := 0; i < HealthCheckRequests; i++ {
+		if sendRequest(client) {
+			return nil
 		}
-		log.Printf("Got response of %d bytes in %v", len(response.Raw), response.Duration)
 	}
+	return fmt.Errorf("could not successfully send a request to %s", *URI)
+}
+
+func sendRequest(client *Client) bool {
+	request := client.RESTClient().Get().RequestURI(*URI)
+	response := client.TimedRequest(context.Background(), request)
+
+	if err := response.Error; err != nil {
+		log.Printf("Got error after sending a request: %v\n%s", err, string(response.Raw))
+		return false
+	}
+
+	log.Printf("Got response of %d bytes in %v", len(response.Raw), response.Duration)
+	return true
 }

@@ -1,16 +1,42 @@
 ## Measurement module defines test scoped measurement.
 
-## Input params
-# Valid actions: "start", "gather"
-{{$action := .action}}
-
 steps:
-- name: "{{$action}}ing measurements"
+- name: Wait 1 minute
   measurements:
-  - Identifier: ContainerCPU
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 1m
+- name: "Starting measurement - {{.name}}"
+  measurements:
+  - Identifier: ContainerCPU-{{.name}}
     Method: GenericPrometheusQuery
     Params:
-      action: {{$action}}
+      action: start
+      metricName: Container CPU
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - container
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+      - name: Perc90
+        query: quantile_over_time(0.90, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+      - name: Perc50
+        query: quantile_over_time(0.50, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+- name: Wait 5 minutes
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- name: "Gathering measurement - {{.name}}"
+  measurements:
+  - Identifier: ContainerCPU-{{.name}}
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
       metricName: Container CPU
       metricVersion: v1
       unit: cores

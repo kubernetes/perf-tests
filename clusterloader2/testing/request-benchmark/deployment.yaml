@@ -1,5 +1,5 @@
 {{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-testimages/perf-tests-util/request-benchmark:latest"}}
-{{$cpu := DefaultParam .CL2_BENCHMARK_POD_CPU "500m"}}
+{{$cpu := DefaultParam .CL2_BENCHMARK_POD_CPU (MultiplyInt .Inflight 2)}}
 {{$memory := DefaultParam .CL2_BENCHMARK_POD_MEMORY "100Mi"}}
 
 apiVersion: apps/v1
@@ -29,5 +29,8 @@ spec:
         - --uri={{.Uri}}
         resources:
           requests:
+            cpu: {{$cpu}}
+            memory: {{$memory}}
+          limits:
             cpu: {{$cpu}}
             memory: {{$memory}}

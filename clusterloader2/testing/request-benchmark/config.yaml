@@ -47,6 +47,10 @@ steps:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 - module:
+    path: modules/measurements.yaml
+    params:
+      name: baseline
+- module:
     path: modules/benchmark-deployment.yaml
     params:
       replicas: {{$benchmarkReplicas}}
@@ -55,17 +59,7 @@ steps:
 - module:
     path: modules/measurements.yaml
     params:
-      action: start
-- name: Wait 5min
-  measurements:
-    - Identifier: Wait
-      Method: Sleep
-      Params:
-        duration: 5m
-- module:
-    path: modules/measurements.yaml
-    params:
-      action: gather
+      name: benchmark
 - module:
     path: modules/benchmark-deployment.yaml
     params:

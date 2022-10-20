@@ -1,0 +1,72 @@
+# Request benchmark
+{{$configMapBytes := DefaultParam .CL2_BENCHMARK_CONFIG_MAP_BYTES 1000}}
+{{$configMapGroup := DefaultParam .CL2_BENCHMARK_CONFIG_MAP_GROUP "benchmark-config-map"}}
+{{$configMapNumber := DefaultParam .CL2_BENCHMARK_CONFIG_MAP_NUMBER 1}}
+{{$benchmarkReplicas := DefaultParam .CL2_BENCHMARK_PODS 1}}
+
+{{$inflight := DefaultParam .CL2_BENCHMARK_INFLIGHT 10}}
+{{$uri := DefaultParam .CL2_BENCHMARK_URI ""}} # URI example: /api/v1/namespaces/%namespace%/pods
+
+name: Request benchmark
+namespace:
+  number: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+steps:
+- name: Setup permissions
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: benchmark-role
+      objectTemplatePath: cluster-role.yaml
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: benchmark-role-binding
+      objectTemplatePath: cluster-role-binding.yaml
+- name: Create config map(s)
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$configMapNumber}}
+    objectBundle:
+    - basename: {{$configMapGroup}}
+      objectTemplatePath: configmap.yaml
+      params:
+        bytes: {{$configMapBytes}}
+        group: {{$configMapGroup}}
+- module:
+    path: modules/benchmark-deployment.yaml
+    params:
+      replicas: {{$benchmarkReplicas}}
+      inflight: {{$inflight}}
+      uri: {{$uri}}
+- module:
+    path: modules/measurements.yaml
+    params:
+      action: start
+- name: Wait 5min
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: modules/measurements.yaml
+    params:
+      action: gather
+- module:
+    path: modules/benchmark-deployment.yaml
+    params:
+      replicas: 0

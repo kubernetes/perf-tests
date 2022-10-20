@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: benchmark-role
+  namespace: {{$.Namespace}}
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]

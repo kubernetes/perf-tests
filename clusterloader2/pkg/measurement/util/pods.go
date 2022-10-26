@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+//go:generate stringer -type=status
+
 const (
 	nonExist = "NonExist"
 )

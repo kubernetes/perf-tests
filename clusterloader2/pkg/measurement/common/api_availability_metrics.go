@@ -41,6 +41,7 @@ type apiAvailabilityOutput struct {
 func (a *apiAvailabilityMetrics) update(availability bool) {
 	if availability {
 		a.numSuccesses++
+		a.consecutiveFailedProbes = 0
 		return
 	}
 	a.numFailures++

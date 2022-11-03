@@ -18,7 +18,7 @@ package provider
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )

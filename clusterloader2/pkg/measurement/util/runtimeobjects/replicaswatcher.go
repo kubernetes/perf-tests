@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 )
 
@@ -40,9 +40,11 @@ const (
 // ReplicasWatcher is a struct that allows to check a number of replicas at a given time.
 // Usage:
 // var rw ReplicasWatcher = (...)
-// if err := rw.Start(stopCh); err != nil {
-//   panic(err);
-// }
+//
+//	if err := rw.Start(stopCh); err != nil {
+//	  panic(err);
+//	}
+//
 // // Get number of replicas as needed.
 // val = rw.Replicas()
 // ...

@@ -22,7 +22,7 @@ import (
 	"os/exec"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // SSHExecutor interface can run commands in cluster nodes via SSH

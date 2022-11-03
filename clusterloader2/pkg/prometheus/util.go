@@ -31,7 +31,7 @@ import (
 	"regexp"
 
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 const allTargets = -1

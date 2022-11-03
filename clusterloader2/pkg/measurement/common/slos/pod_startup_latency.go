@@ -29,7 +29,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -271,10 +271,11 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 }
 
 // TODO(#2006): gatherScheduleTimes is currently listing events at the end of the test.
-//  Given that events by default have 1h TTL, for measurements across longer periods
-//  it just returns incomplete results.
-//  Given that we don't 100% accuracy, we should switch to a mechanism that is similar
-//  to the one that slo-monitor is using (added in #1477).
+//
+//	Given that events by default have 1h TTL, for measurements across longer periods
+//	it just returns incomplete results.
+//	Given that we don't 100% accuracy, we should switch to a mechanism that is similar
+//	to the one that slo-monitor is using (added in #1477).
 func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface, schedulerName string) error {
 	selector := fields.Set{
 		"involvedObject.kind": "Pod",

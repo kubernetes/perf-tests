@@ -23,7 +23,7 @@ import (
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -52,10 +52,10 @@ type schedulingThroughputMeasurement struct {
 }
 
 // Execute supports two actions:
-// - start - starts the pods scheduling observation.
-//   Pods can be specified by field and/or label selectors.
-//   If namespace is not passed by parameter, all-namespace scope is assumed.
-// - gather - creates summary for observed values.
+//   - start - starts the pods scheduling observation.
+//     Pods can be specified by field and/or label selectors.
+//     If namespace is not passed by parameter, all-namespace scope is assumed.
+//   - gather - creates summary for observed values.
 func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"

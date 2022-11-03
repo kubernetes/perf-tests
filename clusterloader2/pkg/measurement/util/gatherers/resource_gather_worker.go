@@ -22,7 +22,7 @@ import (
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubelet"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/kubemark"

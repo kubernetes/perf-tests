@@ -34,6 +34,7 @@ func NewKCPProvider(_ map[string]string) Provider {
 			SupportEnablePrometheusServer:       false,
 			SupportGrabMetricsFromKubelets:      false,
 			SupportAccessAPIServerPprofEndpoint: false,
+			SupportResourceUsageMetering:        true,
 			ShouldScrapeKubeProxy:               false,
 		},
 	}

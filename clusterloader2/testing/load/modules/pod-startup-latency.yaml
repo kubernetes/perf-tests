@@ -14,6 +14,7 @@
 {{$LATENCY_POD_CPU := DefaultParam .CL2_LATENCY_POD_CPU 50}}
 {{$LATENCY_POD_MEMORY := DefaultParam .CL2_LATENCY_POD_MEMORY 200}}
 {{$LATENCY_POD_COUNT := DefaultParam .CL2_LATENCY_POD_COUNT $minPodsInSmallCluster}}
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
 
 ## Variables
 {{$latencyReplicas := Ceil (DivideFloat $LATENCY_POD_COUNT $namespaces)}}
@@ -82,3 +83,4 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+        schedulerName: {{$SCHEDULER_NAME}}

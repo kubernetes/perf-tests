@@ -205,7 +205,7 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
-		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
+		appendResults(&summaries, errList, summary, executeError(t.apiserverMemoryProfile.String(), action, err))
 		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.schedulerCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerGatherConfig)

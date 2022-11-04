@@ -68,7 +68,7 @@ func loadModule(ctx Context, moduleRef *api.ModuleRef) (*api.Module, error) {
 	}
 	var module api.Module
 	if err := ctx.GetTemplateProvider().TemplateInto(moduleRef.Path, mapping, &module); err != nil {
-		return nil, fmt.Errorf("erorr while processing module %#v: %w", module, err)
+		return nil, fmt.Errorf("error while processing module %#v: %w", moduleRef, err)
 	}
 	return &module, nil
 }

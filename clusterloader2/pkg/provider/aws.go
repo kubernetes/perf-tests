@@ -35,6 +35,7 @@ func NewAWSProvider(_ map[string]string) Provider {
 			SupportEnablePrometheusServer:       true,
 			SupportGrabMetricsFromKubelets:      true,
 			SupportAccessAPIServerPprofEndpoint: true,
+			SupportResourceUsageMetering:        true,
 			ShouldScrapeKubeProxy:               true,
 		},
 	}

@@ -41,6 +41,7 @@ func NewKubemarkProvider(config map[string]string) *KubemarkProvider {
 			SupportEnablePrometheusServer:       supportEnablePrometheusServer,
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportSnapshotPrometheusDisk:       true,
+			SupportResourceUsageMetering:        true,
 			ShouldScrapeKubeProxy:               true,
 		},
 		config: config,

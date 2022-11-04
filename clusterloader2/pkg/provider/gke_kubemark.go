@@ -41,6 +41,7 @@ func NewGKEKubemarkProvider(config map[string]string) *GKEKubemarkProvider {
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportSnapshotPrometheusDisk:       true,
 			ShouldScrapeKubeProxy:               false,
+			SupportResourceUsageMetering:        true,
 			ShouldPrometheusScrapeApiserverOnly: true,
 		},
 		config: config,

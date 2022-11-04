@@ -37,6 +37,7 @@ func NewKindProvider(_ map[string]string) Provider {
 			SupportGrabMetricsFromKubelets:      true,
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportMetricsServerMetrics:         true,
+			SupportResourceUsageMetering:        true,
 			ShouldScrapeKubeProxy:               true,
 		},
 	}

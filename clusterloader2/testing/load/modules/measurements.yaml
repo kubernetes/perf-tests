@@ -92,6 +92,18 @@ steps:
     Method: NetworkProgrammingLatency
     Params:
       action: {{$action}}
+  - Identifier: Kube-proxy partial iptables restore failures
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeProxyIptablesRestoreFailures
+      metricVersion: v1alpha1
+      unit: failures
+      queries:
+      - name: Total
+        query: sum(kubeproxy_sync_proxy_rules_iptables_partial_restore_failures_total)
+        requireSamples: false # It is a feature gate and may not be enabled
+        threshold: 0
 {{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_STATE_METRICS}}
   - Identifier: KubeStateMetricsLatency

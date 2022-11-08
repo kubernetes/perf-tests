@@ -70,10 +70,6 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: start
-  - Identifier: TestMetrics
-    Method: TestMetrics
-    Params:
-      action: start
   - Identifier: PodWithVolumesStartupLatency
     Method: PodStartupLatency
     Params:
@@ -204,10 +200,6 @@ steps:
       summaryName: APIResponsivenessPrometheus_simple
   - Identifier: APIResponsivenessPrometheus
     Method: APIResponsivenessPrometheus
-    Params:
-      action: gather
-  - Identifier: TestMetrics
-    Method: TestMetrics
     Params:
       action: gather
   - Identifier: PodWithVolumesStartupLatency

@@ -5,6 +5,7 @@
 {{$PROMETHEUS_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_SCALE_FACTOR $PROMETHEUS_MEMORY_LIMIT_FACTOR}}
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 {{$PROMETHEUS_TOLERATE_MASTER := DefaultParam .CL2_PROMETHEUS_TOLERATE_MASTER false}}
+{{$PROMETHEUS_PVC_STORAGE_CLASS := DefaultParam .PROMETHEUS_PVC_STORAGE_CLASS "ssd"}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -68,7 +69,7 @@ spec:
   storage:
     volumeClaimTemplate:
       spec:
-        storageClassName: ssd
+        storageClassName: {{$PROMETHEUS_PVC_STORAGE_CLASS}}
         resources:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.

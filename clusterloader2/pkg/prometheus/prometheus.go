@@ -70,6 +70,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
 	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
 	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
+	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
 	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
 }
 
@@ -187,6 +188,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	mapping["PROMETHEUS_APISERVER_SCRAPE_PORT"] = clusterLoaderConfig.PrometheusConfig.APIServerScrapePort
 	mapping["PROMETHEUS_STORAGE_CLASS_PROVISIONER"] = clusterLoaderConfig.PrometheusConfig.StorageClassProvisioner
 	mapping["PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE"] = clusterLoaderConfig.PrometheusConfig.StorageClassVolumeType
+	mapping["PROMETHEUS_PVC_STORAGE_CLASS"] = clusterLoaderConfig.PrometheusConfig.PVCStorageClass
 	snapshotEnabled, _ := pc.isEnabled()
 	mapping["RetainPD"] = snapshotEnabled
 

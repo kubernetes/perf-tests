@@ -103,6 +103,7 @@ type PrometheusConfig struct {
 	PushgatewayManifests         string
 	StorageClassProvisioner      string
 	StorageClassVolumeType       string
+	PVCStorageClass              string
 	ReadyTimeout                 time.Duration
 }
 

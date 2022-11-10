@@ -1,14 +1,13 @@
 approvers:
 - jkaniuk
-- krzysied
 - marseel
 - mborsz
 - mm4tt
 - wojtek-t
 reviewers:
-- krzysied
 - mborsz
 - mm4tt
 - wojtek-t
 emeritus_approvers:
 - oxddr
+- krzysied

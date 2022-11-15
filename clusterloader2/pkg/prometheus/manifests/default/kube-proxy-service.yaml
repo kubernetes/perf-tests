@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBE_PROXY := DefaultParam .PROMETHEUS_SCRAPE_KUBE_PROXY true}}
+{{$PROMETHEUS_KUBE_PROXY_SELECTOR_KEY := DefaultParam .PROMETHEUS_KUBE_PROXY_SELECTOR_KEY "component"}}
 
 {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
 apiVersion: v1
@@ -15,5 +16,5 @@ spec:
     - name: http-metrics
       port: 10249
   selector:
-    component: kube-proxy
+    {{$PROMETHEUS_KUBE_PROXY_SELECTOR_KEY}}: kube-proxy
 {{end}}

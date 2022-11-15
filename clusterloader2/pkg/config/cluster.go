@@ -85,6 +85,7 @@ type PrometheusConfig struct {
 	ScrapeKubelets               bool
 	ScrapeMasterKubelets         bool
 	ScrapeKubeProxy              bool
+	KubeProxySelectorKey         string
 	ScrapeKubeStateMetrics       bool
 	ScrapeMetricsServerMetrics   bool
 	ScrapeNodeLocalDNS           bool

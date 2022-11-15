@@ -17,6 +17,8 @@
 {{$largeJobSize := 400}}
 {{$largeJobsPerNamespace := DivideInt $podsPerNamespace (MultiplyInt 4 $largeJobSize)}}
 
+{{$jobRunningTime := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
+
 name: batch
 
 namespace:
@@ -35,6 +37,11 @@ steps:
     Params:
       action: start
       labelSelector: group = test-job
+  - Identifier: JobLifecycleLatency
+    Method: JobLifecycleLatency
+    Params:
+      action: start
+      labelSelector: group = test-job      
 - name: Create {{$MODE}} jobs
   phases:
   - namespaceRange:
@@ -48,6 +55,7 @@ steps:
       templateFillMap:
         Replicas: {{$smallJobSize}}
         Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -59,6 +67,7 @@ steps:
       templateFillMap:
         Replicas: {{$mediumJobSize}}
         Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -70,8 +79,14 @@ steps:
       templateFillMap:
         Replicas: {{$largeJobSize}}
         Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}        
 - name: Wait for {{$MODE}} jobs to finish
   measurements:
+  - Identifier: JobLifecycleLatency
+    Method: JobLifecycleLatency
+    Params:
+      action: gather
+      timeout: 10m  
   - Identifier: WaitForFinishedJobs
     Method: WaitForFinishedJobs
     Params:

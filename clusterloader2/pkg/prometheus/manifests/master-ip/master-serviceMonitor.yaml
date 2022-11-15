@@ -42,12 +42,14 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   - interval: 5s
     port: kubelet
     path: /metrics/cadvisor
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   {{end}}
   - interval: 5s
     port: kube-scheduler

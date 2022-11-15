@@ -106,6 +106,7 @@ type PrometheusConfig struct {
 	StorageClassVolumeType       string
 	PVCStorageClass              string
 	ReadyTimeout                 time.Duration
+	PrometheusMemoryRequest      string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

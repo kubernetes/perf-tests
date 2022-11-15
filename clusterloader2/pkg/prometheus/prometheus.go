@@ -73,6 +73,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
 	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
 	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
+	flags.StringEnvVar(&p.PrometheusMemoryRequest, "prometheus-memory-request", "PROMETHEUS_MEMORY_REQUEST", "10Gi", "Memory request to be used by promehteus.")
 }
 
 // ValidatePrometheusFlags validates prometheus flags.
@@ -191,6 +192,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	mapping["PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE"] = clusterLoaderConfig.PrometheusConfig.StorageClassVolumeType
 	mapping["PROMETHEUS_KUBE_PROXY_SELECTOR_KEY"] = clusterLoaderConfig.PrometheusConfig.KubeProxySelectorKey
 	mapping["PROMETHEUS_PVC_STORAGE_CLASS"] = clusterLoaderConfig.PrometheusConfig.PVCStorageClass
+	mapping["PROMETHEUS_MEMORY_REQUEST"] = clusterLoaderConfig.PrometheusConfig.PrometheusMemoryRequest
 	snapshotEnabled, _ := pc.isEnabled()
 	mapping["RetainPD"] = snapshotEnabled
 

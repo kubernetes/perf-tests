@@ -6,6 +6,7 @@
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 {{$PROMETHEUS_TOLERATE_MASTER := DefaultParam .CL2_PROMETHEUS_TOLERATE_MASTER false}}
 {{$PROMETHEUS_PVC_STORAGE_CLASS := DefaultParam .PROMETHEUS_PVC_STORAGE_CLASS "ssd"}}
+{{$PROMETHEUS_MEMORY_REQUEST := DefaultParam .PROMETHEUS_MEMORY_REQUEST "10Gi"}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -26,7 +27,7 @@ spec:
     requests:
       cpu: {{AddInt 200 (MultiplyInt $PROMETHEUS_CPU_SCALE_FACTOR 500 (DivideInt .Nodes 1000))}}m
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-      memory: 10Gi
+      memory: {{$PROMETHEUS_MEMORY_REQUEST}}
       {{else}}
       # Start with 2Gi and add 2Gi for each 1K nodes.
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi

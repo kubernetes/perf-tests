@@ -23,6 +23,7 @@
 {{$CEP_PROPAGATION_DELAY_SLO_PERCENTILE := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_PERCENTILE 95.0}}
 {{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
 {{$ENABLE_CONTAINER_RESOURCES_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESOURCES_MEASUREMENT false}}
+{{$ENABLE_TERMINATED_WATCHES_MEASUREMENT := DefaultParam .CL2_ENABLE_TERMINATED_WATCHES_MEASUREMENT false}}
 {{$ENABLE_QUOTAS_USAGE_MEASUREMENT := DefaultParam .CL2_ENABLE_QUOTAS_USAGE_MEASUREMENT false}}
 {{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
 {{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
@@ -157,6 +158,30 @@ steps:
         query: quantile_over_time(0.90, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
       - name: Perc50
         query: quantile_over_time(0.50, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+{{end}}
+{{if $ENABLE_TERMINATED_WATCHES_MEASUREMENT}}
+  - Identifier: TerminatedWatchesMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Terminated Watches
+      metricVersion: v1
+      dimensions:
+      - resource
+      queries:
+      - name: Terminated watches
+        query: sum(increase(apiserver_terminated_watchers_total[%v:])) by (resource)
+  - Identifier: WatchCacheInitializations
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Watch Cache Initializations
+      metricVersion: v1
+      dimensions:
+      - resource
+      queries:
+      - name: Watch cache reinitializations
+        query: sum(increase(apiserver_watch_cache_initializations_total[%v:])) by (resource)
 {{end}}
 {{if $ENABLE_QUOTAS_USAGE_MEASUREMENT}}
   - Identifier: Quotas total usage

@@ -66,6 +66,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeNodeLocalDNS, "prometheus-scrape-node-local-dns", "PROMETHEUS_SCRAPE_NODE_LOCAL_DNS", false, "Whether to scrape node-local-dns pods.")
 	flags.BoolEnvVar(&p.ScrapeAnet, "prometheus-scrape-anet", "PROMETHEUS_SCRAPE_ANET", false, "Whether to scrape anet pods.")
 	flags.BoolEnvVar(&p.ScrapeCiliumOperator, "prometheus-scrape-cilium-operator", "PROMETHEUS_SCRAPE_CILIUM_OPERATOR", false, "Whether to scrape cilium-operator pods.")
+	flags.BoolEnvVar(&p.ScrapeMastersWithPublicIPs, "prometheus-scrape-masters-with-public-ips", "PROMETHEUS_SCRAPE_MASTERS_WITH_PUBLIC_IPS", false, "Whether to scrape master machines using public ips, instead of private.")
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
@@ -138,7 +139,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	if errList != nil {
 		return nil, errList
 	}
-	mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig)
+	mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig, clusterLoaderConfig.PrometheusConfig.ScrapeMastersWithPublicIPs)
 	if err != nil {
 		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
 		delete(mapping, "MasterIps")
@@ -471,7 +472,13 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 	klog.V(2).Info(string(s))
 }
 
-func getMasterIps(clusterConfig config.ClusterConfig) ([]string, error) {
+func getMasterIps(clusterConfig config.ClusterConfig, usePublicIPs bool) ([]string, error) {
+	if usePublicIPs {
+		if len(clusterConfig.MasterIPs) == 0 {
+			return nil, fmt.Errorf("requested to use public IPs, however no publics IPs are provided")
+		}
+		return clusterConfig.MasterIPs, nil
+	}
 	if len(clusterConfig.MasterInternalIPs) != 0 {
 		klog.V(2).Infof("Using internal master ips (%s) to monitor master's components", clusterConfig.MasterInternalIPs)
 		return clusterConfig.MasterInternalIPs, nil

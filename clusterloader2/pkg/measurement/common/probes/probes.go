@@ -17,6 +17,7 @@ limitations under the License.
 package probes
 
 import (
+	"embed"
 	"fmt"
 	"path"
 	"time"
@@ -36,7 +37,7 @@ import (
 const (
 	probesNamespace = "probes"
 
-	manifestsPathPrefix = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/probes/manifests/"
+	manifestsPathPrefix = "manifests/"
 
 	checkProbesReadyInterval = 15 * time.Second
 
@@ -67,6 +68,9 @@ var (
 		Manifests:        "metricsServer/*.yaml",
 		ProbeLabelValues: []string{"metrics-server-prober"},
 	}
+
+	//go:embed manifests
+	manifestsFS embed.FS
 )
 
 func init() {
@@ -235,7 +239,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 }
 
 func (p *probesMeasurement) createProbesObjects() error {
-	return p.framework.ApplyTemplatedManifests(path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
+	return p.framework.ApplyTemplatedManifests(manifestsFS, path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
 }
 
 func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error {

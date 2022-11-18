@@ -18,6 +18,7 @@ package imagepreload
 
 import (
 	"context"
+	"embed"
 	"strings"
 	"sync"
 	"time"
@@ -39,14 +40,18 @@ import (
 
 const (
 	informerTimeout = time.Minute
-	manifest        = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/imagepreload/manifests/daemonset.yaml"
+	manifest        = "manifests/daemonset.yaml"
 	namespace       = "preload"
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
 	pollingTimeout  = 15 * time.Minute
 )
 
-var images []string
+var (
+	images []string
+	//go:embed manifests
+	manifestsFS embed.FS
+)
 
 func init() {
 	flags.StringSliceEnvVar(&images, "node-preload-images", "NODE_PRELOAD_IMAGES", []string{}, "List of images to preload on each node in the test cluster before executing tests")
@@ -119,7 +124,7 @@ func (c *controller) PreloadImages() error {
 
 	klog.V(2).Info("Creating daemonset to preload images...")
 	c.templateMapping["Images"] = c.images
-	if err := c.framework.ApplyTemplatedManifests(manifest, c.templateMapping); err != nil {
+	if err := c.framework.ApplyTemplatedManifests(manifestsFS, manifest, c.templateMapping); err != nil {
 		return err
 	}
 

@@ -20,9 +20,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -39,7 +39,7 @@ import (
 // TemplateProvider provides object templates. Templates in unstructured form
 // are served by reading file from given path or by using cache if available.
 type TemplateProvider struct {
-	basepath string
+	fsys fs.FS
 
 	binLock  sync.RWMutex
 	binCache map[string][]byte
@@ -49,9 +49,9 @@ type TemplateProvider struct {
 }
 
 // NewTemplateProvider creates new template provider.
-func NewTemplateProvider(basepath string) *TemplateProvider {
+func NewTemplateProvider(fsys fs.FS) *TemplateProvider {
 	return &TemplateProvider{
-		basepath:      basepath,
+		fsys:          fsys,
 		binCache:      make(map[string][]byte),
 		templateCache: make(map[string]*template.Template),
 	}
@@ -68,7 +68,7 @@ func (tp *TemplateProvider) getRaw(path string) ([]byte, error) {
 		bin, exists = tp.binCache[path]
 		if !exists {
 			var err error
-			bin, err = ioutil.ReadFile(filepath.Join(tp.basepath, path))
+			bin, err = fs.ReadFile(tp.fsys, path)
 			if err != nil {
 				return []byte{}, fmt.Errorf("reading error: %v", err)
 			}
@@ -109,7 +109,7 @@ func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, err
 			if err != nil {
 				return nil, err
 			}
-			raw = template.New("").Funcs(GetFuncs())
+			raw = template.New("").Funcs(GetFuncs(tp.fsys))
 			raw, err = raw.Parse(string(bin))
 			if err != nil {
 				return nil, fmt.Errorf("parsing error: %v", err)

@@ -22,6 +22,7 @@ package network
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"math"
 	"sync"
@@ -54,11 +55,10 @@ const (
 )
 
 const (
-	manifestPathPrefix                  = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network/manifests"
-	workerPodDeploymentManifestFilePath = manifestPathPrefix + "/" + "*deployment.yaml"
-	networkTestRequestFilePath          = manifestPathPrefix + "/" + "networktestrequests.yaml"
-	crdManifestFilePath                 = manifestPathPrefix + "/" + "*CustomResourceDefinition.yaml"
-	clusterRoleBindingFilePath          = manifestPathPrefix + "/" + "roleBinding.yaml"
+	workerPodDeploymentManifestFilePath = "manifests/*deployment.yaml"
+	networkTestRequestFilePath          = "manifests/networktestrequests.yaml"
+	crdManifestFilePath                 = "manifests/*CustomResourceDefinition.yaml"
+	clusterRoleBindingFilePath          = "manifests/roleBinding.yaml"
 	customResourceDefinitionName        = "networktestrequests.clusterloader.io"
 	rbacName                            = "networktestrequests-rbac"
 )
@@ -81,6 +81,9 @@ var (
 		Kind:    "NetworkTestRequest",
 		Version: "v1alpha1",
 	}
+
+	//go:embed manifests
+	manifestsFS embed.FS
 )
 
 func init() {
@@ -191,10 +194,10 @@ func (npm *networkPerformanceMeasurement) prepareCluster() error {
 	if err := client.CreateNamespace(npm.k8sClient, netperfNamespace); err != nil {
 		return fmt.Errorf("error while creating namespace: %v", err)
 	}
-	if err := npm.framework.ApplyTemplatedManifests(clusterRoleBindingFilePath, nil); err != nil {
+	if err := npm.framework.ApplyTemplatedManifests(manifestsFS, clusterRoleBindingFilePath, nil); err != nil {
 		return fmt.Errorf("error while creating clusterRoleBinding: %v", err)
 	}
-	if err := npm.framework.ApplyTemplatedManifests(crdManifestFilePath, nil); err != nil {
+	if err := npm.framework.ApplyTemplatedManifests(manifestsFS, crdManifestFilePath, nil); err != nil {
 		return fmt.Errorf("error while creating CRD: %v", err)
 	}
 	return nil
@@ -222,7 +225,7 @@ func (npm *networkPerformanceMeasurement) cleanupCluster() {
 func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 	// Create worker pods
 	var replicas = map[string]interface{}{"Replicas": npm.numberOfClients + npm.numberOfServers}
-	if err := npm.framework.ApplyTemplatedManifests(workerPodDeploymentManifestFilePath, replicas); err != nil {
+	if err := npm.framework.ApplyTemplatedManifests(manifestsFS, workerPodDeploymentManifestFilePath, replicas); err != nil {
 		return fmt.Errorf("failed to create worked pods: %v ", err)
 	}
 	// Wait for all worker pods to be ready
@@ -327,7 +330,7 @@ func (npm *networkPerformanceMeasurement) createCustomResourcePerUniquePodPair(u
 	npm.startTimeStampForTestExecution = currTime.Add(initialDelayForTestExecution).Unix()
 	for pairIndex, podPair := range uniquePodPairList {
 		templateMapping := npm.populateTemplate(podPair, pairIndex)
-		if err := npm.framework.ApplyTemplatedManifests(networkTestRequestFilePath, templateMapping); err != nil {
+		if err := npm.framework.ApplyTemplatedManifests(manifestsFS, networkTestRequestFilePath, templateMapping); err != nil {
 			klog.Error(err)
 		}
 	}

@@ -18,10 +18,10 @@ package prometheus
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -47,10 +47,23 @@ const (
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
 	numK8sClients                = 1
+
+	coreManifests                = "manifests/*.yaml"
+	defaultServiceMonitors       = "manifests/default/*.yaml"
+	kubeStateMetricsManifests    = "manifests/exporters/kube-state-metrics/*.yaml"
+	masterIPServiceMonitors      = "manifests/master-ip/*.yaml"
+	metricsServerManifests       = "manifests/exporters/metrics-server/*.yaml"
+	nodeExporterPod              = "manifests/exporters/node_exporter/node-exporter.yaml"
+	windowsNodeExporterManifests = "manifests/exporters/windows_node_exporter/*.yaml"
+	pushgatewayManifests         = "manifests/pushgateway/*.yaml"
 )
+
+//go:embed manifests
+var manifestsFS embed.FS
 
 // InitFlags initializes prometheus flags.
 func InitFlags(p *config.PrometheusConfig) {
+	var manifestPath string
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
@@ -69,12 +82,13 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeMastersWithPublicIPs, "prometheus-scrape-masters-with-public-ips", "PROMETHEUS_SCRAPE_MASTERS_WITH_PUBLIC_IPS", false, "Whether to scrape master machines using public ips, instead of private.")
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
-	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests", "Path to the prometheus manifest files.")
+	flags.StringEnvVar(&manifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "", "Path to the prometheus manifest files.")
 	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
 	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
 	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
 	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
 	flags.StringEnvVar(&p.PrometheusMemoryRequest, "prometheus-memory-request", "PROMETHEUS_MEMORY_REQUEST", "10Gi", "Memory request to be used by promehteus.")
+	flags.MarkDeprecated("prometheus-manifest-path", "prometheus manifests are now taken from the embed FS prepared in the build time")
 }
 
 // ValidatePrometheusFlags validates prometheus flags.
@@ -109,18 +123,6 @@ type Controller struct {
 	ssh util.SSHExecutor
 	// timeout for waiting for Prometheus stack to become healthy
 	readyTimeout time.Duration
-}
-
-// CompleteConfig completes Prometheus manifest file path config
-func CompleteConfig(p *config.PrometheusConfig) {
-	p.CoreManifests = p.ManifestPath + "/*.yaml"
-	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
-	p.KubeStateMetricsManifests = p.ManifestPath + "/exporters/kube-state-metrics/*.yaml"
-	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
-	p.MetricsServerManifests = p.ManifestPath + "/exporters/metrics-server/*.yaml"
-	p.NodeExporterPod = p.ManifestPath + "/exporters/node_exporter/node-exporter.yaml"
-	p.WindowsNodeExporterManifests = p.ManifestPath + "/exporters/windows_node_exporter/*.yaml"
-	p.PushgatewayManifests = p.ManifestPath + "/pushgateway/*.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -218,7 +220,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
 		return err
 	}
-	if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.CoreManifests); err != nil {
+	if err := pc.applyManifests(coreManifests); err != nil {
 		return err
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
@@ -227,7 +229,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter {
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.WindowsNodeExporterManifests); err != nil {
+		if err := pc.applyManifests(windowsNodeExporterManifests); err != nil {
 			return err
 		}
 	} else {
@@ -240,20 +242,20 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if !pc.isKubemark() {
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.DefaultServiceMonitors); err != nil {
+		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
 			return err
 		}
 	}
 
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportKubeStateMetrics {
 		klog.V(2).Infof("Applying kube-state-metrics in the cluster.")
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.KubeStateMetricsManifests); err != nil {
+		if err := pc.applyManifests(kubeStateMetricsManifests); err != nil {
 			return err
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportMetricsServerMetrics {
 		klog.V(2).Infof("Applying metrics server in the cluster.")
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MetricsServerManifests); err != nil {
+		if err := pc.applyManifests(metricsServerManifests); err != nil {
 			return err
 		}
 	}
@@ -261,13 +263,13 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		if err := pc.exposeAPIServerMetrics(); err != nil {
 			return err
 		}
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.MasterIPServiceMonitors); err != nil {
+		if err := pc.applyManifests(masterIPServiceMonitors); err != nil {
 			return err
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.EnablePushgateway {
 		klog.V(2).Infof("Applying Pushgateway in the cluster.")
-		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.PushgatewayManifests); err != nil {
+		if err := pc.applyManifests(pushgatewayManifests); err != nil {
 			return err
 		}
 	}
@@ -326,7 +328,7 @@ func (pc *Controller) GetFramework() *framework.Framework {
 
 func (pc *Controller) applyManifests(manifestGlob string) error {
 	return pc.framework.ApplyTemplatedManifests(
-		manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
+		manifestsFS, manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
 }
 
 // exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
@@ -392,7 +394,7 @@ func (pc *Controller) runNodeExporter() error {
 		if util.LegacyIsMasterNode(&node) {
 			numMasters++
 			g.Go(func() error {
-				f, err := os.Open(os.ExpandEnv(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterPod))
+				f, err := manifestsFS.Open(nodeExporterPod)
 				if err != nil {
 					return fmt.Errorf("unable to open manifest file: %v", err)
 				}

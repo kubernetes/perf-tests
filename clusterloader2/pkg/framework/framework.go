@@ -18,8 +18,8 @@ package framework
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sync"
 
@@ -260,11 +260,15 @@ func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, nam
 
 // ApplyTemplatedManifests finds and applies all manifest template files matching the provided
 // manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
+func (f *Framework) ApplyTemplatedManifests(fsys fs.FS, manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	manifestGlob = os.ExpandEnv(manifestGlob)
-	templateProvider := config.NewTemplateProvider(filepath.Dir(manifestGlob))
-	manifests, err := filepath.Glob(manifestGlob)
+
+	klog.Infof("Applying templates for %q", manifestGlob)
+	defer klog.Infof("Finished applyying %q", manifestGlob)
+
+	templateProvider := config.NewTemplateProvider(fsys)
+	manifests, err := fs.Glob(fsys, manifestGlob)
 	if err != nil {
 		return err
 	}
@@ -273,13 +277,13 @@ func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping
 	}
 	for _, manifest := range manifests {
 		klog.V(1).Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.TemplateToObject(filepath.Base(manifest), templateMapping)
+		obj, err := templateProvider.TemplateToObject(manifest, templateMapping)
 		if err != nil {
 			if err == config.ErrorEmptyFile {
 				klog.Warningf("Skipping empty manifest %s", manifest)
 				continue
 			}
-			return err
+			return fmt.Errorf("TemplateToObject error: %+v", err)
 		}
 		objList := []unstructured.Unstructured{*obj}
 		if obj.IsList() {

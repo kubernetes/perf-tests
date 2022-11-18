@@ -19,6 +19,7 @@ package execservice
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"math/rand"
 	"os/exec"
@@ -47,11 +48,16 @@ const (
 	execPodCheckTimeout  = 2 * time.Minute
 
 	execServiceName = "Exec service"
+
+	deploymentYAML = "manifests/exec_deployment.yaml"
 )
 
 var (
 	lock     sync.Mutex
 	podStore *measurementutil.PodStore
+
+	//go:embed manifests
+	manifestsFS embed.FS
 )
 
 func InitFlags(c *config.ExecServiceConfig) {
@@ -69,6 +75,7 @@ func InitFlags(c *config.ExecServiceConfig) {
 		"pkg/execservice/manifest/exec_deployment.yaml",
 		"Path to execservice deployment yaml.",
 	)
+	flags.MarkDeprecated("exec-deployment-yaml", "the exec deployment is always taken from the embed fs.")
 }
 
 // SetUpExecService creates exec pod.
@@ -88,7 +95,8 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 		return fmt.Errorf("namespace %s creation error: %v", execDeploymentNamespace, err)
 	}
 	if err = f.ApplyTemplatedManifests(
-		c.DeploymentYaml,
+		manifestsFS,
+		deploymentYAML,
 		mapping,
 		client.Retry(apierrs.IsNotFound)); err != nil {
 		return fmt.Errorf("pod %s creation error: %v", execDeploymentName, err)

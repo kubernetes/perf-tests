@@ -62,8 +62,6 @@ type ClusterConfig struct {
 type ExecServiceConfig struct {
 	// Determines if service config should be enabled.
 	Enable bool
-	// Sets path to the deployment definition.
-	DeploymentYaml string
 }
 
 // ModifierConfig represent all flags used by test modification

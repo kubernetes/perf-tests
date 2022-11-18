@@ -19,6 +19,7 @@ package execservice
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"math/rand"
 	"os/exec"
@@ -47,11 +48,15 @@ const (
 	execPodCheckTimeout  = 2 * time.Minute
 
 	execServiceName = "Exec service"
+	deploymentYaml  = "manifest/exec_deployment.yaml"
 )
 
 var (
 	lock     sync.Mutex
 	podStore *measurementutil.PodStore
+
+	//go:embed manifest
+	manifestFS embed.FS
 )
 
 func InitFlags(c *config.ExecServiceConfig) {
@@ -61,13 +66,6 @@ func InitFlags(c *config.ExecServiceConfig) {
 		"ENABLE_EXEC_SERVICE",
 		true,
 		"Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.",
-	)
-	flags.StringEnvVar(
-		&c.DeploymentYaml,
-		"exec-deployment-yaml",
-		"EXEC_DEPLOYMENT_YAML",
-		"pkg/execservice/manifest/exec_deployment.yaml",
-		"Path to execservice deployment yaml.",
 	)
 }
 
@@ -87,8 +85,9 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 	if err = client.CreateNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace); err != nil {
 		return fmt.Errorf("namespace %s creation error: %v", execDeploymentNamespace, err)
 	}
-	if err = f.ApplyTemplatedManifests(
-		c.DeploymentYaml,
+	if err = f.ApplyTemplatedManifestsFS(
+		manifestFS,
+		deploymentYaml,
 		mapping,
 		client.Retry(apierrs.IsNotFound)); err != nil {
 		return fmt.Errorf("pod %s creation error: %v", execDeploymentName, err)

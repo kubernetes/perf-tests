@@ -17,6 +17,8 @@ limitations under the License.
 package test
 
 import (
+	"io/fs"
+	"os"
 	"path/filepath"
 
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -45,7 +47,7 @@ type simpleContext struct {
 }
 
 func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framework, s *state.State, testReporter Reporter, templateMapping map[string]interface{}, testScenario *api.TestScenario) Context {
-	templateProvider := config.NewTemplateProvider(filepath.Dir(testScenario.ConfigPath))
+	templateProvider := config.NewTemplateProvider(basepathFS(filepath.Dir(testScenario.ConfigPath)))
 	return &simpleContext{
 		clusterLoaderConfig: c,
 		clusterFramework:    f,
@@ -125,3 +127,15 @@ func (sc *simpleContext) GetTestConfig() *api.Config {
 func (sc *simpleContext) SetTestConfig(c *api.Config) {
 	sc.testConfig = c
 }
+
+// basepathFS is a os.DirFS-like system, but without validations allowing for wild name patterns used in CL2 tests, such as:
+// * absolute paths that are in fact relative ones (e.g. /modules/measurements in load/config.yaml)
+// * path traversal (e.g. ../load/modules/dns-performance-metrics.yaml in huge-services/config.yaml)
+// TODO(mborsz): Cleanup the paths in tests and switch to os.DirFS.
+type basepathFS string
+
+func (b basepathFS) Open(name string) (fs.File, error) {
+	return os.Open(filepath.Join(string(b), name))
+}
+
+var _ fs.FS = basepathFS("")

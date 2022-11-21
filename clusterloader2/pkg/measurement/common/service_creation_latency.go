@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -336,16 +337,28 @@ func (p *pingChecker) run() {
 				time.Sleep(pingBackoff)
 				continue
 			}
+			var ips []string
+			var port int32
 			switch p.svc.Spec.Type {
 			case corev1.ServiceTypeClusterIP:
-				cmd := fmt.Sprintf("curl %s:%d", p.svc.Spec.ClusterIP, p.svc.Spec.Ports[0].Port)
-				_, err = execservice.RunCommand(pod, cmd)
+				ips = p.svc.Spec.ClusterIPs
+				port = p.svc.Spec.Ports[0].Port
 			case corev1.ServiceTypeNodePort:
-				cmd := fmt.Sprintf("curl %s:%d", pod.Status.HostIP, p.svc.Spec.Ports[0].NodePort)
-				_, err = execservice.RunCommand(pod, cmd)
+				ips = []string{pod.Status.HostIP}
+				port = p.svc.Spec.Ports[0].NodePort
 			case corev1.ServiceTypeLoadBalancer:
-				cmd := fmt.Sprintf("curl %s:%d", p.svc.Status.LoadBalancer.Ingress[0].IP, p.svc.Spec.Ports[0].Port)
-				_, err = execservice.RunCommand(pod, cmd)
+				for _, ingress := range p.svc.Status.LoadBalancer.Ingress {
+					ips = append(ips, ingress.IP)
+				}
+				port = p.svc.Spec.Ports[0].Port
+			}
+			for _, ip := range ips {
+				address := net.JoinHostPort(ip, fmt.Sprint(port))
+				command := fmt.Sprintf("curl %s", address)
+				_, err = execservice.RunCommand(pod, command)
+				if err != nil {
+					break
+				}
 			}
 			if err != nil {
 				success = 0

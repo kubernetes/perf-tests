@@ -109,7 +109,7 @@ func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, err
 			if err != nil {
 				return nil, err
 			}
-			raw = template.New("").Funcs(GetFuncs())
+			raw = template.New("").Funcs(GetFuncs(tp.fsys))
 			raw, err = raw.Parse(string(bin))
 			if err != nil {
 				return nil, fmt.Errorf("parsing error: %v", err)

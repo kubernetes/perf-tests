@@ -7,25 +7,25 @@ items:
       name: grafana-dashboard-network
       namespace: monitoring
     data:
-      network-programming-latency.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/network.json") 4}}
+      network-programming-latency.json: {{YamlQuote (IncludeEmbedFile "dashboards/network.json") 4}}
   - apiVersion: v1
     kind: ConfigMap
     metadata:
       name: grafana-dashboard-dns
       namespace: monitoring
     data:
-      master-dashboard.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/dns.json") 4}}
+      master-dashboard.json: {{YamlQuote (IncludeEmbedFile "dashboards/dns.json") 4}}
   - apiVersion: v1
     kind: ConfigMap
     metadata:
       name: grafana-dashboard-master-dashboard
       namespace: monitoring
     data:
-      master-dashboard.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/master-dashboard.json") 4}}
+      master-dashboard.json: {{YamlQuote (IncludeEmbedFile "dashboards/master-dashboard.json") 4}}
   - apiVersion: v1
     kind: ConfigMap
     metadata:
       name: grafana-dashboard-slo
       namespace: monitoring
     data:
-      master-dashboard.json: {{YamlQuote (IncludeFile "pkg/prometheus/manifests/dashboards/slo.json") 4}}
+      master-dashboard.json: {{YamlQuote (IncludeEmbedFile "dashboards/slo.json") 4}}

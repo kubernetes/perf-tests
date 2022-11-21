@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -37,31 +38,32 @@ func init() {
 }
 
 // GetFuncs returns map of names to functions, that are supported by template provider.
-func GetFuncs() template.FuncMap {
+func GetFuncs(fsys fs.FS) template.FuncMap {
 	return template.FuncMap{
-		"AddFloat":      addFloat,
-		"AddInt":        addInt,
-		"Ceil":          ceil,
-		"DefaultParam":  defaultParam,
-		"DivideFloat":   divideFloat,
-		"DivideInt":     divideInt,
-		"IfThenElse":    ifThenElse,
-		"IncludeFile":   includeFile,
-		"Loop":          loop,
-		"MaxFloat":      maxFloat,
-		"MaxInt":        maxInt,
-		"MinFloat":      minFloat,
-		"MinInt":        minInt,
-		"Mod":           mod,
-		"MultiplyFloat": multiplyFloat,
-		"MultiplyInt":   multiplyInt,
-		"RandInt":       randInt,
-		"RandIntRange":  randIntRange,
-		"Seq":           seq,
-		"SliceOfZeros":  sliceOfZeros,
-		"SubtractFloat": subtractFloat,
-		"SubtractInt":   subtractInt,
-		"YamlQuote":     yamlQuote,
+		"AddFloat":         addFloat,
+		"AddInt":           addInt,
+		"Ceil":             ceil,
+		"DefaultParam":     defaultParam,
+		"DivideFloat":      divideFloat,
+		"DivideInt":        divideInt,
+		"IfThenElse":       ifThenElse,
+		"IncludeFile":      includeFile,
+		"IncludeEmbedFile": includeEmbedFile(fsys),
+		"Loop":             loop,
+		"MaxFloat":         maxFloat,
+		"MaxInt":           maxInt,
+		"MinFloat":         minFloat,
+		"MinInt":           minInt,
+		"Mod":              mod,
+		"MultiplyFloat":    multiplyFloat,
+		"MultiplyInt":      multiplyInt,
+		"RandInt":          randInt,
+		"RandIntRange":     randIntRange,
+		"Seq":              seq,
+		"SliceOfZeros":     sliceOfZeros,
+		"SubtractFloat":    subtractFloat,
+		"SubtractInt":      subtractInt,
+		"YamlQuote":        yamlQuote,
 	}
 }
 
@@ -223,6 +225,24 @@ func includeFile(file interface{}) (string, error) {
 		return "", fmt.Errorf("unable to read file: %v", err)
 	}
 	return string(data), nil
+}
+
+// includeEmbedFile reads file from the embed filesystem. The meaning of the "embed filesystem"
+// depends on the context, e.g.:
+// * in CL2 built-in manifests it's a filesystem with other manifests.
+// * in test config, it's a directory with a test config with all subdirs.
+func includeEmbedFile(fsys fs.FS) func(file interface{}) (string, error) {
+	return func(file interface{}) (string, error) {
+		fileStr, ok := file.(string)
+		if !ok {
+			return "", fmt.Errorf("incorrect argument type: got: %T want: string", file)
+		}
+		data, err := fs.ReadFile(fsys, fileStr)
+		if err != nil {
+			return "", fmt.Errorf("unable to read file: %v", err)
+		}
+		return string(data), nil
+	}
 }
 
 // yamlQuote quotes yaml string aligning each output lin by tabsInt.

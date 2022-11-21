@@ -142,15 +142,15 @@ func (m *dnsPerfK8sHostnamesMeasurement) createDNSClientPermissions() error {
 		"Namespace": m.testClientNamespace,
 	}
 
-	if err := m.framework.ApplyTemplatedManifestsFS(manifestsFS, serviceAccountFilePath, templateMap); err != nil {
+	if err := m.framework.ApplyTemplatedManifests(manifestsFS, serviceAccountFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating serviceaccount: %v", err)
 	}
 
-	if err := m.framework.ApplyTemplatedManifestsFS(manifestsFS, clusterRoleFilePath, templateMap); err != nil {
+	if err := m.framework.ApplyTemplatedManifests(manifestsFS, clusterRoleFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating clusterrole: %v", err)
 	}
 
-	if err := m.framework.ApplyTemplatedManifestsFS(manifestsFS, clusterRoleBindingFilePath, templateMap); err != nil {
+	if err := m.framework.ApplyTemplatedManifests(manifestsFS, clusterRoleBindingFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating clusterrolebinding: %v", err)
 	}
 
@@ -165,7 +165,7 @@ func (m *dnsPerfK8sHostnamesMeasurement) createDNSClientDeployment() error {
 		"ServiceAccountName": dnsPerfTestPermissionsName,
 	}
 
-	return m.framework.ApplyTemplatedManifestsFS(manifestsFS, clientDeploymentFilePath, templateMap)
+	return m.framework.ApplyTemplatedManifests(manifestsFS, clientDeploymentFilePath, templateMap)
 }
 
 func (m *dnsPerfK8sHostnamesMeasurement) deleteDNSClientPermissions() error {

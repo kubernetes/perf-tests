@@ -343,7 +343,7 @@ func (pc *Controller) GetFramework() *framework.Framework {
 }
 
 func (pc *Controller) applyManifests(manifestGlob string) error {
-	return pc.framework.ApplyTemplatedManifestsFS(
+	return pc.framework.ApplyTemplatedManifests(
 		pc.manifestsFS(), manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
 }
 

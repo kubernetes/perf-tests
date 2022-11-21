@@ -124,7 +124,7 @@ func (c *controller) PreloadImages() error {
 
 	klog.V(2).Info("Creating daemonset to preload images...")
 	c.templateMapping["Images"] = c.images
-	if err := c.framework.ApplyTemplatedManifestsFS(manifestsFS, manifest, c.templateMapping); err != nil {
+	if err := c.framework.ApplyTemplatedManifests(manifestsFS, manifest, c.templateMapping); err != nil {
 		return err
 	}
 

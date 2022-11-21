@@ -85,7 +85,7 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 	if err = client.CreateNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace); err != nil {
 		return fmt.Errorf("namespace %s creation error: %v", execDeploymentNamespace, err)
 	}
-	if err = f.ApplyTemplatedManifestsFS(
+	if err = f.ApplyTemplatedManifests(
 		manifestFS,
 		deploymentYaml,
 		mapping,

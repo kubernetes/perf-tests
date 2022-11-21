@@ -239,7 +239,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 }
 
 func (p *probesMeasurement) createProbesObjects() error {
-	return p.framework.ApplyTemplatedManifestsFS(manifestsFS, path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
+	return p.framework.ApplyTemplatedManifests(manifestsFS, path.Join(manifestsPathPrefix, p.config.Manifests), p.templateMapping)
 }
 
 func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error {

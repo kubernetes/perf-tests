@@ -19,8 +19,6 @@ package framework
 import (
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sync"
 
@@ -261,19 +259,7 @@ func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, nam
 
 // ApplyTemplatedManifests finds and applies all manifest template files matching the provided
 // manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-func (f *Framework) ApplyTemplatedManifests(manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
-	manifestGlob = os.ExpandEnv(manifestGlob)
-	dir, base := filepath.Split(manifestGlob)
-	klog.Infof("ApplyTemplatedManifests is using ApplyTemplatedManifestsFS(os.DirFS(%q), %q, ...)", dir, base)
-	return f.ApplyTemplatedManifestsFS(os.DirFS(dir), base, templateMapping, options...)
-}
-
-// ApplyTemplatedManifestsFS finds and applies all manifest template files matching the provided
-// manifestGlob pattern. It substitutes the template placeholders using the templateMapping map.
-// This is a version of ApplyTemplatedManifests that takes fs.FS that should be used.
-// TODO(mborsz): Remove ApplyTemplatedManifests and rename ApplyTemplatedManifestsFS to ApplyTemplatedManifests,
-// once all users of old interface are migrated.
-func (f *Framework) ApplyTemplatedManifestsFS(fsys fs.FS, manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
+func (f *Framework) ApplyTemplatedManifests(fsys fs.FS, manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	klog.Infof("Applying templates for %q", manifestGlob)
 

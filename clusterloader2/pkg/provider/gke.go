@@ -39,6 +39,7 @@ func NewGKEProvider(_ map[string]string) Provider {
 			SupportResourceUsageMetering:        true,
 			ShouldPrometheusScrapeApiserverOnly: true,
 			ShouldScrapeKubeProxy:               false,
+			SupportKubeStateMetrics:             true,
 		},
 	}
 }

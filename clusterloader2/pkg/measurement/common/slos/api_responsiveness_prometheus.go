@@ -55,12 +55,12 @@ const (
 	// it doesn't match SLI, but is useful in shorter tests, where we don't have enough number of windows to use latencyQuery meaningfully.
 	//
 	// simpleLatencyQuery: placeholders should be replaced with (1) quantile (2) filters and (3) query window size.
-	simpleLatencyQuery = "histogram_quantile(%.2f, sum(rate(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource,  subresource, verb, scope, le))"
+	simpleLatencyQuery = "histogram_quantile(%.2f, sum(rate(apiserver_request_sli_duration_seconds_bucket{%v}[%v])) by (resource,  subresource, verb, scope, le))"
 
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
-	countQuery = "sum(increase(apiserver_request_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
+	countQuery = "sum(increase(apiserver_request_sli_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
-	countFastQuery = "sum(increase(apiserver_request_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
+	countFastQuery = "sum(increase(apiserver_request_sli_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	// exclude all buckets of 1s and shorter
 	filterGetAndMutating = `verb!~"WATCH|LIST", subresource!="proxy", le="1"`

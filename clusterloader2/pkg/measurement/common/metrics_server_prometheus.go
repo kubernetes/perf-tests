@@ -30,7 +30,7 @@ import (
 const (
 	metricsServerPrometheusMeasurementName = "MetricsServerPrometheus"
 
-	metricsServerLatencyQuery = `histogram_quantile(%v, sum(rate(apiserver_request_duration_seconds_bucket{group="metrics.k8s.io",resource="pods",scope="cluster"}[%v])) by (le))`
+	metricsServerLatencyQuery = `histogram_quantile(%v, sum(rate(apiserver_request_sli_duration_seconds_bucket{group="metrics.k8s.io",resource="pods",scope="cluster"}[%v])) by (le))`
 )
 
 var (

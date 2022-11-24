@@ -220,6 +220,10 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 			return errors.NewErrorList(err)
 		}
 
+		if len(instancesStates) == 0 {
+			return nil
+		}
+
 		// Deleting objects with index greater or equal requested replicas per namespace number.
 		// Objects will be deleted in reversed order.
 		for replicaCounter := phase.ReplicasPerNamespace; replicaCounter < instancesStates[0].CurrentReplicaCount; replicaCounter++ {

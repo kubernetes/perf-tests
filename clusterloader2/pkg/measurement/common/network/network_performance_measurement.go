@@ -241,7 +241,8 @@ func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 	if err != nil {
 		return err
 	}
-	return measurementutil.WaitForPods(ctx, podStore, options)
+	_, err = measurementutil.WaitForPods(ctx, podStore, options)
+	return err
 }
 
 func (*networkPerformanceMeasurement) String() string {

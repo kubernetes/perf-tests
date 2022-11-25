@@ -136,6 +136,46 @@ type waitForControlledPodsRunningMeasurement struct {
 	podsIndexer *measurementutil.ControlledPodsIndexer
 }
 
+type failedPod struct {
+	Namespace    string `json:"namespace"`
+	ControlledBy string `json:"controlledBy"`
+	Name         string `json:"name"`
+	Host         string `json:"host"`
+	Status       string `json:"status"`
+}
+
+func toFailedPods(ps *measurementutil.PodsStatus, controlledBy string) []failedPod {
+	failedPods := make([]failedPod, 0, len(ps.Info))
+	for _, pod := range ps.Info {
+		failedPods = append(failedPods, failedPod{
+			Namespace:    pod.Namespace,
+			ControlledBy: controlledBy,
+			Name:         pod.Name,
+			Host:         pod.Hostname,
+			Status:       pod.Status.String(),
+		})
+	}
+	return failedPods
+}
+
+func createSummary(fp []failedPod) []measurement.Summary {
+	if len(fp) == 0 {
+		return nil
+	}
+
+	ts := time.Now().Unix()
+	name := fmt.Sprintf("%s_%d_failedpods", waitForControlledPodsRunningName, ts)
+	ext := "json"
+	content, err := util.PrettyPrintJSON(fp)
+	if err != nil {
+		klog.Errorf("error: %s while marshaling failed pods to json", err)
+		return nil
+	}
+	return []measurement.Summary{
+		measurement.CreateSummary(name, ext, content),
+	}
+}
+
 // Execute waits until all specified controlling objects have all pods running or until timeout happens.
 // Controlling objects can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
@@ -180,7 +220,9 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 		if err != nil {
 			return nil, err
 		}
-		return nil, w.gather(syncTimeout)
+		ps, err := w.gather(syncTimeout)
+		summary := createSummary(ps)
+		return summary, err
 	case "stop":
 		w.Dispose()
 		return nil, nil
@@ -242,14 +284,14 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	return informer.StartAndSync(i, w.stopCh, informerSyncTimeout)
 }
 
-func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) error {
+func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) ([]failedPod, error) {
 	klog.V(2).Infof("%v: waiting for controlled pods measurement...", w)
 	if !w.isRunning {
-		return fmt.Errorf("metric %s has not been started", w)
+		return nil, fmt.Errorf("metric %s has not been started", w)
 	}
 	objectKeys, maxResourceVersion, err := w.getObjectKeysAndMaxVersion()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Wait until checkers for all objects are registered:
@@ -274,7 +316,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		return w.opResourceVersion >= maxResourceVersion && objectKeys.Equal(w.objectKeys), nil
 	}
 	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
-		return fmt.Errorf("timed out while waiting for controlled pods: %v", err)
+		return nil, fmt.Errorf("timed out while waiting for controlled pods: %v", err)
 	}
 
 	w.handlingGroup.Wait()
@@ -284,6 +326,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	failedErrList := errors.NewErrorList()
 	timedOutObjects := []string{}
 	var maxDuration time.Duration
+	failedPods := []failedPod{}
 	for _, checker := range w.checkerMap {
 		objChecker := checker.(*objectChecker)
 		status, err := objChecker.getStatus()
@@ -298,22 +341,25 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		case timeout:
 			timedOutObjects = append(timedOutObjects, objChecker.key)
 			numberTimeout++
+			failedPods = append(failedPods, toFailedPods(objChecker.failedPods, objChecker.key)...)
 		case deleteTimeout:
 			timedOutObjects = append(timedOutObjects, objChecker.key)
 			numberTimeout++
 			podsClient := w.clusterFramework.GetClientSets().GetClient().CoreV1().Pods(w.selector.Namespace)
 			err := podsClient.DeleteCollection(context.Background(), forceDeleteOptions(), w.listOptions())
+			failedPods = append(failedPods, toFailedPods(objChecker.failedPods, objChecker.key)...)
 			if err != nil {
 				klog.Errorf("Error: %s while Force Deleting Pod, %s", err, objChecker.key)
 			}
 		case failed:
 			numberFailed++
+			failedPods = append(failedPods, toFailedPods(objChecker.failedPods, objChecker.key)...)
 			if err != nil {
 				failedErrList.Append(err)
 			}
 		default:
 			// Probably implementation bug.
-			return fmt.Errorf("got unknown status for %v: status=%v, err=%v", objChecker.key, status, err)
+			return nil, fmt.Errorf("got unknown status for %v: status=%v, err=%v", objChecker.key, status, err)
 		}
 	}
 	klog.V(2).Infof("%s: running %d, deleted %d, timeout: %d, failed: %d", w, numberRunning, numberDeleted, numberTimeout, numberFailed)
@@ -324,19 +370,19 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 	klog.V(2).Infof("%s: maxDuration=%v, operationTimeout=%v, ratio=%.2f", w, maxDuration, w.operationTimeout, ratio)
 	if numberTimeout > 0 {
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
-		return fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
+		return failedPods, fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
 	}
 	if objectKeys.Len() != numberRunning {
 		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
-		return fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
+		return failedPods, fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
 	}
 	if numberFailed > 0 {
 		klog.Errorf("%s: failed status for %d %ss: %s", w, numberFailed, w.kind, failedErrList.String())
-		return fmt.Errorf("failed objects statuses: %v", failedErrList.String())
+		return failedPods, fmt.Errorf("failed objects statuses: %v", failedErrList.String())
 	}
 
 	klog.V(2).Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
-	return nil
+	return nil, nil
 }
 
 func (w *waitForControlledPodsRunningMeasurement) listOptions() metav1.ListOptions {
@@ -593,7 +639,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		// This function sets the status (and error message) for the object checker.
 		// The handling of bad statuses and errors is done by gather() function of the measurement.
 		start := time.Now()
-		err := measurementutil.WaitForPods(ctx, podStore, options)
+		failedPods, err := measurementutil.WaitForPods(ctx, podStore, options)
 		o.lock.Lock()
 		defer o.lock.Unlock()
 		o.duration = time.Since(start)
@@ -602,6 +648,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			klog.Errorf("%s: error for %v: %v", w, key, err)
 			o.status = failed
 			o.err = fmt.Errorf("%s: %v", key, err)
+			o.failedPods = failedPods
 
 			hasTimedOut := ctx.Err() != nil
 			if hasTimedOut {
@@ -641,9 +688,10 @@ type objectChecker struct {
 	err    error
 	// key of the object being checked. In the current implementation it's a namespaced name, but it
 	// may change in the future.
-	key      string
-	cancel   context.CancelFunc
-	duration time.Duration
+	key        string
+	cancel     context.CancelFunc
+	duration   time.Duration
+	failedPods *measurementutil.PodsStatus
 }
 
 func newObjectChecker(key string) *objectChecker {

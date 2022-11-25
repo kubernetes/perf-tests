@@ -27,10 +27,10 @@ const (
 	nonExist = "NonExist"
 )
 
-type status int
+type Status int
 
 const (
-	Unknown status = iota
+	Unknown Status = iota
 	Terminating
 	RunningAndReady
 	RunningButNotReady
@@ -38,6 +38,16 @@ const (
 	PendingNotScheduled
 	Inactive
 )
+
+var _statusName = [...]string{"Unknown", "Terminating", "RunningAndReady",
+	"RunningButNotReady", "PendingScheduled", "PendingNotScheduled", "Inactive"}
+
+func (i Status) String() string {
+	if int(i) >= len(_statusName) {
+		return "Unknown"
+	}
+	return _statusName[i]
+}
 
 // PodsStartupStatus represents status of a pods group.
 type PodsStartupStatus struct {
@@ -61,7 +71,7 @@ func (s *PodsStartupStatus) String() string {
 		s.Created, s.Expected, s.Running, s.RunningUpdated, s.Pending, s.Waiting, s.Inactive, s.Terminating, s.Unknown, s.RunningButNotReady)
 }
 
-func podStatus(p *corev1.Pod) status {
+func podStatus(p *corev1.Pod) Status {
 	if p.DeletionTimestamp != nil {
 		return Terminating
 	}
@@ -233,33 +243,35 @@ func DiffPods(oldPods []*corev1.Pod, curPods []*corev1.Pod) PodDiff {
 	return podDiffInfoMap
 }
 
-type podInfo struct {
-	name     string
-	hostname string
-	phase    string
-	status   status
+type PodInfo struct {
+	Name      string
+	Hostname  string
+	Phase     string
+	Status    Status
+	Namespace string
 }
 
-func (p *podInfo) String() string {
-	return fmt.Sprintf("{%v %v %v %v}", p.name, p.phase, p.status, p.hostname)
+func (p *PodInfo) String() string {
+	return fmt.Sprintf("{%v %v %v %v %v}", p.Namespace, p.Name, p.Phase, p.Status.String(), p.Hostname)
 }
 
 // PodsStatus is a collection of current pod phases and node assignments data.
 type PodsStatus struct {
-	info []*podInfo
+	Info []*PodInfo
 }
 
 // ComputePodsStatus computes PodsStatus for a group of pods.
 func ComputePodsStatus(pods []*corev1.Pod) *PodsStatus {
 	ps := &PodsStatus{
-		info: make([]*podInfo, len(pods)),
+		Info: make([]*PodInfo, len(pods)),
 	}
 	for i := range pods {
-		ps.info[i] = &podInfo{
-			name:     pods[i].Name,
-			hostname: pods[i].Spec.NodeName,
-			phase:    string(pods[i].Status.Phase),
-			status:   podStatus(pods[i]),
+		ps.Info[i] = &PodInfo{
+			Name:      pods[i].Name,
+			Hostname:  pods[i].Spec.NodeName,
+			Phase:     string(pods[i].Status.Phase),
+			Status:    podStatus(pods[i]),
+			Namespace: pods[i].Namespace,
 		}
 	}
 	return ps
@@ -267,17 +279,17 @@ func ComputePodsStatus(pods []*corev1.Pod) *PodsStatus {
 
 // String returns string representation of a PodsStatus.
 func (ps *PodsStatus) String() string {
-	return fmt.Sprintf("%v", ps.info)
+	return fmt.Sprintf("%v", ps.Info)
 }
 
 func (ps *PodsStatus) NotRunningAndReady() *PodsStatus {
 	res := &PodsStatus{
-		info: make([]*podInfo, 0),
+		Info: make([]*PodInfo, 0),
 	}
 
-	for _, info := range ps.info {
-		if info.status != RunningAndReady {
-			res.info = append(res.info, info)
+	for _, info := range ps.Info {
+		if info.Status != RunningAndReady {
+			res.Info = append(res.Info, info)
 		}
 	}
 

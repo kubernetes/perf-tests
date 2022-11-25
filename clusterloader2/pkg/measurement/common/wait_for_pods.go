@@ -72,7 +72,8 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
-	return nil, measurementutil.WaitForPods(ctx, podStore, options)
+	_, err = measurementutil.WaitForPods(ctx, podStore, options)
+	return nil, err
 }
 
 // Dispose cleans up after the measurement.

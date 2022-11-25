@@ -26,8 +26,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type scalingFormat int
+
 const (
-	uninitialized = iota
+	uninitialized scalingFormat = iota
 	up
 	down
 	none
@@ -53,7 +55,8 @@ type PodLister interface {
 
 // WaitForPods waits till desired number of pods is running.
 // The current set of pods are fetched by calling List() on the provided PodStore.
-func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) error {
+// In the case of failure returns list of pods that were in unexpected state
+func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) (*PodsStatus, error) {
 	var timeout time.Duration
 	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
 		timeout = time.Until(deadline)
@@ -61,7 +64,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 	klog.V(2).Infof("%s: %s: starting with timeout: %v", options.CallerName, ps.String(), timeout)
 	oldPods, err := ps.List()
 	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
+		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
 	scaling := uninitialized
 	var oldPodsStatus PodsStartupStatus
@@ -75,7 +78,10 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
 			klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
 			klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
-			return fmt.Errorf("timeout while waiting for %d pods to be running in %s - summary of pods : %s",
+			// In case of scaling down we expect unhealth pods to be in TERMINATING state
+			// If we end up with more than expected pods and they are all in RunningAndReady state
+			// we won't report them to the user
+			return pods.NotRunningAndReady(), fmt.Errorf("timeout while waiting for %d pods to be running in %s - summary of pods : %s",
 				desiredPodCount, ps.String(), oldPodsStatus.String())
 		case <-time.After(options.WaitForPodsInterval):
 			desiredPodCount := options.DesiredPodCount()
@@ -91,7 +97,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 
 			pods, err := ps.List()
 			if err != nil {
-				return fmt.Errorf("failed to list pods: %w", err)
+				return nil, fmt.Errorf("failed to list pods: %w", err)
 			}
 			podsStatus := ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
 			if podsStatus.LastIsPodUpdatedError != nil {
@@ -113,12 +119,12 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.
 			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {
-				return nil
+				return nil, nil
 			}
 			// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
 			// Overall number of pods (especially Inactive pods) should not grow unchecked.
 			if options.CountErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-options.CountErrorMargin && len(pods)-podsStatus.Inactive <= desiredPodCount && podsStatus.Inactive <= options.CountErrorMargin {
-				return nil
+				return nil, nil
 			}
 			oldPods = pods
 			oldPodsStatus = podsStatus

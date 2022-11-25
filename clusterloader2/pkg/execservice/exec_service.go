@@ -109,7 +109,7 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
-	if err = measurementutil.WaitForPods(ctx, podStore, options); err != nil {
+	if _, err = measurementutil.WaitForPods(ctx, podStore, options); err != nil {
 		return err
 	}
 	klog.V(2).Infof("%v: service set up successfully!", execServiceName)

@@ -28,7 +28,7 @@ spec:
       - args: 
         - --config.file=%CONTAINER_SANDBOX_MOUNT_POINT%/config.yml
         name: windows-exporter
-        image: ghcr.io/prometheus-community/windows-exporter:latest
+        image: ghcr.io/prometheus-community/windows-exporter:0.20.0 # Versions greater than 0.20.0 currently do not work due to https://github.com/prometheus-community/windows_exporter/issues/1092
         imagePullPolicy: Always
         ports:
         - containerPort: 9182

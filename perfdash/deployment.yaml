@@ -40,8 +40,8 @@ spec:
         resources:
           requests:
             cpu: "3"
-            memory: 10Gi
+            memory: 20Gi
           limits:
             cpu: "3"
-            memory: 10Gi
+            memory: 20Gi
       restartPolicy: Always

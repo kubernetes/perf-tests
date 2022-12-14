@@ -57,8 +57,8 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.etcdMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%v: etcdMemoryProfile creation error: %v", metrics, err)
 	}
-	if metrics.etcdMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
-		klog.Errorf("%v: etcdMutexProfile creation error: %v", metrics, err)
+	if metrics.etcdBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
+		klog.Errorf("%v: etcdBlockProfile creation error: %v", metrics, err)
 	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%v: apiserverCPUProfile creation error: %v", metrics, err)
@@ -66,8 +66,8 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.apiserverMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%v: apiserverMemoryProfile creation error: %v", metrics, err)
 	}
-	if metrics.apiserverMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
-		klog.Errorf("%v: apiserverMutexProfile creation error: %v", metrics, err)
+	if metrics.apiserverBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
+		klog.Errorf("%v: apiserverBlockProfile creation error: %v", metrics, err)
 	}
 	if metrics.schedulerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%v: schedulerCPUProfile creation error: %v", metrics, err)
@@ -75,8 +75,8 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.schedulerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%v: schedulerMemoryProfile creation error: %v", metrics, err)
 	}
-	if metrics.schedulerMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
-		klog.Errorf("%v: schedulerMutexProfile creation error: %v", metrics, err)
+	if metrics.schedulerBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
+		klog.Errorf("%v: schedulerBlockProfile creation error: %v", metrics, err)
 	}
 	if metrics.controllerManagerCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%v: controllerManagerCPUProfile creation error: %v", metrics, err)
@@ -84,8 +84,8 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.controllerManagerMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
 		klog.Errorf("%v: controllerManagerMemoryProfile creation error: %v", metrics, err)
 	}
-	if metrics.controllerManagerMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
-		klog.Errorf("%v: controllerManagerMutexProfile creation error: %v", metrics, err)
+	if metrics.controllerManagerBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
+		klog.Errorf("%v: controllerManagerBlockProfile creation error: %v", metrics, err)
 	}
 	if metrics.systemPodMetrics, err = measurement.CreateMeasurement("SystemPodMetrics"); err != nil {
 		klog.Errorf("%v: systemPodMetrics creation error: %v", metrics, err)
@@ -103,16 +103,16 @@ type testMetrics struct {
 	resourceUsageSummary           measurement.Measurement
 	etcdCPUProfile                 measurement.Measurement
 	etcdMemoryProfile              measurement.Measurement
-	etcdMutexProfile               measurement.Measurement
+	etcdBlockProfile               measurement.Measurement
 	apiserverCPUProfile            measurement.Measurement
 	apiserverMemoryProfile         measurement.Measurement
-	apiserverMutexProfile          measurement.Measurement
+	apiserverBlockProfile          measurement.Measurement
 	schedulerCPUProfile            measurement.Measurement
 	schedulerMemoryProfile         measurement.Measurement
-	schedulerMutexProfile          measurement.Measurement
+	schedulerBlockProfile          measurement.Measurement
 	controllerManagerCPUProfile    measurement.Measurement
 	controllerManagerMemoryProfile measurement.Measurement
-	controllerManagerMutexProfile  measurement.Measurement
+	controllerManagerBlockProfile  measurement.Measurement
 	systemPodMetrics               measurement.Measurement
 	clusterOOMsTracker             measurement.Measurement
 }
@@ -181,26 +181,26 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdCPUProfile.String(), action, err))
 		summary, err = execute(t.etcdMemoryProfile, etcdStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
-		summary, err = execute(t.etcdMutexProfile, etcdStartConfig)
-		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
+		summary, err = execute(t.etcdBlockProfile, etcdStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverMemoryProfile.String(), action, err))
-		summary, err = execute(t.apiserverMutexProfile, kubeApiserverStartConfig)
-		appendResults(&summaries, errList, summary, executeError(t.apiserverMutexProfile.String(), action, err))
+		summary, err = execute(t.apiserverBlockProfile, kubeApiserverStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverBlockProfile.String(), action, err))
 		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.schedulerCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.schedulerMemoryProfile.String(), action, err))
-		summary, err = execute(t.schedulerMutexProfile, kubeSchedulerStartConfig)
-		appendResults(&summaries, errList, summary, executeError(t.schedulerMutexProfile.String(), action, err))
+		summary, err = execute(t.schedulerBlockProfile, kubeSchedulerStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerBlockProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerCPUProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
-		summary, err = execute(t.controllerManagerMutexProfile, kubeControllerManagerStartConfig)
-		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMutexProfile.String(), action, err))
+		summary, err = execute(t.controllerManagerBlockProfile, kubeControllerManagerStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerBlockProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 		summary, err = execute(t.clusterOOMsTracker, config)
@@ -218,26 +218,26 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdCPUProfile.String(), action, err))
 		summary, err = execute(t.etcdMemoryProfile, etcdGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
-		summary, err = execute(t.etcdMutexProfile, etcdGatherConfig)
-		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
+		summary, err = execute(t.etcdBlockProfile, etcdGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverMemoryProfile.String(), action, err))
-		summary, err = execute(t.apiserverMutexProfile, kubeApiserverGatherConfig)
-		appendResults(&summaries, errList, summary, executeError(t.apiserverMutexProfile.String(), action, err))
+		summary, err = execute(t.apiserverBlockProfile, kubeApiserverGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.apiserverBlockProfile.String(), action, err))
 		summary, err = execute(t.schedulerCPUProfile, kubeSchedulerGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.schedulerCPUProfile.String(), action, err))
 		summary, err = execute(t.schedulerMemoryProfile, kubeSchedulerGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.schedulerMemoryProfile.String(), action, err))
-		summary, err = execute(t.schedulerMutexProfile, kubeSchedulerGatherConfig)
-		appendResults(&summaries, errList, summary, executeError(t.schedulerMutexProfile.String(), action, err))
+		summary, err = execute(t.schedulerBlockProfile, kubeSchedulerGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.schedulerBlockProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerCPUProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerCPUProfile.String(), action, err))
 		summary, err = execute(t.controllerManagerMemoryProfile, kubeControllerManagerGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMemoryProfile.String(), action, err))
-		summary, err = execute(t.controllerManagerMutexProfile, kubeControllerManagerGatherConfig)
-		appendResults(&summaries, errList, summary, executeError(t.controllerManagerMutexProfile.String(), action, err))
+		summary, err = execute(t.controllerManagerBlockProfile, kubeControllerManagerGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.controllerManagerBlockProfile.String(), action, err))
 		summary, err = execute(t.systemPodMetrics, config)
 		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 		summary, err = execute(t.clusterOOMsTracker, config)
@@ -261,16 +261,16 @@ func (t *testMetrics) Dispose() {
 	t.resourceUsageSummary.Dispose()
 	t.etcdCPUProfile.Dispose()
 	t.etcdMemoryProfile.Dispose()
-	t.etcdMutexProfile.Dispose()
+	t.etcdBlockProfile.Dispose()
 	t.apiserverCPUProfile.Dispose()
 	t.apiserverMemoryProfile.Dispose()
-	t.apiserverMutexProfile.Dispose()
+	t.apiserverBlockProfile.Dispose()
 	t.schedulerCPUProfile.Dispose()
 	t.schedulerMemoryProfile.Dispose()
-	t.schedulerMutexProfile.Dispose()
+	t.schedulerBlockProfile.Dispose()
 	t.controllerManagerCPUProfile.Dispose()
 	t.controllerManagerMemoryProfile.Dispose()
-	t.controllerManagerMutexProfile.Dispose()
+	t.controllerManagerBlockProfile.Dispose()
 }
 
 // String returns a string representation of the measurement.

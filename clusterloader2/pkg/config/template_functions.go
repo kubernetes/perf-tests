@@ -26,8 +26,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
+
+	template "github.com/google/safetext/yamltemplate"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"

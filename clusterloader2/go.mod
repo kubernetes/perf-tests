@@ -38,6 +38,7 @@ require (
 	github.com/go-errors/errors v1.0.1
 	github.com/google/go-cmp v0.5.6
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/safetext v0.0.0-20221026122733-23539d61753f
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/onsi/ginkgo v1.14.0
 	github.com/prometheus/client_model v0.2.0

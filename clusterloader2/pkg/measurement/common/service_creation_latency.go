@@ -53,6 +53,8 @@ const (
 	creatingPhase     = "creating"
 	ipAssigningPhase  = "ipAssigning"
 	reachabilityPhase = "reachability"
+	deletingPhase     = "deleting"
+	deletedPhase      = "deleted"
 )
 
 func init() {
@@ -87,6 +89,7 @@ type serviceCreationLatencyMeasurement struct {
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 // "start" action starts observation of the services.
 // "waitForReady" waits until all services are reachable.
+// "waitForDeletion" waits until all services are deleted
 // "gather" returns service created latency summary.
 // This measurement only works for services with ClusterIP, NodePort and LoadBalancer type.
 func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
@@ -111,6 +114,8 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) 
 		return nil, s.start()
 	case "waitForReady":
 		return nil, s.waitForReady()
+	case "waitForDeletion":
+		return nil, s.waitForDeletion()
 	case "gather":
 		return s.gather(config.Identifier)
 	default:
@@ -180,6 +185,20 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 	})
 }
 
+func (s *serviceCreationLatencyMeasurement) waitForDeletion() error {
+	return wait.Poll(defaultCheckInterval, s.waitTimeout, func() (bool, error) {
+		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer} {
+			deleted := s.creationTimes.Count(phaseName(deletedPhase, svcType))
+			created := s.creationTimes.Count(phaseName(creatingPhase, svcType))
+			klog.V(2).Infof("%s type %s: %d created, %d deleted", s, svcType, created, deleted)
+			if created != deleted {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
 var serviceCreationTransitions = map[string]measurementutil.Transition{
 	"create_to_available_clusterip": {
 		From: phaseName(creatingPhase, corev1.ServiceTypeClusterIP),
@@ -200,6 +219,10 @@ var serviceCreationTransitions = map[string]measurementutil.Transition{
 	"create_to_available_loadbalancer": {
 		From: phaseName(creatingPhase, corev1.ServiceTypeLoadBalancer),
 		To:   phaseName(reachabilityPhase, corev1.ServiceTypeLoadBalancer),
+	},
+	"delete_loadbalancer": {
+		From: phaseName(deletingPhase, corev1.ServiceTypeLoadBalancer),
+		To:   phaseName(deletedPhase, corev1.ServiceTypeLoadBalancer),
 	},
 }
 
@@ -263,6 +286,8 @@ func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) er
 	}
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	s.creationTimes.Set(key, phaseName(deletingPhase, svc.Spec.Type), svc.ObjectMeta.DeletionTimestamp.Time)
+	s.creationTimes.Set(key, phaseName(deletedPhase, svc.Spec.Type), time.Now())
 	s.pingCheckers.DeleteAndStop(key)
 	return nil
 }

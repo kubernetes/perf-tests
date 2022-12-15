@@ -97,7 +97,7 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 	cmd := fmt.Sprintf("curl --connect-timeout %d -s -k -w \"%%{http_code}\" -o /dev/null https://%s:443/readyz", a.hostPollTimeoutSeconds, hostIP)
 	output, err := execservice.RunCommand(pod, cmd)
 	if err != nil {
-		return "", fmt.Errorf("problem with RunCommand(): %w", err)
+		return "", fmt.Errorf("problem with RunCommand(): output=%q, err=%w", output, err)
 	}
 	return output, nil
 }

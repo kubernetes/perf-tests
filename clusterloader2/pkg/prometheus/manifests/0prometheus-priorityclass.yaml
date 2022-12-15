@@ -1,0 +1,7 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: prometheus-priorityclass
+value: 20000000
+globalDefault: false
+description: "High priority class to prevent preemption of prometheus."

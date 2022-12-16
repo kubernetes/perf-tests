@@ -1,10 +1,9 @@
 approvers:
 - mborsz
-- mm4tt
 - wojtek-t
 reviewers:
 - mborsz
-- mm4tt
 - wojtek-t
 emeritus_approvers:
+- mm4tt
 - oxddr

@@ -1,11 +1,12 @@
 approvers:
-- gmarek
+- sig-scalability-approvers
 - marseel
 - mborsz
-- mm4tt
 - shyamjvs
-- timothysc
 - wojtek-t
-
+emeritus_approvers:
+- mm4tt
+- gmarek
 reviewers:
 - sig-scalability-reviewers
+- tosi3k

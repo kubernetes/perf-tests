@@ -615,10 +615,10 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	o := newObjectChecker(key)
 	o.lock.Lock()
 	defer o.lock.Unlock()
+	ctx, cancel := context.WithCancel(ctx)
+	o.cancel = cancel
 	w.handlingGroup.Start(func() {
-		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		o.SetCancel(cancel)
 		if operationTimeout != time.Duration(0) {
 			ctx, cancel = context.WithTimeout(ctx, operationTimeout)
 			defer cancel()

@@ -49,8 +49,11 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-      {{if $PROMETHEUS_TOLERATE_MASTER}}
       tolerations:
+        - key: "monitoring"
+          operator: "Exists"
+          effect: "NoSchedule"
+      {{if $PROMETHEUS_TOLERATE_MASTER}}
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule

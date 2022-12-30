@@ -134,10 +134,10 @@ func TearDownExecService(f *framework.Framework) error {
 	return nil
 }
 
-// RunCommand executes given command on a pod in cluster.
-func RunCommand(pod *corev1.Pod, cmd string) (string, error) {
+// RunCommand executes given command on a pod in cluster. Context is passed to the exec command.
+func RunCommand(ctx context.Context, pod *corev1.Pod, cmd string) (string, error) {
 	var stdout, stderr bytes.Buffer
-	c := exec.Command("kubectl", "exec", fmt.Sprintf("--namespace=%v", pod.Namespace), pod.Name, "--", "/bin/sh", "-x", "-c", cmd)
+	c := exec.CommandContext(ctx, "kubectl", "exec", fmt.Sprintf("--namespace=%v", pod.Namespace), pod.Name, "--", "/bin/sh", "-x", "-c", cmd)
 	c.Stdout, c.Stderr = &stdout, &stderr
 	if err := c.Run(); err != nil {
 		return stderr.String(), err

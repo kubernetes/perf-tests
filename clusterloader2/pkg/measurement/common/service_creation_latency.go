@@ -380,7 +380,7 @@ func (p *pingChecker) run() {
 			for _, ip := range ips {
 				address := net.JoinHostPort(ip, fmt.Sprint(port))
 				command := fmt.Sprintf("curl %s", address)
-				_, err = execservice.RunCommand(pod, command)
+				_, err = execservice.RunCommand(context.TODO(), pod, command)
 				if err != nil {
 					break
 				}

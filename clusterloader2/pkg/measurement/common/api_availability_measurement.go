@@ -59,10 +59,11 @@ type apiAvailabilityMeasurement struct {
 	clusterLevelMetrics *apiAvailabilityMetrics
 	threshold           float64
 	// Metrics per host internal IP.
-	hostLevelMetrics       map[string]*apiAvailabilityMetrics
-	hostPollTimeoutSeconds int
-	wg                     sync.WaitGroup
-	lock                   sync.Mutex
+	hostLevelMetrics           map[string]*apiAvailabilityMetrics
+	hostPollTimeoutSeconds     int
+	hostPollExecTimeoutSeconds int
+	wg                         sync.WaitGroup
+	lock                       sync.Mutex
 }
 
 func (a *apiAvailabilityMeasurement) updateHostAvailabilityMetrics(c clientset.Interface, provider provider.Provider) {
@@ -95,7 +96,9 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 		return "", fmt.Errorf("problem with GetPod(): %w", err)
 	}
 	cmd := fmt.Sprintf("curl --connect-timeout %d -s -k -w \"%%{http_code}\" -o /dev/null https://%s:443/readyz", a.hostPollTimeoutSeconds, hostIP)
-	output, err := execservice.RunCommand(pod, cmd)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(a.hostPollExecTimeoutSeconds)*time.Second)
+	defer cancel()
+	output, err := execservice.RunCommand(ctx, pod, cmd)
 	if err != nil {
 		return "", fmt.Errorf("problem with RunCommand(): output=%q, err=%w", output, err)
 	}
@@ -210,6 +213,11 @@ func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) erro
 			return err
 		}
 		a.hostPollTimeoutSeconds = hostPollTimeoutSeconds
+		hostPollExecTimeoutSeconds, err := util.GetIntOrDefault(config.Params, "hostPollExecTimeoutSeconds", 10)
+		if err != nil {
+			return err
+		}
+		a.hostPollExecTimeoutSeconds = hostPollExecTimeoutSeconds
 	} else {
 		klog.V(2).Infof("%s: exec service is not enabled, therefore only cluster-level availability will be measured", a)
 	}

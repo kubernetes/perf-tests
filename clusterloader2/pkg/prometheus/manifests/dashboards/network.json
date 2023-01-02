@@ -6,9 +6,11 @@
     "description": "",
     "editable": true,
     "gnetId": null,
+    "graphTooltip": 0,
     "hideControls": false,
     "id": null,
     "links": [],
+    "panels": [],
     "refresh": "10s",
     "rows": [
         {
@@ -19,10 +21,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "NetworkProgrammingLatency is defined as the time it took to program the network - from the time  the service or pod has changed to the time the change was propagated and the proper kube-proxy rules were synced. Exported for each endpoints object that were part of the rules sync.",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -30,7 +41,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 1,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -51,9 +66,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -61,6 +79,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -70,11 +89,13 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -83,11 +104,13 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -96,16 +119,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "SLI: Network programming latency",
@@ -115,10 +141,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -127,7 +157,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -136,18 +166,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "NetworkProgrammingLatency is defined as the time it took to program the network - from the time  the service or pod has changed to the time the change was propagated and the proper kube-proxy rules were synced. Exported for each endpoints object that were part of the rules sync.",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -155,7 +198,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 2,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -176,9 +223,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -186,6 +236,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -195,11 +246,13 @@
                             "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.99\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -208,11 +261,13 @@
                             "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.90\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -221,16 +276,19 @@
                             "datasource": "$source",
                             "expr": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "kubeproxy:kubeproxy_network_programming_duration:histogram_quantile{quantile=\"0.50\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Network programming latency",
@@ -240,10 +298,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -252,7 +314,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -261,18 +323,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "Latency of one round of kube-proxy syncing proxy rules.",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -280,7 +355,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 3,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -301,9 +380,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -311,6 +393,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -320,11 +403,13 @@
                             "datasource": "$source",
                             "expr": "histogram_quantile(0.99, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "0.99",
                             "metric": "",
+                            "query": "histogram_quantile(0.99, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -333,11 +418,13 @@
                             "datasource": "$source",
                             "expr": "histogram_quantile(0.90, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "0.90",
                             "metric": "",
+                            "query": "histogram_quantile(0.90, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -346,16 +433,19 @@
                             "datasource": "$source",
                             "expr": "histogram_quantile(0.50, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "0.50",
                             "metric": "",
+                            "query": "histogram_quantile(0.50, sum(rate(kubeproxy_sync_proxy_rules_duration_seconds_bucket[5m])) by (le))",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "kube-proxy: sync rules duation",
@@ -365,10 +455,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -377,7 +471,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -386,18 +480,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "Rate of service changes that the proxy has seen over 5m",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -405,7 +512,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 4,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -426,9 +537,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -436,6 +550,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -445,16 +560,19 @@
                             "datasource": "$source",
                             "expr": "sum(rate(kubeproxy_sync_proxy_rules_service_changes_total[5m]))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "rate",
                             "metric": "",
+                            "query": "sum(rate(kubeproxy_sync_proxy_rules_service_changes_total[5m]))",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "kube-proxy: rate of service changes",
@@ -464,10 +582,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -476,7 +598,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -485,18 +607,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "Number of pending service changes that have not yet been synced to the proxy.",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -504,7 +639,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 5,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -525,9 +664,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -535,6 +677,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -544,16 +687,19 @@
                             "datasource": "$source",
                             "expr": "sum(kubeproxy_sync_proxy_rules_service_changes_pending)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "pending changes",
                             "metric": "",
+                            "query": "sum(kubeproxy_sync_proxy_rules_service_changes_pending)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "kube-proxy: pending service changes",
@@ -563,10 +709,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -575,7 +725,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -584,18 +734,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "Rate of endpoint changes that the proxy has seen over 5m",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -603,7 +766,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 6,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -624,9 +791,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -634,6 +804,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -643,16 +814,19 @@
                             "datasource": "$source",
                             "expr": "sum(rate(kubeproxy_sync_proxy_rules_endpoint_changes_total[5m]))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "rate",
                             "metric": "",
+                            "query": "sum(rate(kubeproxy_sync_proxy_rules_endpoint_changes_total[5m]))",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "kube-proxy: rate of endpoint changes",
@@ -662,10 +836,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -674,7 +852,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -683,18 +861,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": "Number of pending endpoint changes that have not yet been synced to the proxy.",
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -702,7 +893,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 7,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -723,9 +918,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -733,6 +931,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -742,16 +941,19 @@
                             "datasource": "$source",
                             "expr": "sum(kubeproxy_sync_proxy_rules_endpoint_changes_pending)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "pending changes",
                             "metric": "",
+                            "query": "sum(kubeproxy_sync_proxy_rules_endpoint_changes_pending)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "kube-proxy: pending endpoint changes",
@@ -761,10 +963,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -773,7 +979,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -782,10 +988,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -800,10 +1010,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -811,7 +1030,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 8,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -832,9 +1055,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -842,6 +1068,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -851,11 +1078,13 @@
                             "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.99\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -864,11 +1093,13 @@
                             "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.90\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -877,16 +1108,19 @@
                             "datasource": "$source",
                             "expr": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:in_cluster_network_latency:histogram_quantile{quantile=\"0.50\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Network latency",
@@ -896,10 +1130,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -908,7 +1146,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -917,18 +1155,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -936,7 +1187,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 9,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -957,9 +1212,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -967,6 +1225,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -976,11 +1235,13 @@
                             "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_ping_count{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "rate",
                             "metric": "",
+                            "query": "sum(rate(probes_in_cluster_network_latency_ping_count{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -989,16 +1250,19 @@
                             "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "error rate",
                             "metric": "",
+                            "query": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"ping-client\"}[1m])) by (job)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probes: ping rate",
@@ -1008,10 +1272,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -1020,7 +1288,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -1029,18 +1297,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -1048,7 +1329,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 10,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -1069,9 +1354,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -1079,6 +1367,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -1088,16 +1377,19 @@
                             "datasource": "$source",
                             "expr": "count(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "count(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probe: # running",
@@ -1107,10 +1399,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -1119,7 +1415,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -1128,18 +1424,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -1147,7 +1456,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 11,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -1168,9 +1481,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -1178,6 +1494,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -1187,11 +1504,13 @@
                             "datasource": "$source",
                             "expr": "min(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "min {{container}}",
                             "metric": "",
+                            "query": "min(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -1200,11 +1519,13 @@
                             "datasource": "$source",
                             "expr": "avg(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "avg {{container}}",
                             "metric": "",
+                            "query": "avg(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -1213,16 +1534,19 @@
                             "datasource": "$source",
                             "expr": "max(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "max {{container}}",
                             "metric": "",
+                            "query": "max(container_memory_usage_bytes{namespace=\"probes\", container=~\"ping-client|ping-server\"}) by (container)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probes: memory usage",
@@ -1232,10 +1556,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -1244,7 +1572,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -1253,10 +1581,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -1272,7 +1604,11 @@
         "list": [
             {
                 "allValue": null,
+                "auto": false,
+                "auto_count": 30,
+                "auto_min": "10s",
                 "current": {
+                    "selected": false,
                     "tags": [],
                     "text": null,
                     "value": null
@@ -1300,6 +1636,7 @@
         "to": "now"
     },
     "timepicker": {
+        "hidden": false,
         "refresh_intervals": [
             "5s",
             "10s",

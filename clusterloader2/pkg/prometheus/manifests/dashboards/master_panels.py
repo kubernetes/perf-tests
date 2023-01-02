@@ -80,53 +80,83 @@ apiserver:apiserver_request_latency_1m:histogram_quantile{
   subresource!~"exec|proxy",
 }[5d])""")
 
-PAF_PANELS = [
+APF_PANELS = [
     d.simple_graph(
         "Requests waiting time",
-        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket[1m]))  by (le, priority_level))",
-        legend="{{priority_level}}",
+        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket{instance=~\".*(${instance:pipe})\"}[1m]))  by (le, instance, priority_level))",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "Execution time",
-        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_execution_seconds_bucket[1m]))  by (le, priority_level))",
-        legend="{{priority_level}}",
+        "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_execution_seconds_bucket{instance=~\".*(${instance:pipe})\"}[1m]))  by (le, instance, priority_level))",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "Total execution time per second",
-        "sum(irate(apiserver_flowcontrol_request_execution_seconds_sum[1m]))  by (priority_level)",
-        legend="{{priority_level}}",
+        "sum(irate(apiserver_flowcontrol_request_execution_seconds_sum{instance=~\".*(${instance:pipe})\"}[1m]))  by (instance, priority_level)",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.SECONDS_FORMAT),
     ),
     d.simple_graph(
         "Requests rate by priority level",
-        "sum(irate(apiserver_flowcontrol_dispatched_requests_total[1m])) by (priority_level)",
-        legend="{{priority_level}}",
+        "sum(irate(apiserver_flowcontrol_dispatched_requests_total{instance=~\".*(${instance:pipe})\"}[1m])) by (instance, priority_level)",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "Concurrency in use",
-        "sum(apiserver_flowcontrol_request_concurrency_in_use) by (priority_level)",
-        legend="{{priority_level}}",
+        "sum(apiserver_flowcontrol_request_concurrency_in_use{instance=~\".*(${instance:pipe})\"}) by (instance, priority_level)",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "Current executing requests",
-        "sum(apiserver_flowcontrol_current_executing_requests) by (priority_level)",
-        legend="{{priority_level}}",
+        "sum(apiserver_flowcontrol_current_executing_requests{instance=~\".*(${instance:pipe})\"}) by (instance, priority_level)",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
         "Inqueue requests",
-        "sum(apiserver_flowcontrol_current_inqueue_requests) by (priority_level)",
-        legend="{{priority_level}}",
+        "sum(apiserver_flowcontrol_current_inqueue_requests{instance=~\".*(${instance:pipe})\"}) by (instance, priority_level)",
+        legend="{{instance}} {{priority_level}}",
         yAxes=g.single_y_axis(format=g.OPS_FORMAT),
     ),
     d.simple_graph(
-        "Concurrency limits",
-        "avg(apiserver_flowcontrol_request_concurrency_limit) by (priority_level)",
+        "Nominal number of execution seats",
+        "avg(apiserver_flowcontrol_nominal_limit_seats{instance=~\".*(${instance:pipe})\"}) by (priority_level)",
         legend="{{priority_level}}",
+    ),
+    d.simple_graph(
+        "Lower bound on number of execution seats",
+        "avg(apiserver_flowcontrol_lower_limit_seats{instance=~\".*(${instance:pipe})\"}) by (priority_level)",
+        legend="{{priority_level}}",
+    ),
+    d.simple_graph(
+        "Upper bound on number of execution seats",
+        "avg(apiserver_flowcontrol_upper_limit_seats{instance=~\".*(${instance:pipe})\"}) by (priority_level)",
+        legend="{{priority_level}}",
+    ),
+    d.simple_graph(
+        "Number of seats Priority Level could use divided by nominal seats (50th percentile)",
+        "histogram_quantile(0.5, rate(apiserver_flowcontrol_demand_seats_bucket{instance=~\".*(${instance:pipe})\"}[10s]))",
+        legend="{{instance}} {{priority_level}}",
+    ),
+    d.simple_graph(
+        "High watermark of demand seats over last adjustment period",
+        "apiserver_flowcontrol_demand_seats_high_watermark{instance=~\".*(${instance:pipe})\"}",
+        legend="{{instance}} {{priority_level}}",
+    ),
+    d.simple_graph(
+        "Smoothed seat demands",
+        "apiserver_flowcontrol_demand_seats_smoothed{instance=~\".*(${instance:pipe})\"}",
+        legend="{{instance}} {{priority_level}}",
+    ),
+    d.simple_graph(
+        "Current seat limit for each Priority Level",
+        "apiserver_flowcontrol_current_limit_seats{instance=~\".*(${instance:pipe})\"}",
+        legend="{{instance}} {{priority_level}}",
     ),
 ]
 

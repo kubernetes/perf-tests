@@ -20,7 +20,7 @@ from copy import deepcopy
 from grafanalib import core as g
 import defaults as d
 
-from master_panels import API_CALL_LATENCY_PANELS, QUANTILE_API_CALL_LATENCY_PANELS, PAF_PANELS, HEALTH_PANELS, ETCD_PANELS, APISERVER_PANELS, CONTROLLER_MANAGER_PANELS, VM_PANELS
+from master_panels import API_CALL_LATENCY_PANELS, QUANTILE_API_CALL_LATENCY_PANELS, APF_PANELS, HEALTH_PANELS, ETCD_PANELS, APISERVER_PANELS, CONTROLLER_MANAGER_PANELS, VM_PANELS
 
 
 def extended_copy(panels):
@@ -46,7 +46,7 @@ dashboard = d.Dashboard(
     rows=[
         d.Row(title="API call latency", panels=extended_copy(API_CALL_LATENCY_PANELS)),
         d.Row(title="API call latency aggregated with quantile", panels=extended_copy(QUANTILE_API_CALL_LATENCY_PANELS), collapse=True),
-        d.Row(title="P&F metrics", panels=extended_copy(PAF_PANELS), collapse=True),
+        d.Row(title="P&F metrics", panels=extended_copy(APF_PANELS), collapse=True),
         d.Row(title="Overall cluster health", panels=extended_copy(HEALTH_PANELS), collapse=True),
         d.Row(title="etcd", panels=extended_copy(ETCD_PANELS), collapse=True),
         d.Row(title="kube-apiserver", panels=extended_copy(APISERVER_PANELS), collapse=True),

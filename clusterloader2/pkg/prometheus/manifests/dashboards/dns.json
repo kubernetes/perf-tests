@@ -6,9 +6,11 @@
     "description": "",
     "editable": true,
     "gnetId": null,
+    "graphTooltip": 0,
     "hideControls": false,
     "id": null,
     "links": [],
+    "panels": [],
     "refresh": "10s",
     "rows": [
         {
@@ -19,10 +21,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -30,7 +41,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 1,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -51,9 +66,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -61,6 +79,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -70,11 +89,13 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -83,11 +104,13 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -96,16 +119,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}[24h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "In-cluster DNS latency SLI",
@@ -115,10 +141,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -127,7 +157,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -136,18 +166,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -155,7 +198,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 2,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -176,9 +223,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -186,6 +236,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -195,11 +246,13 @@
                             "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.99\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -208,11 +261,13 @@
                             "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.90\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -221,16 +276,19 @@
                             "datasource": "$source",
                             "expr": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "{{quantile}}",
                             "metric": "",
+                            "query": "probes:dns_lookup_latency:histogram_quantile{quantile=\"0.50\"}",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "DNS latency",
@@ -240,10 +298,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -252,7 +314,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -261,18 +323,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -280,7 +355,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 3,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -301,9 +380,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -311,6 +393,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -320,11 +403,13 @@
                             "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_dns_lookup_count{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "lookup rate",
                             "metric": "",
+                            "query": "sum(rate(probes_in_cluster_dns_lookup_count{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -333,16 +418,19 @@
                             "datasource": "$source",
                             "expr": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "error rate",
                             "metric": "",
+                            "query": "sum(rate(probes_in_cluster_network_latency_error{namespace=\"probes\", job=\"dns\"}[1m]))",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probe: lookup rate",
@@ -352,10 +440,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -364,7 +456,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -373,18 +465,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -392,7 +497,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 4,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -413,9 +522,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -423,6 +535,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -432,16 +545,19 @@
                             "datasource": "$source",
                             "expr": "count(container_memory_usage_bytes{namespace=\"probes\", container=\"dns\"}) by (container, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "count(container_memory_usage_bytes{namespace=\"probes\", container=\"dns\"}) by (container, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probe: # running",
@@ -451,10 +567,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -463,7 +583,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -472,18 +592,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -491,7 +624,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 5,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -512,9 +649,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -522,6 +662,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -531,11 +672,13 @@
                             "datasource": "$source",
                             "expr": "min(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "min {{job}}",
                             "metric": "",
+                            "query": "min(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -544,11 +687,13 @@
                             "datasource": "$source",
                             "expr": "avg(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "avg {{job}}",
                             "metric": "",
+                            "query": "avg(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -557,16 +702,19 @@
                             "datasource": "$source",
                             "expr": "max(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "max {{job}}",
                             "metric": "",
+                            "query": "max(process_resident_memory_bytes{namespace=\"probes\", job=\"dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "probe: memory usage",
@@ -576,10 +724,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -588,7 +740,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -597,10 +749,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -615,10 +771,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -626,7 +791,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 6,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -647,9 +816,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -657,6 +829,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -666,16 +839,19 @@
                             "datasource": "$source",
                             "expr": "count(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "5s",
                             "intervalFactor": 1,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "count(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Service: # running",
@@ -685,10 +861,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -697,7 +877,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -706,18 +886,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -725,7 +918,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 7,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -746,9 +943,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": "null",
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -756,6 +956,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -765,11 +966,13 @@
                             "datasource": "$source",
                             "expr": "min(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "min {{job}}",
                             "metric": "",
+                            "query": "min(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -778,11 +981,13 @@
                             "datasource": "$source",
                             "expr": "avg(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "avg {{job}}",
                             "metric": "",
+                            "query": "avg(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -791,16 +996,19 @@
                             "datasource": "$source",
                             "expr": "max(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "max {{job}}",
                             "metric": "",
+                            "query": "max(process_resident_memory_bytes{namespace=\"kube-system\", job=\"kube-dns\"}) by (job, namespace)",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Service: memory usage",
@@ -810,10 +1018,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -822,7 +1034,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -831,10 +1043,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -850,7 +1066,11 @@
         "list": [
             {
                 "allValue": null,
+                "auto": false,
+                "auto_count": 30,
+                "auto_min": "10s",
                 "current": {
+                    "selected": false,
                     "tags": [],
                     "text": null,
                     "value": null
@@ -878,6 +1098,7 @@
         "to": "now"
     },
     "timepicker": {
+        "hidden": false,
         "refresh_intervals": [
             "5s",
             "10s",

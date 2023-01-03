@@ -16,7 +16,7 @@
 
 from grafanalib import core as g
 import defaults as d
-from master_panels import API_CALL_LATENCY_PANELS, QUANTILE_API_CALL_LATENCY_PANELS, PAF_PANELS, HEALTH_PANELS, ETCD_PANELS, APISERVER_PANELS, CONTROLLER_MANAGER_PANELS, VM_PANELS
+from master_panels import API_CALL_LATENCY_PANELS, QUANTILE_API_CALL_LATENCY_PANELS, APF_PANELS, HEALTH_PANELS, ETCD_PANELS, APISERVER_PANELS, CONTROLLER_MANAGER_PANELS, VM_PANELS
 
 
 # The final dashboard must be named 'dashboard' so that grafanalib will find it.
@@ -26,7 +26,7 @@ dashboard = d.Dashboard(
     rows=[
         d.Row(title="API call latency", panels=API_CALL_LATENCY_PANELS),
         d.Row(title="API call latency aggregated with quantile", panels=QUANTILE_API_CALL_LATENCY_PANELS, collapse=True),
-        d.Row(title="P&F metrics", panels=PAF_PANELS, collapse=True),
+        d.Row(title="P&F metrics", panels=APF_PANELS, collapse=True),
         d.Row(title="Overall cluster health", panels=HEALTH_PANELS, collapse=True),
         d.Row(title="etcd", panels=ETCD_PANELS, collapse=True),
         d.Row(title="kube-apiserver", panels=APISERVER_PANELS, collapse=True),
@@ -70,6 +70,15 @@ dashboard = d.Dashboard(
                 dataSource="$source",
                 regex="(.*)s",
                 query="label_values(apiserver_request_duration_seconds_count, resource)",
+                multi=True,
+                includeAll=True,
+                refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,
+            ),
+            g.Template(
+                name="instance",
+                type="query",
+                dataSource="$source",
+                query="label_values(apiserver_request_duration_seconds_count, instance)",
                 multi=True,
                 includeAll=True,
                 refresh=g.REFRESH_ON_TIME_RANGE_CHANGE,

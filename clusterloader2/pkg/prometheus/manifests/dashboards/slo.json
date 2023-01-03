@@ -6,9 +6,11 @@
     "description": "",
     "editable": true,
     "gnetId": null,
+    "graphTooltip": 0,
     "hideControls": false,
     "id": null,
     "links": [],
+    "panels": [],
     "refresh": "10s",
     "rows": [
         {
@@ -19,10 +21,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -30,7 +41,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 1,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -51,9 +66,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -61,6 +79,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -70,11 +89,13 @@
                             "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "1",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -83,16 +104,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=resource, threshold=1s)",
@@ -102,10 +126,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -114,7 +142,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -123,18 +151,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -142,7 +183,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 2,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -163,9 +208,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -173,6 +221,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -182,11 +231,13 @@
                             "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "5",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -195,16 +246,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=namespace, threshold=5s)",
@@ -214,10 +268,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -226,7 +284,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -235,18 +293,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -254,7 +325,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 3,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -275,9 +350,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -285,6 +363,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -294,11 +373,13 @@
                             "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "30",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -307,16 +388,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=cluster, threshold=30s)",
@@ -326,10 +410,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -338,7 +426,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -347,18 +435,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -366,7 +467,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 4,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -387,9 +492,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -397,6 +505,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -406,11 +515,13 @@
                             "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "1",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -419,16 +530,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Mutating API call latency (threshold=1s)",
@@ -438,10 +552,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -450,7 +568,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -459,10 +577,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -477,10 +599,19 @@
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -488,7 +619,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 5,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -509,9 +644,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -519,6 +657,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -528,11 +667,13 @@
                             "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "1",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -541,16 +682,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"GET\", scope=~\"resource\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=resource, threshold=1s)",
@@ -560,10 +704,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -572,7 +720,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -581,18 +729,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -600,7 +761,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 6,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -621,9 +786,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -631,6 +799,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -640,11 +809,13 @@
                             "datasource": "$source",
                             "expr": "5",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "5",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -653,16 +824,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"namespace\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=namespace, threshold=5s)",
@@ -672,10 +846,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -684,7 +862,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -693,18 +871,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -712,7 +903,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 7,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -733,9 +928,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -743,6 +941,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -752,11 +951,13 @@
                             "datasource": "$source",
                             "expr": "30",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "30",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -765,16 +966,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"LIST\", scope=~\"cluster\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Read-only API call latency (scope=cluster, threshold=30s)",
@@ -784,10 +988,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -796,7 +1004,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -805,18 +1013,31 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 },
                 {
                     "aliasColors": {},
                     "bars": false,
+                    "cacheTimeout": null,
                     "datasource": "$source",
                     "description": null,
                     "editable": true,
                     "error": false,
+                    "fieldConfig": {
+                        "defaults": {
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": []
+                            }
+                        }
+                    },
                     "fill": 1,
                     "grid": {
                         "threshold1": null,
@@ -824,7 +1045,11 @@
                         "threshold2": null,
                         "threshold2Color": "rgba(234, 112, 112, 0.22)"
                     },
+                    "gridPos": null,
+                    "height": null,
+                    "hideTimeOverride": false,
                     "id": 8,
+                    "interval": null,
                     "isNew": true,
                     "legend": {
                         "alignAsTable": false,
@@ -845,9 +1070,12 @@
                     "lines": true,
                     "linewidth": 2,
                     "links": [],
+                    "maxDataPoints": 100,
+                    "maxPerRow": null,
                     "minSpan": null,
                     "nullPointMode": null,
                     "options": {
+                        "alertThreshold": true,
                         "dataLinks": []
                     },
                     "percentage": false,
@@ -855,6 +1083,7 @@
                     "points": false,
                     "renderer": "flot",
                     "repeat": null,
+                    "repeatDirection": null,
                     "seriesOverrides": [],
                     "span": 12,
                     "stack": false,
@@ -864,11 +1093,13 @@
                             "datasource": "$source",
                             "expr": "1",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "threshold",
                             "metric": "",
+                            "query": "1",
                             "refId": "",
                             "step": 10,
                             "target": ""
@@ -877,16 +1108,19 @@
                             "datasource": "$source",
                             "expr": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "format": "time_series",
+                            "hide": false,
                             "instant": false,
                             "interval": "",
                             "intervalFactor": 2,
                             "legendFormat": "",
                             "metric": "",
+                            "query": "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{quantile=\"0.99\", verb=~\"CREATE|DELETE|PATCH|POST|PUT\", scope=~\"namespace|cluster\"}[12h])",
                             "refId": "",
                             "step": 10,
                             "target": ""
                         }
                     ],
+                    "thresholds": [],
                     "timeFrom": null,
                     "timeShift": null,
                     "title": "Mutating API call latency (threshold=1s)",
@@ -896,10 +1130,14 @@
                         "sort": 2,
                         "value_type": "cumulative"
                     },
+                    "transformations": [],
                     "transparent": false,
                     "type": "graph",
                     "xaxis": {
-                        "show": true
+                        "mode": "time",
+                        "name": null,
+                        "show": true,
+                        "values": []
                     },
                     "yaxes": [
                         {
@@ -908,7 +1146,7 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         },
                         {
@@ -917,10 +1155,14 @@
                             "label": null,
                             "logBase": 1,
                             "max": null,
-                            "min": 0,
+                            "min": null,
                             "show": true
                         }
-                    ]
+                    ],
+                    "yaxis": {
+                        "align": false,
+                        "alignLevel": 0
+                    }
                 }
             ],
             "repeat": null,
@@ -936,7 +1178,11 @@
         "list": [
             {
                 "allValue": null,
+                "auto": false,
+                "auto_count": 30,
+                "auto_min": "10s",
                 "current": {
+                    "selected": false,
                     "tags": [],
                     "text": null,
                     "value": null
@@ -964,6 +1210,7 @@
         "to": "now"
     },
     "timepicker": {
+        "hidden": false,
         "refresh_intervals": [
             "5s",
             "10s",

@@ -39,6 +39,7 @@ const (
 	cpuProfileName    = "CPUProfile"
 	memoryProfileName = "MemoryProfile"
 	blockProfileName  = "BlockProfile"
+	mutexProfileName  = "MutexProfile"
 )
 
 func init() {
@@ -50,6 +51,9 @@ func init() {
 	}
 	if err := measurement.Register(blockProfileName, createProfileMeasurementFactory(blockProfileName, "block")); err != nil {
 		klog.Fatalf("Cannot register %s: %v", blockProfileName, err)
+	}
+	if err := measurement.Register(mutexProfileName, createProfileMeasurementFactory(mutexProfileName, "mutex")); err != nil {
+		klog.Fatalf("Cannot register %s: %v", mutexProfileName, err)
 	}
 }
 

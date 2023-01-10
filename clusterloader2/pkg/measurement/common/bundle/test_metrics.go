@@ -60,6 +60,9 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.etcdBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
 		klog.Errorf("%v: etcdBlockProfile creation error: %v", metrics, err)
 	}
+	if metrics.etcdMutexProfile, err = measurement.CreateMeasurement("MutexProfile"); err != nil {
+		klog.Errorf("%v: etcdMutexProfile creation error: %v", metrics, err)
+	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%v: apiserverCPUProfile creation error: %v", metrics, err)
 	}
@@ -104,6 +107,7 @@ type testMetrics struct {
 	etcdCPUProfile                 measurement.Measurement
 	etcdMemoryProfile              measurement.Measurement
 	etcdBlockProfile               measurement.Measurement
+	etcdMutexProfile               measurement.Measurement
 	apiserverCPUProfile            measurement.Measurement
 	apiserverMemoryProfile         measurement.Measurement
 	apiserverBlockProfile          measurement.Measurement
@@ -183,6 +187,8 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdBlockProfile, etcdStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
+		summary, err = execute(t.etcdMutexProfile, etcdStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
@@ -220,6 +226,8 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdBlockProfile, etcdGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
+		summary, err = execute(t.etcdMutexProfile, etcdGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdMutexProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
@@ -262,6 +270,7 @@ func (t *testMetrics) Dispose() {
 	t.etcdCPUProfile.Dispose()
 	t.etcdMemoryProfile.Dispose()
 	t.etcdBlockProfile.Dispose()
+	t.etcdMutexProfile.Dispose()
 	t.apiserverCPUProfile.Dispose()
 	t.apiserverMemoryProfile.Dispose()
 	t.apiserverBlockProfile.Dispose()

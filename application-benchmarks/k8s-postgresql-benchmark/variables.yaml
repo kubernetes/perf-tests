@@ -1,0 +1,332 @@
+#Is required: 	Yes
+#Type: 	string
+#The unique name of a Kubegres resource in Kubernetes. It defines the unique name of a PostgreSql cluster, which is "mypostgres" for this example.
+#Kubegres operator allows creating as many clusters of Postgres as a given infrastructure can handle as long as each cluster's name is unique.
+kubegres_name: postgres-cluster
+
+#Is required: 	No
+#Default value: 	default
+#Type: 	string
+#The namespace where the Kubegres resource will be created and a PostgreSql cluster will be deployed.
+kubegres_namespace: postgres-benchmark
+
+#Is required: 	Yes
+#Type: 	string
+#The secret which the Kubegres resource will be used.
+kubegres_secret_name: psql-secret
+
+#Is required: 	Yes
+#Type: 	string
+#The super user password
+kubegres_super_user_password: postgresSuperUserPsw
+
+#Is required: 	Yes
+#Type: 	string
+#The replica user password.
+kubegres_replica_user_password: postgresReplicaPsw
+
+#Is required: 	No
+#Type: 	map[string]string
+#The annotations to pass to the created Pods and StatefulSets. We can set as many annotations as needed.
+#As an example, in the YAML above we set the annotations:
+kubegres_annotations:
+#- imageregistry: "https://hub.docker.com/
+#- nginx.ingress.kubernetes.io/affinity: cookie
+
+#Is required: 	Yes
+#Type: 	int32
+#It defines the number of PostgreSql instances (or Pods) to deploy in a cluster.
+#For example, if set to '3', Kubegres deploys 1 Primary Pod and 2 Replica Pods. If set to '1', it will only create 1 Primary Pod without creating any Replica Pods.
+kubegres_replicas: 3
+
+#Is required: 	Yes
+#Type: 	string
+#The name of the Postgres Docker image. Kubegres operator does not ship with a custom Docker image. It expects either a Postgres Docker official image (version 12.4 or higher) or any compatible image.
+kubegres_image: postgres:14.1
+
+#Is required: 	No
+#Default value: 	5432
+#Type: 	int32
+#The port exposed by the Postgres docker container.
+kubegres_port: #5432
+
+#Is required: 	No
+#Type: 	Array of LocalObjectReference
+#It allows pulling custom Postgres images from a private repo. The images have to be compatible with a Postgres Docker official image (version 12.4 or higher).
+kubegres_image_pull_secret:
+#- name: my-private-docker-repo-secret
+
+#Is required: 	Yes
+#Type: 	string
+#The size of each Postgres Pod's database in a cluster. We use "Mi" for Megabyte and "Gi" for Gigabyte.
+kubegres_database_size: 1Gi
+
+#Is required: 	No
+#Default value: 	The name of the default Storage-Class in the Kubernetes cluster
+#Type: 	string
+#It allows setting the Storage-Class' name which will be used to store the PostgreSql database.
+#If it is not set, Kubegres operator uses the default Storage-Class available in a Kubernetes cluster.
+#Once the Storage-Class is assigned, Kubernetes automatically provisions a PV and a PVC for each Postgres Pod using the Storage-Class.
+kubegres_storage_class_name: #standard
+
+#Is required: 	No
+#Default value: 	/var/lib/postgresql/data
+#Type: 	string
+#It defines the path in the Postgres container where the database folder 'pgdata' is mounted. The mount will be physically located in the volume (PVC) backed by a Storage-Class (as defined in the above field 'database.storageClassName').
+kubegres_volume_mount: #/var/lib/postgresql/data
+
+#Is required: 	No
+#Default value: 	base-kubepostgres-config
+#Type: 	string
+#It allows setting the name of a ConfigMap which contains the configs files and their contents required by Kubegres.
+kubegres_custom_config: #base-kubepostgres-config
+
+#Is required: 	No
+#Default value: 	false
+#Type: 	bool
+#
+#It disables the automatic failover feature for a cluster of PostgreSql.
+#If it is set to true and if a Primary or Replica PostgreSql instance is not available then Kubegres will not attempt to failover and fix the cluster.
+#This option can be useful when manually maintaining a node (e.g. restarting it, patching it, ...) and when we do not want Kubegres to automatically failover a Primary or Replica instances during a maintenance.
+kubegres_failover_is_disabled: #false
+
+#Is required: 	No
+#Type: 	string
+#It allows to manually promote a Replica PostgreSql Pod as a Primary Pod.
+#It expects the name of a Replica Pod that we would like to promote as a Primary.
+#This option is independent of the value of the above field "failover.isDisabled". It is always possible to manually promote a Pod, whether "failover.isDisabled" is set to true or to false.
+kubegres_failover_promote_pod: #mypostgres-2-0
+
+#Is required: 	No
+#Type: 	string
+#It expects a Cron format defining how often a back-up should happen.
+kubegres_backup_schedule: #"* */1 * * *"
+
+#Is required: 	No
+#Type: 	string
+#The Persistence-Volume-Claim (PVC) defining where the back-up data will be stored. A volume backed by a PVC is mounted on the path defined by "spec.backup.volumeMount" (see the next field).
+kubegres_backup_pvc_name: #my-backup-pvc
+
+#Is required: 	No
+#Type: 	string
+#The location where the backup is stored in the docker image. A volume is mounted on that path using the PVC name defined by "spec.database.pvcName" (see the previous field).
+kubegres_backup_volume_mount: #/var/lib/backup
+
+#Is required: 	No
+#Type: 	PodSecurityContext
+#A security context defines privilege and access control settings for a Pod or Container.
+kubegres_security_context:
+#    runAsNonRoot: true
+#    runAsUser: 999
+#    fsGroup: 999
+
+#Is required: 	No
+#Type: 	ResourceRequirements
+#It allows to define the resources requests/limits of CPU and Memory for the Postgres Pods.
+kubegres_resources:
+#  limits:
+#    memory: "4Gi"
+#    cpu: "1"
+#  requests:
+#    memory: "2Gi"
+#    cpu: "1"
+
+#Is required: 	No
+#Type: 	Affinity/Toleration
+#It allows setting custom Pod/Node affinity and Toleration policy.
+kubegres_scheduler:
+#    affinity:
+#        podAntiAffinity:
+#            preferredDuringSchedulingIgnoredDuringExecution:
+#                - weight: 100
+#                  podAffinityTerm:
+#                      labelSelector:
+#                          matchExpressions:
+#                              - key: app
+#                                operator: In
+#                                values:
+#                                    - postgres-name
+#                      topologyKey: "kubernetes.io/hostname"
+#    tolerations:
+#        - key: group
+#          operator: Equal
+#          value: critical
+#Is required: 	No
+#Type: 	Arrays of Volume
+#It allows declaring one or many volumes which can be mounted in the Postgres container(s).
+kubegres_volumes:
+#    volumes:
+#        - name: dshm
+#          emptyDir:
+#              medium: Memory
+#              sizeLimit: "600Mi"
+#
+#    volumeMounts:
+#        - mountPath: /dev/shm
+#          name: dshm
+#         - mountPath: /dev/anything
+#           name: anyMount
+#
+#    volumeClaimTemplates:
+#        name: anyMount
+#        spec:
+#            accessModes: [ "ReadWriteOnce" ]
+#            storageClassName: standard
+#            resources:
+#                requests:
+#                    storage: 1Gi
+
+#Is required: 	No
+#Type: 	Probe
+#Kubernetes uses liveness probes to know when to restart a container.
+#More details about LivenessProbe.
+kubegres_probe:
+#    livenessProbe:
+#        exec:
+#            command:
+#              - sh
+#              - -c
+#              - exec pg_isready -U postgres -h $POD_IP
+#        failureThreshold: 10
+#        initialDelaySeconds: 60
+#        periodSeconds: 20
+#        successThreshold: 1
+#        timeoutSeconds: 15
+#
+#    readinessProbe:
+#        exec:
+#            command:
+#                - sh
+#              - -c
+#              - exec pg_isready -U postgres -h $POD_IP
+#        failureThreshold: 3
+#        initialDelaySeconds: 5
+#        periodSeconds: 5
+#        successThreshold: 1
+#        timeoutSeconds: 3
+
+#Is required: 	Yes
+#Type: 	string
+#The unique name of a Kubegres benchmark resource in Kubernetes.
+kubegres_benchmark_name: pgbench
+
+
+#Is required: 	Yes
+#Type: 	string
+#Perform just a selected set of the normal initialization steps. init_steps specifies the initialization steps to be performed, using one character per step. Each step is invoked in the specified order. The default is dtgvp. The available steps are:
+#    d (Drop)
+#        Drop any existing pgbench tables.
+#    t (create Tables)
+#        Create the tables used by the standard pgbench scenario, namely pgbench_accounts, pgbench_branches, pgbench_history, and pgbench_tellers.
+#    g or G (Generate data, client-side or server-side)
+#        Generate data and load it into the standard tables, replacing any data already present.
+#        With g (client-side data generation), data is generated in pgbench client and then sent to the server. This uses the client/server bandwidth extensively through a COPY. pgbench uses the FREEZE option with version 14 or later of PostgreSQL to speed up subsequent VACUUM, unless partitions are enabled. Using g causes logging to print one message every 100,000 rows while generating data for the pgbench_accounts table.
+#        With G (server-side data generation), only small queries are sent from the pgbench client and then data is actually generated in the server. No significant bandwidth is required for this variant, but the server will do more work. Using G causes logging not to print any progress message while generating data.
+#        The default initialization behavior uses client-side data generation (equivalent to g).
+#    v (Vacuum)
+#        Invoke VACUUM on the standard tables.
+#    p (create Primary keys)
+#        Create primary key indexes on the standard tables.
+#    f (create Foreign keys)
+#        Create foreign key constraints between the standard tables. (Note that this step is not performed by default.)
+kubegres_benchmark_init_steps: dtgvp
+
+#Is required: 	Yes
+#Type: 	int32
+#Create the pgbench_accounts, pgbench_tellers and pgbench_branches tables with the given fillfactor. Default is 100.
+kubegres_benchmark_fill_factor: 100
+
+#Is required: 	No
+#Type: 	string
+#--no-vacuum
+#    Perform no vacuuming during initialization. (This option suppresses the v initialization step, even if it was specified in -I.)
+kubegres_benchmark_no_vacuum: '' #--no-vacuum
+
+#Is required: 	No
+#Type: 	string
+#--quiet
+#    Switch logging to quiet mode, producing only one progress message per 5 seconds. The default logging prints one message each 100,000 rows, which often outputs many lines per second (especially on good hardware).
+#    This setting has no effect if G is specified in -I.
+kubegres_benchmark_quiet: '' #--quiet
+
+#Is required: 	Yes
+#Type: 	int32
+#--scale=scale_factor
+#    Multiply the number of rows generated by the scale factor. For example, -s 100 will create 10,000,000 rows in the pgbench_accounts table. Default is 1. When the scale is 20,000 or larger, the columns used to hold account identifiers (aid columns) will switch to using larger integers (bigint), in order to be big enough to hold the range of account identifiers.
+kubegres_benchmark_scale_factor: 1
+
+#--builtin=scriptname[@weight]
+#Add the specified built-in script to the list of scripts to be executed. Available built-in scripts are: tpcb-like, simple-update and select-only. Unambiguous prefixes of built-in names are accepted. With the special name list, show the list of built-in scripts and exit immediately.##Optionally, write an integer weight after @ to adjust the probability of selecting this script versus other ones. The default weight is 1. See below for details.
+kubegres_benchmark_script: tpcb-like
+
+#--client=clients
+#Number of clients simulated, that is, number of concurrent database sessions. Default is 1.
+kubegres_benchmark_clients: 1
+
+#--connect
+#Establish a new connection for each transaction, rather than doing it just once per client session. This is useful to measure the connection overhead.
+kubegres_benchmark_connect: '' #--connect
+
+#--debug
+#Print debugging output.
+kubegres_benchmark_debug: '' #--debug
+
+#--define=varname=value
+#Define a variable for use by a custom script (see below). Multiple -D options are allowed.
+kubegres_benchmark_defines: '' #--define=varname=value
+
+#--jobs=threads
+#Number of worker threads within pgbench. Using more than one thread can be helpful on multi-CPU machines. Clients are distributed as evenly as possible among available threads. Default is 1.
+kubegres_benchmark_jobs: 1
+
+#--log
+#Write information about each transaction to a log file. See below for details.
+kubegres_benchmark_log: '' #--log
+
+#--latency-limit=limit
+#Transactions that last more than limit milliseconds are counted and reported separately, as late.
+#When throttling is used (--rate=...), transactions that lag behind schedule by more than limit ms, and thus have no hope of meeting the latency limit, are not sent to the server at all. They are counted and reported separately as skipped.
+#When the --max-tries option is used, a transaction which fails due to a serialization anomaly or from a deadlock will not be retried if the total time of all its tries is greater than limit ms. To limit only the time of tries and not their number, use --max-tries=0. By default, the option --max-tries is set to 1 and transactions with serialization/deadlock errors are not retried. See Failures and Serialization/Deadlock Retries for more information about retrying such transactions.
+kubegres_benchmark_latency_limit: '' #--latency-limit=limit
+
+#--protocol=querymode
+#Protocol to use for submitting queries to the server:
+#simple: use simple query protocol.
+#extended: use extended query protocol.
+#prepared: use extended query protocol with prepared statements.
+#In the prepared mode, pgbench reuses the parse analysis result starting from the second query iteration, so pgbench runs faster than in other modes.
+#The default is simple query protocol. (See Chapter 55 for more information.)
+kubegres_benchmark_protocol: simple
+
+#--progress=sec
+#Show progress report every sec seconds. The report includes the time since the beginning of the run, the TPS since the last report, and the transaction latency average, standard deviation, and the number of failed transactions since the last report. Under throttling (-R), the latency is computed with respect to the transaction scheduled start time, not the actual transaction beginning time, thus it also includes the average schedule lag time. When --max-tries is used to enable transaction retries after serialization/deadlock errors, the report includes the number of retried transactions and the sum of all retries.
+kubegres_benchmark_progress: '' #--progress=sec
+
+#--report-per-command
+#Report the following statistics for each command after the benchmark finishes: the average per-statement latency (execution time from the perspective of the client), the number of failures, and the number of retries after serialization or deadlock errors in this command. The report displays retry statistics only if the --max-tries option is not equal to 1.
+kubegres_benchmark_report_per_command: '' #--report-per-command
+
+#-R rate
+#--rate=rate
+#Execute transactions targeting the specified rate instead of running as fast as possible (the default). The rate is given in transactions per second. If the targeted rate is above the maximum possible rate, the rate limit won't impact the results.
+#The rate is targeted by starting transactions along a Poisson-distributed schedule time line. The expected start time schedule moves forward based on when the client first started, not when the previous transaction ended. That approach means that when transactions go past their original scheduled end time, it is possible for later ones to catch up again.
+#When throttling is active, the transaction latency reported at the end of the run is calculated from the scheduled start times, so it includes the time each transaction had to wait for the previous transaction to finish. The wait time is called the schedule lag time, and its average and maximum are also reported separately. The transaction latency with respect to the actual transaction start time, i.e., the time spent executing the transaction in the database, can be computed by subtracting the schedule lag time from the reported latency.
+#If --latency-limit is used together with --rate, a transaction can lag behind so much that it is already over the latency limit when the previous transaction ends, because the latency is calculated from the scheduled start time. Such transactions are not sent to the server, but are skipped altogether and counted separately.
+#A high schedule lag time is an indication that the system cannot process transactions at the specified rate, with the chosen number of clients and threads. When the average transaction execution time is longer than the scheduled interval between each transaction, each successive transaction will fall further behind, and the schedule lag time will keep increasing the longer the test run is. When that happens, you will have to reduce the specified transaction rate.
+kubegres_benchmark_rate: '' #--rate=rate
+
+#--transactions=transactions
+#Number of transactions each client runs. Default is 10.
+kubegres_benchmark_transactions: 10000
+
+#--time=seconds
+#Run the test for this many seconds, rather than a fixed number of transactions per client. -t and -T are mutually exclusive.
+kubegres_benchmark_time: '' #--time=secs
+
+#--vacuum-all
+#Vacuum all four standard tables before running the test. With neither -n nor -v, pgbench will vacuum the pgbench_tellers and pgbench_branches tables, and will truncate pgbench_history.
+kubegres_benchmark_vacuum_all: '' #--vacuum-all
+
+#--max-tries=number_of_tries
+#Enable retries for transactions with serialization/deadlock errors and set the maximum number of these tries. This option can be combined with the --latency-limit option which limits the total time of all transaction tries; moreover, you cannot use an unlimited number of tries (--max-tries=0) without --latency-limit or --time. The default value is 1 and transactions with serialization/deadlock errors are not retried. See Failures and Serialization/Deadlock Retries for more information about retrying such transactions.
+kubegres_benchmark_max_tries: 1

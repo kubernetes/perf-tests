@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: {{ kubegres_namespace }}
+    labels:
+        name: {{ kubegres_namespace }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+    name: {{ kubegres_secret_name }}
+    namespace: {{ kubegres_namespace }}
+type: Opaque
+stringData:
+    superUserPassword: postgresSuperUserPsw
+    replicationUserPassword: postgresReplicaPsw
+---
+apiVersion: kubegres.reactive-tech.io/v1
+kind: Kubegres
+metadata:
+  name: {{ kubegres_name }}
+  namespace: {{ kubegres_namespace }}
+  annotations: {{ kubegres_annotations }}
+spec:
+   replicas: {{ kubegres_replicas }}
+   image: {{ kubegres_image }}
+   port: {{ kubegres_port }}
+   imagePullSecrets:
+      - name: {{ kubegres_image_pull_secret }}
+   database:
+      size: {{ kubegres_database_size }}
+      storageClassName: {{ kubegres_storage_class_name }}
+      volumeMount: {{ kubegres_volume_mount }}
+   customConfig: {{ kubegres_custom_config }}
+   failover:
+      isDisabled: {{ kubegres_failover_is_disabled }}
+      promotePod: {{ kubegres_failover_promote_pod }}
+   backup: {{ kubegres_backup_volume_mount }}
+   securityContext: {{ kubegres_security_context }}
+   resources: {{ kubegres_resources }}
+   scheduler: {{ kubegres_scheduler }}
+   volume: {{ kubegres_volumes }}
+   probe: {{ kubegres_probe }}
+   env:
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+           secretKeyRef:
+              name: {{ kubegres_secret_name }}
+              key: superUserPassword
+
+      - name: POSTGRES_REPLICATION_PASSWORD
+        valueFrom:
+           secretKeyRef:
+              name: {{ kubegres_secret_name }}
+              key: replicationUserPassword
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ kubegres_benchmark_name }}
+  namespace: {{ kubegres_namespace }}
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{ kubegres_benchmark_name }}
+          image: postgres:latest
+          command:
+            - /bin/bash
+            - -c
+            - echo -e "\n ***Init*** \n" && export PGPASSWORD='{{ kubegres_super_user_password }}'; export PGDATABASE='postgres';  pgbench -h {{ kubegres_name }} -U  postgres  -i --init-steps={{ kubegres_benchmark_init_steps }} --fillfactor={{ kubegres_benchmark_fill_factor }} --scale={{ kubegres_benchmark_scale_factor }}  {{ kubegres_benchmark_no_vacuum }} {{ kubegres_benchmark_quiet }} && echo -e "\n ***Master Transation benchmark*** \n" &&   export PGPASSWORD='{{ kubegres_super_user_password }}'; export PGDATABASE='postgres';  pgbench -h {{ kubegres_name }} -U  postgres  --builtin={{ kubegres_benchmark_script }} --client={{ kubegres_benchmark_clients }} {{ kubegres_benchmark_connect }} {{ kubegres_benchmark_debug }} {{ kubegres_benchmark_defines }}  --jobs={{ kubegres_benchmark_jobs }} {{ kubegres_benchmark_log }} {{ kubegres_benchmark_latency_limit }} --protocol={{ kubegres_benchmark_protocol }}  {{ kubegres_benchmark_progress }} {{ kubegres_benchmark_report_per_command }} {{ kubegres_benchmark_rate }} --transactions={{ kubegres_benchmark_transactions }}  {{ kubegres_benchmark_time }} {{ kubegres_benchmark_vacuum_all }}  && echo -e "\n ***Replica readonly benchmark*** \n" &&   export PGPASSWORD='{{ kubegres_super_user_password }}'; export PGDATABASE='postgres';  pgbench -h {{ kubegres_name }}-replica -U  postgres  --builtin=select-only --client={{ kubegres_benchmark_clients }} {{ kubegres_benchmark_connect }} {{ kubegres_benchmark_debug }} {{ kubegres_benchmark_defines }}  --jobs={{ kubegres_benchmark_jobs }} {{ kubegres_benchmark_log }} {{ kubegres_benchmark_latency_limit }} --protocol={{ kubegres_benchmark_protocol }}  {{ kubegres_benchmark_progress }} {{ kubegres_benchmark_report_per_command }} {{ kubegres_benchmark_rate }} --transactions={{ kubegres_benchmark_transactions }}  {{ kubegres_benchmark_time }} --no-vacuum
+      restartPolicy: Never
+  backoffLimit: 100

@@ -31,7 +31,7 @@ COPY go.mod go.mod
 
 RUN go build -o nptests
 
-FROM debian:jessie
+FROM debian:bullseye
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 MAINTAINER Girish Kalele <gkalele@google.com>
@@ -54,7 +54,7 @@ RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && m
 
 # Download and build netperf from sources
 RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
-RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make && make install
+RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make CFLAGS=-fcommon && make install
 
 COPY --from=builder /workspace/nptests /usr/bin/
 

@@ -73,16 +73,21 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 	for {
 		select {
 		case <-ctx.Done():
-			desiredPodCount := options.DesiredPodCount()
 			pods := ComputePodsStatus(oldPods)
-			klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
-			klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
-			klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
-			// In case of scaling down we expect unhealth pods to be in TERMINATING state
-			// If we end up with more than expected pods and they are all in RunningAndReady state
-			// we won't report them to the user
-			return pods.NotRunningAndReady(), fmt.Errorf("timeout while waiting for %d pods to be running in %s - summary of pods : %s",
-				desiredPodCount, ps.String(), oldPodsStatus.String())
+			if ctx.Err() == context.DeadlineExceeded {
+				desiredPodCount := options.DesiredPodCount()
+
+				klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
+				klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
+				klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
+				// In case of scaling down we expect unhealth pods to be in TERMINATING state
+				// If we end up with more than expected pods and they are all in RunningAndReady state
+				// we won't report them to the user
+				return pods.NotRunningAndReady(), fmt.Errorf("got %w while waiting for %d pods to be running in %s - summary of pods : %s", ctx.Err(),
+					desiredPodCount, ps.String(), oldPodsStatus.String())
+			}
+			return pods.NotRunningAndReady(), ctx.Err()
+
 		case <-time.After(options.WaitForPodsInterval):
 			desiredPodCount := options.DesiredPodCount()
 

@@ -650,7 +650,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 			o.err = fmt.Errorf("%s: %v", key, err)
 			o.failedPods = failedPods
 
-			hasTimedOut := ctx.Err() != nil
+			hasTimedOut := ctx.Err() == context.DeadlineExceeded
 			if hasTimedOut {
 				if isDeleted {
 					o.status = deleteTimeout

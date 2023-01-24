@@ -57,6 +57,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"Mod":              mod,
 		"MultiplyFloat":    multiplyFloat,
 		"MultiplyInt":      multiplyInt,
+		"RandData":         randData,
 		"RandInt":          randInt,
 		"RandIntRange":     randIntRange,
 		"Seq":              seq,
@@ -99,6 +100,17 @@ func toFloat64(val interface{}) float64 {
 		}
 	}
 	panic(fmt.Sprintf("cannot cast %v to float64", val))
+}
+
+// randData returns pseudo-random string of i length.
+func randData(i interface{}) string {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	typedI := int(toFloat64(i))
+	b := make([]byte, typedI)
+	for i := range b {
+		b[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+	return string(b)
 }
 
 // randInt returns pseudo-random int in [0, i].

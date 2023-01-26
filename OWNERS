@@ -3,10 +3,11 @@ approvers:
 - marseel
 - mborsz
 - shyamjvs
+- tosi3k
 - wojtek-t
 emeritus_approvers:
 - mm4tt
 - gmarek
 reviewers:
 - sig-scalability-reviewers
-- tosi3k
+- jprzychodzen

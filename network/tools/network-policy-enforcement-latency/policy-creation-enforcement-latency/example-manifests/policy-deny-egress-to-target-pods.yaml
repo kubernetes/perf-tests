@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-egress-to-target
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      test: netpol-test
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          # When deployed as a first policy, it will only allow traffic to the
+          # specified label set {test: deny}, effectively blocking all other
+          # egress connections.
+          test: deny
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: test-policy

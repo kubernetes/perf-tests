@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netpol-enforcement-latency
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: netpol-enforcement-latency
+  template:
+    metadata:
+      labels:
+        name: netpol-enforcement-latency
+        test: netpol-test
+    spec:
+      containers:
+      - name: netpol-enforcement-latency
+        ports:
+        - containerPort: 9160
+          name: npdelaymetrics
+          protocol: TCP
+        imagePullPolicy: Always
+        image: gcr.io/k8s-staging-perf-tests/network-policy-enforcement-latency/policy-creation-enforcement-latency:v0.0.1
+        command:
+        - sh
+        - -c
+        - ./policy-creation-enforcement-latency
+          -HostNamespace="default"
+          -TargetLabelSelector="target=test-policy"
+          -TargetNamespace="test-policy"
+          -TargetPort=80
+          -MaxTargets=20
+          -MetricsPort=9160
+          -AllowPolicyName=allow-egress-to-target
+      serviceAccountName: netpol-enforcement-latency

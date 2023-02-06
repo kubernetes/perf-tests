@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-target
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      test: netpol-test
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          target: test-policy
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: test-policy

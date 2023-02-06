@@ -1,0 +1,52 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: pod-creation-reachability-latency
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-creation-reachability-latency
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-creation-reachability-latency
+subjects:
+- kind: ServiceAccount
+  name: pod-creation-reachability-latency
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: pod-creation-reachability-latency
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-apiserver
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      test: netpol-test
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    - port: 80
+      protocol: TCP
+    to:
+    - ipBlock:
+        # Use "kubectl get endpoints --namespace default kubernetes" to get the IP address of kube-apiserver.
+        cidr: {{.kubeAPIServerIP}}/32

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: target-dep
+  namespace: test-policy
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      name: target-dep
+  template:
+    metadata:
+      labels:
+        name: target-dep
+        target: test-policy
+    spec:
+      containers:
+      - image: nginx
+        name: nginx-server
+        ports:
+        - containerPort: 80

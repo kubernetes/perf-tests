@@ -25,7 +25,7 @@ spec:
       containers:
       - name: {{.Name}}
         # TODO(#799): We should test the "run-to-completion" workflow and hence don't use pause pods.
-        image: k8s.gcr.io/pause:3.1
+        image: registry.k8s.io/pause:3.1
         resources:
           # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
           # For now we're setting it to 0.5%.

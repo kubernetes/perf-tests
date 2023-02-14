@@ -73,7 +73,7 @@
 {{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "3600s"}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
-{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "k8s.gcr.io/pause:3.1"}}
+{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.1"}}
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
 name: load

@@ -31,7 +31,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	"k8s.io/perf-tests/network/tools/network-policy-enforcement-latency/pkg/metrics"
 )
 
 const (
@@ -126,14 +125,11 @@ func CreateBaseTestClientConfig(stopChan chan os.Signal) (*BaseTestClientConfig,
 		klog.Infof("--%s=%s\n", f.Name, f.Value)
 	})
 
-	metricsServer := metrics.StartMetricsServer(fmt.Sprintf(":%d", hostConfig.MetricsPort))
 	config := &BaseTestClientConfig{
 		HostConfig:   hostConfig,
 		TargetConfig: targetConfig,
-
-		MainStopChan:  stopChan,
-		MetricsServer: metricsServer,
-		K8sClient:     k8sClient,
+		MainStopChan: stopChan,
+		K8sClient:    k8sClient,
 	}
 
 	return config, nil
@@ -174,6 +170,7 @@ func VerifyTargetConfig(targetConfig *TargetConfig) error {
 
 // ShutDownMetricsServer stops the specified metrics server.
 func ShutDownMetricsServer(ctx context.Context, metricsServer *http.Server) {
+	klog.Info("Shutting down metrics server")
 	if err := metricsServer.Shutdown(ctx); err != nil {
 		klog.Errorf("Metrics server shutdown failed, error: %v", err)
 	}
@@ -288,6 +285,7 @@ func EnterIdleState(stopChan chan os.Signal) {
 	klog.Info("Going into idle state")
 	select {
 	case <-stopChan:
+		klog.Info("Exiting idle state")
 		return
 	}
 }

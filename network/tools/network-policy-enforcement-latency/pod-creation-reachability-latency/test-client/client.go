@@ -71,6 +71,10 @@ func NewTestClient(stopChan chan os.Signal) (*TestClient, error) {
 // Run verifies the test client config, starts the metrics server, and runs the
 // network policy enforcement latency test based on the config.
 func (c *TestClient) Run() {
+	c.MetricsServer = metrics.StartMetricsServer(fmt.Sprintf(":%d", c.HostConfig.MetricsPort))
+	metrics.RegisterMetrics(metrics.PodIPAddressAssignedLatency, metrics.PodCreationReachabilityLatency)
+	defer utils.ShutDownMetricsServer(context.TODO(), c.MetricsServer)
+
 	if err := c.measurePodCreation(); err != nil {
 		klog.Errorf("Pod creation test failed, error: %v", err)
 	}
@@ -91,10 +95,6 @@ func (c *TestClient) initialize() error {
 	if err := utils.VerifyTargetConfig(c.TargetConfig); err != nil {
 		return fmt.Errorf("failed to verify target configuration, error: %v", err)
 	}
-
-	metrics.RegisterHistogramMetric(metrics.PodIPAddressAssignedLatency)
-	metrics.RegisterHistogramMetric(metrics.PodCreationReachabilityLatency)
-	defer utils.ShutDownMetricsServer(context.TODO(), c.MetricsServer)
 
 	c.podCreationWorkQueue = workqueue.New()
 	c.informerStopChan = make(chan struct{})

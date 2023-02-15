@@ -246,6 +246,36 @@ var (
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverInitEventsCount,
 			}},
+			"HugeServiceResponsiveness_Prometheus": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parsePerfData,
+			}},
+			"HugeServiceRequestCount_Prometheus": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parseRequestCountData,
+			}},
+			"HugeServiceResponsiveness_PrometheusSimple": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+			"HugeServiceRequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
+			}},
+			"HugeServiceRequestCountByClient": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverRequestCount,
+			}},
+			"HugeServiceInitEventsCount": []TestDescription{{
+				Name:             "huge-service",
+				OutputFilePrefix: "MetricsForE2E",
+				Parser:           parseApiserverInitEventsCount,
+			}},
 		},
 		"Scheduler": {
 			"SchedulingLatency": []TestDescription{

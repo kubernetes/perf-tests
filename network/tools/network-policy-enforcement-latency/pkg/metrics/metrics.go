@@ -68,10 +68,10 @@ var (
 
 var register sync.Once
 
-// RegisterHistogramMetric registers the specified prometheus histogram metric.
-func RegisterHistogramMetric(metric prometheus.Histogram) {
+// RegisterMetrics registers the provided prometheus metrics.
+func RegisterMetrics(metric ...prometheus.Collector) {
 	register.Do(func() {
-		prometheus.MustRegister(metric)
+		prometheus.MustRegister(metric...)
 	})
 }
 

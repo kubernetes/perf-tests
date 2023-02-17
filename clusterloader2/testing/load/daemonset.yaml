@@ -1,5 +1,5 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
-{{$Image := DefaultParam .Image "k8s.gcr.io/pause:3.1"}}
+{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.1"}}
 {{$Env := DefaultParam .Env ""}}
 {{$DaemonSetSurge := DefaultParam .CL2_DS_SURGE (MaxInt 10 (DivideInt .Nodes 20))}} # 5% of nodes, but not less than 10
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}

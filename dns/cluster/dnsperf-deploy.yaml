@@ -34,7 +34,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
       - command: ["sh", "-c", "while true; do echo `date`: MARK; sleep 10; done"]
-        image: k8s.gcr.io/kube-dns-perf-client-amd64:1.1
+        image: registry.k8s.io/kube-dns-perf-client-amd64:1.1
         imagePullPolicy: Always
         name: dnsperf
         resources:

@@ -155,7 +155,7 @@ Additional sql queries can be found in `sql/`.
 
 # Monitoring
 
-CoreDNS and kube-dns v1.5+ (image `k8s.gcr.io/kubedns-amd64:1.9`)
+CoreDNS and kube-dns v1.5+ (image `registry.k8s.io/kubedns-amd64:1.9`)
  can export [Prometheus](http://prometheus.io) metrics. A sample
 prometheus pod that scrapes kube-dns metrics is defined in
 `cluster/prometheus.yaml` and can be created using kubectl:

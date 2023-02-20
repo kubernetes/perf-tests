@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG?=2.44
+TAG?=2.45
 
 REPO?=gcr.io/k8s-staging-perf-tests
 

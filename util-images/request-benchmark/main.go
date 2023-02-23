@@ -33,6 +33,7 @@ var (
 	inflight  = flag.Int("inflight", 0, "Benchmark inflight (number of parallel requests being made to the apiserver")
 	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
 	URI       = flag.String("uri", "", "Request URI")
+	verb      = flag.String("verb", "GET", "A verb to be used in requests.")
 )
 
 func init() {
@@ -74,7 +75,7 @@ func healthCheck(client *Client) error {
 }
 
 func sendRequest(client *Client) bool {
-	request := client.RESTClient().Get().RequestURI(*URI)
+	request := client.RESTClient().Verb(*verb).RequestURI(*URI)
 	response := client.TimedRequest(context.Background(), request)
 
 	if err := response.Error; err != nil {

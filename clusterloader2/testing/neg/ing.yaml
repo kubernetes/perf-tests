@@ -1,0 +1,24 @@
+{{$serviceBaseName := .ServiceBaseName}}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{.Name}}
+  labels:
+    size: {{.NegSizeLabel}}
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  rules:
+  - http:
+      paths:
+      {{ range $idx := Loop .NumServices }}
+      - path: /neg-load-custom-{{$idx}}
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{$serviceBaseName}}-{{$idx}}
+            port:
+              number: 80
+      {{end}}
+    host: "example.com"

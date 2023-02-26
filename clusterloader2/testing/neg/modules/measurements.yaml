@@ -1,0 +1,10 @@
+{{$action := .action}}
+
+steps:
+- name: Neg latency measurements - '{{$action}}'
+  measurements:
+  - Identifier: NegLatency
+    Method: NegLatency
+    Params:
+      action: {{$action}}
+      enableViolations: true

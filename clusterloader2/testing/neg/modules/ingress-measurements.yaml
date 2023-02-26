@@ -1,0 +1,27 @@
+{{$action := .action}}
+{{$ingWaitTimeout := DefaultParam .CL2_ING_WAIT_TIMEOUT "30m"}}
+
+steps:
+- name: Ingress creation latency measurements - '{{$action}}'
+  measurements:
+  - Identifier: ServiceCreationLatencySmall
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ingWaitTimeout}}
+      checkIngress: true
+      labelSelector: size = neg-small
+  - Identifier: ServiceCreationLatencyMedium
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ingWaitTimeout}}
+      checkIngress: true
+      labelSelector: size = neg-medium
+  - Identifier: ServiceCreationLatencyLarge
+    Method: ServiceCreationLatency
+    Params:
+      action: {{$action}}
+      waitTimeout: {{$ingWaitTimeout}}
+      checkIngress: true
+      labelSelector: size = neg-large

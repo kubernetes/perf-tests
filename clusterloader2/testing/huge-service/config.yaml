@@ -2,10 +2,12 @@
 {{$HUGE_SERVICE_HEADLESS := DefaultParam .CL2_HUGE_SERVICE_HEADLESS false}}
 {{$HUGE_SERVICE_ENDPOINTS := DefaultParam .CL2_HUGE_SERVICE_ENDPOINTS 1000}}
 {{$STATEFULSET_ENDPOINTS := DefaultParam .CL2_STATEFULSET_ENDPOINTS 100}}
+{{$DELETE_NAMESPACE_TIMEOUT := DefaultParam .CL2_DELETE_NAMESPACE_TIMEOUT "10m"}}
 
 name: huge-service
 namespace:
   number: 1
+  deleteNamespaceTimeout: {{$DELETE_NAMESPACE_TIMEOUT}}
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

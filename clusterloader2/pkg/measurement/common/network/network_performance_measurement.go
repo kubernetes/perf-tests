@@ -217,7 +217,7 @@ func (npm *networkPerformanceMeasurement) cleanupCluster() {
 	if err := client.DeleteNamespace(npm.k8sClient, netperfNamespace); err != nil {
 		klog.Errorf("Failed to delete namespace: %v", err)
 	}
-	if err := client.WaitForDeleteNamespace(npm.k8sClient, netperfNamespace); err != nil {
+	if err := client.WaitForDeleteNamespace(npm.k8sClient, netperfNamespace, client.DefaultNamespaceDeletionTimeout); err != nil {
 		klog.Errorf("Waiting for namespace deletion failed: %v", err)
 	}
 }

@@ -45,7 +45,7 @@ const (
 	retryBackoffSteps           = 6
 
 	// Parameters for namespace deletion operations.
-	defaultNamespaceDeletionTimeout  = 10 * time.Minute
+	DefaultNamespaceDeletionTimeout  = 10 * time.Minute
 	defaultNamespaceDeletionInterval = 5 * time.Second
 
 	// String const defined in https://go.googlesource.com/net/+/749bd193bc2bcebc5f1a048da8af0392cfb2fa5d/http2/transport.go#1041
@@ -229,7 +229,7 @@ func ListNamespaces(c clientset.Interface) ([]apiv1.Namespace, error) {
 }
 
 // WaitForDeleteNamespace waits untils namespace is terminated.
-func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
+func WaitForDeleteNamespace(c clientset.Interface, namespace string, timeout time.Duration) error {
 	retryWaitFunc := func() (bool, error) {
 		_, err := c.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 		if err != nil {
@@ -242,7 +242,7 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string) error {
 		}
 		return false, nil
 	}
-	return wait.PollImmediate(defaultNamespaceDeletionInterval, defaultNamespaceDeletionTimeout, retryWaitFunc)
+	return wait.PollImmediate(defaultNamespaceDeletionInterval, timeout, retryWaitFunc)
 }
 
 // ListEvents retrieves events for the object with the given name.

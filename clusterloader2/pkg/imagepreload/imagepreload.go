@@ -158,7 +158,7 @@ func (c *controller) PreloadImages() error {
 	if err := client.DeleteNamespace(kclient, namespace); err != nil {
 		return err
 	}
-	if err := client.WaitForDeleteNamespace(kclient, namespace); err != nil {
+	if err := client.WaitForDeleteNamespace(kclient, namespace, client.DefaultNamespaceDeletionTimeout); err != nil {
 		return err
 	}
 	return nil

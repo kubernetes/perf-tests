@@ -19,6 +19,7 @@ package api
 import (
 	"fmt"
 
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -55,5 +56,10 @@ func (ns *NamespaceConfig) SetDefaults() {
 	defaultEnableExistingNS := false
 	if ns.EnableExistingNamespaces == nil {
 		ns.EnableExistingNamespaces = &defaultEnableExistingNS
+	}
+
+	defaultDeleteNamespaceTimeout := Duration(client.DefaultNamespaceDeletionTimeout)
+	if ns.DeleteNamespaceTimeout == nil {
+		ns.DeleteNamespaceTimeout = &defaultDeleteNamespaceTimeout
 	}
 }

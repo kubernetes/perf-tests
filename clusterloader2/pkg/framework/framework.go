@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"regexp"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -173,12 +174,12 @@ func (f *Framework) ListAutomanagedNamespaces() ([]string, []string, error) {
 	return automanagedNamespacesCurrentPrefixList, staleNamespaces, nil
 }
 
-func (f *Framework) deleteNamespace(namespace string) error {
+func (f *Framework) deleteNamespace(namespace string, timeout time.Duration) error {
 	clientSet := f.clientSets.GetClient()
 	if err := client.DeleteNamespace(clientSet, namespace); err != nil {
 		return err
 	}
-	if err := client.WaitForDeleteNamespace(clientSet, namespace); err != nil {
+	if err := client.WaitForDeleteNamespace(clientSet, namespace, timeout); err != nil {
 		return err
 	}
 	f.removeAutomanagedNamespace(namespace)
@@ -186,14 +187,14 @@ func (f *Framework) deleteNamespace(namespace string) error {
 }
 
 // DeleteAutomanagedNamespaces deletes all automanged namespaces.
-func (f *Framework) DeleteAutomanagedNamespaces() *errors.ErrorList {
+func (f *Framework) DeleteAutomanagedNamespaces(timeout time.Duration) *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for namespace, shouldBeDeleted := range f.getAutomanagedNamespaces() {
 		namespace := namespace
 		if shouldBeDeleted {
 			wg.Start(func() {
-				if err := f.deleteNamespace(namespace); err != nil {
+				if err := f.deleteNamespace(namespace, timeout); err != nil {
 					errList.Append(err)
 					return
 				}
@@ -221,13 +222,13 @@ func (f *Framework) getAutomanagedNamespaces() map[string]bool {
 }
 
 // DeleteNamespaces deletes the list of namespaces.
-func (f *Framework) DeleteNamespaces(namespaces []string) *errors.ErrorList {
+func (f *Framework) DeleteNamespaces(namespaces []string, timeout time.Duration) *errors.ErrorList {
 	var wg wait.Group
 	errList := errors.NewErrorList()
 	for _, namespace := range namespaces {
 		namespace := namespace
 		wg.Start(func() {
-			if err := f.deleteNamespace(namespace); err != nil {
+			if err := f.deleteNamespace(namespace, timeout); err != nil {
 				errList.Append(err)
 				return
 			}

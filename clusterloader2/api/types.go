@@ -144,6 +144,9 @@ type NamespaceConfig struct {
 	DeleteAutomanagedNamespaces *bool `json:"deleteAutomanagedNamespaces,omitempty"`
 	// EnableExistingNamespaces enables to use pre-created namespaces in a test.
 	EnableExistingNamespaces *bool `json:"enableExistingNamespaces,omitempty"`
+	// DeleteNamespaceTimeout controls a timeout for waiting until automanaged namespaces are deleted.
+	// Defaults to 10m, if not set.
+	DeleteNamespaceTimeout *Duration `json:"deleteNamespaceTimeout,omitempty"`
 }
 
 // NamespaceRange specifies the range of namespaces [Min, Max].

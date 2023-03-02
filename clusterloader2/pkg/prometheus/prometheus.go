@@ -331,7 +331,7 @@ func (pc *Controller) TearDownPrometheusStack() error {
 	if err := client.DeleteNamespace(k8sClient, namespace); err != nil {
 		return err
 	}
-	if err := client.WaitForDeleteNamespace(k8sClient, namespace); err != nil {
+	if err := client.WaitForDeleteNamespace(k8sClient, namespace, client.DefaultNamespaceDeletionTimeout); err != nil {
 		return err
 	}
 	return nil

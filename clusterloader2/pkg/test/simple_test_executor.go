@@ -115,7 +115,7 @@ func (ste *simpleExecutor) prepareTestNamespaces(ctx Context, conf *api.Config) 
 	var deleteStaleNS = *conf.Namespace.DeleteStaleNamespaces
 	if len(staleNamespaces) > 0 && deleteStaleNS {
 		klog.Warning("stale automanaged namespaces found")
-		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces); !errList.IsEmpty() {
+		if errList := ctx.GetClusterFramework().DeleteNamespaces(staleNamespaces, conf.Namespace.DeleteNamespaceTimeout.ToTimeDuration()); !errList.IsEmpty() {
 			klog.Errorf("stale automanaged namespaces cleanup error: %s", errList.String())
 		}
 	}
@@ -389,7 +389,7 @@ func cleanupResources(ctx Context, conf *api.Config) {
 	cleanupStartTime := time.Now()
 	ctx.GetManager().Dispose()
 	if *conf.Namespace.DeleteAutomanagedNamespaces {
-		if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(); !errList.IsEmpty() {
+		if errList := ctx.GetClusterFramework().DeleteAutomanagedNamespaces(conf.Namespace.DeleteNamespaceTimeout.ToTimeDuration()); !errList.IsEmpty() {
 			klog.Errorf("Resource cleanup error: %v", errList.String())
 			return
 		}

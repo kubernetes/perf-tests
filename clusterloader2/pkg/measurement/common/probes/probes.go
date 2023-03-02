@@ -153,7 +153,7 @@ func (p *probesMeasurement) Dispose() {
 	if err := client.DeleteNamespace(k8sClient, probesNamespace); err != nil {
 		klog.Errorf("error while deleting %s namespace: %v", probesNamespace, err)
 	}
-	if err := client.WaitForDeleteNamespace(k8sClient, probesNamespace); err != nil {
+	if err := client.WaitForDeleteNamespace(k8sClient, probesNamespace, client.DefaultNamespaceDeletionTimeout); err != nil {
 		klog.Errorf("error while waiting for %s namespace to be deleted: %v", probesNamespace, err)
 	}
 }

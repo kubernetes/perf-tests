@@ -128,7 +128,7 @@ func TearDownExecService(f *framework.Framework) error {
 	if err := client.DeleteNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace); err != nil {
 		return fmt.Errorf("deleting %s namespace error: %v", execDeploymentNamespace, err)
 	}
-	if err := client.WaitForDeleteNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace); err != nil {
+	if err := client.WaitForDeleteNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace, client.DefaultNamespaceDeletionTimeout); err != nil {
 		return err
 	}
 	return nil

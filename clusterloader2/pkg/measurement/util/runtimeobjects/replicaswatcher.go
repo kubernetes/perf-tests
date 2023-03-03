@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 )
@@ -78,16 +79,19 @@ type NodeCounter struct {
 
 	mu       sync.Mutex
 	replicas int
+
+	tolerations []corev1.Toleration
 }
 
 var _ ReplicasWatcher = &NodeCounter{}
 
 // NewNodeCounter returns a new nodeCounter that return a number of objects matching nodeSelector and affinity.
-func NewNodeCounter(client clientset.Interface, nodeSelector labels.Selector, affinity *corev1.Affinity) *NodeCounter {
+func NewNodeCounter(client clientset.Interface, nodeSelector labels.Selector, affinity *corev1.Affinity, tolerations []corev1.Toleration) *NodeCounter {
 	return &NodeCounter{
 		client:       client,
 		nodeSelector: nodeSelector,
 		affinity:     affinity,
+		tolerations:  tolerations,
 	}
 }
 
@@ -150,7 +154,14 @@ func (n *NodeCounter) shouldRun(obj interface{}) (bool, error) {
 		return false, fmt.Errorf("unexpected type of obj: %v. got %T, want *corev1.Node", obj, obj)
 	}
 	matched, err := podMatchesNodeAffinity(n.affinity, node)
-	return !node.Spec.Unschedulable && matched, err
+	tolerate := true
+	for idx := range node.Spec.Taints {
+		if !corev1helpers.TolerationsTolerateTaint(n.tolerations, &node.Spec.Taints[idx]) {
+			tolerate = false
+			break
+		}
+	}
+	return (!node.Spec.Unschedulable || tolerate) && matched, err
 }
 
 // GetReplicasOnce starts ReplicasWatcher and gets a number of replicas.

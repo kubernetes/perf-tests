@@ -41,6 +41,9 @@ var (
 	defaultResourceVersion = "1"
 	defaultReplicas        = int32(10)
 	daemonsetReplicas      = int32(1)
+
+	daemonsetReplicasNoAffinity            = int32(4)
+	daemonsetReplicasNoAffinityTolerateAll = int32(5)
 )
 
 var (
@@ -60,6 +63,52 @@ var node2 = corev1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node2",
 		Labels: affinityLabel,
+	},
+}
+
+var node3 = corev1.Node{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "node3",
+		Labels: simpleLabel,
+	},
+	Spec: v1.NodeSpec{
+		Unschedulable: true,
+		Taints: []v1.Taint{
+			{
+				Key:    v1.TaintNodeUnschedulable,
+				Effect: v1.TaintEffectNoSchedule,
+			},
+		},
+	},
+}
+
+var node4 = corev1.Node{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "node4",
+		Labels: simpleLabel,
+	},
+	Spec: v1.NodeSpec{
+		Taints: []v1.Taint{
+			{
+				Key:    "something1",
+				Effect: v1.TaintEffectNoSchedule,
+			},
+		},
+	},
+}
+
+var node5 = corev1.Node{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "node5",
+		Labels: simpleLabel,
+	},
+	Spec: v1.NodeSpec{
+		Taints: []v1.Taint{
+			{
+				Key:    "something2",
+				Effect: v1.TaintEffectPreferNoSchedule,
+			},
+		},
 	},
 }
 
@@ -154,6 +203,52 @@ var daemonset = &apps.DaemonSet{
 				Labels: simpleLabel,
 			},
 			Spec: resourcePodSpec("", "50M", "0.5", simpleLabel, affinity),
+		},
+	},
+}
+
+var daemonsetNoAffinity = &apps.DaemonSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName,
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: apps.DaemonSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: simpleLabel,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: simpleLabel,
+			},
+			Spec: resourcePodSpec("", "50M", "0.5", simpleLabel, nil),
+		},
+	},
+}
+
+var daemonsetNoAffinityTolerateAll = &apps.DaemonSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName,
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: apps.DaemonSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: simpleLabel,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: simpleLabel,
+			},
+			Spec: func() v1.PodSpec {
+				podSpec := resourcePodSpec("", "50M", "0.5", simpleLabel, nil)
+				podSpec.Tolerations = []v1.Toleration{
+					{
+						Effect: v1.TaintEffectNoSchedule,
+					},
+				}
+				return podSpec
+			}(),
 		},
 	},
 }
@@ -529,6 +624,8 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		deployment,
 		job,
 		daemonset,
+		daemonsetNoAffinity,
+		daemonsetNoAffinityTolerateAll,
 	}
 	expected := []int32{
 		defaultReplicas,
@@ -536,9 +633,11 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		defaultReplicas,
 		defaultReplicas,
 		daemonsetReplicas,
+		daemonsetReplicasNoAffinity,
+		daemonsetReplicasNoAffinityTolerateAll,
 	}
 
-	fakeClient := fake.NewSimpleClientset(&node1, &node2)
+	fakeClient := fake.NewSimpleClientset(&node1, &node2, &node3, &node4, &node5)
 	for i, obj := range objects {
 		unstructured := &unstructured.Unstructured{}
 		if err := scheme.Scheme.Convert(obj, unstructured, nil); err != nil {
@@ -555,7 +654,7 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		}
 
 		if int(expected[i]) != replicas {
-			t.Fatalf("Unexpected replicas from runtime object, expected: %d, actual: %d", expected[i], replicas)
+			t.Fatalf("unexpected replicas from runtime object, expected: %d, actual: %d", expected[i], replicas)
 		}
 	}
 }

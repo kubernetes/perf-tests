@@ -36,6 +36,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
+	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	dsutil "k8s.io/kubernetes/pkg/controller/daemon/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -176,7 +178,7 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (Re
 		}
 		return &ConstReplicas{0}, nil
 	case *appsv1.DaemonSet:
-		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, typed.Spec.Template.Spec.NodeSelector, typed.Spec.Template.Spec.Affinity)
+		return getDaemonSetNumSchedulableNodes(c, &typed.Spec.Template.Spec)
 	case *batch.Job:
 		if typed.Spec.Parallelism != nil {
 			return &ConstReplicas{int(*typed.Spec.Parallelism)}, nil
@@ -187,13 +189,13 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (Re
 	}
 }
 
-// getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
-func getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c clientset.Interface, nodeSelector map[string]string, affinity *corev1.Affinity) (ReplicasWatcher, error) {
-	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(nodeSelector))
+// getDaemonSetNumSchedulableNodes returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
+func getDaemonSetNumSchedulableNodes(c clientset.Interface, podSpec *corev1.PodSpec) (ReplicasWatcher, error) {
+	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpec.NodeSelector))
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeCounter(c, selector, affinity), nil
+	return NewNodeCounter(c, selector, podSpec.Affinity, podSpec.Tolerations), nil
 }
 
 // Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
@@ -208,15 +210,21 @@ func getReplicasFromUnstrutured(c clientset.Interface, obj *unstructured.Unstruc
 func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[string]interface{}, kind string) (ReplicasWatcher, error) {
 	switch kind {
 	case "DaemonSet":
-		nodeSelector, err := getDaemonSetNodeSelectorFromUnstructuredSpec(spec)
+		parser, err := newDaemonSetPodSpecParser(spec)
 		if err != nil {
 			return nil, err
 		}
-		affinity, err := getDaemonSetAffinityFromUnstructuredSpec(spec)
-		if err != nil {
+		var podSpec corev1.PodSpec
+		if err := parser.getDaemonSetNodeSelectorFromUnstructuredSpec(&podSpec); err != nil {
 			return nil, err
 		}
-		return getNumSchedulableNodesMatchingNodeSelectorAndNodeAffinity(c, nodeSelector, affinity)
+		if err := parser.getDaemonSetAffinityFromUnstructuredSpec(&podSpec); err != nil {
+			return nil, err
+		}
+		if err := parser.getDaemonSetTolerationsFromUnstructuredSpec(&podSpec); err != nil {
+			return nil, err
+		}
+		return getDaemonSetNumSchedulableNodes(c, &podSpec)
 	case "Job":
 		replicas, found, err := unstructured.NestedInt64(spec, "parallelism")
 		if err != nil {
@@ -238,7 +246,9 @@ func tryAcquireReplicasFromUnstructuredSpec(c clientset.Interface, spec map[stri
 	}
 }
 
-func getDaemonSetNodeSelectorFromUnstructuredSpec(spec map[string]interface{}) (map[string]string, error) {
+type daemonSetPodSpecParser map[string]interface{}
+
+func newDaemonSetPodSpecParser(spec map[string]interface{}) (daemonSetPodSpecParser, error) {
 	template, found, err := unstructured.NestedMap(spec, "template")
 	if err != nil || !found {
 		return nil, err
@@ -247,26 +257,41 @@ func getDaemonSetNodeSelectorFromUnstructuredSpec(spec map[string]interface{}) (
 	if err != nil || !found {
 		return nil, err
 	}
-	nodeSelector, _, err := unstructured.NestedStringMap(podSpec, "nodeSelector")
-	return nodeSelector, err
+	return podSpec, nil
 }
 
-func getDaemonSetAffinityFromUnstructuredSpec(spec map[string]interface{}) (*corev1.Affinity, error) {
-	template, found, err := unstructured.NestedMap(spec, "template")
+func (p daemonSetPodSpecParser) getDaemonSetNodeSelectorFromUnstructuredSpec(spec *corev1.PodSpec) error {
+	nodeSelector, _, err := unstructured.NestedStringMap(p, "nodeSelector")
+	spec.NodeSelector = nodeSelector
+	return err
+}
+
+func (p daemonSetPodSpecParser) getDaemonSetAffinityFromUnstructuredSpec(spec *corev1.PodSpec) error {
+	unstructuredAffinity, found, err := unstructured.NestedMap(p, "affinity")
 	if err != nil || !found {
-		return nil, err
-	}
-	podSpec, found, err := unstructured.NestedMap(template, "spec")
-	if err != nil || !found {
-		return nil, err
-	}
-	unstructuredAffinity, found, err := unstructured.NestedMap(podSpec, "affinity")
-	if err != nil || !found {
-		return nil, err
+		return err
 	}
 	affinity := &corev1.Affinity{}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredAffinity, affinity)
-	return affinity, err
+	spec.Affinity = affinity
+	return err
+}
+
+func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec *corev1.PodSpec) error {
+	dsutil.AddOrUpdateDaemonPodTolerations(spec)
+	unstructuredTolerations, found, err := unstructured.NestedSlice(p, "tolerations")
+	if err != nil || !found {
+		return err
+	}
+	for _, unstructuredToleration := range unstructuredTolerations {
+		var toleration corev1.Toleration
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredToleration.(map[string]interface{}), &toleration)
+		if err != nil {
+			break
+		}
+		v1helper.AddOrUpdateTolerationInPodSpec(spec, &toleration)
+	}
+	return err
 }
 
 // IsEqualRuntimeObjectsSpec returns true if given runtime objects have identical specs.

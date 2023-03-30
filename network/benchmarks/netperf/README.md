@@ -97,19 +97,34 @@ Command line parameters to the launch.go can switch the test mode to incorporate
 
  ```bash
 
+ $ make docker # generate image `girishkalele/netperf-latest` locally
+
+ $ make launch
+
  $ go run ./launch.go -h
  Usage of launch.go:
 
-  -hostnetworking
-        (boolean) Enable Host Networking Mode for PODs
+  -hostnetworking boolean
+        Enable Host Networking Mode for PODs (default `false`)
   -iterations int
-        Number of iterations to run (default 1)
+        Number of iterations to run (default `1`)
   -image string
-        Docker image used to run the network tests (default "girishkalele/netperf-latest")
+        Docker image used to run the network tests (default `girishkalele/netperf-latest`)
+  -tag string
+        CSV file suffix
+  -namespace string
+        Test namespace to run netperf pods (default `netperf`)
+  -kubeConfig string
+        Location of the kube configuration file (default `$HOME/.kube/config`)
+  -cleanup boolean
+        Run the cleanup resources phase only (use this flag to clean up orphaned resources from a test run) (default `false`)
+  -testFrom int
+        start from test number testFrom (default `0`)
+  -testTo int
+        end at test number testTo (default `5`)
 
  $ go run ./launch.go --hostnetworking --iterations 1
 
  ```
-
 
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/test/benchmarks/netperf/README.md?pixel)]()

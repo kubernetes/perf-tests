@@ -74,7 +74,7 @@ func init() {
 	flag.IntVar(&iterations, "iterations", 1,
 		"Number of iterations to run")
 	flag.StringVar(&tag, "tag", runUUID, "CSV file suffix")
-	flag.StringVar(&netperfImage, "image", "sirot/netperf-latest", "Docker image used to run the network tests")
+	flag.StringVar(&netperfImage, "image", "girishkalele/netperf-latest", "Docker image used to run the network tests")
 	flag.StringVar(&testNamespace, "namespace", "netperf", "Test namespace to run netperf pods")
 	defaultKubeConfig := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
 	flag.StringVar(&kubeConfig, "kubeConfig", defaultKubeConfig,

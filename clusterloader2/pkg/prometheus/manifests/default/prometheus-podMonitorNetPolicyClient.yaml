@@ -1,0 +1,21 @@
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+  
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: net-policy-client-pods
+  name: net-policy-client-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+  - interval: 30s
+    port: npdelaymetrics
+  jobLabel: k8s-app
+  selector:
+     matchLabels:
+       test: np-test-client
+  namespaceSelector:
+    any: true
+{{end}}

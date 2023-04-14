@@ -20,6 +20,7 @@
 {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
 #Variables
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -118,6 +119,15 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: start
+
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      setup: true
+      run: true
+      testType: "pod-creation"
+{{end}}
 
 - module:
     path: modules/services.yaml
@@ -264,6 +274,26 @@ steps:
       image: {{$latencyPodImage}}
 {{end}}
 
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+- module:
+    path: modules/network-policy/net-policy-metrics.yaml
+    params:
+      action: gather
+      usePolicyCreationMetrics: false
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      complete: true
+      testType: "pod-creation"
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      run: true
+      testType: "policy-creation"
+{{end}}
+
 - module:
     path: /modules/reconcile-objects.yaml
     params:
@@ -363,3 +393,11 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: gather
+
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      complete: true
+      testType: "policy-creation"
+{{end}}

@@ -8,6 +8,14 @@
 {{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
+{{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
+{{$TargetLabelKey := DefaultParam .TargetLabelKey "net-pol-test"}}
+{{$TargetLabelValue := DefaultParam .TargetLabelValue "enforcement-latency"}}
+# Run a server pod for network policy enforcement latency test only on every Nth pod.
+# Default every third pod.
+{{$NetPolServerOnEveryNthPod := DefaultParam .NetPolServerOnEveryNthPod 3}}
+{{$RunNetPolicyTest := and $EnableNetworkPolicyEnforcementLatencyTest (eq (Mod .Index $NetPolServerOnEveryNthPod) 0)}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,6 +36,10 @@ spec:
         svc: {{.SvcName}}-{{.Index}}
 {{if and .EnableDNSTests $USE_ADVANCED_DNSTEST}}
         dns-test: dnsperfgo
+{{else}}
+  {{if $RunNetPolicyTest}}
+        {{$TargetLabelKey}}: {{$TargetLabelValue}}
+  {{end}}
 {{end}}
     spec:
       hostNetwork: {{$HostNetworkMode}}
@@ -39,9 +51,9 @@ spec:
         - containerPort: 9153
           name: dnsperfmetrics
           protocol: TCP
-{{else}}
+  {{else}}
       - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
-{{end}}
+  {{end}}
       # Fetches the dns server from /etc/resolv.conf and
       # sends 1 query per second.
       # With searchpath expansion, this is upto 12 queries per second.
@@ -55,8 +67,15 @@ spec:
           ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps {{$dnsQPSPerClient}};
         name: {{.Name}}-dnsperf
 {{else}}
+  {{if $RunNetPolicyTest}}
+      - image: nginx
+        name: nginx-server
+        ports:
+        - containerPort: 80
+  {{else}}
       - image: registry.k8s.io/pause:3.9
         name: {{.Name}}
+  {{end}}
 {{end}}
         resources:
           requests:
@@ -92,4 +111,3 @@ spec:
         - name: secret
           secret:
             secretName: {{.BaseName}}-{{.Index}}
-

@@ -50,6 +50,10 @@
 {{$ENABLE_DNSTESTS := DefaultParam .CL2_ENABLE_DNSTESTS false}}
 {{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
 {{$ENABLE_PVS := DefaultParam .CL2_ENABLE_PVS true}}
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
+{{$NET_POLICY_SERVER_EVERY_NTH_POD := DefaultParam .CL2_NET_POLICY_SERVER_EVERY_NTH_POD 3}}
 
 steps:
 - name: Starting measurement for '{{$actionName}}'
@@ -146,6 +150,10 @@ steps:
         ReplicasMin: {{MultiplyInt $smallDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallDeploymentSize $maxReplicaFactor}}
         SvcName: small-service
+        EnableNetworkPolicyEnforcementLatencyTest: {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+        TargetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
+        TargetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
+        NetPolServerOnEveryNthPod: {{$NET_POLICY_SERVER_EVERY_NTH_POD}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}

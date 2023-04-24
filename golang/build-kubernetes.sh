@@ -34,7 +34,7 @@ function build_kube_cross {
 
   # Modify Dockerfile to use previously built custom version of Go.
   # The following assumes that $GOROOT was moved to Dockerfile directory.
-  sed -i 's#FROM .*$#FROM buildpack-deps:stretch-scm\
+  sed -i 's#FROM .*$#FROM buildpack-deps:bullseye-scm\
 \
 COPY golang /usr/local/go\
 RUN chmod -R a+rx /usr/local/go\

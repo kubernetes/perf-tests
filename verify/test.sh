@@ -21,11 +21,20 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "$KUBE_ROOT"
 
+# WARNING: we exclude the following paths from linting
+# because the CI lacks the required golang version (1.20)
+EXCLUDE_PATHS=("util-images/watch-list")
+
+if [[ ${#EXCLUDE_PATHS[@]} -ne 0 ]]; then
+  echo "WARNING: The following paths will be excluded from linting: ${EXCLUDE_PATHS[@]}"
+fi
+
 # Find all directories with go.mod file,
 # exluding go.mod from vendor/ and _logviewer
 MODULE_BASED=$(find . -type d -name vendor -prune \
   -o -type f -name go.mod -printf "%h\n" \
-  | sort -u)
+    | sort -u \
+    | grep -v -E $(printf -- "-e %s\n" "${EXCLUDE_PATHS[@]}"))
 
 set +x
 status=0

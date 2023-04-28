@@ -49,7 +49,7 @@ const (
 	// latencyQuery matches description of the API call latency SLI and measure 99th percentaile over 5m windows
 	//
 	// latencyQuery: %v should be replaced with (1) filters and (2) query window size..
-	latencyQuery = "quantile_over_time(0.99, apiserver:apiserver_request_latency_1m:histogram_quantile{%v}[%v])"
+	latencyQuery = "quantile_over_time(0.99, %v{%v}[%v])"
 
 	// simpleLatencyQuery measures 99th percentile of API call latency  over given period of time
 	// it doesn't match SLI, but is useful in shorter tests, where we don't have enough number of windows to use latencyQuery meaningfully.
@@ -165,6 +165,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 	apiserverSLI := measurementutil.GetApiserverSLI(config.ClusterVersion)
+	apiserverLatency := measurementutil.GetApiserverLatency(config.ClusterVersion)
 
 	useSimple, err := util.GetBoolOrDefault(config.Params, "useSimpleLatencyQuery", false)
 	if err != nil {
@@ -195,7 +196,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 		}
 		duration := measurementutil.ToPrometheusTime(latencyMeasurementDuration)
 
-		query := fmt.Sprintf(latencyQuery, filters, duration)
+		query := fmt.Sprintf(latencyQuery, apiserverLatency, filters, duration)
 		latencySamples, err = executor.Query(query, endTime)
 		if err != nil {
 			return nil, err

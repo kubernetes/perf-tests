@@ -10,17 +10,24 @@ spec:
   - name: apiserver.rules
     rules:
     - expr: |
-        histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket[5m])) by (resource,  subresource, verb, scope, le))
+        rate(apiserver_request_duration_seconds_bucket[5m]) and on (job) kubernetes_build_info{major="[0-1]",minor=~"^([0-9]|1[0-9]|2[0-2])$"}
+        or
+        rate(apiserver_request_slo_duration_seconds_bucket[5m]) and on (job) kubernetes_build_info{major="1",minor=~"^2[3-5]$"}
+        or
+        rate(apiserver_request_sli_duration_seconds_bucket[5m]) and on (job) kubernetes_build_info{major="1",minor=~"^(2[6-9]|[3-9][0-9])$"}
+      record: apiserver:request_latency:rate5m
+    - expr: |
+        histogram_quantile(0.99, sum(apiserver:request_latency:rate5m) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency:histogram_quantile
       labels:
         quantile: "0.99"
     - expr: |
-        histogram_quantile(0.9, sum(rate(apiserver_request_sli_duration_seconds_bucket[5m])) by (resource,  subresource, verb, scope, le))
+        histogram_quantile(0.9, sum(apiserver:request_latency:rate5m) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency:histogram_quantile
       labels:
         quantile: "0.90"
     - expr: |
-        histogram_quantile(0.5, sum(rate(apiserver_request_sli_duration_seconds_bucket[5m])) by (resource,  subresource, verb, scope, le))
+        histogram_quantile(0.5, sum(apiserver:request_latency:rate5m) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency:histogram_quantile
       labels:
         quantile: "0.50"
@@ -91,17 +98,47 @@ spec:
   - name: apiserver.1m.rules
     rules:
     - expr: |
-        histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+        histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency_1m:histogram_quantile
       labels:
         quantile: "0.99"
     - expr: |
-        histogram_quantile(0.9, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+        histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency_1m:histogram_quantile
       labels:
         quantile: "0.90"
     - expr: |
-        histogram_quantile(0.5, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+        histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
       record: apiserver:apiserver_request_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.50"
+    - expr: |
+        histogram_quantile(0.99, sum(rate(apiserver_request_slo_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_slo_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.9, sum(rate(apiserver_request_slo_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_slo_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.5, sum(rate(apiserver_request_slo_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_slo_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.50"
+    - expr: |
+        histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_sli_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.99"
+    - expr: |
+        histogram_quantile(0.9, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_sli_latency_1m:histogram_quantile
+      labels:
+        quantile: "0.90"
+    - expr: |
+        histogram_quantile(0.5, sum(rate(apiserver_request_sli_duration_seconds_bucket[1m])) by (resource,  subresource, verb, scope, le))
+      record: apiserver:apiserver_request_sli_latency_1m:histogram_quantile
       labels:
         quantile: "0.50"

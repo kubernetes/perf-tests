@@ -27,3 +27,13 @@ func GetApiserverSLI(clusterVersion version.Info) string {
 	}
 	return "apiserver_request_sli_duration_seconds"
 }
+
+func GetApiserverLatency(clusterVersion version.Info) string {
+	if clusterVersion.Major == "1" && clusterVersion.Minor < "23" {
+		return "apiserver:apiserver_request_latency_1m:histogram_quantile"
+	}
+	if clusterVersion.Major == "1" && clusterVersion.Minor < "26" {
+		return "apiserver:apiserver_request_slo_latency_1m:histogram_quantile"
+	}
+	return "apiserver:apiserver_request_sli_latency_1m:histogram_quantile"
+}

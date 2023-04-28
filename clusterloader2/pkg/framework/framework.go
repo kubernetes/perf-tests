@@ -32,6 +32,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	frconfig "k8s.io/perf-tests/clusterloader2/pkg/framework/config"
 
+	"k8s.io/client-go/discovery"
 	restclient "k8s.io/client-go/rest"
 
 	// ensure auth plugins are loaded
@@ -51,6 +52,7 @@ type Framework struct {
 	dynamicClients        *MultiDynamicClient
 	clusterConfig         *config.ClusterConfig
 	restClientConfig      *restclient.Config
+	discoveryClient       *discovery.DiscoveryClient
 }
 
 // NewFramework creates new framework based on given clusterConfig.
@@ -85,6 +87,11 @@ func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeCo
 	if f.restClientConfig, err = frconfig.GetConfig(kubeConfigPath); err != nil {
 		return nil, fmt.Errorf("rest client creation error: %v", err)
 	}
+
+	if f.discoveryClient, err = discovery.NewDiscoveryClientForConfig(f.restClientConfig); err != nil {
+		return nil, fmt.Errorf("discovery client creation error: %v", err)
+	}
+
 	return &f, nil
 }
 
@@ -115,6 +122,10 @@ func (f *Framework) GetRestClient() *restclient.Config {
 // GetClusterConfig returns cluster config.
 func (f *Framework) GetClusterConfig() *config.ClusterConfig {
 	return f.clusterConfig
+}
+
+func (f *Framework) GetDiscoveryClient() *discovery.DiscoveryClient {
+	return f.discoveryClient
 }
 
 // CreateAutomanagedNamespaces creates automanged namespaces.

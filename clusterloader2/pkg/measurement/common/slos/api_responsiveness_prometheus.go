@@ -55,12 +55,12 @@ const (
 	// it doesn't match SLI, but is useful in shorter tests, where we don't have enough number of windows to use latencyQuery meaningfully.
 	//
 	// simpleLatencyQuery: placeholders should be replaced with (1) quantile (2) filters and (3) query window size.
-	simpleLatencyQuery = "histogram_quantile(%.2f, sum(rate(apiserver_request_sli_duration_seconds_bucket{%v}[%v])) by (resource,  subresource, verb, scope, le))"
+	simpleLatencyQuery = "histogram_quantile(%.2f, sum(rate(%v_bucket{%v}[%v])) by (resource,  subresource, verb, scope, le))"
 
 	// countQuery %v should be replaced with (1) filters and (2) query window size.
-	countQuery = "sum(increase(apiserver_request_sli_duration_seconds_count{%v}[%v])) by (resource, subresource, scope, verb)"
+	countQuery = "sum(increase(%v_count{%v}[%v])) by (resource, subresource, scope, verb)"
 
-	countFastQuery = "sum(increase(apiserver_request_sli_duration_seconds_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
+	countFastQuery = "sum(increase(%v_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
 	// exclude all buckets of 1s and shorter
 	filterGetAndMutating = `verb!~"WATCH|LIST", subresource!="proxy", le="1"`
@@ -164,6 +164,7 @@ func (a *apiResponsivenessGatherer) IsEnabled(config *measurement.Config) bool {
 func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) (*apiCallMetrics, error) {
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
+	apiserverSLI := measurementutil.GetApiserverSLI(config.ClusterVersion)
 
 	useSimple, err := util.GetBoolOrDefault(config.Params, "useSimpleLatencyQuery", false)
 	if err != nil {
@@ -174,7 +175,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 	if useSimple {
 		quantiles := []float64{0.5, 0.9, 0.99}
 		for _, q := range quantiles {
-			query := fmt.Sprintf(simpleLatencyQuery, q, filters, promDuration)
+			query := fmt.Sprintf(simpleLatencyQuery, q, apiserverSLI, filters, promDuration)
 			samples, err := executor.Query(query, endTime)
 			if err != nil {
 				return nil, err
@@ -201,7 +202,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 		}
 	}
 
-	query := fmt.Sprintf(countQuery, filters, promDuration)
+	query := fmt.Sprintf(countQuery, apiserverSLI, filters, promDuration)
 	countSamples, err := executor.Query(query, endTime)
 	if err != nil {
 		return nil, err
@@ -210,7 +211,7 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 	countFastSamples := make([]*model.Sample, 0)
 	filters := []string{filterGetAndMutating, filterNamespaceList, filterClusterList}
 	for _, filter := range filters {
-		query := fmt.Sprintf(countFastQuery, filter, promDuration)
+		query := fmt.Sprintf(countFastQuery, apiserverSLI, filter, promDuration)
 		samples, err := executor.Query(query, endTime)
 		if err != nil {
 			return nil, err

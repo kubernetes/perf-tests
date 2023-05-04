@@ -24,16 +24,16 @@ steps:
       unit: ms
       queries:
         - name: Perc99
-          query: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket[%v])) by (le))
           threshold: 60
         - name: Perc90
-          query: histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.9, sum(rate(apiserver_request_sli_duration_seconds_bucket[%v])) by (le))
         - name: Perc50
-          query: histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.5, sum(rate(apiserver_request_sli_duration_seconds_bucket[%v])) by (le))
           threshold: 5
           requireSamples: true
         - name: non-existent
-          query: histogram_quantile(0.5, sum(rate(fake_apiserver_request_duration_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.5, sum(rate(fake_apiserver_request_sli_duration_seconds_bucket[%v])) by (le))
           threshold: 42
 - name: Sleep
   measurements:

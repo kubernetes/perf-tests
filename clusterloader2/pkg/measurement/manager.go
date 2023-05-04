@@ -17,6 +17,7 @@ limitations under the License.
 package measurement
 
 import (
+	"fmt"
 	"sync"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -70,6 +71,13 @@ func (mm *measurementManager) Execute(methodName string, identifier string, para
 		CloudProvider:       mm.clusterLoaderConfig.ClusterConfig.Provider,
 		ClusterLoaderConfig: mm.clusterLoaderConfig,
 	}
+
+	clusterVersion, err := mm.clusterFramework.GetDiscoveryClient().ServerVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get cluster version")
+	}
+	config.ClusterVersion = *clusterVersion
+
 	summaries, err := measurementInstance.Execute(config)
 	mm.summaries = append(mm.summaries, summaries...)
 	return err

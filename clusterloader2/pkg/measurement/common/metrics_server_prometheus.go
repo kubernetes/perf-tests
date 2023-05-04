@@ -30,7 +30,7 @@ import (
 const (
 	metricsServerPrometheusMeasurementName = "MetricsServerPrometheus"
 
-	metricsServerLatencyQuery = `histogram_quantile(%v, sum(rate(apiserver_request_duration_seconds_bucket{group="metrics.k8s.io",resource="pods",scope="cluster"}[%v])) by (le))`
+	metricsServerLatencyQuery = `histogram_quantile(%v, sum(rate(%v_bucket{group="metrics.k8s.io",resource="pods",scope="cluster"}[%v])) by (le))`
 )
 
 var (
@@ -47,7 +47,7 @@ func init() {
 type metricsServerGatherer struct{}
 
 func (g *metricsServerGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	latencyMetrics, err := g.gatherLatencyMetrics(executor, startTime, endTime)
+	latencyMetrics, err := g.gatherLatencyMetrics(executor, startTime, endTime, config)
 	if err != nil {
 		return nil, err
 	}
@@ -71,16 +71,17 @@ func (g *metricsServerGatherer) String() string {
 	return metricsServerPrometheusMeasurementName
 }
 
-func (g *metricsServerGatherer) gatherLatencyMetrics(executor QueryExecutor, startTime, endTime time.Time) (*measurementutil.LatencyMetric, error) {
+func (g *metricsServerGatherer) gatherLatencyMetrics(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) (*measurementutil.LatencyMetric, error) {
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
+	apiserverSLI := measurementutil.GetApiserverSLI(config.ClusterVersion)
 
 	errList := errors.NewErrorList()
 	result := &measurementutil.LatencyMetric{}
 
 	for _, percentile := range desiredMsPercentiles {
 
-		query := fmt.Sprintf(metricsServerLatencyQuery, percentile, promDuration)
+		query := fmt.Sprintf(metricsServerLatencyQuery, percentile, apiserverSLI, promDuration)
 		samples, err := executor.Query(query, endTime)
 		if err != nil {
 			errList.Append(fmt.Errorf("failed to execute query %q, err - %v", query, err))

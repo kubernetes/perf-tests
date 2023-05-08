@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: watch-list
+spec:
+  template:
+    metadata:
+      labels:
+        group: watch-list
+    spec:
+      containers:
+        - name: {{.Name}}
+          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.1
+          command: [ "watch-list" ]
+          args: [ "--alsologtostderr=true", "--v=4", "--timeout={{.Duration}}", "--count=16", "--namespace=watch-list-1"]
+      restartPolicy: Never

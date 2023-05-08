@@ -1,0 +1,73 @@
+{{$testDuration := "5m"}}
+name: watch-list
+namespace:
+  number: 1
+  prefix: "watch-list"
+tuningSets:
+- name: Uniform10qps
+  qpsLoad:
+    qps: 10
+steps:
+- name: Create secrets
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+      basename: watch-list
+    replicasPerNamespace: 400
+    tuningSet: Uniform10qps
+    objectBundle:
+    - basename: huge-secret
+      objectTemplatePath: "secret.yaml"
+- name: Start measurements
+  measurements:
+    - Identifier: TestMetrics
+      Method: TestMetrics
+      Params:
+        action: start
+    - Identifier: WaitForFinishedJobs
+      Method: WaitForFinishedJobs
+      Params:
+        action: start
+        labelSelector: group = watch-list
+    - Identifier: APIResponsivenessPrometheusSimple
+      Method: APIResponsivenessPrometheus
+      Params:
+        action: start
+- name: Start the secret informer
+  phases:
+    - namespaceRange:
+        min: 1
+        max: 1
+        basename: watch-list
+      replicasPerNamespace: 1
+      tuningSet: Uniform10qps
+      objectBundle:
+        - basename: watch-list-secret
+          objectTemplatePath: role.yaml
+        - basename: watch-list-secret
+          objectTemplatePath: roleBinding.yaml
+        - basename: watch-list
+          objectTemplatePath: "job.yaml"
+          templateFillMap:
+            Duration: {{$testDuration}}
+- name: Wait for the secret informer job to finish
+  measurements:
+    - Identifier: WaitForFinishedJobs
+      Method: WaitForFinishedJobs
+      Params:
+        action: gather
+        timeout: 10m
+- name: Collecting test measurements
+  measurements:
+    - Identifier: TestMetrics
+      Method: TestMetrics
+      Params:
+        action: gather
+    - Identifier: APIResponsivenessPrometheusSimple
+      Method: APIResponsivenessPrometheus
+      Params:
+        action: gather
+        enableViolations: true
+        useSimpleLatencyQuery: true
+        summaryName: APIResponsivenessPrometheus_simple

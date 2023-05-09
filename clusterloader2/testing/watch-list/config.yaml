@@ -1,3 +1,4 @@
+{{$enableWatchListFeature := DefaultParam .CL2_ENABLE_WATCH_LIST_FEATURE false}}
 {{$testDuration := "5m"}}
 name: watch-list
 namespace:
@@ -51,6 +52,7 @@ steps:
           objectTemplatePath: "job.yaml"
           templateFillMap:
             Duration: {{$testDuration}}
+            EnableWatchListFeature: {{$enableWatchListFeature}}
 - name: Wait for the secret informer job to finish
   measurements:
     - Identifier: WaitForFinishedJobs

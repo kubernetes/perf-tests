@@ -125,7 +125,7 @@ func dnsNamesFromK8s(k8sClient *clientset.Clientset) []string {
 		case svc.Spec.ClusterIP == "None":
 			// list endpoints and fetch the hostnames
 			svcLabel := fmt.Sprintf("kubernetes.io/service-name=%v", svc.Name)
-			epSlices, err := k8sClient.DiscoveryV1beta1().EndpointSlices(svc.Namespace).List(context.Background(), metav1.ListOptions{
+			epSlices, err := k8sClient.DiscoveryV1().EndpointSlices(svc.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: svcLabel,
 			})
 			if err != nil {

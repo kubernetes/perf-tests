@@ -5,6 +5,7 @@
 {{$PROMETHEUS_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_SCALE_FACTOR $PROMETHEUS_MEMORY_LIMIT_FACTOR}}
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 {{$PROMETHEUS_TOLERATE_MASTER := DefaultParam .CL2_PROMETHEUS_TOLERATE_MASTER false}}
+{{$PROMETHEUS_PVC_ENABLED := DefaultParam .CL2_PROMETHEUS_PVC_ENABLED (not $PROMETHEUS_TOLERATE_MASTER)}}
 {{$PROMETHEUS_PVC_STORAGE_CLASS := DefaultParam .PROMETHEUS_PVC_STORAGE_CLASS "ssd"}}
 {{$PROMETHEUS_MEMORY_REQUEST := DefaultParam .PROMETHEUS_MEMORY_REQUEST "10Gi"}}
 
@@ -66,7 +67,7 @@ spec:
   priorityClassName: prometheus-priorityclass
   version: v2.25.0
   retention: 7d
-  {{if not $PROMETHEUS_TOLERATE_MASTER}}
+  {{if $PROMETHEUS_PVC_ENABLED}}
   # We add node tolerations for control-plane nodes in Azure Windows test jobs which do not support Google PD
   storage:
     volumeClaimTemplate:

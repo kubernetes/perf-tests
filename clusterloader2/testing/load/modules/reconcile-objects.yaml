@@ -13,7 +13,7 @@
 {{$operationTimeout := .operationTimeout}}
 
 # DaemonSets
-{{$daemonSetImage := DefaultParam .daemonSetImage "registry.k8s.io/pause:3.0"}}
+{{$daemonSetImage := DefaultParam .daemonSetImage "registry.k8s.io/pause:3.9"}}
 {{$daemonSetReplicas := .daemonSetReplicas}}
 {{$daemonSetEnv := .daemonSetEnv}}
 

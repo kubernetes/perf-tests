@@ -228,7 +228,7 @@ spec:
         group: test-pod
     spec:
       containers:
-      - image: registry.k8s.io/pause:3.1
+      - image: registry.k8s.io/pause:3.9
         name: {{.Name}}
 ```
 ## Execute test

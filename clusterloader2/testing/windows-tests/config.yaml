@@ -4,7 +4,7 @@
 #Constants
 {{$POD_COUNT := DefaultParam .CL2_POD_COUNT 80}}
 {{$POD_THROUGHPUT := DefaultParam .CL2_POD_THROUGHPUT 0.03}}
-{{$CONTAINER_IMAGE := DefaultParam .CL2_CONTAINER_IMAGE "registry.k8s.io/pause:3.4.1"}}
+{{$CONTAINER_IMAGE := DefaultParam .CL2_CONTAINER_IMAGE "registry.k8s.io/pause:3.9"}}
 {{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "60m"}}
 {{$OPERATION_TIMEOUT := DefaultParam .CL2_OPERATION_TIMEOUT "90m"}}
 

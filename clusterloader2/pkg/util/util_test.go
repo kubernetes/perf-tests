@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type test struct {
@@ -95,6 +96,43 @@ func TestToStruct(t *testing.T) {
 			}
 			if !tt.wantErr {
 				assert.Equal(t, tt.want, tt.in)
+			}
+		})
+	}
+}
+
+func TestGetLabelSelector(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   interface{}
+		matches labels.Labels
+		wantErr bool
+	}{
+		{
+			name:    "error with non-string value",
+			value:   1,
+			wantErr: true,
+		},
+		{
+			name:    "error with bad label selector value",
+			value:   "?i am a bad label selector?",
+			wantErr: true,
+		},
+		{
+			name:    "no error with good label selector value",
+			value:   "app=test",
+			matches: labels.Set{"app": "test"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l, err := GetLabelSelector(map[string]interface{}{"key": tt.value}, "key")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLabelSelector() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, true, (*l).Matches(tt.matches))
 			}
 		})
 	}

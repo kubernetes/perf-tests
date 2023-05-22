@@ -1,0 +1,8 @@
+# a higher latency is expected
+# due to the size of the total payload
+CUSTOM_API_CALL_THRESHOLDS: |
+  - verb: LIST
+    resource: secrets
+    subresource: ''
+    scope: namespace
+    threshold: 60s

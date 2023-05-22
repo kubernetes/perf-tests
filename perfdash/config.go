@@ -514,7 +514,7 @@ var (
 				Parser:           parsePerfData,
 			}},
 			"BenchmarkPerfResults": []TestDescription{{
-				Name:             "bechmark",
+				Name:             "benchmark",
 				OutputFilePrefix: "BenchmarkPerfScheduling",
 				Parser:           parsePerfData,
 			}},

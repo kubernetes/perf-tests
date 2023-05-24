@@ -437,7 +437,7 @@ func (pc *Controller) runNodeExporter() error {
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	klog.V(2).Info("Waiting for Prometheus stack to become healthy...")
-	return wait.Poll(
+	return wait.PollImmediate(
 		checkPrometheusReadyInterval,
 		pc.readyTimeout,
 		pc.isPrometheusReady)

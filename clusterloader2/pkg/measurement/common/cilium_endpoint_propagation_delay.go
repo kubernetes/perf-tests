@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -33,7 +34,7 @@ const (
 	cepPropagationDelayMeasurementName = "CiliumEndpointPropagationDelay"
 	// The metric definition and bucket sizes for cilium_endpoint_propagation_delay_seconds:
 	// https://github.com/cilium/cilium/blob/v1.11/pkg/metrics/metrics.go#L1263
-	cepPropagationDelayQuery = `sum(cilium_endpoint_propagation_delay_seconds_bucket) by (le)`
+	cepPropagationDelayQuery = `sum(sum_over_time(cilium_endpoint_propagation_delay_seconds_bucket[%v])) by (le)`
 	queryInterval            = 10 * time.Minute
 
 	// bucketAllEntries is the default Prometheus bucket that
@@ -82,15 +83,26 @@ func (c *cepPropagationDelayGatherer) gatherCepPropagationDelay(executor QueryEx
 	// Query the data between start and end time on fixed intervals
 	// to get accurate data from multiple snapshots.
 	var samples []*model.Sample
-	queryTime := startTime.Add(queryInterval)
-	for queryTime.Before(endTime) {
-		newSamples, err := executor.Query(cepPropagationDelayQuery, queryTime)
+	prevQueryTime := startTime
+	currQueryTime := startTime.Add(queryInterval)
+	for {
+		if currQueryTime.After(endTime) {
+			currQueryTime = endTime
+		}
+		queryDuration := currQueryTime.Sub(prevQueryTime)
+		promDuration := measurementutil.ToPrometheusTime(queryDuration)
+		query := fmt.Sprintf(cepPropagationDelayQuery, promDuration)
+		newSamples, err := executor.Query(query, currQueryTime)
 		if err == nil {
 			samples = append(samples, newSamples...)
 		} else {
 			klog.V(2).Infof("Got error querying Prometheus: %v", err)
 		}
-		queryTime = queryTime.Add(queryInterval)
+		if currQueryTime == endTime {
+			break
+		}
+		prevQueryTime = currQueryTime
+		currQueryTime = currQueryTime.Add(queryInterval)
 	}
 
 	extractSampleData := func(sample *model.Sample) (string, string, int) {

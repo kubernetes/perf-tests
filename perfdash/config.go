@@ -623,6 +623,23 @@ var (
 		},
 	}
 
+	watchListDescriptions = TestDescriptions{
+		"E2E": {
+			"LoadResources": []TestDescription{{
+				Name:             "watch-list",
+				OutputFilePrefix: "ResourceUsageSummary",
+				Parser:           parseResourceUsageData,
+			}},
+		},
+		"APIServer": {
+			"LoadResponsiveness_PrometheusSimple": []TestDescription{{
+				Name:             "watch-list",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
 		"benchmark":    benchmarkDescriptions,
@@ -630,6 +647,7 @@ var (
 		"storage":      storageDescriptions,
 		"throughput":   throughputDescriptions,
 		"windows":      windowsDescriptions,
+		"watchlist":    watchListDescriptions,
 	}
 )
 

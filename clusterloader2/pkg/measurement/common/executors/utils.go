@@ -36,8 +36,8 @@ type group struct {
 	Rules []rule `yaml:"rules"`
 }
 
-//prometheusRuleManifest mimics the structure of PrometheusRule object used by prometheus operator
-//https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/types.go#L1393
+// prometheusRuleManifest mimics the structure of PrometheusRule object used by prometheus operator
+// https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/types.go#L1393
 type prometheusRuleManifest struct {
 	Spec struct {
 		Groups []group `yaml:"groups"`

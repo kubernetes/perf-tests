@@ -34,7 +34,7 @@ spec:
       containers:
 {{if .EnableDNSTests}}
 {{if $USE_ADVANCED_DNSTEST}}
-      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.3.0
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.4.0
         ports:
         - containerPort: 9153
           name: dnsperfmetrics

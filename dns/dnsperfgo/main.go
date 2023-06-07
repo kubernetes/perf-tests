@@ -124,17 +124,28 @@ func dnsNamesFromK8s(k8sClient *clientset.Clientset) []string {
 		switch {
 		case svc.Spec.ClusterIP == "None":
 			// list endpoints and fetch the hostnames
-			eps, err := k8sClient.CoreV1().Endpoints(svc.Namespace).Get(context.Background(), svc.Name, metav1.GetOptions{})
+			svcLabel := fmt.Sprintf("kubernetes.io/service-name=%v", svc.Name)
+			epSlices, err := k8sClient.DiscoveryV1().EndpointSlices(svc.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: svcLabel,
+			})
 			if err != nil {
-				log.Printf("Failed to get endpoints for %s/%s, err - %v", svc.Namespace, svc.Name, err)
+				log.Printf("Failed to get endpoint slices for %s label in %s namespace, err - %v", svcLabel, svc.Namespace, err)
 				continue
 			}
-			// This will only list upto 1000 endpoints. This should be changed to read endpoint slices if we test with larger endpoints.
-			for _, ep := range eps.Subsets {
-				for _, addr := range ep.Addresses {
-					if addr.Hostname != "" {
-						hostnames = append(hostnames, fmt.Sprintf("%s.%s.%s.svc.%s", addr.Hostname, svc.Name, svc.Namespace, clusterDomain))
+
+			seenHostnames := make(map[string]struct{})
+			for _, epSlice := range epSlices.Items {
+				for _, ep := range epSlice.Endpoints {
+					if ep.Hostname == nil || *ep.Hostname == "" {
+						continue
 					}
+
+					hostname := fmt.Sprintf("%s.%s.%s.svc.%s", *ep.Hostname, svc.Name, svc.Namespace, clusterDomain)
+					if _, ok := seenHostnames[hostname]; ok {
+						continue
+					}
+					seenHostnames[hostname] = struct{}{}
+					hostnames = append(hostnames, hostname)
 				}
 			}
 			fallthrough

@@ -37,6 +37,8 @@ MODULE_BASED=$(find . -type d -name vendor -prune \
 set +e
 status=0
 
+golangci-lint version
+
 for mod in $MODULE_BASED; do
   (
     cd "${mod}"

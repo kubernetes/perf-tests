@@ -134,12 +134,12 @@ func (a *artifactsCache) getMatchingFiles(job string, buildNumber int, prefix st
 /*
 getJobData fetches build numbers, reads metrics data from GCS and
 updates result with parsed metrics for a given prow job. Assumptions:
-- metric files are in /artifacts directory
-- metric file names have following prefix: {{OutputFilePrefix}}_{{Name}},
-  where OutputFilePrefix and Name are parts of test description (specified in prefdash config)
-- if there are multiple files with a given prefix, then expected format is
-  {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is prepended to the category label,
-  which allows comparing metrics across several runs in a given suite
+  - metric files are in /artifacts directory
+  - metric file names have following prefix: {{OutputFilePrefix}}_{{Name}},
+    where OutputFilePrefix and Name are parts of test description (specified in prefdash config)
+  - if there are multiple files with a given prefix, then expected format is
+    {{OutputFilePrefix}}_{{Name}}_{{SuiteId}}. SuiteId is prepended to the category label,
+    which allows comparing metrics across several runs in a given suite
 */
 func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
 	defer wg.Done()

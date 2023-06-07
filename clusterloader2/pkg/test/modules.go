@@ -27,14 +27,15 @@ import (
 // is either a measurement or phase step. The method recursively flattens the
 // steps being part of a module while skipping the module steps itself. E.g. if
 // the input (after loading the modules from their files) is:
-// - step 1:
-// - step 2:
-//   module:
-//     - step 3:
-//     - step 4:
-//       module:
-//         -step 5
-// - step 6
+//   - step 1:
+//   - step 2:
+//     module:
+//   - step 3:
+//   - step 4:
+//     module:
+//     -step 5
+//   - step 6
+//
 // the method will return [step1, step3, step5, step6].
 func flattenModuleSteps(ctx Context, unprocessedSteps []*api.Step) ([]*api.Step, error) {
 	var processedSteps []*api.Step

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+  labels:
+    test: {{.TestClientLabel}}
+    type: {{.TypeLabelValue}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        test: {{.TestClientLabel}}
+        type: {{.TypeLabelValue}}
+    spec:
+      # Use separate nodes to avoid consuming CPU/Memory resources on default
+      # nodes where all deployments of the performance test run.
+      nodeSelector:
+        {{.TestClientNodeSelectorKey}}: {{.TestClientNodeSelectorValue}}
+      tolerations:
+      - key: {{.TestClientNodeSelectorKey}}
+        operator: Equal
+        value: {{.TestClientNodeSelectorValue}}
+        effect: NoSchedule
+      containers:
+      - name: net-policy-latency-client
+        ports:
+        - containerPort: {{.MetricsPort}}
+          name: npdelaymetrics
+          protocol: TCP
+        imagePullPolicy: Always
+        image: gcr.io/k8s-staging-perf-tests/network-policy-enforcement-latency/pod-creation-reachability-latency:v0.0.1
+        command:
+        - sh
+        - -c
+        - ./pod-creation-reachability-latency
+          -HostNamespace="{{.Namespace}}"
+          -TargetLabelSelector="{{.TargetLabelSelector}}"
+          -TargetNamespace="{{.TargetNamespace}}"
+          -TargetPort={{.TargetPort}}
+          -MaxTargets={{.MaxTargets}}
+          -MetricsPort={{.MetricsPort}}
+        resources:
+          requests:
+            cpu: 200m
+            memory: 100Mi
+      serviceAccountName: {{.ServiceAccountName}}

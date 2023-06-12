@@ -42,6 +42,8 @@ const (
 	checkProbesReadyInterval = 15 * time.Second
 
 	defaultCheckProbesReadyTimeout = 15 * time.Minute
+
+	defaultPingSleepDuration = time.Second
 )
 
 var (
@@ -168,9 +170,13 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	if err != nil {
 		return err
 	}
+	pingSleepDuration, err := util.GetDuration(config.Params, "pingSleepDuration")
+	if err != nil {
+		pingSleepDuration = defaultPingSleepDuration
+	}
 	p.framework = config.ClusterFramework
 	p.replicasPerProbe = replicasPerProbe
-	p.templateMapping = map[string]interface{}{"Replicas": replicasPerProbe}
+	p.templateMapping = map[string]interface{}{"Replicas": replicasPerProbe, "PingSleepDuration": pingSleepDuration}
 	return nil
 }
 

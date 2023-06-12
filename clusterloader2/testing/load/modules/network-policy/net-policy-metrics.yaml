@@ -1,0 +1,122 @@
+# Valid actions: "start", "gather"
+{{$action := .action}}
+{{$usePolicyCreationMetrics := DefaultParam .usePolicyCreationMetrics true}}
+{{$usePodCreationMetrics := DefaultParam .usePodCreationMetrics true}}
+{{$useCiliumMetrics := DefaultParam .useCiliumMetrics true}}
+
+# CL2 params
+# Negative default values are used to turn thresholds off if not overridden. Thresholds are only enabled with values of zero or higher.
+{{$NP_ENFORCE_POLICY_CREATION_99_THRESHOLD_SECONDS := DefaultParam .NET_POLICY_CREATION_99_THRESHOLD_SECONDS -1}}
+{{$NP_ENFORCE_POD_CREATION_99_THRESHOLD_SECONDS := DefaultParam .NP_ENFORCE_POD_CREATION_99_THRESHOLD_SECONDS -1}}
+{{$NP_ENFORCE_POD_IP_ASSIGNED_99_THRESHOLD_SECONDS := DefaultParam .NP_ENFORCE_POD_IP_ASSIGNED_99_THRESHOLD_SECONDS -1}}
+{{$CILIUM_POLICY_IMPORTS_ERROR_THRESHOLD := DefaultParam .CILIUM_POLICY_IMPORTS_ERROR_THRESHOLD 0}}
+{{$CILIUM_ENDPOINT_REGEN_FAIL_PERC_THRESHOLD := DefaultParam .CILIUM_ENDPOINT_REGEN_FAIL_PERC_THRESHOLD 0.01}}
+{{$CILIUM_POLICY_REGEN_TIME_99_THRESHOLD := DefaultParam .CILIUM_POLICY_REGEN_TIME_99_THRESHOLD -1}}
+{{$CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD := DefaultParam .CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD -1}}
+
+steps:
+- name: "{{$action}}ing network policy metrics"
+  measurements:
+  - Identifier: NetworkPolicyEnforcementLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: "Network Policy Enforcement Latency"
+      metricVersion: v1
+      unit: s
+      queries:
+      # Network policy enforcement metrics gathered from the test clients.
+      {{if $usePolicyCreationMetrics}}
+        - name: PolicyCreation - TargetCount
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)
+        - name: PolicyCreation - Perc50
+          query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
+        - name: PolicyCreation - Perc90
+          query: histogram_quantile(0.9, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
+        - name: PolicyCreation - Perc95
+          query: histogram_quantile(0.95, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
+        - name: PolicyCreation - Perc99
+          query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
+        {{if ge $NP_ENFORCE_POLICY_CREATION_99_THRESHOLD_SECONDS 0}}
+          threshold: {{$NP_ENFORCE_POLICY_CREATION_99_THRESHOLD_SECONDS}}
+        {{end}}
+      {{end}}
+      {{if $usePodCreationMetrics}}
+        - name: PodCreation - TargetCount
+          query: sum(pod_creation_reachability_latency_seconds_count)
+        - name: PodCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(pod_creation_reachability_latency_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(pod_creation_reachability_latency_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc95
+          query: histogram_quantile(0.95, sum(rate(pod_creation_reachability_latency_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc99
+          query: histogram_quantile(0.99, sum(rate(pod_creation_reachability_latency_seconds_bucket[%v])) by (le))
+        {{if ge $NP_ENFORCE_POD_CREATION_99_THRESHOLD_SECONDS 0}}
+          threshold: {{$NP_ENFORCE_POD_CREATION_99_THRESHOLD_SECONDS}}
+        {{end}}
+        - name: PodIpAssignedLatency - TargetCount
+          query: sum(pod_ip_address_assigned_latency_seconds_count)
+        - name: PodIpAssignedLatency - Perc50
+          query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc90
+          query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc95
+          query: histogram_quantile(0.95, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc99
+          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        {{if ge $NP_ENFORCE_POD_IP_ASSIGNED_99_THRESHOLD_SECONDS 0}}
+          threshold: {{$NP_ENFORCE_POD_IP_ASSIGNED_99_THRESHOLD_SECONDS}}
+        {{end}}
+      {{end}}
+
+  {{if $useCiliumMetrics}}
+  - Identifier: NetworkPolicyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: "Network Policy Performance"
+      metricVersion: v1
+      unit: s
+      queries:
+        # Cilium agent metrics that are related to network policies.
+        - name: Number of times a policy import has failed
+          # To be replaced with the new Cilium metric that counts all policy changes, not just import errors.
+          # With that, this can be a percentage of failed imports.
+          # https://github.com/cilium/cilium/pull/23349
+          query: sum(cilium_policy_import_errors_total)
+          threshold: {{$CILIUM_POLICY_IMPORTS_ERROR_THRESHOLD}}
+        - name: Failed endpoint regenerations percentage
+          query: sum(cilium_endpoint_regenerations_total{outcome="fail"}) / sum(cilium_endpoint_regenerations_total) * 100
+          threshold: {{$CILIUM_ENDPOINT_REGEN_FAIL_PERC_THRESHOLD}}
+        - name: Policy regeneration time - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Policy regeneration time - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        {{if ge $CILIUM_POLICY_REGEN_TIME_99_THRESHOLD 0}}
+          threshold: {{$CILIUM_POLICY_REGEN_TIME_99_THRESHOLD}}
+        {{end}}
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Latency of policy update trigger - Perc50
+          query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Latency of policy update trigger - Perc99
+          query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Duration of policy update trigger - Perc50
+          query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="duration"}) by (le))
+        - name: Duration of policy update trigger - Perc99
+          query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="duration"}) by (le))
+        - name: Endpoint regeneration latency - Perc50
+          query: histogram_quantile(0.50, sum(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Endpoint regeneration latency - Perc99
+          query: histogram_quantile(0.99, sum(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        {{if ge $CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD 0}}
+          threshold: {{$CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD}}
+        {{end}}
+        - name: Number of policies currently loaded
+          query: avg(cilium_policy)
+        - name: Number of endpoints labeled by policy enforcement status
+          query: sum(cilium_policy_endpoint_enforcement_status)
+  {{end}}

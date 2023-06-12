@@ -1,0 +1,57 @@
+{{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE := DefaultParam .CL2_NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE false}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY "test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS 100}}
+{{$NET_POLICY_ENFORCEMENT_LOAD_COUNT := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_COUNT 1000}}
+{{$NET_POLICY_ENFORCEMENT_LOAD_QPS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_QPS 10}}
+{{$NET_POLICY_ENFORCEMENT_LOAD_TARGET_NAME := DefaultParam .CL2_POLICY_ENFORCEMENT_LOAD_TARGET_NAME "small-deployment"}}
+
+{{$setup := DefaultParam .setup false}}
+{{$run := DefaultParam .run false}}
+{{$complete := DefaultParam .complete false}}
+{{$testType := DefaultParam .testType "policy-creation"}}
+# Target port needs to match the server container port of target pods that have
+# "targetLabelKey: targetLabelValue" label selector.
+{{$targetPort := 80}}
+
+steps:
+  {{if $setup}}
+- name: Setup network policy enforcement latency measurement
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: setup
+      targetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
+      targetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
+      baseline: {{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
+      testClientNodeSelectorKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY}}
+      testClientNodeSelectorValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE}}
+  {{end}}
+  
+  {{if $run}}
+- name: "Run pod creation network policy enforcement latency measurement (testType={{$testType}})"
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: run
+      testType: {{$testType}}
+      targetPort: {{$targetPort}}
+      maxTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS}}
+      policyLoadCount: {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT}}
+      policyLoadQPS: {{$NET_POLICY_ENFORCEMENT_LOAD_QPS}}
+      policyLoadTargetBaseName: {{$NET_POLICY_ENFORCEMENT_LOAD_TARGET_NAME}}
+  {{end}}
+  
+  {{if $complete}}
+- name: "Complete pod creation network policy enforcement latency measurement (testType={{$testType}})"
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: complete
+      testType: {{$testType}}
+  {{end}}

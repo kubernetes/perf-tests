@@ -4,6 +4,10 @@
 {{$DaemonSetSurge := DefaultParam .CL2_DS_SURGE (MaxInt 10 (DivideInt .Nodes 20))}} # 5% of nodes, but not less than 10
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY "test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -43,5 +47,11 @@ spec:
       - key: "kubernetes.io/arch"
         operator: Equal
         value: arm64
+        effect: NoSchedule
+      {{end}}
+      {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+      - key: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY}}
+        operator: Equal
+        value: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE}}
         effect: NoSchedule
       {{end}}

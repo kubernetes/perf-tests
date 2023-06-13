@@ -1,0 +1,79 @@
+{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: load
+spec:
+  backoffLimit: {{.ReplicasMin}}
+  manualSelector: true
+  parallelism: {{RandIntRange .ReplicasMin .ReplicasMax}}
+  completions: {{.Completions}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: load
+        name: {{.Name}}
+    spec:
+      hostNetwork: {{$HostNetworkMode}}
+      containers:
+      - name: {{.Name}}
+        # TODO(#799): We should test the "run-to-completion" workflow and hence don't use pause pods.
+        image: registry.k8s.io/pause:3.9
+        resources:
+          # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
+          # For now we're setting it to 0.5%.
+          requests:
+            cpu: 5m
+            memory: "20M"
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 900
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 900
+        {{if $RUN_ON_ARM_NODES}}
+        - key: "kubernetes.io/arch"
+          operator: Equal
+          value: arm64
+          effect: NoSchedule
+        {{end}}
+      # pod affinity / anti-affinity configured to assign 1:1 job per topology domain
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: job-name   # colocate the pods of this job
+                operator: In
+                values:
+                - {{.Name}}
+            topologyKey: cloud.google.com/gke-nodepool  # the grouping domain
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions: # exclude the pods of this job
+              - key: job-name  
+                operator: NotIn
+                values:
+                - {{.Name}}
+            namespaceSelector:
+              matchExpressions: # exclude the pods from kube-system namespace
+              - key: kubernetes.io/metadata.name 
+                operator: NotIn
+                values:
+                - kube-system
+            topologyKey: cloud.google.com/gke-nodepool

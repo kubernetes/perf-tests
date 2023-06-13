@@ -54,6 +54,11 @@ steps:
           templateFillMap:
             Duration: {{$testDuration}}
             EnableWatchListFeature: {{$enableWatchListFeature}}
+        - basename: watch-list
+          objectTemplatePath: "pod-affinity.yaml"
+          templateFillMap:
+            Duration: {{$testDuration}}
+            EnableWatchListFeature: {{$enableWatchListFeature}}
 - name: Wait for the secret informer job to finish
   measurements:
     - Identifier: WaitForFinishedJobs

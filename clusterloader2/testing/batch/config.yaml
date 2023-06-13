@@ -79,7 +79,7 @@ steps:
       templateFillMap:
         Replicas: {{$largeJobSize}}
         Mode: {{$MODE}}
-        Sleep: {{$jobRunningTime}}        
+        Sleep: {{$jobRunningTime}} 
 - name: Wait for {{$MODE}} jobs to finish
   measurements:
   - Identifier: JobLifecycleLatency

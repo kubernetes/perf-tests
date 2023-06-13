@@ -216,6 +216,42 @@ steps:
         Completions: {{MultiplyInt $bigJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallJobsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: small-job
+      objectTemplatePath: pod-affinity.yaml
+      templateFillMap:
+        Completions: {{MultiplyInt $smallJobSize $completionsFactor}}
+        ReplicasMin: {{MultiplyInt $smallJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $smallJobSize $maxReplicaFactor}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumJobsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: medium-job
+      objectTemplatePath: pod-affinity.yaml
+      templateFillMap:
+        Completions: {{MultiplyInt $mediumJobSize $completionsFactor}}
+        ReplicasMin: {{MultiplyInt $mediumJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $mediumJobSize $maxReplicaFactor}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$bigJobsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: big-job
+      objectTemplatePath: pod-affinity.yaml
+      templateFillMap:
+        Completions: {{MultiplyInt $bigJobSize $completionsFactor}}
+        ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
+        ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
 {{if and $is_deleting $ENABLE_PVS}}
   - namespaceRange:
       min: 1

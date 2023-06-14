@@ -19,8 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net"
 	"net/http"
@@ -30,6 +28,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"golang.org/x/net/context"
 	clientset "k8s.io/client-go/kubernetes"
@@ -82,7 +82,7 @@ func main() {
 func hostnamesFromConfig(config *Config) []string {
 	var hostnamesArr []string
 	if config.hostnameFile != "" {
-		contents, err := ioutil.ReadFile(config.hostnameFile)
+		contents, err := os.ReadFile(config.hostnameFile)
 		if err != nil {
 			log.Fatalf("Failed to read input file %q, err - %v, Exiting.", config.hostnameFile, err)
 		}

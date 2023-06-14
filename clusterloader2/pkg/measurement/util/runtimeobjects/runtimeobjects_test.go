@@ -24,7 +24,6 @@ import (
 
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,21 +51,21 @@ var (
 	image         = "gcr.io/some-project/some-image"
 )
 
-var node1 = corev1.Node{
+var node1 = v1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node1",
 		Labels: simpleLabel,
 	},
 }
 
-var node2 = corev1.Node{
+var node2 = v1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node2",
 		Labels: affinityLabel,
 	},
 }
 
-var node3 = corev1.Node{
+var node3 = v1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node3",
 		Labels: simpleLabel,
@@ -82,7 +81,7 @@ var node3 = corev1.Node{
 	},
 }
 
-var node4 = corev1.Node{
+var node4 = v1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node4",
 		Labels: simpleLabel,
@@ -97,7 +96,7 @@ var node4 = corev1.Node{
 	},
 }
 
-var node5 = corev1.Node{
+var node5 = v1.Node{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "node5",
 		Labels: simpleLabel,
@@ -112,12 +111,12 @@ var node5 = corev1.Node{
 	},
 }
 
-var affinity = &corev1.Affinity{
-	NodeAffinity: &corev1.NodeAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-			NodeSelectorTerms: []corev1.NodeSelectorTerm{
+var affinity = &v1.Affinity{
+	NodeAffinity: &v1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+			NodeSelectorTerms: []v1.NodeSelectorTerm{
 				{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
+					MatchExpressions: []v1.NodeSelectorRequirement{
 						{
 							Key:      "affinity",
 							Operator: v1.NodeSelectorOpIn,
@@ -130,13 +129,13 @@ var affinity = &corev1.Affinity{
 	},
 }
 
-var replicationcontroller = &corev1.ReplicationController{
+var replicationcontroller = &v1.ReplicationController{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:            controllerName,
 		Namespace:       testNamespace,
 		ResourceVersion: defaultResourceVersion,
 	},
-	Spec: corev1.ReplicationControllerSpec{
+	Spec: v1.ReplicationControllerSpec{
 		Replicas: &defaultReplicas,
 		Selector: simpleLabel,
 		Template: &v1.PodTemplateSpec{
@@ -276,7 +275,7 @@ var job = &batch.Job{
 
 // pod is a sample pod that can be created for replicationcontroller,
 // replicaset, deployment, job (NOT daemonset).
-var pod = &corev1.Pod{
+var pod = &v1.Pod{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:            controllerName + "-abcd",
 		Namespace:       testNamespace,
@@ -285,7 +284,7 @@ var pod = &corev1.Pod{
 	Spec: alterPodSpec(resourcePodSpec("", "50M", "0.5", nil, nil)),
 }
 
-var daemonsetPod = &corev1.Pod{
+var daemonsetPod = &v1.Pod{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:            controllerName + "-abcd",
 		Namespace:       testNamespace,
@@ -543,7 +542,7 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		obj                  runtime.Object
-		pod                  *corev1.Pod
+		pod                  *v1.Pod
 		wantErr              bool
 		wantfullCompareError string
 	}{

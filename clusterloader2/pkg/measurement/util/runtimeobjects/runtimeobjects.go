@@ -91,6 +91,17 @@ func GetIsPodUpdatedPredicateFromRuntimeObject(obj runtime.Object) (func(*corev1
 	}
 }
 
+// Auxiliary error type for lazy evaluation of gocmp.Diff which is known to be
+// computationally expensive.
+type lazySpecDiffError struct {
+	templateSpec corev1.PodSpec
+	podSpec      corev1.PodSpec
+}
+
+func (lsde *lazySpecDiffError) Error() string {
+	return fmt.Sprintf("Not matching templates, diff: %v", gocmp.Diff(lsde.templateSpec, lsde.podSpec))
+}
+
 func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) error, error) {
 	templateMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "template")
 	if err != nil {
@@ -106,7 +117,7 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 
 	return func(pod *corev1.Pod) error {
 		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
-			return goerrors.Errorf("Not matching templates, diff: %v", gocmp.Diff(template.Spec, pod.Spec))
+			return &lazySpecDiffError{template.Spec, pod.Spec}
 		}
 		return nil
 	}, nil

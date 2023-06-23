@@ -25,7 +25,7 @@ steps:
       apiVersion: apps/v1
       kind: StatefulSet
       labelSelector: group = load
-      operationTimeout: 30m
+      operationTimeout: 300m
 - name: {{$action}} {{$serviceName}} pods
   phases:
   - namespaceRange:

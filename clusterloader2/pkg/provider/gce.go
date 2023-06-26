@@ -83,7 +83,7 @@ func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error)
 
 	var masterInstanceIDs []string
 	for _, node := range nodes {
-		if util.LegacyIsMasterNode(&node) {
+		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
 			zone, ok := node.Labels["topology.kubernetes.io/zone"]
 			if !ok {
 				// Fallback to old label to make it work for old k8s versions.

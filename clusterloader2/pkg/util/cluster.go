@@ -27,6 +27,7 @@ import (
 )
 
 const keyMasterNodeLabel = "node-role.kubernetes.io/master"
+const keyControlPlaneNodeLabel = "node-role.kubernetes.io/control-plane"
 
 // Based on the following docs:
 // https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions
@@ -152,7 +153,7 @@ func GetMasterName(c clientset.Interface) (string, error) {
 		return "", err
 	}
 	for i := range nodeList {
-		if LegacyIsMasterNode(&nodeList[i]) {
+		if LegacyIsMasterNode(&nodeList[i]) || IsControlPlaneNode(&nodeList[i]) {
 			return nodeList[i].Name, nil
 		}
 	}
@@ -167,7 +168,7 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 	}
 	var ips []string
 	for i := range nodeList {
-		if LegacyIsMasterNode(&nodeList[i]) {
+		if LegacyIsMasterNode(&nodeList[i]) || IsControlPlaneNode(&nodeList[i]) {
 			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == addressType && address.Address != "" {
 					ips = append(ips, address.Address)
@@ -205,6 +206,15 @@ func LegacyIsMasterNode(node *corev1.Node) bool {
 	}
 	if len(nodeName) >= 10 {
 		return strings.HasSuffix(nodeName[:len(nodeName)-3], "master-")
+	}
+	return false
+}
+
+func IsControlPlaneNode(node *corev1.Node) bool {
+	for key := range node.GetLabels() {
+		if key == keyControlPlaneNodeLabel {
+			return true
+		}
 	}
 	return false
 }

@@ -415,7 +415,7 @@ func (pc *Controller) runNodeExporter() error {
 	numMasters := 0
 	for _, node := range nodes {
 		node := node
-		if util.LegacyIsMasterNode(&node) {
+		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
 			numMasters++
 			g.Go(func() error {
 				f, err := pc.manifestsFS().Open(nodeExporterPod)

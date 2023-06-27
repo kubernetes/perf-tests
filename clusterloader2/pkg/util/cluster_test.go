@@ -17,10 +17,11 @@ limitations under the License.
 package util
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestLegacyIsMasterNode(t *testing.T) {
@@ -48,6 +49,38 @@ func TestLegacyIsMasterNode(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Labels: tc.Labels},
 		}
 		result := LegacyIsMasterNode(node)
+		assert.Equal(t, tc.expect, result)
+	}
+}
+
+func TestIsControlPlaneNode(t *testing.T) {
+	testcases := map[string]struct {
+		Name   string
+		Labels map[string]string
+		expect bool
+	}{
+		"node with controlplane node-role key": {
+			Labels: map[string]string{keyControlPlaneNodeLabel: ""},
+			expect: true,
+		},
+		"node with controlplane node-role key and value as true": {
+			Labels: map[string]string{keyControlPlaneNodeLabel: "true"},
+			expect: true,
+		},
+		"node with controlplane node-role key and value as false": {
+			Labels: map[string]string{keyControlPlaneNodeLabel: "false"},
+			expect: true,
+		},
+		"node without controlplane node-role": {
+			Labels: map[string]string{},
+			expect: false,
+		},
+	}
+	for _, tc := range testcases {
+		node := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Labels: tc.Labels},
+		}
+		result := IsControlPlaneNode(node)
 		assert.Equal(t, tc.expect, result)
 	}
 }

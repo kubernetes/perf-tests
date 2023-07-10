@@ -73,9 +73,9 @@ func TestGather(t *testing.T) {
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"below-threshold-query[1m]":             {{Value: model.SampleValue(7)}},
-				"no-threshold-query[1m]":                {{Value: model.SampleValue(120)}},
-				"placeholder-a[1m] + placeholder-b[1m]": {{Value: model.SampleValue(5)}},
+				"below-threshold-query[60s]":              {{Value: model.SampleValue(7)}},
+				"no-threshold-query[60s]":                 {{Value: model.SampleValue(120)}},
+				"placeholder-a[60s] + placeholder-b[60s]": {{Value: model.SampleValue(5)}},
 			},
 			wantDataItems: []measurementutil.DataItem{
 				{
@@ -132,7 +132,7 @@ func TestGather(t *testing.T) {
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"many-samples-query[1m]": {
+				"many-samples-query[60s]": {
 					{Value: model.SampleValue(1)},
 					{Value: model.SampleValue(2)},
 				},
@@ -163,7 +163,7 @@ func TestGather(t *testing.T) {
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"above-threshold-query[1m]": {{Value: model.SampleValue(123)}},
+				"above-threshold-query[60s]": {{Value: model.SampleValue(123)}},
 			},
 			wantErr: "sample above threshold: want: less or equal than 60, got: 123",
 			wantDataItems: []measurementutil.DataItem{
@@ -221,7 +221,7 @@ func TestGather(t *testing.T) {
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"query-perc99[1m]": {
+				"query-perc99[60s]": {
 					{
 						Metric: model.Metric{
 							model.LabelName("d1"): model.LabelValue("d1-val1"),
@@ -238,7 +238,7 @@ func TestGather(t *testing.T) {
 						Value: model.SampleValue(2),
 					},
 				},
-				"query-perc90[1m]": {
+				"query-perc90[60s]": {
 					{
 						Metric: model.Metric{
 							model.LabelName("d1"): model.LabelValue("d1-val1"),
@@ -316,7 +316,7 @@ func TestGather(t *testing.T) {
 				},
 			},
 			samples: map[string][]*model.Sample{
-				"query-perc99[1m]": {
+				"query-perc99[60s]": {
 					{
 						Metric: model.Metric{
 							model.LabelName("d1"): model.LabelValue("d1-val1"),

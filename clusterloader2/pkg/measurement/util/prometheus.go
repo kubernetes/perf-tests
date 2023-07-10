@@ -174,8 +174,5 @@ func (qr *promResponseData) UnmarshalJSON(b []byte) error {
 
 // ToPrometheusTime returns prometheus string representation of given time.
 func ToPrometheusTime(t time.Duration) string {
-	if t < time.Minute {
-		return fmt.Sprintf("%ds", int64(t)/int64(time.Second))
-	}
-	return fmt.Sprintf("%dm", int64(t)/int64(time.Minute))
+	return fmt.Sprintf("%ds", int64(t)/int64(time.Second))
 }

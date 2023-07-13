@@ -79,44 +79,5 @@ if [[ "${DEPLOY_AZURE_CSI_DRIVER:-false}" == "true" ]]; then
    curl -skSL ${AZUREDISK_CSI_DRIVER_INSTALL_URL} | bash -s ${AZUREDISK_CSI_DRIVER_VERSION} snapshot --
 fi
 
-# Create a dedicated service account for cluster-loader.
-kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount cluster-loader
-kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
-cat << EOF | kubectl --kubeconfig "${KUBECONFIG}" create -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cluster-loader
-  namespace: default
-  annotations:
-    kubernetes.io/service-account.name: cluster-loader
-type: kubernetes.io/service-account-token
-EOF
-
-# Create a kubeconfig to use the above service account.
-server=$(kubectl --kubeconfig "${KUBECONFIG}" config view -o jsonpath='{.clusters[0].cluster.server}')
-ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.ca\.crt}')
-token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
-echo "
-apiVersion: v1
-kind: Config
-clusters:
-- name: default-cluster
-  cluster:
-    certificate-authority-data: ${ca}
-    server: ${server}
-contexts:
-- name: default-context
-  context:
-    cluster: default-cluster
-    namespace: default
-    user: default-user
-current-context: default-context
-users:
-- name: default-user
-  user:
-    token: ${token}
-" > "${KUBECONFIG}"
-
 cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr --v="${CL2_VERBOSITY:-2}" "$@"

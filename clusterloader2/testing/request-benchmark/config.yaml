@@ -5,6 +5,7 @@
 {{$benchmarkReplicas := DefaultParam .CL2_BENCHMARK_PODS 1}}
 
 {{$inflight := DefaultParam .CL2_BENCHMARK_INFLIGHT 10}}
+{{$qps := DefaultParam .CL2_BENCHMARK_QPS -1}}
 {{$uri := DefaultParam .CL2_BENCHMARK_URI ""}} # URI example: /api/v1/namespaces/%namespace%/pods
 
 name: Request benchmark
@@ -13,7 +14,7 @@ namespace:
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:
-    parallelismLimit: 1
+    parallelismLimit: 10
 steps:
 - name: Setup permissions
   phases:
@@ -43,7 +44,7 @@ steps:
     objectBundle:
     - basename: {{$configMapGroup}}
       objectTemplatePath: configmap.yaml
-      params:
+      templateFillMap:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 - module:
@@ -56,6 +57,7 @@ steps:
       replicas: {{$benchmarkReplicas}}
       inflight: {{$inflight}}
       uri: {{$uri}}
+      qps: {{$qps}}
 - module:
     path: modules/measurements.yaml
     params:

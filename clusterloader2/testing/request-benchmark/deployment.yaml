@@ -27,6 +27,7 @@ spec:
         - --inflight={{.Inflight}}
         - --namespace={{.Namespace}}
         - --uri={{.Uri}}
+        - --qps={{.QPS}}
         resources:
           requests:
             cpu: {{$cpu}}

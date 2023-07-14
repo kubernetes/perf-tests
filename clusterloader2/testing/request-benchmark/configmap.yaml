@@ -1,4 +1,4 @@
-{{$bytes := DefaultParam .bytes 0}}
+{{$bytes := .bytes}}
 {{$group := DefaultParam .group .Name}}
 
 apiVersion: v1
@@ -8,4 +8,4 @@ metadata:
   labels:
     group: {{$group}}
 data:
-  key: "{{range $i := Loop $bytes}}{{RandIntRange 0 9}}{{end}}"
+  key: "{{RandData $bytes}}"

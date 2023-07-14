@@ -176,6 +176,61 @@ func TestGather(t *testing.T) {
 			},
 		},
 		{
+			desc: "sample above lower bound",
+			params: map[string]interface{}{
+				"metricName":    "below-threshold",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":       "above-threshold",
+						"query":      "above-threshold-query[%v]",
+						"threshold":  60,
+						"lowerBound": true,
+					},
+				},
+			},
+			samples: map[string][]*model.Sample{
+				"above-threshold-query[60s]": {{Value: model.SampleValue(74)}},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Unit: "ms",
+					Data: map[string]float64{
+						"above-threshold": 74.0,
+					},
+				},
+			},
+		},
+		{
+			desc: "sample below lower bound",
+			params: map[string]interface{}{
+				"metricName":    "below-threshold",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":       "below-threshold",
+						"query":      "below-threshold-query[%v]",
+						"threshold":  60,
+						"lowerBound": true,
+					},
+				},
+			},
+			samples: map[string][]*model.Sample{
+				"below-threshold-query[60s]": {{Value: model.SampleValue(42)}},
+			},
+			wantErr: "sample below threshold: want: greater or equal than 60, got: 42",
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Unit: "ms",
+					Data: map[string]float64{
+						"below-threshold": 42.0,
+					},
+				},
+			},
+		},
+		{
 			desc: "missing field metricName",
 			params: map[string]interface{}{
 				"metricVersion": "v1",

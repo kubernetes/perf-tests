@@ -48,13 +48,14 @@ func (c *Client) TimedRequest(ctx context.Context, request *rest.Request) Respon
 	}
 }
 
-func GetClient() (*Client, error) {
+func GetClient(qps float32) (*Client, error) {
 	config, err := getConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	config.QPS = -1 // Disable rate limiter
+	config.QPS = qps
+	config.Burst = 10
 
 	client, err := kubernetes.NewForConfig(config)
 	return (*Client)(client), err

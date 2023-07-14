@@ -1,6 +1,7 @@
 {{$replicas := DefaultParam .replicas 0}}
 {{$inflight := DefaultParam .inflight 0}}
 {{$uri := DefaultParam .uri "/"}}
+{{$qps := DefaultParam .qps -1}}
 
 steps:
 - name: Creating WaitForControlledPodsRunning measurement
@@ -28,6 +29,7 @@ steps:
         Replicas: {{$replicas}}
         Inflight: {{$inflight}}
         Uri: {{$uri}}
+        QPS: {{$qps}}
 - name: Waiting for WaitForControlledPodsRunning gather
   measurements:
   - Identifier: WaitForBenchmarkDeployment

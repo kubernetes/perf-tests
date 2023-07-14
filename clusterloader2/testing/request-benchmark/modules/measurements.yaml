@@ -9,6 +9,12 @@ steps:
         duration: 1m
 - name: "Starting measurement - {{.name}}"
   measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+      enableViolations: false
+      useSimpleLatencyQuery: true
   - Identifier: ContainerCPU-{{.name}}
     Method: GenericPrometheusQuery
     Params:
@@ -49,3 +55,9 @@ steps:
         query: quantile_over_time(0.90, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
       - name: Perc50
         query: quantile_over_time(0.50, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+      enableViolations: false
+      useSimpleLatencyQuery: true

@@ -34,6 +34,7 @@ var (
 	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
 	URI       = flag.String("uri", "", "Request URI")
 	verb      = flag.String("verb", "GET", "A verb to be used in requests.")
+	qps       = flag.Float64("qps", -1, "The qps limit for all requests")
 )
 
 func init() {
@@ -41,7 +42,7 @@ func init() {
 }
 
 func main() {
-	client, err := GetClient()
+	client, err := GetClient(float32(*qps))
 	if err != nil {
 		panic(err)
 	}

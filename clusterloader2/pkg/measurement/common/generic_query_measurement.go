@@ -83,6 +83,7 @@ type GenericQuery struct {
 	Name           string
 	Query          string
 	Threshold      *float64
+	LowerBound     bool
 	RequireSamples bool
 }
 
@@ -132,6 +133,26 @@ func getOrCreate(dataItems map[string]*measurementutil.DataItem, key, unit strin
 	return dataItem
 }
 
+func (g *genericQueryGatherer) validateSample(q GenericQuery, val float64) error {
+	thresholdMsg := "none"
+	if q.Threshold != nil {
+		thresholdMsg = fmt.Sprintf("%v (upper bound)", *q.Threshold)
+		if q.LowerBound {
+			thresholdMsg = fmt.Sprintf("%v (lower bound)", *q.Threshold)
+		}
+	}
+	klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
+	if q.Threshold != nil {
+		if q.LowerBound && val < *q.Threshold {
+			return errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample below threshold: want: greater or equal than %v, got: %v", *q.Threshold, val))
+		}
+		if !q.LowerBound && val > *q.Threshold {
+			return errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", *q.Threshold, val))
+		}
+	}
+	return nil
+}
+
 func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	var errs []error
 	dataItems := map[string]*measurementutil.DataItem{}
@@ -161,13 +182,8 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 				dataItem.Data[q.Name] = val
 			}
 
-			thresholdMsg := "none"
-			if q.Threshold != nil {
-				thresholdMsg = fmt.Sprintf("%v", *q.Threshold)
-			}
-			klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
-			if q.Threshold != nil && val > *q.Threshold {
-				errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", *q.Threshold, val)))
+			if err := g.validateSample(q, val); err != nil {
+				errs = append(errs, err)
 			}
 		}
 	}

@@ -42,7 +42,8 @@ steps:
         min: 1
         max: 1
         basename: watch-list
-      replicasPerNamespace: 2
+      # TODO(p0lyn0mial): bring back 2 replicas
+      replicasPerNamespace: 1
       tuningSet: Uniform10qps
       objectBundle:
         - basename: watch-list-secret

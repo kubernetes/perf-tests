@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	clerrors "k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
@@ -100,7 +101,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
 	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
 	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
-	flags.StringEnvVar(&p.PrometheusMemoryRequest, "prometheus-memory-request", "PROMETHEUS_MEMORY_REQUEST", "10Gi", "Memory request to be used by promehteus.")
+	flags.StringEnvVar(&p.PrometheusMemoryRequest, "prometheus-memory-request", "PROMETHEUS_MEMORY_REQUEST", "10Gi", "Memory request to be used by prometheus.")
 	err := flags.MarkDeprecated("prometheus-manifest-path", "prometheus manifests are now taken from the embed FS prepared in the build time. This flag is planned to be removed in Jan 2023. Do you really need this flag?")
 	if err != nil {
 		klog.Fatalf("unable to mark flag prometheus-manifest-path deprecated %v", err)

@@ -1,0 +1,43 @@
+# Test config for a scenario with high network flow load
+
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+{{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION := DefaultParam .CL2_PROBE_MEASUREMENTS_PING_SLEEP_DURATION "1ms"}}
+{{$PROBE_MEASUREMENTS_PING_WORKLOAD_REPLICAS := DefaultParam .CL2_PROBE_PING_WORKLOAD_REPLICAS (MultiplyInt .Nodes 2)}}
+{{$FLOW_SLEEP_DURATION := DefaultParam .CL2_FLOW_SLEEP_DURATION "7m"}}
+
+name: hubble
+namespace:
+  number: 1
+steps:
+- name: Start measurements
+  module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Prepare pods for the test
+  measurements:
+  - Identifier: Set up ping server and ping client workloads
+    Method: InClusterNetworkLatency
+    Params:
+      action: start
+      checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      replicasPerProbe: {{$PROBE_MEASUREMENTS_PING_WORKLOAD_REPLICAS}}
+      pingSleepDuration: {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION}}
+- name: Setup hubble-cli
+  measurements:
+  - Identifier: SetupHubbleCli
+    Method: SetupHubbleCli
+    Params:
+      action: start
+- name: Wait for {{$FLOW_SLEEP_DURATION}}
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: {{$FLOW_SLEEP_DURATION}}
+- name: Gather measurements
+  module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
+

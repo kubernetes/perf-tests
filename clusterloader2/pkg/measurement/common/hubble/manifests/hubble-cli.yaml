@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-cli-cl2-deployment
+  namespace: kube-system
+  labels:
+    app: hubble-cli-cl2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hubble-cli-cl2
+  template:
+    metadata:
+      labels:
+        app: hubble-cli-cl2
+    spec:
+      containers:
+      - name: hubble-cli
+        image: quay.io/cilium/hubble:v0.12.0
+        command: [ "bash", "-c", "--" ]
+        args: [ "while true; do hubble observe; sleep 4; done" ]
+        env:
+          - name: HUBBLE_SERVER
+            value: tls://hubble-relay.kube-system.svc.cluster.local:443
+          - name: HUBBLE_TLS_CERT_PATH
+            value: /var/lib/hubble-relay/tls
+          - name: HUBBLE_TLS_CLIENT_CERT_FILE
+            value: $(HUBBLE_TLS_CERT_PATH)/client.crt
+          - name: HUBBLE_TLS_CLIENT_KEY_FILE
+            value: $(HUBBLE_TLS_CERT_PATH)/client.key
+          - name: HUBBLE_TLS_CA_CERT_FILES
+            value: $(HUBBLE_TLS_CERT_PATH)/hubble-server-ca.crt
+          - name: HUBBLE_TLS_SERVER_NAME
+            value: hubble-relay.kube-system.svc.cluster.local
+        volumeMounts:
+        - name: tls
+          mountPath: /var/lib/hubble-relay/tls
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - all
+        terminationMessagePolicy: FallbackToLogsOnError
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: "hubble-relay"
+      serviceAccountName: "hubble-relay"
+      automountServiceAccountToken: false
+      volumes:
+      - name: tls
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+          - secret:
+              name: hubble-relay-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key

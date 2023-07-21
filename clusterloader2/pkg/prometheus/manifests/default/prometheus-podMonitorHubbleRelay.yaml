@@ -1,0 +1,22 @@
+{{$PROMETHEUS_SCRAPE_HUBBLE_RELAY := DefaultParam .PROMETHEUS_SCRAPE_HUBBLE_RELAY false}}
+
+{{if $PROMETHEUS_SCRAPE_HUBBLE_RELAY}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: hubble-relay-pods
+  name: hubble-relay-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 1m
+      port: metrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

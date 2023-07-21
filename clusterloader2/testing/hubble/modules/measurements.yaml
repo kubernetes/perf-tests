@@ -1,0 +1,82 @@
+{{$action := .action}}
+{{$PROMETHEUS_SCRAPE_HUBBLE_METRICS := .PROMETHEUS_SCRAPE_HUBBLE_METRICS}}
+{{$PROMETHEUS_SCRAPE_HUBBLE_RELAY := .PROMETHEUS_SCRAPE_HUBBLE_RELAY}}
+
+{{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
+{{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
+{{$PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS := DefaultParam .CL2_PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS true}}
+
+steps:
+- name: "{{$action}}ing measurements"
+  measurements:
+  - Identifier: CPUProfile
+    Method: CPUProfile
+    Params:
+      action: {{$action}}
+  - Identifier: MemoryProfile
+    Method: MemoryProfile
+    Params:
+      action: {{$action}}
+  - Identifier: ContainerRestarts
+    Method: ContainerRestarts
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
+      customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
+{{if $PROMETHEUS_SCRAPE_HUBBLE_METRICS}}
+  - Identifier: Measure Hubble metrics endpoint scrape success rate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Percentage of uptime of Prometheus scrape target
+      metricVersion: v1
+      unit: downtime
+      enableViolations: {{$PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS}}
+      queries:
+      - name: Percentage of downtime of Hubble metrics endpoint scrape target
+        query: avg(1 - avg_over_time(up{job="cilium",endpoint="flowmetrics"}[%v:]))
+        threshold: 0.01
+  - Identifier: Measure DPv2 observability metrics handle time
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: DPv2 observability metrics handle time
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS}}
+      queries:
+      - name: p99 of scrape time
+        query: avg(quantile_over_time(0.99, scrape_duration_seconds{job="cilium",endpoint="flowmetrics"}[%v:]))
+        threshold: 1
+{{end}}
+{{if $PROMETHEUS_SCRAPE_HUBBLE_RELAY}}
+  - Identifier: Measure Hubble relay metrics endpoint scrape success rate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Percentage of uptime of Prometheus scrape target
+      metricVersion: v1
+      unit: downtime
+      enableViolations: {{$PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS}}
+      queries:
+      - name: Percentage of downtime of Hubble relay metrics endpoint scrape target
+        query: avg(1 - avg_over_time(up{job="hubble-relay",endpoint="metrics"}[%v:]))
+        threshold: 0.01
+  - Identifier: Measure DPv2 observability relay gRPC success rate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: DPv2 observability relay gRPC request status
+      metricVersion: v1
+      unit: error rate
+      enableViolations: {{$PROMETHEUS_MEASUREMENTS_ENABLE_VIOLATIONS}}
+      queries:
+      - name: Ratio of failed requests to total requests
+        query: sum(increase(grpc_server_handled_total{job="hubble-relay",endpoint="metrics",grpc_code!="OK"}[%v:])) / sum(increase(grpc_server_handled_total{job="hubble-relay",endpoint="metrics"}[%v:]))
+        threshold: 0.01
+  # TODO(siwiutki): add measurement for number of unavailable nodes reported by hubble-relay,
+  #                 which will be possible once https://github.com/cilium/cilium/pull/28217 gets merged.
+{{end}}
+
+

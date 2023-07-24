@@ -22,5 +22,5 @@ spec:
               cpu: "6"
           command: [ "watch-list" ]
           # TODO(p0lyn0mial): bring back 16 informers
-          args: [ "--alsologtostderr=true", "--v=4", "--timeout={{.Duration}}", "--count=2", "--namespace=watch-list-1", "--enableWatchListFeature={{.EnableWatchListFeature}}"]
+          args: [ "--alsologtostderr=true", "--v=4", "--timeout={{.Duration}}", "--count=8", "--namespace=watch-list-1", "--enableWatchListFeature={{.EnableWatchListFeature}}"]
       restartPolicy: Never

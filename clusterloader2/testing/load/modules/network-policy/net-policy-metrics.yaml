@@ -14,6 +14,12 @@
 {{$CILIUM_POLICY_REGEN_TIME_99_THRESHOLD := DefaultParam .CILIUM_POLICY_REGEN_TIME_99_THRESHOLD -1}}
 {{$CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD := DefaultParam .CILIUM_ENDPOINT_REGEN_TIME_99_THRESHOLD -1}}
 
+# It's expected to reach all the targets, to pass the test.
+{{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS 100}}
+{{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .NODES_PER_NAMESPACE 100)}}
+{{$NAMESPACES := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$TARGET_COUNT_THRESHOLD := MultiplyInt $NAMESPACES $NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS}}
+
 steps:
 - name: "{{$action}}ing network policy metrics"
   measurements:
@@ -29,6 +35,9 @@ steps:
       {{if $usePolicyCreationMetrics}}
         - name: PolicyCreation - TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)
+          requireSamples: true
+          lowerBound: true
+          threshold: {{$TARGET_COUNT_THRESHOLD}}
         - name: PolicyCreation - Perc50
           query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
         - name: PolicyCreation - Perc90
@@ -44,6 +53,9 @@ steps:
       {{if $usePodCreationMetrics}}
         - name: PodCreation - TargetCount
           query: sum(pod_creation_reachability_latency_seconds_count)
+          requireSamples: true
+          lowerBound: true
+          threshold: {{$TARGET_COUNT_THRESHOLD}}
         - name: PodCreation - Perc50
           query: histogram_quantile(0.5, sum(rate(pod_creation_reachability_latency_seconds_bucket[%v])) by (le))
         - name: PodCreation - Perc90

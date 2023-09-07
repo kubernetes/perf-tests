@@ -154,6 +154,10 @@ Pods can be specified by label selector, field selector and namespace.
 In case of timeout test continues to run, with error (causing marking test as failed) being logged.
 - **Sleep** \
 This is a barrier that waits until requested amount of the time passes.
+- **WaitForGenericK8sObjects** \
+This is a barrier that waits until required number of k8s object fulfill given condition requirements.
+Those conditions can be specified as a list of requirements of `Type=Status` format, e.g.: `NodeReady=True`.
+In case of timeout test continues to run, with error (causing marking test as failed) being logged.
 
 ## Prometheus metrics
 

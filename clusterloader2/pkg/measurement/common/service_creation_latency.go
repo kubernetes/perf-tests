@@ -48,7 +48,7 @@ const (
 	defaultServiceCreationLatencyTimeout = 10 * time.Minute
 	defaultCheckInterval                 = 10 * time.Second
 	pingBackoff                          = 1 * time.Second
-	pingChecks                           = 10
+	pingChecks                           = 3
 
 	creatingPhase     = "creating"
 	ipAssigningPhase  = "ipAssigning"
@@ -393,6 +393,7 @@ func (p *pingChecker) run() {
 			success++
 			if success == pingChecks {
 				p.creationTimes.Set(key, phaseName(reachabilityPhase, p.svc.Spec.Type), time.Now())
+				return
 			}
 		}
 	}

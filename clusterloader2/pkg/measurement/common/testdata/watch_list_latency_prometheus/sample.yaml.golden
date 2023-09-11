@@ -1,0 +1,19 @@
+{
+  "version": "v1",
+  "dataItems": [
+    {
+      "data": {
+        "Perc50": 713.980028,
+        "Perc90": 1333.166666,
+        "Perc99": 1483.316666
+      },
+      "unit": "ms",
+      "labels": {
+        "Group": "storage.k8s.io",
+        "Resource": "pod",
+        "Scope": "namespace",
+        "Version": "v1"
+      }
+    }
+  ]
+}

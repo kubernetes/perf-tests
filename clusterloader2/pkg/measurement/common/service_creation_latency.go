@@ -351,9 +351,6 @@ func (p *pingChecker) run() {
 		case <-p.stopCh:
 			return
 		default:
-			if _, exists := p.creationTimes.Get(key, phaseName(reachabilityPhase, p.svc.Spec.Type)); exists {
-				return
-			}
 			// TODO(#685): Make ping checks less communication heavy.
 			pod, err := execservice.GetPod()
 			if err != nil {

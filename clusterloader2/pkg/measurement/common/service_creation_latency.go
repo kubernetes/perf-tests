@@ -48,7 +48,7 @@ const (
 	defaultServiceCreationLatencyTimeout = 10 * time.Minute
 	defaultCheckInterval                 = 10 * time.Second
 	pingBackoff                          = 1 * time.Second
-	pingChecks                           = 10
+	pingChecks                           = 3
 
 	creatingPhase     = "creating"
 	ipAssigningPhase  = "ipAssigning"
@@ -351,9 +351,6 @@ func (p *pingChecker) run() {
 		case <-p.stopCh:
 			return
 		default:
-			if _, exists := p.creationTimes.Get(key, phaseName(reachabilityPhase, p.svc.Spec.Type)); exists {
-				return
-			}
 			// TODO(#685): Make ping checks less communication heavy.
 			pod, err := execservice.GetPod()
 			if err != nil {
@@ -393,6 +390,7 @@ func (p *pingChecker) run() {
 			success++
 			if success == pingChecks {
 				p.creationTimes.Set(key, phaseName(reachabilityPhase, p.svc.Spec.Type), time.Now())
+				return
 			}
 		}
 	}

@@ -171,7 +171,7 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 			delete(q.indices, key)
 		}
 	}()
-	err := process(item)
+	err := process(item, false)
 	if e, ok := err.(cache.ErrRequeue); ok {
 		err = q.AddIfNotPresent(item)
 		if err != nil {

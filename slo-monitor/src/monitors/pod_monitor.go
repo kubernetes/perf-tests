@@ -17,11 +17,12 @@ limitations under the License.
 package monitors
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -136,7 +137,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 				o := metav1.ListOptions{
 					Limit: 1,
 				}
-				result, err := pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(o)
+				result, err := pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), o)
 				if err != nil {
 					return nil, err
 				}
@@ -145,7 +146,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 				return result, nil
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.CoreV1().Pods(v1.NamespaceAll).Watch(context.TODO(), options)
 			},
 		},
 		&v1.Pod{},
@@ -194,7 +195,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 				o := metav1.ListOptions{
 					Limit: 1,
 				}
-				result, err := pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(o)
+				result, err := pm.kubeClient.CoreV1().Events(v1.NamespaceAll).List(context.TODO(), o)
 				if err != nil {
 					return nil, err
 				}
@@ -204,7 +205,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = eventSelector
-				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).Watch(options)
+				return pm.kubeClient.CoreV1().Events(v1.NamespaceAll).Watch(context.TODO(), options)
 			},
 		},
 		&v1.Event{},

@@ -29,6 +29,7 @@ type EKSProvider struct {
 func NewEKSProvider(_ map[string]string) Provider {
 	return &EKSProvider{
 		features: Features{
+			ShouldPrometheusScrapeApiserverOnly: true,
 			SupportProbe:                        true,
 			SupportImagePreload:                 true,
 			SupportEnablePrometheusServer:       true,

@@ -303,7 +303,7 @@ func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namesp
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case deleteObject:
-		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
+		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
@@ -350,7 +350,7 @@ func verifyBundleCorrectness(instancesStates []*state.InstancesState) error {
 }
 
 func getIdentifier(ctx Context, object *api.Object) (state.InstancesIdentifier, error) {
-	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
+	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath)
 	if err != nil {
 		return state.InstancesIdentifier{}, fmt.Errorf("reading template (%v) for identifier error: %v", object.ObjectTemplatePath, err)
 	}
@@ -406,7 +406,7 @@ func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Objec
 	if err != nil {
 		return 0, err
 	}
-	obj, err := ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
+	obj, err := ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath)
 	if err != nil {
 		return 0, err
 	}

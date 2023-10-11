@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,28 +86,28 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 		return err
 	}
 
-	conditions, err := store.ListConditions()
+	objects, err := store.ListObjectSimplifications()
 	if err != nil {
 		return err
 	}
-	successful, failed, all := countObjectsMatchingConditions(conditions, options.SuccessfulConditions, options.FailedConditions)
+	successful, failed, count := countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d all=%d",
-				options.Summary(), options.MinDesiredObjectCount, successful, failed, all)
+			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d count=%d",
+				options.Summary(), options.MinDesiredObjectCount, len(successful), len(failed), count)
 		case <-time.After(options.WaitInterval):
-			conditions, err := store.ListConditions()
+			objects, err := store.ListObjectSimplifications()
 			if err != nil {
 				return err
 			}
-			successful, failed, all = countObjectsMatchingConditions(conditions, options.SuccessfulConditions, options.FailedConditions)
+			successful, failed, count = countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
 
-			klog.V(2).Infof("%s: successful=%d failed=%d all=%d", options.Summary(), successful, failed, all)
-			if options.MinDesiredObjectCount <= successful+failed {
-				if options.MaxFailedObjectCount < failed {
-					return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d all=%d",
-						options.Summary(), options.MaxFailedObjectCount, successful, failed, all)
+			klog.V(2).Infof("%s: successful=%d failed=%d count=%d", options.Summary(), len(successful), len(failed), count)
+			if options.MinDesiredObjectCount <= len(successful)+len(failed) {
+				if options.MaxFailedObjectCount < len(failed) {
+					return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d count=%d failed-objects=[%s]",
+						options.Summary(), options.MaxFailedObjectCount, len(successful), len(failed), count, strings.Join(failed, ","))
 				}
 				return nil
 			}
@@ -116,7 +117,7 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 
 // countObjectsMatchingConditions counts objects that have a successful or failed condition.
 // Function assumes the conditions it looks for are mutually exclusive.
-func countObjectsMatchingConditions(objectConditions [][]metav1.Condition, successfulConditions []string, failedConditions []string) (successful int, failed int, all int) {
+func countObjectsMatchingConditions(objects []ObjectSimplification, successfulConditions []string, failedConditions []string) (successful []string, failed []string, count int) {
 	successfulMap := map[string]bool{}
 	for _, c := range successfulConditions {
 		successfulMap[c] = true
@@ -126,15 +127,15 @@ func countObjectsMatchingConditions(objectConditions [][]metav1.Condition, succe
 		failedMap[c] = true
 	}
 
-	all = len(objectConditions)
-	for _, conditions := range objectConditions {
-		for _, c := range conditions {
+	count = len(objects)
+	for _, object := range objects {
+		for _, c := range object.Status.Conditions {
 			if successfulMap[conditionToKey(c)] {
-				successful++
+				successful = append(successful, object.String())
 				break
 			}
 			if failedMap[conditionToKey(c)] {
-				failed++
+				failed = append(failed, object.String())
 				break
 			}
 		}

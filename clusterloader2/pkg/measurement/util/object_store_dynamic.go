@@ -24,6 +24,7 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,14 +59,14 @@ func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface,
 	}, nil
 }
 
-// ListConditions returns list of conditions for each object that was returned by lister.
-func (s *DynamicObjectStore) ListConditions() ([][]metav1.Condition, error) {
+// ListObjectSimplifications returns list of objects with conditions for each object that was returned by lister.
+func (s *DynamicObjectStore) ListObjectSimplifications() ([]ObjectSimplification, error) {
 	objects, err := s.GenericLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([][]metav1.Condition, 0, len(objects))
+	result := make([]ObjectSimplification, 0, len(objects))
 	for _, o := range objects {
 		os, err := getObjectSimplification(o)
 		if err != nil {
@@ -74,7 +75,7 @@ func (s *DynamicObjectStore) ListConditions() ([][]metav1.Condition, error) {
 		if !s.namespaces[os.Metadata.Namespace] {
 			continue
 		}
-		result = append(result, os.Status.Conditions)
+		result = append(result, os)
 	}
 	return result, nil
 }
@@ -90,6 +91,10 @@ type ObjectSimplification struct {
 // that is required to be handled by this measurement.
 type StatusWithConditions struct {
 	Conditions []metav1.Condition `json:"conditions"`
+}
+
+func (o ObjectSimplification) String() string {
+	return fmt.Sprintf("%s/%s", o.Metadata.Namespace, o.Metadata.Name)
 }
 
 func getObjectSimplification(o runtime.Object) (ObjectSimplification, error) {

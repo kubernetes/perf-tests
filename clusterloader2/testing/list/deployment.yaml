@@ -1,6 +1,7 @@
+# The source of the image is at https://github.com/kubernetes/perf-tests/tree/master/util-images/request-benchmark
 {{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-testimages/perf-tests-util/request-benchmark:latest"}}
-{{$cpu := DefaultParam .cpu "400m"}}
-{{$memory := DefaultParam .memory "800Mi"}}
+{{$cpu := DefaultParam .cpu "200m"}}
+{{$memory := DefaultParam .memory "400Mi"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -27,7 +28,6 @@ spec:
         - --inflight={{.Inflight}}
         - --namespace={{.Namespace}}
         - --uri={{.Uri}}
-        - --qps={{.QPS}}
         resources:
           requests:
             cpu: {{$cpu}}

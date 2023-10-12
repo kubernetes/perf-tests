@@ -2,11 +2,10 @@
 {{$replicas := DefaultParam .replicas 0}}
 {{$inflight := DefaultParam .inflight 0}}
 {{$uri := DefaultParam .uri "/"}}
-{{$qps := DefaultParam .qps -1}}
 {{$namespaced := DefaultParam .namespaced false}}
 {{$namespaceNumber := DefaultParam .namespaceNumber 0}}
-{{$cpu := DefaultParam .cpu "400m"}}
-{{$memory := DefaultParam .memory "800Mi"}}
+{{$cpu := DefaultParam .cpu "200m"}}
+{{$memory := DefaultParam .memory "400Mi"}}
 
 steps:
 - name: Creating WaitForControlledPodsRunning measurement
@@ -41,7 +40,6 @@ steps:
         Replicas: {{$replicas}}
         Inflight: {{$inflight}}
         Uri: {{$uri}}
-        QPS: {{$qps}}
         cpu: {{$cpu}}
         memory: {{$memory}}
 - name: Waiting for WaitForControlledPodsRunning gather

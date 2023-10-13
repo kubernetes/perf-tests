@@ -567,6 +567,16 @@ var (
 					Parser:           parsePerfData,
 				},
 			},
+			"Responsiveness_PrometheusSimple": []TestDescription{{
+				Name:             "node-throughput",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "node-throughput",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
+			}},
 		},
 	}
 	windowsDescriptions = TestDescriptions{

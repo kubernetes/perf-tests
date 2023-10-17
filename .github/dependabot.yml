@@ -1,51 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: docker
-  directory: /dns/image
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /network/tools/network-policy-enforcement-latency/pod-creation-reachability-latency
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /util-images/containerd
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /util-images/watch-list
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
   directory: /util-images/network/netperfbenchmark
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /dns/dnsperfgo/vendor/golang.org/x/net/http2
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /dns/dnsperfgo
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /util-images/sleep
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /util-images/probes
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /perfdash
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /network/benchmarks/netperf
-  schedule:
-    interval: weekly
-- package-ecosystem: docker
-  directory: /util-images/scratch
   schedule:
     interval: weekly
 - package-ecosystem: docker
@@ -61,15 +17,51 @@ updates:
   schedule:
     interval: weekly
 - package-ecosystem: docker
+  directory: /util-images/probes
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /util-images/scratch
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /network/tools/network-policy-enforcement-latency/pod-creation-reachability-latency
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /util-images/watch-list
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /dns/dnsperfgo
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /dns/dnsperfgo/vendor/golang.org/x/net/http2
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /dns/image
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /perfdash
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
   directory: /slo-monitor
   schedule:
     interval: weekly
-- package-ecosystem: gomod
-  directory: /clusterloader2
+- package-ecosystem: docker
+  directory: /util-images/sleep
   schedule:
     interval: weekly
-- package-ecosystem: gomod
-  directory: /util-images/watch-list
+- package-ecosystem: docker
+  directory: /util-images/containerd
+  schedule:
+    interval: weekly
+- package-ecosystem: docker
+  directory: /network/benchmarks/netperf
   schedule:
     interval: weekly
 - package-ecosystem: gomod
@@ -77,31 +69,7 @@ updates:
   schedule:
     interval: weekly
 - package-ecosystem: gomod
-  directory: /dns/jsonify
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /util-images/probes
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /dns/dnsperfgo
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /perfdash
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /benchmark
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /network/benchmarks/netperf
-  schedule:
-    interval: weekly
-- package-ecosystem: gomod
-  directory: /network/tools/network-policy-enforcement-latency
+  directory: /util-images/access-tokens
   schedule:
     interval: weekly
 - package-ecosystem: gomod
@@ -109,12 +77,42 @@ updates:
   schedule:
     interval: weekly
 - package-ecosystem: gomod
-  directory: /util-images/access-tokens
+  directory: /util-images/probes
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /dns/jsonify
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /clusterloader2
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /dns/dnsperfgo
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /util-images/watch-list
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /perfdash
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /network/tools/network-policy-enforcement-latency
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
+  directory: /benchmark
   schedule:
     interval: weekly
 - package-ecosystem: gomod
   directory: /slo-monitor
   schedule:
     interval: weekly
-
-
+- package-ecosystem: gomod
+  directory: /network/benchmarks/netperf
+  schedule:
+    interval: weekly

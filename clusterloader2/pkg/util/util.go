@@ -23,6 +23,8 @@ import (
 	"math/rand"
 	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // ErrKeyNotFound is returned when key doesn't exists in a map.
@@ -93,6 +95,11 @@ func GetStringArray(dict map[string]interface{}, key string) ([]string, error) {
 	return getStringArray(dict, key)
 }
 
+// GetLabelSelector tries to return value from map parsed as labels.Selector type. If value doesn't exist, error is returned.
+func GetLabelSelector(dict map[string]interface{}, key string) (*labels.Selector, error) {
+	return getLabelSelector(dict, key)
+}
+
 // GetStringOrDefault tries to return value from map cast to string type. If value doesn't exist default value is used.
 func GetStringOrDefault(dict map[string]interface{}, key string, defaultValue string) (string, error) {
 	value, err := getString(dict, key)
@@ -136,6 +143,20 @@ func GetBoolOrDefault(dict map[string]interface{}, key string, defaultValue bool
 		return defaultValue, nil
 	}
 	return value, err
+}
+
+func getLabelSelector(dict map[string]interface{}, key string) (*labels.Selector, error) {
+	value, err := getString(dict, key)
+	if err != nil {
+		return nil, err
+	}
+
+	selector, err := labels.Parse(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return &selector, nil
 }
 
 func getMap(dict map[string]interface{}, key string) (map[string]interface{}, error) {

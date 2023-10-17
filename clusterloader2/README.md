@@ -127,6 +127,11 @@ This measurement gathers the memory profile provided by pprof for a given compon
 - **MetricsForE2E** \
 The measurement gathers metrics from kube-apiserver, controller manager,
 scheduler and optionally all kubelets.
+- **PodPeriodicCommand** \
+This measurement continually runs commands on an interval in pods targeted
+with a label selector. The output from each command is collected, allowing for
+information to be polled throughout the duration of the measurement, such as
+CPU and memory profiles.
 - **PodStartupLatency** \
 This measurement verifies if [pod startup SLO] is satisfied.
 - **ResourceUsageSummary** \

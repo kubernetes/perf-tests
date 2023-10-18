@@ -1,4 +1,4 @@
-FROM golang:1.17 AS build-env
+FROM golang:1.21 AS build-env
 
 ARG gopkg=k8s.io/perf-tests/util-images/sleep
 

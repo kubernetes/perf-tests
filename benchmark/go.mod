@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/aclements/go-moremath v0.0.0-20190830160640-d16893ddf098 // indirect
 	github.com/dgryski/go-onlinestats v0.0.0-20170612111826-1c7d19468768
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/glog v1.1.2
 	github.com/spf13/pflag v1.0.5
 	k8s.io/contrib v0.0.0-20190411182844-89f6948e2457
 	k8s.io/kubernetes v1.15.0

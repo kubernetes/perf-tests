@@ -1,13 +1,13 @@
 module k8s.io/perf-tests/slo-monitor
 
 require (
-	github.com/golang/glog v0.0.0-20141105023935-44145f04b68c
+	github.com/golang/glog v1.1.2
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
-	k8s.io/kubernetes v1.28.2
+	k8s.io/kubernetes v1.15.0-alpha.0
 )
 
 require (

@@ -224,9 +224,37 @@ func TestVerifyPhase(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "namespaceList specifies namespace",
+			input: Phase{
+				ReplicasPerNamespace: 10,
+				NamespaceList:        []string{"ns1"},
+			},
+			expected: true,
+		},
+		{
+			name: "namespaceRange specifies namespace",
+			input: Phase{
+				ReplicasPerNamespace: 10,
+				NamespaceRange: &NamespaceRange{
+					Min: 1,
+					Max: 1,
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "negative replicas",
 			input: Phase{
 				ReplicasPerNamespace: -10,
+			},
+			expected: false,
+		},
+		{
+			name: "namespaceList and namespaceRange both specify namespace",
+			input: Phase{
+				ReplicasPerNamespace: 10,
+				NamespaceList:        []string{"ns1"},
+				NamespaceRange:       &NamespaceRange{},
 			},
 			expected: false,
 		},

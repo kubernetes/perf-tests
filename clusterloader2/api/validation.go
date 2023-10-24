@@ -139,6 +139,10 @@ func validateTuningSetInPhase(s *Step, ts []*TuningSet, fldPath *field.Path) fie
 
 func (v *ConfigValidator) validatePhase(p *Phase, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+
+	if p.NamespaceList != nil && p.NamespaceRange != nil {
+		allErrs = append(allErrs, field.Forbidden(fldPath, "must specify at most 1 of namespaceList and namespaceRange"))
+	}
 	if p.NamespaceRange != nil {
 		allErrs = append(allErrs, v.validateNamespaceRange(p.NamespaceRange, fldPath.Child("namespaceRange"))...)
 	}

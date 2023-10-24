@@ -180,7 +180,10 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 // ExecutePhase executes single test phase based on provided phase configuration.
 func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.ErrorList {
 	errList := errors.NewErrorList()
-	nsList := createNamespacesList(ctx, phase.NamespaceRange)
+	nsList := phase.NamespaceList
+	if nsList == nil {
+		nsList = createNamespacesList(ctx, phase.NamespaceRange)
+	}
 	tuningSet, err := ctx.GetFactory().CreateTuningSet(phase.TuningSet)
 	if err != nil {
 		return errors.NewErrorList(fmt.Errorf("tuning set creation error: %v", err))

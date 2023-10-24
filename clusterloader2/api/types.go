@@ -94,10 +94,17 @@ type Module struct {
 // In a given namespace range (or cluster scope if no range is specified)
 // it defines the number and the configuration of managed objects.
 type Phase struct {
-	// NamespaceRange defines the set of namespaces in which objects
+	// NamespaceRange defines the range of generated namespaces in which objects
 	// should be reconciled.
 	// If null, objects are assumed to be cluster scoped.
+	// Note: Only one of NamespaceList and NamespaceRange should be set
 	NamespaceRange *NamespaceRange `json:"namespaceRange"`
+	// NamespaceList defines a list of namespaces in which objects
+	// should be reconciled. This is used for resources that should be forced
+	// into specific namespaces.
+	// If null, assumed to use NamespaceRange.
+	// Note: Only one of NamespaceList and NamespaceRange should be set
+	NamespaceList []string `json:"namespaceList"`
 	// ReplicasPerNamespace is a number of instances of a given object
 	// to exist in each of referenced namespaces.
 	ReplicasPerNamespace int32 `json:"replicasPerNamespace"`

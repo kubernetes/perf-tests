@@ -1,5 +1,7 @@
 # List benchmark
-{{$namespaceNumber := DefaultParam .CL2_LIST_NAMESPACE_NUMBER 2}}
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 5}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$namespaceNumber := MaxInt $namespaces 2}}
 
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 1000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 300}}

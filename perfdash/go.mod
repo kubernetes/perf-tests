@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/storage v1.10.0
 	github.com/aws/aws-sdk-go v1.46.1
 	github.com/ghodss/yaml v1.0.0
-	github.com/spf13/pflag v1.0.1
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.opencensus.io v0.23.0 // indirect
 	google.golang.org/api v0.70.0

@@ -1,0 +1,11 @@
+{{$bytes := .bytes}}
+{{$group := DefaultParam .group .Name}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{$group}}
+data:
+  key: "{{RandData $bytes}}"

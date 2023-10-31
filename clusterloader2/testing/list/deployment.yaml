@@ -1,0 +1,37 @@
+# The source of the image is at https://github.com/kubernetes/perf-tests/tree/master/util-images/request-benchmark
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-testimages/perf-tests-util/request-benchmark:latest"}}
+{{$cpu := DefaultParam .cpu "200m"}}
+{{$memory := DefaultParam .memory "400Mi"}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: benchmark
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: benchmark
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: {{$image}}
+        imagePullPolicy: Always
+        args:
+        - --inflight={{.Inflight}}
+        - --namespace={{.Namespace}}
+        - --uri={{.Uri}}
+        resources:
+          requests:
+            cpu: {{$cpu}}
+            memory: {{$memory}}
+          limits:
+            cpu: {{$cpu}}
+            memory: {{$memory}}

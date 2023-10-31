@@ -1,0 +1,194 @@
+# List benchmark
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 5}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$namespaceNumber := MaxInt $namespaces 2}}
+
+{{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 1000}}
+{{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 300}}
+{{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
+
+{{$secretBytes := DefaultParam .CL2_LIST_SECRET_BYTES 1000}}
+{{$secretNumber := DefaultParam .CL2_LIST_SECRET_NUMBER 300}}
+{{$secretGroup := DefaultParam .CL2_LIST_SECRET_GROUP "list-secret"}}
+
+{{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
+{{$inflight := DefaultParam .CL2_LIST_CONCURRENCY 1}}
+
+{{$listConfigMapsPodCpu := MultiplyInt $inflight (MultiplyInt (DivideInt $configMapBytes 1000) $configMapNumber)}}
+{{$listConfigMapsPodMemory := MultiplyInt $inflight (MultiplyInt (DivideInt $configMapBytes 1000) $configMapNumber)}}
+{{$listSecretsPodCpu := MultiplyInt $inflight (MultiplyInt (DivideInt $secretBytes 1000) $secretNumber)}}
+{{$listSecretsPodMemory := MultiplyInt $inflight (MultiplyInt (DivideInt $secretBytes 1000) $secretNumber)}}
+
+# CL2_LIST_BENCHMARK_POD_CPU and CL2_LIST_BENCHMARK_POD_MEMORY are expected to be an integer-only value.
+# We will append m (milicores) and Mi for them respectively.
+{{$namespacedPodCpu := DefaultParam .CL2_LIST_BENCHMARK_POD_CPU (MaxInt $listConfigMapsPodCpu $listSecretsPodCpu)}}
+{{$namespacedPodMemory := DefaultParam .CL2_LIST_BENCHMARK_POD_MEMORY (MaxInt $listConfigMapsPodMemory $listSecretsPodMemory)}}
+{{$clusterScopedPodCpu := MultiplyInt $namespaceNumber $namespacedPodCpu}}
+{{$clusterScopedPodMemory := MultiplyInt $namespaceNumber $namespacedPodMemory}}
+
+name: List benchmark
+namespace:
+  number: {{$namespaceNumber}}
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 10
+steps:
+- name: Setup namespace for list benchmark pods
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: list-benchmark
+      objectTemplatePath: namespace.yaml
+- name: Setup permissions
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: list-clusterrole
+      objectTemplatePath: clusterrole.yaml
+  - replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: list-clusterrolebinding
+      objectTemplatePath: clusterrolebinding.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaceNumber}}
+    replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: list-rolebinding
+      objectTemplatePath: rolebinding.yaml
+
+- name: Create configmaps
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaceNumber}}
+    tuningSet: Sequence
+    replicasPerNamespace: {{$configMapNumber}}
+    objectBundle:
+    - basename: {{$configMapGroup}}
+      objectTemplatePath: configmap.yaml
+      templateFillMap:
+        bytes: {{$configMapBytes}}
+        group: {{$configMapGroup}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaceNumber}}
+    tuningSet: Sequence
+    replicasPerNamespace: {{$secretNumber}}
+    objectBundle:
+    - basename: {{$secretGroup}}
+      objectTemplatePath: secret.yaml
+      templateFillMap:
+        bytes: {{$secretBytes}}
+        group: {{$secretGroup}}
+
+- name: "Starting measurement - list benchmark"
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+      enableViolations: false
+      useSimpleLatencyQuery: true
+
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-namespaced-configmaps-"
+      replicas: {{$listReplicas}}
+      inflight: {{$inflight}}
+      uri: /api/v1/namespaces/%namespace%/configmaps
+      cpu: {{$namespacedPodCpu}}m
+      memory: {{$namespacedPodMemory}}Mi
+      namespaced: true
+      namespaceNumber: {{$namespaceNumber}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-cluster-scoped-configmaps-"
+      replicas: {{$listReplicas}}
+      inflight: {{$inflight}}
+      uri: /api/v1/configmaps
+      cpu: {{$clusterScopedPodCpu}}m
+      memory: {{$clusterScopedPodMemory}}Mi
+      namespaced: false
+- name: Wait 5 minutes
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-namespaced-configmaps-"
+      namespaced: true
+      namespaceNumber: {{$namespaceNumber}}
+      replicas: 0
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-cluster-scoped-configmaps-"
+      replicas: 0
+
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-namespaced-secrets-"
+      replicas: {{$listReplicas}}
+      inflight: {{$inflight}}
+      uri: /api/v1/namespaces/%namespace%/secrets
+      cpu: {{$namespacedPodCpu}}m
+      memory: {{$namespacedPodMemory}}Mi
+      namespaced: true
+      namespaceNumber: {{$namespaceNumber}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-cluster-scoped-secrets-"
+      replicas: {{$listReplicas}}
+      inflight: {{$inflight}}
+      uri: /api/v1/secrets
+      cpu: {{$clusterScopedPodCpu}}m
+      memory: {{$clusterScopedPodMemory}}Mi
+      namespaced: false
+- name: Wait 5 minutes
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-namespaced-secrets-"
+      namespaced: true
+      namespaceNumber: {{$namespaceNumber}}
+      replicas: 0
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-cluster-scoped-secrets-"
+      replicas: 0
+
+- name: deleting namespace for list benchmark pods
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: list-benchmark
+      objectTemplatePath: namespace.yaml
+
+- name: "Gathering measurement - list benchmark"
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+      enableViolations: false
+      useSimpleLatencyQuery: true

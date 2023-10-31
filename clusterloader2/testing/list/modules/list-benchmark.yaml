@@ -1,0 +1,50 @@
+{{$namePrefix := DefaultParam .namePrefix "list-benchmark-"}}
+{{$replicas := DefaultParam .replicas 0}}
+{{$inflight := DefaultParam .inflight 0}}
+{{$uri := DefaultParam .uri "/"}}
+{{$namespaced := DefaultParam .namespaced false}}
+{{$namespaceNumber := DefaultParam .namespaceNumber 0}}
+{{$cpu := DefaultParam .cpu "200m"}}
+{{$memory := DefaultParam .memory "400Mi"}}
+
+steps:
+- name: Creating WaitForControlledPodsRunning measurement
+  measurements:
+  - Identifier: WaitForListBenchmarkDeployment
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      checkIfPodsAreUpdated: true
+      kind: Deployment
+      labelSelector: group = benchmark
+      operationTimeout: 5m
+- name: Deploying {{$namePrefix}}deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+{{if $namespaced}}
+    namespaceRange:
+      min: 1
+      max: {{$namespaceNumber}}
+{{else}}
+    namespaceRange:
+      min: 0
+      max: 0
+      basename: list-benchmark
+{{end}}
+    objectBundle:
+    - basename: {{$namePrefix}}deploy
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+        Inflight: {{$inflight}}
+        Uri: {{$uri}}
+        cpu: {{$cpu}}
+        memory: {{$memory}}
+- name: Waiting for WaitForControlledPodsRunning gather
+  measurements:
+  - Identifier: WaitForListBenchmarkDeployment
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather

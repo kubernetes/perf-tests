@@ -50,6 +50,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"IncludeFile":      includeFile,
 		"IncludeEmbedFile": includeEmbedFile(fsys),
 		"Loop":             loop,
+		"Lowercase":        strings.ToLower,
 		"MaxFloat":         maxFloat,
 		"MaxInt":           maxInt,
 		"MinFloat":         minFloat,

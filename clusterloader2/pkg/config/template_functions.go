@@ -62,6 +62,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"RandIntRange":     randIntRange,
 		"Seq":              seq,
 		"SliceOfZeros":     sliceOfZeros,
+		"StringSplit":      stringSplit,
 		"SubtractFloat":    subtractFloat,
 		"SubtractInt":      subtractInt,
 		"YamlQuote":        yamlQuote,
@@ -290,6 +291,11 @@ func ifThenElse(conditionVal interface{}, thenVal interface{}, elseVal interface
 // In-place replacement for deprecated 'Seq'.
 func sliceOfZeros(size interface{}) []int {
 	return make([]int, int(toFloat64(size)))
+}
+
+// stringSplit splits a string by commas.
+func stringSplit(s string) []string {
+	return strings.Split(s, ",")
 }
 
 // loop returns a slice with incremential values starting from zero.

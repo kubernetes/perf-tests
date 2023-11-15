@@ -38,6 +38,7 @@ func NewAWSProvider(_ map[string]string) Provider {
 			SupportProbe:                        true,
 			SupportResourceUsageMetering:        true,
 			SupportSSHToMaster:                  true,
+			SupportKubeStateMetrics:             true,
 		},
 	}
 }

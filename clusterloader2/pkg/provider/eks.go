@@ -37,6 +37,7 @@ func NewEKSProvider(_ map[string]string) Provider {
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportResourceUsageMetering:        true,
 			ShouldScrapeKubeProxy:               true,
+			SupportKubeStateMetrics:             true,
 		},
 	}
 }

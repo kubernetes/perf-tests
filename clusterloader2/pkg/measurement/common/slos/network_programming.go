@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/klog/v2"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -46,9 +47,23 @@ func init() {
 	}
 }
 
-type netProgGatherer struct{}
+type netProgGatherer struct {
+	enableViolations bool
+	threshold        time.Duration
+}
 
 func (n *netProgGatherer) Configure(config *measurement.Config) error {
+	enableViolations, err := util.GetBoolOrDefault(config.Params, "enableViolations", false)
+	if err != nil {
+		return err
+	}
+	n.enableViolations = enableViolations
+
+	threshold, err := util.GetDuration(config.Params, "threshold")
+	if err != nil {
+		return err
+	}
+	n.threshold = threshold
 	return nil
 }
 
@@ -99,5 +114,12 @@ func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) 
 	if err != nil {
 		return nil, err
 	}
-	return measurement.CreateSummary(netProg, "json", content), nil
+	if n.enableViolations {
+		klog.V(2).Infof("%s: programming thresholds validation is enabled", n.enableViolations)
+		if slosErr := latency.VerifyThreshold(n.threshold); slosErr != nil {
+			err = errors.NewMetricViolationError("Network Programming Latency", slosErr.Error())
+			klog.Errorf("%s: %v", n, err)
+		}
+	}
+	return measurement.CreateSummary(netProg, "json", content), err
 }

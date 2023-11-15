@@ -24,6 +24,7 @@ export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 # TODO: eventually we need to move to use cloud-provider-gcp to bring up cluster which have pdcsi by default
 export CSI_DRIVER_KUBECONFIG="${HOME}/.kube/config"
 export KUBEMARK_ROOT_KUBECONFIG="${KUBEMARK_ROOT_KUBECONFIG:-${HOME}/.kube/config}"
+export KUBECONFIG_NAMESPACE="${KUBECONFIG_NAMESPACE:-cluster-loader}"
 
 export AZUREDISK_CSI_DRIVER_VERSION="${AZUREDISK_CSI_DRIVER_VERSION:-master}"
 export AZUREDISK_CSI_DRIVER_INSTALL_URL="${AZUREDISK_CSI_DRIVER_INSTALL_URL:-https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/${AZUREDISK_CSI_DRIVER_VERSION}/deploy/install-driver.sh}"
@@ -80,14 +81,16 @@ if [[ "${DEPLOY_AZURE_CSI_DRIVER:-false}" == "true" ]]; then
 fi
 
 # Create a dedicated service account for cluster-loader.
-kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount cluster-loader
-kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
+# Create the namespace if it doesn't exist.
+kubectl --kubeconfig "${KUBECONFIG}" create namespace "${KUBECONFIG_NAMESPACE}" --dry-run=client -o yaml | kubectl --kubeconfig "${KUBECONFIG}" apply -f -
+kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount --namespace="${KUBECONFIG_NAMESPACE}" cluster-loader
+kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding --namespace="${KUBECONFIG_NAMESPACE}" cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
 cat << EOF | kubectl --kubeconfig "${KUBECONFIG}" create -f -
 apiVersion: v1
 kind: Secret
 metadata:
   name: cluster-loader
-  namespace: default
+  namespace: ${KUBECONFIG_NAMESPACE}
   annotations:
     kubernetes.io/service-account.name: cluster-loader
 type: kubernetes.io/service-account-token
@@ -95,8 +98,8 @@ EOF
 
 # Create a kubeconfig to use the above service account.
 server=$(kubectl --kubeconfig "${KUBECONFIG}" config view -o jsonpath='{.clusters[0].cluster.server}')
-ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.ca\.crt}')
-token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
+ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret --namespace="${KUBECONFIG_NAMESPACE}" cluster-loader -o jsonpath='{.data.ca\.crt}')
+token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret --namespace="${KUBECONFIG_NAMESPACE}" cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
 echo "
 apiVersion: v1
 kind: Config
@@ -117,6 +120,8 @@ users:
   user:
     token: ${token}
 " > "${KUBECONFIG}"
+
+echo "Dedicated kubeconfig created"
 
 cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr --v="${CL2_VERBOSITY:-2}" "$@"

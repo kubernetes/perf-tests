@@ -16,5 +16,5 @@ spec:
     - name: http-metrics
       port: 10249
   selector:
-    {{$PROMETHEUS_KUBE_PROXY_SELECTOR_KEY}}: kube-proxy
+    {{ (StructuralData $PROMETHEUS_KUBE_PROXY_SELECTOR_KEY) }}: kube-proxy
 {{end}}

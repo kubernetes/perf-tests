@@ -20,6 +20,8 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -44,6 +47,7 @@ scraped and results verified to not cross the specified thresholds.
 const (
 	dnsPerfK8sHostnamesMeasureName = "DNSPerformanceK8sHostnames"
 	dnsPerfTestNamespace           = "dns-perf-test"
+	dnsPerfTestDeploymentName      = "dns-perf-client"
 	dnsPerfTestPermissionsName     = "dns-test-client"
 	serviceAccountFilePath         = "manifests/serviceaccount.yaml"
 	clusterRoleFilePath            = "manifests/clusterrole.yaml"
@@ -78,6 +82,9 @@ type dnsPerfK8sHostnamesMeasurement struct {
 	qpsPerClient int
 	// testDurationMinutes is the duration in minutes for DNS client pods to run.
 	testDurationMinutes int
+	// additionalManifestFilePath is the optional location of an extra manifest
+	// to install when setting up the test.
+	additionalManifestFilePath string
 }
 
 func (m *dnsPerfK8sHostnamesMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
@@ -88,6 +95,10 @@ func (m *dnsPerfK8sHostnamesMeasurement) Execute(config *measurement.Config) ([]
 
 	if err = client.CreateNamespace(m.k8sClient, m.testClientNamespace); err != nil {
 		return nil, fmt.Errorf("error while creating namespace: %v", err)
+	}
+
+	if err = m.createAdditionalManifests(); err != nil {
+		return nil, fmt.Errorf("failed to apply additional manifests: %v", err)
 	}
 
 	if err = m.createDNSClientPermissions(); err != nil {
@@ -128,9 +139,36 @@ func (m *dnsPerfK8sHostnamesMeasurement) initializeMeasurement(config *measureme
 		return err
 	}
 
+	if m.additionalManifestFilePath, err = util.GetStringOrDefault(config.Params, "additionalManifestFilePath", ""); err != nil {
+		return err
+	}
+
 	m.framework = config.ClusterFramework
 	m.k8sClient = config.ClusterFramework.GetClientSets().GetClient()
 
+	return nil
+}
+
+func (m *dnsPerfK8sHostnamesMeasurement) createAdditionalManifests() error {
+	if m.additionalManifestFilePath == "" {
+		return nil
+	}
+	templateMap := map[string]interface{}{
+		"Namespace": m.testClientNamespace,
+	}
+	systemFS := os.DirFS("/")
+	cPath := filepath.Clean(m.additionalManifestFilePath)
+	var err error
+	// Remove leading "/" if relative, since ApplyTemplatedManifests does not
+	// allow leading "/"
+	if filepath.IsAbs(cPath) {
+		if cPath, err = filepath.Rel("/", cPath); err != nil {
+			return fmt.Errorf(`error removing trailing "/": %v`, err)
+		}
+	}
+	if err := m.framework.ApplyTemplatedManifests(systemFS, cPath, templateMap); err != nil {
+		return fmt.Errorf("error applying manifest: %v", err)
+	}
 	return nil
 }
 
@@ -159,13 +197,38 @@ func (m *dnsPerfK8sHostnamesMeasurement) createDNSClientPermissions() error {
 
 func (m *dnsPerfK8sHostnamesMeasurement) createDNSClientDeployment() error {
 	templateMap := map[string]interface{}{
-		"Namespace":          m.testClientNamespace,
-		"PodReplicas":        m.podReplicas,
-		"QPSPerClient":       m.qpsPerClient,
-		"ServiceAccountName": dnsPerfTestPermissionsName,
+		"ClientDeploymentName": dnsPerfTestDeploymentName,
+		"Namespace":            m.testClientNamespace,
+		"PodReplicas":          m.podReplicas,
+		"QPSPerClient":         m.qpsPerClient,
+		"ServiceAccountName":   dnsPerfTestPermissionsName,
 	}
 
 	return m.framework.ApplyTemplatedManifests(manifestsFS, clientDeploymentFilePath, templateMap)
+}
+
+func (m *dnsPerfK8sHostnamesMeasurement) deleteAdditionalManifests() error {
+	if m.additionalManifestFilePath == "" {
+		return nil
+	}
+	klog.Infof("Deleting additional manifests")
+	templateMap := map[string]interface{}{
+		"Namespace": m.testClientNamespace,
+	}
+	systemFS := os.DirFS("/")
+	cPath := filepath.Clean(m.additionalManifestFilePath)
+	var err error
+	// Remove leading "/" if relative, since ApplyTemplatedManifests does not
+	// allow leading "/"
+	if filepath.IsAbs(cPath) {
+		if cPath, err = filepath.Rel("/", cPath); err != nil {
+			return fmt.Errorf(`error removing trailing "/": %v`, err)
+		}
+	}
+	if err := m.framework.DeleteTemplatedManifests(systemFS, cPath, templateMap); err != nil {
+		return fmt.Errorf("error deleting additional manifest: %v", err)
+	}
+	return nil
 }
 
 func (m *dnsPerfK8sHostnamesMeasurement) deleteDNSClientPermissions() error {
@@ -182,14 +245,51 @@ func (m *dnsPerfK8sHostnamesMeasurement) deleteDNSClientPermissions() error {
 	return m.k8sClient.RbacV1().ClusterRoleBindings().Delete(context.TODO(), dnsPerfTestPermissionsName, metav1.DeleteOptions{})
 }
 
+func (m *dnsPerfK8sHostnamesMeasurement) deleteDNSClientDeployment() error {
+	klog.Infof("Deleting deployment %q for measurement %q", dnsPerfTestDeploymentName, dnsPerfK8sHostnamesMeasureName)
+	if err := m.k8sClient.AppsV1().Deployments(m.testClientNamespace).Delete(context.TODO(), dnsPerfTestDeploymentName, metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+
+	options := &measurementutil.WaitForPodOptions{
+		DesiredPodCount:     func() int { return 0 },
+		CallerName:          m.String(),
+		WaitForPodsInterval: 10 * time.Second,
+	}
+
+	objectSelector := &util.ObjectSelector{
+		Namespace:     m.testClientNamespace,
+		LabelSelector: "dns-test=dnsperfgo",
+	}
+	podStore, err := measurementutil.NewPodStore(m.k8sClient, objectSelector)
+	if err != nil {
+		return fmt.Errorf("creating pod store during deletion: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Minute)
+	defer cancel()
+	if _, err := measurementutil.WaitForPods(ctx, podStore, options); err != nil {
+		return fmt.Errorf("wating for DNS client pods to delete: %v", err)
+	}
+	return nil
+}
+
 func (m *dnsPerfK8sHostnamesMeasurement) cleanUp() error {
 	if m.framework == nil {
 		klog.Warning("Cleanup skipped. The measurement is not running")
 		return nil
 	}
 
+	if err := m.deleteDNSClientDeployment(); err != nil {
+		klog.Infof("Deleting DNS client deployment: %v", err)
+	}
+
 	if err := m.deleteDNSClientPermissions(); err != nil {
 		return err
+	}
+
+	if err := m.deleteAdditionalManifests(); err != nil {
+		klog.Infof("Deleting additional manifests: %v", err)
 	}
 
 	klog.Infof("Deleting namespace %q for measurement %q", m.testClientNamespace, dnsPerfK8sHostnamesMeasureName)

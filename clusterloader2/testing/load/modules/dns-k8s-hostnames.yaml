@@ -8,6 +8,7 @@
 {{$dnsClientPods := AddInt 5 (MultiplyInt $dnsClientPodsFactor (DivideInt .Nodes 100))}}
 {{$qpsPerClient := DefaultParam .CL2_DNS_K8S_HOSTNAMES_PER_CLIENT_QPS 10}}
 {{$testDurationMinutes := DefaultParam .CL2_DNS_K8S_HOSTNAMES_TEST_MINUTES 10}}
+{{$additionalManifestFilePath := ExpandEnv (DefaultParam .CL2_DNSTEST_ADDITIONAL_MANIFEST "")}}
 
 {{if and $ENABLE_DNSTESTS $USE_ADVANCED_DNSTEST}}
 steps:
@@ -19,6 +20,7 @@ steps:
       podReplicas: {{$dnsClientPods}}
       qpsPerClient: {{$qpsPerClient}}
       testDurationMinutes: {{$testDurationMinutes}}
+      additionalManifestFilePath: {{$additionalManifestFilePath}}
 
 - name: Wait 1m for DNS test to complete
   measurements:

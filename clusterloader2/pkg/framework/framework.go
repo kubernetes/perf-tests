@@ -274,7 +274,6 @@ func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, nam
 func (f *Framework) ApplyTemplatedManifests(fsys fs.FS, manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
 	// TODO(mm4tt): Consider using the out-of-the-box "kubectl create -f".
 	klog.Infof("Applying templates for %q", manifestGlob)
-
 	templateProvider := config.NewTemplateProvider(fsys)
 	manifests, err := fs.Glob(fsys, manifestGlob)
 	if err != nil {
@@ -306,7 +305,43 @@ func (f *Framework) ApplyTemplatedManifests(fsys fs.FS, manifestGlob string, tem
 				return fmt.Errorf("error while applying (%s): %v", manifest, err)
 			}
 		}
+	}
+	return nil
+}
 
+func (f *Framework) DeleteTemplatedManifests(fsys fs.FS, manifestGlob string, templateMapping map[string]interface{}, options ...*client.APICallOptions) error {
+	klog.Infof("Deleting templates for %q", manifestGlob)
+	templateProvider := config.NewTemplateProvider(fsys)
+	manifests, err := fs.Glob(fsys, manifestGlob)
+	if err != nil {
+		return err
+	}
+	if manifests == nil {
+		klog.Warningf("There is no matching file for pattern %v.\n", manifestGlob)
+	}
+	for _, manifest := range manifests {
+		klog.V(1).Infof("Deleting %s\n", manifest)
+		obj, err := templateProvider.TemplateToObject(manifest, templateMapping)
+		if err != nil {
+			if err == config.ErrorEmptyFile {
+				klog.Warningf("Skipping empty manifest %s", manifest)
+				continue
+			}
+			return fmt.Errorf("TemplateToObject error: %+v", err)
+		}
+		objList := []unstructured.Unstructured{*obj}
+		if obj.IsList() {
+			list, err := obj.ToList()
+			if err != nil {
+				return err
+			}
+			objList = list.Items
+		}
+		for _, item := range objList {
+			if err := f.DeleteObject(item.GroupVersionKind(), item.GetNamespace(), item.GetName(), options...); err != nil {
+				return fmt.Errorf("error while applying (%s): %v", manifest, err)
+			}
+		}
 	}
 	return nil
 }

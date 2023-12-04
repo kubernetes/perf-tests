@@ -14,7 +14,8 @@
 
 all: docker push launch runtests
 
-DOCKERREPO       := girishkalele/netperf-latest
+REGISTRY ?= gcr.io/k8s-staging-perf-tests/netperf
+VERSION ?= v0.0.1
 
 docker: launch
 	mkdir -p Dockerbuild/nptest && \
@@ -22,10 +23,12 @@ docker: launch
     cp -f nptest/nptest.go Dockerbuild/nptest/ && \
     cp -f go.mod Dockerbuild/ && \
     cp -f go.sum Dockerbuild/ && \
-	docker build -t $(DOCKERREPO) Dockerbuild/
+	docker build -t $(REGISTRY):$(VERSION) Dockerbuild/
 
 push: docker
-	gcloud docker push $(DOCKERREPO)
+	docker tag $(REGISTRY):$(VERSION) $(REGISTRY):latest
+	docker push $(REGISTRY):$(VERSION)
+	docker push $(REGISTRY):latest
 
 clean:
 	@rm -f Dockerbuild/*

@@ -105,7 +105,7 @@ Command line parameters to the launch.go can switch the test mode to incorporate
   -iterations int
         Number of iterations to run (default 1)
   -image string
-        Docker image used to run the network tests (default "girishkalele/netperf-latest")
+        Docker image used to run the network tests (default "gcr.io/k8s-staging-perf-tests/netperf")
 
  $ go run ./launch.go --hostnetworking --iterations 1
 

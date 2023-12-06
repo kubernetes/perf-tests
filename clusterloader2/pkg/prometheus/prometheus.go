@@ -91,7 +91,6 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeMetricsServerMetrics, "prometheus-scrape-metrics-server", "PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS", false, "Whether to scrape metrics-server. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeNodeLocalDNS, "prometheus-scrape-node-local-dns", "PROMETHEUS_SCRAPE_NODE_LOCAL_DNS", false, "Whether to scrape node-local-dns pods.")
 	flags.BoolEnvVar(&p.ScrapeAnet, "prometheus-scrape-anet", "PROMETHEUS_SCRAPE_ANET", false, "Whether to scrape anet pods.")
-	flags.BoolEnvVar(&p.ScrapeCiliumOperator, "prometheus-scrape-cilium-operator", "PROMETHEUS_SCRAPE_CILIUM_OPERATOR", false, "Whether to scrape cilium-operator pods.")
 	flags.BoolEnvVar(&p.ScrapeMastersWithPublicIPs, "prometheus-scrape-masters-with-public-ips", "PROMETHEUS_SCRAPE_MASTERS_WITH_PUBLIC_IPS", false, "Whether to scrape master machines using public ips, instead of private.")
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
@@ -195,11 +194,6 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		mapping["PROMETHEUS_SCRAPE_ANET"] = clusterLoaderConfig.PrometheusConfig.ScrapeAnet
 	} else {
 		clusterLoaderConfig.PrometheusConfig.ScrapeAnet = mapping["PROMETHEUS_SCRAPE_ANET"].(bool)
-	}
-	if _, exists := mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"]; !exists {
-		mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"] = clusterLoaderConfig.PrometheusConfig.ScrapeCiliumOperator
-	} else {
-		clusterLoaderConfig.PrometheusConfig.ScrapeCiliumOperator = mapping["PROMETHEUS_SCRAPE_CILIUM_OPERATOR"].(bool)
 	}
 	mapping["PROMETHEUS_SCRAPE_NODE_LOCAL_DNS"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeLocalDNS
 	mapping["PROMETHEUS_SCRAPE_KUBE_STATE_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics

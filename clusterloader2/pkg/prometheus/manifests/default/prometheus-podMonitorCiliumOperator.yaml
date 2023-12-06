@@ -1,6 +1,8 @@
-{{$PROMETHEUS_SCRAPE_CILIUM_OPERATOR := DefaultParam .PROMETHEUS_SCRAPE_CILIUM_OPERATOR false}}
+{{$PROMETHEUS_SCRAPE_CILIUM_OPERATOR := DefaultParam .CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR false}}
+{{$PROMETHEUS_SCRAPE_CILIUM_OPERATOR_PORT := DefaultParam .CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR_PORT "prometheus"}}
 
-{{if $PROMETHEUS_SCRAPE_CILIUM_OPERATOR}}
+{{if $PROMETHEUS_SCRAPE_CILIUM_OPERATOR }}
+
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -11,7 +13,7 @@ metadata:
 spec:
   podMetricsEndpoints:
     - interval: 10s
-      port: advdpopmetrics
+      port: {{ $PROMETHEUS_SCRAPE_CILIUM_OPERATOR_PORT }}
   jobLabel: k8s-app
   selector:
     matchLabels:
@@ -19,4 +21,5 @@ spec:
   namespaceSelector:
     matchNames:
       - kube-system
+
 {{end}}

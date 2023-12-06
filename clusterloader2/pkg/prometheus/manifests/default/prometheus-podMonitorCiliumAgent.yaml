@@ -1,0 +1,25 @@
+{{$PROMETHEUS_SCRAPE_CILIUM_AGENT := DefaultParam .CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT false}}
+{{$PROMETHEUS_SCRAPE_CILIUM_AGENT_PORT := DefaultParam .CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_PORT "prometheus"}}
+{{$PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL := DefaultParam .CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL "30s"}}
+
+{{if $PROMETHEUS_SCRAPE_CILIUM_AGENT }}
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: cilium-agent-pods
+  name: cilium-agent-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: {{ $PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL }}
+      port: {{ $PROMETHEUS_SCRAPE_CILIUM_AGENT_PORT }}
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

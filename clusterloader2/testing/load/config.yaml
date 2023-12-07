@@ -77,6 +77,8 @@
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.9"}}
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
+{{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASURMENT_MODULES nil}}
+
 name: load
 namespace:
   number: {{AddInt $namespaces $schedulerThroughputNamespaces}}
@@ -119,6 +121,15 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: start
+
+{{if $ADDITIONAL_MEASUREMENT_MODULES}}
+{{range $ADDITIONAL_MEASUREMENT_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: start
+{{end}}
+{{end}}
 
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
 - module:
@@ -393,6 +404,15 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: gather
+
+{{if $ADDITIONAL_MEASUREMENT_MODULES}}
+{{range $ADDITIONAL_MEASUREMENT_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: gather
+{{end}}
+{{end}}
 
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
 - module:

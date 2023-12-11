@@ -28,7 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
+
+	template "github.com/google/safetext/yamltemplate"
 
 	goerrors "github.com/go-errors/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

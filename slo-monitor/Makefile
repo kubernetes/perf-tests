@@ -13,7 +13,7 @@
 # limitations under the License.
 
 PACKAGE = k8s.io/perf-tests/slo-monitor
-TAG = 0.15.5
+TAG = 0.15.6
 # Image should be pulled from registry.k8s.io, which will auto-detect
 # region/cloud provider and pull from the closest.
 REPOSITORY?=registry.k8s.io

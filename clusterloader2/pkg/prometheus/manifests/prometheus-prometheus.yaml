@@ -22,7 +22,7 @@ spec:
   baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
   nodeSelector:
     kubernetes.io/os: linux
-{{if not (eq $PROMETHEUS_NODE_SELECTOR "")}}    {{$PROMETHEUS_NODE_SELECTOR}}{{end}}
+    {{StructuralData $PROMETHEUS_NODE_SELECTOR}}
   replicas: 1
   resources:
     requests:

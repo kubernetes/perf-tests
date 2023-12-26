@@ -36,7 +36,7 @@ replace (
 
 require (
 	github.com/go-errors/errors v1.0.1
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.9
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -45,9 +45,9 @@ require (
 	github.com/prometheus/common v0.26.0
 	github.com/prometheus/prometheus v1.8.2-0.20210331101223-3cafc58827d1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20210323180902-22b0adad7558
+	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.4.0
 	golang.org/x/time v0.5.0
 	gopkg.in/yaml.v2 v2.4.0

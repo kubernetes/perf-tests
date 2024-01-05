@@ -9,7 +9,6 @@
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
 {{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
-{{$TargetLabelKey := DefaultParam .TargetLabelKey "net-pol-test"}}
 {{$TargetLabelValue := DefaultParam .TargetLabelValue "enforcement-latency"}}
 # Run a server pod for network policy enforcement latency test only on every Nth pod.
 # Default every third pod.
@@ -38,7 +37,7 @@ spec:
         dns-test: dnsperfgo
 {{else}}
   {{if $RunNetPolicyTest}}
-        {{$TargetLabelKey}}: {{$TargetLabelValue}}
+        net-pol-test: {{$TargetLabelValue}}
   {{end}}
 {{end}}
     spec:

@@ -1,7 +1,6 @@
 {{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE := DefaultParam .CL2_NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE false}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
-{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY "test"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS 100}}
 {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_COUNT 1000}}
@@ -27,10 +26,9 @@ steps:
       targetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
       targetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
       baseline: {{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
-      testClientNodeSelectorKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY}}
       testClientNodeSelectorValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE}}
   {{end}}
-  
+
   {{if $run}}
 - name: "Run pod creation network policy enforcement latency measurement (testType={{$testType}})"
   measurements:
@@ -45,7 +43,7 @@ steps:
       policyLoadQPS: {{$NET_POLICY_ENFORCEMENT_LOAD_QPS}}
       policyLoadTargetBaseName: {{$NET_POLICY_ENFORCEMENT_LOAD_TARGET_NAME}}
   {{end}}
-  
+
   {{if $complete}}
 - name: "Complete pod creation network policy enforcement latency measurement (testType={{$testType}})"
   measurements:

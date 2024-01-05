@@ -45,7 +45,7 @@ Deploy the test clients (setup and run) with "testType" flag set to
 Deploy the test clients (setup and run) with "testType" flag set to
 "pod-creation", before creating the target pods.
 Target pods are all pods that have the specified label:
-{ targetLabelKey: targetLabelValue }.
+{ net-pol-test: targetLabelValue }.
 The test is set up by this measurement, by creating the required resources,
 including the network policy enforcement latency test client pods that are
 measuring the latencies and generating metrics for them.
@@ -98,9 +98,6 @@ type networkPolicyEnforcementMeasurement struct {
 	framework *framework.Framework
 	// testClientNamespace is the namespace of the test client pods.
 	testClientNamespace string
-	// targetLabelKey is the key for the label selector of target pods to apply
-	// network policies on and measure the latency to become reachable.
-	targetLabelKey string
 	// targetLabelValue is the value for the label selector of target pods to
 	// apply network policies on and measure the latency to become reachable.
 	targetLabelValue string
@@ -111,9 +108,6 @@ type networkPolicyEnforcementMeasurement struct {
 	// creation latency test, to compare pod creation reachability latency with
 	// and without network policies.
 	baseline bool
-	// testClientNodeSelectorKey is the key for the node label on which the test
-	// client pods should run.
-	testClientNodeSelectorKey string
 	// testClientNodeSelectorValue is value key for the node label on which the
 	// test client pods should run.
 	testClientNodeSelectorValue string
@@ -185,10 +179,6 @@ func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *me
 	}
 
 	var err error
-	if nps.targetLabelKey, err = util.GetString(config.Params, "targetLabelKey"); err != nil {
-		return err
-	}
-
 	if nps.targetLabelValue, err = util.GetString(config.Params, "targetLabelValue"); err != nil {
 		return err
 	}
@@ -198,10 +188,6 @@ func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *me
 	}
 
 	if nps.baseline, err = util.GetBoolOrDefault(config.Params, "baseline", false); err != nil {
-		return err
-	}
-
-	if nps.testClientNodeSelectorKey, err = util.GetString(config.Params, "testClientNodeSelectorKey"); err != nil {
 		return err
 	}
 
@@ -283,12 +269,11 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 	templateMap := map[string]interface{}{
 		"Namespace":                   nps.testClientNamespace,
 		"TestClientLabel":             netPolicyTestClientName,
-		"TargetLabelSelector":         fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
+		"TargetLabelSelector":         fmt.Sprintf("net-pol-test = %s", nps.targetLabelValue),
 		"TargetPort":                  targetPort,
 		"MetricsPort":                 metricsPort,
 		"ServiceAccountName":          netPolicyTestClientName,
 		"MaxTargets":                  maxTargets,
-		"TestClientNodeSelectorKey":   nps.testClientNodeSelectorKey,
 		"TestClientNodeSelectorValue": nps.testClientNodeSelectorValue,
 	}
 
@@ -403,7 +388,6 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(policyN
 	templateMap := map[string]interface{}{
 		"Name":           policyName,
 		"Namespace":      nps.testClientNamespace,
-		"TargetLabelKey": nps.targetLabelKey,
 		"TypeLabelValue": testType,
 	}
 
@@ -479,7 +463,6 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 			templateMapForTargetPods := map[string]interface{}{
 				"Name":                  fmt.Sprintf("%s-%d", podSelectorLabelValue, nsIdx),
 				"Namespace":             ns,
-				"PodSelectorLabelKey":   "name",
 				"PodSelectorLabelValue": podSelectorLabelValue,
 				"CIDR":                  baseCidr,
 			}

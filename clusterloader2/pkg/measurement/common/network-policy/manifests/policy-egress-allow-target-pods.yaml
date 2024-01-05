@@ -15,7 +15,7 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          {{.TargetLabelKey}}: {{.TargetLabelValue}}
+          net-pol-test: {{.TargetLabelValue}}
 {{if .OnlyTargetNamespace}}
       namespaceSelector:
         matchLabels:

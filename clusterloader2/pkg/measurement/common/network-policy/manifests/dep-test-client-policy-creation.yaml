@@ -21,9 +21,9 @@ spec:
       # Use separate nodes to avoid consuming CPU/Memory resources on default
       # nodes where all deployments of the performance test run.
       nodeSelector:
-        {{.TestClientNodeSelectorKey}}: {{.TestClientNodeSelectorValue}}
+        test-np: {{.TestClientNodeSelectorValue}}
       tolerations:
-      - key: {{.TestClientNodeSelectorKey}}
+      - key: test-np
         operator: Equal
         value: {{.TestClientNodeSelectorValue}}
         effect: NoSchedule

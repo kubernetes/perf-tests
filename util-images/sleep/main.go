@@ -27,6 +27,7 @@ import (
 
 var (
 	terminationGracePeriod = flag.Duration("termination-grace-period", 0, "The duration of time to sleep after receiving SIGTERM")
+	terminationCode        = flag.Int64("termination-code", 0, "Exit code to return after receiving SIGTERM")
 )
 
 func init() {
@@ -35,6 +36,8 @@ func init() {
 		fmt.Printf("Usage: %s [DURATION]\n", prog)
 		fmt.Println("DURATION is a sequence of decimal numbers, each with optional fraction and a unit suffix.")
 		fmt.Println("Valid time units are ns, us (or µs), ms, s, m, h.")
+		fmt.Println("\nOptions:")
+		flag.PrintDefaults()
 	}
 }
 
@@ -60,7 +63,7 @@ func main() {
 			time.Sleep(*terminationGracePeriod)
 		}
 
-		os.Exit(0)
+		os.Exit(int(*terminationCode))
 	}()
 
 	time.Sleep(duration)

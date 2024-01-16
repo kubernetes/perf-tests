@@ -48,7 +48,7 @@ func main() {
 	})
 
 	if enableWatchListAlphaFeature {
-		os.Setenv("ENABLE_CLIENT_GO_WATCH_LIST_ALPHA", "true")
+		os.Setenv("KUBE_FEATURE_WatchListClient", "true")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -89,7 +89,7 @@ func registerFlags() {
 	flag.StringVar(&targetNamespace, "namespace", "huge-secrets-1", "namespace that host secrets to list. If empty a default (huge-secrets-1) value will be used.")
 	flag.IntVar(&informerCount, "count", 4, "the number of informers per targetNamespace to run. If empty a default (4) value will be used.")
 	flag.DurationVar(&testTimeout, "timeout", time.Minute, "timeout duration for the test")
-	flag.BoolVar(&enableWatchListAlphaFeature, "enableWatchListFeature", false, "whether to set ENABLE_CLIENT_GO_WATCH_LIST_ALPHA env var")
+	flag.BoolVar(&enableWatchListAlphaFeature, "enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
 }
 
 func startInformersFor(ctx context.Context, client kubernetes.Interface, count int, namespace string) []cache.InformerSynced {

@@ -58,6 +58,10 @@ type apiAvailabilityMeasurement struct {
 	summaries           []measurement.Summary
 	clusterLevelMetrics *apiAvailabilityMetrics
 	threshold           float64
+	// Should we check public IPs of the host VMs
+	useHostPublicIPs bool
+	// Should we check internal IPs of the host VMs
+	useHostInternalIPs bool
 	// Metrics per host internal IP.
 	hostLevelMetrics           map[string]*apiAvailabilityMetrics
 	hostPollTimeoutSeconds     int
@@ -180,7 +184,7 @@ func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
 	return nil
 }
 
-func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) error {
+func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) (err error) {
 	a.isRunning = true
 	a.stopCh = make(chan struct{})
 	a.pauseCh = make(chan struct{})
@@ -198,11 +202,37 @@ func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) erro
 	a.threshold = threshold
 
 	a.clusterLevelMetrics = &apiAvailabilityMetrics{}
+
+	a.useHostInternalIPs, err = util.GetBoolOrDefault(config.Params, "useHostInternalIPs", config.ClusterLoaderConfig.ExecServiceConfig.Enable && len(config.ClusterFramework.GetClusterConfig().MasterInternalIPs) != 0)
+	if err != nil {
+		return err
+	}
+	a.useHostPublicIPs, err = util.GetBoolOrDefault(config.Params, "useHostPublicIPs", false)
+	if err != nil {
+		return err
+	}
+	if a.useHostInternalIPs || a.useHostPublicIPs {
+		err = a.addHostIPs(config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *apiAvailabilityMeasurement) addHostIPs(config *measurement.Config) error {
 	if config.ClusterLoaderConfig.ExecServiceConfig.Enable {
-		a.hostIPs = config.ClusterFramework.GetClusterConfig().MasterInternalIPs
-		if len(a.hostIPs) == 0 {
-			klog.V(2).Infof("%s: host internal IP(s) are not provided, therefore only cluster-level availability will be measured", a)
-			return nil
+		if a.useHostInternalIPs {
+			if len(config.ClusterFramework.GetClusterConfig().MasterInternalIPs) == 0 {
+				return fmt.Errorf("%s: host internal IP(s) are not provided, cannot measure availability through internal IPs", a)
+			}
+			a.hostIPs = config.ClusterFramework.GetClusterConfig().MasterInternalIPs
+		}
+		if a.useHostPublicIPs {
+			if len(config.ClusterFramework.GetClusterConfig().MasterIPs) == 0 {
+				return fmt.Errorf("%s: host public IP(s) are not provided, cannot measure availability through public IPs", a)
+			}
+			a.hostIPs = append(a.hostIPs, config.ClusterFramework.GetClusterConfig().MasterIPs...)
 		}
 		a.hostLevelMetrics = map[string]*apiAvailabilityMetrics{}
 		for _, ip := range a.hostIPs {
@@ -219,9 +249,8 @@ func (a *apiAvailabilityMeasurement) initFields(config *measurement.Config) erro
 		}
 		a.hostPollExecTimeoutSeconds = hostPollExecTimeoutSeconds
 	} else {
-		klog.V(2).Infof("%s: exec service is not enabled, therefore only cluster-level availability will be measured", a)
+		return fmt.Errorf("%s: exec service is not enabled, cannot measure availability through host IPs", a)
 	}
-
 	return nil
 }
 

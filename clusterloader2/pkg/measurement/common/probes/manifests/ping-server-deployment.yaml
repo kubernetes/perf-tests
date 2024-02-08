@@ -36,6 +36,7 @@ spec:
           volumeMounts:
             - name: logs-volume
               mountPath: /var/log
+      serviceAccountName: probes
       volumes:
         - name: logs-volume
           hostPath:

@@ -78,6 +78,7 @@
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
 {{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASURMENT_MODULES nil}}
+{{$ADDITIONAL_PHASES_MODULES := DefaultParam .CL2_ADDITIONAL_PHASES_MODULES nil}}
 
 name: load
 namespace:
@@ -206,6 +207,15 @@ steps:
       mediumJobsPerNamespace: 1
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
+
+{{if $ADDITIONAL_PHASES_MODULES}}
+{{range $ADDITIONAL_PHASES_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: "create"
+{{end}}
+{{end}}
 
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
@@ -339,6 +349,15 @@ steps:
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
 
+{{if $ADDITIONAL_PHASES_MODULES}}
+{{range $ADDITIONAL_PHASES_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: "scale and update"
+{{end}}
+{{end}}
+
 - module:
     path: /modules/reconcile-objects.yaml
     params:
@@ -371,6 +390,15 @@ steps:
       smallJobsPerNamespace: 0
       pvSmallStatefulSetSize: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
       pvMediumStatefulSetSize: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+
+{{if $ADDITIONAL_PHASES_MODULES}}
+{{range $ADDITIONAL_PHASES_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: "delete"
+{{end}}
+{{end}}
 
 - module:
     path: /modules/configmaps-secrets.yaml

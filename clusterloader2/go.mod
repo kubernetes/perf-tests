@@ -36,7 +36,7 @@ replace (
 
 require (
 	github.com/go-errors/errors v1.0.1
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.6.0
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/json-iterator/go v1.1.12 // indirect

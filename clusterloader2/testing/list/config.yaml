@@ -117,12 +117,12 @@ steps:
       cpu: {{$clusterScopedPodCpu}}m
       memory: {{$clusterScopedPodMemory}}Mi
       namespaced: false
-- name: Wait 5 minutes
+- name: Wait 15 minutes
   measurements:
     - Identifier: Wait
       Method: Sleep
       Params:
-        duration: 5m
+        duration: 15m
 - module:
     path: modules/list-benchmark.yaml
     params:
@@ -157,12 +157,12 @@ steps:
       cpu: {{$clusterScopedPodCpu}}m
       memory: {{$clusterScopedPodMemory}}Mi
       namespaced: false
-- name: Wait 5 minutes
+- name: Wait 15 minutes
   measurements:
     - Identifier: Wait
       Method: Sleep
       Params:
-        duration: 5m
+        duration: 15m
 - module:
     path: modules/list-benchmark.yaml
     params:

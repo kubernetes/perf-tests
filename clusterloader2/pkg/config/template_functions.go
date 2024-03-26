@@ -47,6 +47,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"DefaultParam":     defaultParam,
 		"DivideFloat":      divideFloat,
 		"DivideInt":        divideInt,
+		"ExpandEnv":        expandEnv,
 		"IfThenElse":       ifThenElse,
 		"IncludeFile":      includeFile,
 		"IncludeEmbedFile": includeEmbedFile(fsys),
@@ -258,6 +259,14 @@ func includeEmbedFile(fsys fs.FS) func(file interface{}) (string, error) {
 		}
 		return string(data), nil
 	}
+}
+
+func expandEnv(param interface{}) string {
+	paramStr, ok := param.(string)
+	if !ok {
+		panic("expandEnv parameter is not a string")
+	}
+	return os.ExpandEnv(paramStr)
 }
 
 // yamlQuote quotes yaml string aligning each output lin by tabsInt.

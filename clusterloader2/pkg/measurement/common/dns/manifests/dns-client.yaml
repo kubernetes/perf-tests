@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dnsperfgo
+  name: {{.ClientDeploymentName}}
   namespace: {{.Namespace}}
 spec:
   replicas: {{.PodReplicas}}
@@ -40,6 +40,20 @@ spec:
             memory: 10M
       serviceAccountName: {{.ServiceAccountName}}
       terminationGracePeriodSeconds: 1
+      # Add a pod anti-affinity with itself to spread out Pods across the
+      # cluster
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  - key: dns-test
+                    operator: In
+                    values:
+                    - dnsperfgo
+                topologyKey: "kubernetes.io/hostname"
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:

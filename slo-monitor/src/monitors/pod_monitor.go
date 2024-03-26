@@ -290,7 +290,7 @@ func (pm *PodStartupLatencyDataMonitor) handlePulledImageEvent(key string, e *v1
 
 	ok := false
 	data := PodStartupMilestones{}
-	if data, ok = pm.PodStartupData[key]; ok {
+	if data, ok = pm.PodStartupData[key]; !ok {
 		data.startedPulling = time.Unix(0, 0)
 		data.needPulled = -1
 	}

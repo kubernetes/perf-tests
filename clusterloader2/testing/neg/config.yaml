@@ -1,0 +1,120 @@
+{{$negQPS := DefaultParam .CL2_NEG_TEST_QPS 20}}
+{{$smallBackendLbServiceCount := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 5}}
+{{$mediumBackendLbServiceCount := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 3}}
+{{$largeBackendLbServiceCount := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 1}}
+
+# Test
+name: neg-latency
+namespace:
+  number: 1
+tuningSets:
+- name: NegConstantQPS
+  qpsLoad:
+    qps: {{$negQPS}}
+steps:
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: start
+- name: Start measurement for running pods
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = neg-load
+      operationTimeout: 15m
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Create
+      smallBackendLbServiceCount: {{$smallBackendLbServiceCount}}
+      mediumBackendLbServiceCount: {{$mediumBackendLbServiceCount}}
+      largeBackendLbServiceCount: {{$largeBackendLbServiceCount}}
+      smallBackendIngDeploymentCount: 1
+      mediumBackendIngDeploymentCount: 1
+      largeBackendIngDeploymentCount: 1
+      standardBackendSize: true
+- name: Waiting for objects creation to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: waitForReady
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Scale up
+      smallBackendLbServiceCount: {{AddInt 1 $smallBackendLbServiceCount}}
+      mediumBackendLbServiceCount: {{AddInt 1 $mediumBackendLbServiceCount}}
+      largeBackendLbServiceCount: {{AddInt 1 $largeBackendLbServiceCount}}
+      smallBackendIngDeploymentCount: 1
+      mediumBackendIngDeploymentCount: 1
+      largeBackendIngDeploymentCount: 1
+      standardBackendSize: true
+- name: Waiting for objects scaling up to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: waitForReady
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Scale down
+      smallBackendLbServiceCount: {{AddInt 1 $smallBackendLbServiceCount}}
+      mediumBackendLbServiceCount: {{AddInt 1 $mediumBackendLbServiceCount}}
+      largeBackendLbServiceCount: {{AddInt 1 $largeBackendLbServiceCount}}
+      smallBackendIngDeploymentCount: 1
+      mediumBackendIngDeploymentCount: 1
+      largeBackendIngDeploymentCount: 1
+      standardBackendSize: false
+- name: Waiting for objects creation to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: waitForReady
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: gather
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Delete
+      smallBackendLbServiceCount: 0
+      mediumBackendLbServiceCount: 0
+      largeBackendLbServiceCount: 0
+      smallBackendIngDeploymentCount: 0
+      mediumBackendIngDeploymentCount: 0
+      largeBackendIngDeploymentCount: 0
+      standardBackendSize: true
+- name: Waiting for objects deletion to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather

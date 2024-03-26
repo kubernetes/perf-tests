@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: neg-load
+spec:
+  minReadySeconds: 60
+  replicas: {{.NumReplicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: neg-load
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: nginx
+        ports:
+        - containerPort: 8080

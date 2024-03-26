@@ -1,0 +1,100 @@
+{{$SMALL_BACKEND_SIZE := DefaultParam .CL2_SMALL_BACKEND_SIZE 10}}
+{{$MEDIUM_BACKEND_SIZE := DefaultParam .CL2_MEDIUM_BACKEND_SIZE 50}}
+{{$LARGE_BACKEND_SIZE := DefaultParam .CL2_LARGE_BACKEND_SIZE 100}}
+{{$SMALL_BACKEND_SIZE_REDUCED := DefaultParam .CL2_SMALL_BACKEND_SIZE_REDUCED 5}}
+{{$MEDIUM_BACKEND_SIZE_REDUCED := DefaultParam .CL2_MEDIUM_BACKEND_SIZE_REDUCED 25}}
+{{$LARGE_BACKEND_SIZE_REDUCED := DefaultParam .CL2_LARGE_BACKEND_SIZE_REDUCED 50}}
+{{$SMALL_BACKEND_LB_SERVICE_COUNT := .smallBackendLbServiceCount}}
+{{$MEDIUM_BACKEND_LB_SERVICE_COUNT := .mediumBackendLbServiceCount}}
+{{$LARGE_BACKEND_LB_SERVICE_COUNT := .largeBackendLbServiceCount}}
+{{$SMALL_BACKEND_ING_DEPLOYMENT_COUNT := .smallBackendIngDeploymentCount}}
+{{$MEDIUM_BACKEND_ING_DEPLOYMENT_COUNT := .mediumBackendIngDeploymentCount}}
+{{$LARGE_BACKEND_ING_DEPLOYMENT_COUNT := .largeBackendIngDeploymentCount}}
+{{$standardBackendSize := .standardBackendSize}}
+{{$actionName := .actionName}}
+{{$namespaces := 1}}
+
+steps:
+- name: {{$actionName}} services
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: small-backends-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: small-backends-dep
+        NegSizeLabel: neg-small
+    - basename: small-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{IfThenElse $standardBackendSize $SMALL_BACKEND_SIZE $SMALL_BACKEND_SIZE_REDUCED}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: medium-backends-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: medium-backends-dep
+        NegSizeLabel: neg-medium
+    - basename: medium-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{IfThenElse $standardBackendSize $MEDIUM_BACKEND_SIZE $MEDIUM_BACKEND_SIZE_REDUCED}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: large-backends-svc
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: large-backends-dep
+        NegSizeLabel: neg-large
+    - basename: large-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{IfThenElse $standardBackendSize $LARGE_BACKEND_SIZE $LARGE_BACKEND_SIZE_REDUCED}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_BACKEND_ING_DEPLOYMENT_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: small-backends-ing
+      objectTemplatePath: ing.yaml
+      templateFillMap:
+        ServiceBaseName: small-backends-svc
+        NumServices: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+        NegSizeLabel: neg-small
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_BACKEND_ING_DEPLOYMENT_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: medium-backends-ing
+      objectTemplatePath: ing.yaml
+      templateFillMap:
+        ServiceBaseName: medium-backends-svc
+        NumServices: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+        NegSizeLabel: neg-medium
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LARGE_BACKEND_ING_DEPLOYMENT_COUNT}}
+    tuningSet: NegConstantQPS
+    objectBundle:
+    - basename: large-backends-ing
+      objectTemplatePath: ing.yaml
+      templateFillMap:
+        ServiceBaseName: large-backends-svc
+        NumServices: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+        NegSizeLabel: neg-large

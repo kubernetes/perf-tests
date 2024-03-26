@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,6 +56,8 @@ const (
 	reachabilityPhase = "reachability"
 	deletingPhase     = "deleting"
 	deletedPhase      = "deleted"
+
+	ingressType = "ingress"
 )
 
 func init() {
@@ -75,6 +78,7 @@ func createServiceCreationLatencyMeasurement() measurement.Measurement {
 type serviceCreationLatencyMeasurement struct {
 	selector      *util.ObjectSelector
 	waitTimeout   time.Duration
+	checkIngress  bool
 	stopCh        chan struct{}
 	isRunning     bool
 	queue         workerqueue.Interface
@@ -108,6 +112,10 @@ func (s *serviceCreationLatencyMeasurement) Execute(config *measurement.Config) 
 			return nil, err
 		}
 		s.waitTimeout, err = util.GetDurationOrDefault(config.Params, "waitTimeout", defaultServiceCreationLatencyTimeout)
+		if err != nil {
+			return nil, err
+		}
+		s.checkIngress, err = util.GetBoolOrDefault(config.Params, "checkIngress", false)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +158,7 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 	s.isRunning = true
 	s.stopCh = make(chan struct{})
 
-	i := informer.NewInformer(
+	svcInformer := informer.NewInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				s.selector.ApplySelectors(&options)
@@ -168,12 +176,36 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 			s.queue.Add(&f)
 		},
 	)
-	return informer.StartAndSync(i, s.stopCh, informerSyncTimeout)
+	if err := informer.StartAndSync(svcInformer, s.stopCh, informerSyncTimeout); err != nil {
+		return err
+	}
+	if s.checkIngress {
+		ingressInformer := informer.NewInformer(
+			&cache.ListWatch{
+				ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+					s.selector.ApplySelectors(&options)
+					return s.client.NetworkingV1().Ingresses(s.selector.Namespace).List(context.TODO(), options)
+				},
+				WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+					s.selector.ApplySelectors(&options)
+					return s.client.NetworkingV1().Ingresses(s.selector.Namespace).Watch(context.TODO(), options)
+				},
+			},
+			func(oldObj, newObj interface{}) {
+				f := func() {
+					s.handleIngressObject(oldObj, newObj)
+				}
+				s.queue.Add(&f)
+			},
+		)
+		return informer.StartAndSync(ingressInformer, s.stopCh, informerSyncTimeout)
+	}
+	return nil
 }
 
 func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 	return wait.Poll(defaultCheckInterval, s.waitTimeout, func() (bool, error) {
-		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer} {
+		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer, ingressType} {
 			reachable := s.creationTimes.Count(phaseName(reachabilityPhase, svcType))
 			created := s.creationTimes.Count(phaseName(creatingPhase, svcType))
 			klog.V(2).Infof("%s type %s: %d created, %d reachable", s, svcType, created, reachable)
@@ -187,7 +219,7 @@ func (s *serviceCreationLatencyMeasurement) waitForReady() error {
 
 func (s *serviceCreationLatencyMeasurement) waitForDeletion() error {
 	return wait.Poll(defaultCheckInterval, s.waitTimeout, func() (bool, error) {
-		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer} {
+		for _, svcType := range []corev1.ServiceType{corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer, ingressType} {
 			deleted := s.creationTimes.Count(phaseName(deletedPhase, svcType))
 			created := s.creationTimes.Count(phaseName(creatingPhase, svcType))
 			klog.V(2).Infof("%s type %s: %d created, %d deleted", s, svcType, created, deleted)
@@ -223,6 +255,22 @@ var serviceCreationTransitions = map[string]measurementutil.Transition{
 	"delete_loadbalancer": {
 		From: phaseName(deletingPhase, corev1.ServiceTypeLoadBalancer),
 		To:   phaseName(deletedPhase, corev1.ServiceTypeLoadBalancer),
+	},
+	"create_to_assigned_ingress": {
+		From: phaseName(creatingPhase, ingressType),
+		To:   phaseName(ipAssigningPhase, ingressType),
+	},
+	"assigned_to_available_ingress": {
+		From: phaseName(ipAssigningPhase, ingressType),
+		To:   phaseName(reachabilityPhase, ingressType),
+	},
+	"create_to_available_ingress": {
+		From: phaseName(creatingPhase, ingressType),
+		To:   phaseName(reachabilityPhase, ingressType),
+	},
+	"delete_ingress": {
+		From: phaseName(deletingPhase, ingressType),
+		To:   phaseName(deletedPhase, ingressType),
 	},
 }
 
@@ -279,6 +327,41 @@ func (s *serviceCreationLatencyMeasurement) handleObject(oldObj, newObj interfac
 	}
 }
 
+func (s *serviceCreationLatencyMeasurement) handleIngressObject(oldObj, newObj interface{}) {
+	var oldIngress *networkingv1.Ingress
+	var newIngress *networkingv1.Ingress
+	var ok bool
+	oldIngress, ok = oldObj.(*networkingv1.Ingress)
+	if oldObj != nil && !ok {
+		klog.Errorf("%s: uncastable old object: %v", s, oldObj)
+		return
+	}
+	newIngress, ok = newObj.(*networkingv1.Ingress)
+	if newIngress != nil && !ok {
+		klog.Errorf("%s: uncastable new object: %v", s, newObj)
+		return
+	}
+	if isEqual := oldIngress != nil &&
+		newIngress != nil &&
+		equality.Semantic.DeepEqual(oldIngress.Spec, newIngress.Spec) &&
+		equality.Semantic.DeepEqual(oldIngress.Status, newIngress.Status); isEqual {
+		return
+	}
+
+	if !s.isRunning {
+		return
+	}
+	if newObj == nil {
+		if err := s.deleteIngressObject(oldIngress); err != nil {
+			klog.Errorf("%s: delete checker error: %v", s, err)
+		}
+		return
+	}
+	if err := s.updateIngressObject(newIngress); err != nil {
+		klog.Errorf("%s: create checker error: %v", s, err)
+	}
+}
+
 func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) error {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(svc)
 	if err != nil {
@@ -286,8 +369,29 @@ func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) er
 	}
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	if svc.ObjectMeta.DeletionTimestamp == nil {
+		klog.Warningf("DeletionTimestamp is nil for service: %v", key)
+		return nil
+	}
 	s.creationTimes.Set(key, phaseName(deletingPhase, svc.Spec.Type), svc.ObjectMeta.DeletionTimestamp.Time)
 	s.creationTimes.Set(key, phaseName(deletedPhase, svc.Spec.Type), time.Now())
+	s.pingCheckers.DeleteAndStop(key)
+	return nil
+}
+
+func (s *serviceCreationLatencyMeasurement) deleteIngressObject(ingress *networkingv1.Ingress) error {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(ingress)
+	if err != nil {
+		return fmt.Errorf("meta key created error: %v", err)
+	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if ingress.ObjectMeta.DeletionTimestamp == nil {
+		klog.Warningf("DeletionTimestamp is nil for service: %v", key)
+		return nil
+	}
+	s.creationTimes.Set(key, phaseName(deletingPhase, ingressType), ingress.ObjectMeta.DeletionTimestamp.Time)
+	s.creationTimes.Set(key, phaseName(deletedPhase, ingressType), time.Now())
 	s.pingCheckers.DeleteAndStop(key)
 	return nil
 }
@@ -328,6 +432,35 @@ func (s *serviceCreationLatencyMeasurement) updateObject(svc *corev1.Service) er
 	return nil
 }
 
+func (s *serviceCreationLatencyMeasurement) updateIngressObject(ingress *networkingv1.Ingress) error {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(ingress)
+	if err != nil {
+		return fmt.Errorf("meta key created error: %v", err)
+	}
+	if _, exists := s.creationTimes.Get(key, phaseName(creatingPhase, ingressType)); !exists {
+		s.creationTimes.Set(key, phaseName(creatingPhase, ingressType), ingress.CreationTimestamp.Time)
+	}
+	if len(ingress.Status.LoadBalancer.Ingress) < 1 {
+		return nil
+	}
+	if _, exists := s.creationTimes.Get(key, phaseName(ipAssigningPhase, ingressType)); exists {
+		return nil
+	}
+	s.creationTimes.Set(key, phaseName(ipAssigningPhase, ingressType), time.Now())
+	pc := &pingChecker{
+		callerName:    s.String(),
+		ingress:       ingress,
+		creationTimes: s.creationTimes,
+		stopCh:        make(chan struct{}),
+	}
+	pc.run()
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.pingCheckers.Add(key, pc)
+
+	return nil
+}
+
 func phaseName(phase string, serviceType corev1.ServiceType) string {
 	return fmt.Sprintf("%s_%s", phase, serviceType)
 }
@@ -335,12 +468,22 @@ func phaseName(phase string, serviceType corev1.ServiceType) string {
 type pingChecker struct {
 	callerName    string
 	svc           *corev1.Service
+	ingress       *networkingv1.Ingress
 	creationTimes *measurementutil.ObjectTransitionTimes
 	stopCh        chan struct{}
 }
 
 func (p *pingChecker) run() {
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(p.svc)
+	var key string
+	var err error
+	var svcType corev1.ServiceType
+	if p.svc != nil {
+		key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(p.svc)
+		svcType = p.svc.Spec.Type
+	} else {
+		key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(p.ingress)
+		svcType = ingressType
+	}
 	if err != nil {
 		klog.Errorf("%s: meta key created error: %v", p.callerName, err)
 		return
@@ -359,23 +502,8 @@ func (p *pingChecker) run() {
 				time.Sleep(pingBackoff)
 				continue
 			}
-			var ips []string
-			var port int32
-			switch p.svc.Spec.Type {
-			case corev1.ServiceTypeClusterIP:
-				ips = p.svc.Spec.ClusterIPs
-				port = p.svc.Spec.Ports[0].Port
-			case corev1.ServiceTypeNodePort:
-				ips = []string{pod.Status.HostIP}
-				port = p.svc.Spec.Ports[0].NodePort
-			case corev1.ServiceTypeLoadBalancer:
-				for _, ingress := range p.svc.Status.LoadBalancer.Ingress {
-					ips = append(ips, ingress.IP)
-				}
-				port = p.svc.Spec.Ports[0].Port
-			}
-			for _, ip := range ips {
-				address := net.JoinHostPort(ip, fmt.Sprint(port))
+			addresses := p.collectAddresses(pod)
+			for _, address := range addresses {
 				command := fmt.Sprintf("curl %s", address)
 				_, err = execservice.RunCommand(context.TODO(), pod, command)
 				if err != nil {
@@ -389,11 +517,34 @@ func (p *pingChecker) run() {
 			}
 			success++
 			if success == pingChecks {
-				p.creationTimes.Set(key, phaseName(reachabilityPhase, p.svc.Spec.Type), time.Now())
+				p.creationTimes.Set(key, phaseName(reachabilityPhase, svcType), time.Now())
 				return
 			}
 		}
 	}
+}
+
+func (p *pingChecker) collectAddresses(pod *corev1.Pod) []string {
+	var addresses []string
+	if p.ingress != nil {
+		for _, ing := range p.ingress.Status.LoadBalancer.Ingress {
+			addresses = append(addresses, ing.IP)
+		}
+	} else {
+		switch p.svc.Spec.Type {
+		case corev1.ServiceTypeClusterIP:
+			for _, ip := range p.svc.Spec.ClusterIPs {
+				addresses = append(addresses, net.JoinHostPort(ip, fmt.Sprint(p.svc.Spec.Ports[0].Port)))
+			}
+		case corev1.ServiceTypeNodePort:
+			addresses = []string{net.JoinHostPort(pod.Status.HostIP, fmt.Sprint(p.svc.Spec.Ports[0].NodePort))}
+		case corev1.ServiceTypeLoadBalancer:
+			for _, ingress := range p.svc.Status.LoadBalancer.Ingress {
+				addresses = append(addresses, net.JoinHostPort(ingress.IP, fmt.Sprint(p.svc.Spec.Ports[0].Port)))
+			}
+		}
+	}
+	return addresses
 }
 
 func (p *pingChecker) Stop() {

@@ -304,14 +304,12 @@ func getBool(dict map[string]interface{}, key string) (bool, error) {
 // PrettyPrintJSON converts given data into formatted json.
 func PrettyPrintJSON(data interface{}) (string, error) {
 	output := &bytes.Buffer{}
-	if err := json.NewEncoder(output).Encode(data); err != nil {
-		return "", fmt.Errorf("building encoder error: %v", err)
+	enc := json.NewEncoder(output)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		return "", fmt.Errorf("error when encoding json: %v", err)
 	}
-	formatted := &bytes.Buffer{}
-	if err := json.Indent(formatted, output.Bytes(), "", "  "); err != nil {
-		return "", fmt.Errorf("indenting error: %v", err)
-	}
-	return formatted.String(), nil
+	return output.String(), nil
 }
 
 // CopyMap copies values from one map to the other.

@@ -56,6 +56,7 @@ type ClusterConfig struct {
 	KubeletPort                   int
 	K8SClientsNumber              int
 	SkipClusterVerification       bool
+	KCMPort                       int
 }
 
 // ExecServiceConfig represents all flags used by service config.

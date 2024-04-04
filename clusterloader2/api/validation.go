@@ -209,10 +209,13 @@ func (v *ConfigValidator) validateTuningSet(ts *TuningSet, fldPath *field.Path) 
 		tuningSetsNumber++
 		allErrs = append(allErrs, v.validateGlobalQPSLoad(ts.GlobalQPSLoad, fldPath.Child("globalQPSLoad"))...)
 	}
+	if ts.PoissonLoad != nil {
+		tuningSetsNumber++
+		allErrs = append(allErrs, v.validatePoissonLoad(ts.PoissonLoad, fldPath.Child("poissonLoad"))...)
+	}
 	if tuningSetsNumber != 1 {
 		allErrs = append(allErrs, field.Forbidden(fldPath, "must specify exactly 1 tuning set type"))
 	}
-
 	return allErrs
 }
 
@@ -282,6 +285,14 @@ func (v *ConfigValidator) validateGlobalQPSLoad(gl *GlobalQPSLoad, fldPath *fiel
 	}
 	if gl.Burst <= 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("burst"), gl.Burst, "must have positive value"))
+	}
+	return allErrs
+}
+
+func (v *ConfigValidator) validatePoissonLoad(rl *PoissonLoad, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if rl.ExpectedActionsPerSecond <= 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("expectedActionsPerSecond"), rl.ExpectedActionsPerSecond, "must have positive value"))
 	}
 	return allErrs
 }

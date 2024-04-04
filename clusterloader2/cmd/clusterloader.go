@@ -200,7 +200,7 @@ func completeConfig(m *framework.MultiClientSet) error {
 }
 
 func verifyCluster(c kubernetes.Interface) error {
-	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName {
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName || clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KubestellarName{
 		return nil
 	}
 	numSchedulableNodes, err := util.GetSchedulableUntainedNodesNumber(c)
@@ -214,7 +214,7 @@ func verifyCluster(c kubernetes.Interface) error {
 }
 
 func getClientsNumber(nodesNumber int) int {
-	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName {
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KCPName || clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KubestellarName{
 		return 1
 	}
 	return (nodesNumber + nodesPerClients - 1) / nodesPerClients
@@ -269,11 +269,15 @@ func main() {
 		klog.Errorf("http server unexpectedly ended: %v", err)
 	}()
 
-	provider, err := provider.NewProvider(&providerInitOptions)
+	newProvider, err := provider.NewProvider(&providerInitOptions)
 	if err != nil {
 		klog.Exitf("Error init provider: %v", err)
 	}
-	clusterLoaderConfig.ClusterConfig.Provider = provider
+	clusterLoaderConfig.ClusterConfig.Provider = newProvider
+
+	if clusterLoaderConfig.ClusterConfig.Provider.Name() == provider.KubestellarName{
+		clusterLoaderConfig.ExecServiceConfig.Enable = false
+	}
 
 	if errList := validateFlags(); !errList.IsEmpty() {
 		klog.Exitf("Parsing flags error: %v", errList.String())

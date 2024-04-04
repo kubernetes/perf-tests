@@ -30,6 +30,7 @@ const (
 	LocalName       = "local"
 	SkeletonName    = "skeleton"
 	VsphereName     = "vsphere"
+	KubestellarName	= "ks"
 )
 
 const (

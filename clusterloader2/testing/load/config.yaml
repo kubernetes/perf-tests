@@ -77,7 +77,7 @@
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.9"}}
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
-{{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASURMENT_MODULES nil}}
+{{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
 {{$ADDITIONAL_PHASES_MODULES := DefaultParam .CL2_ADDITIONAL_PHASES_MODULES nil}}
 
 name: load

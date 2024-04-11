@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	execName             = "Exec"
-	defaultTimeoutString = "1h"
+	execName            = "Exec"
+	defaultTimeout      = 1 * time.Hour
+	defaultBackoffDelay = 1 * time.Second
 )
 
 func init() {
@@ -47,11 +48,7 @@ func createExecMeasurement() measurement.Measurement {
 type execMeasurement struct{}
 
 func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	timeoutStr, err := util.GetStringOrDefault(config.Params, "timeout", defaultTimeoutString)
-	if err != nil {
-		return nil, err
-	}
-	timeout, err := time.ParseDuration(timeoutStr)
+	timeout, err := util.GetDurationOrDefault(config.Params, "timeout", defaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -62,22 +59,37 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 	if len(command) == 0 {
 		return nil, fmt.Errorf("command is a required argument. Got empty slice instead")
 	}
-
+	retries, err := util.GetIntOrDefault(config.Params, "retries", 1)
+	if err != nil || retries < 1 {
+		return nil, fmt.Errorf("error getting retries, retries: %v, err: %v", retries, err)
+	}
+	backoffDelay, err := util.GetDurationOrDefault(config.Params, "backoffDelay", defaultBackoffDelay)
+	if err != nil {
+		return nil, err
+	}
 	// Make a copy of command, to avoid overriding a slice we don't own.
 	command = append([]string{}, command...)
 	for i := range command {
 		command[i] = os.ExpandEnv(command[i])
 	}
-	klog.V(2).Infof("Running %v with timeout %v", command, timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	out, err := cmd.CombinedOutput()
-	klog.V(2).Infof("Exec command output: %v", string(out))
-	if err != nil {
-		return nil, fmt.Errorf("command %v failed: %v", command, err)
+	var lastErr error
+	for i := 0; i < retries; i++ {
+		klog.V(2).Infof("Running %v with timeout %v, attempt %v", command, timeout, i+1)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+		out, err := cmd.CombinedOutput()
+		klog.V(2).Infof("Exec command output: %v", string(out))
+		if err == nil {
+			klog.V(2).Infof("Command %v succeeded in attempt %v", command, i+1)
+			return nil, nil
+		}
+		klog.V(2).Infof("Command %v failed in attempt %v: %v", command, i+1, err)
+		lastErr = err
+		time.Sleep(backoffDelay)
 	}
-	return nil, nil
+	// All attempts failed.
+	return nil, fmt.Errorf("command %v failed: %v", command, lastErr)
 }
 
 func (e *execMeasurement) Dispose() {}

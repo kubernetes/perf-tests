@@ -18,13 +18,14 @@ package main
 
 import (
 	"flag"
-	"k8s.io/perf-tests/util-images/probes/pkg/kubeclient"
 	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog"
 	"k8s.io/perf-tests/util-images/probes/pkg/dns"
+	"k8s.io/perf-tests/util-images/probes/pkg/dnspropagation"
+	"k8s.io/perf-tests/util-images/probes/pkg/kubeclient"
 	pingclient "k8s.io/perf-tests/util-images/probes/pkg/ping/client"
 	pingserver "k8s.io/perf-tests/util-images/probes/pkg/ping/server"
 )
@@ -51,6 +52,8 @@ func main() {
 		pingserver.Run(pingserver.NewDefaultConfig())
 	case "dns":
 		dns.Run()
+	case "dns-propagation":
+		dnspropagation.Run()
 	case "kubeclient":
 		kubeclient.Run(kubeclient.NewDefaultConfig())
 	default:

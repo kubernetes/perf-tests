@@ -103,12 +103,13 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			provider:                    provider,
 		})
 	} else {
-		pods, err := c.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		listOptions := metav1.ListOptions{ResourceVersion: "0"}
+		pods, err := c.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 		if err != nil {
 			return nil, fmt.Errorf("listing pods error: %v", err)
 		}
 
-		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), listOptions)
 		if err != nil {
 			return nil, fmt.Errorf("listing nodes error: %v", err)
 		}

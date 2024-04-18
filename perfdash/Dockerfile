@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG GOLANG_VERSION=1.18
+ARG GOLANG_VERSION=1.21
 FROM golang:${GOLANG_VERSION} as builder
 
 WORKDIR /workspace
@@ -23,7 +23,7 @@ COPY go.mod go.mod
 RUN go mod download
 
 COPY *.go /workspace/
-RUN GO111MODULE=on go build -a -installsuffix cgo -ldflags '-w' -o $PWD/perfdash
+RUN CGO_ENABLED=0 go build -o $PWD/perfdash
 
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/base:nonroot

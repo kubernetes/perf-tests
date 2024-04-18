@@ -521,6 +521,16 @@ var (
 		},
 	}
 
+	networkingDescriptions = TestDescriptions{
+		"Benchmark": {
+			"Results": []TestDescription{{
+				Name:             "benchmark",
+				OutputFilePrefix: "NetworkPerformance",
+				Parser:           parsePerfData,
+			}},
+		},
+	}
+
 	dnsBenchmarkDescriptions = TestDescriptions{
 		"dns": {
 			"Latency": []TestDescription{{
@@ -653,6 +663,7 @@ var (
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":  performanceDescriptions,
 		"benchmark":    benchmarkDescriptions,
+		"networking":   networkingDescriptions,
 		"dnsBenchmark": dnsBenchmarkDescriptions,
 		"storage":      storageDescriptions,
 		"throughput":   throughputDescriptions,

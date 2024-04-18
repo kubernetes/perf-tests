@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-staging-perf-tests/perfdash:2.47
+        image: gcr.io/k8s-staging-perf-tests/perfdash:2.48
         command:
           - /perfdash
           -   --www=true

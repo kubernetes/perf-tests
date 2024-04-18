@@ -23,6 +23,11 @@ This probe doesn't export any metrics, it's needed for the **Ping Client** to wo
 go run cmd/main.go --mode=ping-server --metric-bind-address=:8070 --ping-server-bind-address=0.0.0.0:8081 --stderrthreshold=INFO
 ```
 
+### DNS Propagation
+This probe exports the `dns_propagation_seconds` metric. It measures the DNS propagation time for a given StatefulSet. This is calculated as the average difference between each pod's "running" and "discoverable" timestamps.
+
+#### Running locally
+This probe is designed to run within a Kubernetes cluster and cannot be executed locally.
 
 ## Building and Releasing
 

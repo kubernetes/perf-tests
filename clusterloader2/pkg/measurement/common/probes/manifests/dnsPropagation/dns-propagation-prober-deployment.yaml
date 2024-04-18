@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: probes
+  name: dns-propagation-prober
+  labels:
+    probe: dns-propagation-prober
+spec:
+  selector:
+    matchLabels:
+      probe: dns-propagation-prober
+  replicas: {{.Replicas}}
+  template:
+    metadata:
+      labels:
+        probe: dns-propagation-prober
+    spec:
+      containers:
+        - name: prober
+          image: gcr.io/k8s-testimages/probes:v0.0.6
+          args:
+            - --metric-bind-address=0.0.0.0:8080
+            - --mode=dns-propagation
+            - --dns-propagation-probe-stateful-set={{.DNSPropagationProbeStatefulSet}}
+            - --dns-propagation-probe-service={{.DNSPropagationProbeService}}
+            - --dns-propagation-probe-namespace={{.DNSPropagationProbeNamespace}}
+            - --dns-propagation-probe-cluster-domain=cluster
+            - --dns-propagation-probe-suffix=local
+            - --dns-propagation-probe-interval=100ms
+            - --dns-propagation-probe-pod-count={{.DNSPropagationProbePodCount}}
+            - --dns-propagation-probe-sample-count={{.DNSPropagationProbeSampleCount}}
+            - --logtostderr=true
+            - --log_file=/var/log/cl2-dns-propagation.log
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
+              name: metrics
+          volumeMounts:
+            - name: logs-volume
+              mountPath: /var/log
+      serviceAccountName: dns-propagation-prober
+      volumes:
+        - name: logs-volume
+          hostPath:
+            path: /var/log

@@ -63,6 +63,9 @@ spec:
       record: probes:dns_lookup_latency:histogram_quantile
       labels:
         quantile: "0.50"
+    - expr: |
+        sum(max_over_time(probes_dns_propagation_seconds[1h]))/sum(max_over_time(probes_dns_propagation_count[1h]))
+      record: probes:dns_propagation_average
   - name: kube-proxy.rules
     rules:
     - expr: |

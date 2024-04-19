@@ -20,6 +20,7 @@ import (
 	"embed"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -53,6 +54,7 @@ var (
 		Query:            "quantile_over_time(0.99, probes:in_cluster_network_latency:histogram_quantile[%v])",
 		Manifests:        "*.yaml",
 		ProbeLabelValues: []string{"ping-client", "ping-server"},
+		ProberType:       "latency",
 	}
 
 	dnsLookupConfig = proberConfig{
@@ -61,6 +63,7 @@ var (
 		Query:            "quantile_over_time(0.99, probes:dns_lookup_latency:histogram_quantile[%v])",
 		Manifests:        "dnsLookup/*yaml",
 		ProbeLabelValues: []string{"dns"},
+		ProberType:       "latency",
 	}
 
 	metricsServerLatencyConfig = proberConfig{
@@ -69,6 +72,16 @@ var (
 		Query:            "quantile_over_time(0.99, probes:in_cluster_apiserver_request_latency:histogram_quantile[%v])",
 		Manifests:        "metricsServer/*.yaml",
 		ProbeLabelValues: []string{"metrics-server-prober"},
+		ProberType:       "latency",
+	}
+
+	dnsPropagationConfig = proberConfig{
+		Name:             "DnsPropagation",
+		MetricVersion:    "v1",
+		Query:            "probes_dns_propagation_seconds",
+		Manifests:        "dnsPropagation/*.yaml",
+		ProbeLabelValues: []string{"dns-propagation-prober"},
+		ProberType:       "propagation",
 	}
 
 	//go:embed manifests
@@ -88,6 +101,10 @@ func init() {
 	if err := measurement.Register(metricsServerLatencyConfig.Name, create); err != nil {
 		klog.Errorf("cannot register %s: %v", metricsServerLatencyConfig.Name, err)
 	}
+	create = func() measurement.Measurement { return createProber(dnsPropagationConfig) }
+	if err := measurement.Register(dnsPropagationConfig.Name, create); err != nil {
+		klog.Errorf("cannot register %s: %v", dnsPropagationConfig.Name, err)
+	}
 }
 
 type proberConfig struct {
@@ -96,6 +113,7 @@ type proberConfig struct {
 	Query            string
 	Manifests        string
 	ProbeLabelValues []string
+	ProberType       string
 }
 
 func createProber(config proberConfig) measurement.Measurement {
@@ -125,7 +143,6 @@ func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.S
 		klog.Warningf("%s: Prometheus is disabled, skipping the measurement!", p)
 		return nil, nil
 	}
-
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
@@ -174,9 +191,22 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	if err != nil {
 		pingSleepDuration = defaultPingSleepDuration
 	}
+
 	p.framework = config.ClusterFramework
 	p.replicasPerProbe = replicasPerProbe
-	p.templateMapping = map[string]interface{}{"Replicas": replicasPerProbe, "PingSleepDuration": pingSleepDuration}
+	p.templateMapping = map[string]interface{}{
+		"Replicas":          replicasPerProbe,
+		"PingSleepDuration": pingSleepDuration,
+	}
+	if p.config.Name == "DnsPropagation" {
+		dnsPropagationTemplateMapping, err := InitializeTemplateMappingForDNSPropagationProbe(config)
+		if err != nil {
+			return err
+		}
+		for k, v := range dnsPropagationTemplateMapping {
+			p.templateMapping[k] = v
+		}
+	}
 	return nil
 }
 
@@ -220,8 +250,13 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 	if err != nil {
 		return nil, err
 	}
+	var latency *measurementutil.LatencyMetric
+	if p.config.ProberType == "propagation" {
+		latency, err = NewPropagationMetricPrometheus(samples)
+	} else {
+		latency, err = measurementutil.NewLatencyMetricPrometheus(samples)
+	}
 
-	latency, err := measurementutil.NewLatencyMetricPrometheus(samples)
 	if err != nil {
 		return nil, err
 	}
@@ -287,5 +322,8 @@ func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric)
 
 func prepareQuery(queryTemplate string, startTime, endTime time.Time) string {
 	measurementDuration := endTime.Sub(startTime)
+	if !strings.Contains(queryTemplate, "%v") {
+		return queryTemplate
+	}
 	return fmt.Sprintf(queryTemplate, measurementutil.ToPrometheusTime(measurementDuration))
 }

@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: List
+items:
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: dns-propagation-prober
+  rules:
+    - apiGroups:
+        - ""
+      resources:
+        - "services"
+        - "pods"
+        - "nodes"
+        - "namespaces"
+      verbs:
+        - get
+        - list
+        - watch
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: dns-propagation-prober
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: dns-propagation-prober
+  subjects:
+    - kind: ServiceAccount
+      name: dns-propagation-prober
+      namespace: probes
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: dns-propagation-prober
+    namespace: probes

@@ -1,0 +1,22 @@
+{{$PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES := DefaultParam .PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES false}}
+
+{{if $PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: kube-network-policies-pods
+  name: kube-network-policies-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10m
+      port: 9080
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: kube-network-policies
+  namespaceSelector:
+    matchNames:
+      - kube-system
+{{end}}

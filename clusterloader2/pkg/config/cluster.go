@@ -88,6 +88,7 @@ type PrometheusConfig struct {
 	ScrapeMetricsServerMetrics bool
 	ScrapeNodeLocalDNS         bool
 	ScrapeAnet                 bool
+	ScrapeNetworkPolicies      bool
 	ScrapeMastersWithPublicIPs bool
 	APIServerScrapePort        int
 	SnapshotProject            string

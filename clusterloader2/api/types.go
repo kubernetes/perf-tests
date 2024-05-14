@@ -191,6 +191,8 @@ type TuningSet struct {
 	ParallelismLimitedLoad *ParallelismLimitedLoad `json:"parallelismLimitedLoad"`
 	// GlobalQPSLoad is a definition for GlobalQPSLoad tuning set.
 	GlobalQPSLoad *GlobalQPSLoad `json:"globalQPSLoad"`
+	// PoissonLoad is a definition for PoissonLoad tuning set.
+	PoissonLoad *PoissonLoad `json:"poissonLoad"`
 }
 
 // MeasurementInstanceConfig is a structure that contains the Instance for wrapper measurements along with optional params.
@@ -240,6 +242,13 @@ type SteppedLoad struct {
 	BurstSize int32 `json:"burstSize"`
 	// StepDelay specifies the interval between peeks.
 	StepDelay Duration `json:"stepDelay"`
+}
+
+// PoissonLoad defines a load with with Poisson arrival time
+// for a given rate parameter λ (ExpectedActionsPerSecond)
+type PoissonLoad struct {
+	// ExpectedActionsPerSecond specifies the possion rate parameter per second.
+	ExpectedActionsPerSecond float64 `json:"expectedActionsPerSecond"`
 }
 
 // TimeLimitedLoad spreads the operation starts out evenly over a given amount of time.

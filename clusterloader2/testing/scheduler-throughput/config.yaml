@@ -1,0 +1,80 @@
+{{$totalSchedulerThroughputPods := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS 5000}}
+{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS  500}}
+{{$defaultBurst := DefaultParam .CL2_DEFAULT_BURST 1000}}
+{{$uniformQps := DefaultParam .CL2_UNIFORM_QPS 500}}
+
+{{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 400}}
+
+name: direct-scheduler-throughput
+namespace:
+  number: 1
+tuningSets:
+# default is a tuningset that is meant to be used when we don't have any specific requirements on pace of operations.
+- name: default
+  globalQPSLoad:
+    qps: {{$defaultQps}}
+    burst: {{$defaultBurst}}
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$uniformQps}}
+steps:
+- name: Creating scheduler throughput measurements
+  measurements:
+  - Identifier: DirectSchedulerThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = direct-scheduler-throughput
+      threshold: 5s
+  - Identifier: DirectSchedulingThroughput
+# TODO: Move to SchedulingThroughputPrometheus which requires cl2 prom stack setup as pre-req
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = direct-scheduler-throughput
+      measurmentInterval: 1s
+- name: create scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$totalSchedulerThroughputPods}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: direct-scheduler-throughput-pod
+      objectTemplatePath: pod-default.yaml
+      templateFillMap:
+        Group: direct-scheduler-throughput
+- name: Waiting for scheduler throughput pods to be created
+  measurements:
+  - Identifier: WaitForDirectSchedulerThroughputPods
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      timeout: 5m
+      desiredPodCount: {{$totalSchedulerThroughputPods}}
+      labelSelector: group = direct-scheduler-throughput
+- name: Collecting scheduler throughput measurements
+  measurements:
+  - Identifier: DirectSchedulerThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: DirectSchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      enableViolations: true
+      threshold: {{$SCHEDULER_THROUGHPUT_THRESHOLD}}
+- name: Delete scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 0
+    tuningSet: default
+    objectBundle:
+    - basename: direct-scheduler-throughput-pod
+      objectTemplatePath: pod-default.yaml
+      templateFillMap:
+        Group: direct-scheduler-throughput

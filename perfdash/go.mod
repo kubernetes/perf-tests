@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	cloud.google.com/go v0.114.0 // indirect
-	cloud.google.com/go/storage v1.40.0
+	cloud.google.com/go/storage v1.41.0
 	github.com/aws/aws-sdk-go v1.53.10
 	github.com/ghodss/yaml v1.0.0
 	github.com/spf13/pflag v1.0.5
@@ -20,7 +20,7 @@ require (
 	cloud.google.com/go/auth v0.4.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
-	cloud.google.com/go/iam v1.1.7 // indirect
+	cloud.google.com/go/iam v1.1.8 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect

@@ -14,7 +14,8 @@
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
 
-{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
+{{$deploymentImage := DefaultParam .deploymentImage "pause:3.9"}}
+{{$registryK8sRepo := .registryK8sRepo}}
 
 steps:
 {{if $is_creating}}
@@ -57,7 +58,7 @@ steps:
       templateFillMap:
         Replicas: {{$schedulerThroughputPodsPerDeployment}}
         Group: scheduler-throughput
-        Image: {{$deploymentImage}}
+        Image: {{$registryK8sRepo}}/{{$deploymentImage}}
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments

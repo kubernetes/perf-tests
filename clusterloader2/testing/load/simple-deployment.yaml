@@ -4,7 +4,6 @@
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$EnvVar := DefaultParam .EnvVar "a"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
-{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 
 apiVersion: apps/v1
@@ -32,7 +31,7 @@ spec:
       - env:
         - name: ENV_VAR
           value: {{$EnvVar}}
-        image: {{$Image}}
+        image: {{.Image}}
         imagePullPolicy: IfNotPresent
         name: {{.Name}}
         ports:

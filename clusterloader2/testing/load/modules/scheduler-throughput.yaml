@@ -13,6 +13,8 @@
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
+{{$registryK8sRepo := .registryK8sRepo}}
+
 steps:
 {{if $is_creating}}
 - name: Creating scheduler throughput measurements
@@ -54,6 +56,7 @@ steps:
       templateFillMap:
         Replicas: {{$schedulerThroughputPodsPerDeployment}}
         Group: scheduler-throughput
+        Image: {{$registryK8sRepo}}/pause:3.9
 - name: Waiting for scheduler throughput pods to be {{$action}}d
   measurements:
   - Identifier: WaitForSchedulerThroughputDeployments

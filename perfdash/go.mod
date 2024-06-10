@@ -5,7 +5,7 @@ go 1.21
 require (
 	cloud.google.com/go v0.114.0 // indirect
 	cloud.google.com/go/storage v1.41.0
-	github.com/aws/aws-sdk-go v1.53.10
+	github.com/aws/aws-sdk-go v1.53.19
 	github.com/ghodss/yaml v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0

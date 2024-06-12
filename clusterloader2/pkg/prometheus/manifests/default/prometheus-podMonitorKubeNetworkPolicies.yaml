@@ -11,7 +11,8 @@ metadata:
 spec:
   podMetricsEndpoints:
     - interval: 10m
-      port: 9080
+      # see https://github.com/prometheus-operator/prometheus-operator/pull/3078
+      targetPort: 9080
   jobLabel: k8s-app
   selector:
     matchLabels:

@@ -64,12 +64,12 @@ var (
 )
 
 // parseResult parses the response received for each protocol type.
-func parseResult(protocol string, result []string, testDuration string) ([]float64, error) {
+func parseResult(protocol string, result []string) ([]float64, error) {
 	switch protocol {
 	case ProtocolTCP:
-		return parseIperfResponse(result, testDuration, tcpMetricsCount, ProtocolTCP, iperfTCPFunction)
+		return parseIperfResponse(result, tcpMetricsCount, iperfTCPFunction)
 	case ProtocolUDP:
-		return parseIperfResponse(result, testDuration, udpMetricsCount, ProtocolUDP, iperfUDPFunction)
+		return parseIperfResponse(result, udpMetricsCount, iperfUDPFunction)
 	case ProtocolHTTP:
 		return parseSiegeResponse(result)
 	default:
@@ -77,7 +77,7 @@ func parseResult(protocol string, result []string, testDuration string) ([]float
 	}
 }
 
-func parseIperfResponse(result []string, testDuration string, metricCount int, protocol string, operators []string) ([]float64, error) {
+func parseIperfResponse(result []string, metricCount int, operators []string) ([]float64, error) {
 	aggregatedResult := make([]float64, 0, metricCount)
 	count := 0
 	sessionID := make(map[string]bool)
@@ -160,6 +160,7 @@ func trimSiegeResponse(result []string) ([]string, error) {
 	isBeginLine := func(index int) bool {
 		return strings.HasPrefix(result[index], "Transactions:")
 	}
+	//nolint:revive
 	for beginIndex = 0; beginIndex < len(result) && !isBeginLine(beginIndex); beginIndex++ {
 	}
 	if beginIndex == len(result) {
@@ -168,6 +169,7 @@ func trimSiegeResponse(result []string) ([]string, error) {
 	isEndLine := func(index int) bool {
 		return strings.HasPrefix(result[index], "Shortest transaction")
 	}
+	//nolint:revive
 	for endIndex = beginIndex + 1; endIndex < len(result) && !isEndLine(endIndex); endIndex++ {
 	}
 	if endIndex == len(result) {

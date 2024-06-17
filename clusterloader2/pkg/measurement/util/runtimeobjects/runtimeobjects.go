@@ -41,8 +41,8 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
-// ListRuntimeObjectsForKind returns objects of given kind that satisfy given namespace, labelSelector and fieldSelector.
-func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResource, kind, namespace, labelSelector, fieldSelector string) ([]runtime.Object, error) {
+// ListRuntimeObjectsForKind returns objects of given gvr that satisfy given labelSelector and fieldSelector.
+func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResource, labelSelector, fieldSelector string) ([]runtime.Object, error) {
 	var runtimeObjectsList []runtime.Object
 	var listFunc func() error
 	listOpts := metav1.ListOptions{

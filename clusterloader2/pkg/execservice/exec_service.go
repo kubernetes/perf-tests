@@ -70,7 +70,7 @@ func InitFlags(c *config.ExecServiceConfig) {
 }
 
 // SetUpExecService creates exec pod.
-func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error {
+func SetUpExecService(f *framework.Framework, _ config.ExecServiceConfig) error {
 	var err error
 	lock.Lock()
 	defer lock.Unlock()

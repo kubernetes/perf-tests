@@ -104,7 +104,7 @@ func (g *genericQueryGatherer) Configure(config *measurement.Config) error {
 	return g.StartParams.Validate()
 }
 
-func (g *genericQueryGatherer) IsEnabled(config *measurement.Config) bool {
+func (g *genericQueryGatherer) IsEnabled(_ *measurement.Config) bool {
 	return true
 }
 
@@ -153,7 +153,7 @@ func (g *genericQueryGatherer) validateSample(q GenericQuery, val float64) error
 	return nil
 }
 
-func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, _ *measurement.Config) ([]measurement.Summary, error) {
 	var errs []error
 	dataItems := map[string]*measurementutil.DataItem{}
 	for _, q := range g.Queries {

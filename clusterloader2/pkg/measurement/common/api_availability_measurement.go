@@ -29,7 +29,6 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -70,7 +69,7 @@ type apiAvailabilityMeasurement struct {
 	lock                       sync.Mutex
 }
 
-func (a *apiAvailabilityMeasurement) updateHostAvailabilityMetrics(c clientset.Interface, provider provider.Provider) {
+func (a *apiAvailabilityMeasurement) updateHostAvailabilityMetrics() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(a.hostIPs))
 	mu := sync.Mutex{}
@@ -154,7 +153,6 @@ func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
 		return err
 	}
 	k8sClient := config.ClusterFramework.GetClientSets().GetClient()
-	provider := config.ClusterFramework.GetClusterConfig().Provider
 	a.wg.Add(1)
 
 	go func() {
@@ -174,7 +172,7 @@ func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
 			case <-time.After(a.pollFrequency):
 				a.updateClusterAvailabilityMetrics(k8sClient)
 				if a.hostLevelAvailabilityEnabled() {
-					a.updateHostAvailabilityMetrics(k8sClient, provider)
+					a.updateHostAvailabilityMetrics()
 				}
 			case <-a.stopCh:
 				return

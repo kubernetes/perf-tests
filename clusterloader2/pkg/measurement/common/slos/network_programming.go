@@ -76,7 +76,7 @@ func (n *netProgGatherer) IsEnabled(config *measurement.Config) bool {
 	return config.CloudProvider.Name() != "kubemark"
 }
 
-func (n *netProgGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (n *netProgGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, _ *measurement.Config) ([]measurement.Summary, error) {
 	latency, err := n.query(executor, startTime, endTime)
 	if err != nil {
 		return nil, err

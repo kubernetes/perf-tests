@@ -81,7 +81,7 @@ type fakeExecutor struct {
 	err     error
 }
 
-func (f *fakeExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
+func (f *fakeExecutor) Query(_ string, _ time.Time) ([]*model.Sample, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

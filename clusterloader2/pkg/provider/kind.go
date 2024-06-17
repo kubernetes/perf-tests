@@ -59,13 +59,13 @@ func (p *KindProvider) GetConfig() Config {
 	return Config{}
 }
 
-func (p *KindProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
+func (p *KindProvider) RunSSHCommand(_, _ string) (string, string, int, error) {
 	// TODO(#1693): To maintain compatibility with the use of SSH to scrape measurements,
 	// we can SSH to localhost then run `docker exec -t <masterNodeContainerID> <cmd>`.
 	return "", "", 0, fmt.Errorf("kind: ssh not yet implemented")
 }
 
-func (p *KindProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *KindProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

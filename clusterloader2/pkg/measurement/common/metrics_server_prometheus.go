@@ -59,7 +59,7 @@ func (g *metricsServerGatherer) Gather(executor QueryExecutor, startTime, endTim
 	return summaries, nil
 }
 
-func (g *metricsServerGatherer) Configure(config *measurement.Config) error {
+func (g *metricsServerGatherer) Configure(_ *measurement.Config) error {
 	return nil
 }
 

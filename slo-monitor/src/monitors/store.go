@@ -126,17 +126,17 @@ func (q *NoStoreQueue) ListKeys() []string {
 }
 
 // Get implements Get function from Store interface
-func (q *NoStoreQueue) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (q *NoStoreQueue) Get(_ interface{}) (item interface{}, exists bool, err error) {
 	return "", false, fmt.Errorf("unimplemented Get")
 }
 
 // GetByKey implements GetByKey function from Store interface
-func (q *NoStoreQueue) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (q *NoStoreQueue) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return "", false, fmt.Errorf("unimplemented GetByKey")
 }
 
 // Replace implements Replace function from Store interface
-func (q *NoStoreQueue) Replace(list []interface{}, rv string) error {
+func (q *NoStoreQueue) Replace(_ []interface{}, _ string) error {
 	// Replace is called during re-lists, so we can't return "unimplemented" here.
 	// It's safe to ignore this call, as worst thing that can happen is loosing
 	// few calls. As this is best effort component, we don't care too much about that.

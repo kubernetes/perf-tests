@@ -43,7 +43,7 @@ type CategoryToMetricData map[string]MetricToBuildData
 // JobToCategoryData is a map from job name to CategoryToMetricData.
 type JobToCategoryData map[string]CategoryToMetricData
 
-func serveHTTPObject(res http.ResponseWriter, req *http.Request, obj interface{}) {
+func serveHTTPObject(res http.ResponseWriter, _ *http.Request, obj interface{}) {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		res.Header().Set("Content-type", "text/html")

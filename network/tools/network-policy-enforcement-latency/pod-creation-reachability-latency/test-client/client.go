@@ -151,7 +151,7 @@ func (c *TestClient) createPodInformer() error {
 		AddFunc: func(obj interface{}) {
 			handlePodEvent(obj, true)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(_, newObj interface{}) {
 			handlePodEvent(newObj, false)
 		},
 	})

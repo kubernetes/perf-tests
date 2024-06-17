@@ -109,7 +109,7 @@ func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
 		QueryFunc:  rules.EngineQueryFunc(ll.QueryEngine(), ll.Storage()),
 		Appendable: ll.Storage(),
 		Context:    context.Background(),
-		NotifyFunc: func(ctx context.Context, expr string, alerts ...*rules.Alert) {},
+		NotifyFunc: func(_ context.Context, _ string, _ ...*rules.Alert) {},
 		Logger:     nil,
 	}
 	m := rules.NewManager(opts)

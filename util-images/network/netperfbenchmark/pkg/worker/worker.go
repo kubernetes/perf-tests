@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -277,8 +276,7 @@ func (w *Worker) schedule(startTimestamp int64) {
 	if !w.shouldParseResponse() {
 		return
 	}
-	durationInt := strconv.FormatInt(w.work.resourceSpec.Duration, 10)
-	parsedResult, err := parseResult(w.work.resourceSpec.Protocol, result, durationInt)
+	parsedResult, err := parseResult(w.work.resourceSpec.Protocol, result)
 	if err != nil {
 		w.handleError(fmt.Errorf("error parsing command response: %v", err))
 		return
@@ -326,6 +324,6 @@ func (w *Worker) StartHTTPServer() {
 }
 
 // Handler handles http requests for http measurements.
-func (w *Worker) Handler(rw http.ResponseWriter, request *http.Request) {
+func (w *Worker) Handler(rw http.ResponseWriter, _ *http.Request) {
 	w.sendResponse(rw, http.StatusOK, "ok")
 }

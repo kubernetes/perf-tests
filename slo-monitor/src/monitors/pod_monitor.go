@@ -129,7 +129,7 @@ func NewPodStartupLatencyDataMonitor(c clientset.Interface, purgeAfter time.Dura
 func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 	controller := NewWatcherWithHandler(
 		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
 				// slo-monitor is not using the events returned from the list
 				// (it uses NoStoreQueue implementation of Store which discards them),
 				// only the resourceVersion is used to instantiate the watch from this point.
@@ -187,7 +187,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 
 	eventController := NewWatcherWithHandler(
 		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
 				// slo-monitor is not using the pods returned from the list
 				// (it uses NoStoreQueue implementation of Store which discards them),
 				// only the resourceVersion is used to instantiate the watch from this point.
@@ -218,7 +218,7 @@ func (pm *PodStartupLatencyDataMonitor) Run(stopCh chan struct{}) error {
 			pm.handleEventUpdate(e)
 			return nil
 		},
-		func(obj interface{}) error {
+		func(_ interface{}) error {
 			return nil
 		},
 	)

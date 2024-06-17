@@ -71,7 +71,7 @@ func (p *KubemarkProvider) RunSSHCommand(cmd, host string) (string, string, int,
 }
 
 // TODO(mborsz): Dump instanceIDs for master nodes (as in gce).
-func (p *KubemarkProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *KubemarkProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

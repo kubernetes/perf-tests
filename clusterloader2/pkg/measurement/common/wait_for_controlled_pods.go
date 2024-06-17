@@ -533,7 +533,7 @@ func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersionLocked(
 func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (sets.String, uint64, error) {
 	objects, err := runtimeobjects.ListRuntimeObjectsForKind(
 		w.clusterFramework.GetDynamicClients().GetClient(),
-		w.gvr, w.kind, w.selector.Namespace, w.selector.LabelSelector, w.selector.FieldSelector)
+		w.gvr, w.selector.LabelSelector, w.selector.FieldSelector)
 	if err != nil {
 		return nil, 0, fmt.Errorf("listing objects error: %v", err)
 	}

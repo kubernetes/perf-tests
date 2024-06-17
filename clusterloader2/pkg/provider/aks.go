@@ -60,7 +60,7 @@ func (p *AKSProvider) RunSSHCommand(cmd, host string) (string, string, int, erro
 	return runSSHCommand(cmd, host)
 }
 
-func (p *AKSProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *AKSProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

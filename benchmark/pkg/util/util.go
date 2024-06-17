@@ -124,7 +124,7 @@ func (j *JobComparisonData) PrettyPrintWithFilter(filter MetricFilterFunc) {
 
 // PrettyPrint prints the job comparison data in a table without any filtering.
 func (j *JobComparisonData) PrettyPrint() {
-	j.PrettyPrintWithFilter(func(k MetricKey, d MetricComparisonData) bool { return false })
+	j.PrettyPrintWithFilter(func(_ MetricKey, _ MetricComparisonData) bool { return false })
 }
 
 // Adds a sample value (if not NaN) to a given metric's MetricComparisonData.
@@ -189,8 +189,8 @@ func GetFlattennedComparisonData(leftJobMetrics, rightJobMetrics []map[string][]
 }
 
 func computeSampleStats(sample []float64, avg, stDev, max *float64) {
-	len := len(sample)
-	if len == 0 {
+	length := len(sample)
+	if length == 0 {
 		*avg = math.NaN()
 		*stDev = math.NaN()
 		*max = math.NaN()
@@ -198,13 +198,13 @@ func computeSampleStats(sample []float64, avg, stDev, max *float64) {
 	}
 	sum := 0.0
 	squareSum := 0.0
-	for i := 0; i < len; i++ {
+	for i := 0; i < length; i++ {
 		sum += sample[i]
 		squareSum += sample[i] * sample[i]
 		*max = math.Max(*max, sample[i])
 	}
-	*avg = sum / float64(len)
-	*stDev = math.Sqrt(squareSum/float64(len) - (*avg * *avg))
+	*avg = sum / float64(length)
+	*stDev = math.Sqrt(squareSum/float64(length) - (*avg * *avg))
 }
 
 // ComputeStatsForMetricSamples computes avg, std-dev and max for each metric's left and right samples.

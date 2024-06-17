@@ -158,11 +158,11 @@ func validateCEPPropagationDelay(result cepPropagationDelayMetricMap, config *me
 	return nil
 }
 
-func (c *cepPropagationDelayGatherer) Configure(config *measurement.Config) error {
+func (c *cepPropagationDelayGatherer) Configure(_ *measurement.Config) error {
 	return nil
 }
 
-func (c *cepPropagationDelayGatherer) IsEnabled(config *measurement.Config) bool {
+func (c *cepPropagationDelayGatherer) IsEnabled(_ *measurement.Config) bool {
 	return true
 }
 

@@ -88,7 +88,7 @@ type fakeQueryExecutor struct {
 	samples []*sample
 }
 
-func (ex *fakeQueryExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
+func (ex *fakeQueryExecutor) Query(query string, _ time.Time) ([]*model.Sample, error) {
 	samples := make([]*model.Sample, 0)
 	for _, s := range ex.samples {
 		sample := &model.Sample{

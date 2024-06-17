@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/request-benchmark
 
-go 1.18
+go 1.22
 
 require k8s.io/client-go v0.29.3
 

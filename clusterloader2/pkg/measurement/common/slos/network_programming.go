@@ -115,7 +115,7 @@ func (n *netProgGatherer) createSummary(latency *measurementutil.LatencyMetric) 
 		return nil, err
 	}
 	if n.enableViolations {
-		klog.V(2).Infof("%s: programming thresholds validation is enabled", n.enableViolations)
+		klog.V(2).Infof("%s: programming thresholds validation is enabled", netProg)
 		if slosErr := latency.VerifyThreshold(n.threshold); slosErr != nil {
 			err = errors.NewMetricViolationError("Network Programming Latency", slosErr.Error())
 			klog.Errorf("%s: %v", n, err)

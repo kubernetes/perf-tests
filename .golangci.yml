@@ -27,7 +27,7 @@ linters:
     - revive
     - govet
     - errcheck
-    - deadcode
+    - unused
     # TODO(kushthedude) fix after vendor is migrated to go modules
     # - misspell
 

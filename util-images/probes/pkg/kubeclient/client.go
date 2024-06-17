@@ -41,11 +41,10 @@ var (
 )
 
 type Config struct {
-	group     string
-	version   string
-	name      string
-	namespace string
-	interval  time.Duration
+	group    string
+	version  string
+	name     string
+	interval time.Duration
 }
 
 func Run(config *Config) {

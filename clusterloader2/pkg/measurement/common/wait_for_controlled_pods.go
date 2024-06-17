@@ -455,27 +455,6 @@ func (w *waitForControlledPodsRunningMeasurement) handleObject(oldObj, newObj in
 	}
 }
 
-func (w *waitForControlledPodsRunningMeasurement) checkScaledown(oldObj, newObj runtime.Object) (bool, error) {
-	oldReplicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), oldObj)
-	if err != nil {
-		return false, err
-	}
-	oldReplicas, err := runtimeobjects.GetReplicasOnce(oldReplicasWatcher)
-	if err != nil {
-		return false, err
-	}
-	newReplicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(w.clusterFramework.GetClientSets().GetClient(), newObj)
-	if err != nil {
-		return false, err
-	}
-	newReplicas, err := runtimeobjects.GetReplicasOnce(newReplicasWatcher)
-	if err != nil {
-		return false, err
-	}
-
-	return newReplicas < oldReplicas, nil
-}
-
 func (w *waitForControlledPodsRunningMeasurement) handleObjectLocked(oldObj, newObj runtime.Object) error {
 	isObjDeleted := newObj == nil
 	handledObj := newObj

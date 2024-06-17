@@ -43,7 +43,6 @@ type Config struct {
 	testDuration, idleDuration, queryTimeout time.Duration
 	hostnameFile                             string
 	queryClusterNames, logQueries            bool
-	resultsLock                              sync.Mutex
 }
 
 type dnsClient struct {

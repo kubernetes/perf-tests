@@ -30,6 +30,7 @@ const (
 	LocalName       = "local"
 	SkeletonName    = "skeleton"
 	VsphereName     = "vsphere"
+	GardenerName    = "gardener"
 	KubestellarName = "ks"
 )
 

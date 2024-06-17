@@ -134,6 +134,8 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		return NewSkeletonProvider(configs), nil
 	case VsphereName:
 		return NewVsphereProvider(configs), nil
+	case GardenerName:
+		return NewGardenerProvider(configs), nil
 	case KubestellarName:
 		return NewKubestellarProvider(configs), nil
 	default:

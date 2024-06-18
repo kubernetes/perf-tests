@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/network
 
-go 1.22
+go 1.22.4
 
 require (
 	k8s.io/api v0.0.0-20181011064954-26c7a45db378

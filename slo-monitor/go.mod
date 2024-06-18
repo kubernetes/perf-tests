@@ -1,5 +1,7 @@
 module k8s.io/perf-tests/slo-monitor
 
+go 1.22.4
+
 require (
 	github.com/golang/glog v1.2.0
 	github.com/prometheus/client_golang v1.17.0
@@ -54,5 +56,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-go 1.20

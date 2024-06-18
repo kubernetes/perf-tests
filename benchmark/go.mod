@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/benchmark
 
-go 1.22
+go 1.22.4
 
 require (
 	github.com/dgryski/go-onlinestats v0.0.0-20170612111826-1c7d19468768

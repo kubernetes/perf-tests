@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/util-images/probes
 
-go 1.22
+go 1.22.4
 
 require (
 	github.com/prometheus/client_golang v0.9.2

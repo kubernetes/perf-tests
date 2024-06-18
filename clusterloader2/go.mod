@@ -54,7 +54,7 @@ require (
 	k8s.io/client-go v0.22.15
 	k8s.io/component-base v0.22.15
 	k8s.io/component-helpers v0.22.15
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.130.0
 	k8s.io/kubelet v0.22.15
 	k8s.io/kubernetes v1.22.15
 )
@@ -80,7 +80,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
-	github.com/go-logr/logr v1.2.0 // indirect
+	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

@@ -190,7 +190,7 @@ func (s *LoadBalancerNodeSyncMeasurement) measureNodeSyncLatency() error {
 
 func (s *LoadBalancerNodeSyncMeasurement) getEventInformer() cache.Controller {
 	ctx := context.Background()
-	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
+	listFunc := func(_ metav1.ListOptions) (runtime.Object, error) {
 		o := metav1.ListOptions{
 			Limit: 1,
 		}

@@ -64,11 +64,11 @@ const (
 type convertFunc func([]*model.Sample) *measurementutil.PerfData
 type windowsResourceUsageGatherer struct{}
 
-func (w *windowsResourceUsageGatherer) Configure(config *measurement.Config) error {
+func (w *windowsResourceUsageGatherer) Configure(_ *measurement.Config) error {
 	return nil
 }
 
-func (w *windowsResourceUsageGatherer) IsEnabled(config *measurement.Config) bool {
+func (w *windowsResourceUsageGatherer) IsEnabled(_ *measurement.Config) bool {
 	return true
 }
 
@@ -220,7 +220,7 @@ func getSummary(query string, converter convertFunc, metricsName string, measure
 }
 
 // Gather gathers the metrics and convert to json summary
-func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
+func (w *windowsResourceUsageGatherer) Gather(executor common.QueryExecutor, _, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
 	cpuSummary, err := getSummary(cpuUsageQueryTop10, convertToCPUPerfData, cpuUsageMetricsName, endTime, executor, config)
 	if err != nil {
 		return nil, err

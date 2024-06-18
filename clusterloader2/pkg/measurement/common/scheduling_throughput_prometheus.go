@@ -43,7 +43,7 @@ func init() {
 type schedulingThroughputGatherer struct{}
 
 func (a *schedulingThroughputGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) ([]measurement.Summary, error) {
-	throughputSummary, err := a.getThroughputSummary(executor, startTime, endTime, config)
+	throughputSummary, err := a.getThroughputSummary(executor, startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (a *schedulingThroughputGatherer) Gather(executor QueryExecutor, startTime,
 	return summaries, err
 }
 
-func (a *schedulingThroughputGatherer) getThroughputSummary(executor QueryExecutor, startTime, endTime time.Time, config *measurement.Config) (*schedulingThroughputPrometheus, error) {
+func (a *schedulingThroughputGatherer) getThroughputSummary(executor QueryExecutor, startTime, endTime time.Time) (*schedulingThroughputPrometheus, error) {
 	measurementDuration := endTime.Sub(startTime)
 	promDuration := measurementutil.ToPrometheusTime(measurementDuration)
 	query := fmt.Sprintf(maxSchedulingThroughputQuery, promDuration)
@@ -92,11 +92,11 @@ func (a *schedulingThroughputGatherer) String() string {
 	return schedulingThroughputPrometheusMeasurementName
 }
 
-func (a *schedulingThroughputGatherer) Configure(config *measurement.Config) error {
+func (a *schedulingThroughputGatherer) Configure(_ *measurement.Config) error {
 	return nil
 }
 
-func (a *schedulingThroughputGatherer) IsEnabled(config *measurement.Config) bool {
+func (a *schedulingThroughputGatherer) IsEnabled(_ *measurement.Config) bool {
 	return true
 }
 

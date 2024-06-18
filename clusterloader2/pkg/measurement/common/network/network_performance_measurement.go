@@ -181,7 +181,7 @@ func (npm *networkPerformanceMeasurement) initializeInformer() error {
 		return fmt.Errorf("error getting informer:%s", err)
 	}
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+		UpdateFunc: func(_ interface{}, newObj interface{}) {
 			npm.handleUpdateNetworkTestEvents(newObj)
 		},
 	})

@@ -70,7 +70,7 @@ func (p *GKEKubemarkProvider) RunSSHCommand(cmd, host string) (string, string, i
 	return r.Stdout, r.Stderr, r.Code, err
 }
 
-func (p *GKEKubemarkProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *GKEKubemarkProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

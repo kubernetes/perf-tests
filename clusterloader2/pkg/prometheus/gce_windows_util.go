@@ -50,7 +50,7 @@ func setUpWindowsNodeAndTemplate(k8sClient kubernetes.Interface, mapping map[str
 		return err
 	}
 	// Install the wmi exporter onto windows node
-	if err := installWmiExporter(k8sClient, windowsNode, mapping); err != nil {
+	if err := installWmiExporter(windowsNode, mapping); err != nil {
 		return err
 	}
 	mapping["WINDOWS_NODE_NAME"] = windowsNode.nodeName
@@ -65,7 +65,7 @@ func isWindowsNodeScrapingEnabled(mapping map[string]interface{}, clusterLoaderC
 	return false
 }
 
-func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, mapping map[string]interface{}) error {
+func installWmiExporter(windowsNode *gceNode, mapping map[string]interface{}) error {
 	wmiExporterURL, ok := mapping["CL2_WMI_EXPORTER_URL"]
 	if !ok {
 		return fmt.Errorf("missing setting up wmi exporter download url")
@@ -91,9 +91,8 @@ func installWmiExporter(k8sClient kubernetes.Interface, windowsNode *gceNode, ma
 		err = cmd.Run()
 		if err == nil {
 			break
-		} else {
-			klog.V(2).Infof("Retried %d times to install wmi exporter with error: %+v", i, err)
 		}
+		klog.V(2).Infof("Retried %d times to install wmi exporter with error: %+v", i, err)
 		time.Sleep(installWmiExporterRetryInterval)
 	}
 	return err

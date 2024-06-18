@@ -255,17 +255,17 @@ func (f *Framework) CreateObject(namespace string, name string, obj *unstructure
 }
 
 // PatchObject updates object (using patch) with given name using given object description.
-func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured, options ...*client.APICallOptions) error {
+func (f *Framework) PatchObject(namespace string, name string, obj *unstructured.Unstructured, _ ...*client.APICallOptions) error {
 	return client.PatchObject(f.dynamicClients.GetClient(), namespace, name, obj)
 }
 
 // DeleteObject deletes object with given name and group-version-kind.
-func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.APICallOptions) error {
+func (f *Framework) DeleteObject(gvk schema.GroupVersionKind, namespace string, name string, _ ...*client.APICallOptions) error {
 	return client.DeleteObject(f.dynamicClients.GetClient(), gvk, namespace, name)
 }
 
 // GetObject retrieves object with given name and group-version-kind.
-func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, options ...*client.APICallOptions) (*unstructured.Unstructured, error) {
+func (f *Framework) GetObject(gvk schema.GroupVersionKind, namespace string, name string, _ ...*client.APICallOptions) (*unstructured.Unstructured, error) {
 	return client.GetObject(f.dynamicClients.GetClient(), gvk, namespace, name)
 }
 

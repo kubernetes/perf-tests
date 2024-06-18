@@ -56,11 +56,11 @@ func (p *KubestellarProvider) GetConfig() Config {
 	return Config{}
 }
 
-func (p *KubestellarProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
+func (p *KubestellarProvider) RunSSHCommand(_, _ string) (string, string, int, error) {
 	return "", "", 0, nil
 }
 
-func (p *KubestellarProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *KubestellarProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

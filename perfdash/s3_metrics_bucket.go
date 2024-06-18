@@ -83,7 +83,7 @@ func (s *S3MetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix s
 	jobPrefix := joinStringsAndInts(s.logPath, job, buildNumber, prefix)
 
 	if err := s.client.ListObjectsV2Pages(&s3.ListObjectsV2Input{Bucket: s.bucket, Prefix: aws.String(jobPrefix)},
-		func(objects *s3.ListObjectsV2Output, lastPage bool) bool {
+		func(objects *s3.ListObjectsV2Output, _ bool) bool {
 			for _, key := range objects.Contents {
 				files = append(files, *key.Key)
 			}

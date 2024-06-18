@@ -64,7 +64,7 @@ func (p *LocalProvider) RunSSHCommand(cmd, host string) (string, string, int, er
 	return r.Stdout, r.Stderr, r.Code, err
 }
 
-func (p *LocalProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *LocalProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

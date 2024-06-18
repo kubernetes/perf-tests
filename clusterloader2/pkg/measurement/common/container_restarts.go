@@ -158,11 +158,11 @@ func (a *containerRestartsGatherer) validateRestarts(restartsInfos []ContainerRe
 	return badContainers
 }
 
-func (a *containerRestartsGatherer) Configure(config *measurement.Config) error {
+func (a *containerRestartsGatherer) Configure(_ *measurement.Config) error {
 	return nil
 }
 
-func (a *containerRestartsGatherer) IsEnabled(config *measurement.Config) bool {
+func (a *containerRestartsGatherer) IsEnabled(_ *measurement.Config) bool {
 	return true
 }
 

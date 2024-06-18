@@ -56,11 +56,11 @@ func (p *KCPProvider) GetConfig() Config {
 	return Config{}
 }
 
-func (p *KCPProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
+func (p *KCPProvider) RunSSHCommand(_, _ string) (string, string, int, error) {
 	return "", "", 0, nil
 }
 
-func (p *KCPProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *KCPProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

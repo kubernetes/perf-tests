@@ -118,20 +118,20 @@ func (n *NodeCounter) Start(stopCh <-chan struct{}) error {
 }
 
 func (n *NodeCounter) handleObject(oldObj, newObj interface{}) error {
-	old, err := n.shouldRun(oldObj)
+	oldO, err := n.shouldRun(oldObj)
 	if err != nil {
 		return err
 	}
-	new, err := n.shouldRun(newObj)
+	newO, err := n.shouldRun(newObj)
 	if err != nil {
 		return err
 	}
-	if new == old {
+	if newO == oldO {
 		return nil
 	}
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if new && !old {
+	if newO && !oldO {
 		n.replicas++
 	} else {
 		n.replicas--

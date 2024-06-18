@@ -64,7 +64,7 @@ func (p *AutopilotProvider) RunSSHCommand(cmd, host string) (string, string, int
 	return r.Stdout, r.Stderr, r.Code, err
 }
 
-func (p *AutopilotProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *AutopilotProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

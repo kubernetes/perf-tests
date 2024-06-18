@@ -40,7 +40,7 @@ func NewWatcherWithHandler(lw cache.ListerWatcher, objType runtime.Object, setHa
 		FullResyncPeriod: resyncPeriod,
 		RetryOnError:     false,
 
-		Process: func(obj interface{}, isInInitialList bool) error {
+		Process: func(obj interface{}, _ bool) error {
 			workItem := obj.(workItem)
 			switch workItem.operationType {
 			case setOperationType:

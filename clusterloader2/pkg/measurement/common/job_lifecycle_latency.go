@@ -91,7 +91,7 @@ func (p *jobLifecycleLatencyMeasurement) Execute(config *measurement.Config) ([]
 		if err != nil {
 			return nil, err
 		}
-		return p.gather(config.ClusterFramework.GetClientSets().GetClient(), config.Identifier, timeout)
+		return p.gather(config.Identifier, timeout)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -209,7 +209,7 @@ var jobLifecycleTransitions = map[string]measurementutil.Transition{
 
 // gather collects job lifecycle latency and calculates percentiles using Phase Latency utility
 // it waits for all jobs to be completed before collecting the metrics or times out
-func (p *jobLifecycleLatencyMeasurement) gather(c clientset.Interface, identifier string, timeout time.Duration) ([]measurement.Summary, error) {
+func (p *jobLifecycleLatencyMeasurement) gather(identifier string, timeout time.Duration) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering job lifecycle latency measurement...", p)
 	if !p.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", jobLifecycleLatencyMeasurementName)

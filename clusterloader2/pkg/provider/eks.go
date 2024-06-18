@@ -64,7 +64,7 @@ func (p *EKSProvider) RunSSHCommand(cmd, host string) (string, string, int, erro
 	return r.Stdout, r.Stderr, r.Code, err
 }
 
-func (p *EKSProvider) Metadata(client clientset.Interface) (map[string]string, error) {
+func (p *EKSProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 

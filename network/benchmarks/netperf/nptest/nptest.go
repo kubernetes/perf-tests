@@ -492,7 +492,7 @@ func parseNetperfBandwidth(output string) string {
 }
 
 // ReceiveOutput processes a data received from a single client
-func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, reply *int) error {
+func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, _ *int) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -613,7 +613,7 @@ func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 	fmt.Println("Orchestrator requests worker run item Type:", workItem.ClientItem.Type)
 	switch {
 	case workItem.ClientItem.Type == iperfTCPTest || workItem.ClientItem.Type == iperfUDPTest || workItem.ClientItem.Type == iperfSctpTest:
-		outputString := iperfClient(workItem.ClientItem.Host, workItem.ClientItem.Port, workItem.ClientItem.MSS, workItem.ClientItem.Type)
+		outputString := iperfClient(workItem.ClientItem.Host, workItem.ClientItem.MSS, workItem.ClientItem.Type)
 		var reply int
 		err := client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
 		if err != nil {
@@ -627,7 +627,7 @@ func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
 			log.Fatal("failed to call client", err)
 		}
 	case workItem.ClientItem.Type == netperfTest:
-		outputString := netperfClient(workItem.ClientItem.Host, workItem.ClientItem.Port, workItem.ClientItem.Type)
+		outputString := netperfClient(workItem.ClientItem.Host)
 		var reply int
 		err := client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: workItem.ClientItem.Type}, &reply)
 		if err != nil {
@@ -721,7 +721,7 @@ func netperfServer() {
 }
 
 // Invoke and run an iperf client and return the output if successful.
-func iperfClient(serverHost, serverPort string, mss int, workItemType int) (rv string) {
+func iperfClient(serverHost string, mss int, workItemType int) (rv string) {
 	switch {
 	case workItemType == iperfTCPTest:
 		output, success := cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-P", parallelStreams, "-M", strconv.Itoa(mss)}, 15)
@@ -764,7 +764,7 @@ func qperfClient(serverHost string, workItemType, msgSize int) (rv string) {
 }
 
 // Invoke and run a netperf client and return the output if successful.
-func netperfClient(serverHost, serverPort string, workItemType int) (rv string) {
+func netperfClient(serverHost string) (rv string) {
 	output, success := cmdExec(netperfPath, []string{netperfPath, "-H", serverHost}, 15)
 	if success {
 		fmt.Println(output)
@@ -776,7 +776,7 @@ func netperfClient(serverHost, serverPort string, workItemType int) (rv string) 
 	return
 }
 
-func cmdExec(command string, args []string, timeout int32) (rv string, rc bool) {
+func cmdExec(command string, args []string, _ int32) (rv string, rc bool) {
 	cmd := exec.Cmd{Path: command, Args: args}
 
 	var stdoutput bytes.Buffer

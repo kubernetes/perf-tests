@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	goflag "flag"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
@@ -30,7 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	certutil "k8s.io/client-go/util/cert"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -75,7 +76,7 @@ func initFlagsAndKlog() {
 
 func makeRequest(id int, client kubernetes.Interface) {
 	klog.V(4).Infof("Worker %v sends request\n", id)
-	svcAccount, err := client.CoreV1().ServiceAccounts(*namespace).Get("default", metav1.GetOptions{ResourceVersion: "0"})
+	svcAccount, err := client.CoreV1().ServiceAccounts(*namespace).Get(context.Background(), "default", metav1.GetOptions{ResourceVersion: "0"})
 	if err != nil {
 		klog.Warningf("Got error when getting default svcAccount: %v", err)
 	} else {

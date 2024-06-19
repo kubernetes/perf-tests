@@ -139,11 +139,14 @@ func (w *Worker) initialize(extraArguments map[string]*string) {
 	if err != nil {
 		klog.Fatalf("Error getting informer:%s", err)
 	}
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			w.handleCustomResource(obj)
 		},
 	})
+	if err != nil {
+		klog.Fatalf("Error registering event handler: %v", err)
+	}
 	w.stopCh = make(chan struct{})
 	informer.Run(w.stopCh)
 }

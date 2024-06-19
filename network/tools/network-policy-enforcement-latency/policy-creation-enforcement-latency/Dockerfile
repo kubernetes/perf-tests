@@ -8,7 +8,7 @@ WORKDIR /go/src/$gopkg/policy-creation-enforcement-latency
 RUN go build -o /policy-creation-enforcement-latency
 
 # Runtime image
-FROM alpine:3.19
+FROM alpine:3.20
 # Need to install curl to send requests to pods
 RUN apk --no-cache add curl
 

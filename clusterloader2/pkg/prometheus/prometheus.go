@@ -96,6 +96,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 	flags.StringEnvVar(&p.ManifestPath, "prometheus-manifest-path", "PROMETHEUS_MANIFEST_PATH", "", "Path to the prometheus manifest files.")
+	flags.StringEnvVar(&p.AdditionalMonitorsPath, "prometheus-additional-monitors-path", "PROMETHEUS_ADDITIONAL_MONITORS_PATH", "", "Additional monitors to apply.")
 	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
 	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
 	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
@@ -236,7 +237,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
 		return err
 	}
-	if err := pc.applyManifests(coreManifests); err != nil {
+	if err := pc.applyDefaultManifests(coreManifests); err != nil {
 		return err
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
@@ -245,7 +246,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeWindowsNodeExporter {
-		if err := pc.applyManifests(windowsNodeExporterManifests); err != nil {
+		if err := pc.applyDefaultManifests(windowsNodeExporterManifests); err != nil {
 			return err
 		}
 	} else {
@@ -258,20 +259,20 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if !pc.isKubemark() {
-		if err := pc.applyManifests(defaultServiceMonitors); err != nil {
+		if err := pc.applyDefaultManifests(defaultServiceMonitors); err != nil {
 			return err
 		}
 	}
 
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportKubeStateMetrics {
 		klog.V(2).Infof("Applying kube-state-metrics in the cluster.")
-		if err := pc.applyManifests(kubeStateMetricsManifests); err != nil {
+		if err := pc.applyDefaultManifests(kubeStateMetricsManifests); err != nil {
 			return err
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics && pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportMetricsServerMetrics {
 		klog.V(2).Infof("Applying metrics server in the cluster.")
-		if err := pc.applyManifests(metricsServerManifests); err != nil {
+		if err := pc.applyDefaultManifests(metricsServerManifests); err != nil {
 			return err
 		}
 	}
@@ -279,13 +280,20 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		if err := pc.exposeAPIServerMetrics(); err != nil {
 			return err
 		}
-		if err := pc.applyManifests(masterIPServiceMonitors); err != nil {
+		if err := pc.applyDefaultManifests(masterIPServiceMonitors); err != nil {
 			return err
 		}
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.EnablePushgateway {
 		klog.V(2).Infof("Applying Pushgateway in the cluster.")
-		if err := pc.applyManifests(pushgatewayManifests); err != nil {
+		if err := pc.applyDefaultManifests(pushgatewayManifests); err != nil {
+			return err
+		}
+	}
+
+	if pc.clusterLoaderConfig.PrometheusConfig.AdditionalMonitorsPath != "" {
+		klog.V(2).Infof("Applying additional monitors in the cluster.")
+		if err := pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.AdditionalMonitorsPath, "*.yaml"); err != nil {
 			return err
 		}
 	}
@@ -342,17 +350,21 @@ func (pc *Controller) GetFramework() *framework.Framework {
 	return pc.framework
 }
 
-func (pc *Controller) applyManifests(manifestGlob string) error {
-	return pc.framework.ApplyTemplatedManifests(
-		pc.manifestsFS(), manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
+func (pc *Controller) applyDefaultManifests(manifestGlob string) error {
+	return pc.applyManifests(pc.clusterLoaderConfig.PrometheusConfig.ManifestPath, manifestGlob)
 }
 
-func (pc *Controller) manifestsFS() fs.FS {
-	if pc.clusterLoaderConfig.PrometheusConfig.ManifestPath != "" {
-		return os.DirFS(pc.clusterLoaderConfig.PrometheusConfig.ManifestPath)
+func (pc *Controller) applyManifests(path, manifestGlob string) error {
+	return pc.framework.ApplyTemplatedManifests(
+		pc.manifestsFS(path), manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
+}
+
+func (pc *Controller) manifestsFS(path string) fs.FS {
+	if path == "" {
+		return manifestsFS
 	}
 
-	return manifestsFS
+	return os.DirFS(path)
 }
 
 // exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
@@ -418,7 +430,7 @@ func (pc *Controller) runNodeExporter() error {
 		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
 			numMasters++
 			g.Go(func() error {
-				f, err := pc.manifestsFS().Open(nodeExporterPod)
+				f, err := pc.manifestsFS(pc.clusterLoaderConfig.PrometheusConfig.ManifestPath).Open(nodeExporterPod)
 				if err != nil {
 					return fmt.Errorf("unable to open manifest file: %v", err)
 				}

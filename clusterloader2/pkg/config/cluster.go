@@ -93,6 +93,7 @@ type PrometheusConfig struct {
 	APIServerScrapePort        int
 	SnapshotProject            string
 	ManifestPath               string
+	AdditionalMonitorsPath     string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string
 	PVCStorageClass            string

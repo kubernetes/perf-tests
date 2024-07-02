@@ -92,7 +92,7 @@ type PrometheusConfig struct {
 	ScrapeMastersWithPublicIPs bool
 	APIServerScrapePort        int
 	SnapshotProject            string
-	ManifestPath               string
+	AdditionalMonitorsPath     string
 	StorageClassProvisioner    string
 	StorageClassVolumeType     string
 	PVCStorageClass            string

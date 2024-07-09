@@ -17,6 +17,9 @@ steps:
     path: modules/measurements.yaml
     params:
       action: start
+      namespaceIdx: 1
+      serviceName: huge-service-statefulset-0
+      statefulsetEndpoints: {{$STATEFULSET_ENDPOINTS}}
 - module:
     path: modules/service.yaml
     params:
@@ -28,3 +31,6 @@ steps:
     path: modules/measurements.yaml
     params:
       action: gather
+      namespaceIdx: 1
+      serviceName: huge-service-statefulset-0
+      statefulsetEndpoints: {{$STATEFULSET_ENDPOINTS}}

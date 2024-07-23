@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
-	cloud.google.com/go/storage v1.42.0
+	cloud.google.com/go/storage v1.43.0
 	github.com/aws/aws-sdk-go v1.55.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/spf13/pflag v1.0.5

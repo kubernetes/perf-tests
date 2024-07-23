@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	github.com/prometheus/client_golang v1.19.1
-	golang.org/x/net v0.26.0
+	golang.org/x/net v0.27.0
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.3
 )
@@ -33,8 +33,8 @@ require (
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

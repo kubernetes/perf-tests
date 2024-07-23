@@ -6,8 +6,8 @@ require (
 	github.com/golang/glog v1.2.2
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
+	k8s.io/api v0.30.3
+	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.2
 	k8s.io/kubernetes v1.30.3
 )

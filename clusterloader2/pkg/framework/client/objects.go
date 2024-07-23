@@ -289,7 +289,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
 func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	gvr_ := pluralResource(gvk)
 	obj.SetName(name)
 	updateFunc := func() error {
 		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
@@ -308,7 +308,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 
 // DeleteObject deletes object with given name, group, version and kind.
 func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*APICallOptions) error {
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	gvr := pluralResource(gvk)
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
 		policy := metav1.DeletePropagationBackground

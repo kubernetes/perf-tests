@@ -289,7 +289,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
 func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
-	gvr_ := pluralResource(gvk)
+	gvr := pluralResource(gvk)
 	obj.SetName(name)
 	updateFunc := func() error {
 		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})

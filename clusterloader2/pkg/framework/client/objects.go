@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -35,6 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/gengo/namer"
+	gengotypes "k8s.io/gengo/types"
 )
 
 const (
@@ -51,6 +54,9 @@ const (
 	// String const defined in https://go.googlesource.com/net/+/749bd193bc2bcebc5f1a048da8af0392cfb2fa5d/http2/transport.go#1041
 	// TODO(mborsz): Migrate to error object comparison when the error type is exported.
 	http2ClientConnectionLostErr = "http2: client connection lost"
+
+	// The plural of the 'Endpoints' Kind is irregular.
+	pluralException = "endpoints"
 )
 
 // RetryWithExponentialBackOff a utility for retrying the given function with exponential backoff.
@@ -270,7 +276,7 @@ func DeleteStorageClass(c clientset.Interface, name string) error {
 // CreateObject creates object based on given object description.
 func CreateObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	gvr := pluralResource(gvk)
 	obj.SetName(name)
 	createFunc := func() error {
 		_, err := dynamicClient.Resource(gvr).Namespace(namespace).Create(context.TODO(), obj, metav1.CreateOptions{})
@@ -283,7 +289,7 @@ func CreateObject(dynamicClient dynamic.Interface, namespace string, name string
 // PatchObject updates (using patch) object with given name, group, version and kind based on given object description.
 func PatchObject(dynamicClient dynamic.Interface, namespace string, name string, obj *unstructured.Unstructured, options ...*APICallOptions) error {
 	gvk := obj.GroupVersionKind()
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	gvr := pluralResource(gvk)
 	obj.SetName(name)
 	updateFunc := func() error {
 		currentObj, err := dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
@@ -302,7 +308,7 @@ func PatchObject(dynamicClient dynamic.Interface, namespace string, name string,
 
 // DeleteObject deletes object with given name, group, version and kind.
 func DeleteObject(dynamicClient dynamic.Interface, gvk schema.GroupVersionKind, namespace string, name string, options ...*APICallOptions) error {
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	gvr := pluralResource(gvk)
 	deleteFunc := func() error {
 		// Delete operation removes object with all of the dependants.
 		policy := metav1.DeletePropagationBackground
@@ -346,4 +352,17 @@ func createPatch(current, modified *unstructured.Unstructured) ([]byte, error) {
 	// (e.g. by removing field in object's yaml), we will never remove that field from 'current'.
 	// TODO(mborsz): Pass here the original object.
 	return jsonmergepatch.CreateThreeWayJSONMergePatch(nil /* original */, modifiedJSON, currentJSON, preconditions...)
+}
+
+// pluralResource returns the plural resource for a given Kind.
+// (meta.UnsafeGuessKindToResource shouldn't be used as it wrongly pluralizes
+// e.g. 'gateway', https://github.com/kubernetes/client-go/issues/1082.)
+func pluralResource(kind schema.GroupVersionKind) schema.GroupVersionResource {
+	lowerKind := strings.ToLower(kind.Kind)
+	if strings.HasSuffix(lowerKind, pluralException) {
+		return kind.GroupVersion().WithResource(lowerKind)
+	}
+	n := namer.NewAllLowercasePluralNamer(nil)
+	t := gengotypes.Ref(kind.GroupVersion().String(), kind.Kind)
+	return kind.GroupVersion().WithResource(n.Name(t))
 }

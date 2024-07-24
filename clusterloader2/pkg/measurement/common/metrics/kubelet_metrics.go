@@ -29,9 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/metrics/testutil"
-	dockermetrics "k8s.io/kubernetes/pkg/kubelet/dockershim/metrics"
 	kubeletmetrics "k8s.io/kubernetes/pkg/kubelet/metrics"
-	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 )
 
 const (
@@ -163,7 +161,6 @@ func GetDefaultKubeletLatencyMetrics(ms KubeletMetrics) KubeletLatencyMetrics {
 		kubeletmetrics.PodWorkerStartDurationKey,
 		kubeletmetrics.PodStartDurationKey,
 		kubeletmetrics.CgroupManagerOperationsKey,
-		dockermetrics.DockerOperationsLatencyKey,
 		kubeletmetrics.PodWorkerStartDurationKey,
 		kubeletmetrics.PLEGRelistDurationKey,
 	)
@@ -213,7 +210,7 @@ func HighLatencyKubeletOperations(c clientset.Interface, threshold time.Duration
 	for _, m := range latencyMetrics {
 		if m.Latency > threshold {
 			badMetrics = append(badMetrics, m)
-			e2elog.Logf("%+v", m)
+			logFunc("%+v", m)
 		}
 	}
 	return badMetrics, nil

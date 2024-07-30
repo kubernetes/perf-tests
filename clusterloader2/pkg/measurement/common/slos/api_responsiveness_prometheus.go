@@ -62,6 +62,11 @@ const (
 
 	countFastQuery = "sum(increase(%v_bucket{%v}[%v])) by (resource, subresource, scope, verb)"
 
+	// watchListLatencyMetricName the name of the metrics as defined in the api server
+	watchListLatencyMetricName = "apiserver_watch_list_duration_seconds"
+	// watchListLatencyQuery placeholders must be replaced with (1) quantile (2) query window size
+	watchListLatencyQuery = "histogram_quantile(%.2f, sum(rate(%v_bucket{}[%v])) by (group, version, resource, scope, le))"
+
 	// exclude all buckets of 1s and shorter
 	filterGetAndMutating = `verb!~"WATCH|LIST", subresource!="proxy", le="1"`
 	// exclude all buckets below or equal 5s
@@ -186,6 +191,17 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 				sample.Metric["quantile"] = model.LabelValue(fmt.Sprintf("%.2f", q))
 			}
 			latencySamples = append(latencySamples, samples...)
+
+			query = fmt.Sprintf(watchListLatencyQuery, q, watchListLatencyMetricName, promDuration)
+			samples, err = executor.Query(query, endTime)
+			if err != nil {
+				return nil, err
+			}
+			for _, sample := range samples {
+				sample.Metric["quantile"] = model.LabelValue(fmt.Sprintf("%.2f", q))
+				sample.Metric["verb"] = "WATCHLIST"
+			}
+			latencySamples = append(latencySamples, samples...)
 		}
 	} else {
 		// Latency measurement is based on 5m window aggregation,
@@ -207,6 +223,15 @@ func (a *apiResponsivenessGatherer) gatherAPICalls(executor common.QueryExecutor
 	countSamples, err := executor.Query(query, endTime)
 	if err != nil {
 		return nil, err
+	}
+	query = fmt.Sprintf(countQuery, watchListLatencyMetricName, "", promDuration)
+	watchListCountSamples, err := executor.Query(query, endTime)
+	if err != nil {
+		return nil, err
+	}
+	for _, sample := range watchListCountSamples {
+		sample.Metric["verb"] = "WATCHLIST"
+		countSamples = append(countSamples, sample)
 	}
 
 	countFastSamples := make([]*model.Sample, 0)

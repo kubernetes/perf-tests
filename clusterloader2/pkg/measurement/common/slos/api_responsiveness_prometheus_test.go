@@ -85,12 +85,25 @@ type summaryEntry struct {
 }
 
 type fakeQueryExecutor struct {
-	samples []*sample
+	metricSamples map[string][]*sample
 }
 
 func (ex *fakeQueryExecutor) Query(query string, _ time.Time) ([]*model.Sample, error) {
+	var foundSamples bool
+	var metricSamples []*sample
+	for k, v := range ex.metricSamples {
+		if strings.Contains(query, k) {
+			metricSamples = v
+			foundSamples = true
+			break
+		}
+	}
+	if !foundSamples {
+		return nil, fmt.Errorf("no samples defined for query %v", query)
+	}
+
 	samples := make([]*model.Sample, 0)
-	for _, s := range ex.samples {
+	for _, s := range metricSamples {
 		sample := &model.Sample{
 			Metric: model.Metric{
 				"resource":    model.LabelValue(s.resource),
@@ -242,23 +255,36 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 
 func TestAPIResponsivenessSummary(t *testing.T) {
 	cases := []struct {
-		name        string
-		samples     []*sample
-		summary     []*summaryEntry
-		allowedSlow int
+		name                  string
+		metricSamples         map[string][]*sample
+		summary               []*summaryEntry
+		allowedSlow           int
+		useSimpleLatencyQuery bool
 	}{
 		{
-			name:        "single_entry",
-			allowedSlow: 0,
-			samples: []*sample{
-				{
-					resource:  "pod",
-					verb:      "POST",
-					scope:     "resource",
-					latency:   1.2,
-					count:     123,
-					slowCount: 5,
+			name:                  "single_entry",
+			allowedSlow:           0,
+			useSimpleLatencyQuery: false,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pod",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.2,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {
+					{
+						resource:  "pod",
+						verb:      "POST",
+						scope:     "resource",
+						latency:   1.2,
+						count:     123,
+						slowCount: 5,
+					},
+				},
+				"apiserver_watch_list_duration_seconds": {},
 			},
 			summary: []*summaryEntry{
 				{
@@ -272,17 +298,29 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 			},
 		},
 		{
-			name:        "single_entry_with_slow_calls_enabled",
-			allowedSlow: 1,
-			samples: []*sample{
-				{
-					resource:  "pod",
-					verb:      "POST",
-					scope:     "resource",
-					latency:   1.2,
-					count:     123,
-					slowCount: 5,
+			name:                  "single_entry_with_slow_calls_enabled",
+			allowedSlow:           1,
+			useSimpleLatencyQuery: false,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pod",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.2,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {
+					{
+						resource:  "pod",
+						verb:      "POST",
+						scope:     "resource",
+						latency:   1.2,
+						count:     123,
+						slowCount: 5,
+					},
+				},
+				"apiserver_watch_list_duration_seconds": {},
 			},
 			summary: []*summaryEntry{
 				{
@@ -292,6 +330,61 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 					p99:       1200.,
 					count:     "123",
 					slowCount: "5",
+				},
+			},
+		},
+		{
+			name:                  "with watchlist entry",
+			allowedSlow:           0,
+			useSimpleLatencyQuery: true,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pod",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.2,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {
+					{
+						resource:  "pod",
+						verb:      "POST",
+						scope:     "resource",
+						latency:   1.2,
+						count:     123,
+						slowCount: 0,
+					},
+				},
+				"apiserver_watch_list_duration_seconds": {
+					{
+						resource: "pod",
+						scope:    "resource",
+						latency:  1.4,
+						count:    123,
+					},
+				},
+			},
+			summary: []*summaryEntry{
+				{
+					resource:  "pod",
+					verb:      "POST",
+					scope:     "resource",
+					p50:       1200.,
+					p90:       1200.,
+					p99:       1200.,
+					count:     "123",
+					slowCount: "0",
+				},
+				{
+					resource:  "pod",
+					verb:      "WATCHLIST",
+					scope:     "resource",
+					p50:       1400.,
+					p90:       1400.,
+					p99:       1400.,
+					count:     "123",
+					slowCount: "0",
 				},
 			},
 		},
@@ -299,11 +392,12 @@ func TestAPIResponsivenessSummary(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			executor := &fakeQueryExecutor{samples: tc.samples}
+			executor := &fakeQueryExecutor{metricSamples: tc.metricSamples}
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{
 				Params: map[string]interface{}{
-					"allowedSlowCalls": tc.allowedSlow,
+					"allowedSlowCalls":      tc.allowedSlow,
+					"useSimpleLatencyQuery": tc.useSimpleLatencyQuery,
 				},
 			}
 
@@ -357,49 +451,53 @@ func checkSummary(t *testing.T, got []measurement.Summary, wanted []*summaryEntr
 func TestLogging(t *testing.T) {
 	cases := []struct {
 		name               string
-		samples            []*sample
+		metricSamples      map[string][]*sample
 		expectedMessages   []string
 		unexpectedMessages []string
 	}{
 		{
 			name: "print_5_warnings",
-			samples: []*sample{
-				{
-					resource: "r1",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.2,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "r1",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.2,
+					},
+					{
+						resource: "r2",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .9,
+					},
+					{
+						resource: "r3",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .8,
+					},
+					{
+						resource: "r4",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .7,
+					},
+					{
+						resource: "r5",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .6,
+					},
+					{
+						resource: "r6",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .5,
+					},
 				},
-				{
-					resource: "r2",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .9,
-				},
-				{
-					resource: "r3",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .8,
-				},
-				{
-					resource: "r4",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .7,
-				},
-				{
-					resource: "r5",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .6,
-				},
-				{
-					resource: "r6",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .5,
-				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			expectedMessages: []string{
 				": WARNING Top latency metric: {Resource:r1",
@@ -414,49 +512,53 @@ func TestLogging(t *testing.T) {
 		},
 		{
 			name: "print_all_violations",
-			samples: []*sample{
-				{
-					resource: "r1",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.2,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "r1",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.2,
+					},
+					{
+						resource: "r2",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.9,
+					},
+					{
+						resource: "r3",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.8,
+					},
+					{
+						resource: "r4",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.7,
+					},
+					{
+						resource: "r5",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.6,
+					},
+					{
+						resource: "r6",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.5,
+					},
+					{
+						resource: "r7",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  .5,
+					},
 				},
-				{
-					resource: "r2",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.9,
-				},
-				{
-					resource: "r3",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.8,
-				},
-				{
-					resource: "r4",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.7,
-				},
-				{
-					resource: "r5",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.6,
-				},
-				{
-					resource: "r6",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  1.5,
-				},
-				{
-					resource: "r7",
-					verb:     "POST",
-					scope:    "resource",
-					latency:  .5,
-				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			expectedMessages: []string{
 				": WARNING Top latency metric: {Resource:r1",
@@ -479,7 +581,7 @@ func TestLogging(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
 			klog.SetOutput(buf)
 
-			executor := &fakeQueryExecutor{samples: tc.samples}
+			executor := &fakeQueryExecutor{metricSamples: tc.metricSamples}
 			gatherer := &apiResponsivenessGatherer{}
 			config := &measurement.Config{}
 
@@ -507,7 +609,7 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 	cases := []struct {
 		name             string
 		config           *measurement.Config
-		samples          []*sample
+		metricSamples    map[string][]*sample
 		hasError         bool
 		expectedMessages []string
 	}{
@@ -523,13 +625,17 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 					}),
 				},
 			},
-			samples: []*sample{
-				{
-					resource: "leases",
-					verb:     "PUT",
-					scope:    "namespace",
-					latency:  0.5,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "leases",
+						verb:     "PUT",
+						scope:    "namespace",
+						latency:  0.5,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			hasError: false,
 		},
@@ -545,13 +651,17 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 					}),
 				},
 			},
-			samples: []*sample{
-				{
-					resource: "leases",
-					verb:     "PUT",
-					scope:    "namespace",
-					latency:  0.5,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "leases",
+						verb:     "PUT",
+						scope:    "namespace",
+						latency:  0.5,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			hasError: true,
 			expectedMessages: []string{
@@ -565,13 +675,17 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 					"customThresholds": "",
 				},
 			},
-			samples: []*sample{
-				{
-					resource: "leases",
-					verb:     "PUT",
-					scope:    "namespace",
-					latency:  0.5,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "leases",
+						verb:     "PUT",
+						scope:    "namespace",
+						latency:  0.5,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			hasError: false,
 		},
@@ -580,13 +694,17 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 			config: &measurement.Config{
 				Params: map[string]interface{}{},
 			},
-			samples: []*sample{
-				{
-					resource: "leases",
-					verb:     "PUT",
-					scope:    "namespace",
-					latency:  0.5,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "leases",
+						verb:     "PUT",
+						scope:    "namespace",
+						latency:  0.5,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			hasError: false,
 		},
@@ -602,13 +720,17 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 					}),
 				},
 			},
-			samples: []*sample{
-				{
-					resource: "leases",
-					verb:     "PUT",
-					scope:    "namespace",
-					latency:  0.2,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "leases",
+						verb:     "PUT",
+						scope:    "namespace",
+						latency:  0.2,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
 			},
 			hasError: false,
 			expectedMessages: []string{
@@ -626,13 +748,16 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 					}),
 				},
 			},
-			samples: []*sample{
-				{
-					resource: "pod",
-					verb:     "POST",
-					scope:    "namespace",
-					latency:  0.2,
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pod",
+						verb:     "POST",
+						scope:    "namespace",
+						latency:  0.2,
+					},
 				},
+				"apiserver_request_sli_duration_seconds": {},
 			},
 			hasError: true,
 		},
@@ -645,7 +770,7 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
 			klog.SetOutput(buf)
 
-			executor := &fakeQueryExecutor{samples: tc.samples}
+			executor := &fakeQueryExecutor{metricSamples: tc.metricSamples}
 			gatherer := &apiResponsivenessGatherer{}
 
 			_, err := gatherer.Gather(executor, time.Now(), time.Now(), tc.config)

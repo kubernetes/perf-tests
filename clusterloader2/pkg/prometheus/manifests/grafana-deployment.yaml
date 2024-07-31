@@ -62,7 +62,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
       serviceAccountName: grafana
-      priorityClassName: prometheus-priorityclass
       volumes:
       - emptyDir: {}
         name: grafana-storage

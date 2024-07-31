@@ -64,7 +64,7 @@ spec:
   serviceMonitorSelector: {}
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}
-  priorityClassName: prometheus-priorityclass
+  priorityClassName: system-node-critical
   version: v2.25.0
   retention: 7d
   {{if $PROMETHEUS_PVC_ENABLED}}

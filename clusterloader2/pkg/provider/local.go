@@ -17,6 +17,8 @@ limitations under the License.
 package provider
 
 import (
+	"context"
+
 	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
@@ -60,7 +62,7 @@ func (p *LocalProvider) GetConfig() Config {
 
 func (p *LocalProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// local provider takes ssh key from LOCAL_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "local")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "local")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 

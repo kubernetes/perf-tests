@@ -17,6 +17,8 @@ limitations under the License.
 package provider
 
 import (
+	"context"
+
 	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
@@ -63,7 +65,7 @@ func (p *SkeletonProvider) GetRootFrameworkKubeConfigOverride() string {
 
 func (p *SkeletonProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// skeleton provider takes ssh key from KUBE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "skeleton")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "skeleton")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 

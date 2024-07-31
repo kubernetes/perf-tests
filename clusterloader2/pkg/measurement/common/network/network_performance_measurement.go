@@ -180,11 +180,14 @@ func (npm *networkPerformanceMeasurement) initializeInformer() error {
 	if err != nil {
 		return fmt.Errorf("error getting informer:%s", err)
 	}
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_ interface{}, newObj interface{}) {
 			npm.handleUpdateNetworkTestEvents(newObj)
 		},
 	})
+	if err != nil {
+		return fmt.Errorf("error adding event handler: %v", err)
+	}
 	npm.stopCh = make(chan struct{})
 	go informer.Run(npm.stopCh)
 	return nil

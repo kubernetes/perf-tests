@@ -88,7 +88,7 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 		rsPendingDeletion: make(map[types.UID]bool),
 	}
 
-	podsInformer.Informer().AddEventHandler(
+	_, err := podsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				oldOwnerUID, _ := getControllerInfo(oldObj)
@@ -114,7 +114,10 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 			},
 		},
 	)
-	rsInformer.Informer().AddEventHandler(
+	if err != nil {
+		return nil, err
+	}
+	_, err = rsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if err := rsIndexer.Add(obj); err != nil {
@@ -137,6 +140,9 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 			},
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	return cpi, nil
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package provider
 
 import (
+	"context"
+
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
@@ -66,7 +68,7 @@ func (p *GKEKubemarkProvider) GetConfig() Config {
 
 func (p *GKEKubemarkProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// gke provider takes ssh key from GCE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "gke")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "gke")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -61,7 +62,7 @@ func NewDynamicInformer(
 func addEventHandler(i cache.SharedInformer,
 	handleObj func(interface{}, interface{}),
 ) {
-	i.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := i.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			handleObj(nil, obj)
 		},
@@ -76,6 +77,9 @@ func addEventHandler(i cache.SharedInformer,
 			}
 		},
 	})
+	if err != nil {
+		klog.Errorf("cannot add event handler: %v", err)
+	}
 }
 
 // StartAndSync starts informer and waits for it to be synced.

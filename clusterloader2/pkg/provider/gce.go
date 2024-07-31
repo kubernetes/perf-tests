@@ -17,6 +17,7 @@ limitations under the License.
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -71,7 +72,7 @@ func (p *GCEProvider) GetConfig() Config {
 
 func (p *GCEProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// gce provider takes ssh key from GCE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "gce")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "gce")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 

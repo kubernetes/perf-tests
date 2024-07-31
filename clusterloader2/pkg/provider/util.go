@@ -17,6 +17,7 @@ limitations under the License.
 package provider
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -43,6 +44,6 @@ func getComponentProtocolAndPort(componentName string) (string, int, error) {
 
 func runSSHCommand(cmd, host string) (string, string, int, error) {
 	// skeleton provider takes ssh key from KUBE_SSH_KEY_PATH and KUBE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "skeleton")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "skeleton")
 	return r.Stdout, r.Stderr, r.Code, err
 }

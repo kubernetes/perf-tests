@@ -34,59 +34,73 @@ type InitOptions struct {
 
 // Features represents all features supported by this provider.
 type Features struct {
-	// Some features do not work for kubemark-like providers or have separate implementation.
+	// IsKubemarkProvider indicates if some features do not work for kubemark-like providers or have a separate implementation.
 	IsKubemarkProvider bool
-	// SupportWindowsNodeScraping determines wheter scraping windows node in supported.
+
+	// SupportWindowsNodeScraping indicates if scraping windows nodes is supported.
 	SupportWindowsNodeScraping bool
+
 	// SupportProbe determines whether probe is supported.
 	SupportProbe bool
+
 	// SupportImagePreload determines whether image preloading is supported.
 	SupportImagePreload bool
+
 	// SupportEnablePrometheusServer determines whether enabling prometheus server is possible.
 	SupportEnablePrometheusServer bool
+
 	// SupportSSHToMaster determines whether SSH access to master machines is possible.
-	// If false (impossible for many  providers), ClusterLoader will skip operations requiring it.
+	// If false (impossible for many providers), ClusterLoader will skip operations requiring it.
 	SupportSSHToMaster bool
+
 	// SupportAccessAPIServerPprofEndpoint determines whether accessing api server pprof endpoint is possible.
 	SupportAccessAPIServerPprofEndpoint bool
+
 	// SupportSnapshotPrometheusDisk determines whether snapshot prometheus disk is supported.
 	SupportSnapshotPrometheusDisk bool
+
 	// SupportNodeKiller determines whether node killer is supported.
 	SupportNodeKiller bool
+
 	// SupportGrabMetricsFromKubelets determines whether getting metrics from kubelet is supported.
 	SupportGrabMetricsFromKubelets bool
+
 	// SupportKubeStateMetrics determines if running kube-state-metrics is supported.
 	SupportKubeStateMetrics bool
+
 	// SupportMetricsServerMetrics determines if running metrics server is supported.
 	SupportMetricsServerMetrics bool
+
 	// SupportResourceUsageMetering determines if resource usage measurement is supported.
 	SupportResourceUsageMetering bool
 
-	// ShouldPrometheusScrapeApiserverOnly determines if we should set PROMETHEUS_SCRAPE_APISERVER_ONLY by default.
+	// ShouldPrometheusScrapeApiserverOnly determines if we should set `PROMETHEUS_SCRAPE_APISERVER_ONLY` by default.
 	ShouldPrometheusScrapeApiserverOnly bool
 
-	// SchedulerInsecurePortDisabled determines if kube-scheduler listens on insecure port.
+	// SchedulerInsecurePortDisabled determines if kube-scheduler listens on an insecure port.
 	SchedulerInsecurePortDisabled bool
 
-	// ShouldScrapeKubeProxy determines if ScrapeKubeProxy
+	// ShouldScrapeKubeProxy determines if prommetheus should set `PROMETHEUS_SCRAPE_KUBE_PROXY` by default.
 	ShouldScrapeKubeProxy bool
 }
 
 // Config is the config of the provider.
 type Config map[string]string
 
-// RootFrameworkKubeConfigOverride returns the KubeConfig override for Root Framewor.
+// RootFrameworkKubeConfigOverride returns the KubeConfig override for Root Framework.
 func (c Config) RootFrameworkKubeConfigOverride() string {
 	return c[RootKubeConfigKey]
 }
 
-// Provider is the interface for
+// Provider is the interface for a ClusterLoader provider.
 type Provider interface {
 	// Name returns name of this provider. It should used only in logs.
 	Name() string
+
 	// Features returns the feature supported by this provider.
 	Features() *Features
 
+	// GetConfig returns the provider config.
 	GetConfig() Config
 
 	// GetManagedPrometheusClient returns HTTP client for communicating with the relevant cloud provider's managed Prometheus service.
@@ -95,13 +109,14 @@ type Provider interface {
 	// GetComponentProtocolAndPort returns the protocol and port for the control plane components.
 	GetComponentProtocolAndPort(componentName string) (string, int, error)
 
+	// RunSSHCommand runs an SSH command `cmd` on the host `host`. It returns stdout, stderr, exit code, and the error, respectively.
 	RunSSHCommand(cmd, host string) (string, string, int, error)
 
 	// Metadata returns provider-specific test run metadata.
 	Metadata(client clientset.Interface) (map[string]string, error)
 }
 
-// NewProvider creates a new provider from init options. It will return an error if provider name is not supported.
+// NewProvider creates a new provider from init options. It will return an error if the provider name is not supported.
 func NewProvider(initOptions *InitOptions) (Provider, error) {
 	configs := parseConfigs(initOptions.ProviderConfigs)
 	if initOptions.KubemarkRootKubeConfigPath != "" {

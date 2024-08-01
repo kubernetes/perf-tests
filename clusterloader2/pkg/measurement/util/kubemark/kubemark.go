@@ -56,7 +56,9 @@ func GetKubemarkMasterComponentsResourceUsage(host string, provider provider.Pro
 		var cpu float64
 		var mem uint64
 		var name string
-		fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/kube-%s", &cpu, &mem, &name)
+		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/kube-%s", &cpu, &mem, &name); err == nil {
+			klog.Errorf("error parsing component resource usage %s. Skipping. %v", name, err)
+		}
 		if name != "" {
 			// Gatherer expects pod_name/container_name format
 			fullName := name + "/" + name
@@ -74,12 +76,16 @@ func GetKubemarkMasterComponentsResourceUsage(host string, provider provider.Pro
 		var cpu float64
 		var mem uint64
 		var etcdKind string
-		fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/etcd", &cpu, &mem)
+		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/etcd", &cpu, &mem); err == nil {
+			klog.Errorf("error parsing etcd resource usage, skipping. %v", err)
+		}
 		dataDirStart := strings.Index(scanner.Text(), "--data-dir")
 		if dataDirStart < 0 {
 			continue
 		}
-		fmt.Sscanf(scanner.Text()[dataDirStart:], "--data-dir /var/%s", &etcdKind)
+		if _, err := fmt.Sscanf(scanner.Text()[dataDirStart:], "--data-dir /var/%s", &etcdKind); err != nil {
+			klog.Errorf("error parsing etcd data-dir. Skipping. %v", err)
+		}
 		if etcdKind != "" {
 			// Gatherer expects pod_name/container_name format
 			fullName := "etcd/" + etcdKind

@@ -195,7 +195,7 @@ func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) 
 	var err error
 	podName := fmt.Sprintf("%v-%v", "kube-controller-manager", g.masterName)
 	g.waitForControllerManagerReadyOnce.Do(func() {
-		if readyErr := e2epod.WaitTimeoutForPodReadyInNamespace(g.client, podName, metav1.NamespaceSystem, framework.PodStartTimeout); readyErr != nil {
+		if readyErr := e2epod.WaitTimeoutForPodReadyInNamespace(context.Background(), g.client, podName, metav1.NamespaceSystem, framework.PodStartTimeout); readyErr != nil {
 			err = fmt.Errorf("error waiting for controller manager pod to be ready: %w", readyErr)
 			return
 		}

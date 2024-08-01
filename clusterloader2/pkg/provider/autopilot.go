@@ -17,6 +17,8 @@ limitations under the License.
 package provider
 
 import (
+	"context"
+
 	clientset "k8s.io/client-go/kubernetes"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
@@ -60,7 +62,7 @@ func (p *AutopilotProvider) GetConfig() Config {
 
 func (p *AutopilotProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	// gce provider takes ssh key from GCE_SSH_KEY.
-	r, err := sshutil.SSH(cmd, host, "gce")
+	r, err := sshutil.SSH(context.Background(), cmd, host, "gce")
 	return r.Stdout, r.Stderr, r.Code, err
 }
 

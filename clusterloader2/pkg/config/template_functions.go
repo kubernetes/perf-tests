@@ -68,6 +68,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"SubtractFloat":    subtractFloat,
 		"SubtractInt":      subtractInt,
 		"YamlQuote":        yamlQuote,
+		"Concat":           concat,
 	}
 }
 
@@ -298,6 +299,15 @@ func sliceOfZeros(size interface{}) []int {
 // stringSplit splits a string by commas.
 func stringSplit(s string) []string {
 	return strings.Split(s, ",")
+}
+
+// concat concatenates strings
+func concat(items ...string) string {
+	ret := ""
+	for _, item := range items {
+		ret += item
+	}
+	return ret
 }
 
 // loop returns a slice with incremential values starting from zero.

@@ -1,5 +1,6 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 
 apiVersion: batch/v1
 kind: Job
@@ -25,7 +26,7 @@ spec:
       containers:
       - name: {{.Name}}
         # TODO(#799): We should test the "run-to-completion" workflow and hence don't use pause pods.
-        image: registry.k8s.io/pause:3.9
+        image: {{.Image}}
         resources:
           # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
           # For now we're setting it to 0.5%.

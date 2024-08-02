@@ -74,7 +74,8 @@
 {{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "3600s"}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 
-{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE "registry.k8s.io/pause:3.9"}}
+{{$registry := DefaultParam .CL2_LATENCY_POD_REGISTRY "registry.k8s.io"}}
+{{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE (Concat $registry "/pause:3.9")}}
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 
 {{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
@@ -189,6 +190,9 @@ steps:
       # This way, the pod startup latency we measure excludes (or limits impact) of image pulling,
       # whuch matches our SLO definition: https://github.com/kubernetes/community/blob/master/sig-scalability/slos/pod_startup_latency.md.
       daemonSetImage: {{$latencyPodImage}}
+      deploymentImage: {{$latencyPodImage}}
+      jobImage: {{$latencyPodImage}}
+      statefulSetImage: {{$latencyPodImage}}
       daemonSetEnv: "before update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
@@ -227,6 +231,7 @@ steps:
       replicasPerNamespace: 1
       schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
       schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+      deploymentImage: {{$latencyPodImage}}
 {{end}}
 
 - module:
@@ -330,6 +335,9 @@ steps:
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: {{$latencyPodImage}}
+      deploymentImage: {{$latencyPodImage}}
+      jobImage: {{$latencyPodImage}}
+      statefulSetImage: {{$latencyPodImage}}
       daemonSetEnv: "after update"
       daemonSetReplicas: 1
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
@@ -371,6 +379,10 @@ steps:
       operationTimeout: {{AddInt $deletionTime 900}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
+      daemonSetImage: {{$latencyPodImage}}
+      deploymentImage: {{$latencyPodImage}}
+      jobImage: {{$latencyPodImage}}
+      statefulSetImage: {{$latencyPodImage}}
       daemonSetReplicas: 0
       bigDeploymentSize: {{$BIG_GROUP_SIZE}}
       bigDeploymentsPerNamespace: 0

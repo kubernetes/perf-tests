@@ -18,6 +18,7 @@
 {{$daemonSetEnv := .daemonSetEnv}}
 
 # Deployments
+{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
 {{$bigDeploymentSize := .bigDeploymentSize}}
 {{$bigDeploymentsPerNamespace := .bigDeploymentsPerNamespace}}
 {{$mediumDeploymentSize := .mediumDeploymentSize}}
@@ -26,12 +27,14 @@
 {{$smallDeploymentsPerNamespace := .smallDeploymentsPerNamespace}}
 
 # StatefulSets
+{{$statefulSetImage := DefaultParam .statefulSetImage "registry.k8s.io/pause:3.9"}}
 {{$smallStatefulSetSize := .smallStatefulSetSize}}
 {{$smallStatefulSetsPerNamespace := .smallStatefulSetsPerNamespace}}
 {{$mediumStatefulSetSize := .mediumStatefulSetSize}}
 {{$mediumStatefulSetsPerNamespace := .mediumStatefulSetsPerNamespace}}
 
 # Jobs
+{{$jobImage := DefaultParam .jobImage "registry.k8s.io/pause:3.10"}}
 {{$bigJobSize := .bigJobSize}}
 {{$bigJobsPerNamespace := .bigJobsPerNamespace}}
 {{$mediumJobSize := .mediumJobSize}}
@@ -115,6 +118,7 @@ steps:
         ReplicasMin: {{MultiplyInt $bigDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigDeploymentSize $maxReplicaFactor}}
         SvcName: big-service
+        Image: {{$deploymentImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -132,6 +136,7 @@ steps:
         ReplicasMin: {{MultiplyInt $mediumDeploymentSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumDeploymentSize $maxReplicaFactor}}
         SvcName: medium-service
+        Image: {{$deploymentImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -154,6 +159,7 @@ steps:
         TargetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
         TargetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
         NetPolServerOnEveryNthPod: {{$NET_POLICY_SERVER_EVERY_NTH_POD}}
+        Image: {{$deploymentImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -167,6 +173,7 @@ steps:
       templateFillMap:
         ReplicasMin: {{MultiplyInt $smallStatefulSetSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallStatefulSetSize $maxReplicaFactor}}
+        Image: {{$statefulSetImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -180,6 +187,7 @@ steps:
       templateFillMap:
         ReplicasMin: {{MultiplyInt $mediumStatefulSetSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumStatefulSetSize $maxReplicaFactor}}
+        Image: {{$statefulSetImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -192,6 +200,7 @@ steps:
         Completions: {{MultiplyInt $smallJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $smallJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $smallJobSize $maxReplicaFactor}}
+        Image: {{$jobImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -204,6 +213,7 @@ steps:
         Completions: {{MultiplyInt $mediumJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $mediumJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $mediumJobSize $maxReplicaFactor}}
+        Image: {{$jobImage}}
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -216,6 +226,7 @@ steps:
         Completions: {{MultiplyInt $bigJobSize $completionsFactor}}
         ReplicasMin: {{MultiplyInt $bigJobSize $minReplicaFactor}}
         ReplicasMax: {{MultiplyInt $bigJobSize $maxReplicaFactor}}
+        Image: {{$jobImage}}
 {{if and $is_deleting $ENABLE_PVS}}
   - namespaceRange:
       min: 1

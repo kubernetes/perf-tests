@@ -40,7 +40,7 @@ require (
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/montanaflynn/stats v0.7.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/prometheus/client_model v0.6.0
+	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v1.8.2-0.20210331101223-3cafc58827d1
 	github.com/spf13/pflag v1.0.5

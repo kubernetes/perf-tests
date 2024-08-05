@@ -17,32 +17,36 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"k8s.io/klog"
+	"k8s.io/utils/ptr"
 )
 
 // S3MetricsBucket that creates a AWS S3 client to fetch data.
 type S3MetricsBucket struct {
-	client  *s3.S3
+	client  *s3.Client
 	bucket  *string
 	logPath string
 }
 
 // NewS3MetricsBucket creates a new S3MetricsBucket.
 func NewS3MetricsBucket(bucket, pathPrefix, region string) (MetricsBucket, error) {
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+		awsconfig.WithRegion(region),
+	)
+	if err != nil {
+		return nil, err
+	}
 	return &S3MetricsBucket{
-		client: s3.New(session.Must(session.NewSession(&aws.Config{
-			Region:                        aws.String(region),
-			CredentialsChainVerboseErrors: aws.Bool(true),
-		}))),
-		bucket:  aws.String(bucket),
+		client:  s3.NewFromConfig(cfg),
+		bucket:  ptr.To(bucket),
 		logPath: pathPrefix,
 	}, nil
 }
@@ -53,10 +57,10 @@ func (s *S3MetricsBucket) GetBuildNumbers(job string) ([]int, error) {
 	jobPrefix := joinStringsAndInts(s.logPath, job) + "/"
 	klog.Infof("%s", jobPrefix)
 
-	objects, err := s.client.ListObjectsV2(&s3.ListObjectsV2Input{
+	objects, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 		Bucket:    s.bucket,
-		Prefix:    aws.String(jobPrefix),
-		Delimiter: aws.String("/"),
+		Prefix:    ptr.To(jobPrefix),
+		Delimiter: ptr.To("/"),
 	})
 	if err != nil {
 		return nil, err
@@ -82,14 +86,15 @@ func (s *S3MetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix s
 	var files []string
 	jobPrefix := joinStringsAndInts(s.logPath, job, buildNumber, prefix)
 
-	if err := s.client.ListObjectsV2Pages(&s3.ListObjectsV2Input{Bucket: s.bucket, Prefix: aws.String(jobPrefix)},
-		func(objects *s3.ListObjectsV2Output, _ bool) bool {
-			for _, key := range objects.Contents {
-				files = append(files, *key.Key)
-			}
-			return true
-		}); err != nil {
+	result, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+		Bucket: s.bucket,
+		Prefix: ptr.To(jobPrefix),
+	})
+	if err != nil {
 		return nil, fmt.Errorf("while listing objects %v", err.Error())
+	}
+	for _, item := range result.Contents {
+		files = append(files, *item.Key)
 	}
 
 	return files, nil
@@ -103,9 +108,9 @@ func (s *S3MetricsBucket) GetFilePrefix(job string, buildNumber int, prefix stri
 func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
 	filePath := joinStringsAndInts(s.logPath, job, buildNumber, path)
 
-	resp, err := s.client.GetObject(&s3.GetObjectInput{
+	resp, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: s.bucket,
-		Key:    aws.String(filePath),
+		Key:    ptr.To(filePath),
 	})
 	if err != nil {
 		return nil, err

@@ -32,13 +32,14 @@ import (
 )
 
 const (
-	queryTimeout  = 15 * time.Minute
-	queryInterval = 30 * time.Second
+	fmtText       expfmt.Format = `text/plain; version=` + expfmt.TextVersion + `; charset=utf-8`
+	queryTimeout                = 15 * time.Minute
+	queryInterval               = 30 * time.Second
 )
 
 // ExtractMetricSamples unpacks metric blob into prometheus model structures.
 func ExtractMetricSamples(metricsBlob string) ([]*model.Sample, error) {
-	dec := expfmt.NewDecoder(strings.NewReader(metricsBlob), expfmt.FmtText)
+	dec := expfmt.NewDecoder(strings.NewReader(metricsBlob), fmtText)
 	decoder := expfmt.SampleDecoder{
 		Dec:  dec,
 		Opts: &expfmt.DecodeOptions{},

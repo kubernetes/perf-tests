@@ -2,6 +2,9 @@ run:
   timeout: 10m
 
 linters-settings:
+  errcheck:
+    # Workaround for https://github.com/golangci/golangci-lint/issues/4733
+    ignore: ""
   golint:
     min-confidence: 0
   misspell:

@@ -33,7 +33,7 @@ func Execute(mm Manager, m *api.Measurement) *errors.ErrorList {
 }
 
 func formatError(method, identifier string, err error) error {
-	return fmt.Errorf("measurement call %s - %s error: %v", method, identifier, err)
+	return fmt.Errorf("measurement call %s - %s error: %w", method, identifier, err)
 }
 
 func executeSingleMeasurement(mm Manager, m *api.Measurement) *errors.ErrorList {

@@ -1,0 +1,60 @@
+{{$NODES_PER_NAMESPACE := DefaultParam .NODES_PER_NAMESPACE 1}}
+{{$NAMESPACES := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$NAMESPACE_NUMBER := MaxInt $NAMESPACES 1}}
+
+{{$HPA_NUMBER_PER_NAMESPACE := DefaultParam .CL2_HPA_PER_NAMESPACE 1000}}
+{{$KCM_HPA_ALLOWED_BACKLOG := DefaultParam .CL2_KCM_HPA_ALLOWED_BACKLOG -1}}
+
+name: HPA scale test
+namespace:
+  number: {{$NAMESPACE_NUMBER}}
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 10
+steps:
+- name: Create replicasets, services and HPAs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$NAMESPACE_NUMBER}}
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: app
+      objectTemplatePath: replicaset.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$NAMESPACE_NUMBER}}
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: app
+      objectTemplatePath: service.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$NAMESPACE_NUMBER}}
+    tuningSet: Sequence
+    replicasPerNamespace: {{$HPA_NUMBER_PER_NAMESPACE}}
+    objectBundle:
+    - basename: app
+      objectTemplatePath: hpa.yaml
+- name: Starting to measure KCM work queue depth
+  measurements:
+  - Identifier: KCMWorkQueueDepthMetrics
+    Method: KCMWorkQueueDepthMetrics
+    Params:
+      action: start
+- name: Wait 2 minutes
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 2m
+- name: Gathering KCM work queue depth
+  measurements:
+  - Identifier: KCMWorkQueueDepthMetrics
+    Method: KCMWorkQueueDepthMetrics
+    Params:
+      action: gather
+      hpaAllowedBacklog: {{$KCM_HPA_ALLOWED_BACKLOG}}

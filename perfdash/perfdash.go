@@ -32,8 +32,9 @@ const (
 	errorDelay   = 10 * time.Second
 	maxBuilds    = 100
 
-	s3Mode  = "s3"
-	gcsMode = "gcs"
+	s3Mode       = "s3"
+	gcsMode      = "gcs"
+	localDirMode = "local"
 )
 
 var options = &DownloaderOptions{}
@@ -98,6 +99,8 @@ func run() error {
 		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath, *useADC)
 	case s3Mode:
 		metricsBucket, err = NewS3MetricsBucket(*logsBucket, *logsPath, *awsRegion)
+	case localDirMode:
+		metricsBucket, err = NewLocalMetricsDir(*logsPath)
 	default:
 		return fmt.Errorf("unexpected mode: %s", options.Mode)
 	}

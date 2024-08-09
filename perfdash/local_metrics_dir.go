@@ -24,6 +24,7 @@ import (
 )
 
 // LocalMetricsDirectory prepares a client to fetch metrics data from a local directory.
+// This is meant to be used for testing and development to load results from the report-dir output of clusterloader2.
 type LocalMetricsDirectory struct {
 	dirPath string
 }

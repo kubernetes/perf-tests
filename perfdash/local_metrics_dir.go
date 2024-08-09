@@ -21,8 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-
-	"k8s.io/klog"
 )
 
 // LocalMetricsDirectory prepares a client to fetch metrics data from a local directory.
@@ -68,7 +66,6 @@ func (b *LocalMetricsDirectory) GetBuildNumbers(job string) ([]int, error) {
 // ListFilesInBuild fetches the files in the build from a local artifacts directory.
 func (b *LocalMetricsDirectory) ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
 	filePath := joinStringsAndInts(b.dirPath, "/", job, "/", buildNumber, prefix)
-	klog.Infof("Listing files in %s", filePath)
 
 	files := []string{}
 	walkFn := func(path string, d fs.DirEntry, err error) error {
@@ -92,7 +89,6 @@ func (b *LocalMetricsDirectory) ListFilesInBuild(job string, buildNumber int, pr
 
 func (b *LocalMetricsDirectory) GetFilePrefix(job string, buildNumber int, prefix string) string {
 	p := joinStringsAndInts(b.dirPath, "/", job, "/", buildNumber, prefix)
-	// klog.Infof("Prefix: %s", p)
 	return p
 }
 

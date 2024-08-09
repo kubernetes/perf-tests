@@ -719,9 +719,7 @@ func getProwConfig(configPaths []string) (Jobs, error) {
 			return nil, fmt.Errorf("error unmarshaling prow config from %s: %v", configPath, err)
 		}
 		for _, periodic := range conf.Periodics {
-			klog.Infof("Periodic job is %+v", periodic)
 			config, err := parsePeriodicConfig(periodic)
-			klog.Infof("Parsed config is %+v", config)
 			if err != nil {
 				klog.Errorf("warning: failed to parse config of %q due to: %v",
 					periodic.Name, err)

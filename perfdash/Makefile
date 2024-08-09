@@ -19,16 +19,17 @@ run: perfdash
 		--address=0.0.0.0:8080 \
 		--builds=20 \
 		--force-builds \
-		--mode=local \
-		--logsPath="../clusterloader2/_artifacts" \
-		--configPath="$(GOPATH)/src/perf-tests/perfdash/test/azure.yaml"
+		--githubConfigDir=https://api.github.com/repos/kubernetes/perf-tests/contents/perfdash/test
 
 # Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
+.PHONY: container
 container:
 	DOCKER_BUILDKIT=1 docker build --pull -t $(REPO)/perfdash:$(TAG) .
 
+.PHONY: push
 push: container
 	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
 
+.PHONY: clean
 clean:
 	rm -f perfdash

@@ -1,0 +1,5 @@
+periodics:
+- name: ci-kubernetes-e2e-azure-scalability
+  tags:
+  - "perfDashPrefix: azure-100-nodes"
+  - "perfDashJobType: performance"

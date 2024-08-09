@@ -105,8 +105,13 @@ func newArtifactsCache(bucket MetricsBucket) artifactsCache {
 }
 
 func (a *artifactsCache) getMatchingFiles(job string, buildNumber int, prefix string) ([]string, error) {
+	// klog.Infof("Job is %+v", job)
+	// klog.Infof("build number is %+v", buildNumber)
+	// klog.Infof("prefix is %+v", prefix)
 	dirPrefix := a.bucket.GetFilePrefix(job, buildNumber, "/")
 	searchPrefix := a.bucket.GetFilePrefix(job, buildNumber, prefix)
+	klog.Infof("dirprefix is %v", dirPrefix)
+	klog.Infof("Search prefix is %v", searchPrefix)
 
 	if _, ok := a.cache[dirPrefix]; !ok {
 		result, err := a.bucket.ListFilesInBuild(job, buildNumber, "/")
@@ -121,6 +126,9 @@ func (a *artifactsCache) getMatchingFiles(job string, buildNumber int, prefix st
 	if !ok {
 		return nil, fmt.Errorf("couldn't get list of files from cache")
 	}
+
+	klog.Infof("Val is %v", val)
+
 	matchedFiles := []string{}
 	for _, file := range val {
 		if strings.HasPrefix(file, searchPrefix) {
@@ -142,6 +150,9 @@ updates result with parsed metrics for a given prow job. Assumptions:
     which allows comparing metrics across several runs in a given suite
 */
 func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, resultLock *sync.Mutex, job string, tests Tests) {
+
+	// klog.Infof("Tests is %+v", tests)
+
 	defer wg.Done()
 	buildNumbers, err := g.MetricsBkt.GetBuildNumbers(job)
 	if err != nil {
@@ -162,6 +173,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
+					// klog.Infof("Test description is %v", testDescription)
 					if !g.allowParsersForAllTests && testDescription.Name == "" {
 						continue
 					}
@@ -172,6 +184,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 					searchPrefix := g.artifactName(tests, filePrefix)
 
 					artifacts, err := cache.getMatchingFiles(job, buildNumber, searchPrefix)
+					klog.Infof("Artifacts are %v", artifacts)
 					if err != nil || len(artifacts) == 0 {
 						klog.Infof("Error while looking for %s* in %s build %v: %v", searchPrefix, job, buildNumber, err)
 						continue

@@ -3,7 +3,7 @@ module k8s.io/perf-tests/network/tools/network-policy-enforcement-latency
 go 1.22.4
 
 require (
-	github.com/prometheus/client_golang v1.20.0
+	github.com/prometheus/client_golang v1.20.2
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0

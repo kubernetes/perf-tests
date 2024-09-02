@@ -1,5 +1,8 @@
 # Valid actions: "start", "gather"
 {{$action := .action}}
+{{$statefulsetEndpoints := .statefulsetEndpoints}}
+{{$serviceName := .serviceName}}
+{{$namespaceIdx := .namespaceIdx}}
 
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
 {{$HUGE_SERVICE_ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_HUGE_SERVICE_ALLOWED_SLOW_API_CALLS 2}}
@@ -21,6 +24,13 @@
 {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION := DefaultParam .CL2_PROBE_MEASUREMENTS_PING_SLEEP_DURATION "1s"}}
 
 {{$allowedSlowCalls := AddInt $ALLOWED_SLOW_API_CALLS $HUGE_SERVICE_ALLOWED_SLOW_API_CALLS}}
+
+# DNS propagation configs, used to measure DNS propagation latency for statefulset in statefulset.yaml
+# Flag to enable/disable the DNS propagation measurement
+{{$ENABLE_DNS_PROPAGATION_MEASUREMENT := DefaultParam .CL2_ENABLE_DNS_PROPAGATION_MEASUREMENT false}}
+# Time threshold for the DNS propagation measurement
+{{$DNS_PROPAGATION_THRESHOLD := DefaultParam .CL2_DNS_PROPAGATION_THRESHOLD "10s"}}
+
 
 steps:
 - name: {{$action}}ing measurements
@@ -69,6 +79,19 @@ steps:
       enableViolations: true
       defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
       customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}
+{{end}}
+{{if $ENABLE_DNS_PROPAGATION_MEASUREMENT}}
+  - Identifier: DnsPropagation
+    Method: DnsPropagation
+    Params:
+      action: {{$action}}
+      DNSPropagationProbeStatefulSet: {{$serviceName}}
+      DNSPropagationProbeService: {{$serviceName}}
+      DNSPropagationProbeNamespaceIndex: {{$namespaceIdx}}
+      DNSPropagationProbePodCount: {{$statefulsetEndpoints}}
+      DNSPropagationProbeSampleCount: {{MinInt 25 (AddInt 15 (DivideInt $statefulsetEndpoints 1000))}}
+      replicasPerProbe: {{MinInt 10 (AddInt 2 (DivideInt .Nodes 100))}}
+      threshold: {{$DNS_PROPAGATION_THRESHOLD}}
 {{end}}
 - module:
     path: ../load/modules/dns-performance-metrics.yaml

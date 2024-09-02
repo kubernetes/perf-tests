@@ -74,7 +74,7 @@ spec:
         ports:
         - containerPort: 80
   {{else}}
-      - image: {{.Image}}
+      - image: {{$Image}}
         name: {{.Name}}
   {{end}}
 {{end}}

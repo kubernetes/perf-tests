@@ -61,6 +61,12 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 	if err != nil {
 		return nil, err
 	}
+
+	refreshInterval, err := util.GetDurationOrDefault(config.Params, "refreshInterval", defaultWaitForNodesInterval)
+	if err != nil {
+		return nil, err
+	}
+
 	stopCh := make(chan struct{})
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
@@ -71,7 +77,7 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 		MinDesiredNodeCount:  minNodeCount,
 		MaxDesiredNodeCount:  maxNodeCount,
 		CallerName:           w.String(),
-		WaitForNodesInterval: defaultWaitForNodesInterval,
+		WaitForNodesInterval: refreshInterval,
 	}
 	return nil, measurementutil.WaitForNodes(config.ClusterFramework.GetClientSets().GetClient(), stopCh, options)
 }

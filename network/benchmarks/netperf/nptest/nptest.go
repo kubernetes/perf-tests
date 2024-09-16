@@ -95,16 +95,6 @@ const (
 	localhostIPv4Address = "127.0.0.1"
 )
 
-const (
-	iperfTCPTest = iota
-	qperfTCPTest
-	iperfUDPTest
-	iperfSctpTest
-	netperfTest
-	iperfThroughputTest
-	iperfThroughputUDPTest
-)
-
 // NetPerfRPC service that exposes RegisterClient and ReceiveOutput for clients
 type NetPerfRPC int
 
@@ -122,7 +112,7 @@ type IperfClientWorkItem struct {
 	Port    string
 	MSS     int
 	MsgSize int
-	Type    int
+	Type    TestType
 }
 
 // IperfServerWorkItem represents a single task for an Iperf server
@@ -152,21 +142,9 @@ type WorkerOutput struct {
 	Output string
 	Code   int
 	Worker string
-	Type   int
+	Type   TestType
 }
 
-type testcase struct {
-	SourceNode      string
-	DestinationNode string
-	Label           string
-	ClusterIP       bool
-	Finished        bool
-	MSS             int
-	MsgSize         int
-	Type            int
-}
-
-var testcases []*testcase
 var currentJobIndex int
 
 func init() {
@@ -177,38 +155,6 @@ func init() {
 	flag.IntVar(&testTo, "testTo", 5, "end at test number testTo")
 
 	workerStateMap = make(map[string]*workerState)
-	testcases = []*testcase{
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "1 qperf TCP. Same VM using Pod IP", Type: qperfTCPTest, ClusterIP: false, MsgSize: msgSizeMin},
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "2 qperf TCP. Same VM using Virtual IP", Type: qperfTCPTest, ClusterIP: true, MsgSize: msgSizeMin},
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "3 qperf TCP. Remote VM using Pod IP", Type: qperfTCPTest, ClusterIP: false, MsgSize: msgSizeMin},
-		// {SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "4 qperf TCP. Remote VM using Virtual IP", Type: qperfTCPTest, ClusterIP: true, MsgSize: msgSizeMin},
-		// {SourceNode: "netperf-w2", DestinationNode: "netperf-w2", Label: "5 qperf TCP. Hairpin Pod to own Virtual IP", Type: qperfTCPTest, ClusterIP: true, MsgSize: msgSizeMin},
-
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "1 iperf TCP. Same VM using Pod IP", Type: iperfTCPTest, ClusterIP: false, MSS: mssMin},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "2 iperf TCP. Same VM using Virtual IP", Type: iperfTCPTest, ClusterIP: true, MSS: mssMin},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "3 iperf TCP. Remote VM using Pod IP", Type: iperfTCPTest, ClusterIP: false, MSS: mssMin},
-		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "4 iperf TCP. Remote VM using Virtual IP", Type: iperfTCPTest, ClusterIP: true, MSS: mssMin},
-		{SourceNode: "netperf-w2", DestinationNode: "netperf-w2", Label: "5 iperf TCP. Hairpin Pod to own Virtual IP", Type: iperfTCPTest, ClusterIP: true, MSS: mssMin},
-
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "6 iperf SCTP. Same VM using Pod IP", Type: iperfSctpTest, ClusterIP: false, MSS: mssMin},
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "7 iperf SCTP. Same VM using Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
-		// {SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "8 iperf SCTP. Remote VM using Pod IP", Type: iperfSctpTest, ClusterIP: false, MSS: mssMin},
-		// {SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "9 iperf SCTP. Remote VM using Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
-		// {SourceNode: "netperf-w2", DestinationNode: "netperf-w2", Label: "10 iperf SCTP. Hairpin Pod to own Virtual IP", Type: iperfSctpTest, ClusterIP: true, MSS: mssMin},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "11 iperf UDP. Same VM using Pod IP", Type: iperfUDPTest, ClusterIP: false, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "12 iperf UDP. Same VM using Virtual IP", Type: iperfUDPTest, ClusterIP: true, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "13 iperf UDP. Remote VM using Pod IP", Type: iperfUDPTest, ClusterIP: false, MSS: mssMax},
-		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "14 iperf UDP. Remote VM using Virtual IP", Type: iperfUDPTest, ClusterIP: true, MSS: mssMax},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "15 netperf. Same VM using Pod IP", Type: netperfTest, ClusterIP: false},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "16 netperf. Same VM using Virtual IP", Type: netperfTest, ClusterIP: true},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "17 netperf. Remote VM using Pod IP", Type: netperfTest, ClusterIP: false},
-		{SourceNode: "netperf-w3", DestinationNode: "netperf-w2", Label: "18 netperf. Remote VM using Virtual IP", Type: netperfTest, ClusterIP: true},
-
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "1 iperf TCP. Same VM Throughput test", Type: iperfThroughputTest, ClusterIP: true},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "2 iperf TCP. Remote VM Throughput test", Type: iperfThroughputTest, ClusterIP: true},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w2", Label: "3 iperf UDP. Same VM Throughput test", Type: iperfThroughputUDPTest, ClusterIP: true},
-		{SourceNode: "netperf-w1", DestinationNode: "netperf-w3", Label: "4 iperf UDP. Remote VM Throughput test", Type: iperfThroughputUDPTest, ClusterIP: true},
-	}
 
 	currentJobIndex = 0
 
@@ -898,7 +844,7 @@ func netperfServer() {
 }
 
 // Invoke and run an iperf client and return the output if successful.
-func iperfClient(serverHost string, mss int, workItemType int) (rv string) {
+func iperfClient(serverHost string, mss int, workItemType TestType) (rv string) {
 	switch {
 	case workItemType == iperfThroughputTest:
 		rv, _ = cmdExec(iperf3Path, []string{iperf3Path, "-c", serverHost, "-V", "-J", "--time", "180", "--bandwidth", "1000M", "-P", "1", "-w", "410K"}, 15)
@@ -915,7 +861,7 @@ func iperfClient(serverHost string, mss int, workItemType int) (rv string) {
 }
 
 // Invoke and run an qperf client and return the output if successful.
-func qperfClient(serverHost string, workItemType, msgSize int) (rv string) {
+func qperfClient(serverHost string, workItemType TestType, msgSize int) (rv string) {
 
 	str := fmt.Sprint
 

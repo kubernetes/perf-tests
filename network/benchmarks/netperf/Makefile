@@ -18,9 +18,7 @@ DOCKERREPO := $(or $(DOCKERREPO), girishkalele/netperf-latest)
 
 docker: launch
 	mkdir -p Dockerbuild && \
-	cp -f Dockerfile Dockerbuild/ && \
-    cp -f nptest/nptest.go Dockerbuild/ && \
-    cp -f nptest/go.mod Dockerbuild/ && \
+	cp -rf nptest/* Dockerbuild/ && \
 	docker build -t $(DOCKERREPO) Dockerbuild/
 
 push: docker

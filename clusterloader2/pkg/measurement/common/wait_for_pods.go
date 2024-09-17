@@ -60,13 +60,17 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
+	refreshInterval, err := util.GetDurationOrDefault(config.Params, "refreshInterval", defaultWaitForPodsInterval)
+	if err != nil {
+		return nil, err
+	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
 		DesiredPodCount:     func() int { return desiredPodCount },
 		CallerName:          w.String(),
-		WaitForPodsInterval: defaultWaitForPodsInterval,
+		WaitForPodsInterval: refreshInterval,
 	}
 	podStore, err := measurementutil.NewPodStore(config.ClusterFramework.GetClientSets().GetClient(), selector)
 	if err != nil {

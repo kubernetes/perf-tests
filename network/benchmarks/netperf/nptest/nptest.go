@@ -26,7 +26,6 @@ package main
 // Imports only base Golang packages
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -35,7 +34,6 @@ import (
 	"net/rpc"
 	"os"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,12 +55,6 @@ var podname string
 var testFrom, testTo int
 
 var workerStateMap map[string]*workerState
-
-var iperfTCPOutputRegexp *regexp.Regexp
-var iperfSCTPOutputRegexp *regexp.Regexp
-var iperfUDPOutputRegexp *regexp.Regexp
-var netperfOutputRegexp *regexp.Regexp
-var iperfCPUOutputRegexp *regexp.Regexp
 
 var dataPoints map[string][]point
 var dataPointKeys []string
@@ -157,13 +149,6 @@ func init() {
 	workerStateMap = make(map[string]*workerState)
 
 	currentJobIndex = 0
-
-	// Regexes to parse the Mbits/sec out of iperf TCP, SCTP, UDP and netperf output
-	iperfTCPOutputRegexp = regexp.MustCompile("SUM.*\\s+(\\d+)\\sMbits/sec\\s+receiver")
-	iperfSCTPOutputRegexp = regexp.MustCompile("SUM.*\\s+(\\d+)\\sMbits/sec\\s+receiver")
-	iperfUDPOutputRegexp = regexp.MustCompile("\\s+(\\S+)\\sMbits/sec\\s+\\S+\\s+ms\\s+")
-	netperfOutputRegexp = regexp.MustCompile("\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\S+\\s+(\\S+)\\s+")
-	iperfCPUOutputRegexp = regexp.MustCompile(`local/sender\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\),\sremote/receiver\s(\d+\.\d+)%\s\((\d+\.\d+)%\w/(\d+\.\d+)%\w\)`)
 
 	dataPoints = make(map[string][]point)
 	results = make(map[string]string)
@@ -292,6 +277,7 @@ func allocateWorkToClient(workerState *workerState, workItem *WorkItem) {
 			return
 		case v.Type == netperfTest:
 			workItem.ClientItem.Port = "12865"
+			v.Finished = true
 			return
 		}
 	}
@@ -420,125 +406,6 @@ func flushResultJsonData() {
 	fmt.Println(buffer)
 }
 
-func parseIperfThrouputTCPTest(output string) string {
-	var iperfThroughput struct {
-		End struct {
-			Streams []struct {
-				Sender struct {
-					BitsPerSecond     float64 `json:"bits_per_second"`
-					MeanRoundTripTime int     `json:"mean_rtt"`
-					MinRoundTripTime  int     `json:"min_rtt"`
-					MaxRoundTripTime  int     `json:"max_rtt"`
-					Retransmits       int     `json:"retransmits"`
-				} `json:"sender"`
-			} `json:"streams"`
-			CPUUtilizationPercent struct {
-				HostTotal   float64 `json:"host_total"`
-				RemoteTotal float64 `json:"remote_total"`
-			} `json:"cpu_utilization_percent"`
-		} `json:"end"`
-	}
-
-	fmt.Println("Parsing iperf output\n", output)
-	fmt.Println("End of iperf output")
-
-	err := json.Unmarshal([]byte(output), &iperfThroughput)
-	if err != nil {
-		return "{\"error\": \"Failed to parse JSON output\", \"message\": \"" + err.Error() + "\"}"
-	}
-
-	if len(iperfThroughput.End.Streams) != 1 {
-		return "{\"error\": \"Failed to parse JSON output\", \"message\": \"Expected 1 stream, got " + strconv.Itoa(len(iperfThroughput.End.Streams)) + "\"}"
-	}
-
-	var outputResult struct {
-		TotalThroughput   float64 `json:"total_throughput"`
-		MeanRoundTripTime int     `json:"mean_rtt"`
-		MinRoundTripTime  int     `json:"min_rtt"`
-		MaxRoundTripTime  int     `json:"max_rtt"`
-		Retransmits       int     `json:"retransmits"`
-		CPUUtilization    struct {
-			Host   float64 `json:"host"`
-			Remote float64 `json:"remote"`
-		} `json:"cpu_utilization"`
-	}
-
-	outputResult.TotalThroughput = iperfThroughput.End.Streams[0].Sender.BitsPerSecond / 1e6
-	outputResult.MeanRoundTripTime = iperfThroughput.End.Streams[0].Sender.MeanRoundTripTime
-	outputResult.MinRoundTripTime = iperfThroughput.End.Streams[0].Sender.MinRoundTripTime
-	outputResult.MaxRoundTripTime = iperfThroughput.End.Streams[0].Sender.MaxRoundTripTime
-	outputResult.CPUUtilization.Host = iperfThroughput.End.CPUUtilizationPercent.HostTotal
-	outputResult.CPUUtilization.Remote = iperfThroughput.End.CPUUtilizationPercent.RemoteTotal
-
-	parsedJson, err := json.Marshal(outputResult)
-	if err != nil {
-		return "{\"error\": \"Failed to marshal JSON output\", \"message\": \"" + err.Error() + "\"}"
-	}
-
-	return string(parsedJson)
-}
-
-func parseIperfThrouputUDPTest(output string) string {
-	fmt.Println("Parsing iperf output\n", output)
-	var iperfThroughput struct {
-		End struct {
-			Sum struct {
-				BitsPerSecond float64 `json:"bits_per_second"`
-				Jitter        float64 `json:"jitter_ms"`
-				LostPackets   int     `json:"lost_packets"`
-				TotalPackets  int     `json:"packets"`
-				LostPercent   float64 `json:"lost_percent"`
-			} `json:"sum"`
-			CPUUtilizationPercent struct {
-				HostTotal   float64 `json:"host_total"`
-				RemoteTotal float64 `json:"remote_total"`
-			} `json:"cpu_utilization_percent"`
-		} `json:"end"`
-	}
-
-	err := json.Unmarshal([]byte(output), &iperfThroughput)
-	if err != nil {
-		return "{\"error\": \"Failed to parse JSON output\", \"message\": \"" + err.Error() + "\"}"
-	}
-
-	var outputResult struct {
-		TotalThroughput float64 `json:"total_throughput"`
-		Jitter          float64 `json:"jitter_ms"`
-		LostPackets     int     `json:"lost_packets"`
-		TotalPackets    int     `json:"total_packets"`
-		LostPercent     float64 `json:"lost_percent"`
-		CPUUtilization  struct {
-			Host   float64 `json:"host"`
-			Remote float64 `json:"remote"`
-		} `json:"cpu_utilization"`
-	}
-
-	outputResult.TotalThroughput = iperfThroughput.End.Sum.BitsPerSecond / 1e6
-	outputResult.Jitter = iperfThroughput.End.Sum.Jitter
-	outputResult.LostPackets = iperfThroughput.End.Sum.LostPackets
-	outputResult.TotalPackets = iperfThroughput.End.Sum.TotalPackets
-	outputResult.LostPercent = iperfThroughput.End.Sum.LostPercent
-	outputResult.CPUUtilization.Host = iperfThroughput.End.CPUUtilizationPercent.HostTotal
-	outputResult.CPUUtilization.Remote = iperfThroughput.End.CPUUtilizationPercent.RemoteTotal
-
-	parsedJson, err := json.Marshal(outputResult)
-	if err != nil {
-		return "{\"error\": \"Failed to marshal JSON output\", \"message\": \"" + err.Error() + "\"}"
-	}
-
-	return string(parsedJson)
-}
-
-func parseIperfTCPBandwidth(output string) string {
-	fmt.Println("Parsing iperf output\n", output)
-	// Parses the output of iperf3 and grabs the group Mbits/sec from the output
-	match := iperfTCPOutputRegexp.FindStringSubmatch(output)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return "0"
-}
-
 func parseQperfTCPLatency(output string) string {
 	fmt.Println("Parsing qperf output\n", output)
 	squeeze := func(s string) string {
@@ -559,46 +426,6 @@ func parseQperfTCPLatency(output string) string {
 	return fmt.Sprintf("(%s; %s)", bw, lat)
 }
 
-func parseIperfSctpBandwidth(output string) string {
-	fmt.Println("Parsing iperf output\n", output)
-	// Parses the output of iperf3 and grabs the group Mbits/sec from the output
-	match := iperfSCTPOutputRegexp.FindStringSubmatch(output)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return "0"
-}
-
-func parseIperfUDPBandwidth(output string) string {
-	fmt.Println("Parsing iperf output\n", output)
-	// Parses the output of iperf3 (UDP mode) and grabs the Mbits/sec from the output
-	match := iperfUDPOutputRegexp.FindStringSubmatch(output)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return "0"
-}
-
-func parseIperfCPUUsage(output string) (string, string) {
-	fmt.Println("Parsing iperf output\n", output)
-	// Parses the output of iperf and grabs the CPU usage on sender and receiver side from the output
-	match := iperfCPUOutputRegexp.FindStringSubmatch(output)
-	if len(match) > 1 {
-		return match[1], match[4]
-	}
-	return "0", "0"
-}
-
-func parseNetperfBandwidth(output string) string {
-	fmt.Println("Parsing netperf output\n", output)
-	// Parses the output of netperf and grabs the Bbits/sec from the output
-	match := netperfOutputRegexp.FindStringSubmatch(output)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return "0"
-}
-
 // ReceiveOutput processes a data received from a single client
 func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, _ *int) error {
 	globalLock.Lock()
@@ -606,80 +433,21 @@ func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, _ *int) error {
 
 	testcase := testcases[currentJobIndex]
 
-	var outputLog string
-	var bw string
-	var cpuSender string
-	var cpuReceiver string
+	outputLog := fmt.Sprintln("Received output from worker", data.Worker, "for test", testcase.Label,
+		"from", testcase.SourceNode, "to", testcase.DestinationNode) + data.Output
+	writeOutputFile(outputCaptureFile, outputLog)
+	fmt.Println("Output: \n", data.Output)
 
-	switch data.Type {
-	case iperfThroughputTest:
-		outputLog = outputLog + fmt.Sprintln("Received Throughput output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		parsedJsonOutput := parseIperfThrouputTCPTest(data.Output)
-		registerJsonResult(testcase.Label, parsedJsonOutput)
-
-	case iperfThroughputUDPTest:
-		outputLog = outputLog + fmt.Sprintln("Received Throughput UDP output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		parsedJsonOutput := parseIperfThrouputUDPTest(data.Output)
-		registerJsonResult(testcase.Label, parsedJsonOutput)
-
-	case iperfTCPTest:
-		mss := testcases[currentJobIndex].MSS - mssStepSize
-		outputLog = outputLog + fmt.Sprintln("Received TCP output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MSS:", mss) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		bw = parseIperfTCPBandwidth(data.Output)
-		cpuSender, cpuReceiver = parseIperfCPUUsage(data.Output)
+	if testcase.BandwidthParser != nil {
+		mss := testcase.MSS - mssStepSize
+		bw := testcase.BandwidthParser(data.Output)
 		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
-
-	case qperfTCPTest:
-		msgSize := testcases[currentJobIndex].MsgSize / 2
-		outputLog = outputLog + fmt.Sprintln("Received TCP output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MsgSize:", msgSize) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		bw = parseQperfTCPLatency(data.Output)
-		cpuSender, cpuReceiver = "na", "na"
-		registerDataPoint(testcase.Label, msgSize, bw, currentJobIndex)
-
-	case iperfSctpTest:
-		mss := testcases[currentJobIndex].MSS - mssStepSize
-		outputLog = outputLog + fmt.Sprintln("Received SCTP output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MSS:", mss) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		bw = parseIperfSctpBandwidth(data.Output)
-		cpuSender, cpuReceiver = parseIperfCPUUsage(data.Output)
-		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
-
-	case iperfUDPTest:
-		mss := testcases[currentJobIndex].MSS - mssStepSize
-		outputLog = outputLog + fmt.Sprintln("Received UDP output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode, "MSS:", mss) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		bw = parseIperfUDPBandwidth(data.Output)
-		registerDataPoint(testcase.Label, mss, bw, currentJobIndex)
-
-	case netperfTest:
-		outputLog = outputLog + fmt.Sprintln("Received netperf output from worker", data.Worker, "for test", testcase.Label,
-			"from", testcase.SourceNode, "to", testcase.DestinationNode) + data.Output
-		writeOutputFile(outputCaptureFile, outputLog)
-		bw = parseNetperfBandwidth(data.Output)
-		registerDataPoint(testcase.Label, 0, bw, currentJobIndex)
-		testcases[currentJobIndex].Finished = true
-
+		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
 	}
 
-	switch data.Type {
-	case iperfTCPTest, iperfSctpTest:
-		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec. CPU usage sender was", cpuSender, "%. CPU usage receiver was", cpuReceiver, "%.")
-	case qperfTCPTest:
-		fmt.Println("Jobdone from worker QPERF", data.Worker, "Bandwidth, Latency was", bw, "CPU usage sender was", cpuSender, "%. CPU usage receiver was", cpuReceiver, "%.")
-	case iperfThroughputTest, iperfThroughputUDPTest:
-		fmt.Println("Jobdone from worker", data.Worker, "Publishing JSON output")
-	default:
-		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
+	if testcase.JsonParser != nil {
+		registerJsonResult(testcase.Label, testcase.JsonParser(data.Output))
+		fmt.Println("Jobdone from worker", data.Worker, "JSON output generated")
 	}
 
 	return nil

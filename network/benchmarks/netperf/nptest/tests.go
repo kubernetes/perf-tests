@@ -1,5 +1,9 @@
 package main
 
+import (
+	"k8s.io/perf-tests/network/nptest/parsers"
+)
+
 type TestType int
 
 const (
@@ -14,8 +18,10 @@ const (
 
 type testcase struct {
 	TestParams
-	Label    string
-	Finished bool
+	Label           string
+	Finished        bool
+	BandwidthParser func(string) string
+	JsonParser      func(string) string
 	// Deprecated: We will use declarative approach to define test cases
 	Type TestType
 }
@@ -31,212 +37,296 @@ type TestParams struct {
 var testcases = []*testcase{
 	// {
 	// 	Label: "1 qperf TCP. Same VM using Pod IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: qperfTCPTest,
-	// 	ClusterIP: false,
-	// 	MsgSize: msgSizeMin,
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       false,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            qperfTCPTest,
 	// },
 	// {
 	// 	Label: "2 qperf TCP. Same VM using Virtual IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: qperfTCPTest,
-	// 	ClusterIP: true,
-	// 	MsgSize: msgSizeMin,
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            qperfTCPTest,
 	// },
 	// {
 	// 	Label: "3 qperf TCP. Remote VM using Pod IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w3",
-	// 	Type: qperfTCPTest,
-	// 	ClusterIP: false,
-	// 	MsgSize: msgSizeMin,
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w3",
+	// 		ClusterIP:       false,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            qperfTCPTest,
 	// },
 	// {
 	// 	Label: "4 qperf TCP. Remote VM using Virtual IP",
-	// 	SourceNode: "netperf-w3",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: qperfTCPTest,
-	// 	ClusterIP: true,
-	// 	MsgSize: msgSizeMin,
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w3",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            qperfTCPTest,
 	// },
 	// {
 	// 	Label: "5 qperf TCP. Hairpin Pod to own Virtual IP",
-	// 	SourceNode: "netperf-w2",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: qperfTCPTest,
-	// 	ClusterIP: true,
-	// 	MsgSize: msgSizeMin,
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w2",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            qperfTCPTest,
 	// },
 
 	{
-		Label: "1 iperf TCP. Same VM using Pod IP",
+		Label: "6 iperf TCP. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 			MSS:             mssMin,
 		},
-		Type: iperfTCPTest,
+		BandwidthParser: parsers.ParseIperfTCPBandwidth,
+		Type:            iperfTCPTest,
 	},
 	{
-		Label: "2 iperf TCP. Same VM using Virtual IP",
+		Label: "7 iperf TCP. Same VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		Type: iperfTCPTest,
+		BandwidthParser: parsers.ParseIperfTCPBandwidth,
+		Type:            iperfTCPTest,
 	},
 	{
-		Label: "3 iperf TCP. Remote VM using Pod IP",
+		Label: "8 iperf TCP. Remote VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w3",
 			ClusterIP:       false,
 			MSS:             mssMin,
 		},
-		Type: iperfTCPTest,
+		BandwidthParser: parsers.ParseIperfTCPBandwidth,
+		Type:            iperfTCPTest,
 	},
 	{
-		Label: "4 iperf TCP. Remote VM using Virtual IP",
+		Label: "9 iperf TCP. Remote VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w3",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		Type: iperfTCPTest,
+		BandwidthParser: parsers.ParseIperfTCPBandwidth,
+		Type:            iperfTCPTest,
 	},
 	{
-		Label: "5 iperf TCP. Hairpin Pod to own Virtual IP",
+		Label: "10 iperf TCP. Hairpin Pod to own Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w2",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		Type: iperfTCPTest,
+		BandwidthParser: parsers.ParseIperfTCPBandwidth,
+		Type:            iperfTCPTest,
 	},
 
 	// {
-	// 	Label: "6 iperf SCTP. Same VM using Pod IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: iperfSctpTest,
-	// 	ClusterIP: false,
-	// 	MSS: mssMin,
+	// 	Label: "11 iperf SCTP. Same VM using Pod IP",
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       false,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            iperfSctpTest,
 	// },
 	// {
-	// 	Label: "7 iperf SCTP. Same VM using Virtual IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: iperfSctpTest,
-	// 	ClusterIP: true,
-	// 	MSS: mssMin,
+	// 	Label: "12 iperf SCTP. Same VM using Virtual IP",
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            iperfSctpTest,
 	// },
 	// {
-	// 	Label: "8 iperf SCTP. Remote VM using Pod IP",
-	// 	SourceNode: "netperf-w1",
-	// 	DestinationNode: "netperf-w3",
-	// 	Type: iperfSctpTest,
-	// 	ClusterIP: false,
-	// 	MSS: mssMin,
+	// 	Label: "13 iperf SCTP. Remote VM using Pod IP",
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w1",
+	// 		DestinationNode: "netperf-w3",
+	// 		ClusterIP:       false,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            iperfSctpTest,
 	// },
 	// {
-	// 	Label: "9 iperf SCTP. Remote VM using Virtual IP",
-	// 	SourceNode: "netperf-w3",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: iperfSctpTest,
-	// 	ClusterIP: true,
-	// 	MSS: mssMin,
+	// 	Label: "14 iperf SCTP. Remote VM using Virtual IP",
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w3",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            iperfSctpTest,
 	// },
 	// {
-	// 	Label: "10 iperf SCTP. Hairpin Pod to own Virtual IP",
-	// 	SourceNode: "netperf-w2",
-	// 	DestinationNode: "netperf-w2",
-	// 	Type: iperfSctpTest,
-	// 	ClusterIP: true,
-	// 	MSS: mssMin,
+	// 	Label: "15 iperf SCTP. Hairpin Pod to own Virtual IP",
+	// 	TestParams: TestParams{
+	// 		SourceNode:      "netperf-w2",
+	// 		DestinationNode: "netperf-w2",
+	// 		ClusterIP:       true,
+	// 		MSS:             mssMin,
+	// 	},
+	// 	BandwidthParser: parsers.ParseIperfTCPBandwidth,
+	// 	Type:            iperfSctpTest,
 	// },
 
 	{
-		Label: "11 iperf UDP. Same VM using Virtual IP",
+		Label: "16 iperf UDP. Same VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 			MSS:             mssMax,
 		},
-		Type: iperfUDPTest,
+		BandwidthParser: parsers.ParseIperfUDPBandwidth,
+		Type:            iperfUDPTest,
 	},
 	{
-		Label: "12 iperf UDP. Remote VM using Pod IP",
+		Label: "17 iperf UDP. Remote VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w3",
 			ClusterIP:       false,
 			MSS:             mssMax,
 		},
-		Type: iperfUDPTest,
+		BandwidthParser: parsers.ParseIperfUDPBandwidth,
+		Type:            iperfUDPTest,
 	},
 	{
-		Label: "13 iperf UDP. Remote VM using Virtual IP",
+		Label: "18 iperf UDP. Remote VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w3",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 			MSS:             mssMax,
 		},
-		Type: iperfUDPTest,
+		BandwidthParser: parsers.ParseIperfUDPBandwidth,
+		Type:            iperfUDPTest,
 	},
 	{
-		Label: "14 netperf. Same VM using Pod IP",
+		Label: "19 netperf. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 			MSS:             mssMax,
 		},
-		Type: iperfUDPTest,
+		BandwidthParser: parsers.ParseNetperfBandwidth,
+		Type:            netperfTest,
 	},
 
 	{
-		Label: "15 netperf. Same VM using Pod IP",
+		Label: "20 netperf. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 		},
-		Type: netperfTest,
+		BandwidthParser: parsers.ParseNetperfBandwidth,
+		Type:            netperfTest,
 	},
 	{
-		Label: "16 netperf. Same VM using Virtual IP",
+		Label: "21 netperf. Same VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 		},
-		Type: netperfTest,
+		BandwidthParser: parsers.ParseNetperfBandwidth,
+		Type:            netperfTest,
 	},
 	{
-		Label: "17 netperf. Remote VM using Pod IP",
+		Label: "22 netperf. Remote VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w3",
 			ClusterIP:       false,
 		},
-		Type: netperfTest,
+		BandwidthParser: parsers.ParseNetperfBandwidth,
+		Type:            netperfTest,
 	},
 	{
-		Label: "18 netperf. Remote VM using Virtual IP",
+		Label: "23 netperf. Remote VM using Virtual IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w3",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       true,
 		},
-		Type: netperfTest,
+		BandwidthParser: parsers.ParseNetperfBandwidth,
+		Type:            netperfTest,
+	},
+
+	{
+		Label: "24 iperf Throughput TCP. Same VM using Pod IP",
+		TestParams: TestParams{
+			SourceNode:      "netperf-w1",
+			DestinationNode: "netperf-w2",
+			ClusterIP:       false,
+		},
+		JsonParser: parsers.ParseIperfThrouputTCPTest,
+		Type:       iperfThroughputTest,
+	},
+	{
+		Label: "25 iperf Throughput TCP. Remote VM using Pod IP",
+		TestParams: TestParams{
+			SourceNode:      "netperf-w1",
+			DestinationNode: "netperf-w3",
+			ClusterIP:       false,
+		},
+		JsonParser: parsers.ParseIperfThrouputTCPTest,
+		Type:       iperfThroughputTest,
+	},
+	{
+		Label: "26 iperf Throughput UDP. Remote VM using Pod IP",
+		TestParams: TestParams{
+			SourceNode:      "netperf-w1",
+			DestinationNode: "netperf-w3",
+			ClusterIP:       false,
+		},
+		JsonParser: parsers.ParseIperfThrouputUDPTest,
+		Type:       iperfThroughputUDPTest,
+	},
+	{
+		Label: "27 iperf Throughput UDP. Same VM using Pod IP",
+		TestParams: TestParams{
+			SourceNode:      "netperf-w1",
+			DestinationNode: "netperf-w2",
+			ClusterIP:       false,
+		},
+		JsonParser: parsers.ParseIperfThrouputUDPTest,
+		Type:       iperfThroughputUDPTest,
 	},
 }

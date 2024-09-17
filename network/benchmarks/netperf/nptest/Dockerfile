@@ -24,8 +24,7 @@
 FROM golang:bullseye AS builder
 WORKDIR /workspace
 
-COPY nptest.go nptest.go
-COPY go.mod go.mod
+COPY . .
 
 RUN go build -o nptests
 

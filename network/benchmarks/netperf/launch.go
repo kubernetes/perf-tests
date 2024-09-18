@@ -511,3 +511,12 @@ func main() {
 }
 
 // TODO: Add support for these tests to be utilized as a library
+func LaunchNetperfTests(iterations int, kubeConfig string, testNamespace string, netperfImage string, testFrom, testTo int) {
+	flag.Set("iterations", fmt.Sprintf("%d", iterations))
+	flag.Set("kubeConfig", kubeConfig)
+	flag.Set("namespace", testNamespace)
+	flag.Set("image", netperfImage)
+	flag.Set("testFrom", fmt.Sprintf("%d", testFrom))
+	flag.Set("testTo", fmt.Sprintf("%d", testTo))
+	main()
+}

@@ -1,4 +1,4 @@
-module k8s.io/perf-tests/network
+module github.com/ritwikranjan/perf-tests/network/benchmarks/netperf
 
 go 1.23
 

@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	experiment "github.com/ritwikranjan/perf-tests/network/benchmarks/netperf/pack"
 	api "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -113,6 +114,7 @@ func getMinionNodes(c *kubernetes.Clientset) *api.NodeList {
 		fmt.Println("Failed to fetch nodes", err)
 		return nil
 	}
+	experiment.HelloWorld()
 	return nodes
 }
 

@@ -17,8 +17,9 @@ limitations under the License.
 package provider
 
 const (
-	AKSName         = "aks"
 	AWSName         = "aws"
+	AKSName         = "aks"
+	AzureName       = "azure"
 	AutopilotName   = "autopilot"
 	EKSName         = "eks"
 	GCEName         = "gce"

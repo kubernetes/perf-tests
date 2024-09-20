@@ -21,12 +21,12 @@ import (
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
-type AKSProvider struct {
+type AzureProvider struct {
 	features Features
 }
 
-func NewAKSProvider(_ map[string]string) Provider {
-	return &AKSProvider{
+func NewAzureProvider(_ map[string]string) Provider {
+	return &AzureProvider{
 		features: Features{
 			SupportProbe:                        true,
 			SupportImagePreload:                 true,
@@ -40,30 +40,30 @@ func NewAKSProvider(_ map[string]string) Provider {
 	}
 }
 
-func (p *AKSProvider) Name() string {
-	return AKSName
+func (p *AzureProvider) Name() string {
+	return AzureName
 }
 
-func (p *AKSProvider) Features() *Features {
+func (p *AzureProvider) Features() *Features {
 	return &p.features
 }
 
-func (p *AKSProvider) GetComponentProtocolAndPort(componentName string) (string, int, error) {
+func (p *AzureProvider) GetComponentProtocolAndPort(componentName string) (string, int, error) {
 	return getComponentProtocolAndPort(componentName)
 }
 
-func (p *AKSProvider) GetConfig() Config {
+func (p *AzureProvider) GetConfig() Config {
 	return Config{}
 }
 
-func (p *AKSProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
+func (p *AzureProvider) RunSSHCommand(cmd, host string) (string, string, int, error) {
 	return runSSHCommand(cmd, host)
 }
 
-func (p *AKSProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
+func (p *AzureProvider) Metadata(_ clientset.Interface) (map[string]string, error) {
 	return nil, nil
 }
 
-func (p *AKSProvider) GetManagedPrometheusClient() (prom.Client, error) {
+func (p *AzureProvider) GetManagedPrometheusClient() (prom.Client, error) {
 	return nil, ErrNoManagedPrometheus
 }

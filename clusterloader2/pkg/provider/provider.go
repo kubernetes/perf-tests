@@ -123,10 +123,10 @@ func NewProvider(initOptions *InitOptions) (Provider, error) {
 		configs[RootKubeConfigKey] = initOptions.KubemarkRootKubeConfigPath
 	}
 	switch initOptions.ProviderName {
-	case AKSName:
-		return NewAKSProvider(configs), nil
 	case AWSName:
 		return NewAWSProvider(configs), nil
+	case AzureName, AKSName: // AKSName is for backward compatibility.
+		return NewAzureProvider(configs), nil
 	case AutopilotName:
 		return NewAutopilotProvider(configs), nil
 	case EKSName:

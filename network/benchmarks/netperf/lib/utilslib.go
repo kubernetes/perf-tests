@@ -33,7 +33,8 @@ func getMinionNodes(c *kubernetes.Clientset) (*api.NodeList, error) {
 		context.Background(),
 		metav1.ListOptions{
 			FieldSelector: "spec.unschedulable=false",
-			LabelSelector: "kubernetes.io/os=linux",
+			// for now the tests can only run on linux/amd64 nodes
+			LabelSelector: "kubernetes.io/os=linux,kubernetes.io/arch=amd64",
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes: %v", err)
@@ -143,6 +144,7 @@ func createRCs(c *kubernetes.Clientset, testParams TestParams, primaryNode, seco
 					Labels: map[string]string{"app": name},
 				},
 				Spec: api.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "linux", "kubernetes.io/arch": "amd64"},
 					Containers: []api.Container{
 						{
 							Name:  name,

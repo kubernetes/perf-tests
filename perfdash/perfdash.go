@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	errorDelay   = 10 * time.Second
-	maxBuilds    = 100
+	errorDelay = 10 * time.Second
+	maxBuilds  = 100
 
 	s3Mode  = "s3"
 	gcsMode = "gcs"

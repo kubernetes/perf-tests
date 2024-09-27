@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	pollDuration = 10 * time.Minute
 	errorDelay   = 10 * time.Second
 	maxBuilds    = 100
 
@@ -39,9 +38,10 @@ const (
 var options = &DownloaderOptions{}
 
 var (
-	addr   = pflag.String("address", ":8080", "The address to serve web data on")
-	www    = pflag.Bool("www", false, "If true, start a web-server to server performance data")
-	wwwDir = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
+	addr         = pflag.String("address", ":8080", "The address to serve web data on")
+	www          = pflag.Bool("www", false, "If true, start a web-server to server performance data")
+	wwwDir       = pflag.String("dir", "www", "If non-empty, add a file server for this directory at the root of the web server")
+	syncInterval = pflag.Duration("syncInterval", 10*time.Minute, "Interval to sync data from storage")
 
 	storageURL = pflag.String("storageURL", "https://prow.k8s.io/view/gcs", "Name of the data bucket")
 
@@ -131,8 +131,8 @@ func run() error {
 				time.Sleep(errorDelay)
 				continue
 			}
-			klog.Infof("Data fetched, sleeping %v...", pollDuration)
-			time.Sleep(pollDuration)
+			klog.Infof("Data fetched, sleeping %v...", *syncInterval)
+			time.Sleep(*syncInterval)
 		}
 	}()
 

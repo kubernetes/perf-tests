@@ -14,14 +14,11 @@
 
 all: docker push launch runtests
 
-DOCKERREPO       := girishkalele/netperf-latest
+DOCKERREPO := $(or $(DOCKERREPO), girishkalele/netperf-latest)
 
 docker: launch
-	mkdir -p Dockerbuild/nptest && \
-	cp -f Dockerfile Dockerbuild/ && \
-    cp -f nptest/nptest.go Dockerbuild/nptest/ && \
-    cp -f go.mod Dockerbuild/ && \
-    cp -f go.sum Dockerbuild/ && \
+	mkdir -p Dockerbuild && \
+	cp -rf nptest/* Dockerbuild/ && \
 	docker build -t $(DOCKERREPO) Dockerbuild/
 
 push: docker
@@ -43,5 +40,9 @@ runtests: launch
 	@echo Network performance tests complete - running matplotlib to generate graphs and copy them back
 	cp netperf-latest.csv plotperf && cd plotperf; make plot && mv *png .. && mv *svg ..
 	@echo Results file netperf-latest.csv and SVG/PNG graphs generated successfully
+
+localtest: docker
+	docker push $(DOCKERREPO)
+	go run launch.go -image=$(DOCKERREPO) -json -kubeConfig ./kubeConfig
 
 

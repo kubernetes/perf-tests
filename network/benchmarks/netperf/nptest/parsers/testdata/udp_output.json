@@ -1,0 +1,18 @@
+{
+    "test_info": {
+        "protocol": "UDP",
+        "streams": 1,
+        "blksize": 8192,
+        "duration": 10
+    },
+    "total_throughput": 1407.34,
+    "jitter_ms": 0.0134015,
+    "lost_packets": 4651,
+    "total_packets": 214750,
+    "lost_percent": 2.16577,
+    "out_of_order_packets": 0,
+    "cpu_utilization": {
+        "host_total": 98.3729,
+        "remote_total": 20.6247
+    }
+}

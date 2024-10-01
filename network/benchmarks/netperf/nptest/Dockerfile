@@ -21,20 +21,16 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-ARG GOLANG_VERSION=1.18
-FROM golang:${GOLANG_VERSION} as builder
+FROM golang:bullseye AS builder
 WORKDIR /workspace
 
-COPY nptest/nptest.go nptest.go
-COPY go.sum go.sum
-COPY go.mod go.mod
+COPY . .
 
 RUN go build -o nptests
 
 FROM debian:bullseye
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
-MAINTAINER Girish Kalele <gkalele@google.com>
 # install binary and remove cache
 RUN apt-get update \
     && apt-get install -y  curl wget net-tools gcc make libsctp-dev git autotools-dev automake \

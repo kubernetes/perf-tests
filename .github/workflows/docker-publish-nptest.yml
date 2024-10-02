@@ -35,5 +35,5 @@ jobs:
         cd network/benchmarks/netperf
         make push
       env:
-        DOCKERREPO: ghcr.io/${{ github.repository_owner }}/nptest
+        DOCKERREPO: ghcr.io/${{ github.repository_owner.toLowerCase }}/nptest
         IMAGE_TAG: ${{ github.ref_name }}

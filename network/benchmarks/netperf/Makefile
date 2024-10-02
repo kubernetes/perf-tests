@@ -14,16 +14,17 @@
 
 all: docker push launch runtests
 
-DOCKERREPO := $(or $(DOCKERREPO), girishkalele/netperf-latest)
-IMAGE_TAG := $(or $(IMAGE_TAG), latest)
+repo_owner := $(shell echo $(REPO_OWNER) | tr '[:upper:]' '[:lower:]')
+dockerrepo := $(if $(repo_owner), ghcr.io/$(repo_owner)/nptest, girishkalele/netperf-latest)
+image_tag := $(or $(IMAGE_TAG), latest)
 
 docker: test
 	mkdir -p Dockerbuild && \
 	cp -rf nptest/* Dockerbuild/ && \
-	docker build -t $(DOCKERREPO):$(IMAGE_TAG) Dockerbuild/
+	docker build -t $(dockerrepo):$(image_tag) Dockerbuild/
 
 push: docker
-	docker push $(DOCKERREPO):$(IMAGE_TAG)
+	docker push $(dockerrepo):$(image_tag)
 
 clean:
 	@rm -f Dockerbuild/*
@@ -46,6 +47,6 @@ runtests: launch
 	cp netperf-latest.csv plotperf && cd plotperf; make plot && mv *png .. && mv *svg ..
 	@echo Results file netperf-latest.csv and SVG/PNG graphs generated successfully
 
-localtest: docker
-	docker push $(DOCKERREPO):$(IMAGE_TAG)
-	go run launch.go -image=$(DOCKERREPO):$(IMAGE_TAG) -json -kubeConfig ./kubeConfig
+localtest: push
+	go run launch.go -image=$(dockerrepo):$(image_tag) -json -kubeConfig ./kubeConfig
+

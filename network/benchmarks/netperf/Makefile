@@ -15,14 +15,15 @@
 all: docker push launch runtests
 
 DOCKERREPO := $(or $(DOCKERREPO), girishkalele/netperf-latest)
+IMAGE_TAG := $(or $(IMAGE_TAG), latest)
 
-docker: launch
+docker: test
 	mkdir -p Dockerbuild && \
 	cp -rf nptest/* Dockerbuild/ && \
-	docker build -t $(DOCKERREPO) Dockerbuild/
+	docker build -t $(DOCKERREPO):$(IMAGE_TAG) Dockerbuild/
 
 push: docker
-	gcloud docker push $(DOCKERREPO)
+	docker push $(DOCKERREPO):$(IMAGE_TAG)
 
 clean:
 	@rm -f Dockerbuild/*
@@ -33,6 +34,10 @@ clean:
 launch: launch.go
 	go build -o launch launch.go
 
+test:
+	go test ./...
+	cd nptest && go test ./...
+
 # 'runtests' is the test runner target
 runtests: launch
 	@echo Launching network performance tests
@@ -42,7 +47,5 @@ runtests: launch
 	@echo Results file netperf-latest.csv and SVG/PNG graphs generated successfully
 
 localtest: docker
-	docker push $(DOCKERREPO)
-	go run launch.go -image=$(DOCKERREPO) -json -kubeConfig ./kubeConfig
-
-
+	docker push $(DOCKERREPO):$(IMAGE_TAG)
+	go run launch.go -image=$(DOCKERREPO):$(IMAGE_TAG) -json -kubeConfig ./kubeConfig

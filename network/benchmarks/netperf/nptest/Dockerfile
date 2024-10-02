@@ -52,6 +52,12 @@ RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && m
 RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
 RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make CFLAGS=-fcommon && make install
 
+# Validate the installation of qperf, iperf3 and netperf
+RUN usr/local/bin/qperf --help
+RUN usr/local/bin/iperf3 -v
+RUN usr/local/bin/netperf -V
+RUN usr/local/bin/netserver -V
+
 COPY --from=builder /workspace/nptests /usr/bin/
 
 ENTRYPOINT ["nptests"]

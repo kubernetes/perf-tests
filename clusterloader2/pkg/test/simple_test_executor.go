@@ -383,9 +383,8 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 	return nsList
 }
 
-func isErrsCritical(*errors.ErrorList) bool {
-	// TODO: define critical errors
-	return false
+func isErrsCritical(errList *errors.ErrorList) bool {
+	return errList.Has(errors.ErrCritical)
 }
 
 func cleanupResources(ctx Context, conf *api.Config) {

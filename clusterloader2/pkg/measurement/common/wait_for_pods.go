@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/klog/v2"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
@@ -29,6 +30,7 @@ import (
 const (
 	defaultWaitForPodsTimeout         = 60 * time.Second
 	defaultWaitForPodsInterval        = 5 * time.Second
+	defaultIsFatal                    = false
 	waitForRunningPodsMeasurementName = "WaitForRunningPods"
 )
 
@@ -65,6 +67,11 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 		return nil, err
 	}
 
+	isFatal, err := util.GetBoolOrDefault(config.Params, "isFatal", defaultIsFatal)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
@@ -76,7 +83,12 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = measurementutil.WaitForPods(ctx, podStore, options)
+	if err != nil && isFatal {
+		return nil, errors.NewErrCritical(err)
+	}
+
 	return nil, err
 }
 

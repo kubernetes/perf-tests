@@ -2,8 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.0.0-rc.0
+    app.kubernetes.io/version: 2.13.0
   name: kube-state-metrics
   namespace: kube-state-metrics-perf-test
 spec:
@@ -14,15 +15,17 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: exporter
         app.kubernetes.io/name: kube-state-metrics
-        app.kubernetes.io/version: 2.0.0-rc.0
+        app.kubernetes.io/version: 2.13.0
     spec:
+      automountServiceAccountToken: true
       containers:
-      - image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.0.0-rc.0
+      - image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
         livenessProbe:
           httpGet:
-            path: /healthz
-            port: 8080
+            path: /livez
+            port: http-metrics
           initialDelaySeconds: 5
           timeoutSeconds: 5
         name: kube-state-metrics
@@ -42,12 +45,20 @@ spec:
           name: telemetry
         readinessProbe:
           httpGet:
-            path: /
-            port: 8081
+            path: /readyz
+            port: telemetry
           initialDelaySeconds: 5
           timeoutSeconds: 5
         securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           runAsUser: 65534
+          seccompProfile:
+            type: RuntimeDefault
       nodeSelector:
         kubernetes.io/os: linux
       serviceAccountName: kube-state-metrics

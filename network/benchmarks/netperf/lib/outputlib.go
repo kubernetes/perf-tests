@@ -8,6 +8,7 @@ import (
 	"time"
 
 	api "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 )
@@ -15,7 +16,15 @@ import (
 func getLogsFromPod(c *kubernetes.Clientset, podName, testNamespace string) (*string, error) {
 	var logData *string
 
-	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+	// Retry to get logs from the pod, as we are polling at intervals
+	// and there might be intermittent network issues, a long retry time
+	// is acceptable.
+	err := retry.OnError(wait.Backoff{
+		Steps:    5,
+		Duration: 2 * time.Second,
+		Factor:   2.0,
+		Jitter:   100,
+	}, func(err error) bool {
 		return true
 	}, func() error {
 		body, err := c.CoreV1().Pods(testNamespace).GetLogs(podName, &api.PodLogOptions{}).DoRaw(context.Background())

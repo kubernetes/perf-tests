@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	api "k8s.io/api/core/v1"
@@ -242,7 +241,10 @@ func executeTests(c *kubernetes.Clientset, testParams TestParams, primaryNode, s
 		}
 		fmt.Println("Waiting for netperf pods to start up")
 
-		orchestratorPodName := getOrchestratorPodName(c, testParams.TestNamespace)
+		orchestratorPodName, err := getOrchestratorPodName(c, testParams.TestNamespace, 3*time.Minute)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get orchestrator pod name: %v", err)
+		}
 		fmt.Println("Orchestrator Pod is", orchestratorPodName)
 
 		var jsonFilePath string
@@ -290,19 +292,45 @@ func executeTests(c *kubernetes.Clientset, testParams TestParams, primaryNode, s
 	return results, nil
 }
 
-func getOrchestratorPodName(c *kubernetes.Clientset, testNamespace string) string {
+func getOrchestratorPodName(c *kubernetes.Clientset, testNamespace string, timeout time.Duration) (string, error) {
+	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
 	for {
-		fmt.Println("Waiting for orchestrator pod creation")
-		time.Sleep(60 * time.Second)
-		pods, err := c.CoreV1().Pods(testNamespace).List(context.Background(), everythingSelector)
-		if err != nil {
-			fmt.Println("Failed to fetch pods - waiting for pod creation", err)
-			continue
-		}
-		for _, pod := range pods.Items {
-			if strings.Contains(pod.GetName(), "netperf-orch-") {
-				return pod.GetName()
+		select {
+		case <-ticker.C:
+			fmt.Println("Waiting for orchestrator pod creation")
+			pods, err := c.CoreV1().Pods(testNamespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "app=netperf-orch",
+			})
+			if err != nil {
+				fmt.Println("Failed to fetch pods - waiting for pod creation", err)
+				continue
 			}
+			if len(pods.Items) == 0 {
+				fmt.Println("No orchestrator pods found yet")
+				continue
+			}
+
+			pod := pods.Items[0]
+			podStatus := pod.Status
+
+			if podStatus.Phase == api.PodRunning {
+				return pod.GetName(), nil
+			}
+
+			for _, containerStatus := range podStatus.ContainerStatuses {
+				if waiting := containerStatus.State.Waiting; waiting != nil {
+					switch waiting.Reason {
+					case "ErrImagePull", "CrashLoopBackOff", "ImagePullBackOff":
+						return "", fmt.Errorf("orchestrator pod error: %s - %v", waiting.Reason, waiting.Message)
+					}
+				}
+			}
+			fmt.Println("Orchestrator pod is not running yet")
+		case <-timeoutCh:
+			return "", fmt.Errorf("timed out waiting for orchestrator pod to be created")
 		}
 	}
 }

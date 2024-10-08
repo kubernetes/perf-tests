@@ -15,7 +15,7 @@
 all: docker push launch runtests
 
 repo_owner := $(shell echo $(REPO_OWNER) | tr '[:upper:]' '[:lower:]')
-dockerrepo := $(if $(repo_owner), ghcr.io/$(repo_owner)/nptest, girishkalele/netperf-latest)
+dockerrepo := $(if $(repo_owner),ghcr.io/$(repo_owner)/nptest,girishkalele/netperf-latest)
 image_tag := $(or $(IMAGE_TAG), latest)
 
 docker: test

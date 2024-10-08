@@ -31,6 +31,8 @@ RUN go build -o nptests
 FROM debian:bullseye
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
+LABEL org.opencontainers.image.description "Network performance tests in k8s engine"
+
 # install binary and remove cache
 RUN apt-get update \
     && apt-get install -y  curl wget net-tools gcc make libsctp-dev git autotools-dev automake \

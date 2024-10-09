@@ -61,7 +61,8 @@ type ClusterConfig struct {
 // ExecServiceConfig represents all flags used by service config.
 type ExecServiceConfig struct {
 	// Determines if service config should be enabled.
-	Enable bool
+	Enable        bool
+	ImageRegistry string
 }
 
 // ModifierConfig represent all flags used by test modification

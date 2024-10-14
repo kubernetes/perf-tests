@@ -32,8 +32,8 @@ export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 # Deploy the GCE PD CSI Driver if required
 if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
    if [[ -n "${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
-      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
-      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -n default -f "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" create secret generic -n default cloud-sa --from-file=cloud-sa.json="${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" -n gce-pd-csi-driver
    else
       echo "Env var E2E_GOOGLE_APPLICATION_CREDENTIALS is unset."
       echo "Falling back to using Application Default Credentials for GCE PD CSI driver deployment."
@@ -56,22 +56,22 @@ if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
                del(.volumeMounts[] | select(.name == "cloud-sa-volume"))
             )
          )' "${CLUSTERLOADER_ROOT}"/drivers/gcp-csi-driver-stable.yaml > "${tmpfile}"
-      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -f "${tmpfile}"
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" apply -n default -f "${tmpfile}"
       rm "${tmpfile}"
    fi
    kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" wait -n gce-pd-csi-driver deployment csi-gce-pd-controller --for condition=available --timeout=300s
 
    # make sure there's a default storage class
-   names=( $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get sc -o name) )
+   names=( $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get -n default sc -o name) )
    i=0
    for name in "${names[@]}"
    do
-      if [[ $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get $name -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}') = true ]]; then
+      if [[ $(kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" get -n default $name -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}') = true ]]; then
          ((i+=1))
       fi
    done
    if [[ $i < 1 ]]; then
-      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" patch storageclass csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+      kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" patch storageclass -n default csi-gce-pd -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
    fi
 fi
 
@@ -80,17 +80,17 @@ if [[ "${DEPLOY_AZURE_CSI_DRIVER:-false}" == "true" ]]; then
 fi
 
 # Create a dedicated service account for cluster-loader.
-cluster_loader_sa_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get serviceaccount cluster-loader --ignore-not-found | wc -l)
+cluster_loader_sa_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get serviceaccount -n default cluster-loader --ignore-not-found | wc -l)
 if [[ "$cluster_loader_sa_exists" -eq 0 ]]; then
-	kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount cluster-loader
+	kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount -n default cluster-loader
 fi
-cluster_loader_crb_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get clusterrolebinding cluster-loader --ignore-not-found | wc -l)
+cluster_loader_crb_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get clusterrolebinding -n default cluster-loader --ignore-not-found | wc -l)
 if [[ "$cluster_loader_crb_exists" -eq 0 ]]; then
-	kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
+	kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding -n default cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
 fi
-cluster_loader_secret_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader --ignore-not-found | wc -l)
+cluster_loader_secret_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get secret -n default cluster-loader --ignore-not-found | wc -l)
 if [[ "$cluster_loader_secret_exists" -eq 0 ]]; then
-   cat << EOF | kubectl --kubeconfig "${KUBECONFIG}" create -f -
+   cat << EOF | kubectl --kubeconfig "${KUBECONFIG}" create -n default -f -
 apiVersion: v1
 kind: Secret
 metadata:
@@ -105,9 +105,9 @@ fi
 
 # Create a kubeconfig to use the above service account.
 kubeconfig=$(mktemp)
-server=$(kubectl --kubeconfig "${KUBECONFIG}" config view -o jsonpath='{.clusters[0].cluster.server}')
-ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.ca\.crt}')
-token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
+server=$(kubectl --kubeconfig "${KUBECONFIG}" config -n default view -o jsonpath='{.clusters[0].cluster.server}')
+ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret -n default cluster-loader -o jsonpath='{.data.ca\.crt}')
+token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret -n default cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
 echo "
 apiVersion: v1
 kind: Config

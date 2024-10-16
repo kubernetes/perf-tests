@@ -28,8 +28,10 @@ spec:
   {{end}}
   - port: apiserver
     scheme: https
+    bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
     tlsConfig:
       insecureSkipVerify: true
+      caFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
   {{if $PROMETHEUS_SLOW_APISERVER}}
     interval: 30s
     scrapeTimeout: 30s
@@ -42,14 +44,12 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   - interval: 5s
     port: kubelet
     path: /metrics/cadvisor
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   {{end}}
   - interval: 5s
     port: kube-scheduler
@@ -62,4 +62,5 @@ spec:
     tlsConfig:
       insecureSkipVerify: true
   selector:
-    k8s-app: master
+    matchLabels:
+      k8s-app: master

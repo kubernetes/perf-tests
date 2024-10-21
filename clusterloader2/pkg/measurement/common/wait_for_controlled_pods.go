@@ -50,7 +50,7 @@ import (
 const (
 	defaultSyncTimeout               = 60 * time.Second
 	defaultOperationTimeout          = 10 * time.Minute
-	checkControlledPodsInterval      = 5 * time.Second
+	defaultRefreshInterval           = 5 * time.Second
 	informerSyncTimeout              = time.Minute
 	waitForControlledPodsRunningName = "WaitForControlledPodsRunning"
 
@@ -216,11 +216,15 @@ func (w *waitForControlledPodsRunningMeasurement) Execute(config *measurement.Co
 		}
 		return nil, w.start()
 	case "gather":
+		refreshInterval, err := util.GetDurationOrDefault(config.Params, "refreshInterval", defaultRefreshInterval)
+		if err != nil {
+			return nil, err
+		}
 		syncTimeout, err := util.GetDurationOrDefault(config.Params, "syncTimeout", defaultSyncTimeout)
 		if err != nil {
 			return nil, err
 		}
-		ps, err := w.gather(syncTimeout)
+		ps, err := w.gather(refreshInterval, syncTimeout)
 		summary := createSummary(ps)
 		return summary, err
 	case "stop":
@@ -284,7 +288,7 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 	return informer.StartAndSync(i, w.stopCh, informerSyncTimeout)
 }
 
-func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Duration) ([]failedPod, error) {
+func (w *waitForControlledPodsRunningMeasurement) gather(refreshInterval time.Duration, syncTimeout time.Duration) ([]failedPod, error) {
 	klog.V(2).Infof("%v: waiting for controlled pods measurement...", w)
 	if !w.isRunning {
 		return nil, fmt.Errorf("metric %s has not been started", w)
@@ -315,7 +319,7 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		defer w.lock.Unlock()
 		return w.opResourceVersion >= maxResourceVersion && objectKeys.Equal(w.objectKeys), nil
 	}
-	if err := wait.Poll(checkControlledPodsInterval, syncTimeout, cond); err != nil {
+	if err := wait.Poll(refreshInterval, syncTimeout, cond); err != nil {
 		return nil, fmt.Errorf("timed out while waiting for controlled pods: %v", err)
 	}
 

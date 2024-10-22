@@ -30,11 +30,12 @@ const (
 )
 
 var (
-	inflight  = flag.Int("inflight", 0, "Benchmark inflight (number of parallel requests being made to the apiserver")
-	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
-	URI       = flag.String("uri", "", "Request URI")
-	verb      = flag.String("verb", "GET", "A verb to be used in requests.")
-	qps       = flag.Float64("qps", -1, "The qps limit for all requests")
+	inflight           = flag.Int("inflight", 0, "Benchmark inflight (number of parallel requests being made to the apiserver")
+	namespace          = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
+	URI                = flag.String("uri", "", "Request URI")
+	verb               = flag.String("verb", "GET", "A verb to be used in requests.")
+	qps                = flag.Float64("qps", -1, "The qps limit for all requests")
+	initialHealthCheck = flag.Bool("initialHealthCheck", true, "If true, send initial request and abort if it fails")
 )
 
 func init() {
@@ -50,8 +51,10 @@ func main() {
 	newURI := strings.ReplaceAll(*URI, NamespaceTmpl, *namespace)
 	URI = &newURI
 
-	if err := healthCheck(client); err != nil {
-		panic(err)
+	if *initialHealthCheck {
+		if err := healthCheck(client); err != nil {
+			panic(err)
+		}
 	}
 
 	log.Printf("Sending requests to '%s' with inflight %d. Press Ctrl+C to stop...", *URI, *inflight)

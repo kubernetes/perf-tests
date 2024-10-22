@@ -6,5 +6,5 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.4.0 h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=
 gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=
-k8s.io/kubernetes v1.14.0-alpha.0.0.20181120002542-50e02fd0cc47 h1:k1dpG9lPUPTc9TtJQAzkJWJTawoeMZ0wKeRbGl49RsA=
-k8s.io/kubernetes v1.14.0-alpha.0.0.20181120002542-50e02fd0cc47/go.mod h1:ocZa8+6APFNC2tX1DZASIbocyYT5jHzqFVsY5aoB7Jk=
+k8s.io/kubernetes v1.32.0-alpha.2 h1:mhRCLaD3dW/q/YK4gPK/0kq6RNE9Y8kJYtotNM8fFmM=
+k8s.io/kubernetes v1.32.0-alpha.2/go.mod h1:TAaDswjW/pbx/Ymn+Tu9IqBmJ0/cTauicHZfYq5x9G4=

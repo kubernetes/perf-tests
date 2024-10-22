@@ -26,7 +26,7 @@ These flags are required for any test to be run.
  - `kubeconfig` - path to the kubeconfig file.
  - `testconfig` - path to the test config file. This flag can be used multiple times
 if more than one test should be run.
- - `provider` - Cluster provider. Options are: gce, gke, kind, kubemark, aws, local, vsphere, skeleton
+ - `provider` - Cluster provider, options are: gce, gke, kind, kubemark, aws, azure, local, vsphere, skeleton
 
 #### Optional
 

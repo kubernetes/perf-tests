@@ -49,7 +49,7 @@ var (
 	globalConfig = make(map[string]string)
 
 	// Storage Service Bucket and Path flags
-	logsBucket = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
+	logsBucket = pflag.String("logsBucket", "kubernetes-ci-logs", "Name of the data bucket")
 	logsPath   = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
 
 	// Google GCS Specific flags

@@ -41,7 +41,7 @@ require (
 	github.com/montanaflynn/stats v0.7.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.60.0
+	github.com/prometheus/common v0.60.1
 	github.com/prometheus/prometheus v1.8.2-0.20210331101223-3cafc58827d1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0

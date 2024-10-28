@@ -514,9 +514,10 @@ var (
 				Parser:           parsePerfData,
 			}},
 			"BenchmarkPerfResults": []TestDescription{{
-				Name:             "benchmark",
-				OutputFilePrefix: "BenchmarkPerfScheduling",
-				Parser:           parsePerfData,
+				Name:                        "benchmark",
+				OutputFilePrefix:            "BenchmarkPerfScheduling",
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
 			}},
 		},
 	}

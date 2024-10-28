@@ -32,9 +32,12 @@ spec:
             - --logtostderr=true
             - --log_file=/var/log/cl2-dns-propagation.log
           resources:
+            requests:
+              cpu: {{.DNSPropagationProbeCpu}}
+              memory: {{.DNSPropagationProbeMemory}}
             limits:
-              cpu: 100m
-              memory: 100Mi
+              cpu: {{.DNSPropagationProbeCpu}}
+              memory: {{.DNSPropagationProbeMemory}}
           ports:
             - containerPort: 8080
               name: metrics

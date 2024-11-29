@@ -658,6 +658,11 @@ var (
 				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
 				Parser:           parsePerfData,
 			}},
+			"LoadRequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "watch-list",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
+			}},
 		},
 	}
 

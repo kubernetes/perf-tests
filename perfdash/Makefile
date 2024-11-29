@@ -1,7 +1,7 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG?=2.50
+TAG?=2.51
 
 REPO?=gcr.io/k8s-staging-perf-tests
 
@@ -19,7 +19,7 @@ run: perfdash
 		--address=0.0.0.0:8080 \
 		--builds=20 \
 		--force-builds \
-		--githubConfigDir=https://api.github.com/repos/kubernetes/perf-tests/contents/perfdash/test
+		--configPath=test/jobs.yaml
 
 # Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
 .PHONY: container

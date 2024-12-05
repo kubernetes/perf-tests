@@ -2,6 +2,7 @@
 {{$smallBackendLbServiceCount := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 5}}
 {{$mediumBackendLbServiceCount := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 3}}
 {{$largeBackendLbServiceCount := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 1}}
+{{$waitAfterDeletion := DefaultParam .CL2_WAIT_AFTER_DELETION “15m”}}
 
 # Test
 name: neg-latency
@@ -118,3 +119,9 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Wait after deletion
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: {{$waitAfterDeletion}}

@@ -255,11 +255,11 @@ func printTestResult(name, status, errors string) {
 	logf(dashLine)
 }
 
-func main() {
+func run() error {
 	defer klog.Flush()
 	initFlags()
 	if err := flags.Parse(); err != nil {
-		klog.Exitf("Flag parse failed: %v", err)
+		return fmt.Errorf("flag parse failed: %v", err)
 	}
 
 	// Start http server with pprof.
@@ -271,7 +271,7 @@ func main() {
 
 	newProvider, err := provider.NewProvider(&providerInitOptions)
 	if err != nil {
-		klog.Exitf("Error init provider: %v", err)
+		return fmt.Errorf("error init provider: %v", err)
 	}
 	clusterLoaderConfig.ClusterConfig.Provider = newProvider
 
@@ -280,22 +280,22 @@ func main() {
 	}
 
 	if errList := validateFlags(); !errList.IsEmpty() {
-		klog.Exitf("Parsing flags error: %v", errList.String())
+		return fmt.Errorf("parsing flags error: %v", errList.String())
 	}
 
 	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)
 	if err != nil {
-		klog.Exitf("Client creation error: %v", err)
+		return fmt.Errorf("client creation error: %v", err)
 	}
 
 	if err = completeConfig(mclient); err != nil {
-		klog.Exitf("Config completing error: %v", err)
+		return fmt.Errorf("config completing error: %v", err)
 	}
 
 	klog.V(0).Infof("Using config: %+v", clusterLoaderConfig)
 
 	if err = createReportDir(); err != nil {
-		klog.Exitf("Cannot create report directory: %v", err)
+		return fmt.Errorf("cannot create report directory: %v", err)
 	}
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
@@ -304,7 +304,7 @@ func main() {
 
 	if !clusterLoaderConfig.ClusterConfig.SkipClusterVerification {
 		if err = verifyCluster(mclient.GetClient()); err != nil {
-			klog.Exitf("Cluster verification error: %v", err)
+			return fmt.Errorf("cluster verification error: %v", err)
 		}
 	}
 
@@ -313,7 +313,7 @@ func main() {
 		clusterLoaderConfig.ClusterConfig.K8SClientsNumber,
 	)
 	if err != nil {
-		klog.Exitf("Framework creation error: %v", err)
+		return fmt.Errorf("framework creation error: %v", err)
 	}
 
 	var prometheusController *prometheus.Controller
@@ -323,11 +323,11 @@ func main() {
 	if !dryRun {
 		if clusterLoaderConfig.PrometheusConfig.EnableServer {
 			if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
-				klog.Exitf("Error while creating Prometheus Controller: %v", err)
+				return fmt.Errorf("error while creating Prometheus Controller: %v", err)
 			}
 			prometheusFramework = prometheusController.GetFramework()
 			if err := prometheusController.SetUpPrometheusStack(); err != nil {
-				klog.Exitf("Error while setting up prometheus stack: %v", err)
+				return fmt.Errorf("error while setting up prometheus stack: %v", err)
 			}
 			if clusterLoaderConfig.PrometheusConfig.TearDownServer {
 				prometheusController.EnableTearDownPrometheusStackOnInterrupt()
@@ -335,11 +335,11 @@ func main() {
 		}
 		if clusterLoaderConfig.ExecServiceConfig.Enable {
 			if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {
-				klog.Exitf("Error while setting up exec service: %v", err)
+				return fmt.Errorf("error while setting up exec service: %v", err)
 			}
 		}
 		if err := imagepreload.Setup(&clusterLoaderConfig, f); err != nil {
-			klog.Exitf("Error while preloading images: %v", err)
+			return fmt.Errorf("error while preloading images: %v", err)
 		}
 
 		if err := metadata.Dump(f, path.Join(clusterLoaderConfig.ReportDir, "cl2-metadata.json")); err != nil {
@@ -349,11 +349,24 @@ func main() {
 		testReporter.BeginTestSuite()
 	}
 
+	defer func() {
+		if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
+			if err := prometheusController.TearDownPrometheusStack(); err != nil {
+				klog.Errorf("Error while tearing down prometheus stack: %v", err)
+			}
+		}
+		if clusterLoaderConfig.ExecServiceConfig.Enable {
+			if err := execservice.TearDownExecService(f); err != nil {
+				klog.Errorf("Error while tearing down exec service: %v", err)
+			}
+		}
+	}()
+
 	var testScenarios []api.TestScenario
 	if testSuiteConfigPath != "" {
 		testSuite, err := config.LoadTestSuite(testSuiteConfigPath)
 		if err != nil {
-			klog.Exitf("Error while reading test suite: %v", err)
+			return fmt.Errorf("error while reading test suite: %v", err)
 		}
 		testScenarios = []api.TestScenario(testSuite)
 	} else {
@@ -370,7 +383,7 @@ func main() {
 	for i := range testScenarios {
 		ctx, errList := test.CreateTestContext(f, prometheusFramework, &clusterLoaderConfig, testReporter, &testScenarios[i])
 		if !errList.IsEmpty() {
-			klog.Exitf("Test context creation failed: %s", errList.String())
+			return fmt.Errorf("test context creation failed: %s", errList.String())
 		}
 		testConfig, errList := test.CompileTestConfig(ctx)
 		// Dump test config before checking errors - it can still be useful for debugging.
@@ -380,7 +393,7 @@ func main() {
 			}
 		}
 		if !errList.IsEmpty() {
-			klog.Exitf("Test compilation failed: %s", errList.String())
+			return fmt.Errorf("test compilation failed: %s", errList.String())
 		}
 		ctx.SetTestConfig(testConfig)
 		contexts = append(contexts, ctx)
@@ -388,7 +401,7 @@ func main() {
 
 	if dryRun {
 		// Dry run always exits with error so if it's ever enabled in CI, the test will fail.
-		klog.Exitf("Dry run mode enabled, exiting after dumping test config in %s.", path.Join(clusterLoaderConfig.ReportDir))
+		return fmt.Errorf("dry run mode enabled, exiting after dumping test config in %s", path.Join(clusterLoaderConfig.ReportDir))
 	}
 
 	for i := range contexts {
@@ -400,19 +413,15 @@ func main() {
 	if err := prometheusController.MakePrometheusSnapshotIfEnabled(); err != nil {
 		klog.Errorf("Error while making prometheus snapshot: %v", err)
 	}
-
-	if clusterLoaderConfig.PrometheusConfig.EnableServer && clusterLoaderConfig.PrometheusConfig.TearDownServer {
-		if err := prometheusController.TearDownPrometheusStack(); err != nil {
-			klog.Errorf("Error while tearing down prometheus stack: %v", err)
-		}
-	}
-	if clusterLoaderConfig.ExecServiceConfig.Enable {
-		if err := execservice.TearDownExecService(f); err != nil {
-			klog.Errorf("Error while tearing down exec service: %v", err)
-		}
-	}
 	if failedTestItems := testReporter.GetNumberOfFailedTestItems(); failedTestItems > 0 {
-		klog.Exitf("%d tests have failed!", failedTestItems)
+		return fmt.Errorf("%d tests have failed", failedTestItems)
+	}
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		klog.Exitf("Error while running the loader: %v", err)
 	}
 }
 

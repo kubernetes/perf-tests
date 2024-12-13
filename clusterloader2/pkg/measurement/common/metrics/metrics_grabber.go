@@ -59,7 +59,6 @@ type Grabber struct {
 	grabFromClusterAutoscaler         bool
 	masterName                        string
 	registeredMaster                  bool
-	waitForControllerManagerReadyOnce sync.Once
 }
 
 // deprecatedMightBeMasterNode returns true if given node is a registered master.

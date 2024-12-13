@@ -131,4 +131,4 @@ users:
 export KUBECONFIG=${kubeconfig}
 
 cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'
-./clusterloader --alsologtostderr --v="${CL2_VERBOSITY:-2}" "$@"
+./clusterloader --v="${CL2_VERBOSITY:-2}" "$@"

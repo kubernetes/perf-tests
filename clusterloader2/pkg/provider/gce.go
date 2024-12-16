@@ -24,10 +24,9 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
-	"k8s.io/perf-tests/clusterloader2/pkg/util"
+	sshutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 type GCEProvider struct {
@@ -84,7 +83,7 @@ func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error)
 
 	var masterInstanceIDs []string
 	for _, node := range nodes {
-		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
+		if sshutil.LegacyIsMasterNode(&node) || sshutil.IsControlPlaneNode(&node) {
 			zone, ok := node.Labels["topology.kubernetes.io/zone"]
 			if !ok {
 				// Fallback to old label to make it work for old k8s versions.

@@ -69,14 +69,15 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		return nil, err
 	}
 
+	namespace, err := util.GetStringOrDefault(config.Params, "namespace", "kube-system")
+	if err != nil {
+		return nil, err
+	}
+
 	switch action {
 	case "start":
 		provider := config.ClusterFramework.GetClusterConfig().Provider
 		host, err := util.GetStringOrDefault(config.Params, "host", config.ClusterFramework.GetClusterConfig().GetMasterIP())
-		if err != nil {
-			return nil, err
-		}
-		namespace, err := util.GetStringOrDefault(config.Params, "namespace", "kube-system")
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +135,8 @@ func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]
 		if err != nil {
 			return nil, err
 		}
-		resourceSummary := measurement.CreateSummary(resourceUsageMetricName, "json", content)
+		name := fmt.Sprintf("%s-%s", resourceUsageMetricName, namespace)
+		resourceSummary := measurement.CreateSummary(name, "json", content)
 		return []measurement.Summary{resourceSummary}, e.verifySummary(summary)
 
 	default:

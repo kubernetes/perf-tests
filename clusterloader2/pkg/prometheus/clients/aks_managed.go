@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"net/http"
 
 	"os"

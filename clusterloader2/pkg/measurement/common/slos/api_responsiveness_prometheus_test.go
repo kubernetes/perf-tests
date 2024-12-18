@@ -19,6 +19,7 @@ package slos
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -31,12 +32,34 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common/executors"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+
+	_ "k8s.io/perf-tests/clusterloader2/pkg/flags" // init klog
 )
 
-func changeLoggingVerbosity(t *testing.T, logLevel string) {
-	var level klog.Level
-	if err := level.Set(logLevel); err != nil {
-		t.Errorf("Unable to set flag %v", err)
+var (
+	// klogv1 allows users to turn on/off logging to stderr only through
+	// the use of flag. This prevents us from having control over which
+	// of the test functions have that mechanism turned off when we run
+	// go test command.
+	// TODO(#1286): refactor api_responsiveness_prometheus.go to make
+	// testing of logging easier and remove this hack in the end.
+	klogLogToStderr = true
+)
+
+func turnOffLoggingToStderrInKlog(t *testing.T) {
+	if klogLogToStderr {
+		err := flag.Set("logtostderr", "false")
+		if err != nil {
+			t.Errorf("Unable to set flag %v", err)
+			return
+		}
+		err = flag.Set("v", "2")
+		if err != nil {
+			t.Errorf("Unable to set flag %v", err)
+			return
+		}
+		flag.Parse()
+		klogLogToStderr = false
 	}
 }
 
@@ -551,13 +574,10 @@ func TestLogging(t *testing.T) {
 		},
 	}
 
-	klog.LogToStderr(false)
-	defer klog.LogToStderr(true)
-	changeLoggingVerbosity(t, "2")
+	turnOffLoggingToStderrInKlog(t)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// FIXME: Why this doesn't catch output?
 			buf := bytes.NewBuffer(nil)
 			klog.SetOutput(buf)
 
@@ -743,13 +763,10 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 		},
 	}
 
-	klog.LogToStderr(false)
-	defer klog.LogToStderr(true)
-	changeLoggingVerbosity(t, "2")
+	turnOffLoggingToStderrInKlog(t)
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// FIXME: Why this doesn't catch output?
 			buf := bytes.NewBuffer(nil)
 			klog.SetOutput(buf)
 

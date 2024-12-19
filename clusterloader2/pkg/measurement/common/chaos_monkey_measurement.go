@@ -64,7 +64,8 @@ func (c *chaosMonkeyMeasurement) Execute(config *measurement.Config) ([]measurem
 		}
 		c.stopChannel = make(chan struct{})
 		c.chaosMonkey = chaos.NewMonkey(config.ClusterFramework.GetClientSets().GetClient(), config.CloudProvider)
-		c.chaosMonkeyWaitGroup, err = c.chaosMonkey.Init(api.ChaosMonkeyConfig{&c.NodeFailureConfig, c.killedNodes}, c.stopChannel)
+		chaosMonkeyConfig := api.ChaosMonkeyConfig{NodeFailure: &c.NodeFailureConfig, ExcludedNodes: c.killedNodes}
+		c.chaosMonkeyWaitGroup, err = c.chaosMonkey.Init(chaosMonkeyConfig, c.stopChannel)
 		if err != nil {
 			close(c.stopChannel)
 			return nil, fmt.Errorf("error while creating chaos monkey: %v", err)
@@ -79,7 +80,10 @@ func (c *chaosMonkeyMeasurement) Execute(config *measurement.Config) ([]measurem
 			klog.V(2).Info("Chaos monkey ended.")
 		}
 		c.killedNodes = c.chaosMonkey.KilledNodes()
-		klog.V(2).Infof(c.chaosMonkey.Summary())
+		summary := c.chaosMonkey.Summary()
+		if summary != "" {
+			klog.V(2).Info(summary)
+		}
 		// ChaosMonkey doesn't collect metrics and returns empty measurement.Summary.
 		return []measurement.Summary{}, nil
 	default:

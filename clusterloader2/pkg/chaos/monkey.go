@@ -17,7 +17,6 @@ limitations under the License.
 package chaos
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -42,17 +41,19 @@ func NewMonkey(client clientset.Interface, provider provider.Provider) *Monkey {
 // Init initializes Monkey with given config.
 // When stopCh is closed, the Monkey will stop simulating failures.
 func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) (*sync.WaitGroup, error) {
-	wg := sync.WaitGroup{}
-	if config.NodeFailure != nil {
-		nodeKiller, err := NewNodeKiller(*config.NodeFailure, m.client, config.ExcludedNodes, m.provider)
-		if err != nil {
-			return nil, err
-		}
-		m.nodeKiller = nodeKiller
-		wg.Add(1)
-		go m.nodeKiller.Run(stopCh, &wg)
+	if config.NodeFailure == nil {
+		return nil, nil
 	}
 
+	nodeKiller, err := NewNodeKiller(*config.NodeFailure, m.client, config.ExcludedNodes, m.provider)
+	if err != nil {
+		return nil, err
+	}
+	m.nodeKiller = nodeKiller
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go m.nodeKiller.Run(stopCh, &wg)
 	return &wg, nil
 }
 
@@ -60,7 +61,7 @@ func (m *Monkey) Init(config api.ChaosMonkeyConfig, stopCh <-chan struct{}) (*sy
 func (m *Monkey) Summary() string {
 	var sb strings.Builder
 	if m.nodeKiller != nil {
-		sb.WriteString(fmt.Sprintf("Summary of Chaos Monkey execution\n"))
+		sb.WriteString("Summary of Chaos Monkey execution\n")
 		sb.WriteString(m.nodeKiller.Summary())
 	}
 	return sb.String()

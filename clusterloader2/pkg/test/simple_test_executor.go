@@ -99,7 +99,10 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 			}
 		}
 	}
-	klog.V(2).Infof(ctx.GetChaosMonkey().Summary())
+	summary := ctx.GetChaosMonkey().Summary()
+	if summary != "" {
+		klog.V(2).Info(summary)
+	}
 	return errList
 }
 

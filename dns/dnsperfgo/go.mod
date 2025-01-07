@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	github.com/prometheus/client_golang v1.20.5
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	k8s.io/apimachinery v0.31.3
 	k8s.io/client-go v0.31.3
 )

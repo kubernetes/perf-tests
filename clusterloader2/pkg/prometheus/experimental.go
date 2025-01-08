@@ -27,11 +27,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 )
 
 var (
@@ -50,13 +50,20 @@ const (
 )
 
 var (
-	shouldSnapshotPrometheusDisk        = pflag.Bool("experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
-	shouldSnapshotPrometheusToReportDir = pflag.Bool("experimental-prometheus-snapshot-to-report-dir", false, "(experimental) whether to save prometheus snapshot to the report-dir")
-	prometheusDiskSnapshotName          = pflag.String("experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
+	shouldSnapshotPrometheusDisk        bool
+	shouldSnapshotPrometheusToReportDir bool
+	prometheusDiskSnapshotName          string
 )
 
+// InitExperimentalFlags initializes prometheus flags.
+func InitExperimentalFlags() {
+	flags.BoolVar(&shouldSnapshotPrometheusDisk, "experimental-gcp-snapshot-prometheus-disk", false, "(experimental, provider=gce|gke only) whether to snapshot Prometheus disk before Prometheus stack is torn down")
+	flags.BoolVar(&shouldSnapshotPrometheusToReportDir, "experimental-prometheus-snapshot-to-report-dir", false, "(experimental) whether to save prometheus snapshot to the report-dir")
+	flags.StringVar(&prometheusDiskSnapshotName, "experimental-prometheus-disk-snapshot-name", "", "Name of the prometheus disk snapshot that will be created if snapshots are enabled. If not set, the prometheus disk name will be used.")
+}
+
 func (pc *Controller) isEnabled() (bool, error) {
-	if !*shouldSnapshotPrometheusDisk {
+	if !shouldSnapshotPrometheusDisk {
 		return false, nil
 	}
 	if !pc.provider.Features().SupportSnapshotPrometheusDisk {
@@ -147,7 +154,7 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabledSynchronized() error {
 	return pc.snapshotError
 }
 func (pc *Controller) snapshotPrometheusIfEnabled() error {
-	if !*shouldSnapshotPrometheusToReportDir {
+	if !shouldSnapshotPrometheusToReportDir {
 		return nil
 	}
 
@@ -168,11 +175,11 @@ func (pc *Controller) snapshotPrometheusDiskIfEnabled() error {
 	}
 	// Select snapshot name
 	snapshotName := pc.diskMetadata.name
-	if *prometheusDiskSnapshotName != "" {
-		if err := VerifySnapshotName(*prometheusDiskSnapshotName); err == nil {
-			snapshotName = *prometheusDiskSnapshotName
+	if prometheusDiskSnapshotName != "" {
+		if err := VerifySnapshotName(prometheusDiskSnapshotName); err == nil {
+			snapshotName = prometheusDiskSnapshotName
 		} else {
-			klog.Warningf("Incorrect disk name %v: %v. Using default name: %v", *prometheusDiskSnapshotName, err, snapshotName)
+			klog.Warningf("Incorrect disk name %v: %v. Using default name: %v", prometheusDiskSnapshotName, err, snapshotName)
 		}
 	}
 	// Snapshot Prometheus disk

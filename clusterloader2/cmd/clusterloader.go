@@ -136,8 +136,10 @@ func initFlags() {
 
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
+	imagepreload.InitFlags()
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
+	prometheus.InitExperimentalFlags()
 }
 
 func validateFlags() *errors.ErrorList {

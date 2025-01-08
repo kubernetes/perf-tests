@@ -59,7 +59,6 @@ require (
 	k8s.io/component-base v0.29.7
 	k8s.io/component-helpers v0.29.7
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01
-	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubelet v0.29.7
 	k8s.io/kubernetes v1.29.7

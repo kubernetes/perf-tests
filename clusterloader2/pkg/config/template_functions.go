@@ -193,22 +193,22 @@ func maxFloat(numbers ...interface{}) float64 {
 	if len(numbers) == 0 {
 		panic("maximum undefined")
 	}
-	max := toFloat64(numbers[0])
+	result := toFloat64(numbers[0])
 	for _, number := range numbers {
-		max = math.Max(max, toFloat64(number))
+		result = math.Max(result, toFloat64(number))
 	}
-	return max
+	return result
 }
 
 func minFloat(numbers ...interface{}) float64 {
 	if len(numbers) == 0 {
 		panic("minimum undefined")
 	}
-	min := toFloat64(numbers[0])
+	result := toFloat64(numbers[0])
 	for _, number := range numbers {
-		min = math.Min(min, toFloat64(number))
+		result = math.Min(result, toFloat64(number))
 	}
-	return min
+	return result
 }
 
 func mod(a interface{}, b interface{}) int {

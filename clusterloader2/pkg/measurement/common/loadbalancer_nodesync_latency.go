@@ -293,13 +293,13 @@ func isCandidateNode(node v1.Node) bool {
 	return true
 }
 
-func preparePatchBytes(old, new, refStruct interface{}) ([]byte, error) {
-	oldBytes, err := json.Marshal(old)
+func preparePatchBytes(oldObj, newObj, refStruct interface{}) ([]byte, error) {
+	oldBytes, err := json.Marshal(oldObj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal old object: %v", err)
 	}
 
-	newBytes, err := json.Marshal(new)
+	newBytes, err := json.Marshal(newObj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal new object: %v", err)
 	}

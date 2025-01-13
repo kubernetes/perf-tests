@@ -514,7 +514,7 @@ func (w *waitForControlledPodsRunningMeasurement) updateCacheLocked(oldObj, newO
 	if errList.IsEmpty() {
 		return nil
 	}
-	return fmt.Errorf(errList.Error())
+	return errList
 }
 
 func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersionLocked(runtimeObj runtime.Object) error {

@@ -20,14 +20,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"k8s.io/klog"
 	"net/http"
-
 	"os"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+
+	"k8s.io/klog/v2"
 )
 
 const (

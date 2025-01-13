@@ -1,0 +1,18 @@
+{
+    "test_info": {
+        "protocol": "TCP",
+        "streams": 8,
+        "blksize": 131072,
+        "duration": 10,
+        "mss": 96
+    },
+    "total_throughput": 14088,
+    "mean_rtt": 601,
+    "min_rtt": 596,
+    "max_rtt": 606,
+    "retransmits": 5472,
+    "cpu_utilization": {
+        "host_total": 52.1597,
+        "remote_total": 69.1834
+    }
+}

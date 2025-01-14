@@ -29,6 +29,10 @@ export AZUREDISK_CSI_DRIVER_VERSION="${AZUREDISK_CSI_DRIVER_VERSION:-master}"
 export AZUREDISK_CSI_DRIVER_INSTALL_URL="${AZUREDISK_CSI_DRIVER_INSTALL_URL:-https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/${AZUREDISK_CSI_DRIVER_VERSION}/deploy/install-driver.sh}"
 export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 
+
+echo "CSI driver kubeconfig context is"
+kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" config get-contexts
+
 # Deploy the GCE PD CSI Driver if required
 if [[ "${DEPLOY_GCI_DRIVER:-false}" == "true" ]]; then
    if [[ -n "${E2E_GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
@@ -78,6 +82,9 @@ fi
 if [[ "${DEPLOY_AZURE_CSI_DRIVER:-false}" == "true" ]]; then
    curl -skSL ${AZUREDISK_CSI_DRIVER_INSTALL_URL} | bash -s ${AZUREDISK_CSI_DRIVER_VERSION} snapshot --
 fi
+
+echo "Normal kubeconfig context is"
+kubectl --kubeconfig "${KUBECONFIG}" config get-contexts
 
 # Create a dedicated service account for cluster-loader.
 cluster_loader_sa_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get serviceaccount -n default cluster-loader --ignore-not-found | wc -l)

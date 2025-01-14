@@ -124,6 +124,8 @@ func validateClusterFlags() *errors.ErrorList {
 }
 
 func initFlags() {
+	flags.InitFlagSet()
+
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
@@ -131,10 +133,13 @@ func initFlags() {
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
 	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
+
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
+	imagepreload.InitFlags()
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
+	prometheus.InitExperimentalFlags()
 }
 
 func validateFlags() *errors.ErrorList {

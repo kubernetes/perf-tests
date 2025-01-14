@@ -106,7 +106,7 @@ func InitFlags(p *config.PrometheusConfig) {
 // ValidatePrometheusFlags validates prometheus flags.
 func ValidatePrometheusFlags(p *config.PrometheusConfig) *clerrors.ErrorList {
 	errList := clerrors.NewErrorList()
-	if *shouldSnapshotPrometheusDisk && p.SnapshotProject == "" {
+	if shouldSnapshotPrometheusDisk && p.SnapshotProject == "" {
 		errList.Append(fmt.Errorf("requesting snapshot, but snapshot project not configured. Use --experimental-snapshot-project flag"))
 	}
 	return errList

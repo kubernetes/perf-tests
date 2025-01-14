@@ -53,7 +53,7 @@ var (
 	manifestsFS embed.FS
 )
 
-func init() {
+func InitFlags() {
 	flags.StringSliceEnvVar(&images, "node-preload-images", "NODE_PRELOAD_IMAGES", []string{}, "List of images to preload on each node in the test cluster before executing tests")
 }
 

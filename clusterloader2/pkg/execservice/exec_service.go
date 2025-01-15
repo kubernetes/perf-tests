@@ -67,10 +67,16 @@ func InitFlags(c *config.ExecServiceConfig) {
 		true,
 		"Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.",
 	)
+	flags.StringVar(
+		&c.ImageRegistry,
+		"registry-k8s-repo",
+		"registry.k8s.io",
+		"FQDN of registry.k8s.io image repo",
+	)
 }
 
 // SetUpExecService creates exec pod.
-func SetUpExecService(f *framework.Framework, _ config.ExecServiceConfig) error {
+func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error {
 	var err error
 	lock.Lock()
 	defer lock.Unlock()
@@ -82,6 +88,7 @@ func SetUpExecService(f *framework.Framework, _ config.ExecServiceConfig) error 
 	mapping["Name"] = execDeploymentName
 	mapping["Namespace"] = execDeploymentNamespace
 	mapping["Replicas"] = execPodReplicas
+	mapping["ImageRegistry"] = c.ImageRegistry
 	if err = client.CreateNamespace(f.GetClientSets().GetClient(), execDeploymentNamespace); err != nil {
 		return fmt.Errorf("namespace %s creation error: %v", execDeploymentNamespace, err)
 	}

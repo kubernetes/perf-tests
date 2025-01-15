@@ -121,6 +121,7 @@ func (a *artifactsCache) getMatchingFiles(job string, buildNumber int, prefix st
 	if !ok {
 		return nil, fmt.Errorf("couldn't get list of files from cache")
 	}
+
 	matchedFiles := []string{}
 	for _, file := range val {
 		if strings.HasPrefix(file, searchPrefix) {

@@ -18,6 +18,7 @@ package errors
 
 import (
 	"bytes"
+	"errors"
 	"sync"
 )
 
@@ -56,6 +57,19 @@ func (e *ErrorList) Concat(e2 *ErrorList) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	e.errors = append(e.errors, e2.errors...)
+}
+
+// Has returns the first error in the list that is of the same
+// type as the provided error. Equality is checked using
+// `errors.Is`.
+func (e *ErrorList) Has(targetErr error) bool {
+	for _, err := range e.errors {
+		if errors.Is(err, targetErr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // String returns error list as a single string.

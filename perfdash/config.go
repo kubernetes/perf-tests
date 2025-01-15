@@ -514,9 +514,10 @@ var (
 				Parser:           parsePerfData,
 			}},
 			"BenchmarkPerfResults": []TestDescription{{
-				Name:             "benchmark",
-				OutputFilePrefix: "BenchmarkPerfScheduling",
-				Parser:           parsePerfData,
+				Name:                        "benchmark",
+				OutputFilePrefix:            "BenchmarkPerfScheduling",
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
 			}},
 		},
 	}
@@ -656,6 +657,11 @@ var (
 				Name:             "watch-list",
 				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
 				Parser:           parsePerfData,
+			}},
+			"LoadRequestCount_PrometheusSimple": []TestDescription{{
+				Name:             "watch-list",
+				OutputFilePrefix: "APIResponsivenessPrometheus_simple",
+				Parser:           parseRequestCountData,
 			}},
 		},
 	}

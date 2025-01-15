@@ -65,5 +65,5 @@ func (p *AKSProvider) Metadata(_ clientset.Interface) (map[string]string, error)
 }
 
 func (p *AKSProvider) GetManagedPrometheusClient() (prom.Client, error) {
-	return nil, ErrNoManagedPrometheus
+	return prom.NewAKSManagedPrometheusClient()
 }

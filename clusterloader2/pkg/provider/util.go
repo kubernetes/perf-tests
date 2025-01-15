@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
+	sshutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 var (

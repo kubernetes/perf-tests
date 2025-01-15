@@ -99,7 +99,10 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 			}
 		}
 	}
-	klog.V(2).Infof(ctx.GetChaosMonkey().Summary())
+	summary := ctx.GetChaosMonkey().Summary()
+	if summary != "" {
+		klog.V(2).Info(summary)
+	}
 	return errList
 }
 
@@ -383,9 +386,8 @@ func createNamespacesList(ctx Context, namespaceRange *api.NamespaceRange) []str
 	return nsList
 }
 
-func isErrsCritical(*errors.ErrorList) bool {
-	// TODO: define critical errors
-	return false
+func isErrsCritical(errList *errors.ErrorList) bool {
+	return errList.Has(errors.ErrCritical)
 }
 
 func cleanupResources(ctx Context, conf *api.Config) {

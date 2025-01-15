@@ -32,6 +32,8 @@ import (
 const (
 	defaultDNSPropagationProbeNamespaceIndex = 1
 	defaultDNSPropagationProbeSampleCount    = 10
+	defaultDNSPropagationProbeCPU            = "100m"
+	defaultDNSPropagationProbeMemory         = "100Mi"
 )
 
 // NewPropagationMetricPrometheus tries to parse latency data from results of Prometheus query from propagation probe.
@@ -82,6 +84,14 @@ func InitializeTemplateMappingForDNSPropagationProbe(config *measurement.Config)
 	if err != nil {
 		return nil, err
 	}
+	DNSPropagationProbeCPU, err := util.GetStringOrDefault(config.Params, "DNSPropagationProbeCpu", defaultDNSPropagationProbeCPU)
+	if err != nil {
+		return nil, err
+	}
+	DNSPropagationProbeMemory, err := util.GetStringOrDefault(config.Params, "DNSPropagationProbeMemory", defaultDNSPropagationProbeMemory)
+	if err != nil {
+		return nil, err
+	}
 	namespacePrefix := config.ClusterFramework.GetAutomanagedNamespacePrefix()
 	DNSPropagationProbeNamespace := fmt.Sprintf("%s-%d", namespacePrefix, DNSPropagationProbeNamespaceIndex)
 	klog.V(2).Infof("DNS propagation namespace, GetAutomanagedNamespacePrefix= %s, DNSPropagationProbeNamespaceIndex=%d, DNSPropagationProbeNamespace=%s",
@@ -92,5 +102,7 @@ func InitializeTemplateMappingForDNSPropagationProbe(config *measurement.Config)
 		"DNSPropagationProbeStatefulSet": DNSPropagationProbeStatefulSet,
 		"DNSPropagationProbePodCount":    DNSPropagationProbePodCount,
 		"DNSPropagationProbeSampleCount": DNSPropagationProbeSampleCount,
+		"DNSPropagationProbeCpu":         DNSPropagationProbeCPU,
+		"DNSPropagationProbeMemory":      DNSPropagationProbeMemory,
 	}, nil
 }

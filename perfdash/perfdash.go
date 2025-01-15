@@ -31,8 +31,9 @@ const (
 	errorDelay = 10 * time.Second
 	maxBuilds  = 100
 
-	s3Mode  = "s3"
-	gcsMode = "gcs"
+	s3Mode       = "s3"
+	gcsMode      = "gcs"
+	localDirMode = "local"
 )
 
 var options = &DownloaderOptions{}
@@ -48,7 +49,7 @@ var (
 	globalConfig = make(map[string]string)
 
 	// Storage Service Bucket and Path flags
-	logsBucket = pflag.String("logsBucket", "kubernetes-jenkins", "Name of the data bucket")
+	logsBucket = pflag.String("logsBucket", "kubernetes-ci-logs", "Name of the data bucket")
 	logsPath   = pflag.String("logsPath", "logs", "Path to the logs inside the logs bucket")
 
 	// Google GCS Specific flags
@@ -98,6 +99,8 @@ func run() error {
 		metricsBucket, err = NewGCSMetricsBucket(*logsBucket, *logsPath, *credentialPath, *useADC)
 	case s3Mode:
 		metricsBucket, err = NewS3MetricsBucket(*logsBucket, *logsPath, *awsRegion)
+	case localDirMode:
+		metricsBucket, err = NewLocalMetricsDir(*logsPath)
 	default:
 		return fmt.Errorf("unexpected mode: %s", options.Mode)
 	}

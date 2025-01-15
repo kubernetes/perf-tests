@@ -17,13 +17,17 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestIsResourceQuotaError(t *testing.T) {
@@ -153,5 +157,38 @@ func TestKindPluralization(t *testing.T) {
 				t.Errorf("pluralResource(%+v) = %+v, want %+v", *gvk, got, *want)
 			}
 		})
+	}
+}
+
+func TestListEventsWithOptions(t *testing.T) {
+	namespace := "default"
+	event1 := &corev1.Event{
+		InvolvedObject: corev1.ObjectReference{
+			Name:      "object1",
+			Namespace: namespace,
+		},
+		Message: "Event 1 message",
+	}
+	event2 := &corev1.Event{
+		InvolvedObject: corev1.ObjectReference{
+			Name:      "object2",
+			Namespace: namespace,
+		},
+		Message: "Event 2 message",
+	}
+	client := fake.NewSimpleClientset()
+	client.CoreV1().Events(namespace).Create(context.TODO(), event1, metav1.CreateOptions{})
+	client.CoreV1().Events(namespace).Create(context.TODO(), event2, metav1.CreateOptions{})
+
+	events, err := ListEvents(client, namespace, "object1")
+	if err != nil {
+		t.Fatalf("Unexpected error from ListEvents()\n%v", err)
+		return
+	}
+	if len(events.Items) != 1 {
+		t.Fatalf("Expect 1 events, got %d", len(events.Items))
+	}
+	if events.Items[0].InvolvedObject.Name != "object1" {
+		t.Errorf("Expect object1, got %q", events.Items[0].InvolvedObject.Name)
 	}
 }

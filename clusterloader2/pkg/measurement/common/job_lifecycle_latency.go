@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
@@ -60,6 +61,8 @@ func createJobLifecycleLatencyMeasurement() measurement.Measurement {
 		selector:        util.NewObjectSelector(),
 		jobStateEntries: measurementutil.NewObjectTransitionTimes(jobLifecycleLatencyMeasurementName),
 		eventQueue:      workqueue.New(),
+		podCreationTime: measurementutil.NewPodCreationEventTimes(),
+		eventTicker:     time.NewTicker(time.Minute),
 	}
 }
 
@@ -69,6 +72,8 @@ type jobLifecycleLatencyMeasurement struct {
 	stopCh          chan struct{}
 	eventQueue      *workqueue.Type
 	jobStateEntries *measurementutil.ObjectTransitionTimes
+	podCreationTime *measurementutil.PodCreationEventTimes
+	eventTicker     *time.Ticker
 }
 
 // Execute supports two actions:
@@ -130,6 +135,7 @@ func (p *jobLifecycleLatencyMeasurement) start(c clientset.Interface) error {
 		p.addEvent,
 	)
 	go p.processEvents()
+	go measurementutil.RunEveryTick(p.eventTicker, p.getFuncToListJobEvents(c), p.stopCh)
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
 }
 
@@ -222,6 +228,12 @@ func (p *jobLifecycleLatencyMeasurement) gather(identifier string, timeout time.
 	}
 	p.stop()
 	jobLifecycleLatency := p.jobStateEntries.CalculateTransitionsLatency(jobLifecycleTransitions, measurementutil.MatchAll)
+	jobCreationTimes := make(map[string]time.Time)
+	for jobName := range p.jobStateEntries.Keys() {
+		jobCreationTimes[jobName], _ = p.jobStateEntries.Get(jobName, jobCreated)
+	}
+	podCreationTime := p.podCreationTime.CalculateLatency(jobCreationTimes)
+	jobLifecycleLatency["create_to_pod_start"] = &podCreationTime
 	content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(jobLifecycleLatency))
 	if jsonErr != nil {
 		return nil, jsonErr
@@ -233,4 +245,28 @@ func (p *jobLifecycleLatencyMeasurement) gather(identifier string, timeout time.
 
 func createMetaNamespaceKey(namespace, name string) string {
 	return namespace + "/" + name
+}
+
+func (p *jobLifecycleLatencyMeasurement) getFuncToListJobEvents(c clientset.Interface) func() {
+	return func() {
+		klog.V(2).Infof("%s: list job events", p)
+		options := metav1.ListOptions{
+			FieldSelector: "involvedObject.kind=Job",
+		}
+		events, err := client.ListEventsWithOptions(c, p.selector.Namespace, options)
+		if err != nil {
+			klog.Errorf("Failed to list events: %v", err)
+			return
+		}
+		for _, event := range events.Items {
+			key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
+			if !p.jobStateEntries.Exists(key) {
+				continue
+			}
+			if event.Reason != "SuccessfulCreate" {
+				continue
+			}
+			p.podCreationTime.Set(key, &event)
+		}
+	}
 }

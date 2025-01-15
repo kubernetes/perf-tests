@@ -18,10 +18,13 @@ package util
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -82,6 +85,13 @@ func (o *ObjectTransitionTimes) Count(phase string) int {
 		}
 	}
 	return count
+}
+
+func (o *ObjectTransitionTimes) Exists(key string) bool {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	_, exists := o.times[key]
+	return exists
 }
 
 // KeyFilterFunc is a function that for a given key returns whether
@@ -146,6 +156,19 @@ func (o *ObjectTransitionTimes) printLatencies(latencies []LatencyData, header s
 	klog.V(0).Infof("%s: perc50: %v, perc90: %v, perc99: %v%s", o.name, metrics.Perc50, metrics.Perc90, metrics.Perc99, thresholdString)
 }
 
+func (o *ObjectTransitionTimes) Keys() <-chan string {
+	ch := make(chan string, len(o.times))
+	go func() {
+		o.lock.Lock()
+		defer o.lock.Unlock()
+		for key := range o.times {
+			ch <- key
+		}
+		close(ch)
+	}()
+	return ch
+}
+
 type latencyData struct {
 	key     string
 	latency time.Duration
@@ -166,4 +189,71 @@ func LatencyMapToPerfData(latency map[string]*LatencyMetric) *PerfData {
 		perfData.DataItems = append(perfData.DataItems, l.ToPerfData(name))
 	}
 	return perfData
+}
+
+type EventTimeAndCount struct {
+	firstTimestamp metav1.Time
+	lastTimestamp  metav1.Time
+	count          int32
+}
+
+type PodCreationEventTimes struct {
+	lock         sync.Mutex
+	events       map[string]map[string]EventTimeAndCount
+	podNameRegex *regexp.Regexp
+}
+
+func NewPodCreationEventTimes() *PodCreationEventTimes {
+	return &PodCreationEventTimes{
+		events:       make(map[string]map[string]EventTimeAndCount),
+		podNameRegex: regexp.MustCompile(`Created pod: (.*)`),
+	}
+}
+
+func (pc *PodCreationEventTimes) Set(key string, event *corev1.Event) {
+	match := pc.podNameRegex.FindStringSubmatch(event.Message)
+	pod_name := match[1]
+
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+	if _, exists := pc.events[key]; !exists {
+		pc.events[key] = make(map[string]EventTimeAndCount)
+	}
+	pc.events[key][pod_name] = EventTimeAndCount{
+		firstTimestamp: event.FirstTimestamp,
+		lastTimestamp:  event.LastTimestamp,
+		count:          event.Count,
+	}
+}
+
+func (pc *PodCreationEventTimes) CalculateLatency(jobCreationTimes map[string]time.Time) LatencyMetric {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+
+	latencies := make([]LatencyData, 0, len(pc.events))
+	for job_name, events := range pc.events {
+		jobCreateTime, exists := jobCreationTimes[job_name]
+		if !exists {
+			continue
+		}
+		for pod_name, event := range events {
+			latencies = append(latencies, latencyData{
+				key:     pod_name,
+				latency: event.firstTimestamp.Sub(jobCreateTime),
+			})
+			if event.count == 1 {
+				continue
+			}
+			// Assume individual events in aggregated events distribute uniformly.
+			interval := event.lastTimestamp.Sub(event.firstTimestamp.Time) / time.Duration(event.count-1)
+			for i := 1; i < int(event.count); i++ {
+				latencies = append(latencies, latencyData{
+					key:     pod_name,
+					latency: event.firstTimestamp.Add(interval * time.Duration(i)).Sub(jobCreateTime),
+				})
+			}
+		}
+	}
+	sort.Sort(LatencySlice(latencies))
+	return NewLatencyMetric(latencies)
 }

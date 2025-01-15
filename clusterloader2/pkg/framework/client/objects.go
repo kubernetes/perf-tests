@@ -251,18 +251,22 @@ func WaitForDeleteNamespace(c clientset.Interface, namespace string, timeout tim
 	return wait.PollImmediate(defaultNamespaceDeletionInterval, timeout, retryWaitFunc)
 }
 
-// ListEvents retrieves events for the object with the given name.
-func ListEvents(c clientset.Interface, namespace string, name string, options ...*APICallOptions) (obj *apiv1.EventList, err error) {
+func ListEventsWithOptions(c clientset.Interface, namespace string, listOptions metav1.ListOptions, options ...*APICallOptions) (obj *apiv1.EventList, err error) {
 	getFunc := func() error {
-		obj, err = c.CoreV1().Events(namespace).List(context.TODO(), metav1.ListOptions{
-			FieldSelector: "involvedObject.name=" + name,
-		})
+		obj, err = c.CoreV1().Events(namespace).List(context.TODO(), listOptions)
 		return err
 	}
 	if err := RetryWithExponentialBackOff(RetryFunction(getFunc, options...)); err != nil {
 		return nil, err
 	}
 	return obj, nil
+}
+
+// ListEvents retrieves events for the object with the given name.
+func ListEvents(c clientset.Interface, namespace string, name string, options ...*APICallOptions) (obj *apiv1.EventList, err error) {
+	return ListEventsWithOptions(c, namespace, metav1.ListOptions{
+		FieldSelector: "involvedObject.name=" + name,
+	}, options...)
 }
 
 // DeleteStorageClass deletes storage class with given name.

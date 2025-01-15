@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -93,6 +94,15 @@ func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeCo
 	}
 
 	return &f, nil
+}
+
+func NewFakeFramework(fakeClient clientset.Interface) *Framework {
+	return &Framework{
+		automanagedNamespaces: make(map[string]bool),
+		clientSets: &MultiClientSet{
+			clients: []clientset.Interface{fakeClient},
+		},
+	}
 }
 
 // GetAutomanagedNamespacePrefix returns automanaged namespace prefix.

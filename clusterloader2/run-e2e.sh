@@ -30,6 +30,8 @@ export AZUREDISK_CSI_DRIVER_INSTALL_URL="${AZUREDISK_CSI_DRIVER_INSTALL_URL:-htt
 export WINDOWS_USE_HOST_PROCESS_CONTAINERS=true
 
 
+kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" config set-context --current --namespace="default"
+
 echo "CSI driver kubeconfig context is"
 kubectl --kubeconfig "${CSI_DRIVER_KUBECONFIG}" config get-contexts
 
@@ -85,6 +87,9 @@ fi
 
 echo "Normal kubeconfig context is"
 kubectl --kubeconfig "${KUBECONFIG}" config get-contexts
+
+kubectl --kubeconfig "${KUBECONFIG}" config set-context --current --namespace="default"
+
 
 # Create a dedicated service account for cluster-loader.
 cluster_loader_sa_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get serviceaccount -n default cluster-loader --ignore-not-found | wc -l)

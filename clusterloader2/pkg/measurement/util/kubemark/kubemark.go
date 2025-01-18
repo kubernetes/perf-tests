@@ -56,7 +56,7 @@ func GetKubemarkMasterComponentsResourceUsage(host string, provider provider.Pro
 		var cpu float64
 		var mem uint64
 		var name string
-		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/kube-%s", &cpu, &mem, &name); err == nil {
+		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/kube-%s", &cpu, &mem, &name); err != nil {
 			klog.Errorf("error parsing component resource usage %s. Skipping. %v", name, err)
 		}
 		if name != "" {
@@ -76,7 +76,7 @@ func GetKubemarkMasterComponentsResourceUsage(host string, provider provider.Pro
 		var cpu float64
 		var mem uint64
 		var etcdKind string
-		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/etcd", &cpu, &mem); err == nil {
+		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%f %d /usr/local/bin/etcd", &cpu, &mem); err != nil {
 			klog.Errorf("error parsing etcd resource usage, skipping. %v", err)
 		}
 		dataDirStart := strings.Index(scanner.Text(), "--data-dir")

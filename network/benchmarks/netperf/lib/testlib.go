@@ -25,12 +25,12 @@ type TestParams struct {
 	CleanupOnly   bool
 	TestFrom      int
 	TestTo        int
-	JsonOutput    bool
+	JSONOutput    bool
 	KubeConfig    string
 }
 
 type Result struct {
-	JsonResultFile string
+	JSONResultFile string
 	CsvResultFile  string
 }
 

@@ -9,105 +9,105 @@ import (
 	"k8s.io/perf-tests/network/nptest/parsers"
 )
 
-func Test_ParseIperfTcpResults(t *testing.T) {
-	tcp_json_file_name := "testdata/tcp.json"
-	tcp_json_file, err := os.Open(tcp_json_file_name)
+func Test_ParseIperfTCPResults(t *testing.T) {
+	tcpJSONFileName := "testdata/tcp.json"
+	tcpJSONFile, err := os.Open(tcpJSONFileName)
 	if err != nil {
-		t.Fatalf("Failed to open file %s: %v", tcp_json_file_name, err)
+		t.Fatalf("Failed to open file %s: %v", tcpJSONFileName, err)
 	}
-	defer tcp_json_file.Close()
+	defer tcpJSONFile.Close()
 
-	tcp_output_file_name := "testdata/tcp_output.json"
-	tcp_output_file, err := os.Open(tcp_output_file_name)
+	tcpOutputFileName := "testdata/tcp_output.json"
+	tcpOutputFile, err := os.Open(tcpOutputFileName)
 	if err != nil {
-		t.Fatalf("Failed to open file %s: %v", tcp_output_file_name, err)
+		t.Fatalf("Failed to open file %s: %v", tcpOutputFileName, err)
 	}
-	defer tcp_output_file.Close()
+	defer tcpOutputFile.Close()
 
-	tcp_json, err := io.ReadAll(tcp_json_file)
+	tcpJSON, err := io.ReadAll(tcpJSONFile)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", tcp_json_file_name, err)
+		t.Fatalf("Failed to read file %s: %v", tcpJSONFileName, err)
 	}
-	tcp_output_json, err := io.ReadAll(tcp_output_file)
+	tcpOutputJSON, err := io.ReadAll(tcpOutputFile)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", tcp_output_file_name, err)
+		t.Fatalf("Failed to read file %s: %v", tcpOutputFileName, err)
 	}
 
-	var iperfOutput parsers.IperfTcpCommandOutput
+	var iperfOutput parsers.IperfTCPCommandOutput
 
-	err = json.Unmarshal(tcp_json, &iperfOutput)
+	err = json.Unmarshal(tcpJSON, &iperfOutput)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
 
-	var tcp_expected_output parsers.IperfTcpParsedResult
-	var tcp_actual_output parsers.IperfTcpParsedResult
+	var tcpExpectedOutput parsers.IperfTCPParsedResult
+	var tcpActualOutput parsers.IperfTCPParsedResult
 
-	tcp_parsed_fnc_output := parsers.ParseIperfTcpResults(string(tcp_json))
-	_ = json.Unmarshal([]byte(tcp_parsed_fnc_output), &tcp_actual_output)
-	_ = json.Unmarshal([]byte(tcp_output_json), &tcp_expected_output)
+	tcpParsedFncOutput := parsers.ParseIperfTCPResults(string(tcpJSON))
+	_ = json.Unmarshal([]byte(tcpParsedFncOutput), &tcpActualOutput)
+	_ = json.Unmarshal([]byte(tcpOutputJSON), &tcpExpectedOutput)
 
-	if tcp_actual_output != tcp_expected_output {
-		t.Fatalf("Expected %v, got %v", tcp_expected_output, tcp_actual_output)
+	if tcpActualOutput != tcpExpectedOutput {
+		t.Fatalf("Expected %v, got %v", tcpExpectedOutput, tcpActualOutput)
 	}
 
-	tcp_bw, tcp_mss := parsers.ParseIperfTCPBandwidth(string(tcp_json))
-	if tcp_bw != 14088.0 {
-		t.Fatalf("Expected 14088.000000, got %f", tcp_bw)
+	tcpBw, tcpMSS := parsers.ParseIperfTCPBandwidth(string(tcpJSON))
+	if tcpBw != 14088.0 {
+		t.Fatalf("Expected 14088.000000, got %f", tcpBw)
 	}
-	if tcp_mss != 96 {
-		t.Fatalf("Expected 96, got %d", tcp_mss)
+	if tcpMSS != 96 {
+		t.Fatalf("Expected 96, got %d", tcpMSS)
 	}
 }
 
-func Test_ParseIperfUdpResults(t *testing.T) {
-	udp_json_file_name := "testdata/udp.json"
-	udp_json_file, err := os.Open(udp_json_file_name)
+func Test_ParseIperfUDPResults(t *testing.T) {
+	udpJSONFileName := "testdata/udp.json"
+	udpJSONFile, err := os.Open(udpJSONFileName)
 	if err != nil {
-		t.Fatalf("Failed to open file %s: %v", udp_json_file_name, err)
+		t.Fatalf("Failed to open file %s: %v", udpJSONFileName, err)
 	}
-	defer udp_json_file.Close()
+	defer udpJSONFile.Close()
 
-	udp_output_file_name := "testdata/udp_output.json"
-	udp_output_file, err := os.Open(udp_output_file_name)
+	udpOutputFileName := "testdata/udp_output.json"
+	udpOutputFile, err := os.Open(udpOutputFileName)
 	if err != nil {
-		t.Fatalf("Failed to open file %s: %v", udp_output_file_name, err)
+		t.Fatalf("Failed to open file %s: %v", udpOutputFileName, err)
 	}
-	defer udp_output_file.Close()
+	defer udpOutputFile.Close()
 
-	udp_json, err := io.ReadAll(udp_json_file)
+	udpJSON, err := io.ReadAll(udpJSONFile)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", udp_json_file_name, err)
+		t.Fatalf("Failed to read file %s: %v", udpJSONFileName, err)
 	}
-	udp_output_json, err := io.ReadAll(udp_output_file)
+	udpOutputJSON, err := io.ReadAll(udpOutputFile)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", udp_output_file_name, err)
+		t.Fatalf("Failed to read file %s: %v", udpOutputFileName, err)
 	}
 
-	var iperfOutput parsers.IperfUdpCommandOutput
+	var iperfOutput parsers.IperfUDPCommandOutput
 
-	err = json.Unmarshal(udp_json, &iperfOutput)
+	err = json.Unmarshal(udpJSON, &iperfOutput)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
 
-	var udp_expected_output parsers.IperfUdpParsedResult
-	var udp_actual_output parsers.IperfUdpParsedResult
+	var udpExpectedOutput parsers.IperfUDPParsedResult
+	var udpActualOutput parsers.IperfUDPParsedResult
 
-	udp_parsed_fnc_output := parsers.ParseIperfUdpResults(string(udp_json))
-	t.Logf("udp_parsed_fnc_output: %s", udp_parsed_fnc_output)
-	_ = json.Unmarshal([]byte(udp_parsed_fnc_output), &udp_actual_output)
-	_ = json.Unmarshal([]byte(udp_output_json), &udp_expected_output)
+	udpParsedFncOutput := parsers.ParseIperfUDPResults(string(udpJSON))
+	t.Logf("udp_parsed_fnc_output: %s", udpParsedFncOutput)
+	_ = json.Unmarshal([]byte(udpParsedFncOutput), &udpActualOutput)
+	_ = json.Unmarshal([]byte(udpOutputJSON), &udpExpectedOutput)
 
-	if udp_actual_output != udp_expected_output {
-		t.Fatalf("Expected %v, got %v", udp_expected_output, udp_actual_output)
+	if udpActualOutput != udpExpectedOutput {
+		t.Fatalf("Expected %v, got %v", udpExpectedOutput, udpActualOutput)
 	}
 
-	udp_bw, udp_mss := parsers.ParseIperfUDPBandwidth(string(udp_json))
-	if udp_bw != 1407.34 {
-		t.Fatalf("Expected 1407.34, got %f", udp_bw)
+	udpBw, udpMSS := parsers.ParseIperfUDPBandwidth(string(udpJSON))
+	if udpBw != 1407.34 {
+		t.Fatalf("Expected 1407.34, got %f", udpBw)
 	}
-	if udp_mss != 0 {
-		t.Fatalf("Expected 0, got %d", udp_mss)
+	if udpMSS != 0 {
+		t.Fatalf("Expected 0, got %d", udpMSS)
 	}
 }

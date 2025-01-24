@@ -25,7 +25,7 @@ type TestCase struct {
 	Label           string
 	Finished        bool
 	BandwidthParser func(string) (float64, int)
-	JsonParser      func(string) string
+	JSONParser      func(string) string
 	TestRunner      func(ClientWorkItem) string
 	// Deprecated: We will use declarative approach to define test cases
 	Type TestType
@@ -51,8 +51,8 @@ var testcases = []*TestCase{
 			ClusterIP:       false,
 			MSS:             mssMin,
 		},
-		TestRunner:      iperfBasicTcpTestRunner,
-		JsonParser:      parsers.ParseIperfTcpResults,
+		TestRunner:      iperfBasicTCPTestRunner,
+		JSONParser:      parsers.ParseIperfTCPResults,
 		BandwidthParser: parsers.ParseIperfTCPBandwidth,
 		Type:            iperfTCPTest,
 	},
@@ -64,8 +64,8 @@ var testcases = []*TestCase{
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		TestRunner:      iperfBasicTcpTestRunner,
-		JsonParser:      parsers.ParseIperfTcpResults,
+		TestRunner:      iperfBasicTCPTestRunner,
+		JSONParser:      parsers.ParseIperfTCPResults,
 		BandwidthParser: parsers.ParseIperfTCPBandwidth,
 		Type:            iperfTCPTest,
 	},
@@ -77,8 +77,8 @@ var testcases = []*TestCase{
 			ClusterIP:       false,
 			MSS:             mssMin,
 		},
-		TestRunner:      iperfBasicTcpTestRunner,
-		JsonParser:      parsers.ParseIperfTcpResults,
+		TestRunner:      iperfBasicTCPTestRunner,
+		JSONParser:      parsers.ParseIperfTCPResults,
 		BandwidthParser: parsers.ParseIperfTCPBandwidth,
 		Type:            iperfTCPTest,
 	},
@@ -90,8 +90,8 @@ var testcases = []*TestCase{
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		TestRunner:      iperfBasicTcpTestRunner,
-		JsonParser:      parsers.ParseIperfTcpResults,
+		TestRunner:      iperfBasicTCPTestRunner,
+		JSONParser:      parsers.ParseIperfTCPResults,
 		BandwidthParser: parsers.ParseIperfTCPBandwidth,
 		Type:            iperfTCPTest,
 	},
@@ -103,8 +103,8 @@ var testcases = []*TestCase{
 			ClusterIP:       true,
 			MSS:             mssMin,
 		},
-		TestRunner:      iperfBasicTcpTestRunner,
-		JsonParser:      parsers.ParseIperfTcpResults,
+		TestRunner:      iperfBasicTCPTestRunner,
+		JSONParser:      parsers.ParseIperfTCPResults,
 		BandwidthParser: parsers.ParseIperfTCPBandwidth,
 		Type:            iperfTCPTest,
 	},
@@ -116,8 +116,8 @@ var testcases = []*TestCase{
 			ClusterIP:       true,
 			MSS:             mssMax,
 		},
-		TestRunner:      iperfBasicUdpTestRunner,
-		JsonParser:      parsers.ParseIperfUdpResults,
+		TestRunner:      iperfBasicUDPTestRunner,
+		JSONParser:      parsers.ParseIperfUDPResults,
 		BandwidthParser: parsers.ParseIperfUDPBandwidth,
 		Type:            iperfUDPTest,
 	},
@@ -129,8 +129,8 @@ var testcases = []*TestCase{
 			ClusterIP:       false,
 			MSS:             mssMax,
 		},
-		TestRunner:      iperfBasicUdpTestRunner,
-		JsonParser:      parsers.ParseIperfUdpResults,
+		TestRunner:      iperfBasicUDPTestRunner,
+		JSONParser:      parsers.ParseIperfUDPResults,
 		BandwidthParser: parsers.ParseIperfUDPBandwidth,
 		Type:            iperfUDPTest,
 	},
@@ -142,20 +142,20 @@ var testcases = []*TestCase{
 			ClusterIP:       true,
 			MSS:             mssMax,
 		},
-		TestRunner:      iperfBasicUdpTestRunner,
+		TestRunner:      iperfBasicUDPTestRunner,
 		BandwidthParser: parsers.ParseIperfUDPBandwidth,
-		JsonParser:      parsers.ParseIperfUdpResults,
+		JSONParser:      parsers.ParseIperfUDPResults,
 		Type:            iperfUDPTest,
 	},
 	{
-		Label: "8 Iperf Udp. Same VM using Pod IP",
+		Label: "8 Iperf UDP. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 			MSS:             mssMax,
 		},
-		TestRunner:      iperfBasicUdpTestRunner,
+		TestRunner:      iperfBasicUDPTestRunner,
 		BandwidthParser: parsers.ParseNetperfBandwidth,
 		Type:            netperfTest,
 	},
@@ -212,8 +212,8 @@ var testcases = []*TestCase{
 			TestDuration:    10 * time.Minute,
 			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputTcpRunner,
-		JsonParser: parsers.ParseIperfTcpResults,
+		TestRunner: iperfThroughputTCPRunner,
+		JSONParser: parsers.ParseIperfTCPResults,
 		Type:       iperfThroughputTest,
 	},
 	{
@@ -225,8 +225,8 @@ var testcases = []*TestCase{
 			TestDuration:    10 * time.Minute,
 			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputTcpRunner,
-		JsonParser: parsers.ParseIperfTcpResults,
+		TestRunner: iperfThroughputTCPRunner,
+		JSONParser: parsers.ParseIperfTCPResults,
 		Type:       iperfThroughputTest,
 	},
 	{
@@ -238,8 +238,8 @@ var testcases = []*TestCase{
 			TestDuration:    10 * time.Minute,
 			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputUdpRunner,
-		JsonParser: parsers.ParseIperfUdpResults,
+		TestRunner: iperfThroughputUDPRunner,
+		JSONParser: parsers.ParseIperfUDPResults,
 		Type:       iperfThroughputUDPTest,
 	},
 	{
@@ -251,18 +251,18 @@ var testcases = []*TestCase{
 			TestDuration:    10 * time.Minute,
 			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputUdpRunner,
-		JsonParser: parsers.ParseIperfUdpResults,
+		TestRunner: iperfThroughputUDPRunner,
+		JSONParser: parsers.ParseIperfUDPResults,
 		Type:       iperfThroughputUDPTest,
 	},
 }
 
-func iperfBasicTcpTestRunner(w ClientWorkItem) string {
+func iperfBasicTCPTestRunner(w ClientWorkItem) string {
 	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-N", "-i", "30", "-t", "10", "-f", "m", "-w", "512M", "-Z", "-J", "-P", parallelStreams, "-M", strconv.Itoa(w.Params.MSS)}, 15)
 	return output
 }
 
-func iperfBasicUdpTestRunner(w ClientWorkItem) string {
+func iperfBasicUDPTestRunner(w ClientWorkItem) string {
 	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-i", "30", "-t", "10", "-f", "m", "-b", "0", "-u", "-J"}, 15)
 	return output
 }
@@ -272,12 +272,12 @@ func netperfTestRunner(w ClientWorkItem) string {
 	return output
 }
 
-func iperfThroughputTcpRunner(w ClientWorkItem) string {
+func iperfThroughputTCPRunner(w ClientWorkItem) string {
 	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "--bandwidth", w.Params.Bandwidth, "-w", "410K", "-P", "1"}, 15)
 	return output
 }
 
-func iperfThroughputUdpRunner(w ClientWorkItem) string {
+func iperfThroughputUDPRunner(w ClientWorkItem) string {
 	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "--bandwidth", w.Params.Bandwidth, "-w", "410K", "-P", "1", "-u"}, 15)
 	return output
 }

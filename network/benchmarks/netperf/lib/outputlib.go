@@ -24,7 +24,7 @@ func getLogsFromPod(c *kubernetes.Clientset, podName, testNamespace string) (*st
 		Duration: 2 * time.Second,
 		Factor:   2.0,
 		Jitter:   100,
-	}, func(err error) bool {
+	}, func(_ error) bool {
 		return true
 	}, func() error {
 		body, err := c.CoreV1().Pods(testNamespace).GetLogs(podName, &api.PodLogOptions{}).DoRaw(context.Background())

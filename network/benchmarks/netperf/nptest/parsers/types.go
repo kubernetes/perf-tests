@@ -8,7 +8,7 @@ type IperfCommandOutputStart struct {
 		RemoteHost string `json:"remote_host"`
 		RemotePort int    `json:"remote_port"`
 	} `json:"connected"`
-	TcpMss    int `json:"tcp_mss"`
+	TCPMss    int `json:"tcp_mss"`
 	TestStart struct {
 		Protocol   string `json:"protocol"`
 		NumStreams int    `json:"num_streams"`
@@ -22,20 +22,20 @@ type IperfCPUUtilizationPercent struct {
 	RemoteTotal float64 `json:"remote_total"`
 }
 
-type IperfTcpSenderSumStats struct {
+type IperfTCPSenderSumStats struct {
 	Seconds       float64 `json:"seconds"`
 	BitsPerSecond float64 `json:"bits_per_second"`
 	Bytes         int     `json:"bytes"`
 	Retransmits   int     `json:"retransmits"`
 }
 
-type IperfTcpReceiverSumStats struct {
+type IperfTCPReceiverSumStats struct {
 	Seconds       float64 `json:"seconds"`
 	BitsPerSecond float64 `json:"bits_per_second"`
 	Bytes         int     `json:"bytes"`
 }
 
-type IperfTcpCommandOutput struct {
+type IperfTCPCommandOutput struct {
 	Start     IperfCommandOutputStart `json:"start"`
 	Intervals []struct {
 		Streams []struct {
@@ -45,7 +45,7 @@ type IperfTcpCommandOutput struct {
 			Seconds       float64 `json:"seconds"`
 			Retransmits   int     `json:"retransmits"`
 		} `json:"streams"`
-		Sum IperfTcpSenderSumStats `json:"sum"`
+		Sum IperfTCPSenderSumStats `json:"sum"`
 	} `json:"intervals"`
 	End struct {
 		Streams []struct {
@@ -58,30 +58,30 @@ type IperfTcpCommandOutput struct {
 				MinRtt        uint    `json:"min_rtt"`
 				MeanRtt       uint    `json:"mean_rtt"`
 			} `json:"sender"`
-			Reciever IperfTcpReceiverSumStats `json:"receiver"`
+			Reciever IperfTCPReceiverSumStats `json:"receiver"`
 		} `json:"streams"`
-		SumSent               IperfTcpSenderSumStats     `json:"sum_sent"`
-		SumReceived           IperfTcpReceiverSumStats   `json:"sum_received"`
+		SumSent               IperfTCPSenderSumStats     `json:"sum_sent"`
+		SumReceived           IperfTCPReceiverSumStats   `json:"sum_received"`
 		CPUUtilizationPercent IperfCPUUtilizationPercent `json:"cpu_utilization_percent"`
 	} `json:"end"`
 }
 
-type IperfUdpIntervalObject struct {
+type IperfUDPIntervalObject struct {
 	BitsPerSecond float64 `json:"bits_per_second"`
 	Bytes         int     `json:"bytes"`
 	Packets       int     `json:"packets"`
 	Seconds       float64 `json:"seconds"`
 }
 
-type IperfUdpCommandOutput struct {
+type IperfUDPCommandOutput struct {
 	Start    IperfCommandOutputStart `json:"start"`
 	Interval []struct {
-		Streams []IperfUdpIntervalObject `json:"streams"`
-		Sum     IperfUdpIntervalObject   `json:"sum"`
+		Streams []IperfUDPIntervalObject `json:"streams"`
+		Sum     IperfUDPIntervalObject   `json:"sum"`
 	} `json:"intervals"`
 	End struct {
 		Streams []struct {
-			Udp struct {
+			UDP struct {
 				Bytes             int     `json:"bytes"`
 				BitsPerSecond     float64 `json:"bits_per_second"`
 				Jitter            float64 `json:"jitter_ms"`
@@ -111,7 +111,7 @@ type IperfTestInfo struct {
 	Mss      int    `json:"mss,omitempty"`
 }
 
-type IperfTcpParsedResult struct {
+type IperfTCPParsedResult struct {
 	TestInfo          IperfTestInfo              `json:"test_info"`
 	TotalThroughput   float64                    `json:"total_throughput"`
 	MeanRoundTripTime float64                    `json:"mean_rtt"`
@@ -121,7 +121,7 @@ type IperfTcpParsedResult struct {
 	CPUUtilization    IperfCPUUtilizationPercent `json:"cpu_utilization"`
 }
 
-type IperfUdpParsedResult struct {
+type IperfUDPParsedResult struct {
 	TestInfo               IperfTestInfo              `json:"test_info"`
 	TotalThroughput        float64                    `json:"total_throughput"`
 	Jitter                 float64                    `json:"jitter_ms"`

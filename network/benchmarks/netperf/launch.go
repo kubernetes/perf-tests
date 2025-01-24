@@ -31,7 +31,6 @@ import (
 	"fmt"
 	"os"
 
-	api "k8s.io/api/core/v1"
 	"k8s.io/perf-tests/network/benchmarks/netperf/lib"
 )
 
@@ -55,9 +54,6 @@ var (
 	testNamespace string
 	netperfImage  string
 	cleanupOnly   bool
-
-	primaryNode   api.Node
-	secondaryNode api.Node
 
 	testFrom, testTo int
 
@@ -97,7 +93,7 @@ func main() {
 		CleanupOnly:   cleanupOnly,
 		TestFrom:      testFrom,
 		TestTo:        testTo,
-		JsonOutput:    jsonOutput,
+		JSONOutput:    jsonOutput,
 		KubeConfig:    kubeConfig,
 	}
 	results, err := lib.PerformTests(testParams)
@@ -108,6 +104,6 @@ func main() {
 	fmt.Println("Results :")
 	for _, result := range results {
 		fmt.Println("CSV Result File  : ", result.CsvResultFile)
-		fmt.Println("JSON Result File : ", result.JsonResultFile)
+		fmt.Println("JSON Result File : ", result.JSONResultFile)
 	}
 }

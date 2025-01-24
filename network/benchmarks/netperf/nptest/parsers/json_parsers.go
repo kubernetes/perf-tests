@@ -5,8 +5,8 @@ import (
 	"math/bits"
 )
 
-func ParseIperfTcpResults(output string) string {
-	var iperfOutput IperfTcpCommandOutput
+func ParseIperfTCPResults(output string) string {
+	var iperfOutput IperfTCPCommandOutput
 
 	err := json.Unmarshal([]byte(output), &iperfOutput)
 	if err != nil {
@@ -24,13 +24,13 @@ func ParseIperfTcpResults(output string) string {
 		maxRtt = max(maxRtt, stream.Sender.MaxRtt)
 	}
 
-	var outputResult IperfTcpParsedResult
+	var outputResult IperfTCPParsedResult
 	outputResult.TestInfo = IperfTestInfo{
 		Protocol: iperfOutput.Start.TestStart.Protocol,
 		Streams:  iperfOutput.Start.TestStart.NumStreams,
 		BlkSize:  iperfOutput.Start.TestStart.BlkSize,
 		Duration: iperfOutput.Start.TestStart.Duration,
-		Mss:      iperfOutput.Start.TcpMss,
+		Mss:      iperfOutput.Start.TCPMss,
 	}
 	outputResult.TotalThroughput = iperfOutput.End.SumSent.BitsPerSecond / 1e6
 	outputResult.MeanRoundTripTime = float64(sumMeanRtt) / float64(len(iperfOutput.End.Streams))
@@ -39,16 +39,16 @@ func ParseIperfTcpResults(output string) string {
 	outputResult.Retransmits = iperfOutput.End.SumSent.Retransmits
 	outputResult.CPUUtilization = iperfOutput.End.CPUUtilizationPercent
 
-	parsedJson, err := json.Marshal(outputResult)
+	parsedJSON, err := json.Marshal(outputResult)
 	if err != nil {
 		return "{\"error\": \"Failed to marshal JSON output\", \"message\": \"" + err.Error() + "\"}"
 	}
 
-	return string(parsedJson)
+	return string(parsedJSON)
 }
 
-func ParseIperfUdpResults(output string) string {
-	var iperfOutput IperfUdpCommandOutput
+func ParseIperfUDPResults(output string) string {
+	var iperfOutput IperfUDPCommandOutput
 
 	err := json.Unmarshal([]byte(output), &iperfOutput)
 	if err != nil {
@@ -58,10 +58,10 @@ func ParseIperfUdpResults(output string) string {
 	// Calculate the total out of order packets
 	var totalOutOfOrderPackets int
 	for _, stream := range iperfOutput.End.Streams {
-		totalOutOfOrderPackets += stream.Udp.OutOfOrderPackets
+		totalOutOfOrderPackets += stream.UDP.OutOfOrderPackets
 	}
 
-	var outputResult IperfUdpParsedResult
+	var outputResult IperfUDPParsedResult
 	outputResult.TestInfo = IperfTestInfo{
 		Protocol: iperfOutput.Start.TestStart.Protocol,
 		Streams:  iperfOutput.Start.TestStart.NumStreams,
@@ -76,10 +76,10 @@ func ParseIperfUdpResults(output string) string {
 	outputResult.TotalOutOfOrderPackets = totalOutOfOrderPackets
 	outputResult.CPUUtilization = iperfOutput.End.CPUUtilizationPercent
 
-	parsedJson, err := json.Marshal(outputResult)
+	parsedJSON, err := json.Marshal(outputResult)
 	if err != nil {
 		return "{\"error\": \"Failed to marshal JSON output\", \"message\": \"" + err.Error() + "\"}"
 	}
 
-	return string(parsedJson)
+	return string(parsedJSON)
 }

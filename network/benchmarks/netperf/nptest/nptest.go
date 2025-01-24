@@ -68,10 +68,10 @@ type Result struct {
 
 var results []Result
 
-func addResult(label, resultJson string) {
+func addResult(label, resultJSON string) {
 	results = append(results, Result{
 		Label:  label,
-		Result: json.RawMessage(resultJson),
+		Result: json.RawMessage(resultJSON),
 	})
 }
 
@@ -277,7 +277,7 @@ func flushDataPointsToCsv() {
 	fmt.Println("END CSV DATA")
 }
 
-func flushResultJsonData() {
+func flushResultJSONData() {
 	jsonData, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		fmt.Println("Error generating JSON:", err)
@@ -464,10 +464,10 @@ func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, _ *int) error {
 		fmt.Println("Jobdone from worker", data.Worker, "Bandwidth was", bw, "Mbits/sec")
 	}
 
-	if testcase.JsonParser != nil {
+	if testcase.JSONParser != nil {
 		addResult(
 			fmt.Sprintf("%s with MSS: %d", testcase.Label, testcase.MSS-mssStepSize),
-			testcase.JsonParser(data.Output),
+			testcase.JSONParser(data.Output),
 		)
 		fmt.Println("Jobdone from worker", data.Worker, "JSON output generated")
 	}
@@ -555,7 +555,7 @@ func allocateWorkToClient(workerState *workerState, workItem *WorkItem) {
 	if !datapointsFlushed {
 		fmt.Println("ALL TESTCASES AND MSS RANGES COMPLETE - GENERATING CSV OUTPUT")
 		flushDataPointsToCsv()
-		flushResultJsonData()
+		flushResultJSONData()
 		datapointsFlushed = true
 	}
 

@@ -263,7 +263,7 @@ func executeTests(c *kubernetes.Clientset, testParams TestParams, primaryNode, s
 				continue
 			}
 
-			if testParams.JsonOutput {
+			if testParams.JSONOutput {
 				jsondata, err := getDataFromPod(c, orchestratorPodName, jsonDataMarker, jsonEndDataMarker, testParams.TestNamespace)
 				if err != nil {
 					return nil, fmt.Errorf("error getting JSON data from orchestrator pod: %v", err)
@@ -287,7 +287,7 @@ func executeTests(c *kubernetes.Clientset, testParams TestParams, primaryNode, s
 			break
 		}
 		fmt.Printf("TEST RUN (Iteration %d) FINISHED - cleaning up services and pods\n", i)
-		results[i] = Result{JsonResultFile: jsonFilePath, CsvResultFile: csvFilePath}
+		results[i] = Result{JSONResultFile: jsonFilePath, CsvResultFile: csvFilePath}
 	}
 	return results, nil
 }

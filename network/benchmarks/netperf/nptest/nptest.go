@@ -59,7 +59,7 @@ var workerStateMap map[string]*workerState
 var dataPoints map[string][]point
 var dataPointKeys []string
 var datapointsFlushed bool
-var active_tests []*TestCase
+var activeTests []*TestCase
 
 type Result struct {
 	Label  string          `json:"label"`
@@ -177,8 +177,8 @@ func main() {
 		os.Exit(1)
 	}
 	grabEnv()
-	active_tests = make([]*TestCase, 0, testTo-testFrom)
-	active_tests = append(active_tests, testcases[testFrom:testTo]...)
+	activeTests = make([]*TestCase, 0, testTo-testFrom)
+	activeTests = append(activeTests, testcases[testFrom:testTo]...)
 	fmt.Println("Running as", mode, "...")
 	if mode == orchestratorMode {
 		orchestrate()
@@ -338,7 +338,7 @@ func getMyIP() string {
 }
 
 func handleClientWorkItem(client *rpc.Client, workItem *WorkItem) {
-	testCase := active_tests[workItem.TestCaseIndex]
+	testCase := activeTests[workItem.TestCaseIndex]
 	outputString := testCase.TestRunner(workItem.ClientItem)
 	var reply int
 	err := client.Call("NetPerfRPC.ReceiveOutput", WorkerOutput{Output: outputString, Worker: worker, Type: testCase.Type, TestCaseIndex: workItem.TestCaseIndex}, &reply)
@@ -452,7 +452,7 @@ func (t *NetPerfRPC) ReceiveOutput(data *WorkerOutput, _ *int) error {
 	defer globalLock.Unlock()
 
 	fmt.Println("ReceiveOutput WorkItem TestCaseIndex: ", data.TestCaseIndex)
-	testcase := active_tests[data.TestCaseIndex]
+	testcase := activeTests[data.TestCaseIndex]
 
 	outputLog := fmt.Sprintln("Received output from worker", data.Worker, "for test", testcase.Label,
 		"from", testcase.SourceNode, "to", testcase.DestinationNode) + data.Output
@@ -506,7 +506,7 @@ func allocateWorkToClient(workerState *workerState, workItem *WorkItem) {
 	}
 
 	// System is all idle - pick up next work item to allocate to client
-	for n, v := range active_tests {
+	for n, v := range activeTests {
 		if v.Finished {
 			continue
 		}
@@ -546,7 +546,7 @@ func allocateWorkToClient(workerState *workerState, workItem *WorkItem) {
 		return
 	}
 
-	for _, v := range active_tests {
+	for _, v := range activeTests {
 		if !v.Finished {
 			return
 		}

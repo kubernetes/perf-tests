@@ -2,8 +2,6 @@
 {{$replicas := DefaultParam .replicas 0}}
 {{$inflight := DefaultParam .inflight 0}}
 {{$uri := DefaultParam .uri "/"}}
-{{$namespaced := DefaultParam .namespaced false}}
-{{$namespaceNumber := DefaultParam .namespaceNumber 0}}
 {{$cpu := DefaultParam .cpu "200m"}}
 {{$memory := DefaultParam .memory "400Mi"}}
 
@@ -23,16 +21,10 @@ steps:
   phases:
   - tuningSet: Sequence
     replicasPerNamespace: 1
-{{if $namespaced}}
-    namespaceRange:
-      min: 1
-      max: {{$namespaceNumber}}
-{{else}}
     namespaceRange:
       min: 0
       max: 0
       basename: list-benchmark
-{{end}}
     objectBundle:
     - basename: {{$namePrefix}}deploy
       objectTemplatePath: deployment.yaml

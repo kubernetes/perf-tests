@@ -11,7 +11,7 @@
 {{$clusterScopedPodCpu := DefaultParam .CL2_LIST_BENCHMARK_POD_CPU 2000}}
 {{$clusterScopedPodMemory := DefaultParam .CL2_LIST_BENCHMARK_POD_MEMORY 4096}}
 
-name: List benchmark
+name: list-benchmark
 namespace:
   number: 1
 tuningSets:

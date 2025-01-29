@@ -666,15 +666,33 @@ var (
 		},
 	}
 
+	benchmarkListDescription = TestDescriptions{
+		"E2E": {
+			"Resources": []TestDescription{{
+				Name:             "list-benchmark",
+				OutputFilePrefix: "ResourceUsageSummary",
+				Parser:           parseResourceUsageData,
+			}},
+		},
+		"APIServer": {
+			"Latency": []TestDescription{{
+				Name:             "list-benchmark",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parsePerfData,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance":  performanceDescriptions,
-		"benchmark":    benchmarkDescriptions,
-		"networking":   networkingDescriptions,
-		"dnsBenchmark": dnsBenchmarkDescriptions,
-		"storage":      storageDescriptions,
-		"throughput":   throughputDescriptions,
-		"windows":      windowsDescriptions,
-		"watchlist":    watchListDescriptions,
+		"performance":   performanceDescriptions,
+		"benchmark":     benchmarkDescriptions,
+		"networking":    networkingDescriptions,
+		"dnsBenchmark":  dnsBenchmarkDescriptions,
+		"storage":       storageDescriptions,
+		"throughput":    throughputDescriptions,
+		"windows":       windowsDescriptions,
+		"watchlist":     watchListDescriptions,
+		"benchmarkList": benchmarkListDescription,
 	}
 )
 

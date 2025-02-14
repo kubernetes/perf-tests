@@ -3,13 +3,7 @@
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
 
-{{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 10}}
-{{$inflight := DefaultParam .CL2_LIST_CONCURRENCY 1}}
-
-# CL2_LIST_BENCHMARK_POD_CPU and CL2_LIST_BENCHMARK_POD_MEMORY are expected to be an integer-only value.
-# We will append m (milicores) and Mi for them respectively.
-{{$clusterScopedPodCpu := DefaultParam .CL2_LIST_BENCHMARK_POD_CPU 2000}}
-{{$clusterScopedPodMemory := DefaultParam .CL2_LIST_BENCHMARK_POD_MEMORY 4096}}
+{{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
 
 name: list-benchmark
 namespace:
@@ -66,10 +60,7 @@ steps:
     params:
       namePrefix: "list-configmaps-"
       replicas: {{$listReplicas}}
-      inflight: {{$inflight}}
       uri: /api/v1/configmaps?resourceVersion=0
-      cpu: {{$clusterScopedPodCpu}}m
-      memory: {{$clusterScopedPodMemory}}Mi
       namespaced: false
 - module:
     path: /modules/measurements.yaml

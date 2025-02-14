@@ -1,9 +1,15 @@
-# List benchmark
+# List benchmark configuration
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 100000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
-
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
+{{$qps := DefaultParam .CL2_LIST_QPS -1}}
+{{$inflight := DefaultParam .CL2_LIST_INFLIGHT 1}}
+{{$contentType := DefaultParam .CL2_CONTENT_TYPE "json"}}
+
+{{if not (or (eq $contentType "json") (eq $contentType "proto") (eq $contentType "cbor") (eq $contentType "yaml"))}}
+  {{error "Invalid content type. Must be one of: json, proto, cbor, yaml"}}
+{{end}}
 
 name: list-benchmark
 namespace:
@@ -62,6 +68,9 @@ steps:
       replicas: {{$listReplicas}}
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
+      qps: {{$qps}}
+      inflight: {{$inflight}}
+      contentType: {{$contentType}}
 - module:
     path: /modules/measurements.yaml
     params:

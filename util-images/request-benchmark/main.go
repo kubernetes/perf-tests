@@ -36,22 +36,65 @@ import (
 
 const (
 	HealthCheckRequests = 10
-	NamespaceTmpl       = "%namespace%"
+	NamespaceTmpl      = "%namespace%"
+)
+
+type ContentType string
+
+const (
+	JSONContentType  ContentType = "json"
+	ProtoContentType ContentType = "proto"
+	CBORContentType  ContentType = "cbor"
+	YAMLContentType  ContentType = "yaml"
 )
 
 var (
-	inflight  = flag.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
-	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
-	URI       = flag.String("uri", "", "Request URI")
-	verb      = flag.String("verb", "GET", "A verb to be used in requests.")
-	qps       = flag.Float64("qps", -1, "The qps limit for all requests")
+	inflight    = flag.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
+	namespace   = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
+	URI         = flag.String("uri", "", "Request URI")
+	verb        = flag.String("verb", "GET", "A verb to be used in requests.")
+	qps         = flag.Float64("qps", -1, "The qps limit for all requests")
+	contentType = ContentType("") 
 )
 
+func (c ContentType) String() string {
+	return string(c)
+}
+
+func (c *ContentType) Set(value string) error {
+	switch ContentType(value) {
+	case JSONContentType, ProtoContentType, CBORContentType, YAMLContentType:
+		*c = ContentType(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid content type: %s. Must be one of: [json, proto, cbor, yaml]", value)
+	}
+}
+
 func init() {
+	flag.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml]")
 	flag.Parse()
 }
 
+func getContentTypeHeader(ct ContentType) string {
+	switch ct {
+	case JSONContentType:
+		return "application/json"
+	case ProtoContentType:
+		return "application/x-protobuf"
+	case CBORContentType:
+		return "application/cbor"
+	case YAMLContentType:
+		return "application/yaml"
+	default:
+		return "application/json" 
+	}
+}
+
 func main() {
+	if contentType == "" {
+		log.Fatal("--content-type flag is required")
+	}
 	config, err := getConfig()
 	if err != nil {
 		panic(err)
@@ -110,6 +153,7 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 		log.Printf("Got error creating a request: %v\n", err)
 		return false
 	}
+	req.Header.Set("Content-Type", getContentTypeHeader(contentType))
 	err = tryThrottle(ctx, rateLimiter)
 	if err != nil {
 		log.Printf("Got error throttling a request: %v\n", err)

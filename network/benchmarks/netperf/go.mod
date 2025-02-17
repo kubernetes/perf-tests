@@ -1,4 +1,4 @@
-module k8s.io/perf-tests/network
+module k8s.io/perf-tests/network/benchmarks/netperf
 
 go 1.23.4
 

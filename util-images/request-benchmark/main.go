@@ -38,17 +38,56 @@ const (
 	HealthCheckRequests = 10
 	NamespaceTmpl       = "%namespace%"
 )
+type ContentType string
 
-var (
-	inflight  = flag.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
-	namespace = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
-	URI       = flag.String("uri", "", "Request URI")
-	verb      = flag.String("verb", "GET", "A verb to be used in requests.")
-	qps       = flag.Float64("qps", -1, "The qps limit for all requests")
+const (
+	JSONContentType  ContentType = "json"
+	ProtoContentType ContentType = "proto"
+	CBORContentType  ContentType = "cbor"
+	YAMLContentType  ContentType = "yaml"
 )
 
+var (
+	inflight    = flag.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
+	namespace   = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
+	URI         = flag.String("uri", "", "Request URI")
+	verb        = flag.String("verb", "GET", "A verb to be used in requests.")
+	qps         = flag.Float64("qps", -1, "The qps limit for all requests")
+	contentType = ContentType("json") 
+)
+
+func (c ContentType) String() string {
+	return string(c)
+}
+
+func (c *ContentType) Set(value string) error {
+	switch ContentType(value) {
+	case JSONContentType, ProtoContentType, CBORContentType, YAMLContentType:
+		*c = ContentType(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid content type: %s. Must be one of: [json, proto, cbor, yaml]", value)
+	}
+}
+
 func init() {
+	flag.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml]")
 	flag.Parse()
+}
+
+func getContentTypeHeader(ct ContentType) (string, error) {
+    switch ct {
+    case JSONContentType:
+        return "application/json", nil
+    case ProtoContentType:
+        return "application/vnd.kubernetes", nil
+    case CBORContentType:
+        return "application/cbor", nil
+    case YAMLContentType:
+        return "application/yaml", nil
+    default:
+        return "", fmt.Errorf("unsupported content type: %s", ct)
+	}
 }
 
 func main() {
@@ -110,6 +149,14 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 		log.Printf("Got error creating a request: %v\n", err)
 		return false
 	}
+	
+	contentTypeHeader, err := getContentTypeHeader(contentType)
+	if err != nil {
+		log.Printf("Invalid content type: %v", err)
+		return false
+	}
+	req.Header.Set("Content-Type", contentTypeHeader)
+
 	err = tryThrottle(ctx, rateLimiter)
 	if err != nil {
 		log.Printf("Got error throttling a request: %v\n", err)

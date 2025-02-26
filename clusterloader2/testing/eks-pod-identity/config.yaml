@@ -1,0 +1,54 @@
+{{$namespacePrefix := DefaultParam .CL2_NAMESPACE_PREFIX "default"}}
+{{$namespaceCount := DefaultParam .CL2_NAMESPACE_COUNT 1}}
+{{$totalEksPodIdentityPods := DefaultParam .CL2_EKS_POD_IDENTITY_PODS 5000}}
+{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS  500}}
+{{$defaultBurst := DefaultParam .CL2_DEFAULT_BURST 1000}}
+{{$uniformQps := DefaultParam .CL2_UNIFORM_QPS 500}}
+
+name: eks-pod-identity
+tuningSets:
+# default is a tuningset that is meant to be used when we don't have any specific requirements on pace of operations.
+- name: default
+  globalQPSLoad:
+    qps: {{$defaultQps}}
+    burst: {{$defaultBurst}}
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$uniformQps}}
+steps:
+# a pod identity association with (namespace: default, sa: default) is created as prerequisite
+- name: create eks pod identity pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaceCount}}
+      baseName: {{$namespacePrefix}}
+    replicasPerNamespace: {{$totalEksPodIdentityPods}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: eks-pod-identity
+      objectTemplatePath: pod-default.yaml
+      templateFillMap:
+        Group: eks-pod-identity
+- name: Waiting for eks pod identity pods to be created
+  measurements:
+  - Identifier: WaitForEksPodIdentityPods
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      timeout: 5m
+      desiredPodCount: {{$totalEksPodIdentityPods}}
+      labelSelector: group = eks-pod-identity
+- name: Delete eks pod identity pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaceCount}}
+      baseName: {{$namespacePrefix}}
+    replicasPerNamespace: 0
+    tuningSet: default
+    objectBundle:
+    - basename: eks-pod-identity
+      objectTemplatePath: pod-default.yaml
+      templateFillMap:
+        Group: eks-pod-identity

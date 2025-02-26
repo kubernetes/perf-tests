@@ -27,6 +27,7 @@ spec:
         args:
         - --namespace={{.Namespace}}
         - --uri={{.Uri}}
+        - --content-type={{.ContentType}}
         resources:
           requests:
             cpu: {{$cpu}}

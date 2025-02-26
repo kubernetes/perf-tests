@@ -4,6 +4,7 @@
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
+{{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
 
 name: list-benchmark
 namespace:
@@ -62,6 +63,7 @@ steps:
       replicas: {{$listReplicas}}
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
+      contentType: {{$contentType}}
 - module:
     path: /modules/measurements.yaml
     params:

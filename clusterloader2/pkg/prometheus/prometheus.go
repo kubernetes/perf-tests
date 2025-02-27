@@ -405,6 +405,7 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "monitoring"},
+				{Kind: "ServiceAccount", Name: "cluster-loader", Namespace: "default"},
 			},
 		}, metav1.CreateOptions{})
 		return err

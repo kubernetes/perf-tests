@@ -7,7 +7,9 @@ metadata:
   namespace: monitoring
 spec:
   endpoints:
-  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+  - bearerTokenSecret:
+      name: prometheus-token
+      key: token
     interval: 10s
     targetPort: 10054
   jobLabel: k8s-app

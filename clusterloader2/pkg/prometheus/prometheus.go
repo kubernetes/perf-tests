@@ -371,7 +371,26 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
 			Rules: []rbacv1.PolicyRule{
-				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
+			    {
+		                Verbs:     []string{"get"},
+		                NonResourceURLs: []string{"/metrics"},
+		            },
+		            {
+		                Verbs:     []string{"get", "connect"},
+		                Resources: []string{"pods/proxy"},
+		            },
+		            {
+		                Verbs:     []string{"get"},
+		                Resources: []string{"pods/metrics"},
+		            },
+		            {
+		                Verbs:     []string{"list", "watch", "get"},
+		                Resources: []string{"pods"},
+		            },
+		            {
+		                Verbs:     []string{"get"},
+		                Resources: []string{"nodes/metrics", "nodes/proxy"},
+		            },
 			},
 		}, metav1.CreateOptions{})
 		return err

@@ -381,7 +381,7 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer-binding"},
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
 			Subjects: []rbacv1.Subject{
-				{Kind: "User", Name: "prometheus-k8s", Namespace: "monitoring"},
+				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "monitoring"},
 			},
 		}, metav1.CreateOptions{})
 		return err

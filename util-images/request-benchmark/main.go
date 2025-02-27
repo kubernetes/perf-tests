@@ -38,6 +38,7 @@ const (
 	HealthCheckRequests = 10
 	NamespaceTmpl       = "%namespace%"
 )
+
 type ContentType string
 
 const (
@@ -53,7 +54,7 @@ var (
 	URI         = flag.String("uri", "", "Request URI")
 	verb        = flag.String("verb", "GET", "A verb to be used in requests.")
 	qps         = flag.Float64("qps", -1, "The qps limit for all requests")
-	contentType = ContentType("json") 
+	contentType = ContentType("json")
 )
 
 func (c ContentType) String() string {
@@ -76,17 +77,17 @@ func init() {
 }
 
 func getContentTypeHeader(ct ContentType) (string, error) {
-    switch ct {
-    case JSONContentType:
-        return "application/json", nil
-    case ProtoContentType:
-        return "application/vnd.kubernetes", nil
-    case CBORContentType:
-        return "application/cbor", nil
-    case YAMLContentType:
-        return "application/yaml", nil
-    default:
-        return "", fmt.Errorf("unsupported content type: %s", ct)
+	switch ct {
+	case JSONContentType:
+		return "application/json", nil
+	case ProtoContentType:
+		return "application/vnd.kubernetes", nil
+	case CBORContentType:
+		return "application/cbor", nil
+	case YAMLContentType:
+		return "application/yaml", nil
+	default:
+		return "", fmt.Errorf("unsupported content type: %s", ct)
 	}
 }
 
@@ -149,7 +150,7 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 		log.Printf("Got error creating a request: %v\n", err)
 		return false
 	}
-	
+
 	contentTypeHeader, err := getContentTypeHeader(contentType)
 	if err != nil {
 		log.Printf("Invalid content type: %v", err)

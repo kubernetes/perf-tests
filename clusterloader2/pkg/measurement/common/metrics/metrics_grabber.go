@@ -276,7 +276,8 @@ func (g *Grabber) getMetricsFromPod(client clientset.Interface, podName string, 
 		Suffix("metrics").
 		Do(context.TODO()).Raw()
 	if err != nil {
-		klog.Errorf("Getting metrics failed: %v", err)
+		klog.Errorf("Getting metrics failed, error: %v", err)
+		klog.Errorf("Getting metrics failed, rawOutput: %s", string(rawOutput))
 		return "", err
 	}
 	return string(rawOutput), nil

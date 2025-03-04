@@ -76,7 +76,7 @@ func init() {
 	flag.Parse()
 }
 
-func getContentTypeHeader(ct ContentType) (string, error) {
+func getContentType(ct ContentType) (string, error) {
 	switch ct {
 	case JSONContentType:
 		return "application/json", nil
@@ -151,12 +151,12 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 		return false
 	}
 
-	contentTypeHeader, err := getContentTypeHeader(contentType)
+	contentType, err := getContentType(contentType)
 	if err != nil {
 		log.Printf("Invalid content type: %v", err)
 		return false
 	}
-	req.Header.Set("Content-Type", contentTypeHeader)
+	req.Header.Set("Accept", contentType)
 
 	err = tryThrottle(ctx, rateLimiter)
 	if err != nil {
@@ -172,6 +172,10 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
 		log.Printf("Got bad status code: %v\n", resp.Status)
+		return false
+	}
+	if resp.Header.Get("Content-Type") != contentType {
+		log.Printf("Got bad content type: %q, expected %q\n", resp.Header.Get("Content-Type"), contentType)
 		return false
 	}
 	written, err := io.Copy(io.Discard, resp.Body)

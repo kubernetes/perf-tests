@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_CONTAINERD := DefaultParam .PROMETHEUS_SCRAPE_CONTAINERD false}}
 {{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
 {{$PROMETHEUS_CPU_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_CPU_SCALE_FACTOR 1}}
 {{$PROMETHEUS_MEMORY_LIMIT_FACTOR := DefaultParam .CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR 2}}
@@ -84,4 +85,9 @@ spec:
   additionalScrapeConfigs:
     name: windows-scrape-configs
     key: windows-scrape-configs.yaml
+  {{end}}
+  {{if $PROMETHEUS_SCRAPE_CONTAINERD}}
+  additionalScrapeConfigs:
+    name: containerd-scrape-configs
+    key: containerd-scrape-configs.yaml
   {{end}}

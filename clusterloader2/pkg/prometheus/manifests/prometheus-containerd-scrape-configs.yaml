@@ -1,0 +1,25 @@
+{{$CONTAINERD_SCRAPE_INTERVAL := DefaultParam .CONTAINERD_SCRAPE_INTERVAL "30s"}}
+{{$CONTAINERD_SCRAPE_TIMEOUT := DefaultParam .CONTAINERD_SCRAPE_TIMEOUT "10s"}}
+{{$CONTAINERD_METRICS_PORT := DefaultParam .CONTAINERD_METRICS_PORT "10257"}}
+
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: monitoring
+  name: containerd-scrape-configs
+stringData:
+  containerd-scrape-configs.yaml: |-
+    - job_name: "monitoring/containerd"
+      scrape_interval: {{$CONTAINERD_SCRAPE_INTERVAL}}
+      scrape_timeout: {{$CONTAINERD_SCRAPE_TIMEOUT}}
+      scheme: http
+      kubernetes_sd_configs:
+      - role: node
+      metrics_path: "/v1/metrics"
+      relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):.*'
+        replacement: '${1}:{{$CONTAINERD_METRICS_PORT}}'
+        target_label: __address__
+      - source_labels: [instance]
+        target_label: node

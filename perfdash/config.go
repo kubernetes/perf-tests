@@ -534,6 +534,13 @@ var (
 				Parser:           parsePerfData,
 			}},
 		},
+		"GenericMeasurements": {
+			"GenericMeasurements": []TestDescription{{
+				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
+			}},
+		},
 	}
 
 	dnsBenchmarkDescriptions = TestDescriptions{

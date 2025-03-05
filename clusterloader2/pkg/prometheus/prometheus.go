@@ -371,30 +371,7 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
 			Rules: []rbacv1.PolicyRule{
-		            {
-		                Verbs:     []string{"get"},
-		                NonResourceURLs: []string{"/metrics"},
-		            },
-		            {
-		                Verbs:     []string{"get", "connect"},
-		                Resources: []string{"pods/proxy"},
-		                APIGroups: []string{""},
-		            },
-		            {
-		                Verbs:     []string{"get"},
-		                Resources: []string{"pods/metrics"},
-		                APIGroups: []string{""},
-		            },
-		            {
-		                Verbs:     []string{"list", "watch", "get"},
-		                Resources: []string{"pods"},
-		                APIGroups: []string{""},
-		            },
-		            {
-		                Verbs:     []string{"get"},
-		                Resources: []string{"nodes/metrics", "nodes/proxy"},
-		                APIGroups: []string{""},
-		            },
+				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
 			},
 		}, metav1.CreateOptions{})
 		return err
@@ -405,7 +382,6 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
 			Subjects: []rbacv1.Subject{
 				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "monitoring"},
-				{Kind: "ServiceAccount", Name: "cluster-loader", Namespace: "default"},
 			},
 		}, metav1.CreateOptions{})
 		return err

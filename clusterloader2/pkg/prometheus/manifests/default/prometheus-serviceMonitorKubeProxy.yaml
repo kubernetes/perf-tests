@@ -16,7 +16,6 @@ spec:
     # (# nodes <= 1000) and 1min interval in big clusters (# nodes > 1000)
     # TODO(mm4tt): Once we prove the interval works in big clusters, simplify the expression.
     - interval: {{MinInt 60 (MultiplyInt 30 (AddInt 1 (DivideInt .Nodes 1001)))}}s
-      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       port: http-metrics
   jobLabel: k8s-app
   namespaceSelector:

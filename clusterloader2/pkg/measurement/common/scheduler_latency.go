@@ -310,7 +310,6 @@ func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interfa
 
 		if err != nil {
 			klog.Errorf("Send request to scheduler failed with err: %v", err)
-			klog.Errorf("Getting metrics failed, body: %s", string(body))
 			return "", err
 		}
 		responseText = string(body)

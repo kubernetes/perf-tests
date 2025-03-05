@@ -30,6 +30,7 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   {{if $PROMETHEUS_SLOW_APISERVER}}
     interval: 30s
     scrapeTimeout: 30s

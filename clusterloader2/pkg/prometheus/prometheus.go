@@ -378,10 +378,10 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 	}
 	createClusterRoleBinding := func() error {
 		_, err := clientSet.GetClient().RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "system:anonymous"},
+			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer-binding"},
 			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
 			Subjects: []rbacv1.Subject{
-				{Kind: "User", Name: "system:anonymous"},
+				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "monitoring"},
 			},
 		}, metav1.CreateOptions{})
 		return err

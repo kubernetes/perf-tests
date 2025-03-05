@@ -36,6 +36,7 @@ spec:
   {{else}}
     interval: 5s
   {{end}}
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   {{if $PROMETHEUS_SCRAPE_MASTER_KUBELETS}}
   - interval: 5s
     port: kubelet
@@ -56,10 +57,12 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   - interval: 5s
     port: kube-controller-manager
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   selector:
     k8s-app: master

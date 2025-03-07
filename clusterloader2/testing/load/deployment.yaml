@@ -15,7 +15,7 @@
 {{$NetPolServerOnEveryNthPod := DefaultParam .NetPolServerOnEveryNthPod 3}}
 {{$RunNetPolicyTest := and $EnableNetworkPolicyEnforcementLatencyTest (eq (Mod .Index $NetPolServerOnEveryNthPod) 0)}}
 
-{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$Image := DefaultParam .Image "pause:3.9"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -47,13 +47,13 @@ spec:
       containers:
 {{if .EnableDNSTests}}
 {{if $USE_ADVANCED_DNSTEST}}
-      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.4.0
+      - image: {{.GcrRepo}}/k8s-staging-perf-tests/dnsperfgo:v1.4.0
         ports:
         - containerPort: 9153
           name: dnsperfmetrics
           protocol: TCP
   {{else}}
-      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
+      - image: {{.GcrRepo}}/k8s-staging-perf-tests/dnsperfgo:v1.2.0
   {{end}}
       # Fetches the dns server from /etc/resolv.conf and
       # sends 1 query per second.
@@ -74,7 +74,7 @@ spec:
         ports:
         - containerPort: 80
   {{else}}
-      - image: {{$Image}}
+      - image: {{.RegistryK8sRepo}}/{{$Image}}
         name: {{.Name}}
   {{end}}
 {{end}}

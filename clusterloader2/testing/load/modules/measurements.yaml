@@ -40,6 +40,7 @@
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 {{$ENABLE_VIOLATIONS_FOR_NETWORK_PROGRAMMING_LATENCIES := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_NETWORK_PROGRAMMING_LATENCIES false}}
+{{$ENABLE_API_SERVER_VALIDATION_METRICS := DefaultParam .CL2_ENABLE_API_SERVER_VALIDATION_METRICS true}}
 {{$NETWORK_PROGRAMMING_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_PROGRAMMING_LATENCY_THRESHOLD "30s"}}
 {{$NETWORK_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_LATENCY_THRESHOLD "0s"}}
 
@@ -117,6 +118,24 @@ steps:
       - name: Total
         query: sum(kubeproxy_sync_proxy_rules_iptables_partial_restore_failures_total)
         requireSamples: false # It is a feature gate and may not be enabled
+        threshold: 0
+{{end}}
+{{if $ENABLE_API_SERVER_VALIDATION_METRICS}}
+  - Identifier: APIServerDeclarativeValidationMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APIServerDeclarativeValidation
+      metricVersion: v1alpha1
+      unit: failures
+      queries:
+      - name: ValidationMismatches
+        query: sum(apiserver_validation_declarative_validation_mismatch_total)
+        requireSamples: false # May not be present in all clusters
+        threshold: 0
+      - name: ValidationPanics
+        query: sum(apiserver_validation_declarative_validation_panic_total)
+        requireSamples: false # May not be present in all clusters
         threshold: 0
 {{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_STATE_METRICS}}

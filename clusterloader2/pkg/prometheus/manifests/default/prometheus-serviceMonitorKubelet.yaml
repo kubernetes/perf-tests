@@ -16,7 +16,9 @@ spec:
     interval: 30s
     tlsConfig:
       insecureSkipVerify: true
-    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   - port: https-metrics
     scheme: https
     path: /metrics/cadvisor
@@ -24,7 +26,9 @@ spec:
     honorLabels: true
     tlsConfig:
       insecureSkipVerify: true
-    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
     metricRelabelings:
       - sourceLabels: [ namespace ]
         regex: 'test-.*'

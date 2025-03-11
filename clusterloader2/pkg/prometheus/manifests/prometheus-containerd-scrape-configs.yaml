@@ -23,3 +23,5 @@ stringData:
         target_label: __address__
       - source_labels: [instance]
         target_label: node
+      - source_labels: [__meta_kubernetes_node_label_agentpool]
+        target_label: nodepool

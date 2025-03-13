@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/klog"
+	"sigs.k8s.io/yaml"
 )
 
 // To add new e2e test support, you need to:

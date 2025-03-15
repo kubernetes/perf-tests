@@ -16,11 +16,9 @@
 
 set -euxo pipefail
 
-# Initialize necessary environment variables and git identity.
+# Initialize necessary environment variables.
 function init {
   export GOROOT=$ROOT_DIR/golang
-  git config --global user.email "scalability@k8s.io"
-  git config --global user.name "k8s scalability"
 }
 
 function build_kube_cross {
@@ -58,18 +56,15 @@ WORKDIR $GOPATH#' default/Dockerfile
 }
 
 function build_kubernetes {
-  cd $ROOT_DIR/k8s.io/kubernetes/build/build-image
-
-  # Change the base image of kube-build to our own kube-cross image.
-  sed -i 's#FROM .*#FROM gcr.io/k8s-testimages/kube-cross-amd64:latest-go-master-debian-default#' Dockerfile
-
   cd $ROOT_DIR/k8s.io/kubernetes
-  # Commit changes - needed to not create a "dirty" build, so we can push the
-  # build to <bucket>/ci directory and update latest.txt file.
-  git commit -am "Upgrade cross Dockerfile to use kube-cross with newest golang"
 
   # Build Kubernetes using our kube-cross image.
-  make quick-release
+  # Also pass GOTOOLCHAIN=local to make sure kube-build
+  # uses the golang version built locally in build-go.sh.
+  make quick-release \
+    GOTOOLCHAIN=local \
+    KUBE_CROSS_IMAGE=gcr.io/k8s-testimages/kube-cross-amd64 \
+    KUBE_CROSS_VERSION=latest-go-master-debian-default
 }
 
 init

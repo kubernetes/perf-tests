@@ -1,6 +1,7 @@
 module k8s.io/perf-tests/perfdash
 
-go 1.23.4
+go 1.24.1
+
 require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/storage v1.48.0

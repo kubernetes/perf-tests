@@ -1,7 +1,6 @@
 module k8s.io/perf-tests/clusterloader2
 
-// go 1.15+ is required by k8s 1.20 we use as dependency.
-go 1.23.4
+go 1.24.1
 
 replace (
 	k8s.io/api => k8s.io/api v0.31.4

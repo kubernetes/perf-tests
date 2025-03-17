@@ -7,7 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/pflag v1.0.6
 	k8s.io/api v0.32.2
-	k8s.io/apimachinery v0.32.2
+	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.2
 	k8s.io/kubernetes v1.32.2
 )

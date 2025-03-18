@@ -11,6 +11,6 @@ spec:
     port: 9090
     targetPort: web
   selector:
-    app: prometheus
+    app.kubernetes.io/managed-by: prometheus-operator
     prometheus: k8s
   sessionAffinity: ClientIP

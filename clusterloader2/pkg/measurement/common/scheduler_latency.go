@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	schedulermetric "k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
@@ -37,10 +36,10 @@ import (
 const (
 	schedulerLatencyMetricName = "SchedulingMetrics"
 
-	e2eSchedulingDurationMetricName           = model.LabelValue(schedulermetric.SchedulerSubsystem + "_e2e_scheduling_duration_seconds_bucket")
-	schedulingAlgorithmDurationMetricName     = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_duration_seconds_bucket")
-	frameworkExtensionPointDurationMetricName = model.LabelValue(schedulermetric.SchedulerSubsystem + "_framework_extension_point_duration_seconds_bucket")
-	preemptionEvaluationMetricName            = model.LabelValue(schedulermetric.SchedulerSubsystem + "_scheduling_algorithm_preemption_evaluation_seconds_bucket")
+	e2eSchedulingDurationMetricName           = model.LabelValue("scheduler_e2e_scheduling_duration_seconds_bucket")
+	schedulingAlgorithmDurationMetricName     = model.LabelValue("scheduler_scheduling_algorithm_duration_seconds_bucket")
+	frameworkExtensionPointDurationMetricName = model.LabelValue("scheduler_framework_extension_point_duration_seconds_bucket")
+	preemptionEvaluationMetricName            = model.LabelValue("scheduler_scheduling_algorithm_preemption_evaluation_seconds_bucket")
 
 	singleRestCallTimeout = 5 * time.Minute
 

@@ -36,8 +36,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
-	dsutil "k8s.io/kubernetes/pkg/controller/daemon/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -288,8 +286,71 @@ func (p daemonSetPodSpecParser) getDaemonSetAffinityFromUnstructuredSpec(spec *c
 	return err
 }
 
+func addOrUpdateTolerationInPodSpec(spec *corev1.PodSpec, toleration *corev1.Toleration) {
+	var newTolerations []corev1.Toleration
+	updated := false
+	for i := range spec.Tolerations {
+		if toleration.MatchToleration(&spec.Tolerations[i]) {
+			newTolerations = append(newTolerations, *toleration)
+			updated = true
+			continue
+		}
+		newTolerations = append(newTolerations, spec.Tolerations[i])
+	}
+	if !updated {
+		newTolerations = append(newTolerations, *toleration)
+	}
+	spec.Tolerations = newTolerations
+}
+
+// addOrUpdateDaemonPodTolerations adds tolerations that are added to each pod
+// by daemonset controller.
+// NOTICE: keep in sync with
+//
+//	https://github.com/kubernetes/kubernetes/blob/release-1.32/pkg/controller/daemon/util/daemonset_util.go#L48
+func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
+	tolerations := []corev1.Toleration{
+		{
+			Key:      corev1.TaintNodeNotReady,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoExecute,
+		},
+		{
+			Key:      corev1.TaintNodeDiskPressure,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      corev1.TaintNodeMemoryPressure,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      corev1.TaintNodePIDPressure,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      corev1.TaintNodeUnschedulable,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+
+	if spec.HostNetwork {
+		tolerations = append(tolerations, corev1.Toleration{
+			Key:      corev1.TaintNodeNetworkUnavailable,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		})
+	}
+	for i := range tolerations {
+		addOrUpdateTolerationInPodSpec(spec, &tolerations[i])
+	}
+}
+
 func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec *corev1.PodSpec) error {
-	dsutil.AddOrUpdateDaemonPodTolerations(spec)
+	addOrUpdateDaemonPodTolerations(spec)
 	unstructuredTolerations, found, err := unstructured.NestedSlice(p, "tolerations")
 	if err != nil || !found {
 		return err
@@ -300,7 +361,7 @@ func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec
 		if err != nil {
 			break
 		}
-		v1helper.AddOrUpdateTolerationInPodSpec(spec, &toleration)
+		addOrUpdateTolerationInPodSpec(spec, &toleration)
 	}
 	return err
 }

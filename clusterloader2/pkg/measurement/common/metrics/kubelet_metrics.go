@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/metrics/testutil"
-	kubeletmetrics "k8s.io/kubernetes/pkg/kubelet/metrics"
 )
 
 const (
@@ -141,7 +140,7 @@ func GetKubeletMetrics(c clientset.Interface, nodeName string) (KubeletMetrics, 
 
 	kubeletMetrics := make(KubeletMetrics)
 	for name, samples := range ms {
-		const prefix = kubeletmetrics.KubeletSubsystem + "_"
+		const prefix = "kubelet_"
 		if !strings.HasPrefix(name, prefix) {
 			// Not a kubelet metric.
 			continue
@@ -157,12 +156,11 @@ func GetKubeletMetrics(c clientset.Interface, nodeName string) (KubeletMetrics, 
 // Note that the KubeletMetrics passed in should not contain subsystem prefix.
 func GetDefaultKubeletLatencyMetrics(ms KubeletMetrics) KubeletLatencyMetrics {
 	latencyMetricNames := sets.NewString(
-		kubeletmetrics.PodWorkerDurationKey,
-		kubeletmetrics.PodWorkerStartDurationKey,
-		kubeletmetrics.PodStartDurationKey,
-		kubeletmetrics.CgroupManagerOperationsKey,
-		kubeletmetrics.PodWorkerStartDurationKey,
-		kubeletmetrics.PLEGRelistDurationKey,
+		"pod_worker_duration_seconds",
+		"pod_worker_start_duration_seconds",
+		"pod_start_duration_seconds",
+		"cgroup_manager_duration_seconds",
+		"pleg_relist_duration_seconds",
 	)
 	return GetKubeletLatencyMetrics(ms, latencyMetricNames)
 }

@@ -21,20 +21,18 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-ARG GOLANG_VERSION=1.18
-FROM golang:${GOLANG_VERSION} as builder
+FROM golang:bullseye AS builder
 WORKDIR /workspace
 
-COPY nptest/nptest.go nptest.go
-COPY go.sum go.sum
-COPY go.mod go.mod
+COPY . .
 
 RUN go build -o nptests
 
 FROM debian:bullseye
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
-MAINTAINER Girish Kalele <gkalele@google.com>
+LABEL org.opencontainers.image.description "Network performance tests in k8s engine"
+
 # install binary and remove cache
 RUN apt-get update \
     && apt-get install -y  curl wget net-tools gcc make libsctp-dev git autotools-dev automake \
@@ -55,6 +53,12 @@ RUN cd iperf-3.1 && ./configure --prefix=/usr/local --bindir /usr/local/bin && m
 # Download and build netperf from sources
 RUN curl -LO https://github.com/HewlettPackard/netperf/archive/netperf-2.7.0.tar.gz && tar -xzf netperf-2.7.0.tar.gz && mv netperf-netperf-2.7.0/ netperf-2.7.0
 RUN cd netperf-2.7.0 && ./configure --prefix=/usr/local --bindir /usr/local/bin && make CFLAGS=-fcommon && make install
+
+# Validate the installation of qperf, iperf3 and netperf
+RUN usr/local/bin/qperf --help
+RUN usr/local/bin/iperf3 -v
+RUN usr/local/bin/netperf -V
+RUN usr/local/bin/netserver -V
 
 COPY --from=builder /workspace/nptests /usr/bin/
 

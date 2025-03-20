@@ -8,8 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/name: prometheus-operator
-    app.kubernetes.io/part-of: kube-prometheus
-    app.kubernetes.io/version: 0.46.0
+    app.kubernetes.io/version: 0.81.0
   name: prometheus-operator
   namespace: monitoring
 spec:
@@ -18,23 +17,28 @@ spec:
     matchLabels:
       app.kubernetes.io/component: controller
       app.kubernetes.io/name: prometheus-operator
-      app.kubernetes.io/part-of: kube-prometheus
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: prometheus-operator
       labels:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: prometheus-operator
-        app.kubernetes.io/part-of: kube-prometheus
-        app.kubernetes.io/version: 0.46.0
+        app.kubernetes.io/version: 0.81.0
     spec:
+      automountServiceAccountToken: true
       containers:
       - args:
         {{if $PROMETHEUS_SCRAPE_KUBELETS}}
         - --kubelet-service=kube-system/kubelet
         {{end}}
-        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.46.0
-        - --secret-field-selector=type=prometheus-alert
-        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.46.0
+        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.81.0
+        - --kubelet-endpoints=true
+        - --kubelet-endpointslice=false
+        env:
+        - name: GOGC
+          value: "30"
+        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.81.0
         name: prometheus-operator
         ports:
         - containerPort: 8080
@@ -48,6 +52,9 @@ spec:
             memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
           readOnlyRootFilesystem: true
       {{if $PROMETHEUS_TOLERATE_MASTER}}
       tolerations:
@@ -64,4 +71,6 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: prometheus-operator

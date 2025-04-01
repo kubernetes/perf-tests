@@ -204,54 +204,50 @@ var testcases = []*TestCase{
 		Type:            netperfTest,
 	},
 	{
-		Label: "13 iperf Throughput TCP. Same VM using Pod IP",
+		Label: "13 iperf Default TCP. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 			TestDuration:    10 * time.Minute,
-			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputTcpRunner,
+		TestRunner: defaultIperfTCPRunner,
 		JsonParser: parsers.ParseIperfTcpResults,
 		Type:       iperfThroughputTest,
 	},
 	{
-		Label: "14 iperf Throughput TCP. Remote VM using Pod IP",
+		Label: "14 iperf Default TCP. Remote VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w3",
 			ClusterIP:       false,
 			TestDuration:    10 * time.Minute,
-			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputTcpRunner,
+		TestRunner: defaultIperfTCPRunner,
 		JsonParser: parsers.ParseIperfTcpResults,
 		Type:       iperfThroughputTest,
 	},
 	{
-		Label: "15 iperf Throughput UDP. Remote VM using Pod IP",
+		Label: "15 iperf Default UDP. Remote VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w3",
 			ClusterIP:       false,
 			TestDuration:    10 * time.Minute,
-			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputUdpRunner,
+		TestRunner: defaultIperfUDPRunner,
 		JsonParser: parsers.ParseIperfUdpResults,
 		Type:       iperfThroughputUDPTest,
 	},
 	{
-		Label: "16 iperf Throughput UDP. Same VM using Pod IP",
+		Label: "16 iperf Default UDP. Same VM using Pod IP",
 		TestParams: TestParams{
 			SourceNode:      "netperf-w1",
 			DestinationNode: "netperf-w2",
 			ClusterIP:       false,
 			TestDuration:    10 * time.Minute,
-			Bandwidth:       "1G",
 		},
-		TestRunner: iperfThroughputUdpRunner,
+		TestRunner: defaultIperfUDPRunner,
 		JsonParser: parsers.ParseIperfUdpResults,
 		Type:       iperfThroughputUDPTest,
 	},
@@ -272,12 +268,13 @@ func netperfTestRunner(w ClientWorkItem) string {
 	return output
 }
 
-func iperfThroughputTcpRunner(w ClientWorkItem) string {
-	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "--bandwidth", w.Params.Bandwidth, "-w", "410K", "-P", "1"}, 15)
+// TODO: Implement a common pattern to run iperf3 command and re utilize them
+func defaultIperfTCPRunner(w ClientWorkItem) string {
+	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds())}, 15)
 	return output
 }
 
-func iperfThroughputUdpRunner(w ClientWorkItem) string {
-	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "--bandwidth", w.Params.Bandwidth, "-w", "410K", "-P", "1", "-u"}, 15)
+func defaultIperfUDPRunner(w ClientWorkItem) string {
+	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "-u"}, 15)
 	return output
 }

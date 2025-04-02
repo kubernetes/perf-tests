@@ -275,6 +275,6 @@ func defaultIperfTCPRunner(w ClientWorkItem) string {
 }
 
 func defaultIperfUDPRunner(w ClientWorkItem) string {
-	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "-u"}, 15)
+	output, _ := cmdExec(iperf3Path, []string{iperf3Path, "-c", w.Host, "-V", "-J", "--time", fmt.Sprintf("%f", w.Params.TestDuration.Seconds()), "-u", "-b", "0"}, 15)
 	return output
 }

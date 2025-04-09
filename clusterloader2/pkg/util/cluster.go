@@ -84,7 +84,7 @@ func LogClusterNodes(c clientset.Interface) error {
 				externalIP = address.Address
 			}
 		}
-		klog.V(2).Infof("Name: %v, clusterIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
+		klog.V(2).Infof("Name: %v, internalIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
 	}
 	return nil
 }

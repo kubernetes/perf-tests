@@ -49,6 +49,8 @@ func NewStepResult(stepName string) *StepResult {
 	}
 }
 
+func (s *StepResult) Name() string { return s.name }
+
 func (s *StepResult) AddSubStepResult(name string, id int, err *errors.ErrorList) {
 	s.lock.Lock()
 	defer s.lock.Unlock()

@@ -24,12 +24,16 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
-type substepResult struct {
+type SubstepResult struct {
 	name     string
 	id       int
 	duration time.Duration
 	err      *errors.ErrorList
 }
+
+func (ss *SubstepResult) Name() string                    { return ss.name }
+func (ss *SubstepResult) Duration() time.Duration         { return ss.duration }
+func (ss *SubstepResult) GetAllErrors() *errors.ErrorList { return ss.err }
 
 type StepResult struct {
 	lock      sync.Mutex
@@ -37,14 +41,14 @@ type StepResult struct {
 	name      string
 	err       *errors.ErrorList
 
-	results []substepResult
+	results []SubstepResult
 }
 
 func NewStepResult(stepName string) *StepResult {
 	return &StepResult{
 		name:      stepName,
 		startTime: time.Now(),
-		results:   []substepResult{},
+		results:   []SubstepResult{},
 		err:       errors.NewErrorList(),
 	}
 }
@@ -56,7 +60,7 @@ func (s *StepResult) AddSubStepResult(name string, id int, err *errors.ErrorList
 	defer s.lock.Unlock()
 
 	duration := time.Since(s.startTime)
-	s.results = append(s.results, substepResult{
+	s.results = append(s.results, SubstepResult{
 		name:     name,
 		id:       id,
 		duration: duration,
@@ -80,14 +84,14 @@ func (s *StepResult) GetAllErrors() *errors.ErrorList {
 	return s.getAllErrorsUnsafe()
 }
 
-func (s *StepResult) getAllResults() []substepResult {
+func (s *StepResult) GetAllResults() []SubstepResult {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	results := []substepResult{}
+	results := []SubstepResult{}
 	// Special case for phases that do not report substeps.
 	if len(s.results) == 0 {
-		results = append(results, substepResult{
+		results = append(results, SubstepResult{
 			name:     s.name,
 			duration: time.Since(s.startTime),
 			err:      s.getAllErrorsUnsafe(),
@@ -99,7 +103,7 @@ func (s *StepResult) getAllResults() []substepResult {
 	})
 
 	for _, result := range s.results {
-		results = append(results, substepResult{
+		results = append(results, SubstepResult{
 			name:     s.name + " " + result.name,
 			duration: result.duration,
 			err:      result.err,

@@ -50,7 +50,7 @@ type waitForRunningPodsMeasurement struct{}
 // Pods can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
+	minPodCount, maxPodCount, err := getMinMaxDesiredPodCount(config.Params)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,8 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
-		DesiredPodCount:     func() int { return desiredPodCount },
+		MinDesiredPodCount:  func() int { return minPodCount },
+		MaxDesiredPodCount:  func() int { return maxPodCount },
 		CallerName:          w.String(),
 		WaitForPodsInterval: refreshInterval,
 	}
@@ -98,4 +99,13 @@ func (*waitForRunningPodsMeasurement) Dispose() {}
 // String returns a string representation of the measurement.
 func (*waitForRunningPodsMeasurement) String() string {
 	return waitForRunningPodsMeasurementName
+}
+
+func getMinMaxDesiredPodCount(params map[string]interface{}) (minDesiredPodCount, maxDesiredPodCount int, err error) {
+	minDesiredPodCount, err = util.GetInt(params, "minDesiredPodCount")
+	if err != nil {
+		return
+	}
+	maxDesiredPodCount, err = util.GetInt(params, "maxDesiredPodCount")
+	return
 }

@@ -50,6 +50,8 @@ const (
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
 	numK8sClients                = 1
+	monitoringServiceAccount     = "monitoringserviceaccount"
+	secretName                   = "prometheus-token"
 
 	// All paths here are relative to manifests dir.
 	coreManifests                = "*.yaml"
@@ -60,7 +62,6 @@ const (
 	nodeExporterPod              = "exporters/node_exporter/node-exporter.yaml"
 	windowsNodeExporterManifests = "exporters/windows_node_exporter/*.yaml"
 	pushgatewayManifests         = "pushgateway/*.yaml"
-	monitoringServiceAccount     = "monitoringserviceaccount"
 )
 
 //go:embed manifests
@@ -393,10 +394,6 @@ func (pc *Controller) createToken(k8sClient kubernetes.Interface, testClusterCli
 			Name: monitoringServiceAccount,
 		},
 	}
-	serviceAccount := func() error {
-		_, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).Create(context.TODO(), saObj, metav1.CreateOptions{})
-		return err
-	}
 
 	token := func() (string, error) {
 		expirationSeconds := int64(86400) // 24h
@@ -415,6 +412,44 @@ func (pc *Controller) createToken(k8sClient kubernetes.Interface, testClusterCli
 		return tokenResp.Status.Token, nil
 	}
 
+	secret := func(token string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				"token": []byte(token),
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+	}
+
+	serviceAccount := func() error {
+		_, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).Create(context.TODO(), saObj, metav1.CreateOptions{})
+		return err
+	}
+
+	// Check if the service account already exists
+	_, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).Get(context.TODO(), saObj.Name, metav1.GetOptions{})
+	if err == nil {
+		// Service account exists already. This mean the test is run again in cluster created previously
+		// Secret should be created OR should be updated if exists
+		tokenResponse, err := retryCreateFunctionWithResponse(token)
+		if err != nil {
+			return err
+		}
+		secret := secret(tokenResponse)
+		err = createPrometheusSecretForExistingServiceAccount(k8sClient, secret)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	// If ServiceAccount could not be retrieved but the error is not "not found", return it
+	if !apierrs.IsNotFound(err) {
+		return err
+	}
 	if err := retryCreateFunction(serviceAccount); err != nil {
 		return err
 	}
@@ -422,21 +457,34 @@ func (pc *Controller) createToken(k8sClient kubernetes.Interface, testClusterCli
 	if err != nil {
 		return err
 	}
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prometheus-token",
-			Namespace: namespace,
-		},
-		Data: map[string][]byte{
-			"token": []byte(tokenResponse),
-		},
-		Type: corev1.SecretTypeOpaque,
-	}
-	_, err = k8sClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = k8sClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret(tokenResponse), metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func createPrometheusSecretForExistingServiceAccount(k8sClient kubernetes.Interface, secret *corev1.Secret) error {
+	// Check if the secret already exists
+	_, inErr := k8sClient.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if inErr == nil {
+		// Secret already exists, update it
+		_, inErr = k8sClient.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		if inErr != nil {
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secretName, namespace, inErr)
+		}
+		return nil
+	}
+	if apierrs.IsNotFound(inErr) {
+		// Secret doesn't exist, create it
+		_, inErr = k8sClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if inErr != nil {
+			return fmt.Errorf("failed to create secret %s in namespace %s: %w", secretName, namespace, inErr)
+		}
+		return nil
+	}
+	// Error occurred while trying to get the secret
+	return inErr
 }
 
 // configureRBACForMetrics creates a ClusterRole and ClusterRoleBinding

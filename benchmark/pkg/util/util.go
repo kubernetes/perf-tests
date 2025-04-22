@@ -188,12 +188,12 @@ func GetFlattennedComparisonData(leftJobMetrics, rightJobMetrics []map[string][]
 	return j
 }
 
-func computeSampleStats(sample []float64, avg, stDev, max *float64) {
+func computeSampleStats(sample []float64, avg, stDev, maxVal *float64) {
 	length := len(sample)
 	if length == 0 {
 		*avg = math.NaN()
 		*stDev = math.NaN()
-		*max = math.NaN()
+		*maxVal = math.NaN()
 		return
 	}
 	sum := 0.0
@@ -201,7 +201,7 @@ func computeSampleStats(sample []float64, avg, stDev, max *float64) {
 	for i := 0; i < length; i++ {
 		sum += sample[i]
 		squareSum += sample[i] * sample[i]
-		*max = math.Max(*max, sample[i])
+		*maxVal = math.Max(*maxVal, sample[i])
 	}
 	*avg = sum / float64(length)
 	*stDev = math.Sqrt(squareSum/float64(length) - (*avg * *avg))

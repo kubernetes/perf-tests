@@ -1,5 +1,5 @@
 # build image
-FROM golang:1.23 AS build-env
+FROM golang:1.24 AS build-env
 ARG gopkg=k8s.io/perf-tests/dns/dnsperfgo
 ADD [".", "/go/src/$gopkg"]
 WORKDIR /go/src/$gopkg

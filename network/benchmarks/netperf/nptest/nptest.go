@@ -261,14 +261,14 @@ func flushDataPointsToCsv() {
 	for _, label := range dataPointKeys {
 		buffer = fmt.Sprintf("%-45s,", label)
 		points := dataPoints[label]
-		var max float64
+		var result float64
 		for _, p := range points {
 			fv, _ := strconv.ParseFloat(p.bandwidth, 64)
-			if fv > max {
-				max = fv
+			if fv > result {
+				result = fv
 			}
 		}
-		buffer = buffer + fmt.Sprintf("%f,", max)
+		buffer = buffer + fmt.Sprintf("%f,", result)
 		for _, p := range points {
 			buffer = buffer + fmt.Sprintf("%s,", p.bandwidth)
 		}

@@ -4,8 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/name: prometheus-operator
-    app.kubernetes.io/part-of: kube-prometheus
-    app.kubernetes.io/version: 0.46.0
+    app.kubernetes.io/version: 0.81.0
   name: prometheus-operator
 rules:
 - apiGroups:
@@ -13,11 +12,18 @@ rules:
   resources:
   - alertmanagers
   - alertmanagers/finalizers
+  - alertmanagers/status
   - alertmanagerconfigs
   - prometheuses
   - prometheuses/finalizers
+  - prometheuses/status
+  - prometheusagents
+  - prometheusagents/finalizers
+  - prometheusagents/status
   - thanosrulers
   - thanosrulers/finalizers
+  - thanosrulers/status
+  - scrapeconfigs
   - servicemonitors
   - podmonitors
   - probes
@@ -49,7 +55,6 @@ rules:
   resources:
   - services
   - services/finalizers
-  - endpoints
   verbs:
   - get
   - create
@@ -71,6 +76,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - patch
+  - create
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
@@ -79,14 +91,17 @@ rules:
   - list
   - watch
 - apiGroups:
-  - authentication.k8s.io
+  - storage.k8s.io
   resources:
-  - tokenreviews
+  - storageclasses
   verbs:
-  - create
+  - get
 - apiGroups:
-  - authorization.k8s.io
+  - ""
   resources:
-  - subjectaccessreviews
+  - endpoints
   verbs:
+  - get
   - create
+  - update
+  - delete

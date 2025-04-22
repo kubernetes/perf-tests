@@ -53,7 +53,7 @@ var (
 	manifestsFS embed.FS
 )
 
-func init() {
+func InitFlags() {
 	flags.StringSliceEnvVar(&images, "node-preload-images", "NODE_PRELOAD_IMAGES", []string{}, "List of images to preload on each node in the test cluster before executing tests")
 }
 
@@ -112,7 +112,7 @@ func (c *controller) PreloadImages() error {
 				return kclient.CoreV1().Nodes().Watch(context.TODO(), options)
 			},
 		},
-		func(old, new interface{}) { c.checkNode(doneNodes, old, new) })
+		func(oldObj, newObj interface{}) { c.checkNode(doneNodes, oldObj, newObj) })
 	if err := informer.StartAndSync(nodeInformer, stopCh, informerTimeout); err != nil {
 		return err
 	}
@@ -164,15 +164,15 @@ func (c *controller) PreloadImages() error {
 	return nil
 }
 
-func (c *controller) checkNode(set map[string]struct{}, old, new interface{}) {
-	if new != nil {
-		node := new.(*v1.Node)
+func (c *controller) checkNode(set map[string]struct{}, oldObj, newObj interface{}) {
+	if newObj != nil {
+		node := newObj.(*v1.Node)
 		preloaded := c.hasPreloadedImages(node)
 		c.markDone(set, node.Name, preloaded)
 		return
 	}
-	if old != nil {
-		node := old.(*v1.Node)
+	if oldObj != nil {
+		node := oldObj.(*v1.Node)
 		c.markDone(set, node.Name, false)
 		return
 	}

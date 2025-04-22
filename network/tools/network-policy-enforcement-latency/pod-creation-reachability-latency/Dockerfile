@@ -1,5 +1,5 @@
 # Build image
-FROM golang:1.23 AS build-env
+FROM golang:1.24 AS build-env
 
 ARG gopkg=k8s.io/perf-tests/network/tools/network-policy-enforcement-latency
 ADD ["./", "/go/src/$gopkg"]

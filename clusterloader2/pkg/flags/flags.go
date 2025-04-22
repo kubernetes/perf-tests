@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func init() {
+func InitFlagSet() {
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)

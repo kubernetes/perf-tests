@@ -24,14 +24,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/pkg/cluster/ports"
 
 	"k8s.io/klog/v2"
 )
 
 const (
-	// kubeSchedulerPort is the default port for the scheduler status server.
+	// kubeSchedulerPort is the default port for the scheduler
 	kubeSchedulerPort = 10259
+	// kubeControllerManagerPort is the default port for the controller manager
+	kubeControllerManagerPort = 10257
 )
 
 // Collection is metrics collection of components
@@ -187,7 +188,7 @@ func (g *Grabber) GrabFromControllerManager() (ControllerManagerMetrics, error) 
 	}
 
 	podName := fmt.Sprintf("%v-%v", "kube-controller-manager", g.masterName)
-	output, err := g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, ports.KubeControllerManagerPort, true)
+	output, err := g.getMetricsFromPod(g.client, podName, metav1.NamespaceSystem, kubeControllerManagerPort, true)
 	if err != nil {
 		return ControllerManagerMetrics{}, err
 	}

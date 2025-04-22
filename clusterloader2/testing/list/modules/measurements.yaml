@@ -1,0 +1,20 @@
+## Measurement module defines test scoped measurement.
+
+## Input params
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+
+steps:
+- name: "{{$action}}ing measurements"
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+      enableViolations: false
+      useSimpleLatencyQuery: true
+  - Identifier: TestMetrics
+    Method: TestMetrics
+    Params:
+      action: {{$action}}

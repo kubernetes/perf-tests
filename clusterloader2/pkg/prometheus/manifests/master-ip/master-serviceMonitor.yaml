@@ -38,29 +38,44 @@ spec:
   {{else}}
     interval: 5s
   {{end}}
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   {{if $PROMETHEUS_SCRAPE_MASTER_KUBELETS}}
   - interval: 5s
     port: kubelet
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   - interval: 5s
     port: kubelet
     path: /metrics/cadvisor
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   {{end}}
   - interval: 5s
     port: kube-scheduler
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   - interval: 5s
     port: kube-controller-manager
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+    bearerTokenSecret:
+      name: prometheus-token
+      key: token
   selector:
     matchLabels:
       k8s-app: master

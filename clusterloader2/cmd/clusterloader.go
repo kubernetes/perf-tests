@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/cluster/ports"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -71,7 +70,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubeConfigPath, "kubeconfig", "KUBECONFIG", "", "Path to the kubeconfig file (if not empty, --run-from-cluster must be false)")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.RunFromCluster, "run-from-cluster", "RUN_FROM_CLUSTER", false, "Whether to use in-cluster client-config to create a client, --kubeconfig must be unset")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.Nodes, "nodes", "NUM_NODES", 0, "number of nodes")
-	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.KubeletPort, "kubelet-port", "KUBELET_PORT", ports.KubeletPort, "Port of the kubelet to use")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.KubeletPort, "kubelet-port", "KUBELET_PORT", 10250, "Port of the kubelet to use")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.K8SClientsNumber, "k8s-clients-number", "K8S_CLIENTS_NUMBER", 0, fmt.Sprintf("(Optional) Number of k8s clients to use. If 0, will create 1 client per %d nodes", nodesPerClients))
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdCertificatePath, "etcd-certificate", "ETCD_CERTIFICATE", "/etc/srv/kubernetes/pki/etcd-apiserver-server.crt", "Path to the etcd certificate on the master machine")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
@@ -124,6 +123,8 @@ func validateClusterFlags() *errors.ErrorList {
 }
 
 func initFlags() {
+	flags.InitFlagSet()
+
 	flags.StringVar(&clusterLoaderConfig.ReportDir, "report-dir", "", "Path to the directory where the reports should be saved. Default is empty, which cause reports being written to standard output.")
 	// TODO(https://github.com/kubernetes/perf-tests/issues/641): Remove testconfig and testoverrides flags when test suite is fully supported.
 	flags.StringArrayVar(&testConfigPaths, "testconfig", []string{}, "Paths to the test config files")
@@ -131,10 +132,13 @@ func initFlags() {
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
 	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
+
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
+	imagepreload.InitFlags()
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
+	prometheus.InitExperimentalFlags()
 }
 
 func validateFlags() *errors.ErrorList {

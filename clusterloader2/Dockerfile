@@ -1,4 +1,4 @@
-ARG GOLANG_VERSION=1.22
+ARG GOLANG_VERSION=1.24
 FROM golang:${GOLANG_VERSION} AS builder
 
 WORKDIR /root/perf-tests/clusterloader2

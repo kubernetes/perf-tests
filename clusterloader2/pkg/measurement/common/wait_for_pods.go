@@ -30,6 +30,7 @@ import (
 const (
 	defaultWaitForPodsTimeout         = 60 * time.Second
 	defaultWaitForPodsInterval        = 5 * time.Second
+	defaultCountErrorMargin           = 0
 	defaultIsFatal                    = false
 	waitForRunningPodsMeasurementName = "WaitForRunningPods"
 )
@@ -51,6 +52,10 @@ type waitForRunningPodsMeasurement struct{}
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
+	if err != nil {
+		return nil, err
+	}
+	countErrorMargin, err := util.GetIntOrDefault(config.Params, "countErrorMargin", defaultCountErrorMargin)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +81,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
 		DesiredPodCount:     func() int { return desiredPodCount },
+		CountErrorMargin:    countErrorMargin,
 		CallerName:          w.String(),
 		WaitForPodsInterval: refreshInterval,
 	}

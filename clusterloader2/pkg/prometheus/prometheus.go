@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -56,7 +55,7 @@ const (
 	kubeStateMetricsManifests    = "exporters/kube-state-metrics/*.yaml"
 	masterIPServiceMonitors      = "master-ip/*.yaml"
 	metricsServerManifests       = "exporters/metrics-server/*.yaml"
-	nodeExporterPod              = "exporters/node_exporter/node-exporter.yaml"
+	nodeExporterManifests        = "exporters/node_exporter/*.yaml"
 	windowsNodeExporterManifests = "exporters/windows_node_exporter/*.yaml"
 	pushgatewayManifests         = "pushgateway/*.yaml"
 )
@@ -236,7 +235,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		return err
 	}
 	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporter {
-		if err := pc.runNodeExporter(); err != nil {
+		if err := pc.applyDefaultManifests(nodeExporterManifests); err != nil {
 			return err
 		}
 	}
@@ -393,46 +392,6 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 		return err
 	}
 	return nil
-}
-
-// runNodeExporter adds node-exporter as master's static manifest pod.
-// TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
-// when master nodes have configured networking.
-func (pc *Controller) runNodeExporter() error {
-	klog.V(2).Infof("Starting node-exporter on master nodes.")
-	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
-	if err != nil {
-		return err
-	}
-
-	// Validate masters first
-	nodes, err := client.ListNodes(kubemarkFramework.GetClientSets().GetClient())
-	if err != nil {
-		return err
-	}
-
-	var g errgroup.Group
-	numMasters := 0
-	for _, node := range nodes {
-		node := node
-		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
-			numMasters++
-			g.Go(func() error {
-				f, err := manifestsFS.Open(nodeExporterPod)
-				if err != nil {
-					return fmt.Errorf("unable to open manifest file: %v", err)
-				}
-				defer f.Close()
-				return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
-			})
-		}
-	}
-
-	if numMasters == 0 {
-		return fmt.Errorf("node-exporter requires master to be registered nodes")
-	}
-
-	return g.Wait()
 }
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {

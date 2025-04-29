@@ -7,7 +7,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/pflag v1.0.6
 	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
+	k8s.io/apimachinery v0.33.0
 	k8s.io/client-go v0.32.3
 	k8s.io/kubernetes v1.33.0
 )
@@ -26,7 +26,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

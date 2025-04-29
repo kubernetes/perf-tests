@@ -88,26 +88,13 @@ cluster_loader_crb_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get clusterrole
 if [[ "$cluster_loader_crb_exists" -eq 0 ]]; then
 	kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
 fi
-cluster_loader_secret_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader --ignore-not-found | wc -l)
-if [[ "$cluster_loader_secret_exists" -eq 0 ]]; then
-   cat << EOF | kubectl --kubeconfig "${KUBECONFIG}" create -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cluster-loader
-  namespace: default
-  annotations:
-    kubernetes.io/service-account.name: cluster-loader
-type: kubernetes.io/service-account-token
-EOF
-fi
 
 
 # Create a kubeconfig to use the above service account.
 kubeconfig=$(mktemp)
 server=$(kubectl --kubeconfig "${KUBECONFIG}" config view -o jsonpath='{.clusters[0].cluster.server}')
-ca=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.ca\.crt}')
-token=$(kubectl --kubeconfig "${KUBECONFIG}" get secret cluster-loader -o jsonpath='{.data.token}' | base64 --decode)
+ca=$(kubectl --kubeconfig "${KUBECONFIG}" get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 -w 0)
+token=$(kubectl --kubeconfig "${KUBECONFIG}" --duration=8760h create token cluster-loader)
 echo "
 apiVersion: v1
 kind: Config

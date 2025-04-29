@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -48,6 +49,8 @@ const (
 	storageClass                 = "ssd"
 	checkPrometheusReadyInterval = 30 * time.Second
 	numK8sClients                = 1
+	monitoringServiceAccount     = "monitoringserviceaccount"
+	secretName                   = "prometheus-token"
 
 	// All paths here are relative to manifests dir.
 	coreManifests                = "*.yaml"
@@ -221,14 +224,35 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 // This method is idempotent, if the prometheus stack is already set up applying the manifests
 // again will be no-op.
 func (pc *Controller) SetUpPrometheusStack() error {
-	k8sClient := pc.framework.GetClientSets().GetClient()
+	rootClusterClientSet := pc.framework.GetClientSets().GetClient()
 
-	klog.V(2).Info("Setting up prometheus stack")
-	if err := client.CreateNamespace(k8sClient, namespace); err != nil {
+	// In a Kubemark environment, there are two distinct clusters: the root cluster and the test cluster.
+	// Therefore, a testClusterClientSet operating on the test cluster is required.
+	// Prometheus runs in the root cluster, but certain actions must be performed in the test cluster
+	// for which this testClusterClientSet will be used.
+	testClusterClientSet, err := func() (kubernetes.Interface, error) {
+		multiClientSet, err := framework.NewMultiClientSet(pc.clusterLoaderConfig.ClusterConfig.KubeConfigPath, numK8sClients)
+		if err != nil {
+			return nil, err
+		}
+		return multiClientSet.GetClient(), nil
+	}()
+
+	if err != nil {
 		return err
 	}
+
+	klog.V(2).Info("Setting up prometheus stack")
+	if err := client.CreateNamespace(rootClusterClientSet, namespace); err != nil {
+		return err
+	}
+
+	if err := pc.createToken(rootClusterClientSet, testClusterClientSet); err != nil {
+		return err
+	}
+
 	// Removing Storage Class as Reclaim Policy cannot be changed
-	if err := client.DeleteStorageClass(k8sClient, storageClass); err != nil {
+	if err := client.DeleteStorageClass(rootClusterClientSet, storageClass); err != nil {
 		return err
 	}
 	if err := pc.applyDefaultManifests(coreManifests); err != nil {
@@ -247,7 +271,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		// Backward compatibility
 		// If enabled scraping windows node, need to setup windows node and template mapping
 		if isWindowsNodeScrapingEnabled(pc.templateMapping, pc.clusterLoaderConfig) {
-			if err := setUpWindowsNodeAndTemplate(k8sClient, pc.templateMapping); err != nil {
+			if err := setUpWindowsNodeAndTemplate(rootClusterClientSet, pc.templateMapping); err != nil {
 				return err
 			}
 		}
@@ -271,7 +295,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if _, ok := pc.templateMapping["MasterIps"]; ok {
-		if err := pc.exposeAPIServerMetrics(); err != nil {
+		if err := pc.configureRBACForMetrics(testClusterClientSet); err != nil {
 			return err
 		}
 		if err := pc.applyDefaultManifests(masterIPServiceMonitors); err != nil {
@@ -292,7 +316,7 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		}
 	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
-		dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient)
+		dumpAdditionalLogsOnPrometheusSetupFailure(rootClusterClientSet)
 		return err
 	}
 	klog.V(2).Info("Prometheus stack set up successfully")
@@ -354,33 +378,134 @@ func (pc *Controller) applyManifests(path, manifestGlob string) error {
 		os.DirFS(path), manifestGlob, pc.templateMapping, client.Retry(apierrs.IsNotFound))
 }
 
-// exposeAPIServerMetrics configures anonymous access to the apiserver metrics.
-func (pc *Controller) exposeAPIServerMetrics() error {
-	klog.V(2).Info("Exposing kube-apiserver metrics in the cluster")
-	// We need to get a client to the cluster where the test is being executed on,
-	// not the cluster that the prometheus is running in. Usually, there is only
-	// once cluster, but in case of kubemark we have two and thus we need to
-	// create a new client here.
-	clientSet, err := framework.NewMultiClientSet(
-		pc.clusterLoaderConfig.ClusterConfig.KubeConfigPath, numK8sClients)
+// In a Kubemark environment, Prometheus runs in the root cluster, while the simulated nodes reside in a separate test cluster.
+// Consequently, Prometheus cannot natively scrape metrics from the test cluster due to cross-cluster limitations.
+// To address this, this function performs the following:
+// 1. Creates a ServiceAccount and its associated token within the test cluster.
+// 2. Stores the generated token as a secret in the root cluster.
+// Prometheus in the root cluster is configured to use this secret for authenticating metric scraping requests from the test cluster.
+// This allows Prometheus to successfully collect metrics from the simulated nodes in the Kubemark test cluster.
+func (pc *Controller) createToken(k8sClient kubernetes.Interface, testClusterClientSet kubernetes.Interface) error {
+	klog.V(2).Info("Creating ServiceAccount in testing cluster")
+
+	saObj := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: monitoringServiceAccount,
+		},
+	}
+
+	token := func() (string, error) {
+		expirationSeconds := int64(86400) // 24h
+		tokenReq := &authenticationv1.TokenRequest{
+			Spec: authenticationv1.TokenRequestSpec{
+				ExpirationSeconds: &expirationSeconds,
+			},
+		}
+		tokenResp, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).CreateToken(context.TODO(), saObj.Name, tokenReq, metav1.CreateOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to create token: %v", err)
+		}
+		if len(tokenResp.Status.Token) == 0 {
+			return "", fmt.Errorf("failed to create token: no token in server response")
+		}
+		return tokenResp.Status.Token, nil
+	}
+
+	secret := func(token string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				"token": []byte(token),
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+	}
+
+	serviceAccount := func() error {
+		_, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).Create(context.TODO(), saObj, metav1.CreateOptions{})
+		return err
+	}
+
+	// Check if the service account already exists
+	_, err := testClusterClientSet.CoreV1().ServiceAccounts(corev1.NamespaceDefault).Get(context.TODO(), saObj.Name, metav1.GetOptions{})
+	if err == nil {
+		// Service account exists already. This mean the test is run again in cluster created previously
+		// Secret should be created OR should be updated if exists
+		tokenResponse, err := retryCreateFunctionWithResponse(token)
+		if err != nil {
+			return err
+		}
+		secret := secret(tokenResponse)
+		err = createPrometheusSecretForExistingServiceAccount(k8sClient, secret)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	// If ServiceAccount could not be retrieved but the error is not "not found", return it
+	if !apierrs.IsNotFound(err) {
+		return err
+	}
+	if err := retryCreateFunction(serviceAccount); err != nil {
+		return err
+	}
+	tokenResponse, err := retryCreateFunctionWithResponse(token)
 	if err != nil {
 		return err
 	}
+	_, err = k8sClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret(tokenResponse), metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createPrometheusSecretForExistingServiceAccount(k8sClient kubernetes.Interface, secret *corev1.Secret) error {
+	// Check if the secret already exists
+	_, inErr := k8sClient.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if inErr == nil {
+		// Secret already exists, update it
+		_, inErr = k8sClient.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		if inErr != nil {
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secretName, namespace, inErr)
+		}
+		return nil
+	}
+	if apierrs.IsNotFound(inErr) {
+		// Secret doesn't exist, create it
+		_, inErr = k8sClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if inErr != nil {
+			return fmt.Errorf("failed to create secret %s in namespace %s: %w", secretName, namespace, inErr)
+		}
+		return nil
+	}
+	// Error occurred while trying to get the secret
+	return inErr
+}
+
+// configureRBACForMetrics creates a ClusterRole and ClusterRoleBinding
+// to allow the monitoringServiceAccount (used by Prometheus) to scrape metrics.
+func (pc *Controller) configureRBACForMetrics(testClusterClientSet kubernetes.Interface) error {
+	klog.V(2).Info("Exposing kube-apiserver metrics in the cluster")
 	createClusterRole := func() error {
-		_, err := clientSet.GetClient().RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{Name: "apiserver-metrics-viewer"},
+		_, err := testClusterClientSet.RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "metrics-viewer"},
 			Rules: []rbacv1.PolicyRule{
 				{Verbs: []string{"get"}, NonResourceURLs: []string{"/metrics"}},
+				{APIGroups: []string{""}, Verbs: []string{"get"}, Resources: []string{"nodes/metrics"}},
 			},
 		}, metav1.CreateOptions{})
 		return err
 	}
 	createClusterRoleBinding := func() error {
-		_, err := clientSet.GetClient().RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: "system:anonymous"},
-			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "apiserver-metrics-viewer"},
+		_, err := testClusterClientSet.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "metrics-viewer-binding"},
+			RoleRef:    rbacv1.RoleRef{Kind: "ClusterRole", Name: "metrics-viewer"},
 			Subjects: []rbacv1.Subject{
-				{Kind: "User", Name: "system:anonymous"},
+				{Kind: "ServiceAccount", Name: monitoringServiceAccount, Namespace: corev1.NamespaceDefault},
 			},
 		}, metav1.CreateOptions{})
 		return err
@@ -431,6 +556,21 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
 		expectedTargets)
+}
+
+func retryCreateFunctionWithResponse(f func() (string, error)) (string, error) {
+	var result string
+	err := client.RetryWithExponentialBackOff(
+		client.RetryFunction(func() error {
+			var err error
+			result, err = f()
+			return err
+		}, client.Allow(apierrs.IsAlreadyExists)))
+
+	if err != nil {
+		return "", err
+	}
+	return result, nil
 }
 
 func retryCreateFunction(f func() error) error {

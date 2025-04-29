@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/klog"
+	"sigs.k8s.io/yaml"
 )
 
 // To add new e2e test support, you need to:
@@ -475,6 +475,10 @@ var (
 				OutputFilePrefix: "DnsLookupLatency",
 				Parser:           parsePerfData,
 			}},
+			"DNSPropagationLatency": []TestDescription{{
+				OutputFilePrefix: "DnsPropagation",
+				Parser:           parsePerfData,
+			}},
 		},
 		"SystemPodMetrics": {
 			"Load_SystemPodMetrics": []TestDescription{{
@@ -528,6 +532,13 @@ var (
 				Name:             "benchmark",
 				OutputFilePrefix: "NetworkPerformance",
 				Parser:           parsePerfData,
+			}},
+		},
+		"GenericMeasurements": {
+			"GenericMeasurements": []TestDescription{{
+				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
 			}},
 		},
 	}
@@ -666,15 +677,33 @@ var (
 		},
 	}
 
+	benchmarkListDescription = TestDescriptions{
+		"E2E": {
+			"Resources": []TestDescription{{
+				Name:             "list-benchmark",
+				OutputFilePrefix: "ResourceUsageSummary",
+				Parser:           parseResourceUsageData,
+			}},
+		},
+		"APIServer": {
+			"Latency": []TestDescription{{
+				Name:             "list-benchmark",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parsePerfData,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance":  performanceDescriptions,
-		"benchmark":    benchmarkDescriptions,
-		"networking":   networkingDescriptions,
-		"dnsBenchmark": dnsBenchmarkDescriptions,
-		"storage":      storageDescriptions,
-		"throughput":   throughputDescriptions,
-		"windows":      windowsDescriptions,
-		"watchlist":    watchListDescriptions,
+		"performance":   performanceDescriptions,
+		"benchmark":     benchmarkDescriptions,
+		"networking":    networkingDescriptions,
+		"dnsBenchmark":  dnsBenchmarkDescriptions,
+		"storage":       storageDescriptions,
+		"throughput":    throughputDescriptions,
+		"windows":       windowsDescriptions,
+		"watchlist":     watchListDescriptions,
+		"benchmarkList": benchmarkListDescription,
 	}
 )
 

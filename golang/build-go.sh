@@ -18,6 +18,7 @@ set -euxo pipefail
 
 function install_go_compiler {
   wget -q $GO_COMPILER_URL
+  rm -rf /usr/local/go
   tar -C /usr/local -xzf $GO_COMPILER_PKG
   rm $GO_COMPILER_PKG
   export PATH=$PATH:/usr/local/go/bin

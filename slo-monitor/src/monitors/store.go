@@ -172,13 +172,6 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 		}
 	}()
 	err := process(item, false)
-	if e, ok := err.(cache.ErrRequeue); ok {
-		err = q.AddIfNotPresent(item)
-		if err != nil {
-			glog.Errorf("Error in adding obj: %v", item.obj)
-		}
-		err = e.Err
-	}
 	return item, err
 }
 

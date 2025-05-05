@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: node-exporter
+  namespace: monitoring
+  labels:
+    app: node-exporter  # must match your Prometheus CR's `podMonitorSelector`
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s
+

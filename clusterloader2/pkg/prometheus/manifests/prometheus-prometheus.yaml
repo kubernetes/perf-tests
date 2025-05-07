@@ -35,12 +35,8 @@ spec:
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
     limits:
-      {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-      memory: 10Gi
-      {{else}}
       # Default: Start with 2Gi and add 2Gi for each 1K nodes.
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
-      {{end}}
   ruleSelector:
     matchLabels:
       prometheus: k8s

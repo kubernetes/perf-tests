@@ -1,0 +1,134 @@
+{{$MODE := DefaultParam .CL2_MODE "Indexed"}}
+{{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
+{{$PODS_PER_NODE := DefaultParam .CL2_PODS_PER_NODE 30}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+
+{{$totalPods := MultiplyInt $PODS_PER_NODE .Nodes}}
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+{{$podsPerNamespace := DivideInt $totalPods $namespaces}}
+
+# Small job configuration
+{{$smallJobSize := 4}}
+# Hardcode a minimum value for testing
+{{$smallJobsPerNamespace := 2}}
+
+# Medium job configuration - use 0 for testing with only small jobs
+{{$mediumJobSize := 20}}
+{{$mediumJobsPerNamespace := 0}}
+
+# Large job configuration - use 0 for testing with only small jobs
+{{$largeJobSize := 400}}
+{{$largeJobsPerNamespace := 0}}
+
+{{$jobRunningTime := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
+
+name: dra
+
+namespace:
+  number: {{$namespaces}}
+
+tuningSets:
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: start
+      labelSelector: group = test-job
+  - Identifier: JobLifecycleLatency
+    Method: JobLifecycleLatency
+    Params:
+      action: start
+      labelSelector: group = test-job
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = test-pod
+  - Identifier: WaitForControlledPodsRunning
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: batch/v1
+      kind: Job
+      labelSelector: group = test-job
+      operationTimeout: 120s
+- name: Create ResourceClaimTemplates in namespaces
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: single-gpu
+      objectTemplatePath: "resourceclaimtemplate.yaml"
+- name: Create {{$MODE}} jobs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: small
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$smallJobSize}}
+        Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$mediumJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: medium
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$mediumJobSize}}
+        Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$largeJobsPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: large
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$largeJobSize}}
+        Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
+- name: Wait for pods to be running
+  measurements:
+  - Identifier: WaitForControlledPodsRunning
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Measure pod startup latency
+  measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+      timeout: 10m
+      labelSelector: group = test-pod
+- name: Wait for {{$MODE}} jobs to finish
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: gather
+      timeout: 10m
+  - Identifier: JobLifecycleLatency
+    Method: JobLifecycleLatency
+    Params:
+      action: gather
+      timeout: 10m

@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: test-job
+spec:
+  parallelism: {{.Replicas}}
+  completions: {{.Replicas}}
+  completionMode: {{.Mode}}
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        group: test-pod
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{.Name}}
+          image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.3
+          args:
+            - {{.Sleep}}
+          resources:
+            claims:
+            - name: gpu #a) read the claim from resources.claims
+      resourceClaims:
+      - name: gpu # b) use the name in resources.claim
+        resourceClaimTemplateName: single-gpu-0 # c) the name for resource claim templates

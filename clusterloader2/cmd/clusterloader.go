@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/dra"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
@@ -119,6 +120,10 @@ func validateClusterFlags() *errors.ErrorList {
 			errList.Append(fmt.Errorf("cannot enable prometheus server for provider %s", clusterLoaderConfig.ClusterConfig.Provider.Name()))
 		}
 	}
+	if clusterLoaderConfig.DRAExampleDriverConfig.InstallDriver {
+		// Add any validation specific to DRA example driver if needed
+		// TODO
+	}
 	return errList
 }
 
@@ -139,6 +144,7 @@ func initFlags() {
 	modifier.InitFlags(&clusterLoaderConfig.ModifierConfig)
 	prometheus.InitFlags(&clusterLoaderConfig.PrometheusConfig)
 	prometheus.InitExperimentalFlags()
+	dra.InitFlags(&clusterLoaderConfig.DRAExampleDriverConfig)
 }
 
 func validateFlags() *errors.ErrorList {
@@ -322,6 +328,7 @@ func main() {
 
 	var prometheusController *prometheus.Controller
 	var prometheusFramework *framework.Framework
+	var draController *dra.Controller
 	var testReporter test.Reporter
 
 	if !dryRun {
@@ -337,6 +344,16 @@ func main() {
 				prometheusController.EnableTearDownPrometheusStackOnInterrupt()
 			}
 		}
+
+		if clusterLoaderConfig.DRAExampleDriverConfig.InstallDriver {
+			if draController, err = dra.NewController(&clusterLoaderConfig); err != nil {
+				klog.Exitf("Error while creating DRA Example Driver Controller: %v", err)
+			}
+			if err := draController.InstallTestDRADriver(); err != nil {
+				klog.Exitf("Error while setting up DRA example driver: %v", err)
+			}
+		}
+
 		if clusterLoaderConfig.ExecServiceConfig.Enable {
 			if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {
 				klog.Exitf("Error while setting up exec service: %v", err)
@@ -413,6 +430,12 @@ func main() {
 	if clusterLoaderConfig.ExecServiceConfig.Enable {
 		if err := execservice.TearDownExecService(f); err != nil {
 			klog.Errorf("Error while tearing down exec service: %v", err)
+		}
+	}
+	if clusterLoaderConfig.DRAExampleDriverConfig.InstallDriver && clusterLoaderConfig.DRAExampleDriverConfig.TearDownDriver && !dryRun {
+		klog.V(0).Info("Tearing down DRA example driver")
+		if err := draController.TearDownTestDRADriver(); err != nil {
+			klog.Errorf("Error while tearing down DRA example driver: %v", err)
 		}
 	}
 	if failedTestItems := testReporter.GetNumberOfFailedTestItems(); failedTestItems > 0 {

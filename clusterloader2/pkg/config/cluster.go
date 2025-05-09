@@ -29,9 +29,19 @@ type ClusterLoaderConfig struct {
 	ExecServiceConfig ExecServiceConfig
 	ModifierConfig    ModifierConfig
 	PrometheusConfig  PrometheusConfig
+	// Add DRAExampleDriverConfig to store DRA example driver configuration
+	DRAExampleDriverConfig DRAExampleDriverConfig
 	// OverridePaths defines what override files should be applied
 	// globally to the config specified by the ConfigPath for each TestScenario.
 	OverridePaths []string `json:"overridePaths"`
+}
+
+// DRAExampleDriverConfig is the configuration for DRA example driver installation.
+type DRAExampleDriverConfig struct {
+	// Whether to install DRA example driver in the cluster.
+	InstallDriver bool
+	// Whether to tear down the DRA example driver after tests (if installed).
+	TearDownDriver bool
 }
 
 // ClusterConfig is a structure that represents cluster description.

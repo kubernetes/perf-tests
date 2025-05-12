@@ -79,6 +79,10 @@ type podStartupLatencyMeasurement struct {
 	podStartupEntries *measurementutil.ObjectTransitionTimes
 	podMetadata       *measurementutil.PodsMetadata
 	threshold         time.Duration
+	// Threshold for pod startup latency by percentile. The default value is threshold.
+	perc50Threshold time.Duration
+	perc90Threshold time.Duration
+	perc99Threshold time.Duration
 }
 
 // Execute supports two actions:
@@ -98,6 +102,18 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]me
 			return nil, err
 		}
 		p.threshold, err = util.GetDurationOrDefault(config.Params, "threshold", defaultPodStartupLatencyThreshold)
+		if err != nil {
+			return nil, err
+		}
+		p.perc50Threshold, err = util.GetDurationOrDefault(config.Params, "perc50Threshold", p.threshold)
+		if err != nil {
+			return nil, err
+		}
+		p.perc90Threshold, err = util.GetDurationOrDefault(config.Params, "perc90Threshold", p.threshold)
+		if err != nil {
+			return nil, err
+		}
+		p.perc99Threshold, err = util.GetDurationOrDefault(config.Params, "perc99Threshold", p.threshold)
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +271,7 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 		transitions := podStartupTransitionsWithThreshold(p.threshold)
 		podStartupLatency := p.podStartupEntries.CalculateTransitionsLatency(transitions, check.filter)
 
-		if slosErr := podStartupLatency["pod_startup"].VerifyThreshold(p.threshold); slosErr != nil {
+		if slosErr := podStartupLatency["pod_startup"].VerifyThresholdByPercentile(p.perc50Threshold, p.perc90Threshold, p.perc99Threshold); slosErr != nil {
 			err = errors.NewMetricViolationError("pod startup", slosErr.Error())
 			klog.Errorf("%s%s: %v", check.namePrefix, p, err)
 		}

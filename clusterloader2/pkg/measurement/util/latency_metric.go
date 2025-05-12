@@ -59,6 +59,20 @@ func (metric *LatencyMetric) VerifyThreshold(threshold time.Duration) error {
 	return nil
 }
 
+// VerifyThreshold verifies latency metric against given percentile thresholds.
+func (metric *LatencyMetric) VerifyThresholdByPercentile(perc50Threshold, perc90Threshold, perc99Threshold time.Duration) error {
+	if metric.Perc50 > perc50Threshold {
+		return fmt.Errorf("too high latency 50th percentile: got %v expected: %v", metric.Perc50, perc50Threshold)
+	}
+	if metric.Perc90 > perc90Threshold {
+		return fmt.Errorf("too high latency 90th percentile: got %v expected: %v", metric.Perc90, perc90Threshold)
+	}
+	if metric.Perc99 > perc99Threshold {
+		return fmt.Errorf("too high latency 99th percentile: got %v expected: %v", metric.Perc99, perc99Threshold)
+	}
+	return nil
+}
+
 // ToPerfData converts latency metric to PerfData.
 func (metric *LatencyMetric) ToPerfData(name string) DataItem {
 	return DataItem{

@@ -28,10 +28,8 @@ spec:
   {{end}}
   - port: apiserver
     scheme: https
-    bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
     tlsConfig:
       insecureSkipVerify: true
-      caFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
   {{if $PROMETHEUS_SLOW_APISERVER}}
     interval: 30s
     scrapeTimeout: 30s

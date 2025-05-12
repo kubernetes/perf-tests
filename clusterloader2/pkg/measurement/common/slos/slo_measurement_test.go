@@ -32,8 +32,11 @@ func Test_getMeasurementConfig(t *testing.T) {
 					"threshold": 200,
 				},
 				"PodStartupLatency": map[string]interface{}{
-					"threshold": 5,
-					"latency":   "10s",
+					"threshold":       5,
+					"perc50Threshold": 5,
+					"perc90Threshold": 10,
+					"perc99Threshold": 15,
+					"latency":         "10s",
 				},
 			},
 		},
@@ -51,6 +54,15 @@ func Test_getMeasurementConfig(t *testing.T) {
 	measurementConfig, _ = getMeasurementConfig(config, "PodStartupLatency")
 	params = measurementConfig.Params
 	if result := params["threshold"]; result != 5 {
+		t.Errorf("want %v, got %v", 5, result)
+	}
+	if result := params["perc50Threshold"]; result != 5 {
+		t.Errorf("want %v, got %v", 5, result)
+	}
+	if result := params["perc90Threshold"]; result != 10 {
+		t.Errorf("want %v, got %v", 5, result)
+	}
+	if result := params["perc99Threshold"]; result != 15 {
 		t.Errorf("want %v, got %v", 5, result)
 	}
 	if result := params["latency"]; result != "10s" {

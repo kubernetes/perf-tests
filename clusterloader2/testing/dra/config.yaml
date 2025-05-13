@@ -2,6 +2,7 @@
 {{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
 {{$PODS_PER_NODE := DefaultParam .CL2_PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+{{$token := .CL2_TOKEN }}
 
 {{$totalPods := MultiplyInt $PODS_PER_NODE .Nodes}}
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
@@ -58,6 +59,20 @@ steps:
       kind: Job
       labelSelector: group = test-job
       operationTimeout: 120s
+  - Identifier: SchedulingMetrics
+    Method: SchedulingMetrics
+    Params:
+      action: start
+      token: {{ $token }}
+      endpoint: "localhost:10259"
+- name: Clearing SchedulingMetrics
+  measurements:
+  - Identifier: SchedulingMetrics
+    Method: SchedulingMetrics
+    Params:
+      action: reset
+      token: {{ $token }}
+      endpoint: "localhost:10259"
 - name: Create ResourceClaimTemplates in namespaces
   phases:
   - namespaceRange:
@@ -120,6 +135,14 @@ steps:
       action: gather
       timeout: 10m
       labelSelector: group = test-pod
+- name: Measure scheduler metrics
+  measurements:
+  - Identifier: SchedulingMetrics
+    Method: SchedulingMetrics
+    Params:
+      action: gather
+      token: {{ $token }}
+      endpoint: "localhost:10259"
 - name: Wait for {{$MODE}} jobs to finish
   measurements:
   - Identifier: WaitForFinishedJobs

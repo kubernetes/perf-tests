@@ -17,19 +17,17 @@ limitations under the License.
 package common
 
 import (
-	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
 	"math"
-	"strings"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/common/model"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
-	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -42,9 +40,7 @@ const (
 	preemptionEvaluationMetricName            = model.LabelValue("scheduler_scheduling_algorithm_preemption_evaluation_seconds_bucket")
 
 	singleRestCallTimeout = 5 * time.Minute
-
-	// kubeSchedulerPort is the default port for the scheduler status server.
-	kubeSchedulerPort = 10259
+	defaultMetricsPath    = "/metrics"
 )
 
 var (
@@ -88,36 +84,17 @@ type schedulerLatencyMetrics struct {
 // - reset - Resets latency data on api scheduler side.
 // - gather - Gathers and prints current scheduler latency data.
 func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	provider := config.ClusterFramework.GetClusterConfig().Provider
-	SSHToMasterSupported := provider.Features().SupportSSHToMaster
-
-	c := config.ClusterFramework.GetClientSets().GetClient()
-	nodes, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var masterRegistered = false
-	for _, node := range nodes.Items {
-		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
-			masterRegistered = true
-		}
-	}
-
-	if provider.Features().SchedulerInsecurePortDisabled || (!SSHToMasterSupported && !masterRegistered) {
-		klog.Warningf("unable to fetch scheduler metrics for provider: %s", provider.Name())
-		return nil, nil
-	}
-
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
 	}
-	masterIP, err := util.GetStringOrDefault(config.Params, "masterIP", config.ClusterFramework.GetClusterConfig().GetMasterIP())
+
+	endpoint, err := util.GetStringOrDefault(config.Params, "endpoint", "localhost:10259")
 	if err != nil {
 		return nil, err
 	}
-	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterFramework.GetClusterConfig().MasterName)
+
+	token, err := util.GetStringOrDefault(config.Params, "token", "")
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +102,13 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 	switch action {
 	case "reset":
 		klog.V(2).Infof("%s: start collecting latency initial metrics in scheduler...", s)
-		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return nil, s.getSchedulingInitialLatency(endpoint, token)
 	case "start":
 		klog.V(2).Infof("%s: start collecting latency metrics in scheduler...", s)
-		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return nil, s.getSchedulingInitialLatency(endpoint, token)
 	case "gather":
 		klog.V(2).Infof("%s: gathering latency metrics in scheduler...", s)
-		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return s.getSchedulingLatency(endpoint, token)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -198,8 +175,8 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 }
 
 // getSchedulingLatency retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
-	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(endpoint, token string) ([]measurement.Summary, error) {
+	schedulerMetrics, err := s.getSchedulingMetrics(endpoint, token)
 	if err != nil {
 		return nil, err
 	}
@@ -217,9 +194,9 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 }
 
 // getSchedulingInitialLatency retrieves initial values of scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) error {
+func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(endpoint, token string) error {
 	var err error
-	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
+	s.initialLatency, err = s.getSchedulingMetrics(endpoint, token)
 	if err != nil {
 		return err
 	}
@@ -227,7 +204,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.In
 }
 
 // getSchedulingMetrics gets scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingMetrics(endpoint, token string) (schedulerLatencyMetrics, error) {
 	e2eSchedulingDurationHist := measurementutil.NewHistogram(nil)
 	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
 	preemptionEvaluationHist := measurementutil.NewHistogram(nil)
@@ -242,7 +219,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface
 		frameworkExtensionPointDurationHist[ePoint] = measurementutil.NewHistogram(nil)
 	}
 
-	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, masterRegistered)
+	data, err := s.getMetricsViaHTTPS(endpoint, token)
 	if err != nil {
 		return latencyMetrics, err
 	}
@@ -269,6 +246,50 @@ func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface
 	return latencyMetrics, nil
 }
 
+// getMetricsViaHTTPS gets metrics using HTTPS with token authentication
+func (s *schedulerLatencyMeasurement) getMetricsViaHTTPS(endpoint, token string) (string, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	client := &http.Client{
+		Timeout:   singleRestCallTimeout,
+		Transport: transport,
+	}
+
+	url := fmt.Sprintf("https://%s%s", endpoint, defaultMetricsPath)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Add token for authorization if provided
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP request failed with status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %v", err)
+	}
+
+	return string(body), nil
+}
+
 // SetQuantileFromHistogram sets quantile of LatencyMetric from Histogram
 func SetQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measurementutil.Histogram) error {
 	quantiles := []float64{0.5, 0.9, 0.99}
@@ -285,42 +306,6 @@ func SetQuantileFromHistogram(metric *measurementutil.LatencyMetric, hist *measu
 	}
 
 	return nil
-}
-
-// sendRequestToScheduler sends request to kube scheduler metrics
-func (s *schedulerLatencyMeasurement) sendRequestToScheduler(c clientset.Interface, op, host string, provider provider.Provider, masterName string, masterRegistered bool) (string, error) {
-	opUpper := strings.ToUpper(op)
-	if opUpper != "GET" && opUpper != "DELETE" {
-		return "", fmt.Errorf("unknown REST request")
-	}
-
-	var responseText string
-	if masterRegistered {
-		ctx, cancel := context.WithTimeout(context.Background(), singleRestCallTimeout)
-		defer cancel()
-
-		body, err := c.CoreV1().RESTClient().Verb(opUpper).
-			Namespace(metav1.NamespaceSystem).
-			Resource("pods").
-			Name(fmt.Sprintf("https:kube-scheduler-%v:%v", masterName, kubeSchedulerPort)).
-			SubResource("proxy").
-			Suffix("metrics").
-			Do(ctx).Raw()
-
-		if err != nil {
-			klog.Errorf("Send request to scheduler failed with err: %v", err)
-			return "", err
-		}
-		responseText = string(body)
-	} else {
-		cmd := "curl -X " + opUpper + " -k https://localhost:10259/metrics"
-		sshResult, err := measurementutil.SSH(cmd, host+":22", provider)
-		if err != nil || sshResult.Code != 0 {
-			return "", fmt.Errorf("unexpected error (code: %d) in ssh connection to master: %#v", sshResult.Code, err)
-		}
-		responseText = sshResult.Stdout
-	}
-	return responseText, nil
 }
 
 type schedulingMetrics struct {

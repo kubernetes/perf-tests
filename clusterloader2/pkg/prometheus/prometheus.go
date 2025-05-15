@@ -387,7 +387,7 @@ func (pc *Controller) applyManifests(path, manifestGlob string) error {
 // Prometheus in the root cluster is configured to use this secret for authenticating metric scraping requests from the test cluster.
 // This allows Prometheus to successfully collect metrics from the simulated nodes in the Kubemark test cluster.
 func (pc *Controller) createToken(k8sClient kubernetes.Interface, testClusterClientSet kubernetes.Interface) error {
-	klog.V(2).Info("Creating ServiceAccount in testing cluster")
+	klog.V(2).Infof("Creating ServiceAccount %s in testing cluster", monitoringServiceAccount)
 
 	saObj := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{

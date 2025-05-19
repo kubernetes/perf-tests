@@ -2,6 +2,7 @@ Dockerbuild/*
 Dockerbuildclient/*
 nptests
 netperf-w?.yaml
+result*/*.json
 *.csv
 *.jpg
 *.png
@@ -11,4 +12,6 @@ netperf-w?.yaml
 *.pyc
 .vscode
 data-*
-
+kubeConfig
+launch
+AzurePublicCloud-*.json

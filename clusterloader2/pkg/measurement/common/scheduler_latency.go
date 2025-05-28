@@ -108,7 +108,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 		return nil, s.getSchedulingInitialLatency(endpoint, token)
 	case "gather":
 		klog.V(2).Infof("%s: gathering latency metrics in scheduler...", s)
-		return s.getSchedulingLatency(endpoint, token)
+		return s.getSchedulingLatency(endpoint, token, config.Identifier)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -175,7 +175,7 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 }
 
 // getSchedulingLatency retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(endpoint, token string) ([]measurement.Summary, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(endpoint, token, identifier string) ([]measurement.Summary, error) {
 	schedulerMetrics, err := s.getSchedulingMetrics(endpoint, token)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,8 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(endpoint, token strin
 	if err != nil {
 		return nil, err
 	}
-	summary := measurement.CreateSummary(schedulerLatencyMetricName, "json", content)
+	summaryName := fmt.Sprintf("%s_%s", schedulerLatencyMetricName, identifier)
+	summary := measurement.CreateSummary(summaryName, "json", content)
 	return []measurement.Summary{summary}, nil
 }
 

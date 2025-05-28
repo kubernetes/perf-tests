@@ -45,16 +45,6 @@ steps:
     Params:
       action: start
       labelSelector: job-type = short-lived
-  - Identifier: JobLifecycleLatency
-    Method: JobLifecycleLatency
-    Params:
-      action: start
-      labelSelector: job-type = short-lived
-  - Identifier: PodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: group = test-pod
   - Identifier: WaitForControlledPodsRunning
     Method: WaitForControlledPodsRunning
     Params:
@@ -63,15 +53,21 @@ steps:
       kind: Job
       labelSelector: job-type = long-running
       operationTimeout: 120s
-  - Identifier: SchedulingMetrics
+  - Identifier: FastFillSchedulingMetrics
     Method: SchedulingMetrics
     Params:
       action: start
       token: {{ $token }}
       endpoint: "localhost:10259"
+  - Identifier: FastFillPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: job-type = long-running
+      threshold: 20s
 - name: Clearing SchedulingMetrics
   measurements:
-  - Identifier: SchedulingMetrics
+  - Identifier: FastFillSchedulingMetrics
     Method: SchedulingMetrics
     Params:
       action: reset
@@ -109,6 +105,38 @@ steps:
       action: gather
       labelSelector: job-type = long-running
       timeout: 15m
+- name: Gather measurements for long running pods
+  measurements:
+    - Identifier: FastFillSchedulingMetrics
+      Method: SchedulingMetrics
+      Params:
+        action: gather
+        token: {{ $token }}
+        endpoint: "localhost:10259"
+    - Identifier: FastFillPodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: gather
+- name: reset metrics for steady state churn
+  measurements:
+    - Identifier: ChurnSchedulingMetrics
+      Method: SchedulingMetrics
+      Params:
+        action: start
+        token: {{ $token }}
+        endpoint: "localhost:10259"
+    - Identifier: ChurnSchedulingMetrics
+      Method: SchedulingMetrics
+      Params:
+        action: reset
+        token: {{ $token }}
+        endpoint: "localhost:10259"
+    - Identifier: ChurnPodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: start
+        labelSelector: job-type = short-lived
+        threshold: 20s
 - name: Create steady state {{$MODE}} jobs
   phases:
   - namespaceRange:
@@ -134,15 +162,13 @@ steps:
         timeout: 15m
 - name: Measure scheduler metrics
   measurements:
-  - Identifier: SchedulingMetrics
+  - Identifier: ChurnSchedulingMetrics
     Method: SchedulingMetrics
     Params:
       action: gather
       token: {{ $token }}
       endpoint: "localhost:10259"
-  - Identifier: JobLifecycleLatency
-    Method: JobLifecycleLatency
+  - Identifier: ChurnPodStartupLatency
+    Method: PodStartupLatency
     Params:
       action: gather
-      timeout: 10m
-      labelSelector: job-type = short-lived

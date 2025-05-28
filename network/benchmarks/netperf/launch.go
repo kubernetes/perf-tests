@@ -266,8 +266,6 @@ func createRCs(ctx context.Context, c *kubernetes.Clientset) bool {
 							Ports: []api.ContainerPort{{ContainerPort: orchestratorPort}},
 							Args: []string{
 								"--mode=orchestrator",
-								fmt.Sprintf("--testFrom=%d", testFrom),
-								fmt.Sprintf("--testTo=%d", testTo),
 							},
 							ImagePullPolicy: "Always",
 						},

@@ -24,7 +24,7 @@ spec:
             - {{.Sleep}}
           resources:
             claims:
-            - name: gpu #a) read the claim from resources.claims
+            - name: gpu
       resourceClaims:
-      - name: gpu # b) use the name in resources.claim
-        resourceClaimTemplateName: single-gpu-0 # c) the name for resource claim templates
+      - name: gpu
+        resourceClaimTemplateName: single-gpu-0

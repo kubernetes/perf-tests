@@ -10,14 +10,14 @@
 {{$gpusPerNode := DefaultParam .CL2_GPUS_PER_NODE 8}}
 {{$totalGPUs := MultiplyInt $gpusPerNode .Nodes}}
 
-# Long job configuration - for initial fill up
+# fast fill job configuration - for initial fill up
 {{$fillPercentage := DefaultParam .CL2_FILL_PERCENTAGE 90}}
 {{$fillPodsCount := DivideInt (MultiplyInt $totalGPUs $fillPercentage) 100}}
 {{$fillPodsPerNamespace := DivideInt $fillPodsCount $namespaces}}
 {{$longJobSize := 1}}
 {{$longJobRunningTime := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
 
-# Small job configuration for steady state
+# churn job configuration for steady state
 {{$smallJobPodsCount := SubtractInt $totalGPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
 {{$smallJobsPerNamespace := DivideInt $smallJobPodsCount $namespaces}}
 {{$smallJobSize := 1}}

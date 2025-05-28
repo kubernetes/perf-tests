@@ -14,13 +14,12 @@ const (
 	numK8sClients = 1
 )
 
-// InitFlags initializes prometheus flags.
 func InitFlags(p *config.DRAExampleDriverConfig) {
 	flags.BoolEnvVar(&p.InstallDriver, "install-dra-test-driver", "INSTALL_DRA_TEST_DRIVER", false, "Whether to install test dra-example-driver in the cluster.")
 	flags.BoolEnvVar(&p.TearDownDriver, "tear-down-dra-test-driver", "TEAR_DOWN_DRA_TEST_DRIVER", true, "Whether to tear-down test dra-example-driver after tests (if set-up).")
 }
 
-// Controller is a u til for managing (install / tearing down) the prometheus stack in the cluster
+// Controller is a util for managing (install / tearing down) the prometheus stack in the cluster
 type Controller struct {
 	clusterLoaderConfig *config.ClusterLoaderConfig
 	// provider is the cloud provider derived from the --provider flag.
@@ -47,7 +46,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (dc *Control
 }
 
 // InstallTestDRADriver installs the dra-example-driver in the cluster.
-// TODO: This method is idempotent, if the dra-example-driver already installed applying the manifests
+// This method is idempotent, if the dra-example-driver already installed applying the manifests
 // again will be no-op.
 func (dc *Controller) InstallTestDRADriver() error {
 	io := DefaultInstallOptions()

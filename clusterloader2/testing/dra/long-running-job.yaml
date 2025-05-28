@@ -9,7 +9,6 @@ spec:
   parallelism: {{.Replicas}}
   completions: {{.Replicas}}
   completionMode: {{.Mode}}
-  # Set a very long time so job runs permanently during test
   activeDeadlineSeconds: 86400 # 24 hours
   template:
     metadata:

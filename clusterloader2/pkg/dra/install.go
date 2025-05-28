@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -19,6 +15,9 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -58,14 +57,6 @@ func DefaultInstallOptions() *InstallOptions {
 		CreateNamespace:        true,
 		EnableValidationPolicy: false,
 		LocalChart:             false,
-		Logger:                 log.Printf,
-	}
-}
-
-// logf logs a formatted message if logger is set
-func (o *InstallOptions) logf(format string, args ...interface{}) {
-	if o.Logger != nil {
-		o.Logger(format, args...)
 	}
 }
 
@@ -75,38 +66,27 @@ func InstallChart(opts *InstallOptions) (*release.Release, error) {
 		opts = DefaultInstallOptions()
 	}
 
-	// Enable OCI support
 	os.Setenv("HELM_EXPERIMENTAL_OCI", "1")
 
-	// Set up Helm environment
 	settings := cli.New()
-
-	// Override kubeconfig if specified
 	if opts.Kubeconfig != "" {
 		settings.KubeConfig = opts.Kubeconfig
 	}
-
-	// Create the action configuration
 	actionConfig := new(action.Configuration)
-
-	// Initialize Registry client
-	registryClient, regErr := registry.NewClient(
+	var err error
+	actionConfig.RegistryClient, err = registry.NewClient(
 		registry.ClientOptDebug(settings.Debug),
 		registry.ClientOptWriter(os.Stdout),
 		registry.ClientOptCredentialsFile(settings.RegistryConfig),
 	)
-	if regErr != nil {
-		return nil, fmt.Errorf("failed to create registry client: %v", regErr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registry client: %v", err)
 	}
 
-	actionConfig.RegistryClient = registryClient
-
-	var err error
-	if err = actionConfig.Init(settings.RESTClientGetter(), opts.Namespace, os.Getenv("HELM_DRIVER"), opts.logf); err != nil {
+	if err = actionConfig.Init(settings.RESTClientGetter(), opts.Namespace, os.Getenv("HELM_DRIVER"), klog.Infof); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 
-	// Check if release exists
 	histClient := action.NewHistory(actionConfig)
 	histClient.Max = 1
 	_, histErr := histClient.Run(opts.ReleaseName)
@@ -129,7 +109,7 @@ func InstallChart(opts *InstallOptions) (*release.Release, error) {
 	}
 
 	webhook["enabled"] = opts.EnableValidationPolicy
-	opts.logf("ValidatingAdmissionPolicy (webhook.enabled) is %s", map[bool]string{true: "enabled", false: "disabled"}[opts.EnableValidationPolicy])
+	klog.V(2).Infof("ValidatingAdmissionPolicy (webhook.enabled) is %s", map[bool]string{true: "enabled", false: "disabled"}[opts.EnableValidationPolicy])
 
 	// Load the chart
 	chartRequested, err := loadChart(opts, settings, actionConfig)
@@ -138,9 +118,9 @@ func InstallChart(opts *InstallOptions) (*release.Release, error) {
 	}
 
 	// Install or upgrade the chart
-	rel, err := installOrUpgradeChart(actionConfig, chartRequested, vals, opts, histErr)
+	rel, err := installOrUpgradeChart(actionConfig, chartRequested, vals, opts, histErr == nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to install or upgrade chart: %v", regErr)
+		return nil, fmt.Errorf("failed to install or upgrade chart: %v", err)
 	}
 
 	return rel, nil
@@ -192,7 +172,7 @@ func loadChart(opts *InstallOptions, settings *cli.EnvSettings, actionConfig *ac
 
 // loadOCIChart loads a chart from an OCI registry
 func loadOCIChart(opts *InstallOptions, settings *cli.EnvSettings, actionConfig *action.Configuration) (*chart.Chart, error) {
-	opts.logf("Using OCI chart URL: %s", opts.ChartURL)
+	klog.V(2).Infof("Using OCI chart URL: %s", opts.ChartURL)
 
 	install := action.NewInstall(actionConfig)
 	install.ChartPathOptions.Version = opts.ChartVersion
@@ -202,7 +182,7 @@ func loadOCIChart(opts *InstallOptions, settings *cli.EnvSettings, actionConfig 
 		return nil, fmt.Errorf("failed to locate OCI chart: %v", err)
 	}
 
-	opts.logf("Downloaded chart to: %s", localChartPath)
+	klog.V(2).Infof("Downloaded chart to: %s", localChartPath)
 	return loader.Load(localChartPath)
 }
 
@@ -212,10 +192,10 @@ func installOrUpgradeChart(
 	chartRequested *chart.Chart,
 	vals map[string]interface{},
 	opts *InstallOptions,
-	histErr error,
+	isUpgrade bool,
 ) (*release.Release, error) {
-	if histErr != nil {
-		opts.logf("Installing chart for the first time")
+	if !isUpgrade {
+		klog.V(2).Infof("Installing chart for the first time")
 		client := action.NewInstall(actionConfig)
 		client.Namespace = opts.Namespace
 		client.ReleaseName = opts.ReleaseName
@@ -224,7 +204,7 @@ func installOrUpgradeChart(
 		return client.Run(chartRequested, vals)
 	}
 
-	opts.logf("Upgrading existing chart")
+	klog.V(2).Infof("Upgrading existing chart")
 	client := action.NewUpgrade(actionConfig)
 	client.Namespace = opts.Namespace
 
@@ -241,8 +221,6 @@ type UninstallOptions struct {
 	Kubeconfig string
 	// KeepHistory determines if release history should be kept
 	KeepHistory bool
-	// Logger for logging messages (if nil, log package will be used)
-	Logger func(string, ...interface{})
 }
 
 // DefaultUninstallOptions returns the default uninstall options
@@ -251,7 +229,6 @@ func DefaultUninstallOptions() *UninstallOptions {
 		Namespace:   "dra-example-driver",
 		ReleaseName: "dra-example-driver",
 		KeepHistory: false,
-		Logger:      log.Printf,
 	}
 }
 
@@ -261,49 +238,32 @@ func UninstallChart(opts *UninstallOptions) (*release.UninstallReleaseResponse, 
 		opts = DefaultUninstallOptions()
 	}
 
-	// Enable OCI support
 	os.Setenv("HELM_EXPERIMENTAL_OCI", "1")
 
-	// Set up Helm environment
 	settings := cli.New()
-
-	// Override kubeconfig if specified
 	if opts.Kubeconfig != "" {
 		settings.KubeConfig = opts.Kubeconfig
 	}
 
-	// Create the action configuration
 	actionConfig := new(action.Configuration)
 
-	// Initialize Registry client
-	registryClient, regErr := registry.NewClient(
+	var err error
+	actionConfig.RegistryClient, err = registry.NewClient(
 		registry.ClientOptDebug(settings.Debug),
 		registry.ClientOptWriter(os.Stdout),
 		registry.ClientOptCredentialsFile(settings.RegistryConfig),
 	)
-	if regErr != nil {
-		return nil, fmt.Errorf("failed to create registry client: %v", regErr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registry client: %v", err)
 	}
 
-	actionConfig.RegistryClient = registryClient
-
-	// logf function for the actionConfig
-	logf := func(format string, args ...interface{}) {
-		if opts.Logger != nil {
-			opts.Logger(format, args...)
-		}
-	}
-
-	var err error
-	if err = actionConfig.Init(settings.RESTClientGetter(), opts.Namespace, os.Getenv("HELM_DRIVER"), logf); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), opts.Namespace, os.Getenv("HELM_DRIVER"), klog.V(2).Infof); err != nil {
 		return nil, fmt.Errorf("failed to initialize Helm action configuration: %v", err)
 	}
 
-	// Create uninstall client
 	client := action.NewUninstall(actionConfig)
 	client.KeepHistory = opts.KeepHistory
 
-	// Uninstall the release
-	logf("Uninstalling Helm release %s in namespace %s", opts.ReleaseName, opts.Namespace)
+	klog.V(2).Infof("Uninstalling Helm release %s in namespace %s", opts.ReleaseName, opts.Namespace)
 	return client.Run(opts.ReleaseName)
 }

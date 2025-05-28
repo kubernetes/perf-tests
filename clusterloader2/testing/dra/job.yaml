@@ -4,15 +4,17 @@ metadata:
   name: {{.Name}}
   labels:
     group: test-job
+    job-type: short-lived
 spec:
   parallelism: {{.Replicas}}
-  completions: {{.Replicas}}
+  completions: {{.CompletionReplicas}}
   completionMode: {{.Mode}}
   ttlSecondsAfterFinished: 300
   template:
     metadata:
       labels:
         group: test-pod
+        job-type: short-lived
     spec:
       restartPolicy: Never
       containers:

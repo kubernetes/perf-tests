@@ -1,31 +1,28 @@
 {{$MODE := DefaultParam .CL2_MODE "Indexed"}}
 {{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
-{{$PODS_PER_NODE := DefaultParam .CL2_PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$STEADY_STATE_QPS := DefaultParam .CL2_STEADY_STATE_QPS 5}}
 {{$token := .CL2_TOKEN }}
 
-{{$totalPods := MultiplyInt $PODS_PER_NODE .Nodes}}
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
-{{$podsPerNamespace := DivideInt $totalPods $namespaces}}
 
 # Node resource configuration
 {{$gpusPerNode := DefaultParam .CL2_GPUS_PER_NODE 8}}
 {{$totalGPUs := MultiplyInt $gpusPerNode .Nodes}}
+
+# Long job configuration - for initial fill up
 {{$fillPercentage := DefaultParam .CL2_FILL_PERCENTAGE 90}}
 {{$fillPodsCount := DivideInt (MultiplyInt $totalGPUs $fillPercentage) 100}}
 {{$fillPodsPerNamespace := DivideInt $fillPodsCount $namespaces}}
+{{$longJobSize := 1}}
+{{$longJobRunningTime := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
 
 # Small job configuration for steady state
-{{$smallJobSize := 1}}  # 1 replica per job for steady state
-{{$smallJobsPerNamespace := 5}}
-
-# Long job configuration - for initial fill up
-{{$longJobSize := 1}}
-
-# Job running time
+{{$smallJobPodsCount := SubtractInt $totalGPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
+{{$smallJobsPerNamespace := DivideInt $smallJobPodsCount $namespaces}}
+{{$smallJobSize := 1}}
+{{$smallJobCompletions := 10}}
 {{$jobRunningTime := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
-{{$longJobRunningTime := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
 
 name: dra-steady-state
 
@@ -47,12 +44,12 @@ steps:
     Method: WaitForFinishedJobs
     Params:
       action: start
-      labelSelector: group = test-job
+      labelSelector: job-type = short-lived
   - Identifier: JobLifecycleLatency
     Method: JobLifecycleLatency
     Params:
       action: start
-      labelSelector: group = test-job
+      labelSelector: job-type = short-lived
   - Identifier: PodStartupLatency
     Method: PodStartupLatency
     Params:
@@ -64,7 +61,7 @@ steps:
       action: start
       apiVersion: batch/v1
       kind: Job
-      labelSelector: group = test-job
+      labelSelector: job-type = long-running
       operationTimeout: 120s
   - Identifier: SchedulingMetrics
     Method: SchedulingMetrics
@@ -124,23 +121,17 @@ steps:
       objectTemplatePath: "job.yaml"
       templateFillMap:
         Replicas: {{$smallJobSize}}
+        CompletionReplicas: {{$smallJobCompletions}}
         Mode: {{$MODE}}
         Sleep: {{$jobRunningTime}}
-- name: Wait for short-lived pods to be running
+- name: Wait for short-lived jobs to finish
   measurements:
-  - Identifier: WaitForControlledPodsRunning
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-      labelSelector: group = test-pod
-- name: Measure pod startup latency
-  measurements:
-  - Identifier: PodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
-      timeout: 10m
-      labelSelector: group = test-pod
+    - Identifier: WaitForFinishedJobs
+      Method: WaitForFinishedJobs
+      Params:
+        action: gather
+        labelSelector: job-type = short-lived
+        timeout: 15m
 - name: Measure scheduler metrics
   measurements:
   - Identifier: SchedulingMetrics
@@ -149,15 +140,9 @@ steps:
       action: gather
       token: {{ $token }}
       endpoint: "localhost:10259"
-- name: Wait for {{$MODE}} jobs to finish
-  measurements:
-  - Identifier: WaitForFinishedJobs
-    Method: WaitForFinishedJobs
-    Params:
-      action: gather
-      timeout: 10m
   - Identifier: JobLifecycleLatency
     Method: JobLifecycleLatency
     Params:
       action: gather
       timeout: 10m
+      labelSelector: job-type = short-lived

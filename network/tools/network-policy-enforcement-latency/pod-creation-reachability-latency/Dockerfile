@@ -8,7 +8,7 @@ WORKDIR /go/src/$gopkg/pod-creation-reachability-latency
 RUN go build -o /pod-creation-reachability-latency
 
 # Runtime image
-FROM alpine:3.21
+FROM alpine:3.22
 # Need to install curl to send requests to pods
 RUN apk --no-cache add curl
 

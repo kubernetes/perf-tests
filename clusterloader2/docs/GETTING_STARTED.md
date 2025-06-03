@@ -16,10 +16,10 @@ cd perf-tests
 
 ## Install GVM
 Follow instructions on [GVM install].
-Install golang with specific version (1.15.12 was tested in this tutorial):
+Install golang with specific version (1.24.3 was tested in this tutorial):
 ```bash
-gvm install go1.15.12
-gvm use go1.15.12
+gvm install go1.24.3
+gvm use go1.24.3
 ```
 Next, add perf-tests repository to GOPATH:
 
@@ -30,9 +30,9 @@ gvm linkthis k8s.io/perf-tests
 ## Create cluster using kind
 Follow the [kind installation][Kind install] guide.
 
-Create cluster v1.21.1 with one master and one node:
+Create cluster v1.27.3 with one master and one node:
 ```bash
-kind create cluster --image=kindest/node:v1.21.1 --name=test-cluster --wait=5m
+kind create cluster --image=kindest/node:v1.27.3 --name=test-cluster --wait=5m
 ```
 
 This command additionally generates cluster access credentials which are

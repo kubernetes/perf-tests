@@ -1,0 +1,15 @@
+## Node scaling module for ClusterLoader2
+
+steps:
+- name: "Scale cluster nodes"
+  measurements:
+  - Identifier: ScaleNodes
+    Method: ScaleNodes
+    Params:
+      provider: {{.CL2_PROVIDER_NAME}}
+      region: {{.CL2_PROVIDER_REGION}}
+      clusterName: {{.CL2_CLUSTER_NAME}}
+      batchSize: {{.CL2_NODE_SCALE_RATE}}
+      intervalSeconds: {{.CL2_NODE_SCALE_INTERVAL}}
+      targetNodeCount: {{.CL2_TARGET_NODE_COUNT}}
+      timeout: {{AddInt (MultiplyInt .CL2_NODE_SCALE_INTERVAL (DivideInt .CL2_TARGET_NODE_COUNT .CL2_NODE_SCALE_RATE)) 10}}m

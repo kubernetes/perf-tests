@@ -1,0 +1,49 @@
+# Node scaling test configuration
+# This test demonstrates controlled node scaling with specified rate limits
+
+{{$NODE_SCALE_RATE := DefaultParam .CL2_NODE_SCALE_RATE 20}}
+{{$NODE_SCALE_INTERVAL := DefaultParam .CL2_NODE_SCALE_INTERVAL 60}}
+{{$TARGET_NODE_COUNT := DefaultParam .CL2_TARGET_NODE_COUNT 100}}
+{{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .CL2_POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$PROVIDER_NAME := DefaultParam .CL2_PROVIDER_NAME "aws"}}
+{{$PROVIDER_REGION := DefaultParam .CL2_PROVIDER_REGION ""}}
+{{$CLUSTER_NAME := DefaultParam .CL2_CLUSTER_NAME ""}}
+
+name: node-scaling-test
+namespace:
+  number: 1
+
+steps:
+- name: Starting measurements
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = latency
+      threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
+
+- module:
+    path: modules/node-scaling.yaml
+    params:
+      CL2_NODE_SCALE_RATE: {{$NODE_SCALE_RATE}}
+      CL2_NODE_SCALE_INTERVAL: {{$NODE_SCALE_INTERVAL}}
+      CL2_TARGET_NODE_COUNT: {{$TARGET_NODE_COUNT}}
+      CL2_PROVIDER_NAME: {{$PROVIDER_NAME}}
+      CL2_PROVIDER_REGION: {{$PROVIDER_REGION}}
+      CL2_CLUSTER_NAME: {{$CLUSTER_NAME}}
+
+- name: Gathering measurements
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather 

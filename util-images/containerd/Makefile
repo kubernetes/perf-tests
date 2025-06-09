@@ -1,6 +1,6 @@
-PROJECT ?= k8s-testimages
+PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/perf-tests-util/containerd
-TAG = v0.0.1
+TAG = v0.0.2
 
 all: push
 

@@ -24,6 +24,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/dependency"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/state"
@@ -41,6 +42,7 @@ type simpleContext struct {
 	templateProvider    *config.TemplateProvider
 	tuningSetFactory    tuningset.Factory
 	measurementManager  measurement.Manager
+	dependencyManager   dependency.Manager
 	chaosMonkey         *chaos.Monkey
 	testScenario        *api.TestScenario
 	testConfig          *api.Config
@@ -58,6 +60,7 @@ func createSimpleContext(c *config.ClusterLoaderConfig, f, p *framework.Framewor
 		templateProvider:    templateProvider,
 		tuningSetFactory:    tuningset.NewFactory(),
 		measurementManager:  measurement.CreateManager(f, p, templateProvider, c),
+		dependencyManager:   dependency.CreateManager(f, p, templateProvider, c),
 		chaosMonkey:         chaos.NewMonkey(f.GetClientSets().GetClient(), c.ClusterConfig.Provider),
 		testScenario:        testScenario,
 	}
@@ -106,6 +109,11 @@ func (sc *simpleContext) GetFactory() tuningset.Factory {
 // GetManager returns measurement manager.
 func (sc *simpleContext) GetManager() measurement.Manager {
 	return sc.measurementManager
+}
+
+// GetDependencyManager returns dependency manager.
+func (sc *simpleContext) GetDependencyManager() dependency.Manager {
+	return sc.dependencyManager
 }
 
 // GetChaosMonkey returns chaos monkey.

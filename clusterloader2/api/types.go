@@ -43,6 +43,9 @@ type TestScenario struct {
 type Config struct {
 	// Name of the test case.
 	Name string `json:"name"`
+	// Dependencies is a list of dependencies that must be set up before steps begin
+	// and torn down after test completion.
+	Dependencies []*Dependency `json:"dependencies,omitempty"`
 	// TODO(#1696): Clean up after removing automanagedNamespaces
 	AutomanagedNamespaces int32 `json:"automanagedNamespaces,omitempty"`
 	// Namespace is a structure for namespace configuration.
@@ -220,6 +223,21 @@ type Measurement struct {
 	// MeasurementInstanceConfig contains the Identifier and Params of the measurement.
 	// It shouldn't be set when Identifier is set.
 	Instances []*MeasurementInstanceConfig
+}
+
+// Dependency defines the dependency which will call either install or teardown process for configuring cluster
+// dependencies.
+type Dependency struct {
+	// Name is a human-readable name for this dependency instance.
+	Name string `json:"name"`
+	// Method is a name of a method registered in the ClusterLoader dependency factory.
+	Method string `json:"method"`
+	// Timeout is the maximum duration for both setup and teardown operations.
+	// If set to 0, operations will wait forever.
+	Timeout Duration `json:"timeout,omitempty"`
+	// Params is a map of {name: value} pairs which will be passed to the dependency method - allowing for injection
+	// of arbitrary parameters to it.
+	Params map[string]interface{} `json:"params"`
 }
 
 // QPSLoad starts one operation every 1/QPS seconds.

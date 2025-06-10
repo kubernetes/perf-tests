@@ -57,7 +57,7 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 	ctx.GetClusterFramework().SetAutomanagedNamespacePrefix(conf.Namespace.Prefix)
 	klog.V(2).Infof("AutomanagedNamespacePrefix: %s", ctx.GetClusterFramework().GetAutomanagedNamespacePrefix())
 
-	defer cleanupResources(ctx, conf)
+	defer cleanupTestResourcesAndDependencies(ctx, conf)
 	ctx.GetFactory().Init(conf.TuningSets)
 
 	stopCh := make(chan struct{})
@@ -72,6 +72,16 @@ func (ste *simpleExecutor) ExecuteTest(ctx Context, conf *api.Config) *errors.Er
 	if err := ste.prepareTestNamespaces(ctx, conf); err != nil {
 		return errors.NewErrorList(fmt.Errorf("error while preparing test namespaces: %w", err))
 	}
+
+	if len(conf.Dependencies) > 0 {
+		klog.V(2).Infof("Setting up %d dependencies", len(conf.Dependencies))
+		if setupErrList := ctx.GetDependencyManager().SetupDependencies(conf.Dependencies); !setupErrList.IsEmpty() {
+			close(stopCh)
+			return setupErrList
+		}
+		klog.V(2).Info("All dependencies setup successfully")
+	}
+
 	errList := ste.ExecuteTestSteps(ctx, conf.Steps)
 	close(stopCh)
 
@@ -153,7 +163,6 @@ func (ste *simpleExecutor) ExecuteStep(ctx Context, step *api.Step) *errors.Erro
 	var wg wait.Group
 	stepResults := NewStepResult(step.Name)
 
-	// We already have validation so we know that either Measurements or Phases is non-empty.
 	for i := range step.Measurements {
 		currentMeasurement := step.Measurements[i]
 		substepName := fmt.Sprintf("[%02d] - %s", i, currentMeasurement.Identifier)
@@ -390,7 +399,7 @@ func isErrsCritical(errList *errors.ErrorList) bool {
 	return errList.Has(errors.ErrCritical)
 }
 
-func cleanupResources(ctx Context, conf *api.Config) {
+func cleanupTestResourcesAndDependencies(ctx Context, conf *api.Config) {
 	cleanupStartTime := time.Now()
 	ctx.GetManager().Dispose()
 	if *conf.Namespace.DeleteAutomanagedNamespaces {
@@ -400,6 +409,14 @@ func cleanupResources(ctx Context, conf *api.Config) {
 		}
 	}
 	klog.V(2).Infof("Resources cleanup time: %v", time.Since(cleanupStartTime))
+
+	dependencyCleanupStartTime := time.Now()
+	klog.V(2).Info("Tearing down dependencies")
+	if teardownErrList := ctx.GetDependencyManager().TeardownDependencies(); !teardownErrList.IsEmpty() {
+		klog.Errorf("Error during dependency teardown: %v", teardownErrList)
+	}
+	klog.V(2).Infof("All dependencies torn down successfully, cleanup time: %v",
+		time.Since(dependencyCleanupStartTime))
 }
 
 func getReplicaCountOfNewObject(ctx Context, namespace string, object *api.Object) (int32, error) {

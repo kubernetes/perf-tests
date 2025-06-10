@@ -22,6 +22,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/chaos"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	"k8s.io/perf-tests/clusterloader2/pkg/dependency"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -57,6 +58,7 @@ type Context interface {
 	GetTemplateProvider() *config.TemplateProvider
 	GetFactory() tuningset.Factory
 	GetManager() measurement.Manager
+	GetDependencyManager() dependency.Manager
 	GetChaosMonkey() *chaos.Monkey
 	GetTestScenario() *api.TestScenario
 	GetTestConfig() *api.Config

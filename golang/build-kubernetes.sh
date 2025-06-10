@@ -27,6 +27,12 @@ function build_kubernetes {
   # Ensure we build against latest golang version.
   echo -n "devel" > .go-version
 
+  # Create a temp commit
+  git add .
+  git config user.email "test@test-email.com"
+  git config user.name "Test Name"
+  git commit -m "Switch .go-version to 'devel'"
+
   # Build Kubernetes using our kube-cross image.
   # Also pass GOTOOLCHAIN=local to make sure kube-build
   # uses the golang version built locally in build-go.sh.

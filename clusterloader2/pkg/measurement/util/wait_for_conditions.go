@@ -65,12 +65,19 @@ func (o *WaitForGenericK8sObjectsOptions) Summary() string {
 
 // String returns printable representation of the namespaces range.
 func (nr *NamespacesRange) String() string {
+	if nr.Prefix == "" {
+		return ""
+	}
 	return fmt.Sprintf("%s-(%d-%d)", nr.Prefix, nr.Min, nr.Max)
 }
 
 // getMap returns a map with namespaces which should be queried.
 func (nr *NamespacesRange) getMap() map[string]bool {
 	result := map[string]bool{}
+	if nr.Prefix == "" {
+		result[""] = true // Cluster-scoped objects.
+		return result
+	}
 	for i := nr.Min; i <= nr.Max; i++ {
 		result[fmt.Sprintf("%s-%d", nr.Prefix, i)] = true
 	}

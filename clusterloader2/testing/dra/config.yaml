@@ -37,6 +37,11 @@ tuningSets:
   qpsLoad:
     qps: {{$STEADY_STATE_QPS}}
 
+dependencies:
+- name: Install dra-example-driver for test
+  Method: DRATestDriver
+  Timeout: 5m
+
 steps:
 - name: Start measurements
   measurements:

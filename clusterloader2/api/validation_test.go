@@ -358,6 +358,84 @@ func TestVerifyMeasurement(t *testing.T) {
 	}
 }
 
+func TestVerifyDependency(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		input    Dependency
+		expected bool
+	}{
+		{
+			name: "Valid dependency - name and method specified",
+			input: Dependency{
+				Name:    "test-dependency",
+				Method:  "TestMethod",
+				Timeout: Duration(300000000000), // 5 minutes in nanoseconds
+				Params: map[string]interface{}{
+					"param1": "value1",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Valid dependency - zero timeout",
+			input: Dependency{
+				Name:    "test-dependency",
+				Method:  "TestMethod",
+				Timeout: Duration(0),
+			},
+			expected: true,
+		},
+		{
+			name: "Valid dependency - minimal fields",
+			input: Dependency{
+				Name:   "test-dependency",
+				Method: "TestMethod",
+			},
+			expected: true,
+		},
+		{
+			name: "Invalid dependency - negative timeout",
+			input: Dependency{
+				Name:    "test-dependency",
+				Method:  "TestMethod",
+				Timeout: Duration(-1),
+			},
+			expected: false,
+		},
+		{
+			name: "Invalid dependency - missing name",
+			input: Dependency{
+				Method: "TestMethod",
+			},
+			expected: false,
+		},
+		{
+			name: "Invalid dependency - missing method",
+			input: Dependency{
+				Name: "test-dependency",
+			},
+			expected: false,
+		},
+		{
+			name: "Invalid dependency - both name and method missing",
+			input: Dependency{
+				Params: map[string]interface{}{
+					"param1": "value1",
+				},
+			},
+			expected: false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			v := NewConfigValidator("", &Config{})
+			got := isValid(v.validateDependency(&test.input, field.NewPath("")))
+			if test.expected != got {
+				t.Errorf("wanted: %v, got: %v", test.expected, got)
+			}
+		})
+	}
+}
+
 func TestVerifyStep(t *testing.T) {
 	for _, test := range []struct {
 		name     string

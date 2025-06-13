@@ -51,6 +51,10 @@ func (v *ConfigValidator) Validate() *errors.ErrorList {
 
 	allErrs = append(allErrs, v.validateNamespace(&c.Namespace, field.NewPath("namespace"))...)
 
+	for i := range c.Dependencies {
+		allErrs = append(allErrs, v.validateDependency(c.Dependencies[i], field.NewPath("dependencies").Index(i))...)
+	}
+
 	for i := range c.TuningSets {
 		allErrs = append(allErrs, v.validateTuningSet(c.TuningSets[i], field.NewPath("tuningSets").Index(i))...)
 	}
@@ -293,6 +297,20 @@ func (v *ConfigValidator) validatePoissonLoad(rl *PoissonLoad, fldPath *field.Pa
 	allErrs := field.ErrorList{}
 	if rl.ExpectedActionsPerSecond <= 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("expectedActionsPerSecond"), rl.ExpectedActionsPerSecond, "must have positive value"))
+	}
+	return allErrs
+}
+
+func (v *ConfigValidator) validateDependency(d *Dependency, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if d.Name == "" {
+		allErrs = append(allErrs, field.Required(fldPath.Child("name"), "name is required"))
+	}
+	if d.Method == "" {
+		allErrs = append(allErrs, field.Required(fldPath.Child("method"), "method is required"))
+	}
+	if d.Timeout < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("timeout"), d.Timeout, "timeout cannot be negative"))
 	}
 	return allErrs
 }

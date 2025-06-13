@@ -19,6 +19,8 @@ package dependency
 import (
 	"fmt"
 	"sync"
+
+	"k8s.io/perf-tests/clusterloader2/api"
 )
 
 // factory is a default global factory instance.
@@ -44,6 +46,7 @@ func (df *dependencyFactory) register(methodName string, createFunc createDepend
 		return fmt.Errorf("dependency with method %v already exists", methodName)
 	}
 	df.createFuncs[methodName] = createFunc
+	api.RegisteredDependencies[methodName] = true
 	return nil
 }
 

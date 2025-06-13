@@ -19,6 +19,8 @@ package measurement
 import (
 	"fmt"
 	"sync"
+
+	"k8s.io/perf-tests/clusterloader2/api"
 )
 
 // Factory is a default global factory instance.
@@ -44,6 +46,7 @@ func (mc *measurementFactory) register(methodName string, createFunc createMeasu
 		return fmt.Errorf("measurement with method %v already exists", methodName)
 	}
 	mc.createFuncs[methodName] = createFunc
+	api.RegisteredMeasurements[methodName] = true
 	return nil
 }
 

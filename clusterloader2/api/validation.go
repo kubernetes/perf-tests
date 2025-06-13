@@ -25,6 +25,11 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 )
 
+var (
+	RegisteredDependencies = make(map[string]bool)
+	RegisteredMeasurements = make(map[string]bool)
+)
+
 // ConfigValidator contains metadata for config validation.
 type ConfigValidator struct {
 	configDir string
@@ -231,6 +236,19 @@ func (v *ConfigValidator) validateMeasurement(m *Measurement, fldPath *field.Pat
 	if len(m.Instances) == 0 && m.Identifier == "" {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("Identifier"), m.Identifier, " and Instances cannot be both empty"))
 	}
+	allErrs = append(allErrs, v.validateMeasurementMethod(m.Method, fldPath.Child("method"))...)
+
+	return allErrs
+}
+
+func (v *ConfigValidator) validateMeasurementMethod(method string, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if method == "" {
+		allErrs = append(allErrs, field.Required(fldPath, "method is required"))
+	}
+	if !RegisteredMeasurements[method] {
+		allErrs = append(allErrs, field.Invalid(fldPath, method, "measurement method is not registered"))
+	}
 	return allErrs
 }
 
@@ -306,11 +324,20 @@ func (v *ConfigValidator) validateDependency(d *Dependency, fldPath *field.Path)
 	if d.Name == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("name"), "name is required"))
 	}
-	if d.Method == "" {
-		allErrs = append(allErrs, field.Required(fldPath.Child("method"), "method is required"))
-	}
 	if d.Timeout < 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("timeout"), d.Timeout, "timeout cannot be negative"))
+	}
+	allErrs = append(allErrs, v.validateDependencyMethod(d.Method, fldPath.Child("method"))...)
+	return allErrs
+}
+
+func (v *ConfigValidator) validateDependencyMethod(method string, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if method == "" {
+		allErrs = append(allErrs, field.Required(fldPath, "method is required"))
+	}
+	if !RegisteredDependencies[method] {
+		allErrs = append(allErrs, field.Invalid(fldPath, method, "dependency method is not registered"))
 	}
 	return allErrs
 }

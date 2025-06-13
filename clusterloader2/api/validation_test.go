@@ -302,20 +302,24 @@ func TestVerifyPhase(t *testing.T) {
 
 func TestVerifyMeasurement(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		input    Measurement
-		expected bool
+		name       string
+		input      Measurement
+		expected   bool
+		registered bool
 	}{
 		{
 			name: "Identifier specified only",
 			input: Measurement{
+				Method:     "TestMethod1",
 				Identifier: "Measurement",
 			},
-			expected: true,
+			expected:   true,
+			registered: true,
 		},
 		{
 			name: "Instances specified only",
 			input: Measurement{
+				Method: "TestMethod2",
 				Instances: []*MeasurementInstanceConfig{
 					{
 						Identifier: "Measurement1",
@@ -325,11 +329,13 @@ func TestVerifyMeasurement(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected:   true,
+			registered: true,
 		},
 		{
 			name: "Both identifier and instances specified",
 			input: Measurement{
+				Method:     "TestMethod3",
 				Identifier: "Measurement",
 				Instances: []*MeasurementInstanceConfig{
 					{
@@ -340,15 +346,37 @@ func TestVerifyMeasurement(t *testing.T) {
 					},
 				},
 			},
-			expected: false,
+			expected:   false,
+			registered: true,
 		},
 		{
-			name:     "Identifier and instances empty",
-			input:    Measurement{},
-			expected: false,
+			name:       "Identifier and instances empty",
+			input:      Measurement{Method: "TestMethod4"},
+			expected:   false,
+			registered: true,
+		},
+		{
+			name: "Measurement not registered",
+			input: Measurement{
+				Method:     "UnregisteredMethod",
+				Identifier: "Measurement",
+			},
+			expected:   false,
+			registered: false,
+		},
+		{
+			name: "Missing method",
+			input: Measurement{
+				Identifier: "Measurement",
+			},
+			expected:   false,
+			registered: false,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			if test.registered {
+				RegisteredMeasurements[test.input.Method] = true
+			}
 			v := NewConfigValidator("", &Config{})
 			got := isValid(v.validateMeasurement(&test.input, field.NewPath("")))
 			if test.expected != got {
@@ -360,9 +388,10 @@ func TestVerifyMeasurement(t *testing.T) {
 
 func TestVerifyDependency(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		input    Dependency
-		expected bool
+		name       string
+		input      Dependency
+		expected   bool
+		registered bool
 	}{
 		{
 			name: "Valid dependency - name and method specified",
@@ -374,7 +403,8 @@ func TestVerifyDependency(t *testing.T) {
 					"param1": "value1",
 				},
 			},
-			expected: true,
+			expected:   true,
+			registered: true,
 		},
 		{
 			name: "Valid dependency - zero timeout",
@@ -383,7 +413,8 @@ func TestVerifyDependency(t *testing.T) {
 				Method:  "TestMethod",
 				Timeout: Duration(0),
 			},
-			expected: true,
+			expected:   true,
+			registered: true,
 		},
 		{
 			name: "Valid dependency - minimal fields",
@@ -391,7 +422,8 @@ func TestVerifyDependency(t *testing.T) {
 				Name:   "test-dependency",
 				Method: "TestMethod",
 			},
-			expected: true,
+			expected:   true,
+			registered: true,
 		},
 		{
 			name: "Invalid dependency - negative timeout",
@@ -400,21 +432,24 @@ func TestVerifyDependency(t *testing.T) {
 				Method:  "TestMethod",
 				Timeout: Duration(-1),
 			},
-			expected: false,
+			expected:   false,
+			registered: true,
 		},
 		{
 			name: "Invalid dependency - missing name",
 			input: Dependency{
 				Method: "TestMethod",
 			},
-			expected: false,
+			expected:   false,
+			registered: true,
 		},
 		{
 			name: "Invalid dependency - missing method",
 			input: Dependency{
 				Name: "test-dependency",
 			},
-			expected: false,
+			expected:   false,
+			registered: true,
 		},
 		{
 			name: "Invalid dependency - both name and method missing",
@@ -423,11 +458,24 @@ func TestVerifyDependency(t *testing.T) {
 					"param1": "value1",
 				},
 			},
-			expected: false,
+			expected:   false,
+			registered: true,
+		},
+		{
+			name: "Invalid dependency - method not registered",
+			input: Dependency{
+				Name:   "test-dependency",
+				Method: "UnregisteredMethod",
+			},
+			expected:   false,
+			registered: false,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			v := NewConfigValidator("", &Config{})
+			if test.registered {
+				RegisteredDependencies[test.input.Method] = true
+			}
 			got := isValid(v.validateDependency(&test.input, field.NewPath("")))
 			if test.expected != got {
 				t.Errorf("wanted: %v, got: %v", test.expected, got)
@@ -490,6 +538,11 @@ func TestVerifyStep(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			v := NewConfigValidator("", &Config{})
+			if len(test.input.Measurements) > 0 {
+				for _, m := range test.input.Measurements {
+					RegisteredMeasurements[m.Method] = true
+				}
+			}
 			got := isValid(v.validateStep(&test.input, field.NewPath("")))
 			if test.expected != got {
 				t.Errorf("wanted: %v, got: %v", test.expected, got)

@@ -1,0 +1,10 @@
+---
+# Source: dra-example-driver/templates/validatingadmissionpolicybinding.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: resourceslices-policy-dra-example-driver
+spec:
+  policyName: resourceslices-policy-dra-example-driver
+  validationActions: [Deny]
+  # All ResourceSlices are matched.

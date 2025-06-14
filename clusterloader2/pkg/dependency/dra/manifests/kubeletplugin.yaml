@@ -1,0 +1,72 @@
+---
+# Source: dra-example-driver/templates/kubeletplugin.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dra-example-driver-kubeletplugin
+  namespace: {{.Namespace}}
+  labels:
+    helm.sh/chart: dra-example-driver-0.1.3
+    app.kubernetes.io/name: dra-example-driver
+    app.kubernetes.io/instance: dra-example-driver
+    app.kubernetes.io/version: "v0.1.0"
+    app.kubernetes.io/component: kubeletplugin
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dra-example-driver
+      app.kubernetes.io/instance: dra-example-driver
+      app.kubernetes.io/component: kubeletplugin
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dra-example-driver
+        app.kubernetes.io/instance: dra-example-driver
+        app.kubernetes.io/component: kubeletplugin
+    spec:
+      priorityClassName: system-node-critical
+      serviceAccountName: dra-example-driver-service-account
+      securityContext:
+        {}
+      containers:
+      - name: plugin
+        securityContext:
+          privileged: true
+        image: registry.k8s.io/dra-example-driver/dra-example-driver:v0.1.0
+        imagePullPolicy: IfNotPresent
+        command: ["dra-example-kubeletplugin"]
+        resources:
+          {}
+        env:
+        - name: CDI_ROOT
+          value: /var/run/cdi
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        # Simulated number of devices the example driver will pretend to have.
+        - name: NUM_DEVICES
+          value: "8"
+        volumeMounts:
+        - name: plugins-registry
+          mountPath: /var/lib/kubelet/plugins_registry
+        - name: plugins
+          mountPath: /var/lib/kubelet/plugins
+        - name: cdi
+          mountPath: /var/run/cdi
+      volumes:
+      - name: plugins-registry
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry
+      - name: plugins
+        hostPath:
+          path: /var/lib/kubelet/plugins
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi

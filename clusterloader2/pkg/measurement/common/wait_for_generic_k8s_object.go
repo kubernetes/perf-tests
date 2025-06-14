@@ -133,6 +133,12 @@ func getGroupVersionResource(params map[string]interface{}) (schema.GroupVersion
 func getNamespaces(namespacesPrefix string, params map[string]interface{}) (measurementutil.NamespacesRange, error) {
 	namespaceRange, err := util.GetMap(params, "namespaceRange")
 	if err != nil {
+		if util.IsErrKeyNotFound(err) {
+			// If not provided, assume waiting for cluster-scoped objects.
+			return measurementutil.NamespacesRange{
+				Prefix: "",
+			}, nil
+		}
 		return measurementutil.NamespacesRange{}, err
 	}
 	minParam, err := util.GetInt(namespaceRange, "min")

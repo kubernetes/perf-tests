@@ -35,7 +35,7 @@ replace (
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
 	github.com/go-errors/errors v1.5.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523

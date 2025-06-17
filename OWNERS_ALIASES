@@ -1,9 +1,11 @@
 aliases:
   sig-scalability-reviewers:
     - marseel
+    - mengqiy
     - shyamjvs
     - wojtek-t
   sig-scalability-approvers:
     - marseel
+    - mengqiy
     - shyamjvs
     - wojtek-t

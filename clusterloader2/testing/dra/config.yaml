@@ -62,8 +62,6 @@ steps:
     Method: SchedulingMetrics
     Params:
       action: start
-      token: {{ $token }}
-      endpoint: "localhost:10259"
   - Identifier: FastFillPodStartupLatency
     Method: PodStartupLatency
     Params:
@@ -76,8 +74,6 @@ steps:
     Method: SchedulingMetrics
     Params:
       action: reset
-      token: {{ $token }}
-      endpoint: "localhost:10259"
 - name: Create ResourceClaimTemplates in namespaces
   phases:
   - namespaceRange:
@@ -116,8 +112,6 @@ steps:
       Method: SchedulingMetrics
       Params:
         action: gather
-        token: {{ $token }}
-        endpoint: "localhost:10259"
     - Identifier: FastFillPodStartupLatency
       Method: PodStartupLatency
       Params:
@@ -128,20 +122,18 @@ steps:
       Method: SchedulingMetrics
       Params:
         action: start
-        token: {{ $token }}
-        endpoint: "localhost:10259"
     - Identifier: ChurnSchedulingMetrics
       Method: SchedulingMetrics
       Params:
         action: reset
-        token: {{ $token }}
-        endpoint: "localhost:10259"
     - Identifier: ChurnPodStartupLatency
       Method: PodStartupLatency
       Params:
         action: start
         labelSelector: job-type = short-lived
-        threshold: 20s
+        perc50Threshold: 40s
+        perc90Threshold: 60s
+        perc99Threshold: 80s
 - name: Create steady state {{$MODE}} jobs
   phases:
   - namespaceRange:
@@ -171,9 +163,10 @@ steps:
     Method: SchedulingMetrics
     Params:
       action: gather
-      token: {{ $token }}
-      endpoint: "localhost:10259"
   - Identifier: ChurnPodStartupLatency
     Method: PodStartupLatency
     Params:
       action: gather
+      perc50Threshold: 40s
+      perc90Threshold: 60s
+      perc99Threshold: 80s

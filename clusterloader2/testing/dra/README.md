@@ -22,11 +22,17 @@ export CL2_FILL_PERCENTAGE=90        # Cluster fill percentage
 
 2. Run the test with:
 ```
+# Make sure a Prometheus stack is deployed so that metric-based measurements work.
+# The easiest way is to pass `--enable-prometheus-server=true` to ClusterLoader2.
+# (This flag deploys the Prometheus Operator and the standard monitoring stack
+#   using the manifests from `pkg/prometheus/manifests`.)
+
 ./run-e2e.sh cluster-loader2 \
 --provider=kind \
 --kubeconfig=/root/.kube/config \
 --report-dir=/tmp/clusterloader2-results \
 --testconfig=testing/dra/config.yaml \
+--enable-prometheus-server=true \
 --nodes=5
 ```
 

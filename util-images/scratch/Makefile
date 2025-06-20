@@ -1,6 +1,8 @@
-PROJECT ?= k8s-testimages
+PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/perf-tests-util/scratch
 NUM_IMAGES ?= 20
+
+SHELL := /bin/bash
 
 all: push
 

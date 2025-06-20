@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -37,8 +38,8 @@ func Test_parseSystemPodMetrics(t *testing.T) {
 			name:        "same-container-in-two-pods",
 			buildNumber: 123,
 			data:        sameContainerInTwoPodsSummary(),
-			testResult:  &BuildData{Job: "", Version: "", Builds: map[string][]perftype.DataItem{}},
-			want: &BuildData{Job: "", Version: "", Builds: map[string][]perftype.DataItem{
+			testResult:  &BuildData{Job: "", Version: "", Builds: NewBuilds(map[string][]perftype.DataItem{})},
+			want: &BuildData{Job: "", Version: "", Builds: NewBuilds(map[string][]perftype.DataItem{
 				"123": {
 					perftype.DataItem{
 						Data: map[string]float64{
@@ -51,7 +52,8 @@ func Test_parseSystemPodMetrics(t *testing.T) {
 						Unit: "",
 					},
 				},
-			}},
+			}),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -122,7 +124,7 @@ func Test_parseContainerRestarts(t *testing.T) {
 					"RestartCount": 4
 				}]`),
 			want: &BuildData{
-				Builds: map[string][]perftype.DataItem{
+				Builds: NewBuilds(map[string][]perftype.DataItem{
 					"123": {
 						{
 							Data: map[string]float64{
@@ -132,16 +134,63 @@ func Test_parseContainerRestarts(t *testing.T) {
 							Labels: map[string]string{"RestartCount": "RestartCount"},
 						},
 					},
-				},
+				}),
 			},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := &BuildData{Builds: map[string][]perftype.DataItem{}}
+			got := &BuildData{Builds: NewBuilds(nil)}
 			parseContainerRestarts(tc.data, 123, got)
 			require.NotNil(t, got.Builds)
-			assert.ElementsMatch(t, tc.want.Builds["123"], got.Builds["123"])
+			assert.ElementsMatch(t, tc.want.Builds.Builds("123"), got.Builds.Builds("123"))
+		})
+	}
+}
+
+func Test_BuildDataToJson(t *testing.T) {
+	tests := []struct {
+		name      string
+		buildData *BuildData
+		want      string
+	}{
+		{
+			name: "ToJsonTest",
+			buildData: &BuildData{Job: "job", Version: "version", Builds: NewBuilds(map[string][]perftype.DataItem{
+				"123": {
+					perftype.DataItem{
+						Data: map[string]float64{
+							"c1": 2,
+							"c2": 1,
+						},
+						Labels: map[string]string{
+							"RestartCount": "RestartCount",
+						},
+						Unit: "unit",
+					},
+				},
+			}),
+			},
+			want: `{"builds":{"123":[{"data":{"c1":2,"c2":1},"unit":"unit","labels":{"RestartCount":"RestartCount"}}]},"job":"job","version":"version"}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			jsonData, err := json.Marshal(tc.buildData)
+			if err != nil {
+				t.Fatalf("failed to marshal data into json %v", err)
+			}
+			require.NotNil(t, jsonData)
+			assert.Equal(t, tc.want, string(jsonData))
+			got := &BuildData{}
+			err = json.Unmarshal(jsonData, got)
+			if err != nil {
+				t.Fatalf("failed to unmarshal data into json %v", err)
+			}
+			if !reflect.DeepEqual(*got, *tc.buildData) {
+				t.Errorf("want %v, got %v", *tc.buildData, *got)
+			}
 		})
 	}
 }

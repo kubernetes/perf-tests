@@ -73,7 +73,7 @@ func parseContainerRestarts(data []byte, buildNumber int, testResult *BuildData)
 	}
 
 	res := perftype.DataItem{Unit: "", Labels: map[string]string{"RestartCount": "RestartCount"}, Data: restartsByContainer}
-	testResult.Builds[build] = append(testResult.Builds[build], res)
+	testResult.Builds.AddBuildData(build, res)
 }
 
 func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
@@ -89,7 +89,7 @@ func parsePerfData(data []byte, buildNumber int, testResult *BuildData) {
 	if testResult.Version == obj.Version {
 		for i := range obj.DataItems {
 			stripCount(&obj.DataItems[i])
-			testResult.Builds[build] = append(testResult.Builds[build], obj.DataItems[i])
+			testResult.Builds.AddBuildData(build, obj.DataItems[i])
 		}
 	}
 }
@@ -142,8 +142,8 @@ func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData)
 			cpu.Data[percentile] = usage.CPU
 			memory.Data[percentile] = usage.Memory / (1024 * 1024)
 		}
-		testResult.Builds[build] = append(testResult.Builds[build], cpu)
-		testResult.Builds[build] = append(testResult.Builds[build], memory)
+		testResult.Builds.AddBuildData(build, cpu)
+		testResult.Builds.AddBuildData(build, memory)
 	}
 }
 
@@ -164,7 +164,7 @@ func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) 
 				continue
 			}
 			stripCount(&obj.DataItems[i])
-			testResult.Builds[build] = append(testResult.Builds[build], obj.DataItems[i])
+			testResult.Builds.AddBuildData(build, obj.DataItems[i])
 		}
 	}
 }
@@ -217,7 +217,7 @@ func parseApiserverRequestCount(data []byte, buildNumber int, testResult *BuildD
 			continue
 		}
 		resultMap[key] = &perfData
-		testResult.Builds[build] = append(testResult.Builds[build], perfData)
+		testResult.Builds.AddBuildData(build, perfData)
 	}
 }
 
@@ -245,7 +245,7 @@ func parseApiserverInitEventsCount(data []byte, buildNumber int, testResult *Bui
 		}
 		delete(perfData.Labels, "__name__")
 		perfData.Data["InitEventsCount"] = float64(metric[i].Value)
-		testResult.Builds[build] = append(testResult.Builds[build], perfData)
+		testResult.Builds.AddBuildData(build, perfData)
 	}
 }
 
@@ -296,15 +296,15 @@ func parseSchedulingLatency(testName string) func([]byte, int, *BuildData) {
 			return
 		}
 		preemptionEvaluation := parseOperationLatency(obj.PreemptionEvaluationLatency, testName, "preemption_evaluation")
-		testResult.Builds[build] = append(testResult.Builds[build], preemptionEvaluation)
+		testResult.Builds.AddBuildData(build, preemptionEvaluation)
 		e2eScheduling := parseOperationLatency(obj.E2eSchedulingLatency, testName, "e2eScheduling")
-		testResult.Builds[build] = append(testResult.Builds[build], e2eScheduling)
+		testResult.Builds.AddBuildData(build, e2eScheduling)
 		scheduling := parseOperationLatency(obj.SchedulingLatency, testName, "scheduling")
-		testResult.Builds[build] = append(testResult.Builds[build], scheduling)
+		testResult.Builds.AddBuildData(build, scheduling)
 
 		for name, metric := range obj.FrameworkExtensionPointDuration {
 			frameworkExtensionPointDuration := parseOperationLatency(metric, testName, name)
-			testResult.Builds[build] = append(testResult.Builds[build], frameworkExtensionPointDuration)
+			testResult.Builds.AddBuildData(build, frameworkExtensionPointDuration)
 		}
 	}
 }
@@ -332,7 +332,7 @@ func parseSchedulingThroughputCL(testName string) func([]byte, int, *BuildData) 
 		perfData.Data["Perc99"] = obj.Perc99
 		perfData.Data["Average"] = obj.Average
 		perfData.Data["Max"] = obj.Max
-		testResult.Builds[build] = append(testResult.Builds[build], perfData)
+		testResult.Builds.AddBuildData(build, perfData)
 	}
 }
 
@@ -393,7 +393,7 @@ func parseHistogramMetric(metricName string) func(data []byte, buildNumber int, 
 					perfData.Data["<= "+bucket+"s"] = float64(buckerVal) / float64(count) * 100
 				}
 			}
-			testResult.Builds[build] = append(testResult.Builds[build], perfData)
+			testResult.Builds.AddBuildData(build, perfData)
 		}
 	}
 }
@@ -439,5 +439,5 @@ func parseSystemPodMetrics(data []byte, buildNumber int, testResult *BuildData) 
 		},
 		Data: restartCounts,
 	}
-	testResult.Builds[build] = append(testResult.Builds[build], perfData)
+	testResult.Builds.AddBuildData(build, perfData)
 }

@@ -19,18 +19,57 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/klog"
 	"net/http"
 	"sort"
+	"sync"
 
+	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
 // BuildData contains job name and a map from build number to perf data.
 type BuildData struct {
-	Builds  map[string][]perftype.DataItem `json:"builds"`
-	Job     string                         `json:"job"`
-	Version string                         `json:"version"`
+	Builds  Builds `json:"builds"`
+	Job     string `json:"job"`
+	Version string `json:"version"`
+}
+
+// Builds is a structure contains build number to perf data map guarded against concurent modification
+type Builds struct {
+	builds map[string][]perftype.DataItem
+	mu     *sync.RWMutex
+}
+
+func (b *Builds) MarshalJSON() ([]byte, error) {
+	return json.Marshal(b.builds)
+}
+
+func (b *Builds) UnmarshalJSON(data []byte) error {
+	b.mu = &sync.RWMutex{}
+	return json.Unmarshal(data, &b.builds)
+}
+
+// NewBuilds returns a guarded build number to perf data map.
+func NewBuilds(builds map[string][]perftype.DataItem) Builds {
+	if builds == nil {
+		builds = make(map[string][]perftype.DataItem)
+	}
+	return Builds{
+		builds: builds,
+		mu:     &sync.RWMutex{},
+	}
+}
+
+func (b *Builds) AddBuildData(buildNumber string, data perftype.DataItem) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.builds[buildNumber] = append(b.builds[buildNumber], data)
+}
+
+func (b *Builds) Builds(buildNumber string) []perftype.DataItem {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.builds[buildNumber]
 }
 
 // MetricToBuildData is a map from metric name to BuildData pointer.

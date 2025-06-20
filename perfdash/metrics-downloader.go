@@ -224,7 +224,7 @@ func getBuildData(result JobToCategoryData, prefix string, category string, labe
 		result[prefix][category] = make(MetricToBuildData)
 	}
 	if _, found := result[prefix][category][label]; !found {
-		result[prefix][category][label] = &BuildData{Job: job, Version: "", Builds: map[string][]perftype.DataItem{}}
+		result[prefix][category][label] = &BuildData{Job: job, Version: "", Builds: NewBuilds(map[string][]perftype.DataItem{})}
 	}
 	return result[prefix][category][label]
 }

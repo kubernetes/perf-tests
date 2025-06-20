@@ -45,71 +45,64 @@ dependencies:
 steps:
 - name: Start measurements
   measurements:
-  - Identifier: WaitForFinishedJobs
-    Method: WaitForFinishedJobs
-    Params:
-      action: start
-      labelSelector: job-type = short-lived
-  - Identifier: WaitForControlledPodsRunning
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: start
-      apiVersion: batch/v1
-      kind: Job
-      labelSelector: job-type = long-running
-      operationTimeout: 120s
-  - Identifier: FastFillSchedulingMetrics
-    Method: SchedulingMetrics
-    Params:
-      action: start
-  - Identifier: FastFillPodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: start
-      labelSelector: job-type = long-running
-      threshold: 20s
-- name: Clearing SchedulingMetrics
-  measurements:
-  - Identifier: FastFillSchedulingMetrics
-    Method: SchedulingMetrics
-    Params:
-      action: reset
+    - Identifier: WaitForFinishedJobs
+      Method: WaitForFinishedJobs
+      Params:
+        action: start
+        labelSelector: job-type = short-lived
+    - Identifier: WaitForControlledPodsRunning
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: start
+        apiVersion: batch/v1
+        kind: Job
+        labelSelector: job-type = long-running
+        operationTimeout: 120s
+    - Identifier: FastFillPodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: start
+        labelSelector: job-type = long-running
+    - Identifier: FastFillSchedulingMetrics
+      Method: PrometheusSchedulingMetrics
+      Params:
+        action: start
 - name: Create ResourceClaimTemplates in namespaces
   phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 1
-    tuningSet: FastFill
-    objectBundle:
-    - basename: single-gpu
-      objectTemplatePath: "resourceclaimtemplate.yaml"
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: 1
+      tuningSet: FastFill
+      objectBundle:
+      - basename: single-gpu
+        objectTemplatePath: "resourceclaimtemplate.yaml"
 - name: Fill cluster to {{$fillPercentage}}% utilization
   phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$fillPodsPerNamespace}}
-    tuningSet: FastFill
-    objectBundle:
-    - basename: long-running
-      objectTemplatePath: "long-running-job.yaml"
-      templateFillMap:
-        Replicas: {{$longJobSize}}
-        Mode: {{$MODE}}
-        Sleep: {{$longJobRunningTime}}
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: {{$fillPodsPerNamespace}}
+      tuningSet: FastFill
+      objectBundle:
+      - basename: long-running
+        objectTemplatePath: "long-running-job.yaml"
+        templateFillMap:
+          Replicas: {{$longJobSize}}
+          Mode: {{$MODE}}
+          Sleep: {{$longJobRunningTime}}
 - name: Wait for fill pods to be running
   measurements:
-  - Identifier: WaitForControlledPodsRunning
-    Method: WaitForControlledPodsRunning
-    Params:
-      action: gather
-      labelSelector: job-type = long-running
-      timeout: 15m
+    - Identifier: WaitForControlledPodsRunning
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: gather
+        labelSelector: job-type = long-running
+        timeout: 15m
 - name: Gather measurements for long running pods
   measurements:
     - Identifier: FastFillSchedulingMetrics
-      Method: SchedulingMetrics
+      Method: PrometheusSchedulingMetrics
       Params:
         action: gather
     - Identifier: FastFillPodStartupLatency
@@ -119,13 +112,9 @@ steps:
 - name: reset metrics for steady state churn
   measurements:
     - Identifier: ChurnSchedulingMetrics
-      Method: SchedulingMetrics
+      Method: PrometheusSchedulingMetrics
       Params:
         action: start
-    - Identifier: ChurnSchedulingMetrics
-      Method: SchedulingMetrics
-      Params:
-        action: reset
     - Identifier: ChurnPodStartupLatency
       Method: PodStartupLatency
       Params:
@@ -136,19 +125,19 @@ steps:
         perc99Threshold: 80s
 - name: Create steady state {{$MODE}} jobs
   phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$smallJobsPerNamespace}}
-    tuningSet: SteadyState
-    objectBundle:
-    - basename: small
-      objectTemplatePath: "job.yaml"
-      templateFillMap:
-        Replicas: {{$smallJobSize}}
-        CompletionReplicas: {{$smallJobCompletions}}
-        Mode: {{$MODE}}
-        Sleep: {{$jobRunningTime}}
+    - namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      replicasPerNamespace: {{$smallJobsPerNamespace}}
+      tuningSet: SteadyState
+      objectBundle:
+      - basename: small
+        objectTemplatePath: "job.yaml"
+        templateFillMap:
+          Replicas: {{$smallJobSize}}
+          CompletionReplicas: {{$smallJobCompletions}}
+          Mode: {{$MODE}}
+          Sleep: {{$jobRunningTime}}
 - name: Wait for short-lived jobs to finish
   measurements:
     - Identifier: WaitForFinishedJobs
@@ -159,14 +148,14 @@ steps:
         timeout: 15m
 - name: Measure scheduler metrics
   measurements:
-  - Identifier: ChurnSchedulingMetrics
-    Method: SchedulingMetrics
-    Params:
-      action: gather
-  - Identifier: ChurnPodStartupLatency
-    Method: PodStartupLatency
-    Params:
-      action: gather
-      perc50Threshold: 40s
-      perc90Threshold: 60s
-      perc99Threshold: 80s
+    - Identifier: ChurnSchedulingMetrics
+      Method: PrometheusSchedulingMetrics
+      Params:
+        action: gather
+    - Identifier: ChurnPodStartupLatency
+      Method: PodStartupLatency
+      Params:
+        action: gather
+        perc50Threshold: 40s
+        perc90Threshold: 60s
+        perc99Threshold: 80s

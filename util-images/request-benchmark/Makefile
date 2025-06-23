@@ -1,6 +1,6 @@
-PROJECT ?= k8s-testimages
+PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/perf-tests-util/request-benchmark
-TAG = v0.0.9
+TAG = v0.0.10
 
 all: build push
 
@@ -9,7 +9,7 @@ build:
 	docker tag $(IMG):$(TAG) $(IMG):latest
 	@echo Built $(IMG):$(TAG) and tagged with latest
 
-push:
+push: build
 	docker push $(IMG):$(TAG)
 	docker push $(IMG):latest
 	@echo Pushed $(IMG) with :latest and :$(TAG) tags

@@ -2,6 +2,8 @@
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 100000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
+{($podsNumber := DefaultParam .CL2_LIST_PODS_NUMBER 100000)}
+{{$podGroup := DefaultParam .CL2_LIST_POD_GROUP "list-pods"}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
 {{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
@@ -64,17 +66,17 @@ steps:
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
-- module:
+- module: &startMeasurements
     path: /modules/measurements.yaml
     params:
       action: start
 - name: Wait 5 minutes
-  measurements:
+  measurements: &waitMeasurements
     - Identifier: Wait
       Method: Sleep
       Params:
         duration: 5m
-- module:
+- module: &gatherMeasurements
     path: /modules/measurements.yaml
     params:
       action: gather
@@ -82,4 +84,35 @@ steps:
     path: modules/list-benchmark.yaml
     params:
       namePrefix: "list-configmaps-"
+      replicas: 0
+
+- name: Create pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$podsNumber}}
+    objectBundle:
+    - basename: {{$podGroup}}
+      objectTemplatePath: pod.yaml
+      templateFillMap:
+        group: {{$podGroup}}
+
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: {{$listReplicas}}
+      uri: /api/v1/pods?resourceVersion=0
+      namespaced: false
+      contentType: {{$contentType}}
+- module: *startMeasurements
+- name: Wait 5 minutes
+  measurements: *waitMeasurements
+- module: *gatherMeasurements
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
       replicas: 0

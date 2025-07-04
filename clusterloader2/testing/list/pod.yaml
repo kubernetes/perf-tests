@@ -1,0 +1,14 @@
+{{$group := DefaultParam .group .Name}}
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.Name}}
+  labels:
+    app: {{$group}}
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+    ports:
+    - containerPort: 80

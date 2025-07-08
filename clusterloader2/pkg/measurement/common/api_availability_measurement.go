@@ -110,6 +110,9 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
 	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Do(context.Background())
+	if err := result.Error(); err != nil {
+		klog.Warningf("failed to reach cluster API server: %v", err)
+	}
 	status := 0
 	result.StatusCode(&status)
 	availability := status == http.StatusOK

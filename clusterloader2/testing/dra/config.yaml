@@ -63,6 +63,10 @@ steps:
       Params:
         action: start
         labelSelector: job-type = long-running
+    - Identifier: FastFillClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: start
     - Identifier: FastFillSchedulingMetrics
       Method: PrometheusSchedulingMetrics
       Params:
@@ -80,9 +84,9 @@ steps:
           - name: p99_dra_unprepare_operations
             query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="UnprepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_prepare_resources
-            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name="NodePrepareResources"}[%v])) by (le))
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_unprepare_resources
-            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name="NodeUnprepareResources"}[%v])) by (le))
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
 - name: Create ResourceClaimTemplates in namespaces
   phases:
     - namespaceRange:
@@ -125,6 +129,10 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+    - Identifier: FastFillClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: gather
     - Identifier: FastFillDRAMetrics
       Method: GenericPrometheusQuery
       Params:
@@ -143,6 +151,10 @@ steps:
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: start
     - Identifier: ChurnDRAMetrics
       Method: GenericPrometheusQuery
       Params:
@@ -195,6 +207,10 @@ steps:
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: gather
     - Identifier: ChurnDRAMetrics
       Method: GenericPrometheusQuery
       Params:

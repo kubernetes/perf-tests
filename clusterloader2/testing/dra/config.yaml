@@ -67,6 +67,22 @@ steps:
       Method: PrometheusSchedulingMetrics
       Params:
         action: start
+    - Identifier: FastFillDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: fastfill_kubelet_latencies
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: p99_dra_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="PrepareResources"}[%v])) by (le))
+          - name: p99_dra_unprepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="UnprepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name="NodePrepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_unprepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name="NodeUnprepareResources"}[%v])) by (le))
 - name: Create ResourceClaimTemplates in namespaces
   phases:
     - namespaceRange:
@@ -109,6 +125,10 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+    - Identifier: FastFillDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
 - name: reset metrics for steady state churn
   measurements:
     - Identifier: ChurnSchedulingMetrics
@@ -123,6 +143,22 @@ steps:
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: churn_kubelet_latencies
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: p99_prepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="PrepareResources"}[%v])) by (le))
+          - name: p99_unprepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="UnprepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_unprepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
 - name: Create steady state {{$MODE}} jobs
   phases:
     - namespaceRange:
@@ -159,3 +195,7 @@ steps:
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather

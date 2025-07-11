@@ -3,7 +3,6 @@
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$STEADY_STATE_QPS := DefaultParam .CL2_STEADY_STATE_QPS 5}}
 {{$token := .CL2_TOKEN }}
-
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 
 # Node resource configuration
@@ -16,6 +15,14 @@
 {{$fillPodsPerNamespace := DivideInt $fillPodsCount $namespaces}}
 {{$longJobSize := 1}}
 {{$longJobRunningTime := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
+
+
+{{$NODE_AVAILABLE_MILLICORES := DefaultParam .CL2_NODE_AVAILABLE_MILLICORES 8000}}
+{{$SYSTEM_USED_MILLICORES    := DefaultParam .CL2_SYSTEM_USED_MILLICORES     80}}
+{{$POD_MEMORY := DefaultParam .CL2_POD_MEMORY "128Mi"}}
+{{$CPU_AVAILABLE_PER_NODE := SubtractInt $NODE_AVAILABLE_MILLICORES $SYSTEM_USED_MILLICORES}}
+{{$POD_CPU_MILLICORES     := DivideInt   $CPU_AVAILABLE_PER_NODE $gpusPerNode}}
+
 
 # churn job configuration for steady state
 {{$smallJobPodsCount := SubtractInt $totalGPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
@@ -111,6 +118,8 @@ steps:
           Replicas: {{$longJobSize}}
           Mode: {{$MODE}}
           Sleep: {{$longJobRunningTime}}
+          CPUMilli: {{$POD_CPU_MILLICORES}}
+          Memory: {{$POD_MEMORY}}
 - name: Wait for fill pods to be running
   measurements:
     - Identifier: WaitForControlledPodsRunning
@@ -186,6 +195,8 @@ steps:
           CompletionReplicas: {{$smallJobCompletions}}
           Mode: {{$MODE}}
           Sleep: {{$jobRunningTime}}
+          CPUMilli: {{$POD_CPU_MILLICORES}}
+          Memory: {{$POD_MEMORY}}
 - name: Wait for short-lived jobs to finish
   measurements:
     - Identifier: WaitForFinishedJobs

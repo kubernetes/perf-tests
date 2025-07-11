@@ -44,6 +44,8 @@ const resourceClaimAllocationLatencyMeasurementName = "ResourceClaimAllocationLa
 
 var defaultClaimAllocationLatencyThreshold = 5 * time.Minute
 
+var defaultResourceClaimWorkers = 1
+
 const allocatePhase = "allocate"
 
 func init() {
@@ -57,6 +59,7 @@ func createResourceClaimAllocationLatencyMeasurement() measurement.Measurement {
 		selector: util.NewObjectSelector(),
 		entries:  measurementutil.NewObjectTransitionTimes(resourceClaimAllocationLatencyMeasurementName),
 		queue:    workqueue.New(),
+		workers:  defaultResourceClaimWorkers,
 	}
 }
 
@@ -78,6 +81,8 @@ type resourceClaimAllocationLatencyMeasurement struct {
 	perc50Threshold time.Duration
 	perc90Threshold time.Duration
 	perc99Threshold time.Duration
+
+	workers int
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) Execute(cfg *measurement.Config) ([]measurement.Summary, error) {
@@ -106,6 +111,13 @@ func (m *resourceClaimAllocationLatencyMeasurement) Execute(cfg *measurement.Con
 		m.perc99Threshold, err = util.GetDurationOrDefault(cfg.Params, "perc99Threshold", m.threshold)
 		if err != nil {
 			return nil, err
+		}
+		m.workers, err = util.GetIntOrDefault(cfg.Params, "workers", defaultResourceClaimWorkers)
+		if err != nil {
+			return nil, err
+		}
+		if m.workers < 1 {
+			m.workers = defaultResourceClaimWorkers
 		}
 		return nil, m.start(cfg.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
@@ -145,7 +157,9 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 	}
 
 	inf := informer.NewInformer(lw, m.addEvent)
-	go m.processEvents()
+	for w := 0; w < m.workers; w++ {
+		go m.processEvents()
+	}
 
 	const informerSyncTimeout = time.Minute
 	return informer.StartAndSync(inf, m.stopCh, informerSyncTimeout)

@@ -70,10 +70,12 @@ steps:
       Params:
         action: start
         labelSelector: job-type = long-running
+        workers: 10
     - Identifier: FastFillClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:
         action: start
+        workers: 10
     - Identifier: FastFillSchedulingMetrics
       Method: PrometheusSchedulingMetrics
       Params:
@@ -157,6 +159,7 @@ steps:
       Params:
         action: start
         labelSelector: job-type = short-lived
+        workers: 10
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
@@ -164,6 +167,7 @@ steps:
       Method: ResourceClaimAllocationLatency
       Params:
         action: start
+        workers: 10
     - Identifier: ChurnDRAMetrics
       Method: GenericPrometheusQuery
       Params:

@@ -47,6 +47,8 @@ const (
 	schedulePhase = "schedule"
 	runPhase      = "run"
 	watchPhase    = "watch"
+
+	defaultPodStartupWorkers = 1
 )
 
 func init() {
@@ -61,6 +63,7 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 		podMetadata:       measurementutil.NewPodsMetadata(podStartupLatencyMeasurementName),
 		eventQueue:        workqueue.New(),
+		workers:           defaultPodStartupWorkers,
 	}
 }
 
@@ -83,6 +86,8 @@ type podStartupLatencyMeasurement struct {
 	perc50Threshold time.Duration
 	perc90Threshold time.Duration
 	perc99Threshold time.Duration
+
+	workers int
 }
 
 // Execute supports two actions:
@@ -116,6 +121,13 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]me
 		p.perc99Threshold, err = util.GetDurationOrDefault(config.Params, "perc99Threshold", p.threshold)
 		if err != nil {
 			return nil, err
+		}
+		p.workers, err = util.GetIntOrDefault(config.Params, "workers", defaultPodStartupWorkers)
+		if err != nil {
+			return nil, err
+		}
+		if p.workers < 1 {
+			p.workers = defaultPodStartupWorkers
 		}
 		return nil, p.start(config.ClusterFramework.GetClientSets().GetClient())
 	case "gather":
@@ -161,7 +173,9 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 		},
 		p.addEvent,
 	)
-	go p.processEvents()
+	for w := 0; w < p.workers; w++ {
+		go p.processEvents()
+	}
 	return informer.StartAndSync(i, p.stopCh, informerSyncTimeout)
 }
 

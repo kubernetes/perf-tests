@@ -3,7 +3,6 @@
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$STEADY_STATE_QPS := DefaultParam .CL2_STEADY_STATE_QPS 5}}
 {{$token := .CL2_TOKEN }}
-
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 
 # Node resource configuration
@@ -16,6 +15,14 @@
 {{$fillPodsPerNamespace := DivideInt $fillPodsCount $namespaces}}
 {{$longJobSize := 1}}
 {{$longJobRunningTime := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
+
+
+{{$NODE_AVAILABLE_MILLICORES := DefaultParam .CL2_NODE_AVAILABLE_MILLICORES 8000}}
+{{$SYSTEM_USED_MILLICORES    := DefaultParam .CL2_SYSTEM_USED_MILLICORES     80}}
+{{$POD_MEMORY := DefaultParam .CL2_POD_MEMORY "128Mi"}}
+{{$CPU_AVAILABLE_PER_NODE := SubtractInt $NODE_AVAILABLE_MILLICORES $SYSTEM_USED_MILLICORES}}
+{{$POD_CPU_MILLICORES     := DivideInt   $CPU_AVAILABLE_PER_NODE $gpusPerNode}}
+
 
 # churn job configuration for steady state
 {{$smallJobPodsCount := SubtractInt $totalGPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
@@ -63,10 +70,32 @@ steps:
       Params:
         action: start
         labelSelector: job-type = long-running
+        workers: 10
+    - Identifier: FastFillClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: start
+        workers: 10
     - Identifier: FastFillSchedulingMetrics
       Method: PrometheusSchedulingMetrics
       Params:
         action: start
+    - Identifier: FastFillDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: fastfill_kubelet_latencies
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: p99_dra_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="PrepareResources"}[%v])) by (le))
+          - name: p99_dra_unprepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="UnprepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_unprepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
 - name: Create ResourceClaimTemplates in namespaces
   phases:
     - namespaceRange:
@@ -91,6 +120,8 @@ steps:
           Replicas: {{$longJobSize}}
           Mode: {{$MODE}}
           Sleep: {{$longJobRunningTime}}
+          CPUMilli: {{$POD_CPU_MILLICORES}}
+          Memory: {{$POD_MEMORY}}
 - name: Wait for fill pods to be running
   measurements:
     - Identifier: WaitForControlledPodsRunning
@@ -109,6 +140,14 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+    - Identifier: FastFillClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: gather
+    - Identifier: FastFillDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
 - name: reset metrics for steady state churn
   measurements:
     - Identifier: ChurnSchedulingMetrics
@@ -120,9 +159,31 @@ steps:
       Params:
         action: start
         labelSelector: job-type = short-lived
+        workers: 10
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: start
+        workers: 10
+    - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: churn_kubelet_latencies
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: p99_prepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="PrepareResources"}[%v])) by (le))
+          - name: p99_unprepare_operations
+            query: histogram_quantile(0.99, sum(rate(dra_operations_duration_seconds_bucket{operation_name="UnprepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_prepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
+          - name: p99_dra_grpc_node_unprepare_resources
+            query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
 - name: Create steady state {{$MODE}} jobs
   phases:
     - namespaceRange:
@@ -138,6 +199,8 @@ steps:
           CompletionReplicas: {{$smallJobCompletions}}
           Mode: {{$MODE}}
           Sleep: {{$jobRunningTime}}
+          CPUMilli: {{$POD_CPU_MILLICORES}}
+          Memory: {{$POD_MEMORY}}
 - name: Wait for short-lived jobs to finish
   measurements:
     - Identifier: WaitForFinishedJobs
@@ -159,3 +222,11 @@ steps:
         perc50Threshold: 40s
         perc90Threshold: 60s
         perc99Threshold: 80s
+    - Identifier: ChurnClaimAllocationLatency
+      Method: ResourceClaimAllocationLatency
+      Params:
+        action: gather
+    - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather

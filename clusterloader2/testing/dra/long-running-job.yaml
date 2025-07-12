@@ -25,6 +25,9 @@ spec:
           resources:
             claims:
             - name: gpu
+            requests:
+              cpu: "{{.CPUMilli}}m"
+              memory: "{{.Memory}}"
       resourceClaims:
       - name: gpu
         resourceClaimTemplateName: single-gpu-0 

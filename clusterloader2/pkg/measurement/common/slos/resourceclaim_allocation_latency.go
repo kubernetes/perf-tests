@@ -19,8 +19,11 @@ package slos
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	resourcev1beta2 "k8s.io/api/resource/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +49,10 @@ var defaultClaimAllocationLatencyThreshold = 5 * time.Minute
 
 var defaultResourceClaimWorkers = 1
 
-const allocatePhase = "allocate"
+const (
+	allocatePhase  = "allocate"
+	podCreatePhase = "pod_create"
+)
 
 func init() {
 	if err := measurement.Register(resourceClaimAllocationLatencyMeasurementName, createResourceClaimAllocationLatencyMeasurement); err != nil {
@@ -56,10 +62,11 @@ func init() {
 
 func createResourceClaimAllocationLatencyMeasurement() measurement.Measurement {
 	return &resourceClaimAllocationLatencyMeasurement{
-		selector: util.NewObjectSelector(),
-		entries:  measurementutil.NewObjectTransitionTimes(resourceClaimAllocationLatencyMeasurementName),
-		queue:    workqueue.New(),
-		workers:  defaultResourceClaimWorkers,
+		selector:         util.NewObjectSelector(),
+		entries:          measurementutil.NewObjectTransitionTimes(resourceClaimAllocationLatencyMeasurementName),
+		queue:            workqueue.New(),
+		workers:          defaultResourceClaimWorkers,
+		podCreationTimes: make(map[string]time.Time),
 	}
 }
 
@@ -74,6 +81,7 @@ type resourceClaimAllocationLatencyMeasurement struct {
 	isRunning bool
 	stopCh    chan struct{}
 	queue     *workqueue.Type
+	client    clientset.Interface
 
 	entries *measurementutil.ObjectTransitionTimes
 
@@ -83,6 +91,10 @@ type resourceClaimAllocationLatencyMeasurement struct {
 	perc99Threshold time.Duration
 
 	workers int
+
+	podCreationTimes map[string]time.Time
+	podCacheLock     sync.RWMutex
+	podGetCalls      int64
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) Execute(cfg *measurement.Config) ([]measurement.Summary, error) {
@@ -144,6 +156,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 	klog.V(2).Infof("%s: starting measurement", m)
 	m.isRunning = true
 	m.stopCh = make(chan struct{})
+	m.client = c
 
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -156,18 +169,47 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 		},
 	}
 
-	inf := informer.NewInformer(lw, m.addEvent)
+	claimInf := informer.NewInformer(lw, m.addEvent)
+
+	podLW := &cache.ListWatch{
+		ListFunc: func(o metav1.ListOptions) (runtime.Object, error) {
+			m.selector.ApplySelectors(&o)
+			return c.CoreV1().Pods(m.selector.Namespace).List(context.TODO(), o)
+		},
+		WatchFunc: func(o metav1.ListOptions) (watch.Interface, error) {
+			m.selector.ApplySelectors(&o)
+			return c.CoreV1().Pods(m.selector.Namespace).Watch(context.TODO(), o)
+		},
+	}
+	podInf := informer.NewInformer(podLW, m.addPodEvent)
+
 	for w := 0; w < m.workers; w++ {
 		go m.processEvents()
 	}
 
 	const informerSyncTimeout = time.Minute
-	return informer.StartAndSync(inf, m.stopCh, informerSyncTimeout)
+	if err := informer.StartAndSync(claimInf, m.stopCh, informerSyncTimeout); err != nil {
+		return err
+	}
+	return informer.StartAndSync(podInf, m.stopCh, informerSyncTimeout)
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) addEvent(_, obj interface{}) {
 	event := &claimEventData{obj: obj, recvTime: time.Now()}
 	m.queue.Add(event)
+}
+
+func (m *resourceClaimAllocationLatencyMeasurement) addPodEvent(_, obj interface{}) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil || !usesResourceClaimTemplate(pod) {
+		return
+	}
+	key := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+	m.podCacheLock.Lock()
+	if _, exists := m.podCreationTimes[key]; !exists {
+		m.podCreationTimes[key] = pod.CreationTimestamp.Time
+	}
+	m.podCacheLock.Unlock()
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) processEvents() {
@@ -223,6 +265,14 @@ func (m *resourceClaimAllocationLatencyMeasurement) processEvent(ev *claimEventD
 			m.entries.Set(key, allocatePhase, ev.recvTime)
 		}
 	}
+
+	if _, found := m.entries.Get(key, podCreatePhase); !found {
+		if ts, ok := m.getCachedPodCreateTime(claim); ok {
+			m.entries.Set(key, podCreatePhase, ts)
+		} else if ts, ok := m.fetchPodCreateTime(claim); ok {
+			m.entries.Set(key, podCreatePhase, ts)
+		}
+	}
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) stop() {
@@ -234,8 +284,10 @@ func (m *resourceClaimAllocationLatencyMeasurement) stop() {
 }
 
 func transitionsWithThreshold(th time.Duration) map[string]measurementutil.Transition {
-	tr := measurementutil.Transition{From: createPhase, To: allocatePhase, Threshold: th}
-	return map[string]measurementutil.Transition{"claim_allocation": tr}
+	return map[string]measurementutil.Transition{
+		"claim_allocation":           {From: createPhase, To: allocatePhase, Threshold: th},
+		"pod_create_to_claim_create": {From: podCreatePhase, To: createPhase, Threshold: th},
+	}
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) gather(_ clientset.Interface, identifier string) ([]measurement.Summary, error) {
@@ -255,7 +307,13 @@ func (m *resourceClaimAllocationLatencyMeasurement) gather(_ clientset.Interface
 		klog.Errorf("%s: %v", m, err)
 	}
 
-	content, jsonErr := util.PrettyPrintJSON(measurementutil.LatencyMapToPerfData(latencies))
+	perf := measurementutil.LatencyMapToPerfData(latencies)
+	perf.DataItems = append(perf.DataItems, measurementutil.DataItem{
+		Data:   map[string]float64{"Count": float64(atomic.LoadInt64(&m.podGetCalls))},
+		Unit:   "count",
+		Labels: map[string]string{"Metric": "PodGetCalls"},
+	})
+	content, jsonErr := util.PrettyPrintJSON(perf)
 	if jsonErr != nil {
 		return nil, jsonErr
 	}
@@ -266,6 +324,47 @@ func (m *resourceClaimAllocationLatencyMeasurement) gather(_ clientset.Interface
 
 func isAllocated(claim *resourcev1beta2.ResourceClaim) bool {
 	return claim.Status.Allocation != nil || len(claim.Status.ReservedFor) > 0 || len(claim.Status.Devices) > 0
+}
+
+func usesResourceClaimTemplate(p *corev1.Pod) bool {
+	for _, rc := range p.Spec.ResourceClaims {
+		if rc.ResourceClaimTemplateName != nil && *rc.ResourceClaimTemplateName != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *resourceClaimAllocationLatencyMeasurement) getCachedPodCreateTime(cl *resourcev1beta2.ResourceClaim) (time.Time, bool) {
+	for _, o := range cl.OwnerReferences {
+		if o.Kind == "Pod" && o.Name != "" {
+			key := fmt.Sprintf("%s/%s", cl.Namespace, o.Name)
+			m.podCacheLock.RLock()
+			ts, ok := m.podCreationTimes[key]
+			m.podCacheLock.RUnlock()
+			return ts, ok
+		}
+	}
+	return time.Time{}, false
+}
+
+func (m *resourceClaimAllocationLatencyMeasurement) fetchPodCreateTime(cl *resourcev1beta2.ResourceClaim) (time.Time, bool) {
+	for _, o := range cl.OwnerReferences {
+		if o.Kind == "Pod" && o.Name != "" {
+			atomic.AddInt64(&m.podGetCalls, 1)
+			pod, err := m.client.CoreV1().Pods(cl.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return time.Time{}, false
+			}
+			ts := pod.CreationTimestamp.Time
+			key := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+			m.podCacheLock.Lock()
+			m.podCreationTimes[key] = ts
+			m.podCacheLock.Unlock()
+			return ts, true
+		}
+	}
+	return time.Time{}, false
 }
 
 var _ measurement.Measurement = &resourceClaimAllocationLatencyMeasurement{}

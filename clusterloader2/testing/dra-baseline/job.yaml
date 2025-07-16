@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: baseline-job
+    job-type: short-lived
+spec:
+  parallelism: {{.Replicas}}
+  completions: {{.CompletionReplicas}}
+  completionMode: {{.Mode}}
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        group: baseline-pod
+        job-type: short-lived
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: {{.Name}}
+        image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.3
+        args: ["{{.Sleep}}"]
+        resources:
+          requests:
+            cpu: "{{.CPUMilli}}m"
+            memory: "{{.Memory}}"

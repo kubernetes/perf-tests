@@ -1,0 +1,160 @@
+{{$MODE                 := DefaultParam .CL2_MODE "Indexed"}}
+{{$NODES_PER_NAMESPACE  := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+{{$STEADY_STATE_QPS     := DefaultParam .CL2_STEADY_STATE_QPS 5}}
+{{$NODE_AVAILABLE_MILLICORES := DefaultParam .CL2_NODE_AVAILABLE_MILLICORES 8000}}
+{{$SYSTEM_USED_MILLICORES    := DefaultParam .CL2_SYSTEM_USED_MILLICORES     80}}
+{{$PODS_PER_NODE             := DefaultParam .CL2_PODS_PER_NODE              8}}
+{{$POD_MEMORY := DefaultParam .CL2_POD_MEMORY "128Mi"}}
+{{$CPU_AVAILABLE_PER_NODE := SubtractInt $NODE_AVAILABLE_MILLICORES $SYSTEM_USED_MILLICORES}}
+{{$POD_CPU_MILLICORES     := DivideInt   $CPU_AVAILABLE_PER_NODE $PODS_PER_NODE}}
+
+
+{{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
+
+{{$cpusPerNode := DefaultParam .CL2_CPUS_PER_NODE 8}}
+{{$totalCPUs   := MultiplyInt $cpusPerNode .Nodes}}
+
+{{$fillPercentage       := DefaultParam .CL2_FILL_PERCENTAGE 90}}
+{{$fillPodsCount        := DivideInt (MultiplyInt $totalCPUs $fillPercentage) 100}}
+{{$fillPodsPerNamespace := DivideInt $fillPodsCount $namespaces}}
+{{$longJobSize          := 1}}
+{{$longJobRunningTime   := DefaultParam .CL2_LONG_JOB_RUNNING_TIME "1h"}}
+
+{{$smallJobPodsCount     := SubtractInt $totalCPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
+{{$smallJobsPerNamespace := DivideInt $smallJobPodsCount $namespaces}}
+{{$smallJobSize          := 1}}
+{{$smallJobCompletions   := 10}}
+{{$jobRunningTime        := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
+
+name: dra-baseline
+
+namespace:
+  number: {{$namespaces}}
+
+tuningSets:
+- name: FastFill
+  qpsLoad:
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+- name: SteadyState
+  qpsLoad:
+    qps: {{$STEADY_STATE_QPS}}
+
+steps:
+- name: Start measurements
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: start
+      labelSelector: job-type = short-lived
+  - Identifier: WaitForControlledPodsRunning
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: batch/v1
+      kind: Job
+      labelSelector: job-type = long-running
+      operationTimeout: 120s
+  - Identifier: FastFillPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: job-type = long-running
+  - Identifier: FastFillSchedulingMetrics
+    Method: PrometheusSchedulingMetrics
+    Params:
+      action: start
+
+- name: Fill cluster to {{$fillPercentage}}% utilisation
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$fillPodsPerNamespace}}
+    tuningSet: FastFill
+    objectBundle:
+    - basename: long-running
+      objectTemplatePath: "long-running-job.yaml"
+      templateFillMap:
+        Replicas: {{$longJobSize}}
+        Mode: {{$MODE}}
+        Sleep: {{$longJobRunningTime}}
+        CPUMilli: {{$POD_CPU_MILLICORES}}
+        Memory:   {{$POD_MEMORY}}
+
+- name: Wait for fill pods to be running
+  measurements:
+  - Identifier: WaitForControlledPodsRunning
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+      labelSelector: job-type = long-running
+      timeout: 15m
+
+- name: Gather measurements for long running pods
+  measurements:
+  - Identifier: FastFillSchedulingMetrics
+    Method: PrometheusSchedulingMetrics
+    Params:
+      action: gather
+  - Identifier: FastFillPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+
+- name: reset metrics for steady state churn
+  measurements:
+  - Identifier: ChurnSchedulingMetrics
+    Method: PrometheusSchedulingMetrics
+    Params:
+      action: start
+  - Identifier: ChurnPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: job-type = short-lived
+      perc50Threshold: 40s
+      perc90Threshold: 60s
+      perc99Threshold: 80s
+
+- name: Create steady state {{$MODE}} jobs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$smallJobsPerNamespace}}
+    tuningSet: SteadyState
+    objectBundle:
+    - basename: small
+      objectTemplatePath: "job.yaml"
+      templateFillMap:
+        Replicas: {{$smallJobSize}}
+        CompletionReplicas: {{$smallJobCompletions}}
+        Mode: {{$MODE}}
+        Sleep: {{$jobRunningTime}}
+        CPUMilli: {{$POD_CPU_MILLICORES}}
+        Memory:   {{$POD_MEMORY}}
+
+- name: Wait for short-lived jobs to finish
+  measurements:
+  - Identifier: WaitForFinishedJobs
+    Method: WaitForFinishedJobs
+    Params:
+      action: gather
+      labelSelector: job-type = short-lived
+      timeout: 15m
+
+- name: Measure scheduler metrics
+  measurements:
+  - Identifier: ChurnSchedulingMetrics
+    Method: PrometheusSchedulingMetrics
+    Params:
+      action: gather
+  - Identifier: ChurnPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+      perc50Threshold: 40s
+      perc90Threshold: 60s
+      perc99Threshold: 80s 

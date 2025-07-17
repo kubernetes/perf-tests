@@ -63,6 +63,9 @@ steps:
       Params:
         action: start
         labelSelector: job-type = long-running
+        perc50Threshold: 8s
+        perc90Threshold: 16s
+        perc99Threshold: 32s
     - Identifier: FastFillSchedulingMetrics
       Method: PrometheusSchedulingMetrics
       Params:
@@ -109,6 +112,9 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+        perc50Threshold: 8s
+        perc90Threshold: 16s
+        perc99Threshold: 32s
 - name: reset metrics for steady state churn
   measurements:
     - Identifier: ChurnSchedulingMetrics

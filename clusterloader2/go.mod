@@ -45,7 +45,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.65.0
 	github.com/prometheus/prometheus v1.8.2-0.20210331101223-3cafc58827d1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.40.0
 	golang.org/x/oauth2 v0.30.0

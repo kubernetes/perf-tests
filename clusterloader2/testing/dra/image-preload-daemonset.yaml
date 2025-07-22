@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{.Name}}
+  labels:
+    group: image-preload
+spec:
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: image-preload
+        name: {{.Name}}
+    spec:
+      initContainers:
+      - name: preload-sleep-image
+        image: gcr.io/k8s-testimages/perf-tests-util/containerd:v0.0.1
+        command: ["sh", "-c", "ctr -n=k8s.io image pull gcr.io/k8s-staging-perf-tests/sleep:v0.0.3 2>&1 | tee /var/log/cl2-image-preload-sleep.log"]
+        volumeMounts:
+        - name: containerd
+          mountPath: /run/containerd
+        - name: logs-volume
+          mountPath: /var/log
+      volumes:
+      - name: containerd
+        hostPath:
+          path: /run/containerd
+      - name: logs-volume
+        hostPath:
+          path: /var/log
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause
+        resources:
+          requests:
+            cpu: 1m
+            memory: 10Mi
+      terminationGracePeriodSeconds: 1 

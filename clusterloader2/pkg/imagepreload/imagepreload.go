@@ -44,17 +44,18 @@ const (
 	namespace       = "preload"
 	daemonsetName   = "preload"
 	pollingInterval = 5 * time.Second
-	pollingTimeout  = 15 * time.Minute
 )
 
 var (
-	images []string
+	images         []string
+	pollingTimeout = 15 * time.Minute
 	//go:embed manifests
 	manifestsFS embed.FS
 )
 
 func InitFlags() {
 	flags.StringSliceEnvVar(&images, "node-preload-images", "NODE_PRELOAD_IMAGES", []string{}, "List of images to preload on each node in the test cluster before executing tests")
+	flags.DurationEnvVar(&pollingTimeout, "node-preload-images-timeout", "NODE_PRELOAD_IMAGES_TIMEOUT", 15*time.Minute, "Timeout for waiting for all nodes to preload images (e.g. 10m, 1h)")
 }
 
 type controller struct {

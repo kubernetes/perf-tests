@@ -4,7 +4,7 @@
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
-{{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
+{{$contentTypes := StringSplit .CL2_LIST_BENCHMARK_CONTENT_TYPE}}
 
 name: list-benchmark
 namespace:
@@ -56,19 +56,20 @@ steps:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 
+{{- range $i, $ct := $contentTypes }}
 - module:
     path: modules/list-benchmark.yaml
     params:
-      namePrefix: "list-configmaps-"
+      namePrefix: "list-configmaps-{{$ct}}-"
       replicas: {{$listReplicas}}
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
-      contentType: {{$contentType}}
+      contentType: {{$ct}}
 - module:
     path: /modules/measurements.yaml
     params:
       action: start
-- name: Wait 5 minutes
+- name: Wait 5 minutes for {{$ct}}
   measurements:
     - Identifier: Wait
       Method: Sleep
@@ -81,5 +82,6 @@ steps:
 - module:
     path: modules/list-benchmark.yaml
     params:
-      namePrefix: "list-configmaps-"
+      namePrefix: "list-configmaps-{{$ct}}-"
       replicas: 0
+{{- end }}

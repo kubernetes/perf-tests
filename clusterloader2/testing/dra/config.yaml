@@ -40,6 +40,8 @@ tuningSets:
 dependencies:
 - name: Install dra-example-driver for test
   Method: DRATestDriver
+  Params:
+    WorkerNodeCount: {{.Nodes}}
   Timeout: 5m
 
 steps:

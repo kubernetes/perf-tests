@@ -36,7 +36,7 @@ import (
 const (
 	schedulerLatencyMetricName = "SchedulingMetrics"
 
-	e2eSchedulingDurationMetricName           = model.LabelValue("scheduler_e2e_scheduling_duration_seconds_bucket")
+	e2eSchedulingDurationMetricName           = model.LabelValue("scheduler_pod_scheduling_sli_duration_seconds_bucket")
 	schedulingAlgorithmDurationMetricName     = model.LabelValue("scheduler_scheduling_algorithm_duration_seconds_bucket")
 	frameworkExtensionPointDurationMetricName = model.LabelValue("scheduler_framework_extension_point_duration_seconds_bucket")
 	preemptionEvaluationMetricName            = model.LabelValue("scheduler_scheduling_algorithm_preemption_evaluation_seconds_bucket")

@@ -66,14 +66,9 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 		namespace = draNamespace
 	}
 
-	workerCount, ok := config.Params["WorkerNodeCount"]
-	if !ok {
-		workerCount = defaultWorkerNodeCount
-	}
-
 	mapping := map[string]interface{}{
 		"Namespace":       namespace,
-		"WorkerNodeCount": workerCount,
+		"WorkerNodeCount": getWorkerCount(config),
 	}
 	if err := config.ClusterFramework.ApplyTemplatedManifests(
 		manifestsFS,
@@ -113,12 +108,23 @@ func (d *draDependency) Teardown(config *dependency.Config) error {
 }
 
 func (d *draDependency) waitForDRADriverToBeHealthy(config *dependency.Config, timeout time.Duration) error {
-	return wait.PollImmediate(
+	if err := wait.PollImmediate(
 		checkDRAReadyInterval,
 		timeout,
 		func() (done bool, err error) {
 			return d.isDRADriverReady(config)
-		})
+		}); err != nil {
+		return err
+	}
+	if err := wait.PollImmediate(
+		checkDRAReadyInterval,
+		timeout,
+		func() (done bool, err error) {
+			return isResourceSlicesPublished(config)
+		}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *draDependency) isDRADriverReady(config *dependency.Config) (done bool, err error) {
@@ -136,6 +142,29 @@ func (d *draDependency) isDRADriverReady(config *dependency.Config) (done bool, 
 			"DesiredNumberScheduled: %d, NumberReady: %d", draDaemonsetName, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady)
 	}
 	return ready, nil
+}
+
+func isResourceSlicesPublished(config *dependency.Config) (bool, error) {
+	workerCount := int(getWorkerCount(config).(float64))
+
+	resourceSlices, err := config.ClusterFramework.GetClientSets().GetClient().ResourceV1beta1().ResourceSlices().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list resourceslices: %v", err)
+	}
+	if len(resourceSlices.Items) != workerCount {
+		klog.V(2).Infof("waiting for resourceslices to be available, "+
+			"DesiredResourceSliceCount: %d, NumberResourceSlicesAvailable: %d", workerCount, len(resourceSlices.Items))
+		return false, nil
+	}
+	return true, nil
+}
+
+func getWorkerCount(config *dependency.Config) interface{} {
+	workerCount, ok := config.Params["WorkerNodeCount"]
+	if !ok {
+		workerCount = defaultWorkerNodeCount
+	}
+	return workerCount
 }
 
 // String returns string representation of this dependency.

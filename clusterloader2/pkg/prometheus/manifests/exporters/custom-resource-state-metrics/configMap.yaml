@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-resource-state-metrics-config
+  namespace: custom-resource-state-metrics-perf-test
+data:
+  config.yaml: |
+    spec:
+      resources:
+        - groupVersion: v1
+          kind: Namespace
+          metricName: kube_namespace_labels
+          metricType: Gauge
+          valueFrom:
+            - "1"
+          labelsFrom:
+            - key: "*"

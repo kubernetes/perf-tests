@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/common/model"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
 )
 
 const (
@@ -37,6 +38,9 @@ const (
 	probeIntervalDefault         = 30 * time.Second
 	ksmNamespace                 = "kube-state-metrics-perf-test"
 	ksmServiceName               = "kube-state-metrics"
+	crsmLatencyName              = "CustomResourceStateMetricsLatency"
+	crsmNamespace                = "custom-resource-state-metrics-perf-test"
+	crsmServiceName              = "custom-resource-state-metrics"
 	ksmSelfPort                  = 8081
 	ksmMetricsPort               = 8080
 )
@@ -53,9 +57,24 @@ type ksmLatencyMeasurement struct {
 	wg             sync.WaitGroup
 }
 
+type crsmLatencyMeasurement struct {
+	ctx            context.Context
+	cancel         func()
+	isRunning      bool
+	namespace      string
+	serviceName    string
+	metricsPort    int
+	selfPort       int
+	initialLatency *measurementutil.Histogram
+	wg             sync.WaitGroup
+}
+
 func init() {
 	if err := measurement.Register(ksmLatencyName, CreateKSMLatencyMeasurement); err != nil {
 		klog.Fatalf("Cannot register %s: %v", ksmLatencyName, err)
+	}
+	if err := measurement.Register(crsmLatencyName, CreateCRSMLatencyMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", crsmLatencyName, err)
 	}
 }
 
@@ -66,6 +85,19 @@ func CreateKSMLatencyMeasurement() measurement.Measurement {
 	return &ksmLatencyMeasurement{
 		namespace:   ksmNamespace,
 		serviceName: ksmServiceName,
+		selfPort:    ksmSelfPort,
+		metricsPort: ksmMetricsPort,
+		ctx:         ctx,
+		cancel:      cancel,
+	}
+}
+
+// CreateCRSMLatencyMeasurement creates a new Custom Resource State Metrics Measurement.
+func CreateCRSMLatencyMeasurement() measurement.Measurement {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &crsmLatencyMeasurement{
+		namespace:   crsmNamespace,
+		serviceName: crsmServiceName,
 		selfPort:    ksmSelfPort,
 		metricsPort: ksmMetricsPort,
 		ctx:         ctx,
@@ -100,35 +132,73 @@ func (m *ksmLatencyMeasurement) Execute(config *measurement.Config) ([]measureme
 		// the scrape interval so we should cancel.
 		m.startQuerying(m.ctx, client, probeIntervalDefault)
 		// Retrieve initial latency when first call is done.
-		m.initialLatency, err = m.retrieveKSMLatencyMetrics(m.ctx, client)
+		m.initialLatency, err = m.retrieveLatencyMetrics(m.ctx, client)
 		return nil, err
 	case "gather":
 		defer m.cancel()
-		return m.createKSMLatencySummary(m.ctx, client)
+		return m.createLatencySummary(m.ctx, client)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
 }
 
-func (m *ksmLatencyMeasurement) stop() error {
-	if !m.isRunning {
-		return fmt.Errorf("%s: measurement was not running", m)
+// Execute for crsmLatencyMeasurement
+func (m *crsmLatencyMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	if !config.CloudProvider.Features().SupportKubeStateMetrics {
+		klog.Infof("not executing CRSMLatencyMeasurement: unsupported for provider, %s", config.ClusterFramework.GetClusterConfig().Provider.Name())
+		return nil, nil
 	}
-	m.cancel()
-	m.wg.Wait()
-	return nil
-}
-
-// createKSMLatencyReport gathers the latency one last time and creates the summary based on the Quantile from the sub histograms.
-// Afterwards it creates the Summary Report.
-func (m *ksmLatencyMeasurement) createKSMLatencySummary(ctx context.Context, client clientset.Interface) ([]measurement.Summary, error) {
-	latestLatency, err := m.retrieveKSMLatencyMetrics(ctx, client)
+	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
 	}
-	if err = m.stop(); err != nil {
+	client := config.ClusterFramework.GetClientSets().GetClient()
+	switch action {
+	case "start":
+		if m.isRunning {
+			klog.V(2).Infof("%s: measurement already running", m)
+			return nil, nil
+		}
+		m.startQuerying(m.ctx, client, probeIntervalDefault)
+		m.initialLatency, err = m.retrieveLatencyMetrics(m.ctx, client)
+		return nil, err
+	case "gather":
+		defer m.cancel()
+		return m.createLatencySummary(m.ctx, client)
+	default:
+		return nil, fmt.Errorf("unknown action %v", action)
+	}
+}
+
+func getMetricsFromService(ctx context.Context, client clientset.Interface, namespace, serviceName string, port int) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	out, err := client.CoreV1().RESTClient().Get().
+		Resource("services").
+		SubResource("proxy").
+		Namespace(namespace).
+		Name(fmt.Sprintf("%v:%v", serviceName, port)).
+		Suffix("metrics").
+		Do(ctx).Raw()
+	return string(out), err
+}
+
+func (m *ksmLatencyMeasurement) stop() error {
+    if !m.isRunning {
+        return fmt.Errorf("%s: measurement was not running", m)
+    }
+    m.isRunning = false
+    m.cancel()
+    m.wg.Wait()
+    return nil 
+}
+
+func (m *ksmLatencyMeasurement) createLatencySummary(ctx context.Context, client clientset.Interface) ([]measurement.Summary, error) {
+	latestLatency, err := m.retrieveLatencyMetrics(ctx, client)
+	if err != nil {
 		return nil, err
 	}
+	m.stop()
 	// We want to subtract the latest histogram from the first one we collect.
 	finalLatency := HistogramSub(latestLatency, m.initialLatency)
 	// Pretty Print the report.
@@ -149,61 +219,39 @@ func (m *ksmLatencyMeasurement) createKSMLatencySummary(ctx context.Context, cli
 func (m *ksmLatencyMeasurement) startQuerying(ctx context.Context, client clientset.Interface, interval time.Duration) {
 	m.isRunning = true
 	m.wg.Add(1)
-	go m.queryLoop(ctx, client, interval)
-}
-
-func (m *ksmLatencyMeasurement) queryLoop(ctx context.Context, client clientset.Interface, interval time.Duration) {
-	defer m.wg.Done()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(interval):
-			var output string
-			output, err := m.getMetricsFromService(ctx, client, m.metricsPort)
-			if err != nil {
-				klog.V(2).Infof("error during fetching metrics from service: %v", err)
+	go func() {
+		defer m.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(interval):
+				_, err := getMetricsFromService(ctx, client, m.namespace, m.serviceName, m.metricsPort)
+				if err != nil {
+					klog.V(2).Infof("error during fetching metrics from service: %v", err)
+				}
 			}
-			if output == "" {
-				klog.V(2).Infof("/metrics endpoint of kube-state-metrics returned no data in namespace: %s from service: %s port: %d", m.namespace, m.serviceName, m.metricsPort)
-			}
-
 		}
-	}
+	}()
 }
 
-func (m *ksmLatencyMeasurement) retrieveKSMLatencyMetrics(ctx context.Context, c clientset.Interface) (*measurementutil.Histogram, error) {
-	ksmHist := measurementutil.NewHistogram(nil)
-	output, err := m.getMetricsFromService(ctx, c, m.selfPort)
+func (m *ksmLatencyMeasurement) retrieveLatencyMetrics(ctx context.Context, c clientset.Interface) (*measurementutil.Histogram, error) {
+	hist := measurementutil.NewHistogram(nil)
+	output, err := getMetricsFromService(ctx, c, m.namespace, m.serviceName, m.selfPort)
 	if err != nil {
-		return ksmHist, err
+		return hist, err
 	}
 	samples, err := measurementutil.ExtractMetricSamples(output)
 	if err != nil {
-		return ksmHist, err
+		return hist, err
 	}
 	for _, sample := range samples {
-		switch sample.Metric[model.MetricNameLabel] {
-		case ksmRequestDurationMetricName:
-			measurementutil.ConvertSampleToHistogram(sample, ksmHist)
+		if sample.Metric[model.MetricNameLabel] == ksmRequestDurationMetricName {
+			measurementutil.ConvertSampleToHistogram(sample, hist)
 		}
 	}
-	return ksmHist, nil
+	return hist, nil
 }
-
-func (m *ksmLatencyMeasurement) getMetricsFromService(ctx context.Context, client clientset.Interface, port int) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	out, err := client.CoreV1().RESTClient().Get().
-		Resource("services").
-		SubResource("proxy").
-		Namespace(m.namespace).
-		Name(fmt.Sprintf("%v:%v", m.serviceName, port)).
-		Suffix("metrics").
-		Do(ctx).Raw()
-	return string(out), err
-}
-
 // Dispose cleans up after the measurement.
 func (m *ksmLatencyMeasurement) Dispose() {
 	if err := m.stop(); err != nil {
@@ -214,4 +262,79 @@ func (m *ksmLatencyMeasurement) Dispose() {
 // String returns string representation of this measurement.
 func (m *ksmLatencyMeasurement) String() string {
 	return ksmLatencyName
+}
+
+func (m *crsmLatencyMeasurement) stop() error {
+    if !m.isRunning {
+        return fmt.Errorf("%s: measurement was not running", m)
+    }
+    m.isRunning = false
+    m.cancel()
+    m.wg.Wait()
+    return nil
+}
+
+func (m *crsmLatencyMeasurement) createLatencySummary(ctx context.Context, client clientset.Interface) ([]measurement.Summary, error) {
+	latestLatency, err := m.retrieveLatencyMetrics(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	m.stop()
+	finalLatency := HistogramSub(latestLatency, m.initialLatency)
+	result := &measurementutil.LatencyMetric{}
+	if err = SetQuantileFromHistogram(result, finalLatency); err != nil {
+		return nil, err
+	}
+	content, err := util.PrettyPrintJSON(result)
+	if err != nil {
+		return nil, err
+	}
+	return []measurement.Summary{measurement.CreateSummary(crsmLatencyName, "json", content)}, nil
+}
+
+func (m *crsmLatencyMeasurement) startQuerying(ctx context.Context, client clientset.Interface, interval time.Duration) {
+	m.isRunning = true
+	m.wg.Add(1)
+	go func() {
+		defer m.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(interval):
+				_, err := getMetricsFromService(ctx, client, m.namespace, m.serviceName, m.metricsPort)
+				if err != nil {
+					klog.V(2).Infof("error during fetching metrics from service: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (m *crsmLatencyMeasurement) retrieveLatencyMetrics(ctx context.Context, c clientset.Interface) (*measurementutil.Histogram, error) {
+	hist := measurementutil.NewHistogram(nil)
+	output, err := getMetricsFromService(ctx, c, m.namespace, m.serviceName, m.selfPort)
+	if err != nil {
+		return hist, err
+	}
+	samples, err := measurementutil.ExtractMetricSamples(output)
+	if err != nil {
+		return hist, err
+	}
+	for _, sample := range samples {
+		if sample.Metric[model.MetricNameLabel] == ksmRequestDurationMetricName {
+			measurementutil.ConvertSampleToHistogram(sample, hist)
+		}
+	}
+	return hist, nil
+}
+
+func (m *crsmLatencyMeasurement) Dispose() {
+	if err := m.stop(); err != nil {
+    	klog.V(2).Infof("error during dispose call: %v", err)
+	}
+}
+
+func (m *crsmLatencyMeasurement) String() string {
+	return crsmLatencyName
 }

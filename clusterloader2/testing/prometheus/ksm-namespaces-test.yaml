@@ -1,6 +1,6 @@
 name: native-ksm-namespaces-test
 objectTemplates:
-- path: "pkg/prometheus/manifests/default/"
+- path: "pkg/prometheus/manifests/exporters/kube-state-metrics/"
 testoverrides:
 - path: "testing/overrides/ksm-namespaces-override.yaml"
 tuningSets:
@@ -11,12 +11,12 @@ steps:
 - name: load-test
   phases:
   - phaseName: wait-for-ksm-deployment
-    tuningSet: load  
+    tuningSet: load
     wait_for_controlled_pods:
     - labelSelector: app.kubernetes.io/name=kube-state-metrics
       namespace: kube-system
   - phaseName: start-latency-measurement
-    tuningSet: load  
+    tuningSet: load
     measurement:
       method: KubeStateMetricsLatency
       params:
@@ -24,17 +24,17 @@ steps:
         namespace: "kube-system"
         serviceName: "kube-state-metrics"
   - phaseName: create-load-namespaces
-    tuningSet: load  
+    tuningSet: load
     objectTemplates:
     - path: "testing/load/namespace-labels.yaml"
       namespaceRange:
         min: 1
         max: 500
   - phaseName: wait-for-measurement-to-run
-    tuningSet: load  
+    tuningSet: load
     sleepDuration: 5m
   - phaseName: gather-latency-measurement
-    tuningSet: load  
+    tuningSet: load
     measurement:
       method: KubeStateMetricsLatency
       params:
@@ -42,7 +42,7 @@ steps:
         namespace: "kube-system"
         serviceName: "kube-state-metrics"
   - phaseName: delete-load-namespaces
-    tuningSet: load  
+    tuningSet: load
     objectTemplates:
     - path: "testing/load/namespace-labels.yaml"
       namespaceRange:

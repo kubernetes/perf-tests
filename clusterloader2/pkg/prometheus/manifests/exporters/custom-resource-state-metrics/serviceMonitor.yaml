@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: kube-state-metrics
+    app.kubernetes.io/version: 2.13.0
+  name: custom-resource-state-metrics-sm
+  namespace: custom-resource-state-metrics-perf-test
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: custom-resource-state-metrics
+  namespaceSelector:
+    matchNames:
+      - custom-resource-state-metrics-perf-test
+  endpoints:
+    - port: telemetry
+      path: /metrics
+      interval: 30s
+    - port: http-metrics
+      path: /metrics
+      interval: 30s

@@ -7,39 +7,39 @@ steps:
 - name: crsm-test
   phases:
   - phaseName: crsm-deployment
-    tuningSet: load 
+    tuningSet: load
     objectTemplates:
     - path: "pkg/prometheus/manifests/exporters/custom-resource-state-metrics/"
   - phaseName: wait-for-crsm-deployment
-    tuningSet: load 
+    tuningSet: load
     deploymentRolloutTimeout: 5m
     wait_for_controlled_pods:
     - labelSelector: app.kubernetes.io/name=custom-resource-state-metrics
       namespace: custom-resource-state-metrics-perf-test
   - phaseName: start-crsm-latency-measurement
-    tuningSet: load 
+    tuningSet: load
     measurement:
       method: CustomResourceStateMetricsLatency
       params:
         action: "start"
   - phaseName: create-load-namespaces
-    tuningSet: load  
+    tuningSet: load
     objectTemplates:
     - path: "testing/load/namespace-labels.yaml"
       namespaceRange:
         min: 1
         max: 500
   - phaseName: wait-for-measurement-to-run
-    tuningSet: load  
+    tuningSet: load
     sleepDuration: 5m
   - phaseName: gather-crsm-latency-measurement
-    tuningSet: load  
+    tuningSet: load
     measurement:
       method: CustomResourceStateMetricsLatency
       params:
         action: "gather"
   - phaseName: delete-load-namespaces
-    tuningSet: load  
+    tuningSet: load
     objectTemplates:
     - path: "testing/load/namespace-labels.yaml"
       namespaceRange:

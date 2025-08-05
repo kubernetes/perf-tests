@@ -33,10 +33,11 @@ import (
 const (
 	draDependencyName = "DRATestDriver"
 	//TODO: this needs to be converted into a parameter. Will will not need this until parititionable devices test
-	draNamespace          = "dra-example-driver"
-	draDaemonsetName      = "dra-example-driver-kubeletplugin"
-	checkDRAReadyInterval = 30 * time.Second
-	defaultDRATimeout     = 10 * time.Minute
+	draNamespace           = "dra-example-driver"
+	defaultWorkerNodeCount = "100"
+	draDaemonsetName       = "dra-example-driver-kubeletplugin"
+	checkDRAReadyInterval  = 30 * time.Second
+	defaultDRATimeout      = 10 * time.Minute
 )
 
 //go:embed manifests/*.yaml
@@ -60,8 +61,19 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 		return fmt.Errorf("namespace %s creation error: %v", draNamespace, err)
 	}
 
+	namespace, ok := config.Params["Namespace"]
+	if !ok {
+		namespace = draNamespace
+	}
+
+	workerCount, ok := config.Params["WorkerNodeCount"]
+	if !ok {
+		workerCount = defaultWorkerNodeCount
+	}
+
 	mapping := map[string]interface{}{
-		"Namespace": draNamespace,
+		"Namespace":       namespace,
+		"WorkerNodeCount": workerCount,
 	}
 	if err := config.ClusterFramework.ApplyTemplatedManifests(
 		manifestsFS,

@@ -1,0 +1,45 @@
+---
+# Source: kwok/templates/kwok.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kwok-controller
+  namespace: kwok-system
+  labels:
+    helm.sh/chart: kwok-0.2.0
+    app.kubernetes.io/name: kwok
+    app.kubernetes.io/instance: kwok-controller
+    app.kubernetes.io/version: "v0.7.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  kwok.yaml: |-
+    apiVersion: config.kwok.x-k8s.io/v1alpha1
+    kind: KwokConfiguration
+    options:
+      enableProfilingHandler: false
+      enableContentionProfiling: false
+      enablePodsOnNodeSyncListPager: false
+      enablePodsOnNodeSyncStreamWatch: true
+      nodeLeaseParallelism: 4
+      podPlayStageParallelism: 4
+      nodePlayStageParallelism: 4
+      nodePort: 10247
+      cidr: 10.0.0.1/24
+      manageAllNodes: false
+      manageNodesWithAnnotationSelector: 'kwok.x-k8s.io/node=fake'
+      manageNodesWithLabelSelector: ''
+      manageSingleNode: ''
+      nodeLeaseDurationSeconds: 40
+      enableCRDs:
+      - Stage
+      - Metric
+      - Attach
+      - ClusterAttach
+      - Exec
+      - ClusterExec
+      - Logs
+      - ClusterLogs
+      - PortForward
+      - ClusterPortForward
+      - ResourceUsage
+      - ClusterResourceUsage

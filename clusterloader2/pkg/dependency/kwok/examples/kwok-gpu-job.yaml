@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: kwok-gpu-job
+    job-type: short-lived
+spec:
+  parallelism: {{.Replicas}}
+  completions: {{.Replicas}}
+  completionMode: {{.Mode}}
+  activeDeadlineSeconds: 3600 # 1 hour
+  template:
+    metadata:
+      labels:
+        group: kwok-gpu-pod
+        job-type: short-lived
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: kwok.x-k8s.io/node
+        operator: Equal
+        value: fake
+        effect: NoSchedule
+      containers:
+      - name: {{.Name}}
+        image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.3
+        args:
+        - {{.Sleep}}
+        resources:
+          claims:
+          - name: gpu
+      resourceClaims:
+      - name: gpu
+        resourceClaimTemplateName: kwok-gpu-claim-template-0

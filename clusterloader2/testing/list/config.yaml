@@ -4,6 +4,7 @@
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
 {($podsNumber := DefaultParam .CL2_LIST_PODS_NUMBER 100000)}
 {{$podGroup := DefaultParam .CL2_LIST_POD_GROUP "list-pods"}}
+{{$podBytes := DefaultParam .CL2_LIST_POD_BYTES 10000}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
 {{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
@@ -97,6 +98,7 @@ steps:
     - basename: {{$podGroup}}
       objectTemplatePath: pod.yaml
       templateFillMap:
+        bytes: {{$podBytes}}
         group: {{$podGroup}}
 
 - module:

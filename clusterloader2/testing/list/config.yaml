@@ -2,7 +2,7 @@
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 100000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
-{($podsNumber := DefaultParam .CL2_LIST_PODS_NUMBER 100000)}
+{{$podsNumber := DefaultParam .CL2_LIST_PODS_NUMBER 100000}}
 {{$podGroup := DefaultParam .CL2_LIST_POD_GROUP "list-pods"}}
 {{$podBytes := DefaultParam .CL2_LIST_POD_BYTES 10000}}
 

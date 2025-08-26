@@ -160,11 +160,7 @@ class CorednsCache(Param):
   def set(self, inputs, value):
     if value > 0:
       cf = inputs.configmap_yaml['data']['Corefile']
-      # fix the cf type so that it works also for python3
-      if(type(cf) == str):
-        cfList = cf.split("\n")
-      else:
-        cfList = cf.decode().split("\n")
+      cfList = cf.split("\n")
       cfList.insert(1,
                     "  cache {\n"
                     "    success " + repr(value) + "\n"

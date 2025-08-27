@@ -67,6 +67,10 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 	if err != nil {
 		return nil, err
 	}
+	streamOutput, err := util.GetBoolOrDefault(config.Params, "streamOutput", false)
+	if err != nil {
+		return nil, err
+	}
 	// Make a copy of command, to avoid overriding a slice we don't own.
 	command = append([]string{}, command...)
 	for i := range command {
@@ -78,8 +82,21 @@ func (e *execMeasurement) Execute(config *measurement.Config) ([]measurement.Sum
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-		out, err := cmd.CombinedOutput()
-		klog.V(2).Infof("Exec command output: %v", string(out))
+
+		var out []byte
+		var err error
+		if streamOutput {
+			// Stream output to stdout/stderr in real-time
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			klog.V(2).Infof("Streaming command output to stdout/stderr in real-time")
+			err = cmd.Run()
+			out = []byte("") // No captured output when streaming
+		} else {
+			// Capture output for logging
+			out, err = cmd.CombinedOutput()
+			klog.V(2).Infof("Exec command output: %v", string(out))
+		}
 		if err == nil {
 			klog.V(2).Infof("Command %v succeeded in attempt %v", command, i+1)
 			return nil, nil

@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/storage v1.48.0
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.8
 	github.com/stretchr/testify v1.10.0
 	go.opencensus.io v0.24.0 // indirect
 	google.golang.org/api v0.214.0

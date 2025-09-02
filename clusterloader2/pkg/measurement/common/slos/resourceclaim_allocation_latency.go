@@ -145,28 +145,57 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 	m.isRunning = true
 	m.stopCh = make(chan struct{})
 	m.client = c
-
+	klog.V(2).Infof("%s: before watching mbucki", m)
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			klog.V(2).Infof("%s: lw ListFunc 1 mbucki", m)
 			m.selector.ApplySelectors(&options)
-			return c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).List(context.TODO(), options)
+			klog.V(2).Infof("%s: lw ListFunc 2 mbucki", m)
+			v, e := c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).List(context.TODO(), options)
+			klog.V(2).Infof("%s: lw ListFunc 3 mbucki", m)
+			if e != nil {
+				klog.Errorf("ListFunc error %v", e)
+			}
+			return v, e
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			klog.V(2).Infof("%s: lw WatchFunc 1 mbucki", m)
 			m.selector.ApplySelectors(&options)
-			return c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).Watch(context.TODO(), options)
+			klog.V(2).Infof("%s: lw WatchFunc 2 mbucki", m)
+			v, e := c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).Watch(context.TODO(), options)
+			klog.V(2).Infof("%s: lw WatchFunc 3 mbucki", m)
+			if e != nil {
+				klog.Errorf("WatchFunc error %v", e)
+			}
+			return v, e
 		},
 	}
-
+	klog.V(2).Infof("%s: before lw informer mbucki", m)
 	claimInf := informer.NewInformer(lw, m.addEvent)
+	klog.V(2).Infof("%s: after lw informer mbucki", m)
 
 	podLW := &cache.ListWatch{
 		ListFunc: func(o metav1.ListOptions) (runtime.Object, error) {
+			klog.V(2).Infof("%s: podLw ListFunc 1 mbucki", m)
 			m.selector.ApplySelectors(&o)
-			return c.CoreV1().Pods(m.selector.Namespace).List(context.TODO(), o)
+			klog.V(2).Infof("%s: podLw ListFunc 2 mbucki", m)
+			v, e := c.CoreV1().Pods(m.selector.Namespace).List(context.TODO(), o)
+			klog.V(2).Infof("%s: podLw ListFunc 3 mbucki", m)
+			if e != nil {
+				klog.Errorf("ListFunc pod error %v", e)
+			}
+			return v, e
 		},
 		WatchFunc: func(o metav1.ListOptions) (watch.Interface, error) {
+			klog.V(2).Infof("%s: podLw WatchFunc 1 mbucki", m)
 			m.selector.ApplySelectors(&o)
-			return c.CoreV1().Pods(m.selector.Namespace).Watch(context.TODO(), o)
+			klog.V(2).Infof("%s: podLw WatchFunc 1 mbucki", m)
+			v, e := c.CoreV1().Pods(m.selector.Namespace).Watch(context.TODO(), o)
+			klog.V(2).Infof("%s: podLw WatchFunc 1 mbucki", m)
+			if e != nil {
+				klog.Errorf("WatchFunc pod error %v", e)
+			}
+			return v, e
 		},
 	}
 	podInf := informer.NewInformer(podLW, m.addPodEvent)
@@ -175,6 +204,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 
 	const informerSyncTimeout = time.Minute
 	if err := informer.StartAndSync(claimInf, m.stopCh, informerSyncTimeout); err != nil {
+		klog.Errorf("StartAndSync error %v", err)
 		return err
 	}
 	return informer.StartAndSync(podInf, m.stopCh, informerSyncTimeout)

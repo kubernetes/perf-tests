@@ -144,9 +144,6 @@ func RetryFunction(f func() error, options ...*APICallOptions) wait.ConditionFun
 		if err == nil {
 			return true, nil
 		}
-		if IsRetryableAPIError(err) || IsRetryableNetError(err) {
-			return false, nil
-		}
 		for _, shouldAllowError := range shouldAllowErrorFuncs {
 			if shouldAllowError(err) {
 				return true, nil
@@ -156,6 +153,9 @@ func RetryFunction(f func() error, options ...*APICallOptions) wait.ConditionFun
 			if shouldRetryError(err) {
 				return false, nil
 			}
+		}
+		if IsRetryableAPIError(err) || IsRetryableNetError(err) {
+			return false, nil
 		}
 		return false, err
 	}

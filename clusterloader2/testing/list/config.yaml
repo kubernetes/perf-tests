@@ -84,6 +84,21 @@ steps:
     params:
       namePrefix: "list-configmaps-{{$ct}}-"
       replicas: 0
+- name: Deleting list-configmaps-{{$ct}}-deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 0
+    namespaceRange:
+      min: 0
+      max: 0
+      basename: list-benchmark
+    objectBundle:
+    - basename: "list-configmaps-{{$ct}}-deploy"
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: {{$listReplicas}}
+        Uri: /api/v1/configmaps?resourceVersion=0
+        ContentType: {{$ct}}
 - name: Wait 5 minutes for cleanup
   measurements:
     - Identifier: Wait

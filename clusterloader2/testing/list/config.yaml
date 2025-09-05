@@ -4,7 +4,7 @@
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
-{{$contentTypes := StringSplit .CL2_LIST_BENCHMARK_CONTENT_TYPE}}
+{{$contentTypes := (DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json") | StringSplit}}
 
 name: list-benchmark
 namespace:
@@ -84,4 +84,10 @@ steps:
     params:
       namePrefix: "list-configmaps-{{$ct}}-"
       replicas: 0
+- name: Wait 5 minutes for cleanup
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
 {{- end }}

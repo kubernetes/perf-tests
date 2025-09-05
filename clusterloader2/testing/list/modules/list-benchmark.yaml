@@ -36,3 +36,18 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- name: Deploying {{$namePrefix}}deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 0
+    namespaceRange:
+      min: 0
+      max: 0
+      basename: list-benchmark
+    objectBundle:
+    - basename: {{$namePrefix}}deploy
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+        Uri: {{$uri}}
+        ContentType: {{$contentType}}

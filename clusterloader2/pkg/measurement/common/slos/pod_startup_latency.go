@@ -60,7 +60,7 @@ func createPodStartupLatencyMeasurement() measurement.Measurement {
 		selector:          util.NewObjectSelector(),
 		podStartupEntries: measurementutil.NewObjectTransitionTimes(podStartupLatencyMeasurementName),
 		podMetadata:       measurementutil.NewPodsMetadata(podStartupLatencyMeasurementName),
-		eventQueue:        workqueue.New(),
+		eventQueue:        workqueue.NewTyped[*eventData](),
 	}
 }
 
@@ -75,7 +75,7 @@ type podStartupLatencyMeasurement struct {
 	stopCh    chan struct{}
 	// This queue can potentially grow indefinitely, beacause we put all changes here.
 	// Usually it's not recommended pattern, but we need it for measuring PodStartupLatency.
-	eventQueue        *workqueue.Type
+	eventQueue        workqueue.TypedInterface[*eventData]
 	podStartupEntries *measurementutil.ObjectTransitionTimes
 	podMetadata       *measurementutil.PodsMetadata
 	threshold         time.Duration
@@ -182,12 +182,7 @@ func (p *podStartupLatencyMeasurement) processNextWorkItem() bool {
 	}
 	defer p.eventQueue.Done(item)
 
-	event, ok := item.(*eventData)
-	if !ok {
-		klog.Warningf("Couldn't convert work item to evetData: %v", item)
-		return true
-	}
-	p.processEvent(event)
+	p.processEvent(item)
 	return true
 }
 

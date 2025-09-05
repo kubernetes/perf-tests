@@ -59,7 +59,7 @@ func createJobLifecycleLatencyMeasurement() measurement.Measurement {
 	return &jobLifecycleLatencyMeasurement{
 		selector:        util.NewObjectSelector(),
 		jobStateEntries: measurementutil.NewObjectTransitionTimes(jobLifecycleLatencyMeasurementName),
-		eventQueue:      workqueue.New(),
+		eventQueue:      workqueue.NewTyped[*eventData](),
 	}
 }
 
@@ -67,7 +67,7 @@ type jobLifecycleLatencyMeasurement struct {
 	selector        *util.ObjectSelector
 	isRunning       bool
 	stopCh          chan struct{}
-	eventQueue      *workqueue.Type
+	eventQueue      workqueue.TypedInterface[*eventData]
 	jobStateEntries *measurementutil.ObjectTransitionTimes
 }
 
@@ -149,12 +149,7 @@ func (p *jobLifecycleLatencyMeasurement) processNextWorkItem() bool {
 		return false
 	}
 	defer p.eventQueue.Done(item)
-	event, ok := item.(*eventData)
-	if !ok {
-		klog.Warningf("Couldn't convert work item to evetData: %v", item)
-		return true
-	}
-	p.processEvent(event)
+	p.processEvent(item)
 	return true
 }
 

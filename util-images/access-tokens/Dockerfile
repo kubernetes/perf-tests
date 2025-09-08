@@ -1,4 +1,4 @@
-FROM golang:1.25.0 AS build-env
+FROM golang:1.25.1 AS build-env
 
 ARG gopkg=k8s.io/perf-tests/util-images/access-tokens
 

@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/golang/glog v1.2.5
 	github.com/prometheus/client_golang v1.23.2
-	github.com/spf13/pflag v1.0.8
+	github.com/spf13/pflag v1.0.10
 	k8s.io/api v0.34.0
 	k8s.io/apimachinery v0.34.0
 	k8s.io/client-go v0.34.0

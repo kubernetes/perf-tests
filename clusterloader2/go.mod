@@ -60,7 +60,6 @@ require (
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubelet v0.33.0
-	k8s.io/metrics v0.0.0-00010101000000-000000000000
 )
 
 require (

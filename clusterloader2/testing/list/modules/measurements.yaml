@@ -4,7 +4,7 @@
 # Valid actions: "start", "gather"
 {{$action := .action}}
 {{$ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT true}}
-{{$CONTAINER_MEMORY_THRESHOLD := DefaultParam .CL2_CONTAINER_MEMORY_THRESHOLD 1}}
+{{$CONTAINER_MEMORY_THRESHOLD := DefaultParam .CL2_CONTAINER_MEMORY_THRESHOLD 100}}
 
 
 steps:
@@ -21,10 +21,25 @@ steps:
     Params:
       action: {{$action}}
   {{if $ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT}}
-  - Identifier: ContainerMemoryUsage
-    Method: ContainerMemoryUsage
+  - Identifier: APIServerMemoryUsage
+    Method: GenericPrometheusQuery
     Params:
       action: {{$action}}
-      threshold: {{$CONTAINER_MEMORY_THRESHOLD}}
-      pollFrequency: 15s
+      metricName: kube-apiserver memory usage
+      metricVersion: v1
+      enableViolations: true
+      unit: MiB
+      dimensions:
+      - container
+      queries:
+      - name: MaxMemory
+        query: |
+          max_over_time(
+          sum(
+            container_memory_working_set_bytes{namespace="monitoring", pod=~"kube-apiserver.*"} 
+            / 1024 / 1024
+          )[%v:])
+        threshold: {{$CONTAINER_MEMORY_THRESHOLD}}
+        requireSamples: false
+        lowerBound: false
   {{end}}

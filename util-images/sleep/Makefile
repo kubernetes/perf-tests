@@ -1,6 +1,6 @@
-PROJECT = k8s-staging-perf-tests
+PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/sleep
-TAG = v0.1.0
+TAG = v0.1.1
 
 all: push
 

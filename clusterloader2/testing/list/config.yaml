@@ -99,7 +99,7 @@ steps:
         Replicas: {{$listReplicas}}
         Uri: /api/v1/configmaps?resourceVersion=0
         ContentType: {{$ct}}
-- name: Wait 5 minutes for cleanup
+- name: Wait 5 minutes for apiserver garbage collection
   measurements:
     - Identifier: Wait
       Method: Sleep

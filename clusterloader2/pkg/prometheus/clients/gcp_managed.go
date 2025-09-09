@@ -19,7 +19,7 @@ package prom
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -45,7 +45,7 @@ func (mpc *gcpManagedPrometheusClient) Query(query string, queryTime time.Time) 
 		return nil, err
 	}
 	defer res.Body.Close()
-	resBody, err := ioutil.ReadAll(res.Body)
+	resBody, err := io.ReadAll(res.Body)
 	if statusCode := res.StatusCode; statusCode > 299 {
 		return resBody, fmt.Errorf("response failed with status code %d", statusCode)
 	}

@@ -18,12 +18,13 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
 
 	"gopkg.in/yaml.v2"
+
 	"k8s.io/klog"
 )
 
@@ -72,7 +73,7 @@ func getGithubDirContents(url string) ([]githubDirContent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error calling github API %s: %v", url, err)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading github response %s: %v", url, err)
 	}

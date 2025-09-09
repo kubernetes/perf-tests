@@ -19,13 +19,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+
 	"k8s.io/klog"
 )
 
@@ -137,7 +138,7 @@ func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([
 	}
 	defer rc.Close()
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		return nil, err
 	}

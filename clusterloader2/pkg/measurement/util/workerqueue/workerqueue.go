@@ -29,7 +29,7 @@ type Interface interface {
 
 // WorkerQueue is worker group with a task queue.
 type WorkerQueue struct {
-	queue       workqueue.Interface
+	queue       workqueue.TypedInterface[*func()]
 	workerGroup wait.Group
 }
 
@@ -37,7 +37,7 @@ type WorkerQueue struct {
 // with worker group of given size.
 func NewWorkerQueue(size int) Interface {
 	wq := &WorkerQueue{
-		queue: workqueue.New(),
+		queue: workqueue.NewTyped[*func()](),
 	}
 	for i := 0; i < size; i++ {
 		wq.workerGroup.Start(wq.worker)
@@ -62,7 +62,7 @@ func (wq *WorkerQueue) worker() {
 		if stop {
 			return
 		}
-		(*f.(*func()))()
+		(*f)()
 		wq.queue.Done(f)
 	}
 }

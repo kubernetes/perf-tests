@@ -62,7 +62,7 @@ func createResourceClaimAllocationLatencyMeasurement() measurement.Measurement {
 	return &resourceClaimAllocationLatencyMeasurement{
 		selector:         util.NewObjectSelector(),
 		entries:          measurementutil.NewObjectTransitionTimes(resourceClaimAllocationLatencyMeasurementName),
-		queue:            workqueue.New(),
+		queue:            workqueue.NewTyped[*claimEventData](),
 		podCreationTimes: make(map[string]time.Time),
 	}
 }
@@ -77,7 +77,7 @@ type resourceClaimAllocationLatencyMeasurement struct {
 
 	isRunning bool
 	stopCh    chan struct{}
-	queue     *workqueue.Type
+	queue     workqueue.TypedInterface[*claimEventData]
 	client    clientset.Interface
 
 	entries *measurementutil.ObjectTransitionTimes
@@ -210,12 +210,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) processNextWorkItem() bool {
 	}
 	defer m.queue.Done(item)
 
-	ev, ok := item.(*claimEventData)
-	if !ok {
-		klog.Warningf("%s: couldn't convert work item %#v", m, item)
-		return true
-	}
-	m.processEvent(ev)
+	m.processEvent(item)
 	return true
 }
 

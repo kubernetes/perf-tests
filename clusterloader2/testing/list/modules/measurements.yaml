@@ -3,8 +3,8 @@
 ## Input params
 # Valid actions: "start", "gather"
 {{$action := .action}}
-{{$ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT true}}
-{{$CONTAINER_MEMORY_THRESHOLD := DefaultParam .CL2_CONTAINER_MEMORY_THRESHOLD 100}}
+{{$ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD := DefaultParam .CL2_ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD_MEASUREMENT true}}
+{{$CONTAINER_MEMORY_THRESHOLD_MEGABYTES := DefaultParam .CL2_CONTAINER_MEMORY_THRESHOLD_MEGABYTES 4000}}
 
 
 steps:
@@ -20,7 +20,7 @@ steps:
     Method: TestMetrics
     Params:
       action: {{$action}}
-  {{if $ENABLE_CONTAINER_MEMORY_USAGE_MEASUREMENT}}
+  {{if $ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD}}
   - Identifier: APIServerMemoryUsage
     Method: GenericPrometheusQuery
     Params:
@@ -39,7 +39,7 @@ steps:
             container_memory_working_set_bytes{namespace="monitoring", pod=~"kube-apiserver.*"} 
             / 1024 / 1024
           )[%v:])
-        threshold: {{$CONTAINER_MEMORY_THRESHOLD}}
+        threshold: {{$CONTAINER_MEMORY_THRESHOLD_MEGABYTES}}
         requireSamples: false
         lowerBound: false
   {{end}}

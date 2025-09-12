@@ -468,7 +468,7 @@ const fullCompareErrorDifferentEnv = `Not matching templates, diff:   v1.PodSpec
                     },
                     Resources:    {Requests: {s"cpu": {i: {...}, Format: "DecimalSI"}, s"memory": {i: {...}, s: "50M", Format: "DecimalSI"}, s"pods": {i: {...}, s: "100", Format: "DecimalSI"}}},
                     ResizePolicy: nil,
-                    ... // 14 identical fields
+                    ... // 15 identical fields
             },
     },
     EphemeralContainers:           nil,
@@ -495,7 +495,7 @@ const fullCompareErrorDifferentEnv = `Not matching templates, diff:   v1.PodSpec
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 14 identical fields
+    ... // 15 identical fields
   }
 `
 
@@ -509,7 +509,7 @@ const fullCompareErrorDifferentImage = `Not matching templates, diff:   v1.PodSp
 +                   Image:   "gcr.io/some-project/some-image-diff",
                     Command: nil,
                     Args:    nil,
-                    ... // 20 identical fields
+                    ... // 21 identical fields
             },
     },
     EphemeralContainers:           nil,
@@ -536,7 +536,7 @@ const fullCompareErrorDifferentImage = `Not matching templates, diff:   v1.PodSp
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 14 identical fields
+    ... // 15 identical fields
   }`
 
 func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {

@@ -3,6 +3,8 @@
 ## Input params
 # Valid actions: "start", "gather"
 {{$action := .action}}
+{{$ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD := DefaultParam .CL2_ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD_MEASUREMENT true}}
+{{$APISERVER_MEMORY_THRESHOLD_MEGABYTES := DefaultParam .CL2_APISERVER_MEMORY_THRESHOLD_MEGABYTES 4000}}
 
 
 steps:
@@ -18,3 +20,26 @@ steps:
     Method: TestMetrics
     Params:
       action: {{$action}}
+  {{if $ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD}}
+  - Identifier: APIServerMemoryUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: kube-apiserver memory usage
+      metricVersion: v1
+      enableViolations: true
+      unit: MiB
+      dimensions:
+      - container
+      queries:
+      - name: MaxMemory
+        query: |
+          max_over_time(
+          sum(
+            container_memory_working_set_bytes{namespace="monitoring", pod=~"kube-apiserver.*"} 
+            / 1024 / 1024
+          )[%v:])
+        threshold: {{$APISERVER_MEMORY_THRESHOLD_MEGABYTES}}
+        requireSamples: false
+        lowerBound: false
+  {{end}}

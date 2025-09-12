@@ -1,0 +1,11 @@
+- gvk:
+    kind: Deployment
+    version: apps/v1
+  name: kube-state-metrics
+  namespace: kube-system
+  object_overrides:
+  - path: spec.template.spec.containers.0.args
+    value:
+      - --port=8080
+      - --telemetry-port=8081
+      - --resources=namespaces

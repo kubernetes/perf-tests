@@ -695,10 +695,10 @@ var (
 	}
 
 	etcdAPIBenchmarkDescription = TestDescriptions{
-		"EtcdAPIBenchmark": {
-			"PUT ": []TestDescription{{
-				Name:             "put",
-				OutputFilePrefix: "etcd_perf",
+		"EtcdAPIPerformance": {
+			"Benchmark ": []TestDescription{{
+				Name:             "benchmark",
+				OutputFilePrefix: "EtcdAPI",
 				Parser:           parsePerfData,
 			}},
 		},

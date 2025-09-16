@@ -694,16 +694,27 @@ var (
 		},
 	}
 
+	etcdAPIBenchmarkDescription = TestDescriptions{
+		"EtcdAPIPerformance": {
+			"Benchmark ": []TestDescription{{
+				Name:             "benchmark",
+				OutputFilePrefix: "EtcdAPI",
+				Parser:           parsePerfData,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance":   performanceDescriptions,
-		"benchmark":     benchmarkDescriptions,
-		"networking":    networkingDescriptions,
-		"dnsBenchmark":  dnsBenchmarkDescriptions,
-		"storage":       storageDescriptions,
-		"throughput":    throughputDescriptions,
-		"windows":       windowsDescriptions,
-		"watchlist":     watchListDescriptions,
-		"benchmarkList": benchmarkListDescription,
+		"performance":      performanceDescriptions,
+		"benchmark":        benchmarkDescriptions,
+		"networking":       networkingDescriptions,
+		"dnsBenchmark":     dnsBenchmarkDescriptions,
+		"storage":          storageDescriptions,
+		"throughput":       throughputDescriptions,
+		"windows":          windowsDescriptions,
+		"watchlist":        watchListDescriptions,
+		"benchmarkList":    benchmarkListDescription,
+		"etcdAPIBenchmark": etcdAPIBenchmarkDescription,
 	}
 )
 

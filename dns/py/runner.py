@@ -124,7 +124,7 @@ class Runner(object):
             self._create(inputs.deployment_yaml)
             self._create(self.service_yaml)
             if self.configmap_yaml is not None:
-              self._create(self.configmap_yaml)
+              self._create(inputs.configmap_yaml)
             self._wait_for_status(True)
           test_threads=[]
           #Spawn off a thread to run the test case in each client pod simultaneously.

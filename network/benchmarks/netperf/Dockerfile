@@ -21,15 +21,15 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-ARG GOLANG_VERSION=1.18
-FROM golang:${GOLANG_VERSION} as builder
+ARG GOLANG_VERSION=1.24
+FROM golang:${GOLANG_VERSION} AS builder
 WORKDIR /workspace
 
 COPY nptest/nptest.go nptest.go
 COPY go.sum go.sum
 COPY go.mod go.mod
 
-RUN go build -o nptests
+RUN CGO_ENABLED=0 go build -o nptests
 
 FROM debian:bullseye
 ENV LD_LIBRARY_PATH=/usr/local/lib

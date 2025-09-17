@@ -18,8 +18,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -733,7 +734,7 @@ func urlConfigRead(url string) ([]byte, error) {
 		return nil, fmt.Errorf("error fetching prow config from %s: %v", url, err)
 	}
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading prow config from %s: %v", url, err)
 	}
@@ -741,7 +742,7 @@ func urlConfigRead(url string) ([]byte, error) {
 }
 
 func fileConfigRead(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 func getProwConfig(configPaths []string) (Jobs, error) {

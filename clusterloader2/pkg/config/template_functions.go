@@ -19,7 +19,6 @@ package config
 import (
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
@@ -236,7 +235,7 @@ func includeFile(file interface{}) (string, error) {
 		}
 	}
 	fileStr = os.ExpandEnv(fileStr)
-	data, err := ioutil.ReadFile(fileStr)
+	data, err := os.ReadFile(fileStr)
 	if err != nil {
 		return "", fmt.Errorf("unable to read file: %v", err)
 	}

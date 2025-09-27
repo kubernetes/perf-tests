@@ -34,8 +34,14 @@ var (
 		Name:      "dns_propagation_count",
 		Help:      "Counter of the number of DNS propagation checks performed.",
 	}, []string{"namespace", "service", "podName"})
+	// DNSLookupErrors denotes the total number of failed DNS lookups.
+	DNSLookupErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: common.ProbeNamespace,
+		Name:      "dns_lookup_errors_total",
+		Help:      "Counter of the total number of DNS lookup errors.",
+	}, []string{"namespace", "service", "podName"})
 )
 
 func init() {
-	prometheus.MustRegister(DNSPropagationSeconds, DNSPropagationCount)
+	prometheus.MustRegister(DNSPropagationSeconds, DNSPropagationCount, DNSLookupErrors)
 }

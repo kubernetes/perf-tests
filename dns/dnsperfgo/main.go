@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -39,10 +40,10 @@ import (
 const clusterDomain = "cluster.local"
 
 type Config struct {
-	qps                                      int
-	testDuration, idleDuration, queryTimeout time.Duration
-	hostnameFile                             string
-	queryClusterNames, logQueries            bool
+	qps                                                                     int
+	testDuration, idleDuration, queryTimeout                                time.Duration
+	hostnameFile                                                            string
+	queryClusterNames, logQueries, enableErrorLogging, enableLatencyLogging bool
 }
 
 type dnsClient struct {
@@ -59,6 +60,13 @@ type dnsClient struct {
 
 type LookupFunc func(string) ([]string, error)
 
+var (
+	// infoLogger writes to stdout, initialized if flag is set.
+	infoLogger *slog.Logger
+	// errorLogger writes to stderr, initialized if flag is set.
+	errorLogger *slog.Logger
+)
+
 func main() {
 	config := Config{}
 	flag.IntVar(&config.qps, "qps", 10, "The number of DNS queries per second to issue")
@@ -68,8 +76,15 @@ func main() {
 	flag.StringVar(&config.hostnameFile, "inputfile", "", "Path to the file containing hostnames to lookup. Hostnames should be newline-separated.")
 	flag.BoolVar(&config.queryClusterNames, "query-cluster-names", false, "Indicates whether the query names should be the service names in the cluster.")
 	flag.BoolVar(&config.logQueries, "log-queries", false, "Indicates whether each query should be logged.")
-
+	flag.BoolVar(&config.enableLatencyLogging, "enable-latency-logging", false, "Indicate whether to enable structured logging for each DNS lookup latency.")
+	flag.BoolVar(&config.enableErrorLogging, "enable-error-logging", false, "Indicate whether to enable structured logging for each DNS lookup errors.")
 	flag.Parse()
+	if config.enableLatencyLogging {
+		infoLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	}
+	if config.enableErrorLogging {
+		errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	}
 	log.Printf("Starting dnstest with config parameters - %+v", config)
 	client := &dnsClient{config: &config, stopChan: make(chan os.Signal, 1)}
 	signal.Notify(client.stopChan, syscall.SIGTERM)
@@ -199,10 +214,17 @@ func (c *dnsClient) logResults() {
 
 }
 
-func (c *dnsClient) updateResults(timedOut bool, err error) {
+func (c *dnsClient) updateResults(timedOut bool, err error, name string) {
 	c.resultsLock.Lock()
 	defer c.resultsLock.Unlock()
 	if err != nil {
+		if errorLogger != nil {
+			errorLogger.Error("DNS lookup failed",
+				"hostname", name,
+				"error", err.Error(),
+				"timed_out", timedOut,
+			)
+		}
 		c.result.errorCount++
 		dnsErrorsCounter.Inc()
 	}
@@ -223,6 +245,12 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 		startTime := time.Now()
 		_, err := lookupFunc(name)
 		latency := time.Since(startTime)
+		if infoLogger != nil && err == nil {
+			infoLogger.Info("DNS lookup successful, latency recorded",
+				"hostname", name,
+				"latency_seconds", latency.Seconds(),
+			)
+		}
 		dnsLatency.Observe(latency.Seconds())
 		resultChan <- err
 	}(resultChan)
@@ -237,7 +265,7 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 		if err != nil {
 			log.Printf("Failed DNS lookup of name %q, err - %v\n", name, err)
 		}
-		c.updateResults(timedOut, err)
+		c.updateResults(timedOut, err, name)
 	}()
 
 	for {

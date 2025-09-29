@@ -1,6 +1,6 @@
 ---
 # Source: dra-example-driver/templates/deviceclass.yaml
-apiVersion: resource.k8s.io/v1beta1
+apiVersion: resource.k8s.io/v1
 kind: DeviceClass
 metadata:
   name: gpu.example.com
@@ -8,3 +8,6 @@ spec:
   selectors:
   - cel: 
       expression: "device.driver == 'gpu.example.com'"
+  {{- if .ExtendedResourceName}}
+  extendedResourceName: "{{.ExtendedResourceName}}"
+  {{- end}}

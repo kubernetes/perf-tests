@@ -23,8 +23,15 @@ spec:
           args:
             - {{.Sleep}}
           resources:
+          {{ if not .ExtendedResource }}
             claims:
             - name: gpu
+          {{ else }}
+            limits:
+              example.com/gpu: "1"
+          {{ end }}
+      {{ if not .ExtendedResource }}
       resourceClaims:
       - name: gpu
         resourceClaimTemplateName: single-gpu-0
+      {{ end }}

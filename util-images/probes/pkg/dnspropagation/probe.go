@@ -27,7 +27,6 @@ import (
 	"net"
 
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -176,7 +175,8 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 		case <-tick.C:
 			klog.V(4).Infof("DNS lookup %s", url)
 			if err := lookup(url); err != nil {
-				if strings.Contains(err.Error(), "no such host") {
+				var dnsErr *net.DNSError
+				if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
 					klog.Warningf("DNS lookup error: %v", err)
 					continue
 				}

@@ -40,10 +40,10 @@ import (
 const clusterDomain = "cluster.local"
 
 type Config struct {
-	qps                                                                     int
-	testDuration, idleDuration, queryTimeout                                time.Duration
-	hostnameFile                                                            string
-	queryClusterNames, logQueries, enableErrorLogging, enableLatencyLogging bool
+	qps                                                 int
+	testDuration, idleDuration, queryTimeout            time.Duration
+	hostnameFile                                        string
+	queryClusterNames, logQueries, enableLatencyLogging bool
 }
 
 type dnsClient struct {
@@ -77,14 +77,11 @@ func main() {
 	flag.BoolVar(&config.queryClusterNames, "query-cluster-names", false, "Indicates whether the query names should be the service names in the cluster.")
 	flag.BoolVar(&config.logQueries, "log-queries", false, "Indicates whether each query should be logged.")
 	flag.BoolVar(&config.enableLatencyLogging, "enable-latency-logging", false, "Indicate whether to enable structured logging for each DNS lookup latency.")
-	flag.BoolVar(&config.enableErrorLogging, "enable-error-logging", false, "Indicate whether to enable structured logging for each DNS lookup errors.")
 	flag.Parse()
 	if config.enableLatencyLogging {
 		infoLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
-	if config.enableErrorLogging {
-		errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	}
+	errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	log.Printf("Starting dnstest with config parameters - %+v", config)
 	client := &dnsClient{config: &config, stopChan: make(chan os.Signal, 1)}
 	signal.Notify(client.stopChan, syscall.SIGTERM)
@@ -214,17 +211,10 @@ func (c *dnsClient) logResults() {
 
 }
 
-func (c *dnsClient) updateResults(timedOut bool, err error, name string) {
+func (c *dnsClient) updateResults(timedOut bool, err error) {
 	c.resultsLock.Lock()
 	defer c.resultsLock.Unlock()
 	if err != nil {
-		if errorLogger != nil {
-			errorLogger.Error("DNS lookup failed",
-				"hostname", name,
-				"error", err.Error(),
-				"timed_out", timedOut,
-			)
-		}
 		c.result.errorCount++
 		dnsErrorsCounter.Inc()
 	}
@@ -263,9 +253,13 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 			log.Printf("DNS lookup of name %q, err - %v\n", name, err)
 		}
 		if err != nil {
-			log.Printf("Failed DNS lookup of name %q, err - %v\n", name, err)
+			errorLogger.Error("Failed DNS lookup",
+				"hostname", name,
+				"error", err.Error(),
+				"timed_out", timedOut,
+			)
 		}
-		c.updateResults(timedOut, err, name)
+		c.updateResults(timedOut, err)
 	}()
 
 	for {

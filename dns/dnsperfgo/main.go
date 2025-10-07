@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net"
@@ -80,6 +81,8 @@ func main() {
 	flag.Parse()
 	if config.enableLatencyLogging {
 		infoLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	} else {
+		infoLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	log.Printf("Starting dnstest with config parameters - %+v", config)
@@ -235,12 +238,11 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 		startTime := time.Now()
 		_, err := lookupFunc(name)
 		latency := time.Since(startTime)
-		if infoLogger != nil && err == nil {
-			infoLogger.Info("DNS lookup successful, latency recorded",
-				"hostname", name,
-				"latency_seconds", latency.Seconds(),
-			)
-		}
+		infoLogger.Info("DNS lookup finished",
+			"name", name,
+			"latency_ms", latency.Milliseconds(),
+			"err", err,
+		)
 		dnsLatency.Observe(latency.Seconds())
 		resultChan <- err
 	}(resultChan)
@@ -254,8 +256,8 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 		}
 		if err != nil {
 			errorLogger.Error("Failed DNS lookup",
-				"hostname", name,
-				"error", err.Error(),
+				"name", name,
+				"error", err,
 				"timed_out", timedOut,
 			)
 		}

@@ -19,7 +19,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -39,10 +41,10 @@ import (
 const clusterDomain = "cluster.local"
 
 type Config struct {
-	qps                                      int
-	testDuration, idleDuration, queryTimeout time.Duration
-	hostnameFile                             string
-	queryClusterNames, logQueries            bool
+	qps                                                 int
+	testDuration, idleDuration, queryTimeout            time.Duration
+	hostnameFile                                        string
+	queryClusterNames, logQueries, enableLatencyLogging bool
 }
 
 type dnsClient struct {
@@ -59,6 +61,13 @@ type dnsClient struct {
 
 type LookupFunc func(string) ([]string, error)
 
+var (
+	// infoLogger writes to stdout, initialized if flag is set.
+	infoLogger *slog.Logger
+	// errorLogger writes to stderr, initialized if flag is set.
+	errorLogger *slog.Logger
+)
+
 func main() {
 	config := Config{}
 	flag.IntVar(&config.qps, "qps", 10, "The number of DNS queries per second to issue")
@@ -68,8 +77,14 @@ func main() {
 	flag.StringVar(&config.hostnameFile, "inputfile", "", "Path to the file containing hostnames to lookup. Hostnames should be newline-separated.")
 	flag.BoolVar(&config.queryClusterNames, "query-cluster-names", false, "Indicates whether the query names should be the service names in the cluster.")
 	flag.BoolVar(&config.logQueries, "log-queries", false, "Indicates whether each query should be logged.")
-
+	flag.BoolVar(&config.enableLatencyLogging, "enable-latency-logging", false, "Indicate whether to enable structured logging for each DNS lookup latency.")
 	flag.Parse()
+	if config.enableLatencyLogging {
+		infoLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	} else {
+		infoLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+	}
+	errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	log.Printf("Starting dnstest with config parameters - %+v", config)
 	client := &dnsClient{config: &config, stopChan: make(chan os.Signal, 1)}
 	signal.Notify(client.stopChan, syscall.SIGTERM)
@@ -223,6 +238,11 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 		startTime := time.Now()
 		_, err := lookupFunc(name)
 		latency := time.Since(startTime)
+		infoLogger.Info("DNS lookup finished",
+			"name", name,
+			"latency_ms", latency.Milliseconds(),
+			"err", err,
+		)
 		dnsLatency.Observe(latency.Seconds())
 		resultChan <- err
 	}(resultChan)
@@ -235,7 +255,11 @@ func (c *dnsClient) runQuery(name string, timeout time.Duration, lookupFunc Look
 			log.Printf("DNS lookup of name %q, err - %v\n", name, err)
 		}
 		if err != nil {
-			log.Printf("Failed DNS lookup of name %q, err - %v\n", name, err)
+			errorLogger.Error("Failed DNS lookup",
+				"name", name,
+				"error", err,
+				"timed_out", timedOut,
+			)
 		}
 		c.updateResults(timedOut, err)
 	}()

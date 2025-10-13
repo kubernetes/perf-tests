@@ -24,7 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	resourcev1beta2 "k8s.io/api/resource/v1beta2"
+	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -145,18 +145,16 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 	m.isRunning = true
 	m.stopCh = make(chan struct{})
 	m.client = c
-
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			m.selector.ApplySelectors(&options)
-			return c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).List(context.TODO(), options)
+			return c.ResourceV1().ResourceClaims(m.selector.Namespace).List(context.TODO(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			m.selector.ApplySelectors(&options)
-			return c.ResourceV1beta2().ResourceClaims(m.selector.Namespace).Watch(context.TODO(), options)
+			return c.ResourceV1().ResourceClaims(m.selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
-
 	claimInf := informer.NewInformer(lw, m.addEvent)
 
 	podLW := &cache.ListWatch{
@@ -219,7 +217,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) processEvent(ev *claimEventD
 		return
 	}
 
-	claim, ok := ev.obj.(*resourcev1beta2.ResourceClaim)
+	claim, ok := ev.obj.(*resourcev1.ResourceClaim)
 	if !ok {
 		return
 	}
@@ -303,7 +301,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) gather(_ clientset.Interface
 	return []measurement.Summary{measurement.CreateSummary(summaryName, "json", content)}, err
 }
 
-func isAllocated(claim *resourcev1beta2.ResourceClaim) bool {
+func isAllocated(claim *resourcev1.ResourceClaim) bool {
 	return claim.Status.Allocation != nil || len(claim.Status.ReservedFor) > 0 || len(claim.Status.Devices) > 0
 }
 
@@ -316,7 +314,7 @@ func usesResourceClaimTemplate(p *corev1.Pod) bool {
 	return false
 }
 
-func (m *resourceClaimAllocationLatencyMeasurement) getCachedPodCreateTime(cl *resourcev1beta2.ResourceClaim) (time.Time, bool) {
+func (m *resourceClaimAllocationLatencyMeasurement) getCachedPodCreateTime(cl *resourcev1.ResourceClaim) (time.Time, bool) {
 	for _, o := range cl.OwnerReferences {
 		if o.Kind == "Pod" && o.Name != "" {
 			key := fmt.Sprintf("%s/%s", cl.Namespace, o.Name)
@@ -329,7 +327,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) getCachedPodCreateTime(cl *r
 	return time.Time{}, false
 }
 
-func (m *resourceClaimAllocationLatencyMeasurement) fetchPodCreateTime(cl *resourcev1beta2.ResourceClaim) (time.Time, bool) {
+func (m *resourceClaimAllocationLatencyMeasurement) fetchPodCreateTime(cl *resourcev1.ResourceClaim) (time.Time, bool) {
 	for _, o := range cl.OwnerReferences {
 		if o.Kind == "Pod" && o.Name != "" {
 			atomic.AddInt64(&m.podGetCalls, 1)

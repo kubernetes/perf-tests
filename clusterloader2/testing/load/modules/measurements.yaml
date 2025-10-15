@@ -247,6 +247,21 @@ steps:
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+  - Identifier: ResourceSize
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ResourceSize
+      metricVersion: v1
+      unit: MiB
+      dimensions:
+      - resource
+      - group
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
+      - name: max
+        query: max_over_time(sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

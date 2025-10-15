@@ -4,6 +4,7 @@
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 {{$dnsQPSPerClient := DefaultParam .CL2_DNS_QPS_PER_CLIENT 1}}
+{{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
 # Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
 {{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
@@ -78,6 +79,9 @@ spec:
         name: {{.Name}}
   {{end}}
 {{end}}
+        env:
+        - name: ENV_VAR
+          value: {{RandData $podPayloadSize}}
         resources:
           requests:
             cpu: {{$CpuRequest}}

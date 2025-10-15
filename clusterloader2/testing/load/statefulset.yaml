@@ -1,6 +1,7 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+{{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 
 apiVersion: apps/v1
@@ -27,6 +28,9 @@ spec:
       containers:
       - name: {{.Name}}
         image: {{$Image}}
+        env:
+        - name: ENV_VAR
+          value: {{RandData $podPayloadSize}}
         ports:
           - containerPort: 80
             name: web

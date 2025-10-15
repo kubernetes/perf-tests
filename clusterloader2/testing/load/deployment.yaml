@@ -81,7 +81,7 @@ spec:
 {{end}}
         env:
         - name: ENV_VAR
-          value: {{RandData $podPayloadSize}}
+          value: {{RandDataWithSeed $podPayloadSize .Name}}
         resources:
           requests:
             cpu: {{$CpuRequest}}

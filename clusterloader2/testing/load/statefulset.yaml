@@ -30,7 +30,7 @@ spec:
         image: {{$Image}}
         env:
         - name: ENV_VAR
-          value: {{RandData $podPayloadSize}}
+          value: {{RandDataWithSeed $podPayloadSize .Name}}
         ports:
           - containerPort: 80
             name: web

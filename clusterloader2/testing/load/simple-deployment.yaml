@@ -31,7 +31,7 @@ spec:
       containers:
       - env:
         - name: ENV_VAR
-          value: {{RandData $podPayloadSize}}
+          value: {{RandDataWithSeed $podPayloadSize .Name}}
         image: {{$Image}}
         imagePullPolicy: IfNotPresent
         name: {{.Name}}

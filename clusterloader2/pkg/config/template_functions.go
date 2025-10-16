@@ -17,7 +17,10 @@ limitations under the License.
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"math"
@@ -34,8 +37,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var globalRand *rand.Rand
+
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	globalRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 // GetFuncs returns map of names to functions, that are supported by template provider.
@@ -60,6 +65,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 		"MultiplyFloat":    multiplyFloat,
 		"MultiplyInt":      multiplyInt,
 		"RandData":         randData,
+		"RandDataWithSeed": randDataWithSeed,
 		"RandInt":          randInt,
 		"RandIntRange":     randIntRange,
 		"Seq":              seq,
@@ -108,9 +114,29 @@ func toFloat64(val interface{}) float64 {
 
 // randData returns pseudo-random string of i length.
 func randData(i interface{}) string {
-	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	typedI := int(toFloat64(i))
-	b := make([]byte, typedI)
+	return randString(globalRand, typedI)
+}
+
+// randData returns pseudo-random string of i length with a provided seed to allow deterministic result.
+func randDataWithSeed(i, j interface{}) string {
+	typedI := int(toFloat64(i))
+	if typedI == 0 {
+		return ""
+	}
+	typedJ := j.(string)
+	h := sha256.New()
+	_, err := io.WriteString(h, typedJ)
+	if err != nil {
+		panic(fmt.Sprintf("failed to write %q to sha256 hash", typedJ))
+	}
+	seed := int64(binary.BigEndian.Uint64(h.Sum(nil)))
+	return randString(rand.New(rand.NewSource(seed)), typedI)
+}
+
+func randString(rand *rand.Rand, length int) string {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, length)
 	for i := range b {
 		b[i] = alphabet[rand.Intn(len(alphabet))]
 	}
@@ -120,7 +146,7 @@ func randData(i interface{}) string {
 // randInt returns pseudo-random int in [0, i].
 func randInt(i interface{}) int {
 	typedI := int(toFloat64(i))
-	return rand.Intn(typedI + 1)
+	return globalRand.Intn(typedI + 1)
 }
 
 // randIntRange returns pseudo-random int in [i, j].
@@ -131,7 +157,7 @@ func randIntRange(i, j interface{}) int {
 	if typedI >= typedJ {
 		return typedI
 	}
-	return typedI + rand.Intn(typedJ-typedI+1)
+	return typedI + globalRand.Intn(typedJ-typedI+1)
 }
 
 func addInt(numbers ...interface{}) int {

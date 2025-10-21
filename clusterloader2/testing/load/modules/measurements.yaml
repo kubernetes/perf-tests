@@ -30,6 +30,8 @@
 {{$ENABLE_CONTAINER_RESOURCES_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESOURCES_MEASUREMENT false}}
 {{$ENABLE_TERMINATED_WATCHES_MEASUREMENT := DefaultParam .CL2_ENABLE_TERMINATED_WATCHES_MEASUREMENT false}}
 {{$ENABLE_QUOTAS_USAGE_MEASUREMENT := DefaultParam .CL2_ENABLE_QUOTAS_USAGE_MEASUREMENT false}}
+{{$ENABLE_BPF_MAP_PRESSURE_MEASUREMENT := DefaultParam .CL2_ENABLE_BPF_MAP_PRESSURE_MEASUREMENT false}}
+{{$BPF_MAP_PRESSURE_MAX_THRESHOLD := DefaultParam .CL2_BPF_MAP_PRESSURE_MAX_THRESHOLD 90}}
 {{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
 {{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 {{$NODE_LOCAL_DNS_LATENCY_THRESHOLD := DefaultParam .CL2_NODE_LOCAL_DNS_LATENCY_THRESHOLD "5s"}}
@@ -228,6 +230,19 @@ steps:
         query: quantile_over_time(0.99, sum by (quota_metric) (irate(serviceruntime_googleapis_com:quota_rate_net_usage{monitored_resource="consumer_quota"}[1m]))[%v:]) * 60
       - name: max
         query: max_over_time(sum by (quota_metric) (irate(serviceruntime_googleapis_com:quota_rate_net_usage{monitored_resource="consumer_quota"}[1m]))[%v:]) * 60
+{{end}}
+{{if $ENABLE_BPF_MAP_PRESSURE_MEASUREMENT}}
+  - Identifier: BPFMapPressure
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: BPF Map Pressure
+      metricVersion: v1
+      unit: "%"
+      queries:
+      - name: BPF Map Pressure (Max)
+        query: max_over_time(max(cilium_bpf_map_pressure)[%v:]) * 100
+        threshold: {{$BPF_MAP_PRESSURE_MAX_THRESHOLD}}
 {{end}}
 {{if $ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT}}
   - Identifier: CiliumEndpointPropagationDelay

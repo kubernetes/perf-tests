@@ -8,4 +8,4 @@ spec:
       requests:
         - name: gpu
           exactly:
-            deviceClassName: gpu.example.com
+            deviceClassName: {{.DeviceClassName}}

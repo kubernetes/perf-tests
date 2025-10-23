@@ -9,7 +9,9 @@ spec:
   parallelism: {{.Replicas}}
   completions: {{.CompletionReplicas}}
   completionMode: {{.Mode}}
-  ttlSecondsAfterFinished: 300
+  # In tests involving a large number of sequentially created, short-lived jobs, the spin-up time may be significant.
+  # A TTL of 1 hour should be sufficient to retain the jobs long enough for measurement checks.
+  ttlSecondsAfterFinished: 3600 # 1 hour
   template:
     metadata:
       labels:

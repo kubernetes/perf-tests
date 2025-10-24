@@ -83,8 +83,10 @@ while true; do
     echo "  Pending: $num_pending"
     echo "  Failed: $num_failed"
 
-    buffer=$(echo "$expect_completed * $buffer_rate" | bc)
-    min_completed=$(printf "%.0f" "$(echo "$expect_completed - $buffer" | bc)")
+    buffer=$(awk -v n="$expect_completed" -v r="$buffer_rate" 'BEGIN{printf "%.0f", n*r}')
+    min_completed=$((expect_completed - buffer))
+    if (( min_completed < 0 )); then min_completed=0; fi
+    echo "Required minimum completed (with buffer): $min_completed (buffer deducted: $buffer)"
     if [[ "$num_completed" -ge "$min_completed" ]]; then
         break;
     fi

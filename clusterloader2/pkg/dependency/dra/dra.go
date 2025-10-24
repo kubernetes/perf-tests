@@ -70,6 +70,10 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 		"Namespace":       namespace,
 		"WorkerNodeCount": getWorkerCount(config),
 	}
+
+	if extendedResourceName, ok := config.Params["ExtendedResourceName"]; ok {
+		mapping["ExtendedResourceName"] = extendedResourceName
+	}
 	if err := config.ClusterFramework.ApplyTemplatedManifests(
 		manifestsFS,
 		"manifests/*.yaml",

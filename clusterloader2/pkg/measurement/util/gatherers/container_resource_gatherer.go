@@ -116,7 +116,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 
 		masterNodes := sets.NewString()
 		for _, node := range nodeList.Items {
-			if pkgutil.LegacyIsMasterNode(&node) || pkgutil.IsControlPlaneNode(&node) {
+			if pkgutil.IsControlPlaneNode(&node) {
 				masterNodes.Insert(node.Name)
 			}
 		}

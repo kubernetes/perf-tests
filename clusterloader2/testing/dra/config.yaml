@@ -2,12 +2,29 @@
 {{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$STEADY_STATE_QPS := DefaultParam .CL2_STEADY_STATE_QPS 5}}
+{{$RESOURCE_SLICES_PER_NODE := DefaultParam .CL2_RESOURCE_SLICES_PER_NODE 1}}
+{{$UPSIZE_THRESHOLD := DefaultParam .CL2_UPSIZE_THRESHOLD "10m"}}
+{{$UPSIZE_PERC50_THRESHOLD := DefaultParam .CL2_UPSIZE_PERC50_THRESHOLD "40s"}}
+{{$UPSIZE_PERC90_THRESHOLD := DefaultParam .CL2_UPSIZE_PERC90_THRESHOLD "4m"}}
+{{$CHURN_POD_STARTUP_PERC50_THRESHOLD := DefaultParam .CL2_CHURN_POD_STARTUP_PERC50_THRESHOLD “40s"}}
+{{$CHURN_POD_STARTUP_PERC90_THRESHOLD := DefaultParam .CL2_CHURN_POD_STARTUP_PERC90_THRESHOLD “60s”}}
+{{$CHURN_POD_STARTUP_PERC99_THRESHOLD := DefaultParam .CL2_CHURN_POD_STARTUP_PERC99_THRESHOLD “80s”}}
+{{$FINISHED_JOBS_THRESHOLD := DefaultParam .CL2_FINISHED_JOBS_THRESHOLD "10m"}}
+{{$RUNNING_JOBS_THRESHOLD := DefaultParam .CL2_RUNNING_JOBS_THRESHOLD "10m"}}
+{{$RUNNING_JOBS_OPERATION_THRESHOLD := DefaultParam .CL2_RUNNING_JOBS_OPERATION_THRESHOLD "120s"}}
 {{$token := .CL2_TOKEN }}
 
 {{$namespaces := DivideInt .Nodes $NODES_PER_NAMESPACE}}
 
+# dra
+{{$draNamespace := DefaultParam .CL2_DRA_NAMESPACE "dra-example-driver"}}
+{{$draManifests := DefaultParam .CL2_DRA_MANIFESTS "dra-example-driver"}}
+{{$draDaemonsetName := DefaultParam .CL2_DRA_DAEMONSET_NAME "dra-example-driver-kubeletplugin"}}
+
 # Node resource configuration
 {{$gpusPerNode := DefaultParam .CL2_GPUS_PER_NODE 8}}
+{{$resourceSlicesPerNode := DefaultParam .CL2_RESOURCE_SLICES_PER_NODE 1}}
+{{$workerNodeCount := MultiplyInt $resourceSlicesPerNode .Nodes}}
 {{$totalGPUs := MultiplyInt $gpusPerNode .Nodes}}
 
 # fast fill job configuration - for initial fill up
@@ -19,11 +36,14 @@
 
 # churn job configuration for steady state
 {{$smallJobPodsCount := SubtractInt $totalGPUs (MultiplyInt $fillPodsPerNamespace $namespaces)}}
-{{$smallJobsPerNamespace := DivideInt $smallJobPodsCount $namespaces}}
+{{$calculatedSJPN := DivideInt $smallJobPodsCount $namespaces}}
+{{$maxSJPN := DefaultParam .CL2_MAX_SMALL_JOBS_PER_NAMESPACE 999999}}
+{{$smallJobsPerNamespace := MinInt $calculatedSJPN $maxSJPN}}
 {{$smallJobSize := 1}}
-{{$smallJobCompletions := 10}}
+{{$smallJobCompletions := DefaultParam .CL2_SMALL_JOB_COMPLETIONS 10}}
 {{$jobRunningTime := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
 {{$ENABLE_EXTENDED_RESOURCES := DefaultParam .CL2_ENABLE_EXTENDED_RESOURCES false}}
+{{$deviceClassName := DefaultParam .CL2_DEVICE_CLASS_NAME "gpu.example.com"}}
 
 {{$extendedResourceName := ""}}
 {{if $ENABLE_EXTENDED_RESOURCES}}
@@ -46,10 +66,13 @@ tuningSets:
 
 
 dependencies:
-- name: Install dra-example-driver for test
+- name: Install dra-driver for test
   Method: DRATestDriver
   Params:
-    WorkerNodeCount: {{.Nodes}}
+    WorkerNodeCount: {{$workerNodeCount}}
+    Namespace: {{$draNamespace}}
+    DaemonsetName: {{$draDaemonsetName}}
+    Manifests: {{$draManifests}}
     {{if $ENABLE_EXTENDED_RESOURCES}}
     ExtendedResourceName: {{$extendedResourceName}}
     {{end}}
@@ -70,12 +93,15 @@ steps:
         apiVersion: batch/v1
         kind: Job
         labelSelector: job-type = long-running
-        operationTimeout: 120s
+        operationTimeout: {{$RUNNING_JOBS_OPERATION_THRESHOLD}}
     - Identifier: FastFillPodStartupLatency
       Method: PodStartupLatency
       Params:
         action: start
         labelSelector: job-type = long-running
+        perc50Threshold: {{$UPSIZE_PERC50_THRESHOLD}}
+        perc90Threshold: {{$UPSIZE_PERC90_THRESHOLD}}
+        threshold: {{$UPSIZE_THRESHOLD}}
     - Identifier: FastFillClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:
@@ -111,6 +137,8 @@ steps:
       objectBundle:
       - basename: single-gpu
         objectTemplatePath: "resourceclaimtemplate.yaml"
+        templateFillMap:
+          DeviceClassName: {{$deviceClassName}}
 {{end}}
 - name: Fill cluster to {{$fillPercentage}}% utilization
   phases:
@@ -134,7 +162,7 @@ steps:
       Params:
         action: gather
         labelSelector: job-type = long-running
-        timeout: 15m
+        timeout: {{$RUNNING_JOBS_THRESHOLD}}
 - name: Gather measurements for long running pods
   measurements:
     - Identifier: FastFillSchedulingMetrics
@@ -145,6 +173,9 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+        perc50Threshold: {{$UPSIZE_PERC50_THRESHOLD}}
+        perc90Threshold: {{$UPSIZE_PERC90_THRESHOLD}}
+        threshold: {{$UPSIZE_THRESHOLD}}
     - Identifier: FastFillClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:
@@ -164,9 +195,9 @@ steps:
       Params:
         action: start
         labelSelector: job-type = short-lived
-        perc50Threshold: 40s
-        perc90Threshold: 60s
-        perc99Threshold: 80s
+        perc50Threshold: {{$CHURN_POD_STARTUP_PERC50_THRESHOLD}}
+        perc90Threshold: {{$CHURN_POD_STARTUP_PERC90_THRESHOLD}}
+        perc99Threshold: {{$CHURN_POD_STARTUP_PERC99_THRESHOLD}}
     - Identifier: ChurnClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:
@@ -210,7 +241,7 @@ steps:
       Params:
         action: gather
         labelSelector: job-type = short-lived
-        timeout: 15m
+        timeout: {{$FINISHED_JOBS_THRESHOLD}}
 - name: Measure scheduler metrics
   measurements:
     - Identifier: ChurnSchedulingMetrics
@@ -221,9 +252,9 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
-        perc50Threshold: 40s
-        perc90Threshold: 60s
-        perc99Threshold: 80s
+        perc50Threshold: {{$CHURN_POD_STARTUP_PERC50_THRESHOLD}}
+        perc90Threshold: {{$CHURN_POD_STARTUP_PERC90_THRESHOLD}}
+        perc99Threshold: {{$CHURN_POD_STARTUP_PERC99_THRESHOLD}}
     - Identifier: ChurnClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:

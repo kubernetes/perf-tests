@@ -19,7 +19,6 @@ package executors
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -65,7 +64,7 @@ func (t *testSeries) seriesLoadingString() string {
 }
 
 func loadFromFile(filename string) (*testSeries, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +87,7 @@ type PromqlExecutor struct {
 // NewPromqlExecutor creates a new executor with time series and rules loaded from file
 // Samples loaded from test file starts at time.Time.UTC(0,0)
 func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
-	//Load time series from file
+	// Load time series from file
 	f, err := loadFromFile(timeSeriesFile)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse time series file: %v", err)
@@ -104,7 +103,7 @@ func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
 		return nil, fmt.Errorf("could not initialize lazy loader: %v", err)
 	}
 
-	//Load rule groups
+	// Load rule groups
 	opts := &rules.ManagerOptions{
 		QueryFunc:  rules.EngineQueryFunc(ll.QueryEngine(), ll.Storage()),
 		Appendable: ll.Storage(),
@@ -124,7 +123,7 @@ func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
 		return nil, fmt.Errorf("could not load rules file: %v", ers)
 	}
 
-	//Load data into ll
+	// Load data into ll
 	ll.WithSamplesTill(time.Now(), func(e error) {
 		if err != nil {
 			err = e

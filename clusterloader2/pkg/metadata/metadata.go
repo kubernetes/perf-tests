@@ -18,7 +18,7 @@ package metadata
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 )
@@ -49,5 +49,5 @@ func write(obj map[string]string, outputFile string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(outputFile, out, 0644)
+	return os.WriteFile(outputFile, out, 0644)
 }

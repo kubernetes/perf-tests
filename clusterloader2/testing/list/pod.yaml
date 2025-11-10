@@ -1,0 +1,19 @@
+{{$group := DefaultParam .group .Name}}
+{{$bytes := .bytes}}
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.Name}}
+  labels:
+    app: {{$group}}
+spec:
+  schedulerName: non-existing-scheduler
+  containers:
+  - name: nginx-container
+    image: nginx
+    env:
+    - name: RANDOM_PAYLOAD
+      value: "{{RandData $bytes}}"
+    ports:
+    - containerPort: 80

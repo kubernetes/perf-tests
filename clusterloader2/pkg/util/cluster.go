@@ -18,7 +18,6 @@ package util
 
 import (
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -26,8 +25,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
-const keyMasterNodeLabel = "node-role.kubernetes.io/master"
-const keyControlPlaneNodeLabel = "node-role.kubernetes.io/control-plane"
+const keyControlPlaneNodeLabelTaint = "node-role.kubernetes.io/control-plane"
 
 // Based on the following docs:
 // https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions
@@ -35,12 +33,12 @@ const keyControlPlaneNodeLabel = "node-role.kubernetes.io/control-plane"
 var builtInTaintsKeys = []string{
 	"node.kubernetes.io/not-ready",
 	"node.kubernetes.io/unreachable",
-	"node.kubernetes.io/pid-pressure",
-	"node.kubernetes.io/out-of-disk",
+	"node.kubernetes.io/unschedulable",
 	"node.kubernetes.io/memory-pressure",
 	"node.kubernetes.io/disk-pressure",
 	"node.kubernetes.io/network-unavailable",
-	"node.kubernetes.io/unschedulable",
+	"node.kubernetes.io/pid-pressure",
+	"node.kubernetes.io/out-of-service",
 	"node.cloudprovider.kubernetes.io/uninitialized",
 	"node.cloudprovider.kubernetes.io/shutdown",
 }
@@ -153,7 +151,7 @@ func GetMasterName(c clientset.Interface) (string, error) {
 		return "", err
 	}
 	for i := range nodeList {
-		if LegacyIsMasterNode(&nodeList[i]) || IsControlPlaneNode(&nodeList[i]) {
+		if IsControlPlaneNode(&nodeList[i]) {
 			return nodeList[i].Name, nil
 		}
 	}
@@ -168,7 +166,7 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 	}
 	var ips []string
 	for i := range nodeList {
-		if LegacyIsMasterNode(&nodeList[i]) || IsControlPlaneNode(&nodeList[i]) {
+		if IsControlPlaneNode(&nodeList[i]) {
 			for _, address := range nodeList[i].Status.Addresses {
 				if address.Type == addressType && address.Address != "" {
 					ips = append(ips, address.Address)
@@ -183,36 +181,15 @@ func GetMasterIPs(c clientset.Interface, addressType corev1.NodeAddressType) ([]
 	return ips, nil
 }
 
-// LegacyIsMasterNode returns true if given node is a registered master according
-// to the logic historically used for this function. This code path is deprecated
-// and the node disruption exclusion label should be used in the future.
-// This code will not be allowed to update to use the node-role label, since
-// node-roles may not be used for feature enablement.
-// DEPRECATED: this will be removed in Kubernetes 1.19
-func LegacyIsMasterNode(node *corev1.Node) bool {
+func IsControlPlaneNode(node *corev1.Node) bool {
 	for key := range node.GetLabels() {
-		if key == keyMasterNodeLabel {
+		if key == keyControlPlaneNodeLabelTaint {
 			return true
 		}
 	}
-
-	// We are trying to capture "master(-...)?$" regexp.
-	// However, using regexp.MatchString() results even in more than 35%
-	// of all space allocations in ControllerManager spent in this function.
-	// That's why we are trying to be a bit smarter.
-	nodeName := node.GetName()
-	if strings.HasSuffix(nodeName, "master") {
-		return true
-	}
-	if len(nodeName) >= 10 {
-		return strings.HasSuffix(nodeName[:len(nodeName)-3], "master-")
-	}
-	return false
-}
-
-func IsControlPlaneNode(node *corev1.Node) bool {
-	for key := range node.GetLabels() {
-		if key == keyControlPlaneNodeLabel {
+	// https://kubernetes.io/docs/reference/labels-annotations-taints/#node-role-kubernetes-io-control-plane-taint
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == keyControlPlaneNodeLabelTaint {
 			return true
 		}
 	}

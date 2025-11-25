@@ -26,6 +26,7 @@ spec:
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes-sigs/sig-windows
+          -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/etcd
           -   --allow-parsers-matching-all-tests=false
         imagePullPolicy: Always
         ports:

@@ -84,7 +84,10 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 		klog.V(3).Infof("%s: service already running!", execServiceName)
 	}
 	klog.V(2).Infof("%v: setting up service!", execServiceName)
-	mapping := make(map[string]interface{})
+	mapping, err := config.LoadCL2Envs()
+	if err != nil {
+		return fmt.Errorf("mapping creation error: %v", err)
+	}
 	mapping["Name"] = execDeploymentName
 	mapping["Namespace"] = execDeploymentNamespace
 	mapping["Replicas"] = execPodReplicas

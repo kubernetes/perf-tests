@@ -167,12 +167,6 @@ func (d *draDependency) isDRADriverReady(config *dependency.Config, daemonsetNam
 }
 
 func isResourceSlicesPublished(config *dependency.Config, namespace string) (bool, error) {
-	// Get a list of all nodes
-	// nodes, err := getReadyNodesCount(config)
-	// if err != nil {
-	// 	return false, fmt.Errorf("failed to list nodes: %v", err)
-	// }
-
 	driverPluginPods, err := getDriverPluginPods(config, namespace, draDaemonsetName)
 	if err != nil {
 		return false, fmt.Errorf("failed to list driverPluginPods: %v", err)

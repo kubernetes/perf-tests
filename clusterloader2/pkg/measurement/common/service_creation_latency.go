@@ -337,7 +337,7 @@ func (s *serviceCreationLatencyMeasurement) handleIngressObject(oldObj, newObj i
 		return
 	}
 	newIngress, ok = newObj.(*networkingv1.Ingress)
-	if newIngress != nil && !ok {
+	if newObj != nil && !ok {
 		klog.Errorf("%s: uncastable new object: %v", s, newObj)
 		return
 	}
@@ -369,11 +369,12 @@ func (s *serviceCreationLatencyMeasurement) deleteObject(svc *corev1.Service) er
 	}
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if svc.ObjectMeta.DeletionTimestamp == nil {
-		klog.Warningf("DeletionTimestamp is nil for service: %v", key)
-		return nil
+	if svc.ObjectMeta.DeletionTimestamp != nil {
+		s.creationTimes.Set(key, phaseName(deletingPhase, svc.Spec.Type), svc.ObjectMeta.DeletionTimestamp.Time)
+	} else {
+		// Object was deleted without DeletionTimestamp (immediate deletion)
+		s.creationTimes.Set(key, phaseName(deletingPhase, svc.Spec.Type), time.Now())
 	}
-	s.creationTimes.Set(key, phaseName(deletingPhase, svc.Spec.Type), svc.ObjectMeta.DeletionTimestamp.Time)
 	s.creationTimes.Set(key, phaseName(deletedPhase, svc.Spec.Type), time.Now())
 	s.pingCheckers.DeleteAndStop(key)
 	return nil
@@ -386,11 +387,12 @@ func (s *serviceCreationLatencyMeasurement) deleteIngressObject(ingress *network
 	}
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if ingress.ObjectMeta.DeletionTimestamp == nil {
-		klog.Warningf("DeletionTimestamp is nil for service: %v", key)
-		return nil
+	if ingress.ObjectMeta.DeletionTimestamp != nil {
+		s.creationTimes.Set(key, phaseName(deletingPhase, ingressType), ingress.ObjectMeta.DeletionTimestamp.Time)
+	} else {
+		// Object was deleted without DeletionTimestamp (immediate deletion)
+		s.creationTimes.Set(key, phaseName(deletingPhase, ingressType), time.Now())
 	}
-	s.creationTimes.Set(key, phaseName(deletingPhase, ingressType), ingress.ObjectMeta.DeletionTimestamp.Time)
 	s.creationTimes.Set(key, phaseName(deletedPhase, ingressType), time.Now())
 	s.pingCheckers.DeleteAndStop(key)
 	return nil

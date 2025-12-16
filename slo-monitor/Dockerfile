@@ -15,7 +15,6 @@
 
 FROM gcr.io/distroless/static:latest
 ARG TARGETARCH
-LABEL org.opencontainers.image.authors="Marek Grabowski <gmarek@google.com>"
 ADD build/slo-monitor-${TARGETARCH} slo-monitor
 
 CMD ["/slo-monitor"]

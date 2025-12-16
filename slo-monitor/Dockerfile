@@ -14,7 +14,8 @@
 # limitations under the License.
 
 FROM gcr.io/distroless/static:latest
-MAINTAINER Marek Grabowski <gmarek@google.com>
-ADD build/slo-monitor slo-monitor
+ARG TARGETARCH
+LABEL org.opencontainers.image.authors="Marek Grabowski <gmarek@google.com>"
+ADD build/slo-monitor-${TARGETARCH} slo-monitor
 
 CMD ["/slo-monitor"]

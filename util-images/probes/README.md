@@ -33,9 +33,7 @@ This probe is designed to run within a Kubernetes cluster and cannot be executed
 
 1. Increment the `TAG` in the Makefile.
 2. `make build`
-3. Test changes with `docker run gcr.io/k8s-testimages/probes:latest -- ...`
-4. Release with `make push`
-
+3. Follow these steps to promote the image: [Document](https://github.com/kubernetes/k8s.io/tree/main/registry.k8s.io#image-promoter)
 
 ## Go Modules
 

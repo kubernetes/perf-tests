@@ -119,6 +119,10 @@ steps:
     Method: WaitForControlledPodsRunning
     Params:
       action: gather
+- module:
+    path: /modules/ingress-measurements.yaml
+    params:
+      action: waitForDeletion
 - name: Wait after deletion
   measurements:
     - Identifier: Wait

@@ -23,18 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// Immutable verifies that the specified value has not changed in the course of
-// an update operation. It does nothing if the old value is not provided.
-//
-// This function unconditionally returns a validation error as it
-// relies on the default ratcheting mechanism to only be called when a
-// change to the field has already been detected.  This avoids a redundant
-// equivalence check across ratcheting and this function.
-func Immutable[T any](_ context.Context, op operation.Operation, fldPath *field.Path, _, _ T) field.ErrorList {
-	if op.Type != operation.Update {
-		return nil
+// IfOption conditionally evaluates a validation function. If the option and enabled are both true the validator
+// is called. If the option and enabled are both false the validator is called. Otherwise, the validator is not called.
+func IfOption[T any](ctx context.Context, op operation.Operation, fldPath *field.Path, value, oldValue *T,
+	optionName string, enabled bool, validator func(context.Context, operation.Operation, *field.Path, *T, *T) field.ErrorList,
+) field.ErrorList {
+	if op.HasOption(optionName) == enabled {
+		return validator(ctx, op, fldPath, value, oldValue)
 	}
-	return field.ErrorList{
-		field.Invalid(fldPath, nil, "field is immutable").WithOrigin("immutable"),
-	}
+	return nil
 }

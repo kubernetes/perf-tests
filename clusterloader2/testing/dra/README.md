@@ -14,8 +14,8 @@ export CL2_MODE=Indexed
 export CL2_NODES_PER_NAMESPACE=1
 export CL2_LOAD_TEST_THROUGHPUT=20   # Fast initial fill
 export CL2_STEADY_STATE_QPS=5        # Controlled rate for measurement
-export CL2_JOB_RUNNING_TIME=30s      # Short-lived pods runtime
-export CL2_LONG_JOB_RUNNING_TIME=1h  # Long-running pods runtime (for cluster fill)
+export CL2_SHORT_LIVED_JOB_RUNNING_TIME=30s      # Short-lived pods runtime
+export CL2_LONG_LIVED_JOB_RUNNING_TIME=1h  # Long-running pods runtime (for cluster fill)
 export CL2_GPUS_PER_NODE=8           # GPUs per node
 export CL2_FILL_PERCENTAGE=90        # Cluster fill percentage
 ```

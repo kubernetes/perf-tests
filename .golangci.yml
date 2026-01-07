@@ -1,38 +1,45 @@
+version: "2"
+
 run:
   timeout: 10m
 
-linters-settings:
-  errcheck:
-    # Workaround for https://github.com/golangci/golangci-lint/issues/4733
-    ignore: ""
-  golint:
-    min-confidence: 0
-  misspell:
-    locale: US
-  govet:
-    check-shadowing: false
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-    # TODO(kushthedude) remove the disabled checks
-    disable:
-      - composites
-      - copylocks
-
 linters:
-  disable-all: true
+  default: none
   enable:
-    - gofmt
-    - revive
+    # TODO(wojtek-t): Reenable after fixing existing issues.
+    # - revive
     - govet
-    - errcheck
+    # TODO(wojtek-t): Reenable after fixing existing issues.
+    # - errcheck
     - unused
     # TODO(kushthedude) fix after vendor is migrated to go modules
     # - misspell
+  settings:
+    errcheck:
+      # Workaround for https://github.com/golangci/golangci-lint/issues/4733
+      ignore: ""
+    golint:
+      min-confidence: 0
+    misspell:
+      locale: US
+    govet:
+      check-shadowing: false
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+      # TODO(kushthedude) remove the disabled checks
+      disable:
+      # TODO(wojtek-t): Reenable after fixing existing issues.
+      #  - composites
+        - copylocks
+
+formatters:
+  enable:
+    - gofmt
 
 service:
   golangci-lint-version: 1.51.x # use the fixed version to not introduce new linters unexpectedly

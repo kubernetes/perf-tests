@@ -46,10 +46,18 @@ type GCSLogUtils struct {
 	googleGCSBucketUtils *utils.Utils
 }
 
+// GCS bucket and directory for Kubernetes CI logs.
+// Note: Jobs were migrated from "kubernetes-jenkins" to "kubernetes-ci-logs"
+// as part of the k8s-infra migration.
+const (
+	K8sCILogsBucket = "kubernetes-ci-logs"
+	LogDir          = "logs"
+)
+
 // NewGCSLogUtils returns new GCSLogUtils struct with GCS utils initialized.
 func NewGCSLogUtils() GCSLogUtils {
 	return GCSLogUtils{
-		googleGCSBucketUtils: utils.NewUtils(utils.KubekinsBucket, utils.LogDir),
+		googleGCSBucketUtils: utils.NewUtils(K8sCILogsBucket, LogDir),
 	}
 }
 

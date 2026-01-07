@@ -632,7 +632,7 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 	}
 	s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)
 	if err != nil {
-		klog.Warningf("Error while marshalling response %v: %v", list, err)
+		klog.Warningf("Error while marshaling response %v: %v", list, err)
 		return
 	}
 	klog.V(2).Info(string(s))

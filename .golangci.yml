@@ -12,8 +12,7 @@ linters:
     # TODO(wojtek-t): Reenable after fixing existing issues.
     # - errcheck
     - unused
-    # TODO(kushthedude) fix after vendor is migrated to go modules
-    # - misspell
+    - misspell
   settings:
     errcheck:
       # Workaround for https://github.com/golangci/golangci-lint/issues/4733
@@ -31,11 +30,6 @@ linters:
             - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
             - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
             - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-      # TODO(kushthedude) remove the disabled checks
-      disable:
-      # TODO(wojtek-t): Reenable after fixing existing issues.
-      #  - composites
-        - copylocks
 
 formatters:
   enable:

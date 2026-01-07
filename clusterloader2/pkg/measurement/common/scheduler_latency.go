@@ -145,7 +145,7 @@ func (*schedulerLatencyMeasurement) String() string {
 	return schedulerLatencyMetricName
 }
 
-// HistogramSub is a helper function to substract two histograms
+// HistogramSub is a helper function to subtract two histograms
 func HistogramSub(finalHist, initialHist *measurementutil.Histogram) *measurementutil.Histogram {
 	for k := range finalHist.Buckets {
 		finalHist.Buckets[k] = finalHist.Buckets[k] - initialHist.Buckets[k]
@@ -153,7 +153,7 @@ func HistogramSub(finalHist, initialHist *measurementutil.Histogram) *measuremen
 	return finalHist
 }
 
-func (m *schedulerLatencyMetrics) substract(sub schedulerLatencyMetrics) {
+func (m *schedulerLatencyMetrics) subtract(sub schedulerLatencyMetrics) {
 	if sub.preemptionEvaluationHist != nil {
 		m.preemptionEvaluationHist = HistogramSub(m.preemptionEvaluationHist, sub.preemptionEvaluationHist)
 	}
@@ -203,7 +203,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 	if err != nil {
 		return nil, err
 	}
-	schedulerMetrics.substract(s.initialLatency)
+	schedulerMetrics.subtract(s.initialLatency)
 	result, err := s.setQuantiles(schedulerMetrics)
 	if err != nil {
 		return nil, err

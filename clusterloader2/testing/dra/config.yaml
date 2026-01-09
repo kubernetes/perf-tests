@@ -23,8 +23,15 @@
 {{$smallJobSize := 1}}
 {{$smallJobCompletions := 10}}
 {{$jobRunningTime := DefaultParam .CL2_JOB_RUNNING_TIME "30s"}}
+{{$ENABLE_EXTENDED_RESOURCES := DefaultParam .CL2_ENABLE_EXTENDED_RESOURCES false}}
 
+{{$extendedResourceName := ""}}
+{{if $ENABLE_EXTENDED_RESOURCES}}
+{{$extendedResourceName = DefaultParam .CL2_EXTENDED_RESOURCE_NAME "example.com/gpu"}}
+name: dra-extended-resources-steady-state
+{{else}}
 name: dra-steady-state
+{{end}}
 
 namespace:
   number: {{$namespaces}}
@@ -37,11 +44,15 @@ tuningSets:
   qpsLoad:
     qps: {{$STEADY_STATE_QPS}}
 
+
 dependencies:
 - name: Install dra-example-driver for test
   Method: DRATestDriver
   Params:
     WorkerNodeCount: {{.Nodes}}
+    {{if $ENABLE_EXTENDED_RESOURCES}}
+    ExtendedResourceName: {{$extendedResourceName}}
+    {{end}}
   Timeout: 5m
 
 steps:
@@ -89,6 +100,7 @@ steps:
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_unprepare_resources
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
+{{if not $ENABLE_EXTENDED_RESOURCES}}
 - name: Create ResourceClaimTemplates in namespaces
   phases:
     - namespaceRange:
@@ -99,6 +111,7 @@ steps:
       objectBundle:
       - basename: single-gpu
         objectTemplatePath: "resourceclaimtemplate.yaml"
+{{end}}
 - name: Fill cluster to {{$fillPercentage}}% utilization
   phases:
     - namespaceRange:
@@ -113,6 +126,7 @@ steps:
           Replicas: {{$longJobSize}}
           Mode: {{$MODE}}
           Sleep: {{$longJobRunningTime}}
+          ExtendedResource: {{ $ENABLE_EXTENDED_RESOURCES }}
 - name: Wait for fill pods to be running
   measurements:
     - Identifier: WaitForControlledPodsRunning
@@ -188,6 +202,7 @@ steps:
           CompletionReplicas: {{$smallJobCompletions}}
           Mode: {{$MODE}}
           Sleep: {{$jobRunningTime}}
+          ExtendedResource: {{ $ENABLE_EXTENDED_RESOURCES }}
 - name: Wait for short-lived jobs to finish
   measurements:
     - Identifier: WaitForFinishedJobs

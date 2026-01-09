@@ -39,3 +39,40 @@ func TestTemplateRandData(t *testing.T) {
 		}
 	}
 }
+
+func TestTemplateRandDataWithSeed(t *testing.T) {
+	tests := []struct {
+		length   int
+		seed     string
+		wantData string
+	}{
+		{
+			length:   0,
+			seed:     "test",
+			wantData: "",
+		},
+		{
+			length:   1,
+			seed:     "test-1",
+			wantData: "n",
+		},
+		{
+			length:   1,
+			seed:     "test-2",
+			wantData: "P",
+		},
+		{
+			length:   100,
+			seed:     "test",
+			wantData: "HlXm60Fjrvvp0pE3RK7lDhhhuQZpI6ECS18Gp0qqwFlOKjlZH4rFS3pk9pBkVRLzyqIWUv1Omfnmj7djTRjxL4bnp2kG7O5xD2Rf",
+		},
+	}
+
+	for i, tt := range tests {
+		data := randDataWithSeed(tt.length, tt.seed)
+
+		if tt.wantData != data {
+			t.Errorf("%d: wanted: %q, got: %q", i, tt.wantData, data)
+		}
+	}
+}

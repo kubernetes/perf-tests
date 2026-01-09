@@ -21,9 +21,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand"
 	"net"
+
+	"os"
 	"sync"
 	"time"
 
@@ -35,14 +38,21 @@ import (
 )
 
 var (
-	statefulSet   = flag.String("dns-propagation-probe-stateful-set", "", "Name of the statefulSet workload")
-	service       = flag.String("dns-propagation-probe-service", "", "Name of the headless service that exposes the statefulSet resides")
-	namespace     = flag.String("dns-propagation-probe-namespace", "default", "The namespace where the statefulSet resides")
-	clusterDomain = flag.String("dns-propagation-probe-cluster-domain", "cluster", "Name of cluster domain where the statefulSet resides")
-	suffix        = flag.String("dns-propagation-probe-suffix", "local", "DNS label suffix")
-	interval      = flag.Duration("dns-propagation-probe-interval", 100*time.Millisecond, "Interval between DNS lookups")
-	podCount      = flag.Int("dns-propagation-probe-pod-count", 0, "Number of pods in the statefulSet")
-	sampleCount   = flag.Int("dns-propagation-probe-sample-count", 0, "Number of pods to test dns propagation against in the statefulSet, defaults to min(100, Ceil(SQRT(podCount))")
+	statefulSet          = flag.String("dns-propagation-probe-stateful-set", "", "Name of the statefulSet workload")
+	service              = flag.String("dns-propagation-probe-service", "", "Name of the headless service that exposes the statefulSet resides")
+	namespace            = flag.String("dns-propagation-probe-namespace", "default", "The namespace where the statefulSet resides")
+	clusterDomain        = flag.String("dns-propagation-probe-cluster-domain", "cluster", "Name of cluster domain where the statefulSet resides")
+	suffix               = flag.String("dns-propagation-probe-suffix", "local", "DNS label suffix")
+	interval             = flag.Duration("dns-propagation-probe-interval", 100*time.Millisecond, "Interval between DNS lookups")
+	podCount             = flag.Int("dns-propagation-probe-pod-count", 0, "Number of pods in the statefulSet")
+	sampleCount          = flag.Int("dns-propagation-probe-sample-count", 0, "Number of pods to test dns propagation against in the statefulSet, defaults to min(100, Ceil(SQRT(podCount))")
+	enableErrorLogging   = flag.Bool("enable-error-logging", false, "Enable logging for real errors and timestamps.")
+	enableLatencyLogging = flag.Bool("enable-latency-logging", false, "Enable logging for latencies timestamps.")
+)
+
+var (
+	errorLogger   *slog.Logger
+	latencyLogger *slog.Logger
 )
 
 type DNSPodPropagationResult struct {
@@ -66,6 +76,12 @@ func Run() {
 		f = int(math.Min(float64(f), 100))
 		sampleCount = &f
 		klog.Warningf("dns-propagation-probe-sample-count not set, defaulting to min(100, Ceil(SQRT(%v))= %v", *podCount, *sampleCount)
+	}
+	if *enableErrorLogging {
+		errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	}
+	if *enableLatencyLogging {
+		latencyLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 	// creates the in-cluster config
 	kubeConfig, err := rest.InClusterConfig()
@@ -153,12 +169,34 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 	klog.V(4).Infof("Starting dns propagation calculation for pod %s ...", url)
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
+	var lookupErrorLogged = false
 	for {
 		select {
 		case <-tick.C:
 			klog.V(4).Infof("DNS lookup %s", url)
 			if err := lookup(url); err != nil {
-				klog.Warningf("DNS lookup error: %v", err)
+				var dnsErr *net.DNSError
+				if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+					klog.Warningf("DNS lookup error: %v", err)
+					continue
+				}
+				if !lookupErrorLogged {
+					lookupErrorLogged = true
+					errTimestamp := time.Now()
+					klog.Errorf("DNS lookup error for url %s at %v: %v", url, errTimestamp.Format(time.RFC3339), err)
+					if errorLogger != nil {
+						errorLogger.Error("DNS propagation probe failed",
+							"hostname", url,
+							"error", err.Error(),
+						)
+					}
+					labels := prometheus.Labels{
+						"namespace": namespace,
+						"service":   *service,
+						"podName":   podName,
+					}
+					DNSLookupErrors.With(labels).Inc()
+				}
 				continue
 			}
 			endTime := time.Now()
@@ -170,6 +208,12 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 			}
 			duration := endTime.Sub(timestamp)
 			klog.V(2).Infof("Pod running time fetched for pod %s, timestamp= %v, DNS propagation duration= %v s", url, timestamp, duration)
+			if latencyLogger != nil {
+				latencyLogger.Info("DNS propagation latency recorded",
+					"hostname", url,
+					"timestamp", time.Now(),
+					"propagationLatency (s)", duration.Seconds())
+			}
 			return duration
 		}
 	}

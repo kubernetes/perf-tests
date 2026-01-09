@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-staging-perf-tests/perfdash:2.55
+        image: gcr.io/k8s-staging-perf-tests/perfdash:2.56
         command:
           - /perfdash
           -   --www=true
@@ -26,6 +26,7 @@ spec:
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-scalability
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes/sig-release/release-branch-jobs
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes-sigs/sig-windows
+          -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/etcd
           -   --allow-parsers-matching-all-tests=false
         imagePullPolicy: Always
         ports:

@@ -18,10 +18,10 @@ spec:
         group: access-tokens
         name: {{.Name}}
     spec:
-      imagePullPolicy: Always
       containers:
         - name: access-tokens
           image: gcr.io/k8s-testimages/perf-tests-util/access-tokens:v0.0.6
+          imagePullPolicy: Always
           args:
           {{range $tokenId := Loop .Tokens}}
             - --access-token-dirs=/var/tokens/{{$name}}-{{$tokenId}}

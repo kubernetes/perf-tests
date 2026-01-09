@@ -1,3 +1,6 @@
+{{$CpuRequest := DefaultParam .CL2_EXECSERVICE_CPU_REQUESTS ""}}
+{{$MemoryRequest := DefaultParam .CL2_EXECSERVICE_MEMORY_REQUESTS ""}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,3 +19,11 @@ spec:
       containers:
       - name: agnhost
         image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.32
+        resources:
+          requests:
+{{if $CpuRequest}}
+            cpu: {{$CpuRequest}}
+{{end}}
+{{if $MemoryRequest}}
+            memory: {{$MemoryRequest}}
+{{end}}

@@ -1,7 +1,7 @@
 approvers:
-- dlapcevic
-emeritus_approvers:
 - bowei
+emeritus_approvers:
 - prameshj
-reviewers:
 - dlapcevic
+reviewers:
+- bowei

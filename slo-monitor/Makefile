@@ -20,13 +20,21 @@ REPOSITORY?=registry.k8s.io
 # Images should be pushed to staging-k8s.gcr.io.
 PUSH_REPOSITORY?=staging-k8s.gcr.io
 
+ARCH ?= amd64
+
+.PHONY: build container container-multiplatform
+
 all: build
 
 build: src/monitors/pod_monitor.go src/monitors/util.go src/monitors/store.go src/monitors/watcher.go src/main/slo-monitor.go
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -o build/slo-monitor src/main/slo-monitor.go
+	GOOS=linux GOARCH=$(ARCH) CGO_ENABLED=0 go build -a -o build/slo-monitor-$(ARCH) src/main/slo-monitor.go
 
 container: build
-	docker build --pull . -t $(REPOSITORY)/slo-monitor:$(TAG)
+	docker buildx build --pull --load --platform linux/$(ARCH) . -t $(REPOSITORY)/slo-monitor:$(TAG)
+
+container-multiplatform:
+	$(MAKE) container ARCH=amd64 TAG=$(TAG)-amd64
+	$(MAKE) container ARCH=arm64 TAG=$(TAG)-arm64
 
 push: container
 	docker tag $(REPOSITORY)/slo-monitor:$(TAG) $(PUSH_REPOSITORY)/slo-monitor:$(TAG)

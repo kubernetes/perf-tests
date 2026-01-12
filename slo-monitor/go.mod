@@ -9,7 +9,7 @@ require (
 	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0
 	k8s.io/client-go v0.35.0
-	k8s.io/kubernetes v1.34.3
+	k8s.io/kubernetes v1.35.0
 )
 
 require (

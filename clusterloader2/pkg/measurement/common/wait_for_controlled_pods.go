@@ -579,7 +579,9 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		}
 	}
 	if isDeleted {
-		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{0}
+		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{
+			ReplicasCount: 0,
+		}
 	}
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {

@@ -40,7 +40,7 @@ type Histogram struct {
 // Quantile calculates the quantile 'q' based on the given buckets of Histogram.
 func (h *Histogram) Quantile(q float64) (float64, error) {
 	hist := testutil.Histogram{
-		&dto.Histogram{
+		Histogram: &dto.Histogram{
 			Bucket: []*dto.Bucket{},
 		},
 	}

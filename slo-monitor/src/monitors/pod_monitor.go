@@ -32,8 +32,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
-
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -43,6 +41,13 @@ const (
 	PodE2EStartupLatencyKey = "slomonitor_pod_e2e_startup_latency_seconds"
 	// PodFullStartupLatencyKey is a key for pod startup latency monitoring metric including pull times.
 	PodFullStartupLatencyKey = "slomonitor_pod_full_startup_latency_seconds"
+
+	// eventPullingImage is an event reason for image pulling.
+	// This needs to match k8s.io/kubernetes/pkg/kubelet/events:PullingImage.
+	eventPullingImage = "Pulling"
+	// eventPullingImage is an event reason for image pulled.
+	// This needs to match k8s.io/kubernetes/pkg/kubelet/events:PulledImage.
+	eventPulledImage = "Pulled"
 )
 
 var (
@@ -310,9 +315,9 @@ func (pm *PodStartupLatencyDataMonitor) handlePulledImageEvent(key string, e *v1
 func (pm *PodStartupLatencyDataMonitor) handleEventUpdate(e *v1.Event) {
 	key := getPodKeyFromReference(&e.InvolvedObject)
 	switch e.Reason {
-	case kubeletevents.PullingImage:
+	case eventPullingImage:
 		go pm.handlePullingImageEvent(key, e)
-	case kubeletevents.PulledImage:
+	case eventPulledImage:
 		go pm.handlePulledImageEvent(key, e)
 	default:
 		return

@@ -159,8 +159,8 @@ steps:
       - basename: daemonset-priorityclass
         objectTemplatePath: daemonset-priorityclass.yaml
 
-# Moved from reconcile-objects.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
-# TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects.yaml once the k/k bug is fixed.
+# Moved from reconcile-objects/config.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
+# TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects/config.yaml once the k/k bug is fixed.
 - module:
     path: /modules/configmaps-secrets.yaml
     params:
@@ -172,7 +172,7 @@ steps:
       smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
 
 - module:
-    path: /modules/reconcile-objects.yaml
+    path: /modules/reconcile-objects/config.yaml
     params:
       actionName: "create"
       namespaces: {{$namespaces}}
@@ -321,7 +321,7 @@ steps:
 {{end}}
 
 - module:
-    path: /modules/reconcile-objects.yaml
+    path: /modules/reconcile-objects/config.yaml
     params:
       actionName: "scale and update"
       namespaces: {{$namespaces}}
@@ -367,7 +367,7 @@ steps:
 {{end}}
 
 - module:
-    path: /modules/reconcile-objects.yaml
+    path: /modules/reconcile-objects/config.yaml
     params:
       actionName: "delete"
       namespaces: {{$namespaces}}

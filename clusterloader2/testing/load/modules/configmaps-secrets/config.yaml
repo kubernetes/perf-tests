@@ -20,9 +20,9 @@ steps:
     tuningSet: {{$tuningSet}}
     objectBundle:
     - basename: big-deployment
-      objectTemplatePath: configmap.yaml
+      objectTemplatePath: /modules/configmaps-secrets/configmap.yaml
     - basename: big-deployment
-      objectTemplatePath: secret.yaml
+      objectTemplatePath: /modules/configmaps-secrets/secret.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -30,9 +30,9 @@ steps:
     tuningSet: {{$tuningSet}}
     objectBundle:
     - basename: medium-deployment
-      objectTemplatePath: configmap.yaml
+      objectTemplatePath: /modules/configmaps-secrets/configmap.yaml
     - basename: medium-deployment
-      objectTemplatePath: secret.yaml
+      objectTemplatePath: /modules/configmaps-secrets/secret.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -40,6 +40,6 @@ steps:
     tuningSet: {{$tuningSet}}
     objectBundle:
     - basename: small-deployment
-      objectTemplatePath: configmap.yaml
+      objectTemplatePath: /modules/configmaps-secrets/configmap.yaml
     - basename: small-deployment
-      objectTemplatePath: secret.yaml
+      objectTemplatePath: /modules/configmaps-secrets/secret.yaml

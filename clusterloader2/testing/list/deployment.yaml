@@ -28,6 +28,7 @@ spec:
         - --namespace={{.Namespace}}
         - --uri={{.Uri}}
         - --content-type={{.ContentType}}
+        - --qps=500
         resources:
           requests:
             cpu: {{$cpu}}

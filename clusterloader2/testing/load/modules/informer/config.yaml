@@ -1,0 +1,25 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$action := .action}}
+
+steps:
+- name: {{$action}} informer role
+  phases:
+    - namespaceList: [""]
+      tuningSet: default
+      replicasPerNamespace: 1
+      objectBundle:
+        - basename: informer
+          objectTemplatePath: /modules/informer/namespace.yaml
+        - basename: informer
+          objectTemplatePath: /modules/informer/role.yaml
+        - basename: informer
+          objectTemplatePath: /modules/informer/roleBinding.yaml
+- name: {{$action}} informer deployment
+  phases:
+    - namespaceList: ["informer-0"]
+      replicasPerNamespace: 1
+      tuningSet: default
+      objectBundle:
+        - basename: informer
+          objectTemplatePath: /modules/informer/deployment.yaml

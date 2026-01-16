@@ -18,12 +18,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"os"
+	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	v1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,6 +40,8 @@ var (
 	informerCount               int
 	testTimeout                 time.Duration
 	enableWatchListAlphaFeature bool
+	apiVersion                  string
+	resource                    string
 )
 
 func main() {
@@ -47,10 +53,9 @@ func main() {
 		klog.Infof("  -%s=%v (%s)\n", f.Name, f.Value, f.Usage)
 	})
 
-	if enableWatchListAlphaFeature {
-		os.Setenv("KUBE_FEATURE_WatchListClient", "true")
+	if err := os.Setenv("KUBE_FEATURE_WatchListClient", strconv.FormatBool(enableWatchListAlphaFeature)); err != nil {
+		klog.Fatal(err)
 	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -66,19 +71,33 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		klog.Fatalf("failed to parse api-version %q: %v", apiVersion, err)
+	}
+	targetGVR := gv.WithResource(resource)
+
+	err = wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		ts := time.Now()
 		ctxInformer, cancelInformers := context.WithCancel(ctx)
 		defer cancelInformers()
 
-		klog.Infof("Starting %d secret informers for targetNamespace = %s", informerCount, targetNamespace)
-		informersSynced := startInformersFor(ctxInformer, client, informerCount, targetNamespace)
+		klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %s", informerCount, targetGVR, targetNamespace)
+		informersSynced, err := startInformersForResource(ctxInformer, client, targetGVR, informerCount, targetNamespace)
+		if err != nil {
+			return false, err
+		}
 
-		klog.Info("Waiting for the secrets informers to synced")
-		cache.WaitForCacheSync(ctx.Done(), informersSynced...)
-		klog.Infof("All %v secret informers synced, time needed = %v", len(informersSynced), time.Now().Sub(ts))
-	}, 5*time.Second)
-
+		klog.Infof("Waiting for gvr = %v informers to synced", targetGVR)
+		if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
+			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync", targetGVR)
+		}
+		klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Now().Sub(ts))
+		return false, nil
+	})
+	if err != nil && !isContextDoneErr(err) {
+		klog.Fatal(err)
+	}
 	klog.Info("Exiting the test app")
 }
 
@@ -86,18 +105,38 @@ func registerFlags() {
 	klog.InitFlags(flag.CommandLine)
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig.")
-	flag.StringVar(&targetNamespace, "namespace", "huge-secrets-1", "namespace that host secrets to list. If empty a default (huge-secrets-1) value will be used.")
+	flag.StringVar(&targetNamespace, "namespace", "huge-secrets-1", "namespace that hosts the target resource. If empty a default (huge-secrets-1) value will be used.")
 	flag.IntVar(&informerCount, "count", 4, "the number of informers per targetNamespace to run. If empty a default (4) value will be used.")
 	flag.DurationVar(&testTimeout, "timeout", time.Minute, "timeout duration for the test")
 	flag.BoolVar(&enableWatchListAlphaFeature, "enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
+	flag.StringVar(&apiVersion, "api-version", "v1", "apiVersion of the target resource (e.g. v1, apps/v1). If empty a default (v1) value will be used.")
+	flag.StringVar(&resource, "resource", "secrets", "resource name of the target resource (e.g. pods, deployments). If empty a default (secrets) value will be used.")
 }
 
-func startInformersFor(ctx context.Context, client kubernetes.Interface, count int, namespace string) []cache.InformerSynced {
+func startInformersForResource(ctx context.Context, client kubernetes.Interface, gvr schema.GroupVersionResource, count int, namespace string) ([]cache.InformerSynced, error) {
 	var informersSynced []cache.InformerSynced
+	factories := make([]informers.SharedInformerFactory, 0, count)
+
 	for i := 0; i < count; i++ {
-		inf := v1.NewSecretInformer(client, namespace, time.Duration(0), cache.Indexers{})
-		informersSynced = append(informersSynced, inf.HasSynced)
-		go inf.Run(ctx.Done())
+		factory := informers.NewSharedInformerFactoryWithOptions(
+			client,
+			0,
+			informers.WithNamespace(namespace),
+		)
+		inf, err := factory.ForResource(gvr)
+		if err != nil {
+			return nil, err
+		}
+		informersSynced = append(informersSynced, inf.Informer().HasSynced)
+		factories = append(factories, factory)
 	}
-	return informersSynced
+
+	for _, factory := range factories {
+		factory.Start(ctx.Done())
+	}
+	return informersSynced, nil
+}
+
+func isContextDoneErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -82,7 +82,7 @@ func main() {
 		ctxInformer, cancelInformers := context.WithCancel(ctx)
 		defer cancelInformers()
 
-		klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %s", informerCount, targetGVR, targetNamespace)
+		klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %q", informerCount, targetGVR, targetNamespace)
 		informersSynced, err := startInformersForResource(ctxInformer, client, targetGVR, informerCount, targetNamespace)
 		if err != nil {
 			return false, err
@@ -105,7 +105,7 @@ func registerFlags() {
 	klog.InitFlags(flag.CommandLine)
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig.")
-	flag.StringVar(&targetNamespace, "namespace", "huge-secrets-1", "namespace that hosts the target resource. If empty a default (huge-secrets-1) value will be used.")
+	flag.StringVar(&targetNamespace, "namespace", "", "namespace to run informers for. If empty will open on all namespaces.")
 	flag.IntVar(&informerCount, "count", 4, "the number of informers per targetNamespace to run. If empty a default (4) value will be used.")
 	flag.DurationVar(&testTimeout, "timeout", time.Minute, "timeout duration for the test")
 	flag.BoolVar(&enableWatchListAlphaFeature, "enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
@@ -118,10 +118,14 @@ func startInformersForResource(ctx context.Context, client kubernetes.Interface,
 	factories := make([]informers.SharedInformerFactory, 0, count)
 
 	for i := 0; i < count; i++ {
+		opts := []informers.SharedInformerOption{}
+		if namespace != "" {
+			opts = append(opts, informers.WithNamespace(namespace))
+		}
 		factory := informers.NewSharedInformerFactoryWithOptions(
 			client,
 			0,
-			informers.WithNamespace(namespace),
+			opts...,
 		)
 		inf, err := factory.ForResource(gvr)
 		if err != nil {

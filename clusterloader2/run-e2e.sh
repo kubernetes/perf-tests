@@ -82,11 +82,11 @@ fi
 # Create a dedicated service account for cluster-loader.
 cluster_loader_sa_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get serviceaccount cluster-loader --ignore-not-found | wc -l)
 if [[ "$cluster_loader_sa_exists" -eq 0 ]]; then
-	kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount cluster-loader
+   kubectl --kubeconfig "${KUBECONFIG}" create serviceaccount cluster-loader
 fi
 cluster_loader_crb_exists=$(kubectl --kubeconfig "${KUBECONFIG}" get clusterrolebinding cluster-loader --ignore-not-found | wc -l)
 if [[ "$cluster_loader_crb_exists" -eq 0 ]]; then
-	kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
+   kubectl --kubeconfig "${KUBECONFIG}" create clusterrolebinding cluster-loader --clusterrole=cluster-admin --serviceaccount=default:cluster-loader
 fi
 
 
@@ -95,13 +95,18 @@ kubeconfig=$(mktemp)
 server=$(kubectl --kubeconfig "${KUBECONFIG}" config view -o jsonpath='{.clusters[0].cluster.server}')
 ca=$(kubectl --kubeconfig "${KUBECONFIG}" get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 -w 0)
 token=$(kubectl --kubeconfig "${KUBECONFIG}" --duration=8760h create token cluster-loader)
+ca_data=""
+
+if [[ "${MASTER_ENDPOINT:-}" == "" ]]; then
+  ca_data="    certificate-authority-data: ${ca}"
+fi
 echo "
 apiVersion: v1
 kind: Config
 clusters:
 - name: default-cluster
   cluster:
-    certificate-authority-data: ${ca}
+${ca_data}
     server: ${server}
 contexts:
 - name: default-context

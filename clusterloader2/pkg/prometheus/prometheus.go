@@ -200,6 +200,9 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	} else {
 		clusterLoaderConfig.PrometheusConfig.ScrapeNetworkPolicies = mapping["PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES"].(bool)
 	}
+	if _, exists := mapping["PROMETHEUS_MASTER_DNS_ENDPOINT"]; !exists {
+		mapping["PROMETHEUS_MASTER_DNS_ENDPOINT"] = clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint
+	}
 	mapping["PROMETHEUS_SCRAPE_NODE_LOCAL_DNS"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeLocalDNS
 	mapping["PROMETHEUS_SCRAPE_KUBE_STATE_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics
 	mapping["PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeMetricsServerMetrics
@@ -641,6 +644,9 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 func getMasterIps(clusterConfig config.ClusterConfig, usePublicIPs bool) ([]string, error) {
 	if usePublicIPs {
 		if len(clusterConfig.MasterIPs) == 0 {
+			if clusterConfig.MasterDNSEndpoint != "" {
+				return []string{clusterConfig.MasterDNSEndpoint}, nil
+			}
 			return nil, fmt.Errorf("requested to use public IPs, however no publics IPs are provided")
 		}
 		return clusterConfig.MasterIPs, nil
@@ -648,6 +654,9 @@ func getMasterIps(clusterConfig config.ClusterConfig, usePublicIPs bool) ([]stri
 	if len(clusterConfig.MasterInternalIPs) != 0 {
 		klog.V(2).Infof("Using internal master ips (%s) to monitor master's components", clusterConfig.MasterInternalIPs)
 		return clusterConfig.MasterInternalIPs, nil
+	}
+	if clusterConfig.MasterDNSEndpoint != "" {
+		return []string{clusterConfig.MasterDNSEndpoint}, nil
 	}
 	klog.V(1).Infof("Unable to determine master ips from flags or registered nodes. Will fallback to default/kubernetes service, which can be inaccurate in HA environments.")
 	ips, err := getMasterIpsFromKubernetesService(clusterConfig)

@@ -151,7 +151,7 @@ steps:
 {{end}}
 
 - module:
-    path: modules/services.yaml
+    path: modules/services/config.yaml
     params:
       actionName: "Creating"
       namespaces: {{$namespaces}}
@@ -170,7 +170,7 @@ steps:
 # Moved from reconcile-objects/config.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
 # TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects/config.yaml once the k/k bug is fixed.
 - module:
-    path: /modules/configmaps-secrets.yaml
+    path: /modules/configmaps-secrets/config.yaml
     params:
       actionName: create
       tuningSet: default
@@ -232,7 +232,7 @@ steps:
 {{if not $IS_SMALL_CLUSTER}}
 # BEGIN scheduler throughput
 - module:
-    path: modules/scheduler-throughput.yaml
+    path: modules/scheduler-throughput/config.yaml
     params:
       action: create
       namespaces: {{$namespaces}}
@@ -288,7 +288,7 @@ steps:
 
 {{if not $IS_SMALL_CLUSTER}}
 - module:
-    path: modules/scheduler-throughput.yaml
+    path: modules/scheduler-throughput/config.yaml
     params:
       action: delete
       namespaces: {{$namespaces}}
@@ -421,7 +421,7 @@ steps:
 {{end}}
 
 - module:
-    path: /modules/configmaps-secrets.yaml
+    path: /modules/configmaps-secrets/config.yaml
     params:
       actionName: delete
       tuningSet: default
@@ -439,7 +439,7 @@ steps:
           objectTemplatePath: daemonset-priorityclass.yaml
 
 - module:
-    path: modules/services.yaml
+    path: /modules/services/config.yaml
     params:
       actionName: "Deleting"
       namespaces: {{$namespaces}}

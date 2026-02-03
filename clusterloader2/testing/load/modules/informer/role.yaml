@@ -4,5 +4,5 @@ metadata:
   name: {{.Name}}
 rules:
   - apiGroups: [""]
-    resources: ["secrets"]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]

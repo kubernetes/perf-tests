@@ -17,7 +17,7 @@ steps:
     tuningSet: Sequence
     objectBundle:
     - basename: big-service
-      objectTemplatePath: service.yaml
+      objectTemplatePath: /modules/services/service.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -25,7 +25,7 @@ steps:
     tuningSet: Sequence
     objectBundle:
     - basename: medium-service
-      objectTemplatePath: service.yaml
+      objectTemplatePath: /modules/services/service.yaml
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
@@ -33,4 +33,4 @@ steps:
     tuningSet: Sequence
     objectBundle:
     - basename: small-service
-      objectTemplatePath: service.yaml
+      objectTemplatePath: /modules/services/service.yaml

@@ -309,11 +309,11 @@ func (w *Worker) sendResponse(rw http.ResponseWriter, statusCode int, response i
 	rw.Header().Set("Content-Type", "application/json")
 	marshalledResponse, err := json.Marshal(response)
 	if err != nil {
-		klog.Errorf("Error marshalling to json: %v", err)
+		klog.Errorf("Error marshaling to json: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	klog.V(3).Infof("Marshalled Response: %v", response)
+	klog.V(3).Infof("Marshaled Response: %v", response)
 	rw.WriteHeader(statusCode)
 	if _, err := rw.Write(marshalledResponse); err != nil {
 		klog.Errorf("Error writing response to ResponseWriter: %v", err)

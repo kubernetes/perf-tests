@@ -79,7 +79,7 @@ func Test_getMeasurementConfig(t *testing.T) {
 	}
 }
 
-func Test_getMeasurementConfig_incorect_overrides(t *testing.T) {
+func Test_getMeasurementConfig_incorrect_overrides(t *testing.T) {
 	config := &measurement.Config{
 		Params: map[string]interface{}{
 			"threshold": 100,

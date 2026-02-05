@@ -91,7 +91,6 @@ func initClusterFlags() {
 	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
-	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint, "master-endpoint", "MASTER_DNS_ENDPOINT", "", "Endpoint of the master node, exclusive with --masterip and --master-internal-ips")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
 	flags.BoolVar(&clusterLoaderConfig.ClusterConfig.SkipClusterVerification, "skip-cluster-verification", false, "Whether to skip the cluster verification, which expects at least one schedulable node in the cluster")
 
@@ -168,23 +167,6 @@ func completeConfig(m *framework.MultiClientSet) error {
 		clusterLoaderConfig.ClusterConfig.Nodes = nodes
 		klog.V(0).Infof("ClusterConfig.Nodes set to %v", nodes)
 	}
-	if clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint == "" {
-		err := completeIpMasterConfig(m)
-		if err != nil {
-			return err
-		}
-	}
-
-	if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportAccessAPIServerPprofEndpoint {
-		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
-	}
-	if clusterLoaderConfig.ClusterConfig.K8SClientsNumber == 0 {
-		clusterLoaderConfig.ClusterConfig.K8SClientsNumber = getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes)
-	}
-	return nil
-}
-
-func completeIpMasterConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.MasterName == "" {
 		masterName, err := util.GetMasterName(m.GetClient())
 		if err == nil {
@@ -211,6 +193,13 @@ func completeIpMasterConfig(m *framework.MultiClientSet) error {
 		} else {
 			klog.Errorf("Getting master internal ip error: %v", err)
 		}
+	}
+
+	if !clusterLoaderConfig.ClusterConfig.Provider.Features().SupportAccessAPIServerPprofEndpoint {
+		clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled = false
+	}
+	if clusterLoaderConfig.ClusterConfig.K8SClientsNumber == 0 {
+		clusterLoaderConfig.ClusterConfig.K8SClientsNumber = getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes)
 	}
 	return nil
 }
@@ -299,15 +288,6 @@ func main() {
 		klog.Exitf("Parsing flags error: %v", errList.String())
 	}
 
-	klog.V(2).Infof("KubeConfigPath: %v", clusterLoaderConfig.ClusterConfig.KubeConfigPath)
-	if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" {
-		content, err := ioutil.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
-		if err != nil {
-			klog.Errorf("Error reading kubeconfig: %v", err)
-		} else {
-			klog.V(2).Infof("KubeConfig content:\n%s", string(content))
-		}
-	}
 	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)
 	if err != nil {
 		klog.Exitf("Client creation error: %v", err)

@@ -99,7 +99,7 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 
 	var masterRegistered = false
 	for _, node := range nodes.Items {
-		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
+		if util.IsControlPlaneNode(&node) {
 			masterRegistered = true
 		}
 	}

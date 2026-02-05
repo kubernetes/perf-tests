@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/name: prometheus-operator
-    app.kubernetes.io/version: 0.81.0
+    app.kubernetes.io/version: 0.88.0
   name: prometheus-operator
   namespace: monitoring
 spec:
@@ -24,7 +24,7 @@ spec:
       labels:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: prometheus-operator
-        app.kubernetes.io/version: 0.81.0
+        app.kubernetes.io/version: 0.88.0
     spec:
       automountServiceAccountToken: true
       containers:
@@ -32,13 +32,15 @@ spec:
         {{if $PROMETHEUS_SCRAPE_KUBELETS}}
         - --kubelet-service=kube-system/kubelet
         {{end}}
-        - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.81.0
+        - --prometheus-config-reloader=quay.io/prometheus-operator/prometheus-config-reloader:v0.88.0
+        - --watch-referenced-objects-in-all-namespaces=true
+        - --disable-unmanaged-prometheus-configuration=true
         - --kubelet-endpoints=true
         - --kubelet-endpointslice=false
         env:
         - name: GOGC
           value: "30"
-        image: gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-operator:v0.81.0
+        image: quay.io/prometheus-operator/prometheus-operator:v0.88.0
         name: prometheus-operator
         ports:
         - containerPort: 8080

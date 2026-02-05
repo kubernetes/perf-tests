@@ -29,6 +29,6 @@ spec:
             - "--v=4"
             - "--timeout=100h"
             - "--count=1"
-            - "--enableWatchListFeature=false"
+            - "--enableWatchListFeature={{.EnableWatchListFeature}}"
             - "--api-version=v1"
             - "--resource=pods"

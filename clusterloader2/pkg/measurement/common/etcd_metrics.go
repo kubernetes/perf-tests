@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -206,11 +207,20 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.P
 	if etcdHost == "" {
 		etcdHost = "localhost"
 	}
+	var etcdPort int
+	if os.Getenv("ETCD_PORT") != "" {
+		etcdPort, err = strconv.Atoi(os.Getenv("ETCD_PORT"))
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse ETCD_PORT: %v", err)
+		}
+	} else {
+		etcdPort = 2379
+	}
 	if etcdCert == "" || etcdKey == "" {
 		klog.Warning("empty etcd cert or key, using http")
-		cmd = fmt.Sprintf("curl http://%s:2379/metrics", etcdHost)
+		cmd = fmt.Sprintf("curl http://%s:%d/metrics", etcdHost, etcdPort)
 	} else {
-		cmd = fmt.Sprintf("curl -k --cert %s --key %s https://%s:2379/metrics", etcdCert, etcdKey, etcdHost)
+		cmd = fmt.Sprintf("curl -k --cert %s --key %s https://%s:%d/metrics", etcdCert, etcdKey, etcdHost, etcdPort)
 	}
 
 	return e.sshEtcdMetrics(cmd, host, provider)

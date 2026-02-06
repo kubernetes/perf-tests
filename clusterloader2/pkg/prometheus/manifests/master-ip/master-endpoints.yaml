@@ -23,6 +23,8 @@ subsets:
         port: 2379
       - name: etcd-2382
         port: 2382
+      - name: etcd-4001
+        port: 4001
       - name: kubelet
         port: 10250
       - name: kube-scheduler

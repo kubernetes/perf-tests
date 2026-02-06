@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 
 	sshutil "k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -31,7 +33,15 @@ var (
 func getComponentProtocolAndPort(componentName string) (string, int, error) {
 	switch componentName {
 	case "etcd":
-		return "https://", 2379, nil
+		if os.Getenv("ETCD_PORT") != "" {
+			port, err := strconv.Atoi(os.Getenv("ETCD_PORT"))
+			if err != nil {
+				return "", -1, fmt.Errorf("cannot parse ETCD_PORT: %v", err)
+			}
+			return "https://", port, nil
+		} else {
+			return "https://", 2379, nil
+		}
 	case "kube-apiserver":
 		return "https://", 443, nil
 	case "kube-controller-manager":

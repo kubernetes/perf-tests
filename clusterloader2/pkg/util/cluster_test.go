@@ -24,61 +24,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestLegacyIsMasterNode(t *testing.T) {
-	testcases := map[string]struct {
-		Name   string
-		Labels map[string]string
-		expect bool
-	}{
-		"node with node label key": {
-			Labels: map[string]string{keyMasterNodeLabel: ""},
-			expect: true,
-		},
-		"node with node label key value": {
-			Labels: map[string]string{keyMasterNodeLabel: "true"},
-			expect: true,
-		},
-		"node without node label": {
-			Labels: map[string]string{},
-			expect: false,
-		},
-	}
-
-	for _, tc := range testcases {
-		node := &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{Labels: tc.Labels},
-		}
-		result := LegacyIsMasterNode(node)
-		assert.Equal(t, tc.expect, result)
-	}
-}
-
 func TestIsControlPlaneNode(t *testing.T) {
 	testcases := map[string]struct {
 		Name   string
 		Labels map[string]string
+		Taints []corev1.Taint
 		expect bool
 	}{
 		"node with controlplane node-role key": {
-			Labels: map[string]string{keyControlPlaneNodeLabel: ""},
+			Labels: map[string]string{keyControlPlaneNodeLabelTaint: ""},
 			expect: true,
 		},
 		"node with controlplane node-role key and value as true": {
-			Labels: map[string]string{keyControlPlaneNodeLabel: "true"},
+			Labels: map[string]string{keyControlPlaneNodeLabelTaint: "true"},
 			expect: true,
 		},
 		"node with controlplane node-role key and value as false": {
-			Labels: map[string]string{keyControlPlaneNodeLabel: "false"},
+			Labels: map[string]string{keyControlPlaneNodeLabelTaint: "false"},
 			expect: true,
 		},
 		"node without controlplane node-role": {
 			Labels: map[string]string{},
 			expect: false,
 		},
+		"node without controlplane node-role taint": {
+			Taints: []corev1.Taint{
+				{
+					Key:    "some-other-taint",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+			},
+			expect: false,
+		},
+		"node with controlplane node-role taint": {
+			Taints: []corev1.Taint{
+				{
+					Key:    keyControlPlaneNodeLabelTaint,
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+			},
+			expect: true,
+		},
 	}
 	for _, tc := range testcases {
 		node := &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{Labels: tc.Labels},
+			Spec:       corev1.NodeSpec{Taints: tc.Taints},
 		}
 		result := IsControlPlaneNode(node)
 		assert.Equal(t, tc.expect, result)

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -83,16 +84,20 @@ func (p *GCEProvider) Metadata(c clientset.Interface) (map[string]string, error)
 
 	var masterInstanceIDs []string
 	for _, node := range nodes {
-		if sshutil.LegacyIsMasterNode(&node) || sshutil.IsControlPlaneNode(&node) {
-			zone, ok := node.Labels["topology.kubernetes.io/zone"]
-			if !ok {
-				// Fallback to old label to make it work for old k8s versions.
-				zone, ok = node.Labels["failure-domain.beta.kubernetes.io/zone"]
-				if !ok {
-					return nil, fmt.Errorf("unknown zone for %q node: no topology-related labels", node.Name)
+		if sshutil.IsControlPlaneNode(&node) {
+			var project, zone string
+			if node.Spec.ProviderID != "" {
+				// providerID is in the format: gce://project-id/zone/instance-name
+				// https://github.com/kubernetes/cloud-provider-gcp/blob/2e539007132d518d1356c0eab9e02ba8dee8a25d/providers/gce/gce_util.go#L259
+				r, _ := regexp.Compile("gce://([^/]+)/([^/]+)/([^/]+)")
+				matches := r.FindStringSubmatch(node.Spec.ProviderID)
+
+				if len(matches) == 4 {
+					project = matches[1]
+					zone = matches[2]
 				}
 			}
-			cmd := exec.Command("gcloud", "compute", "instances", "describe", "--format", "value(id)", "--zone", zone, node.Name)
+			cmd := exec.Command("gcloud", "compute", "instances", "describe", "--format", "value(id)", "--zone", zone, node.Name, "--project", project)
 			out, err := cmd.Output()
 			if err != nil {
 				var stderr string

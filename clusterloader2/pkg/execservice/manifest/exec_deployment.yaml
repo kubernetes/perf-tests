@@ -1,5 +1,6 @@
 {{$CpuRequest := DefaultParam .CL2_EXECSERVICE_CPU_REQUESTS ""}}
 {{$MemoryRequest := DefaultParam .CL2_EXECSERVICE_MEMORY_REQUESTS ""}}
+{{$TolerateControlPlane := DefaultParam .CL2_EXECSERVICE_TOLERATE_CONTROL_PLANE false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -16,6 +17,12 @@ spec:
        labels:
          feature: exec
     spec:
+{{if $TolerateControlPlane}}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+{{end}}
       containers:
       - name: agnhost
         image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.32

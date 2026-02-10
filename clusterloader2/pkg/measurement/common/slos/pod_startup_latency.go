@@ -304,6 +304,16 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 		return err
 	}
 
+	// Filter events to only include those that belong to pods we are tracking.
+	var filteredEvents []corev1.Event
+	for _, event := range schedEvents.Items {
+		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
+		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
+			filteredEvents = append(filteredEvents, event)
+		}
+	}
+	schedEvents.Items = filteredEvents
+
 	if p.mapEventsByOrder {
 		orderedCreates := p.podStartupEntries.GetOrderedKeys(createPhase)
 		if len(orderedCreates) != len(schedEvents.Items) {

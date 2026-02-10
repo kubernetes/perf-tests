@@ -77,8 +77,8 @@ func TestGatherScheduleTimes(t *testing.T) {
 				podName string
 				time    time.Time
 			}{
-				{podName: "some-pod-2", time: time.Unix(210, 0)},
-				{podName: "some-pod-1", time: time.Unix(110, 0)},
+				{podName: "pod-late-create", time: time.Unix(210, 0)},
+				{podName: "pod-early-create", time: time.Unix(110, 0)},
 			},
 			wantScheduleTimes: map[string]time.Time{
 				"default/pod-early-create": time.Unix(110, 0),
@@ -102,6 +102,26 @@ func TestGatherScheduleTimes(t *testing.T) {
 				{podName: "event2", time: time.Unix(120, 0)},
 			},
 			wantErr: true,
+		},
+		{
+			name:             "filtering untracked pods",
+			mapEventsByOrder: true,
+			podCreates: []struct {
+				name string
+				time time.Time
+			}{
+				{name: "tracked-pod", time: time.Unix(100, 0)},
+			},
+			events: []struct {
+				podName string
+				time    time.Time
+			}{
+				{podName: "untracked-pod", time: time.Unix(110, 0)},
+				{podName: "tracked-pod", time: time.Unix(120, 0)},
+			},
+			wantScheduleTimes: map[string]time.Time{
+				"default/tracked-pod": time.Unix(120, 0),
+			},
 		},
 	}
 

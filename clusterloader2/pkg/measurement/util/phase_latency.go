@@ -42,6 +42,28 @@ type ObjectTransitionTimes struct {
 	times map[string]map[string]time.Time
 }
 
+// KeyTimestamp is a pair of key and timestamp.
+type KeyTimestamp struct {
+	Key       string
+	Timestamp time.Time
+}
+
+// GetOrderedKeys returns keys having given phase entry, sorted by phase time.
+func (o *ObjectTransitionTimes) GetOrderedKeys(phase string) []KeyTimestamp {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	var result []KeyTimestamp
+	for key, entry := range o.times {
+		if t, exists := entry[phase]; exists {
+			result = append(result, KeyTimestamp{Key: key, Timestamp: t})
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Timestamp.Before(result[j].Timestamp)
+	})
+	return result
+}
+
 // NewObjectTransitionTimes creates new ObjectTransitionTimes instance.
 func NewObjectTransitionTimes(name string) *ObjectTransitionTimes {
 	return &ObjectTransitionTimes{

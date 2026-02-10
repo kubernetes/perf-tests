@@ -19,6 +19,7 @@ package slos
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -80,9 +81,10 @@ type podStartupLatencyMeasurement struct {
 	podMetadata       *measurementutil.PodsMetadata
 	threshold         time.Duration
 	// Threshold for pod startup latency by percentile. The default value is threshold.
-	perc50Threshold time.Duration
-	perc90Threshold time.Duration
-	perc99Threshold time.Duration
+	perc50Threshold  time.Duration
+	perc90Threshold  time.Duration
+	perc99Threshold  time.Duration
+	mapEventsByOrder bool
 }
 
 // Execute supports two actions:
@@ -114,6 +116,10 @@ func (p *podStartupLatencyMeasurement) Execute(config *measurement.Config) ([]me
 			return nil, err
 		}
 		p.perc99Threshold, err = util.GetDurationOrDefault(config.Params, "perc99Threshold", p.threshold)
+		if err != nil {
+			return nil, err
+		}
+		p.mapEventsByOrder, err = util.GetBoolOrDefault(config.Params, "mapEventsByOrder", false)
 		if err != nil {
 			return nil, err
 		}
@@ -297,13 +303,42 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	if err != nil {
 		return err
 	}
-	for _, event := range schedEvents.Items {
-		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
+
+	if p.mapEventsByOrder {
+		orderedCreates := p.podStartupEntries.GetOrderedKeys(createPhase)
+		if len(orderedCreates) != len(schedEvents.Items) {
+			return fmt.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(schedEvents.Items))
+		}
+		sort.Slice(schedEvents.Items, func(i, j int) bool {
+			t1 := schedEvents.Items[i].EventTime.Time
+			if t1.IsZero() {
+				t1 = schedEvents.Items[i].FirstTimestamp.Time
+			}
+			t2 := schedEvents.Items[j].EventTime.Time
+			if t2.IsZero() {
+				t2 = schedEvents.Items[j].FirstTimestamp.Time
+			}
+			return t1.Before(t2)
+		})
+
+		for i := 0; i < len(orderedCreates) && i < len(schedEvents.Items); i++ {
+			event := schedEvents.Items[i]
+			key := orderedCreates[i].Key
 			if !event.EventTime.IsZero() {
 				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
 			} else {
 				p.podStartupEntries.Set(key, schedulePhase, event.FirstTimestamp.Time)
+			}
+		}
+	} else {
+		for _, event := range schedEvents.Items {
+			key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
+			if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
+				if !event.EventTime.IsZero() {
+					p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
+				} else {
+					p.podStartupEntries.Set(key, schedulePhase, event.FirstTimestamp.Time)
+				}
 			}
 		}
 	}

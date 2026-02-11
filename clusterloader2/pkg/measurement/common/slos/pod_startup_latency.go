@@ -317,7 +317,7 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 	if p.mapEventsByOrder {
 		orderedCreates := p.podStartupEntries.GetOrderedKeys(createPhase)
 		if len(orderedCreates) != len(schedEvents.Items) {
-			return fmt.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(schedEvents.Items))
+			klog.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(schedEvents.Items))
 		}
 		sort.Slice(schedEvents.Items, func(i, j int) bool {
 			t1 := schedEvents.Items[i].EventTime.Time

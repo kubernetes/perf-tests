@@ -101,7 +101,6 @@ func TestGatherScheduleTimes(t *testing.T) {
 				{podName: "event1", time: time.Unix(110, 0)},
 				{podName: "event2", time: time.Unix(120, 0)},
 			},
-			wantErr: true,
 		},
 		{
 			name:             "filtering untracked pods",

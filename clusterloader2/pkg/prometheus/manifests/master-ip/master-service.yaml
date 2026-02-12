@@ -1,5 +1,6 @@
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
 {{$PROMETHEUS_SCRAPE_APISERVER_ONLY := DefaultParam .PROMETHEUS_SCRAPE_APISERVER_ONLY false}}
+{{$PROMETHEUS_MASTER_DNS_ENDPOINT := DefaultParam .PROMETHEUS_MASTER_DNS_ENDPOINT ""}}
 
 # Service object for the kubelet running on master node.
 apiVersion: v1
@@ -10,8 +11,13 @@ metadata:
   labels:
     k8s-app: master
 spec:
+  {{if eq $PROMETHEUS_MASTER_DNS_ENDPOINT ""}}
   type: ClusterIP
   clusterIP: None
+  {{else}}
+  type: ExternalName
+  externalName: {{ $PROMETHEUS_MASTER_DNS_ENDPOINT }}
+  {{end}}
   ports:
     - name: apiserver
       port: 443

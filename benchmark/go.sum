@@ -10,5 +10,5 @@ github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
 github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 k8s.io/contrib v0.0.0-20190411182844-89f6948e2457 h1:+HYfXOtiem3CAb6EA4faiA++Q6otQ1dMBkBuw/tDKyw=
 k8s.io/contrib v0.0.0-20190411182844-89f6948e2457/go.mod h1:LvWVkdOW1o2tfDtZkAi8o71kBBacda6fVCL6aYrbc6U=
-k8s.io/kubernetes v1.35.0 h1:PUOojD8c8E3csMP5NX+nLLne6SGqZjrYCscptyBfWMY=
-k8s.io/kubernetes v1.35.0/go.mod h1:Tzk9Y9W/XUFFFgTUVg+BAowoFe+Pc7koGLuaiLHdcFg=
+k8s.io/kubernetes v1.35.1 h1:qmjXSCDPnOuXPuJb5pv+eLzpXhhlD09Jid1pG/OvFU8=
+k8s.io/kubernetes v1.35.1/go.mod h1:AaPpCpiS8oAqRbEwpY5r3RitLpwpVp5lVXKFkJril58=

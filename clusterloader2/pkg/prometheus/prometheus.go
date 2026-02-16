@@ -99,8 +99,6 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.IntEnvVar(&p.APIServerScrapePort, "prometheus-apiserver-scrape-port", "PROMETHEUS_APISERVER_SCRAPE_PORT", 443, "Port for scraping kube-apiserver (default 443).")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
 	flags.StringEnvVar(&p.AdditionalMonitorsPath, "prometheus-additional-monitors-path", "PROMETHEUS_ADDITIONAL_MONITORS_PATH", "", "Additional monitors to apply.")
-	flags.StringEnvVar(&p.StorageClassProvisioner, "prometheus-storage-class-provisioner", "PROMETHEUS_STORAGE_CLASS_PROVISIONER", "kubernetes.io/gce-pd", "Volumes plugin used to provision PVs for Prometheus.")
-	flags.StringEnvVar(&p.StorageClassVolumeType, "prometheus-storage-class-volume-type", "PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE", "pd-ssd", "Volume types of storage class, This will be different depending on the provisioner.")
 	flags.StringEnvVar(&p.PVCStorageClass, "prometheus-pvc-storage-class", "PROMETHEUS_PVC_STORAGE_CLASS", "ssd", "Storage class used with prometheus persistent volume claim.")
 	flags.DurationEnvVar(&p.ReadyTimeout, "prometheus-ready-timeout", "PROMETHEUS_READY_TIMEOUT", 15*time.Minute, "Timeout for waiting for Prometheus stack to become healthy.")
 	flags.StringEnvVar(&p.PrometheusMemoryRequest, "prometheus-memory-request", "PROMETHEUS_MEMORY_REQUEST", "10Gi", "Memory request to be used by promehteus.")
@@ -213,8 +211,6 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	mapping["PROMETHEUS_SCRAPE_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets
 	mapping["PROMETHEUS_SCRAPE_MASTER_KUBELETS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubelets || clusterLoaderConfig.PrometheusConfig.ScrapeMasterKubelets
 	mapping["PROMETHEUS_APISERVER_SCRAPE_PORT"] = clusterLoaderConfig.PrometheusConfig.APIServerScrapePort
-	mapping["PROMETHEUS_STORAGE_CLASS_PROVISIONER"] = clusterLoaderConfig.PrometheusConfig.StorageClassProvisioner
-	mapping["PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE"] = clusterLoaderConfig.PrometheusConfig.StorageClassVolumeType
 	mapping["PROMETHEUS_KUBE_PROXY_SELECTOR_KEY"] = clusterLoaderConfig.PrometheusConfig.KubeProxySelectorKey
 	mapping["PROMETHEUS_PVC_STORAGE_CLASS"] = clusterLoaderConfig.PrometheusConfig.PVCStorageClass
 	mapping["PROMETHEUS_MEMORY_REQUEST"] = clusterLoaderConfig.PrometheusConfig.PrometheusMemoryRequest
@@ -259,10 +255,6 @@ func (pc *Controller) SetUpPrometheusStack() error {
 		return err
 	}
 
-	// Removing Storage Class as Reclaim Policy cannot be changed
-	if err := client.DeleteStorageClass(rootClusterClientSet, storageClass); err != nil {
-		return err
-	}
 	if err := pc.applyDefaultManifests(coreManifests); err != nil {
 		return err
 	}

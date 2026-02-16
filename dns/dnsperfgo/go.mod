@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/prometheus/client_golang v1.23.2
 	golang.org/x/net v0.49.0
-	k8s.io/apimachinery v0.35.0
+	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.35.0
 )
 

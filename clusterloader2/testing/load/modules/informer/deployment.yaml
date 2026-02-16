@@ -1,3 +1,5 @@
+{{$TolerateControlPlane := DefaultParam .CL2_INFORMER_TOLERATE_CONTROL_PLANE false}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +15,12 @@ spec:
       labels:
         group: informer
     spec:
+{{if $TolerateControlPlane}}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+{{end}}
       containers:
         - name: {{.Name}}
           image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.3

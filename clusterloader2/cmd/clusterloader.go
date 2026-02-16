@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -468,7 +468,7 @@ func dumpTestConfig(ctx test.Context, config *api.Config) error {
 		return fmt.Errorf("marshaling config error: %w", err)
 	}
 	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, "generatedConfig_"+config.Name+".yaml")
-	if err := ioutil.WriteFile(filePath, b, 0644); err != nil {
+	if err := os.WriteFile(filePath, b, 0644); err != nil {
 		return fmt.Errorf("saving file error: %w", err)
 	}
 	klog.Infof("Test config successfully dumped to: %s", filePath)

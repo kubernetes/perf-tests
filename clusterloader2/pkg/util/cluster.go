@@ -72,17 +72,17 @@ func LogClusterNodes(c clientset.Interface) error {
 	}
 	klog.V(2).Infof("Listing cluster nodes:")
 	for i := range nodeList {
-		var internalIPs, externalIPs []string
+		var internalIP, externalIP string
 		isSchedulable := IsNodeSchedulableAndUntainted(&nodeList[i])
 		for _, address := range nodeList[i].Status.Addresses {
 			if address.Type == corev1.NodeInternalIP {
-				internalIPs = append(internalIPs, address.Address)
+				internalIP = address.Address
 			}
 			if address.Type == corev1.NodeExternalIP {
-				externalIPs = append(externalIPs, address.Address)
+				externalIP = address.Address
 			}
 		}
-		klog.V(2).Infof("Name: %v, internalIPs: %v, externalIPs: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIPs, externalIPs, isSchedulable)
+		klog.V(2).Infof("Name: %v, internalIP: %v, externalIP: %v, isSchedulable: %v", nodeList[i].ObjectMeta.Name, internalIP, externalIP, isSchedulable)
 	}
 	return nil
 }

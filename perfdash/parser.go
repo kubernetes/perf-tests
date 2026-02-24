@@ -102,12 +102,13 @@ type resourceUsages struct {
 	Memory int     `json:"Mem"`
 }
 
-type resourceUsage struct {
-	CPU    float64
-	Memory float64
+type resourceUsageAggregate struct {
+	CPUSum    float64
+	MemorySum float64
+	Count     int
 }
-type usageAtPercentiles map[string]resourceUsage
-type podNameToUsage map[string]usageAtPercentiles
+
+type usageAtPercentiles map[string]resourceUsageAggregate
 
 func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData) {
 	testResult.Version = "v1"
@@ -117,34 +118,27 @@ func parseResourceUsageData(data []byte, buildNumber int, testResult *BuildData)
 		klog.Errorf("error parsing JSON in build %d: %v %s", buildNumber, err, string(data))
 		return
 	}
-	usage := make(podNameToUsage)
+	usage := make(usageAtPercentiles)
 	for percentile, items := range obj {
 		for _, item := range items {
-			name := RemoveDisambiguationInfixes(item.Name)
-			if _, ok := usage[name]; !ok {
-				usage[name] = make(usageAtPercentiles)
-			}
-			cpu, memory := float64(item.CPU), float64(item.Memory)
-			if otherUsage, ok := usage[name][percentile]; ok {
-				// Note that we take max of each resource separately, potentially manufacturing a
-				// "franken-sample" which was never seen in the wild. We do this hoping that such result
-				// will be more stable across runs.
-				cpu = math.Max(cpu, otherUsage.CPU)
-				memory = math.Max(memory, otherUsage.Memory)
-			}
-			usage[name][percentile] = resourceUsage{cpu, memory}
+			aggregatedUsage := usage[percentile]
+			aggregatedUsage.CPUSum += float64(item.CPU)
+			aggregatedUsage.MemorySum += float64(item.Memory)
+			aggregatedUsage.Count++
+			usage[percentile] = aggregatedUsage
 		}
 	}
-	for podName, usageAtPercentiles := range usage {
-		cpu := perftype.DataItem{Unit: "cores", Labels: map[string]string{"PodName": podName, "Resource": "CPU"}, Data: make(map[string]float64)}
-		memory := perftype.DataItem{Unit: "MiB", Labels: map[string]string{"PodName": podName, "Resource": "memory"}, Data: make(map[string]float64)}
-		for percentile, usage := range usageAtPercentiles {
-			cpu.Data[percentile] = usage.CPU
-			memory.Data[percentile] = usage.Memory / (1024 * 1024)
+	cpu := perftype.DataItem{Unit: "cores", Labels: map[string]string{"PodName": "all-nodes", "Resource": "CPU"}, Data: make(map[string]float64)}
+	memory := perftype.DataItem{Unit: "MiB", Labels: map[string]string{"PodName": "all-nodes", "Resource": "memory"}, Data: make(map[string]float64)}
+	for percentile, usage := range usage {
+		if usage.Count == 0 {
+			continue
 		}
-		testResult.Builds.AddBuildData(build, cpu)
-		testResult.Builds.AddBuildData(build, memory)
+		cpu.Data[percentile] = usage.CPUSum / float64(usage.Count)
+		memory.Data[percentile] = (usage.MemorySum / float64(usage.Count)) / (1024 * 1024)
 	}
+	testResult.Builds.AddBuildData(build, cpu)
+	testResult.Builds.AddBuildData(build, memory)
 }
 
 func parseRequestCountData(data []byte, buildNumber int, testResult *BuildData) {

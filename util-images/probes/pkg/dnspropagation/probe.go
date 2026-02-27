@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"math/rand"
@@ -79,9 +80,13 @@ func Run() {
 	}
 	if *enableErrorLogging {
 		errorLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	} else {
+		errorLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	if *enableLatencyLogging {
 		latencyLogger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	} else {
+		latencyLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	// creates the in-cluster config
 	kubeConfig, err := rest.InClusterConfig()
@@ -184,12 +189,10 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 					lookupErrorLogged = true
 					errTimestamp := time.Now()
 					klog.Errorf("DNS lookup error for url %s at %v: %v", url, errTimestamp.Format(time.RFC3339), err)
-					if errorLogger != nil {
-						errorLogger.Error("DNS propagation probe failed",
-							"hostname", url,
-							"error", err.Error(),
-						)
-					}
+					errorLogger.Error("DNS propagation probe failed",
+						"hostname", url,
+						"error", err.Error(),
+					)
 					labels := prometheus.Labels{
 						"namespace": namespace,
 						"service":   *service,
@@ -208,12 +211,10 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 			}
 			duration := endTime.Sub(timestamp)
 			klog.V(2).Infof("Pod running time fetched for pod %s, timestamp= %v, DNS propagation duration= %v s", url, timestamp, duration)
-			if latencyLogger != nil {
-				latencyLogger.Info("DNS propagation latency recorded",
-					"hostname", url,
-					"timestamp", time.Now(),
-					"propagationLatency (s)", duration.Seconds())
-			}
+			latencyLogger.Info("DNS propagation latency recorded",
+				"hostname", url,
+				"timestamp", time.Now(),
+				"propagationLatency (s)", duration.Seconds())
 			return duration
 		}
 	}

@@ -148,6 +148,50 @@ func Test_parseContainerRestarts(t *testing.T) {
 	}
 }
 
+func Test_parseResourceUsageDataAveragesAcrossAllNodes(t *testing.T) {
+	data := []byte(`{
+		"Perc50": [
+			{"Name": "ip-10-0-0-1/kubelet", "CPU": 1, "Mem": 104857600},
+			{"Name": "ip-10-0-0-2/kubelet", "CPU": 3, "Mem": 314572800},
+			{"Name": "control-plane-us-east-1-a/kube-apiserver", "CPU": 2, "Mem": 209715200}
+		],
+		"Perc90": [
+			{"Name": "ip-10-0-0-1/kubelet", "CPU": 2, "Mem": 209715200},
+			{"Name": "ip-10-0-0-2/kubelet", "CPU": 4, "Mem": 419430400}
+		]
+	}`)
+
+	got := &BuildData{Builds: NewBuilds(nil)}
+	parseResourceUsageData(data, 7, got)
+
+	assert.Equal(t, "v1", got.Version)
+	require.NotNil(t, got.Builds)
+	assert.ElementsMatch(t, []perftype.DataItem{
+		{
+			Unit: "cores",
+			Labels: map[string]string{
+				"PodName":  "all-nodes",
+				"Resource": "CPU",
+			},
+			Data: map[string]float64{
+				"Perc50": 2,
+				"Perc90": 3,
+			},
+		},
+		{
+			Unit: "MiB",
+			Labels: map[string]string{
+				"PodName":  "all-nodes",
+				"Resource": "memory",
+			},
+			Data: map[string]float64{
+				"Perc50": 200,
+				"Perc90": 300,
+			},
+		},
+	}, got.Builds.Builds("7"))
+}
+
 func Test_BuildDataToJson(t *testing.T) {
 	tests := []struct {
 		name      string

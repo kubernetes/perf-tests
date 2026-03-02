@@ -20,8 +20,6 @@ import (
 	"context"
 	goflag "flag"
 	flag "github.com/spf13/pflag"
-	"io/ioutil"
-	"k8s.io/client-go/rest"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,8 +27,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	certutil "k8s.io/client-go/util/cert"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
+	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/klog/v2"
 )
 
@@ -98,7 +97,7 @@ func newConfig(tokenFile, rootCAFile string) (*rest.Config, error) {
 	if len(host) == 0 || len(port) == 0 {
 		return nil, rest.ErrNotInCluster
 	}
-	token, err := ioutil.ReadFile(tokenFile)
+	token, err := os.ReadFile(tokenFile)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@
 {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}
 {{$podPayloadSize := DefaultParam .CL2_DAEMONSET_POD_PAYLOAD_SIZE 0}}
+{{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -27,6 +28,9 @@ spec:
         group: load
         name: {{.Name}}
     spec:
+      {{if $RuntimeClassName}}
+      runtimeClassName: {{$RuntimeClassName}}
+      {{end}}
       hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}

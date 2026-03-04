@@ -29,6 +29,8 @@ spec:
             - --dns-propagation-probe-interval=100ms
             - --dns-propagation-probe-pod-count={{.DNSPropagationProbePodCount}}
             - --dns-propagation-probe-sample-count={{.DNSPropagationProbeSampleCount}}
+            - --enable-error-logging={{.DNSPropagationErrorLogging}}
+            - --enable-latency-logging={{.DNSPropagationLatencyLogging}}
             - --logtostderr=true
             - --log_file=/var/log/cl2-dns-propagation.log
           resources:

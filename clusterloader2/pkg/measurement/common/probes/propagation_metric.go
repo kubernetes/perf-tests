@@ -92,6 +92,15 @@ func InitializeTemplateMappingForDNSPropagationProbe(config *measurement.Config)
 	if err != nil {
 		return nil, err
 	}
+	DNSPropagationErrorLogging, err := util.GetBoolOrDefault(config.Params, "DNSPropagationErrorLogging", false)
+	if err != nil {
+		return nil, err
+	}
+	DNSPropagationLatencyLogging, err := util.GetBoolOrDefault(config.Params, "DNSPropagationLatencyLogging", false)
+	if err != nil {
+		return nil, err
+	}
+
 	namespacePrefix := config.ClusterFramework.GetAutomanagedNamespacePrefix()
 	DNSPropagationProbeNamespace := fmt.Sprintf("%s-%d", namespacePrefix, DNSPropagationProbeNamespaceIndex)
 	klog.V(2).Infof("DNS propagation namespace, GetAutomanagedNamespacePrefix= %s, DNSPropagationProbeNamespaceIndex=%d, DNSPropagationProbeNamespace=%s",
@@ -104,5 +113,7 @@ func InitializeTemplateMappingForDNSPropagationProbe(config *measurement.Config)
 		"DNSPropagationProbeSampleCount": DNSPropagationProbeSampleCount,
 		"DNSPropagationProbeCpu":         DNSPropagationProbeCPU,
 		"DNSPropagationProbeMemory":      DNSPropagationProbeMemory,
+		"DNSPropagationErrorLogging":     DNSPropagationErrorLogging,
+		"DNSPropagationLatencyLogging":   DNSPropagationLatencyLogging,
 	}, nil
 }

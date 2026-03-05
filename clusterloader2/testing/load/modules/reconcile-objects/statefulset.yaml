@@ -3,6 +3,7 @@
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
 
 apiVersion: apps/v1
 kind: StatefulSet
@@ -24,6 +25,9 @@ spec:
         group: load
         name: {{.Name}}
     spec:
+      {{if $RuntimeClassName}}
+      runtimeClassName: {{$RuntimeClassName}}
+      {{end}}
       hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}

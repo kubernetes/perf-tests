@@ -17,6 +17,7 @@
 {{$RunNetPolicyTest := and $EnableNetworkPolicyEnforcementLatencyTest (eq (Mod .Index $NetPolServerOnEveryNthPod) 0)}}
 
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -44,6 +45,9 @@ spec:
   {{end}}
 {{end}}
     spec:
+      {{if $RuntimeClassName}}
+      runtimeClassName: {{$RuntimeClassName}}
+      {{end}}
       hostNetwork: {{$HostNetworkMode}}
       containers:
 {{if .EnableDNSTests}}

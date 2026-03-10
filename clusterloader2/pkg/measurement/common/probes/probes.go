@@ -17,7 +17,9 @@ limitations under the License.
 package probes
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -25,7 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/perf-tests/clusterloader2/pkg/errors"
+	cl2errors "k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -152,7 +154,7 @@ func (p *probesMeasurement) Execute(config *measurement.Config) ([]measurement.S
 		return nil, p.start(config)
 	case "gather":
 		summary, err := p.gather(config.Params)
-		if err != nil && !errors.IsMetricViolationError(err) {
+		if err != nil && !cl2errors.IsMetricViolationError(err) {
 			return nil, err
 		}
 		return []measurement.Summary{summary}, err
@@ -266,7 +268,7 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 	if threshold > 0 {
 		suffix = fmt.Sprintf(", expected perc99 <= %v", threshold)
 		if err := latency.VerifyThreshold(threshold); err != nil {
-			violation = errors.NewMetricViolationError(p.String(), err.Error())
+			violation = cl2errors.NewMetricViolationError(p.String(), err.Error())
 			prefix = " WARNING"
 		}
 	}
@@ -289,10 +291,22 @@ func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error
 	if err != nil {
 		return err
 	}
-	return wait.Poll(checkProbesReadyInterval, checkProbesReadyTimeout, p.checkProbesReady)
+	return wait.Poll(
+		checkProbesReadyInterval,
+		checkProbesReadyTimeout,
+		func() (bool, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), checkProbesReadyInterval)
+			defer cancel()
+			done, err := p.checkProbesReady(ctx)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				return done, nil
+			}
+			return done, err
+		},
+	)
 }
 
-func (p *probesMeasurement) checkProbesReady() (bool, error) {
+func (p *probesMeasurement) checkProbesReady(ctx context.Context) (bool, error) {
 	// TODO(mm4tt): Using prometheus targets to check whether probes are up is a bit hacky.
 	//              Consider rewriting this to something more intuitive.
 	selector := func(t prometheus.Target) bool {
@@ -305,8 +319,7 @@ func (p *probesMeasurement) checkProbesReady() (bool, error) {
 		return false
 	}
 	expectedTargets := p.replicasPerProbe * len(p.config.ProbeLabelValues)
-	return prometheus.CheckAllTargetsReady(
-		p.framework.GetClientSets().GetClient(), selector, expectedTargets)
+	return prometheus.CheckAllTargetsReady(ctx, p.framework.GetClientSets().GetClient(), selector, expectedTargets)
 }
 
 func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {

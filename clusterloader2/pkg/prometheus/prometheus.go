@@ -572,10 +572,19 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	return wait.PollImmediate(
 		checkPrometheusReadyInterval,
 		pc.readyTimeout,
-		pc.isPrometheusReady)
+		func() (bool, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), checkPrometheusReadyInterval)
+			defer cancel()
+			done, err := pc.isPrometheusReady(ctx)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				return done, nil
+			}
+			return done, err
+		},
+	)
 }
 
-func (pc *Controller) isPrometheusReady() (bool, error) {
+func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -587,20 +596,20 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version
 		// etcd metrics may be available at port 2379 xor 2382. We solve that by setting two etcd
 		// serviceMonitors one for 2379 and other for 2382 and expect that at least 1 of them should be healthy.
-		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
+		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
 			expectedTargets)
 		if err != nil || !ok {
 			return ok, err
 		}
-		return CheckTargetsReady( // 1 out of 2 etcd targets should be ready.
+		return CheckTargetsReady(ctx, // 1 out of 2 etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
 			1) // one of them should be healthy
 	}
-	return CheckAllTargetsReady(
+	return CheckAllTargetsReady(ctx,
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
 		expectedTargets)

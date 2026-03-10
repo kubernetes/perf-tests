@@ -1,13 +1,22 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
+# Additionally please ensure to update the same in www/VERSION
 TAG?=2.56
+WWW_VERSION=$(shell cat www/VERSION)
 
 REPO?=gcr.io/k8s-staging-perf-tests
 
 .PHONY: test
+test: WWW_VERSION = $(shell cat www/VERSION)
+
 test: perfdash.go parser.go config.go metrics-downloader-helper.go metrics-downloader.go gcs_metrics_bucket.go s3_metrics_bucket.go local_metrics_dir.go
 	go test
+	@WWW_VERSION=$$(cat www/VERSION); \
+	if [ "$(TAG)" != "$$WWW_VERSION" ]; then \
+		echo "Version mismatch! Makefile=$(TAG), www/VERSION=$(WWW_VERSION). Please align" >&2; \
+		exit 1; \
+	fi
 
 perfdash: test
 	go build -a -installsuffix cgo -ldflags '-w' -o perfdash

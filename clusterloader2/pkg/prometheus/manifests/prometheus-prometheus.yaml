@@ -19,7 +19,7 @@ metadata:
 spec:
   logLevel: debug
   enableAdminAPI: true
-  baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
+  image: quay.io/prometheus/prometheus
   nodeSelector:
     kubernetes.io/os: linux
     {{StructuralData $PROMETHEUS_NODE_SELECTOR}}
@@ -65,7 +65,7 @@ spec:
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}
   priorityClassName: system-node-critical
-  version: v2.40.0
+  version: v3.9.1
   retention: 7d
   {{if $PROMETHEUS_PVC_ENABLED}}
   # We add node tolerations for control-plane nodes in Azure Windows test jobs which do not support Google PD

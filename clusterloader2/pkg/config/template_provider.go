@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"regexp"
@@ -32,6 +31,7 @@ import (
 	template "github.com/google/safetext/yamltemplate"
 
 	goerrors "github.com/go-errors/errors"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -169,7 +169,7 @@ func (tp *TemplateProvider) TemplateInto(path string, mapping map[string]interfa
 
 // LoadTestSuite creates test suite config from file specified by the given path.
 func LoadTestSuite(path string) (api.TestSuite, error) {
-	bin, err := ioutil.ReadFile(path)
+	bin, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("test suite reading error: %v", err)
 	}
@@ -196,7 +196,7 @@ func validateTestSuite(suite api.TestSuite) error {
 }
 
 func updateMappingFromFile(mapping map[string]interface{}, path string) error {
-	bin, err := ioutil.ReadFile(path)
+	bin, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("test overrides reading error: %v", err)
 	}

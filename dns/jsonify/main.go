@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -134,7 +133,7 @@ func run() error {
 // getFileList returns a list of all files with extension .out.
 func getFileList(dir string) ([]string, error) {
 	var fileNames []string
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return fileNames, err
 	}
@@ -149,7 +148,7 @@ func getFileList(dir string) ([]string, error) {
 
 func readBenchmarkResult(path string) (*BenchmarkResult, error) {
 	var result BenchmarkResult
-	bin, err := ioutil.ReadFile(path)
+	bin, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading error: %v", err)
 	}
@@ -234,5 +233,5 @@ func saveMetric(metric *perftype.PerfData, path string) error {
 	if err := json.Indent(formatted, output.Bytes(), "", "  "); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, formatted.Bytes(), 0664)
+	return os.WriteFile(path, formatted.Bytes(), 0664)
 }

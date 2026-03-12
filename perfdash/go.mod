@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/perfdash
 
-go 1.24.1
+go 1.25.0
 
 require (
 	cloud.google.com/go v0.116.0 // indirect
@@ -132,4 +132,5 @@ replace (
 	k8s.io/node-api => k8s.io/node-api v0.0.0-20200201000600-929379277843
 	k8s.io/repo-infra => k8s.io/repo-infra v0.0.0-20181204233714-00fe14e3d1a3
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20200131234123-3090b0ae21bf
+	vbom.ml/util => github.com/fvbommel/util v0.0.0-20160121211510-db5cfe13f5cc
 )

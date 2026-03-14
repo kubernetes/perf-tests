@@ -19,17 +19,14 @@ package slos
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/pager"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -45,10 +42,22 @@ const (
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
 
-	createPhase   = "create"
+	// createPhase corresponds to the the time the resource is created, according to the watch stream.
+	// Granularity: Nanoseconds
+	createPhase = "create"
+
+	// SchedulePhase corresponds to the time when the scheduler schedules the pod, according to the watch stream.
+	// Granularity: Nanoseconds
 	schedulePhase = "schedule"
-	runPhase      = "run"
-	watchPhase    = "watch"
+
+	// runPhase corresponds to the time when the pod is running, according to the watch strema.
+	// Granularity: Nanoseconds
+	runPhase = "run"
+
+	// watchPhase corresponds to the time when the watch sees the pod running for the first time.
+	// Deprecated: this is now equivalent to runPhase.
+	// Granularity: Nanoseconds
+	watchPhase = "watch"
 )
 
 func init() {
@@ -222,6 +231,10 @@ var podStartupTransitions = map[string]measurementutil.Transition{
 		From: createPhase,
 		To:   watchPhase,
 	},
+	"create_to_run": {
+		From: createPhase,
+		To:   runPhase,
+	},
 }
 
 func podStartupTransitionsWithThreshold(threshold time.Duration) map[string]measurementutil.Transition {
@@ -247,10 +260,6 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	}
 
 	p.stop()
-
-	if err := p.gatherScheduleTimes(c, schedulerName); err != nil {
-		return nil, err
-	}
 
 	checks := []podStartupLatencyCheck{
 		{
@@ -288,76 +297,6 @@ func (p *podStartupLatencyMeasurement) gather(c clientset.Interface, identifier 
 	return summaries, err
 }
 
-// TODO(#2006): gatherScheduleTimes is currently listing events at the end of the test.
-//
-//	Given that events by default have 1h TTL, for measurements across longer periods
-//	it just returns incomplete results.
-//	Given that we don't 100% accuracy, we should switch to a mechanism that is similar
-//	to the one that slo-monitor is using (added in #1477).
-func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface, schedulerName string) error {
-	selector := fields.Set{
-		"involvedObject.kind": "Pod",
-		"source":              schedulerName,
-	}.AsSelector().String()
-	options := metav1.ListOptions{FieldSelector: selector}
-	pageLister := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return c.CoreV1().Events(p.selector.Namespace).List(ctx, opts)
-	})
-	pageLister.PageSize = 10000
-
-	// Filter events to only include those that belong to pods we are tracking.
-	var filteredEvents []corev1.Event
-	err := pageLister.EachListItem(context.TODO(), options, func(obj runtime.Object) error {
-		event := obj.(*corev1.Event)
-		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
-			filteredEvents = append(filteredEvents, *event)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	if p.mapEventsByOrder {
-		orderedCreates := p.podStartupEntries.GetOrderedKeys(createPhase)
-		if len(orderedCreates) != len(filteredEvents) {
-			klog.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(filteredEvents))
-		}
-		sort.Slice(filteredEvents, func(i, j int) bool {
-			t1 := filteredEvents[i].EventTime.Time
-			if t1.IsZero() {
-				t1 = filteredEvents[i].FirstTimestamp.Time
-			}
-			t2 := filteredEvents[j].EventTime.Time
-			if t2.IsZero() {
-				t2 = filteredEvents[j].FirstTimestamp.Time
-			}
-			return t1.Before(t2)
-		})
-
-		for i := 0; i < len(orderedCreates) && i < len(filteredEvents); i++ {
-			event := filteredEvents[i]
-			key := orderedCreates[i].Key
-			if !event.EventTime.IsZero() {
-				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
-			} else {
-				p.podStartupEntries.Set(key, schedulePhase, event.FirstTimestamp.Time)
-			}
-		}
-	} else {
-		for _, event := range filteredEvents {
-			key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-			if !event.EventTime.IsZero() {
-				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
-			} else {
-				p.podStartupEntries.Set(key, schedulePhase, event.FirstTimestamp.Time)
-			}
-		}
-	}
-	return nil
-}
-
 func (p *podStartupLatencyMeasurement) processEvent(event *eventData) {
 	obj, recvTime := event.obj, event.recvTime
 	if obj == nil {
@@ -371,24 +310,24 @@ func (p *podStartupLatencyMeasurement) processEvent(event *eventData) {
 	key := createMetaNamespaceKey(pod.Namespace, pod.Name)
 	p.podMetadata.SetStateless(key, isPodStateless(pod))
 
-	if pod.Status.Phase == corev1.PodRunning {
-		if _, found := p.podStartupEntries.Get(key, createPhase); !found {
-			p.podStartupEntries.Set(key, watchPhase, recvTime)
-			p.podStartupEntries.Set(key, createPhase, pod.CreationTimestamp.Time)
-			var startTime metav1.Time
-			for _, cs := range pod.Status.ContainerStatuses {
-				if cs.State.Running != nil {
-					if startTime.Before(&cs.State.Running.StartedAt) {
-						startTime = cs.State.Running.StartedAt
-					}
-				}
-			}
-			if startTime != metav1.NewTime(time.Time{}) {
-				p.podStartupEntries.Set(key, runPhase, startTime.Time)
-			} else {
-				klog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
-			}
+	// Check if pod is scheduled and if so set schedulePhase if it's not set already.
+	if pod.Spec.NodeName != "" {
+		if _, found := p.podStartupEntries.Get(key, schedulePhase); !found {
+			p.podStartupEntries.Set(key, schedulePhase, recvTime)
 		}
+	}
+
+	// Check if pod is running and if so set runPhase if it's not set already.
+	if pod.Status.Phase == corev1.PodRunning {
+		if _, found := p.podStartupEntries.Get(key, runPhase); !found {
+			p.podStartupEntries.Set(key, runPhase, recvTime)
+			p.podStartupEntries.Set(key, watchPhase, recvTime)
+		}
+	}
+
+	// Check if this is the first time we see this pod and if so set createPhase.
+	if _, found := p.podStartupEntries.Get(key, createPhase); !found {
+		p.podStartupEntries.Set(key, createPhase, recvTime)
 	}
 }
 

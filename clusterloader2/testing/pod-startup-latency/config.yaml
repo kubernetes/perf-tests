@@ -1,0 +1,92 @@
+# ASSUMPTIONS:
+# - This test is designed for 1-node cluster.
+
+#Constants
+{{$POD_COUNT := DefaultParam .POD_COUNT 30}}
+{{$POD_THROUGHPUT := DefaultParam .POD_THROUGHPUT 1}} # We expect the pod to launch in less than one second, so launching more than 1 pod per second would create a backlog and test a different behaviour.
+{{$CONTAINER_IMAGE := DefaultParam .CONTAINER_IMAGE "registry.k8s.io/pause:3.9"}}
+{{$POD_STARTUP_LATENCY_THRESHOLD := DefaultParam .POD_STARTUP_LATENCY_THRESHOLD "5s"}}
+{{$OPERATION_TIMEOUT := DefaultParam .OPERATION_TIMEOUT "15m"}}
+
+name: node-throughput
+namespace:
+  number: {{$POD_COUNT}}
+tuningSets:
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$POD_THROUGHPUT}}
+steps:
+- name: Starting measurements
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = latency
+      threshold: {{$POD_STARTUP_LATENCY_THRESHOLD}}
+- name: Starting pods measurements
+  measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: v1
+      kind: ReplicationController
+      labelSelector: group = latency
+      operationTimeout: {{$OPERATION_TIMEOUT}}
+- name: Creating pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$POD_COUNT}}
+    replicasPerNamespace: 1
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+      templateFillMap:
+        Replicas: 1
+        Group: latency
+        Image: {{$CONTAINER_IMAGE}}
+- name: Waiting for pods to be running
+  measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$POD_COUNT}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: latency-pod-rc
+      objectTemplatePath: rc.yaml
+- name: Waiting for pods to be deleted
+  measurements:
+  - Identifier: WaitForRunningLatencyRCs
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+# Collect measurements
+- name: Collecting pods measurements
+  measurements:
+  - Identifier: PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+- name: Collecting measurements
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather
+      enableViolations: true
+      useSimpleLatencyQuery: true
+      summaryName: APIResponsivenessPrometheus_simple

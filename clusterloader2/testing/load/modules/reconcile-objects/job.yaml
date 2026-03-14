@@ -1,5 +1,6 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 {{$podPayloadSize := DefaultParam .CL2_JOB_POD_PAYLOAD_SIZE 0}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
@@ -58,5 +59,10 @@ spec:
         - key: "kubernetes.io/arch"
           operator: Equal
           value: arm64
+          effect: NoSchedule
+        {{end}}
+        {{if $TOLERATION}}
+        - key: {{$TOLERATION}}
+          operator: Exists
           effect: NoSchedule
         {{end}}

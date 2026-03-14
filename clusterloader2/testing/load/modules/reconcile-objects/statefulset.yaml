@@ -1,6 +1,7 @@
 {{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
@@ -65,6 +66,11 @@ spec:
       - key: "kubernetes.io/arch"
         operator: Equal
         value: arm64
+        effect: NoSchedule
+      {{end}}
+      {{if $TOLERATION}}
+      - key: {{$TOLERATION}}
+        operator: Exists
         effect: NoSchedule
       {{end}}
   {{if $EnablePVs}}

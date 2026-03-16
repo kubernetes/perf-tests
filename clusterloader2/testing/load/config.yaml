@@ -189,7 +189,7 @@ steps:
       operationTimeout: 15m
       {{else}}
       tuningSet: default
-      operationTimeout: {{AddInt $saturationTime 3600}}s
+      operationTimeout: {{AddInt $saturationTime 900}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.

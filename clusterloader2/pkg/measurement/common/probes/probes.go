@@ -42,7 +42,7 @@ const (
 
 	manifestsPathPrefix = "manifests/"
 
-	checkProbesReadyInterval = 15 * time.Second
+	checkProbesReadyInterval = 60 * time.Second
 
 	defaultCheckProbesReadyTimeout = 15 * time.Minute
 

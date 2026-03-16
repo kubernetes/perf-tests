@@ -119,6 +119,4 @@ steps:
           query: avg(cilium_policy)
         - name: Number of endpoints labeled by policy enforcement status
           query: sum(cilium_policy_endpoint_enforcement_status)
-        - name: Number of Cilium identities
-          query: sum(cilium_identity)
   {{end}}

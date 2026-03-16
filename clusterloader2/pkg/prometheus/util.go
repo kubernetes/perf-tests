@@ -61,21 +61,17 @@ func CheckAllTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, s
 // at least minReadyTargets of them are ready.
 func CheckTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
 
-	raw, err := k8sClient.CoreV1().
+	body, err := k8sClient.CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
-		DoRaw(ctx)
+		Stream(ctx)
 	if err != nil {
-		response := "(empty)"
-		if raw != nil {
-			response = string(raw)
-		}
 		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warningf("error while calling prometheus api: %v, response: %v", err, response)
+		klog.Warningf("error while calling prometheus api: %v", err)
 		return false, nil
 	}
 	var response targetsResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
+	if err := json.NewDecoder(body).Decode(&response); err != nil {
 		return false, err // This shouldn't happen, return error.
 	}
 	nReady, nTotal := 0, 0

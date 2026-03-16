@@ -191,7 +191,7 @@ func (k *NodeKiller) Summary() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("%s: Recorded following events\n", k))
 	for _, e := range k.recorder.events {
-		sb.WriteString(fmt.Sprintf("%s: At %v %v happend for node %s\n", k, e.time.Format(time.UnixDate), e.action, e.nodeName))
+		sb.WriteString(fmt.Sprintf("%s: At %v %v happened for node %s\n", k, e.time.Format(time.UnixDate), e.action, e.nodeName))
 	}
 	return sb.String()
 }

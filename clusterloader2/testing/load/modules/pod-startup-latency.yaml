@@ -48,7 +48,7 @@ steps:
       tuningSet: Uniform5qps
       objectBundle:
         - basename: latency-deployment
-          objectTemplatePath: simple-deployment.yaml
+          objectTemplatePath: /modules/scheduler-throughput/simple-deployment.yaml
           templateFillMap:
             Replicas: 1
             Group: latency
@@ -70,7 +70,7 @@ steps:
       tuningSet: default
       objectBundle:
         - basename: latency-deployment
-          objectTemplatePath: simple-deployment.yaml
+          objectTemplatePath: /modules/scheduler-throughput/simple-deployment.yaml
 - name: Waiting for latency pods to be deleted
   measurements:
     - Identifier: WaitForRunningLatencyDeployments

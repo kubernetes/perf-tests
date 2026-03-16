@@ -520,7 +520,7 @@ func (w *waitForControlledPodsRunningMeasurement) updateCacheLocked(oldObj, newO
 func (w *waitForControlledPodsRunningMeasurement) updateOpResourceVersionLocked(runtimeObj runtime.Object) error {
 	version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
 	if err != nil {
-		return fmt.Errorf("retriving resource version error: %v", err)
+		return fmt.Errorf("retrieving resource version error: %v", err)
 	}
 	if version > w.opResourceVersion {
 		w.opResourceVersion = version
@@ -548,7 +548,7 @@ func (w *waitForControlledPodsRunningMeasurement) getObjectKeysAndMaxVersion() (
 		}
 		version, err := runtimeobjects.GetResourceVersionFromRuntimeObject(runtimeObj)
 		if err != nil {
-			klog.Errorf("%s: retriving resource version error: %v", w, err)
+			klog.Errorf("%s: retrieving resource version error: %v", w, err)
 			continue
 		}
 		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(runtimeObj)
@@ -579,7 +579,9 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		}
 	}
 	if isDeleted {
-		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{0}
+		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{
+			ReplicasCount: 0,
+		}
 	}
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {

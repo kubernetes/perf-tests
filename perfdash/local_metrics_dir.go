@@ -68,7 +68,7 @@ func (b *LocalMetricsDirectory) GetBuildNumbers(job string) ([]int, error) {
 
 // ListFilesInBuild recursively fetches the files in the build from a local artifacts directory.
 // Note: artifacts are expected to be in dirPath such in the format of dirPath/job/buildNumber.
-// For example, it could be in artifacts/my-job/1234567890/aritfacts.
+// For example, it could be in artifacts/my-job/1234567890/artifacts.
 func (b *LocalMetricsDirectory) ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
 	filePath := joinStringsAndInts(b.dirPath, filePathSeparator, job, filePathSeparator, buildNumber, prefix)
 

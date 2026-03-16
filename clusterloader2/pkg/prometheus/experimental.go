@@ -112,7 +112,7 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 		klog.V(2).Info("PV list was:")
 		s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)
 		if err != nil {
-			klog.Warningf("Error while marshalling response %v: %v", list, err)
+			klog.Warningf("Error while marshaling response %v: %v", list, err)
 			return true, err
 		}
 		klog.V(2).Info(string(s))

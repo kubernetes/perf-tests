@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: ping-client
-          image: gcr.io/k8s-testimages/probes:v0.0.4
+          image: registry.k8s.io/perf-tests/probes:v0.0.7
           args:
             - --metric-bind-address=0.0.0.0:8080
             - --mode=ping-client

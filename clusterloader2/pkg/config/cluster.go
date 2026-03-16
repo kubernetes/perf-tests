@@ -46,6 +46,7 @@ type ClusterConfig struct {
 	MasterIPs           []string
 	MasterInternalIPs   []string
 	MasterName          string
+	MasterDNSEndpoint   string
 	// Deprecated: use NamespaceConfig.DeleteStaleNamespaces instead.
 	DeleteStaleNamespaces bool
 	// TODO(#1696): Clean up after removing automanagedNamespaces

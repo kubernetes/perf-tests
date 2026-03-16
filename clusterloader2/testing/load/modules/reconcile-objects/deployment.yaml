@@ -1,0 +1,122 @@
+{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
+# Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
+# For now we're setting it to 0.5%.
+{{$CpuRequest := DefaultParam .CpuRequest "5m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
+{{$dnsQPSPerClient := DefaultParam .CL2_DNS_QPS_PER_CLIENT 1}}
+{{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
+# Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
+{{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
+{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+
+{{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
+{{$TargetLabelValue := DefaultParam .TargetLabelValue "enforcement-latency"}}
+# Run a server pod for network policy enforcement latency test only on every Nth pod.
+# Default every third pod.
+{{$NetPolServerOnEveryNthPod := DefaultParam .NetPolServerOnEveryNthPod 3}}
+{{$RunNetPolicyTest := and $EnableNetworkPolicyEnforcementLatencyTest (eq (Mod .Index $NetPolServerOnEveryNthPod) 0)}}
+
+{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: load
+    svc: {{.SvcName}}-{{.Index}}
+spec:
+  replicas: {{RandIntRange .ReplicasMin .ReplicasMax}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        group: load
+        name: {{.Name}}
+        svc: {{.SvcName}}-{{.Index}}
+{{if and .EnableDNSTests $USE_ADVANCED_DNSTEST}}
+        dns-test: dnsperfgo
+{{else}}
+  {{if $RunNetPolicyTest}}
+        net-pol-test: {{$TargetLabelValue}}
+  {{end}}
+{{end}}
+    spec:
+      {{if $RuntimeClassName}}
+      runtimeClassName: {{$RuntimeClassName}}
+      {{end}}
+      hostNetwork: {{$HostNetworkMode}}
+      containers:
+{{if .EnableDNSTests}}
+{{if $USE_ADVANCED_DNSTEST}}
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.4.0
+        ports:
+        - containerPort: 9153
+          name: dnsperfmetrics
+          protocol: TCP
+  {{else}}
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
+  {{end}}
+      # Fetches the dns server from /etc/resolv.conf and
+      # sends 1 query per second.
+      # With searchpath expansion, this is upto 12 queries per second.
+      # dnsperfgo has a default client timeout of 5s. It sends queries for 60s,
+      # then sleeps for 10s, to mimic bursts of DNS queries.
+        command:
+        - sh
+        - -c
+        - server=$(cat /etc/resolv.conf | grep nameserver | cut -d ' ' -f 2); echo
+          "Using nameserver ${server}";
+          ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps {{$dnsQPSPerClient}};
+        name: {{.Name}}-dnsperf
+{{else}}
+  {{if $RunNetPolicyTest}}
+      - image: nginx
+        name: nginx-server
+        ports:
+        - containerPort: 80
+  {{else}}
+      - image: {{$Image}}
+        name: {{.Name}}
+  {{end}}
+{{end}}
+        env:
+        - name: ENV_VAR
+          value: {{RandDataWithSeed $podPayloadSize .Name}}
+        resources:
+          requests:
+            cpu: {{$CpuRequest}}
+            memory: {{$MemoryRequest}}
+        volumeMounts:
+          - name: configmap
+            mountPath: /var/configmap
+          - name: secret
+            mountPath: /var/secret
+      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      {{if $RUN_ON_ARM_NODES}}
+      - key: "kubernetes.io/arch"
+        operator: Equal
+        value: arm64
+        effect: NoSchedule
+      {{end}}
+      volumes:
+        - name: configmap
+          configMap:
+            name: {{.BaseName}}-{{.Index}}
+        - name: secret
+          secret:
+            secretName: {{.BaseName}}-{{.Index}}

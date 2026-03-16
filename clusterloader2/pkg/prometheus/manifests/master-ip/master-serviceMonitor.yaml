@@ -75,4 +75,5 @@ spec:
       name: prometheus-token
       key: token
   selector:
-    k8s-app: master
+    matchLabels:
+      k8s-app: master

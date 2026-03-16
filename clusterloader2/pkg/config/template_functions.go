@@ -81,7 +81,7 @@ func GetFuncs(fsys fs.FS) template.FuncMap {
 // seq returns a slice of size 'size' filled with zeros.
 // Deprecated: Naming generates confusion. Please use 'SliceOfZeros' for explicit zero values or 'Loop' for incremental integer generation.
 func seq(size interface{}) []int {
-	klog.Warningf("Seq is deprecated. Instead please use 'SliceOfZeros' to replicate current behaviour or 'Loop' for simple incremential integer generation.")
+	klog.Warningf("Seq is deprecated. Instead please use 'SliceOfZeros' to replicate current behavior or 'Loop' for simple incremental integer generation.")
 	return sliceOfZeros(size)
 }
 
@@ -336,7 +336,7 @@ func concat(items ...string) string {
 	return ret
 }
 
-// loop returns a slice with incremential values starting from zero.
+// loop returns a slice with incremental values starting from zero.
 func loop(size interface{}) []int {
 	sizeInt := int(toFloat64(size))
 	slice := make([]int, sizeInt)

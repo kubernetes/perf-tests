@@ -1,0 +1,80 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$action := .action}}
+{{$namespaces := .namespaces}}
+{{$replicasPerNamespace := .replicasPerNamespace}}
+{{$schedulerThroughputNamespaces := .schedulerThroughputNamespaces}}
+{{$schedulerThroughputPodsPerDeployment := .schedulerThroughputPodsPerDeployment}}
+
+## Derivative variables
+{{$is_creating := (eq .action "create")}}
+
+## CL2 params
+{{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 100}}
+{{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
+
+
+{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
+
+steps:
+{{if $is_creating}}
+- name: Creating scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      threshold: 1h # TODO(https://github.com/kubernetes/perf-tests/issues/1024): Ideally, this should be 5s
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      checkIfPodsAreUpdated: {{$CHECK_IF_PODS_ARE_UPDATED}}
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = scheduler-throughput
+      # The operation timeout shouldn't be less than 20m to make sure that ~10m node
+      # failure won't fail the test. See https://github.com/kubernetes/kubernetes/issues/73461#issuecomment-467338711
+      operationTimeout: 20m
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = scheduler-throughput
+      measurmentInterval: 1s
+{{end}}
+- name: {{$action}} scheduler throughput pods
+  phases:
+  - namespaceRange:
+      min: {{AddInt $namespaces 1}}
+      max: {{AddInt $namespaces $schedulerThroughputNamespaces}}
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: default
+    objectBundle:
+    - basename: scheduler-throughput-deployment
+      objectTemplatePath: /modules/scheduler-throughput/simple-deployment.yaml
+      templateFillMap:
+        Replicas: {{$schedulerThroughputPodsPerDeployment}}
+        Group: scheduler-throughput
+        Image: {{$deploymentImage}}
+- name: Waiting for scheduler throughput pods to be {{$action}}d
+  measurements:
+  - Identifier: WaitForSchedulerThroughputDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+{{if $is_creating}}
+- name: Collecting scheduler throughput measurements
+  measurements:
+  - Identifier: HighThroughputPodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      enableViolations: true
+      threshold: {{$SCHEDULER_THROUGHPUT_THRESHOLD}}
+{{end}}

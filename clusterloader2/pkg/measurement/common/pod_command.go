@@ -356,7 +356,7 @@ func (p *podPeriodicCommandMeasurement) runCommandInPod(
 	// Two different cases: (1) if the command returns before the timeout, and (2) if the timeout
 	// triggers before the command is done.
 	// The value result.EndTime is set in both cases.
-	// If the timeout triggers, then the command isn't actually cancelled. This logic isn't available until
+	// If the timeout triggers, then the command isn't actually canceled. This logic isn't available until
 	// client-go version 0.26 (see Executor.StreamWithContext).
 	select {
 	case err = <-execErrChan:

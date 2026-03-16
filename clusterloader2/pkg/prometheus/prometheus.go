@@ -156,10 +156,14 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	if errList != nil {
 		return nil, errList
 	}
-	mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig, clusterLoaderConfig.PrometheusConfig.ScrapeMastersWithPublicIPs)
-	if err != nil {
-		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
-		delete(mapping, "MasterIps")
+	if clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint != "" {
+		klog.Infof("Cluster uses DNS master enpoint will not provide MasterIps")
+	} else {
+		mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig, clusterLoaderConfig.PrometheusConfig.ScrapeMastersWithPublicIPs)
+		if err != nil {
+			klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
+			delete(mapping, "MasterIps")
+		}
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"]; !exists {
 		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
@@ -199,6 +203,9 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		mapping["PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES"] = clusterLoaderConfig.PrometheusConfig.ScrapeNetworkPolicies
 	} else {
 		clusterLoaderConfig.PrometheusConfig.ScrapeNetworkPolicies = mapping["PROMETHEUS_SCRAPE_KUBE_NETWORK_POLICIES"].(bool)
+	}
+	if _, exists := mapping["PROMETHEUS_MASTER_DNS_ENDPOINT"]; !exists {
+		mapping["PROMETHEUS_MASTER_DNS_ENDPOINT"] = clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint
 	}
 	mapping["PROMETHEUS_SCRAPE_NODE_LOCAL_DNS"] = clusterLoaderConfig.PrometheusConfig.ScrapeNodeLocalDNS
 	mapping["PROMETHEUS_SCRAPE_KUBE_STATE_METRICS"] = clusterLoaderConfig.PrometheusConfig.ScrapeKubeStateMetrics
@@ -540,7 +547,7 @@ func (pc *Controller) runNodeExporter() error {
 	numMasters := 0
 	for _, node := range nodes {
 		node := node
-		if util.LegacyIsMasterNode(&node) || util.IsControlPlaneNode(&node) {
+		if util.IsControlPlaneNode(&node) {
 			numMasters++
 			g.Go(func() error {
 				f, err := manifestsFS.Open(nodeExporterPod)
@@ -565,10 +572,19 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	return wait.PollImmediate(
 		checkPrometheusReadyInterval,
 		pc.readyTimeout,
-		pc.isPrometheusReady)
+		func() (bool, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), checkPrometheusReadyInterval)
+			defer cancel()
+			done, err := pc.isPrometheusReady(ctx)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				return done, nil
+			}
+			return done, err
+		},
+	)
 }
 
-func (pc *Controller) isPrometheusReady() (bool, error) {
+func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -580,20 +596,20 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version
 		// etcd metrics may be available at port 2379 xor 2382. We solve that by setting two etcd
 		// serviceMonitors one for 2379 and other for 2382 and expect that at least 1 of them should be healthy.
-		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
+		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
 			expectedTargets)
 		if err != nil || !ok {
 			return ok, err
 		}
-		return CheckTargetsReady( // 1 out of 2 etcd targets should be ready.
+		return CheckTargetsReady(ctx, // 1 out of 2 etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
 			1) // one of them should be healthy
 	}
-	return CheckAllTargetsReady(
+	return CheckAllTargetsReady(ctx,
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
 		expectedTargets)
@@ -632,13 +648,16 @@ func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) 
 	}
 	s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)
 	if err != nil {
-		klog.Warningf("Error while marshalling response %v: %v", list, err)
+		klog.Warningf("Error while marshaling response %v: %v", list, err)
 		return
 	}
 	klog.V(2).Info(string(s))
 }
 
 func getMasterIps(clusterConfig config.ClusterConfig, usePublicIPs bool) ([]string, error) {
+	if clusterConfig.MasterDNSEndpoint != "" {
+		return nil, fmt.Errorf("cluster has master DNS endpoint %s, don't use master IPs", clusterConfig.MasterDNSEndpoint)
+	}
 	if usePublicIPs {
 		if len(clusterConfig.MasterIPs) == 0 {
 			return nil, fmt.Errorf("requested to use public IPs, however no publics IPs are provided")

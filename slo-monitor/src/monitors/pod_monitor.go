@@ -32,8 +32,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
-
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -43,13 +41,20 @@ const (
 	PodE2EStartupLatencyKey = "slomonitor_pod_e2e_startup_latency_seconds"
 	// PodFullStartupLatencyKey is a key for pod startup latency monitoring metric including pull times.
 	PodFullStartupLatencyKey = "slomonitor_pod_full_startup_latency_seconds"
+
+	// eventPullingImage is an event reason for image pulling.
+	// This needs to match k8s.io/kubernetes/pkg/kubelet/events:PullingImage.
+	eventPullingImage = "Pulling"
+	// eventPullingImage is an event reason for image pulled.
+	// This needs to match k8s.io/kubernetes/pkg/kubelet/events:PulledImage.
+	eventPulledImage = "Pulled"
 )
 
 var (
 	// StartupLatencyBuckets represents the histogram bucket boundaries for pod
 	// startup latency metrics, measured in seconds. These are hand-picked so
 	// as to be roughly exponential but still round numbers in everyday units.
-	// This is to minimise the number of buckets while allowing accurate
+	// This is to minimize the number of buckets while allowing accurate
 	// measurement of thresholds which might be used in SLOs e.g. x% of pods
 	// start up within 30 seconds, or 15 minutes, etc.
 	StartupLatencyBuckets = []float64{0.5, 1, 2, 3, 4, 5, 6, 8, 10, 20, 30, 45, 60, 120, 180, 240, 300, 360, 480, 600, 900, 1200, 1800, 2700, 3600}
@@ -310,9 +315,9 @@ func (pm *PodStartupLatencyDataMonitor) handlePulledImageEvent(key string, e *v1
 func (pm *PodStartupLatencyDataMonitor) handleEventUpdate(e *v1.Event) {
 	key := getPodKeyFromReference(&e.InvolvedObject)
 	switch e.Reason {
-	case kubeletevents.PullingImage:
+	case eventPullingImage:
 		go pm.handlePullingImageEvent(key, e)
-	case kubeletevents.PulledImage:
+	case eventPulledImage:
 		go pm.handlePulledImageEvent(key, e)
 	default:
 		return

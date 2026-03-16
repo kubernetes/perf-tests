@@ -46,7 +46,7 @@ var namespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
 type Framework struct {
 	automanagedNamespacePrefix string
 	mux                        sync.Mutex
-	// automanagedNamespaces stores values as infromation if should the namespace be deleted
+	// automanagedNamespaces stores values as information if should the namespace be deleted
 	automanagedNamespaces map[string]bool
 	clientSets            *MultiClientSet
 	dynamicClients        *MultiDynamicClient

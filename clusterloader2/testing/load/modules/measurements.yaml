@@ -47,6 +47,7 @@
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL (IfThenElse (ge .Nodes 5000) "60s" "15s")}}
 
 steps:
 - name: "{{$action}}ing measurements"
@@ -81,6 +82,7 @@ steps:
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      checkProbesReadyInterval: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
       pingSleepDuration: {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION}}
       threshold: {{$NETWORK_LATENCY_THRESHOLD}}
@@ -99,6 +101,7 @@ steps:
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      checkProbesReadyInterval: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
 {{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}

@@ -117,5 +117,5 @@ users:
 " > "${kubeconfig}"
 export KUBECONFIG=${kubeconfig}
 
-cd "${CLUSTERLOADER_ROOT}"/ && go build -o clusterloader './cmd/'
+cd "${CLUSTERLOADER_ROOT}"/ && go build -tags="${CL2_BUILD_TAGS:-}" -o clusterloader './cmd/'
 ./clusterloader --alsologtostderr --v="${CL2_VERBOSITY:-2}" "$@"

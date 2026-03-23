@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2026 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,6 +48,9 @@ type ExemplaryPodFuzzer struct {
 	// Maps BasePodName -> FuzzedPrototype
 	mu               sync.Mutex
 	cachedPrototypes map[string]*v1.Pod
+
+	// rngMu protects access to the non-thread-safe rng.
+	rngMu sync.Mutex
 }
 
 // NewExemplaryPodFuzzer creates a new fuzzer with a seeded RNG and global settings.
@@ -163,7 +166,10 @@ func (f *ExemplaryPodFuzzer) fuzzMapRecursive(m map[string]interface{}) {
 
 		var newKey string
 		if strings.HasPrefix(oldKey, "k:") {
-			newKey = fmt.Sprintf("k:{\"id\":%d,\"name\":\"fuzzed-node-%s\"}", f.rng.Intn(100), f.randomString(4))
+			f.rngMu.Lock()
+			idx := f.rng.Intn(100)
+			f.rngMu.Unlock()
+			newKey = fmt.Sprintf("k:{\"id\":%d,\"name\":\"fuzzed-node-%s\"}", idx, f.randomString(4))
 		} else if strings.HasPrefix(oldKey, "f:") {
 			newKey = "f:fuzzed_field_" + f.randomString(4)
 		} else if oldKey == "." {
@@ -187,6 +193,8 @@ func (f *ExemplaryPodFuzzer) randomString(length int) string {
 	}
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
+	f.rngMu.Lock()
+	defer f.rngMu.Unlock()
 	for i := range b {
 		b[i] = charset[f.rng.Intn(len(charset))]
 	}

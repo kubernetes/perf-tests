@@ -37,7 +37,7 @@ func main() {
 	basePodPath := flag.String("base-pod", "templates/complex-daemonset.yaml", "Path to the real pod YAML to sanitize and clone")
 	namespace := flag.String("namespace", "fuzz-test", "Target namespace for fuzzed pods")
 	namePrefix := flag.String("name-prefix", "fuzzed-pod", "Prefix for generated pod names")
-	outDir := flag.String("out-dir", "", "Directory to write YAMLs (if specified, no cluster injection)")
+	outputDir := flag.String("output-dir", "", "Directory to write YAMLs (if specified, no cluster injection)")
 	concurrency := flag.Int("concurrency", 50, "Number of concurrent workers")
 	kubeconfig := flag.String("kubeconfig", "", "Path to the kubeconfig file for direct injection")
 
@@ -54,7 +54,7 @@ func main() {
 	}
 
 	var clientset *kubernetes.Clientset
-	if *outDir == "" {
+	if *outputDir == "" {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		if *kubeconfig != "" {
 			loadingRules.ExplicitPath = *kubeconfig
@@ -83,9 +83,9 @@ func main() {
 	}
 
 	start := time.Now()
-	if *outDir != "" {
-		fmt.Printf("Writing %d fuzzed pod manifests to %s (base: %s)...\n", *count, *outDir, *basePodPath)
-		dir, err := creator.WriteExemplaryPodsToDir(context.Background(), &basePod, *count, *offset, *concurrency, *outDir, progress)
+	if *outputDir != "" {
+		fmt.Printf("Writing %d fuzzed pod manifests to %s (base: %s)...\n", *count, *outputDir, *basePodPath)
+		dir, err := creator.WriteExemplaryPodsToDir(context.Background(), &basePod, *count, *offset, *concurrency, *outputDir, progress)
 		if err != nil {
 			log.Fatalf("\nFailed to write pods: %v", err)
 		}

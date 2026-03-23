@@ -66,7 +66,7 @@ go run cmd/main.go \
   --name-prefix representative-pod \
   --namespace my-test-ns \
   --count 1000 \
-  --out-dir ./generated-pods
+  --output-dir ./generated-pods
 ```
 
 ## Flags
@@ -78,7 +78,7 @@ go run cmd/main.go \
 - `--offset`: Starting index for naming (useful for incremental runs).
 - `--concurrency`: Number of concurrent workers (default: 50).
 - `--kubeconfig`: Path to the kubeconfig file. Defaults to `$HOME/.kube/config`.
-- `--out-dir`: If specified, write YAMLs to this directory instead of injecting into a cluster.
+- `--output-dir`: If specified, write YAMLs to this directory instead of injecting into a cluster.
 
 ## Verification & Metrics
 

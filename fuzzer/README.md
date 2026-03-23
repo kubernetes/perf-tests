@@ -48,8 +48,8 @@ kubectl create serviceaccount cilium -n fuzz-test
 Inject the pods using high concurrency.
 
 ```bash
-go run test/utils/fuzzer/cmd/main.go \
-  --base-pod test/utils/fuzzer/templates/complex-daemonset.yaml \
+go run cmd/main.go \
+  --base-pod templates/complex-daemonset.yaml \
   --namespace fuzz-test \
   --name-prefix representative-pod \
   --count 50000 \
@@ -61,7 +61,7 @@ go run test/utils/fuzzer/cmd/main.go \
 ### Generate Pod Manifests to Disk
 To generate fuzzed manifests for manual inspection:
 ```bash
-go run test/utils/fuzzer/cmd/main.go \
+go run cmd/main.go \
   --base-pod path/to/real-pod.yaml \
   --name-prefix representative-pod \
   --namespace my-test-ns \

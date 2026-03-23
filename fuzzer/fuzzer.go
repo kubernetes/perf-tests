@@ -26,15 +26,38 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/test/utils"
 	"sigs.k8s.io/yaml"
 )
+
+// CreatePodWithRetries creates a pod with exponential backoff retries on transient errors.
+func CreatePodWithRetries(c clientset.Interface, namespace string, obj *v1.Pod) error {
+	if obj == nil {
+		return fmt.Errorf("object provided to create is empty")
+	}
+	backoff := wait.Backoff{
+		Duration: 100 * time.Millisecond,
+		Factor:   3,
+		Steps:    6,
+	}
+	return wait.ExponentialBackoff(backoff, func() (bool, error) {
+		_, err := c.CoreV1().Pods(namespace).Create(context.TODO(), obj, metav1.CreateOptions{})
+		if err == nil || apierrors.IsAlreadyExists(err) {
+			return true, nil
+		}
+		// GenerateName conflict or other temporary issues can be retried if needed,
+		// but for the fuzzer we assume concrete names.
+		return false, fmt.Errorf("failed to create pod %s: %v", obj.Name, err)
+	})
+}
 
 // ExemplaryPodFuzzer generates fuzzed Pod objects derived from a base pod.
 type ExemplaryPodFuzzer struct {
@@ -221,7 +244,7 @@ func NewExemplaryPodCreator(client clientset.Interface, seed int64, namePrefix, 
 // CreateExemplaryPods creates a batch of pods concurrently based on a base pod.
 func (c *ExemplaryPodCreator) CreateExemplaryPods(ctx context.Context, base *v1.Pod, count int, offset int, concurrency int, progress ProgressCallback) error {
 	return c.processExemplaryPods(ctx, base, count, offset, concurrency, progress, func(pod *v1.Pod) error {
-		return utils.CreatePodWithRetries(c.client, pod.Namespace, pod)
+		return CreatePodWithRetries(c.client, pod.Namespace, pod)
 	})
 }
 

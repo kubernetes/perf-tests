@@ -108,7 +108,7 @@ func TestDeeplyNestedManagedFields(t *testing.T) {
 	assert.Len(t, pod.ManagedFields, 1)
 	assert.Equal(t, "kubelet", pod.ManagedFields[0].Manager)
 
-	raw := string(pod.ManagedFields[0].FieldsV1.GetRawBytes())
+	raw := string(pod.ManagedFields[0].FieldsV1.Raw)
 	// Verify it contains fuzzed field paths
 	assert.Contains(t, raw, "f:fuzzed_field_")
 	assert.Contains(t, raw, "k:{\\\"id\\\":")

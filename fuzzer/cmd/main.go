@@ -27,14 +27,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/test/utils/fuzzer"
+	"k8s.io/perf-tests/fuzzer"
 	"sigs.k8s.io/yaml"
 )
 
 func main() {
 	count := flag.Int("count", 1000, "Number of pods to generate")
 	offset := flag.Int("offset", 0, "Starting index for pod naming")
-	basePodPath := flag.String("base-pod", "test/utils/fuzzer/templates/complex-daemonset.yaml", "Path to the real pod YAML to sanitize and clone")
+	basePodPath := flag.String("base-pod", "templates/complex-daemonset.yaml", "Path to the real pod YAML to sanitize and clone")
 	namespace := flag.String("namespace", "fuzz-test", "Target namespace for fuzzed pods")
 	namePrefix := flag.String("name-prefix", "fuzzed-pod", "Prefix for generated pod names")
 	outDir := flag.String("out-dir", "", "Directory to write YAMLs (if specified, no cluster injection)")

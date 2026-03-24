@@ -29,6 +29,8 @@ import (
 )
 
 func TestExemplaryPodFuzzer(t *testing.T) {
+	// Intent: Verify the 'Sanitize & Clone' model correctly scrubs PII
+	// while maintaining structural identicality across multiple generated pods.
 	fuzzer := NewExemplaryPodFuzzer(42, "fuzzed-pod", "fuzzed-ns")
 
 	basePod := &v1.Pod{
@@ -88,6 +90,8 @@ func TestExemplaryPodFuzzer(t *testing.T) {
 }
 
 func TestDeeplyNestedManagedFields(t *testing.T) {
+	// Intent: Verify that the recursive fuzzer correctly handles complex
+	// Server-Side Apply (SSA) JSON paths without losing data or structure.
 	fuzzer := NewExemplaryPodFuzzer(42, "nested-test", "default")
 	basePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -117,6 +121,7 @@ func TestDeeplyNestedManagedFields(t *testing.T) {
 }
 
 func TestWriteExemplaryPodsToDir(t *testing.T) {
+	// Intent: Verify the batch generation logic and filesystem interaction.
 	creator := NewExemplaryPodCreator(nil, 42, "test-pod", "default")
 	basePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "base"},

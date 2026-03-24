@@ -68,7 +68,10 @@ type ExemplaryPodFuzzer struct {
 	NamePrefix string
 
 	// Cache for identical data to test interning across multiple pods.
-	// Maps BasePodName -> FuzzedPrototype
+	// Performance Optimization: By reusing a single "fuzzed prototype" for all pods
+	// generated from the same base, we ensure that common strings (labels, annotations,
+	// env var keys) share the same memory pointers. This mimics real-world scenarios
+	// where the API server uses string interning to optimize memory for repeated data.
 	mu               sync.Mutex
 	cachedPrototypes map[string]*v1.Pod
 
@@ -90,6 +93,7 @@ func NewExemplaryPodFuzzer(seed int64, namePrefix, namespace string) *ExemplaryP
 }
 
 // FuzzPod transforms a base pod into a concrete fuzzed v1.Pod object.
+// It uses a cached prototype to ensure string interning memory optimizations are triggered.
 func (f *ExemplaryPodFuzzer) FuzzPod(base *v1.Pod, id int) *v1.Pod {
 	f.mu.Lock()
 	proto, ok := f.cachedPrototypes[base.Name]
@@ -100,6 +104,7 @@ func (f *ExemplaryPodFuzzer) FuzzPod(base *v1.Pod, id int) *v1.Pod {
 	f.mu.Unlock()
 
 	pod := proto.DeepCopy()
+	// Unique identifiers must be set outside the prototype.
 	pod.Name = fmt.Sprintf("%s-%d", f.NamePrefix, id)
 	pod.UID = types.UID(fmt.Sprintf("fuzzed-uid-%08d-%s", id, strings.ToLower(f.randomString(8))))
 
@@ -110,18 +115,19 @@ func (f *ExemplaryPodFuzzer) generatePrototype(base *v1.Pod) *v1.Pod {
 	pod := base.DeepCopy()
 
 	// 1. Sanitize Metadata
+	// Scrub all original identifiers to ensure PII is removed and names are unique.
 	pod.Namespace = f.Namespace
 	pod.ResourceVersion = ""
 	pod.CreationTimestamp = metav1.Time{}
 	pod.GenerateName = ""
 
-	// Fuzz OwnerRefs
+	// Fuzz OwnerRefs: Preserve structure but randomize identities.
 	for i := range pod.OwnerReferences {
 		pod.OwnerReferences[i].Name = "fuzzed-owner-" + strings.ToLower(f.randomString(8))
 		pod.OwnerReferences[i].UID = types.UID("fuzzed-uid-" + strings.ToLower(f.randomString(8)))
 	}
 
-	// Fuzz Annotations & Labels
+	// Fuzz Annotations & Labels: Keep keys (structure) but randomize values.
 	for k := range pod.Annotations {
 		pod.Annotations[k] = "fuzzed-val-" + f.randomString(16)
 	}
@@ -130,6 +136,9 @@ func (f *ExemplaryPodFuzzer) generatePrototype(base *v1.Pod) *v1.Pod {
 	}
 
 	// 2. Sanitize Spec
+	// Safety by Default: Force pods to remain in 'Pending' state by assigning
+	// non-existent nodes and schedulers. This prevents the stress test from
+	// accidentally crashing the cluster's worker nodes.
 	pod.Spec.NodeName = "fuzzed-node-" + strings.ToLower(f.randomString(8))
 	pod.Spec.SchedulerName = "non-existent-fuzz-scheduler"
 	if pod.Spec.NodeSelector == nil {
@@ -138,6 +147,9 @@ func (f *ExemplaryPodFuzzer) generatePrototype(base *v1.Pod) *v1.Pod {
 	pod.Spec.NodeSelector["disktype"] = "non-existent-ssd"
 
 	// Fuzz Env Vars (Keys and Values)
+	// We preserve the count and structure of environment variables but scrub the data.
+	// This is critical for benchmarking the API server's storage and memory overhead
+	// without leaking actual secrets.
 	for i := range pod.Spec.Containers {
 		for j := range pod.Spec.Containers[i].Env {
 			pod.Spec.Containers[i].Env[j].Name = "FUZZED_ENV_" + f.randomString(8)
@@ -155,13 +167,16 @@ func (f *ExemplaryPodFuzzer) generatePrototype(base *v1.Pod) *v1.Pod {
 	}
 
 	// 3. Fuzz ManagedFields
+	// ManagedFields record the history and ownership of fields.
+	// We fuzz the internal JSON paths while maintaining valid 'f:' (fields) and
+	// 'k:' (associative list keys) prefixes so the API server accepts them.
 	for i := range pod.ManagedFields {
 		if pod.ManagedFields[i].FieldsV1 != nil {
 			pod.ManagedFields[i].FieldsV1.Raw = f.fuzzFieldsV1JSON(pod.ManagedFields[i].FieldsV1.Raw)
 		}
 	}
 
-	// Clear Status
+	// Clear Status: The fuzzer simulates the intent (Spec), not the observation (Status).
 	pod.Status = v1.PodStatus{}
 
 	return pod
@@ -188,6 +203,9 @@ func (f *ExemplaryPodFuzzer) fuzzMapRecursive(m map[string]interface{}) {
 		delete(m, oldKey)
 
 		var newKey string
+		// Server-Side Apply (SSA) field path prefixes:
+		// 'k:' -> Key in an associative list (e.g., container name).
+		// 'f:' -> A field in an object.
 		if strings.HasPrefix(oldKey, "k:") {
 			f.rngMu.Lock()
 			idx := f.rng.Intn(100)

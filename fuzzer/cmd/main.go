@@ -32,18 +32,21 @@ import (
 )
 
 func main() {
-	count := flag.Int("count", 1000, "Number of pods to generate")
-	offset := flag.Int("offset", 0, "Starting index for pod naming")
-	basePodPath := flag.String("base-pod", "templates/complex-daemonset.yaml", "Path to the real pod YAML to sanitize and clone")
-	namespace := flag.String("namespace", "fuzz-test", "Target namespace for fuzzed pods")
-	namePrefix := flag.String("name-prefix", "fuzzed-pod", "Prefix for generated pod names")
-	outputDir := flag.String("output-dir", "", "Directory to write YAMLs (if specified, no cluster injection)")
-	concurrency := flag.Int("concurrency", 50, "Number of concurrent workers")
-	kubeconfig := flag.String("kubeconfig", "", "Path to the kubeconfig file for direct injection")
+	// General settings
+	count := flag.Int("count", 1000, "Number of fuzzed pods to generate.")
+	offset := flag.Int("offset", 0, "Starting index for pod naming, useful for incremental runs.")
+	basePodPath := flag.String("base-pod", "templates/complex-daemonset.yaml", "Path to the real Pod YAML manifest used as a structural template.")
+	namespace := flag.String("namespace", "fuzz-test", "Target namespace for the generated pods. Ensure this exists in the cluster.")
+	namePrefix := flag.String("name-prefix", "fuzzed-pod", "Prefix used for naming fuzzed pods (e.g., fuzzed-pod-1, fuzzed-pod-2).")
+
+	// Mode-specific settings
+	outputDir := flag.String("output-dir", "", "If specified, write Pod YAMLs to this directory instead of injecting into a cluster.")
+	concurrency := flag.Int("concurrency", 50, "Number of concurrent workers used for generation or injection.")
+	kubeconfig := flag.String("kubeconfig", "", "Path to the kubeconfig file. Defaults to $HOME/.kube/config.")
 
 	flag.Parse()
 
-	// Load Base Pod
+	// Load the template pod from disk.
 	basePodData, err := os.ReadFile(*basePodPath)
 	if err != nil {
 		log.Fatalf("Failed to read base pod file: %v", err)
@@ -54,6 +57,8 @@ func main() {
 	}
 
 	var clientset *kubernetes.Clientset
+	// Operational Path 1: Cluster Injection
+	// If outputDir is empty, we attempt to connect to a cluster and inject pods directly.
 	if *outputDir == "" {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		if *kubeconfig != "" {
@@ -64,7 +69,8 @@ func main() {
 			log.Fatalf("Failed to load kubeconfig: %v", err)
 		}
 
-		// Increase QPS and Burst for high-performance injection
+		// Configure high-performance injection settings to stress the control plane.
+		// These settings allow for rapid pod creation without being throttled by client-go.
 		config.QPS = 500
 		config.Burst = 1000
 		clientset, err = kubernetes.NewForConfig(config)
@@ -84,6 +90,8 @@ func main() {
 
 	start := time.Now()
 	if *outputDir != "" {
+		// Operational Path 2: Manifest Generation
+		// Write YAMLs to disk for manual inspection or external loading.
 		fmt.Printf("Writing %d fuzzed pod manifests to %s (base: %s)...\n", *count, *outputDir, *basePodPath)
 		dir, err := creator.WriteExemplaryPodsToDir(context.Background(), &basePod, *count, *offset, *concurrency, *outputDir, progress)
 		if err != nil {
@@ -91,6 +99,7 @@ func main() {
 		}
 		fmt.Printf("Successfully created %d pod manifests in: %s\n", *count, dir)
 	} else {
+		// Operational Path 1: Cluster Injection (Execution)
 		fmt.Printf("Injecting %d fuzzed pods into cluster (base: %s)...\n", *count, *basePodPath)
 		err := creator.CreateExemplaryPods(context.Background(), &basePod, *count, *offset, *concurrency, progress)
 		if err != nil {

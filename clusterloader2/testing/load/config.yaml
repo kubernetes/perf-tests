@@ -69,6 +69,10 @@
 {{$schedulerThroughputNamespaces := IfThenElse $IS_SMALL_CLUSTER 1 $schedulerThroughputNamespaces}}
 # END scheduler-throughput section
 
+{{$CREATE_OPERATION_TIMEOUT_BUFFER := DefaultParam .CL2_CREATE_OPERATION_TIMEOUT_BUFFER 900}}
+{{$UPDATE_OPERATION_TIMEOUT_BUFFER := DefaultParam .CL2_UPDATE_OPERATION_TIMEOUT_BUFFER 900}}
+{{$DELETE_OPERATION_TIMEOUT_BUFFER := DefaultParam .CL2_DELETE_OPERATION_TIMEOUT_BUFFER 900}}
+
 # Command to be executed
 {{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
@@ -186,10 +190,10 @@ steps:
       namespaces: {{$namespaces}}
       {{if $RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedSaturationTimeLimited
-      operationTimeout: 15m
+      operationTimeout: {{AddInt 900 $CREATE_OPERATION_TIMEOUT_BUFFER}}s
       {{else}}
       tuningSet: default
-      operationTimeout: {{AddInt $saturationTime 900}}s
+      operationTimeout: {{AddInt $saturationTime $CREATE_OPERATION_TIMEOUT_BUFFER}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.
@@ -335,10 +339,10 @@ steps:
       namespaces: {{$namespaces}}
       {{if $RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedScalingTimeLimited
-      operationTimeout: 15m
+      operationTimeout: {{AddInt 900 $UPDATE_OPERATION_TIMEOUT_BUFFER}}s
       {{else}}
       tuningSet: default
-      operationTimeout: {{AddInt (DivideInt $saturationTime 4) 900}}s
+      operationTimeout: {{AddInt (DivideInt $saturationTime 4) $UPDATE_OPERATION_TIMEOUT_BUFFER}}s
       {{end}}
       randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
@@ -381,10 +385,10 @@ steps:
       namespaces: {{$namespaces}}
       {{if $RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedDeletionTimeLimited
-      operationTimeout: 15m
+      operationTimeout: {{AddInt 900 $DELETE_OPERATION_TIMEOUT_BUFFER}}s
       {{else}}
       tuningSet: default
-      operationTimeout: {{AddInt $deletionTime 900}}s
+      operationTimeout: {{AddInt $deletionTime $DELETE_OPERATION_TIMEOUT_BUFFER}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       daemonSetImage: {{$latencyPodImage}}

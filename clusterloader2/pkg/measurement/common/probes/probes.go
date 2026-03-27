@@ -42,7 +42,7 @@ const (
 
 	manifestsPathPrefix = "manifests/"
 
-	checkProbesReadyInterval = 15 * time.Second
+	defaultCheckProbesReadyInterval = 15 * time.Second
 
 	defaultCheckProbesReadyTimeout = 15 * time.Minute
 
@@ -291,11 +291,17 @@ func (p *probesMeasurement) waitForProbesReady(config *measurement.Config) error
 	if err != nil {
 		return err
 	}
-	return wait.Poll(
+	checkProbesReadyInterval, err := util.GetDurationOrDefault(config.Params, "checkProbesReadyInterval", defaultCheckProbesReadyInterval)
+	if err != nil {
+		return err
+	}
+	return wait.PollUntilContextTimeout(
+		context.Background(),
 		checkProbesReadyInterval,
 		checkProbesReadyTimeout,
-		func() (bool, error) {
-			ctx, cancel := context.WithTimeout(context.Background(), checkProbesReadyInterval)
+		false,
+		func(ctx context.Context) (bool, error) {
+			ctx, cancel := context.WithTimeout(ctx, checkProbesReadyInterval)
 			defer cancel()
 			done, err := p.checkProbesReady(ctx)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {

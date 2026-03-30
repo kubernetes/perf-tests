@@ -137,3 +137,144 @@ func TestGetLabelSelector(t *testing.T) {
 		})
 	}
 }
+
+func TestGetInt(t *testing.T) {
+	tests := []struct {
+		name    string
+		dict    map[string]interface{}
+		key     string
+		want    int
+		wantErr bool
+	}{
+		{
+			name: "int value",
+			dict: map[string]interface{}{"key": 123},
+			key:  "key",
+			want: 123,
+		},
+		{
+			name: "float64 value",
+			dict: map[string]interface{}{"key": 123.0},
+			key:  "key",
+			want: 123,
+		},
+		{
+			name: "string value success",
+			dict: map[string]interface{}{"key": "123"},
+			key:  "key",
+			want: 123,
+		},
+		{
+			name:    "string value failure",
+			dict:    map[string]interface{}{"key": "abc"},
+			key:     "key",
+			wantErr: true,
+		},
+		{
+			name:    "not found",
+			dict:    map[string]interface{}{},
+			key:     "key",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetInt(tt.dict, tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetInt() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestGetFloat64(t *testing.T) {
+	tests := []struct {
+		name    string
+		dict    map[string]interface{}
+		key     string
+		want    float64
+		wantErr bool
+	}{
+		{
+			name: "float64 value",
+			dict: map[string]interface{}{"key": 123.45},
+			key:  "key",
+			want: 123.45,
+		},
+		{
+			name: "string value success",
+			dict: map[string]interface{}{"key": "123.45"},
+			key:  "key",
+			want: 123.45,
+		},
+		{
+			name:    "string value failure",
+			dict:    map[string]interface{}{"key": "abc"},
+			key:     "key",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetFloat64(tt.dict, tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFloat64() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestGetBool(t *testing.T) {
+	tests := []struct {
+		name    string
+		dict    map[string]interface{}
+		key     string
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "bool value",
+			dict: map[string]interface{}{"key": true},
+			key:  "key",
+			want: true,
+		},
+		{
+			name: "string value true",
+			dict: map[string]interface{}{"key": "true"},
+			key:  "key",
+			want: true,
+		},
+		{
+			name: "string value false",
+			dict: map[string]interface{}{"key": "false"},
+			key:  "key",
+			want: false,
+		},
+		{
+			name:    "string value failure",
+			dict:    map[string]interface{}{"key": "abc"},
+			key:     "key",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetBool(tt.dict, tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBool() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

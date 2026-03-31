@@ -33,3 +33,24 @@ steps:
           objectTemplatePath: /modules/informer/deployment.yaml
           templateFillMap:
             EnableWatchListFeature: "true"
+{{if eq $action "create"}}
+- name: Starting measurement for waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningInformerDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: group = informer
+      operationTimeout: 2m
+- name: Waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningInformerDeployments
+    Params:
+      action: gather
+{{end}}

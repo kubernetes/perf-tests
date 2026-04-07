@@ -1,0 +1,61 @@
+{{$LARGE_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_LARGE_BACKEND_LB_SERVICE_COUNT 2}}
+{{$MEDIUM_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_MEDIUM_BACKEND_LB_SERVICE_COUNT 2}}
+{{$SMALL_BACKEND_LB_SERVICE_COUNT := DefaultParam .CL2_SMALL_BACKEND_LB_SERVICE_COUNT 2}}
+{{$lbQPS := DefaultParam .CL2_LB_TEST_QPS 20}}
+{{$LOAD_BALANCER_CLASS := DefaultParam .CL2_LOAD_BALANCER_CLASS "invalid.scalability.gke.io"}}
+
+name: l4lbload
+namespace:
+  number: 1
+tuningSets:
+- name: LBConstantQPS
+  qpsLoad:
+    qps: {{$lbQPS}}
+steps:
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Start measurement for running pods
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: test = l4lb-load
+      operationTimeout: 15m
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Create
+      largeBackendLbServiceCount: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+      mediumBackendLbServiceCount: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+      smallBackendLbServiceCount: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+      CL2_LOAD_BALANCER_CLASS: {{$LOAD_BALANCER_CLASS}}
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: waitForReady
+- name: Waiting for objects creation to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- module:
+    path: /modules/services.yaml
+    params:
+      actionName: Delete
+      largeBackendLbServiceCount: 0
+      mediumBackendLbServiceCount: 0
+      smallBackendLbServiceCount: 0
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: waitForDeletion
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather

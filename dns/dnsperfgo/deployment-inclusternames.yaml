@@ -44,7 +44,7 @@ spec:
         name: dnsperfgo
     spec:
       containers:
-      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
+      - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.4.0
       # Fetches the dns server from /etc/resolv.conf and sends 10 queries per second.
       # With searchpath expansion, this is 120 queries per second.
       # External names like google.com are expanded to 12 queries.

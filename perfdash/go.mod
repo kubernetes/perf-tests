@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	go.opencensus.io v0.24.0 // indirect
 	google.golang.org/api v0.214.0
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/klog v0.3.1
 	k8s.io/kubernetes v1.15.0
 )

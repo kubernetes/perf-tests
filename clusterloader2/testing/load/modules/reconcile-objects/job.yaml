@@ -1,4 +1,3 @@
-{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 {{$podPayloadSize := DefaultParam .CL2_JOB_POD_PAYLOAD_SIZE 0}}
@@ -27,7 +26,6 @@ spec:
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}
-      hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}
         # TODO(#799): We should test the "run-to-completion" workflow and hence don't use pause pods.

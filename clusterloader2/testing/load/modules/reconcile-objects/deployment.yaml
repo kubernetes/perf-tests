@@ -6,7 +6,6 @@
 {{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
 # Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
 {{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
-{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 
 {{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
@@ -106,12 +105,6 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 900
-      {{if $RUN_ON_ARM_NODES}}
-      - key: "kubernetes.io/arch"
-        operator: Equal
-        value: arm64
-        effect: NoSchedule
-      {{end}}
       {{if $TOLERATION}}
       - key: {{$TOLERATION}}
         operator: Exists

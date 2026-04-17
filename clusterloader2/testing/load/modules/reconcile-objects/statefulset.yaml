@@ -1,5 +1,4 @@
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
-{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
@@ -60,12 +59,6 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 900
-      {{if $RUN_ON_ARM_NODES}}
-      - key: "kubernetes.io/arch"
-        operator: Equal
-        value: arm64
-        effect: NoSchedule
-      {{end}}
       {{if $TOLERATION}}
       - key: {{$TOLERATION}}
         operator: Exists

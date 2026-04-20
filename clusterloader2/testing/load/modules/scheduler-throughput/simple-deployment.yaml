@@ -1,4 +1,3 @@
-{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
 # For now we're setting it to 0.5%.
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
@@ -28,7 +27,6 @@ spec:
         svc: {{.SvcName}}-{{.Index}}
 {{end}}
     spec:
-      hostNetwork: {{$HostNetworkMode}}
       containers:
       - env:
         - name: ENV_VAR

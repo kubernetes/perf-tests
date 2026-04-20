@@ -1,4 +1,3 @@
-{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
@@ -29,7 +28,6 @@ spec:
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}
-      hostNetwork: {{$HostNetworkMode}}
       containers:
       - name: {{.Name}}
         image: {{$Image}}

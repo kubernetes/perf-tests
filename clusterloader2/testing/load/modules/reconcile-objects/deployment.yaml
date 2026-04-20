@@ -17,6 +17,7 @@
 
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
+{{$RealisticPod := DefaultParam .CL2_REALISTIC_POD false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -33,9 +34,18 @@ spec:
   template:
     metadata:
       labels:
-        group: load
         name: {{.Name}}
         svc: {{.SvcName}}-{{.Index}}
+        group: load
+{{if $RealisticPod }}
+        app.kubernetes.io/name: "payment-service"
+        app.kubernetes.io/instance: "payment-service-primary"
+        app.kubernetes.io/version: "v2.1.4"
+        app.kubernetes.io/component: "backend"
+        app.kubernetes.io/part-of: "ecommerce-platform"
+        env: "production"
+        track: "canary"
+{{end}}
 {{if and .EnableDNSTests $USE_ADVANCED_DNSTEST}}
         dns-test: dnsperfgo
 {{else}}
@@ -43,21 +53,92 @@ spec:
         net-pol-test: {{$TargetLabelValue}}
   {{end}}
 {{end}}
+{{if $RealisticPod }}
+      annotations:
+        prometheus.io/scrape: "false"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "false"
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        vault.hashicorp.com/agent-inject: "false"
+        vault.hashicorp.com/role: "my-app-db-role"
+        fluentbit.io/parser: "json"
+        argocd.argoproj.io/hook: "PreSync"
+        argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
+{{end}}
     spec:
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}
+{{if $RealisticPod }}
+      initContainers:
+      - name: init-0
+        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        command: ["/bin/sh", "-c", "sleep 1"]
+      - name: init-1
+        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        command: ["/bin/sh", "-c", "sleep 1"]
       containers:
-{{if .EnableDNSTests}}
-{{if $USE_ADVANCED_DNSTEST}}
+      - name: main
+        image: registry.k8s.io/pause:3.9
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              container: main
+              resource: limits.cpu
+        - name: MEM_LIMIT_BYTES
+          valueFrom:
+            resourceFieldRef:
+              container: main
+              resource: limits.memory
+        - name: JAVA_TOOL_OPTIONS
+          value: "-XX:MaxRAMPercentage=75.0 -XX:+CrashOnOutOfMemoryError"
+        - name: REDIS_URL
+          value: "redis://redis-master.cache.svc.cluster.local:6379/0"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            cpu: 5m
+            memory: 20M
+        volumeMounts:
+        - mountPath: /var/configmap
+          name: configmap
+        - mountPath: /var/secret
+          name: secret
+      - name: sidecar
+        image: registry.k8s.io/pause:3.9
+{{else}}
+      containers:
+  {{if .EnableDNSTests}}
+    {{if $USE_ADVANCED_DNSTEST}}
       - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.4.0
         ports:
         - containerPort: 9153
           name: dnsperfmetrics
           protocol: TCP
-  {{else}}
+    {{else}}
       - image: gcr.io/k8s-staging-perf-tests/dnsperfgo:v1.2.0
-  {{end}}
+    {{end}}
       # Fetches the dns server from /etc/resolv.conf and
       # sends 1 query per second.
       # With searchpath expansion, this is upto 12 queries per second.
@@ -70,17 +151,17 @@ spec:
           "Using nameserver ${server}";
           ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps {{$dnsQPSPerClient}};
         name: {{.Name}}-dnsperf
-{{else}}
-  {{if $RunNetPolicyTest}}
+  {{else}}
+    {{if $RunNetPolicyTest}}
       - image: nginx
         name: nginx-server
         ports:
         - containerPort: 80
-  {{else}}
+    {{else}}
       - image: {{$Image}}
         name: {{.Name}}
+    {{end}}
   {{end}}
-{{end}}
         env:
         - name: ENV_VAR
           value: {{RandDataWithSeed $podPayloadSize .Name}}
@@ -93,6 +174,7 @@ spec:
             mountPath: /var/configmap
           - name: secret
             mountPath: /var/secret
+{{end}}
       terminationGracePeriodSeconds: 1
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.

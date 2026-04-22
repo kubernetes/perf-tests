@@ -103,6 +103,11 @@ func main() {
 
 func registerFlags() {
 	klog.InitFlags(flag.CommandLine)
+	// Opt into the new klog behavior so that -stderrthreshold is honored even
+	// when -logtostderr=true (the default).
+	// Ref: kubernetes/klog#212, kubernetes/klog#432
+	flag.CommandLine.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
+	flag.CommandLine.Set("stderrthreshold", "INFO")                   //nolint:errcheck
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig.")
 	flag.StringVar(&targetNamespace, "namespace", "", "namespace to run informers for. If empty will open on all namespaces.")

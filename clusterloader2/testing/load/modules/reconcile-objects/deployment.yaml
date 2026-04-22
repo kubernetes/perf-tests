@@ -101,12 +101,12 @@ spec:
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
-              container: main
+              containerName: main
               resource: limits.cpu
         - name: MEM_LIMIT_BYTES
           valueFrom:
             resourceFieldRef:
-              container: main
+              containerName: main
               resource: limits.memory
         - name: JAVA_TOOL_OPTIONS
           value: "-XX:MaxRAMPercentage=75.0 -XX:+CrashOnOutOfMemoryError"

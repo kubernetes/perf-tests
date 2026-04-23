@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/pager"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -299,40 +300,44 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 		"source":              schedulerName,
 	}.AsSelector().String()
 	options := metav1.ListOptions{FieldSelector: selector}
-	schedEvents, err := c.CoreV1().Events(p.selector.Namespace).List(context.TODO(), options)
+	pageLister := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+		return c.CoreV1().Events(p.selector.Namespace).List(ctx, opts)
+	})
+	pageLister.PageSize = 10000
+
+	// Filter events to only include those that belong to pods we are tracking.
+	var filteredEvents []corev1.Event
+	err := pageLister.EachListItem(context.TODO(), options, func(obj runtime.Object) error {
+		event := obj.(*corev1.Event)
+		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
+		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
+			filteredEvents = append(filteredEvents, *event)
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
 
-	// Filter events to only include those that belong to pods we are tracking.
-	var filteredEvents []corev1.Event
-	for _, event := range schedEvents.Items {
-		key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
-		if _, exists := p.podStartupEntries.Get(key, createPhase); exists {
-			filteredEvents = append(filteredEvents, event)
-		}
-	}
-	schedEvents.Items = filteredEvents
-
 	if p.mapEventsByOrder {
 		orderedCreates := p.podStartupEntries.GetOrderedKeys(createPhase)
-		if len(orderedCreates) != len(schedEvents.Items) {
-			klog.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(schedEvents.Items))
+		if len(orderedCreates) != len(filteredEvents) {
+			klog.Errorf("number of pod creations (%d) does not match number of scheduling events gathered (%d)", len(orderedCreates), len(filteredEvents))
 		}
-		sort.Slice(schedEvents.Items, func(i, j int) bool {
-			t1 := schedEvents.Items[i].EventTime.Time
+		sort.Slice(filteredEvents, func(i, j int) bool {
+			t1 := filteredEvents[i].EventTime.Time
 			if t1.IsZero() {
-				t1 = schedEvents.Items[i].FirstTimestamp.Time
+				t1 = filteredEvents[i].FirstTimestamp.Time
 			}
-			t2 := schedEvents.Items[j].EventTime.Time
+			t2 := filteredEvents[j].EventTime.Time
 			if t2.IsZero() {
-				t2 = schedEvents.Items[j].FirstTimestamp.Time
+				t2 = filteredEvents[j].FirstTimestamp.Time
 			}
 			return t1.Before(t2)
 		})
 
-		for i := 0; i < len(orderedCreates) && i < len(schedEvents.Items); i++ {
-			event := schedEvents.Items[i]
+		for i := 0; i < len(orderedCreates) && i < len(filteredEvents); i++ {
+			event := filteredEvents[i]
 			key := orderedCreates[i].Key
 			if !event.EventTime.IsZero() {
 				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)
@@ -341,7 +346,7 @@ func (p *podStartupLatencyMeasurement) gatherScheduleTimes(c clientset.Interface
 			}
 		}
 	} else {
-		for _, event := range schedEvents.Items {
+		for _, event := range filteredEvents {
 			key := createMetaNamespaceKey(event.InvolvedObject.Namespace, event.InvolvedObject.Name)
 			if !event.EventTime.IsZero() {
 				p.podStartupEntries.Set(key, schedulePhase, event.EventTime.Time)

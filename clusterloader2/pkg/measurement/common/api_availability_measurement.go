@@ -115,6 +115,9 @@ func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientse
 	availability := status == http.StatusOK
 	if !availability {
 		klog.Warningf("cluster not available; HTTP status code: %d", status)
+		if err := result.Error(); err != nil {
+			klog.Warningf("request error: %v", err)
+		}
 	}
 	a.clusterLevelMetrics.update(availability)
 }

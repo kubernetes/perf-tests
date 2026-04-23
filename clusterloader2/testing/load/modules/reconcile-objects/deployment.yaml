@@ -103,19 +103,19 @@ spec:
             resourceFieldRef:
               containerName: main
               resource: limits.cpu
-        - name: MEM_LIMIT_BYTES
+        - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
               containerName: main
               resource: limits.memory
         - name: JAVA_TOOL_OPTIONS
-          value: "-XX:MaxRAMPercentage=75.0 -XX:+CrashOnOutOfMemoryError"
+          value: "-XX:MaxRAMPercentage=75.0"
         - name: REDIS_URL
-          value: "redis://redis-master.cache.svc.cluster.local:6379/0"
+          value: "redis://main:6379/0"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: NODE_ENV
-          value: "production"
+          value: "prod"
         resources:
           requests:
             cpu: 5m
@@ -127,6 +127,45 @@ spec:
           name: secret
       - name: sidecar
         image: registry.k8s.io/pause:3.9
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              containerName: sidecar
+              resource: limits.cpu
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: sidecar
+              resource: limits.memory
+        - name: JAVA_TOOL_OPTIONS
+          value: "-XX:MaxRAMPercentage=75.0"
+        - name: REDIS_URL
+          value: "redis://main:6379/0"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: NODE_ENV
+          value: "prod"
+        resources:
+          requests:
+            cpu: 5m
+            memory: 20M
 {{else}}
       containers:
   {{if .EnableDNSTests}}

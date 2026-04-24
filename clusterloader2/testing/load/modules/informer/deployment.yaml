@@ -1,4 +1,5 @@
 {{$TolerateControlPlane := DefaultParam .CL2_INFORMER_TOLERATE_CONTROL_PLANE false}}
+{{$RunOnControlPlane := DefaultParam .RunOnControlPlane false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -15,11 +16,15 @@ spec:
       labels:
         group: informer
     spec:
-{{if $TolerateControlPlane}}
+{{if or $TolerateControlPlane $RunOnControlPlane}}
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+{{end}}
+{{if $RunOnControlPlane}}
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
 {{end}}
       containers:
         - name: {{.Name}}

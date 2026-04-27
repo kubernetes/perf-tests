@@ -1,6 +1,7 @@
 ## Input params
 # Valid actions: "create", "delete"
 {{$action := .action}}
+{{$RunOnControlPlane := DefaultParam .CL2_INFORMER_RUN_ON_CONTROL_PLANE false}}
 
 steps:
 - name: {{$action}} informer role
@@ -33,6 +34,26 @@ steps:
           objectTemplatePath: /modules/informer/deployment.yaml
           templateFillMap:
             EnableWatchListFeature: "true"
+{{if $RunOnControlPlane}}
+    - namespaceList: ["informer-0"]
+      replicasPerNamespace: 1
+      tuningSet: default
+      objectBundle:
+        - basename: informer-watch-list-off-control-plane
+          objectTemplatePath: /modules/informer/deployment.yaml
+          templateFillMap:
+            EnableWatchListFeature: "false"
+            RunOnControlPlane: "true"
+    - namespaceList: ["informer-0"]
+      replicasPerNamespace: 1
+      tuningSet: default
+      objectBundle:
+        - basename: informer-watch-list-on-control-plane
+          objectTemplatePath: /modules/informer/deployment.yaml
+          templateFillMap:
+            EnableWatchListFeature: "true"
+            RunOnControlPlane: "true"
+{{end}}
 {{if eq $action "create"}}
 - name: Starting measurement for waiting for informer pods to be running
   measurements:

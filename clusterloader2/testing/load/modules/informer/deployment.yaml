@@ -1,5 +1,6 @@
 {{$TolerateControlPlane := DefaultParam .CL2_INFORMER_TOLERATE_CONTROL_PLANE false}}
 {{$RunOnControlPlane := DefaultParam .RunOnControlPlane false}}
+{{$DisableCompression := DefaultParam .DisableCompression false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +29,7 @@ spec:
 {{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.3
+          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4
           resources:
             requests:
               memory: "16Gi"
@@ -45,3 +46,4 @@ spec:
             - "--enableWatchListFeature={{.EnableWatchListFeature}}"
             - "--api-version=v1"
             - "--resource=pods"
+            - "--disableCompression={{$DisableCompression}}"

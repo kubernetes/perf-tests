@@ -44,6 +44,7 @@ steps:
           templateFillMap:
             EnableWatchListFeature: "false"
             RunOnControlPlane: "true"
+            DisableCompression: "true"
     - namespaceList: ["informer-0"]
       replicasPerNamespace: 1
       tuningSet: default
@@ -53,6 +54,7 @@ steps:
           templateFillMap:
             EnableWatchListFeature: "true"
             RunOnControlPlane: "true"
+            DisableCompression: "true"
 {{end}}
 {{if eq $action "create"}}
 - name: Starting measurement for waiting for informer pods to be running

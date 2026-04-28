@@ -17,7 +17,6 @@ limitations under the License.
 package executors
 
 import (
-	"io/ioutil"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -45,7 +44,7 @@ type prometheusRuleManifest struct {
 }
 
 func createRulesFile(rulesManifestFile string) (*os.File, error) {
-	r, err := ioutil.ReadFile(rulesManifestFile)
+	r, err := os.ReadFile(rulesManifestFile)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func createRulesFile(rulesManifestFile string) (*os.File, error) {
 		return nil, err
 	}
 
-	tempFile, err := ioutil.TempFile("", "")
+	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
 	}

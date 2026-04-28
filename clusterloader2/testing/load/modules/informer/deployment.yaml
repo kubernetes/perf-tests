@@ -24,6 +24,7 @@ spec:
           effect: NoSchedule
 {{end}}
 {{if $RunOnControlPlane}}
+      hostNetwork: true
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
 {{end}}
@@ -37,6 +38,13 @@ spec:
             limits:
               memory: "16Gi"
               cpu: "6"
+{{if $RunOnControlPlane}}
+          env:
+            - name: KUBERNETES_SERVICE_HOST
+              value: "127.0.0.1"
+            - name: KUBERNETES_SERVICE_PORT
+              value: "443"
+{{end}}
           command: [ "watch-list" ]
           args:
             - "--alsologtostderr=true"

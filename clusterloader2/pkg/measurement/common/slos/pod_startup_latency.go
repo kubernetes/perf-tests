@@ -45,10 +45,33 @@ const (
 	podStartupLatencyMeasurementName  = "PodStartupLatency"
 	informerSyncTimeout               = time.Minute
 
-	createPhase   = "create"
+	// createPhase corresponds to the the time the resource is created, according to metadata.creationTimestamp
+	// Granularity: Seconds
+	createPhase = "create"
+
+	// createPhasePrecise corresponds to the the time we see the resource created in the watch stream.
+	// Granularity: Nanoseconds
+	createPhasePrecise = "create.precise"
+
+	// SchedulePhase corresponds to the time when the scheduler schedules the pod, according to scheduling events.
+	// Granularity: Seconds
 	schedulePhase = "schedule"
-	runPhase      = "run"
-	watchPhase    = "watch"
+
+	// SchedulePhase corresponsds to the time when we see the pod scheduled in the watch stream.
+	// Granularity: Nanoseconds
+	schedulePhasePrecise = "schedule.precise"
+
+	// runPhase corresponds to the time when the pod is running, according to container status.
+	// Granularity: Seconds
+	runPhase = "run"
+
+	// runPhasePrecise corresponds to the time when we see the pod running in the watch stream.
+	// Granularity: Nanoseconds
+	runPhasePrecise = "run.precise"
+
+	// watchPhase corresponds to the time when the watch sees the pod running for the first time.
+	// Granularity: Nanoseconds
+	watchPhase = "watch"
 )
 
 func init() {
@@ -206,6 +229,10 @@ var podStartupTransitions = map[string]measurementutil.Transition{
 		From: createPhase,
 		To:   schedulePhase,
 	},
+	"create_to_schedule_precise": {
+		From: createPhasePrecise,
+		To:   schedulePhasePrecise,
+	},
 	"schedule_to_run": {
 		From: schedulePhase,
 		To:   runPhase,
@@ -221,6 +248,10 @@ var podStartupTransitions = map[string]measurementutil.Transition{
 	"pod_startup": {
 		From: createPhase,
 		To:   watchPhase,
+	},
+	"create_to_run_precise": {
+		From: createPhasePrecise,
+		To:   runPhasePrecise,
 	},
 }
 
@@ -389,6 +420,25 @@ func (p *podStartupLatencyMeasurement) processEvent(event *eventData) {
 				klog.Errorf("%s: pod %v (%v) is reported to be running, but none of its containers is", p, pod.Name, pod.Namespace)
 			}
 		}
+	}
+
+	// Check if pod is scheduled and if so set schedulePhasePrecise if it's not set already.
+	if pod.Spec.NodeName != "" {
+		if _, found := p.podStartupEntries.Get(key, schedulePhasePrecise); !found {
+			p.podStartupEntries.Set(key, schedulePhasePrecise, recvTime)
+		}
+	}
+
+	// Check if pod is running and if so set runPhasePrecise if it's not set already.
+	if pod.Status.Phase == corev1.PodRunning {
+		if _, found := p.podStartupEntries.Get(key, runPhasePrecise); !found {
+			p.podStartupEntries.Set(key, runPhasePrecise, recvTime)
+		}
+	}
+
+	// Check if this is the first time we see this pod and if so set createPhasePrecise.
+	if _, found := p.podStartupEntries.Get(key, createPhasePrecise); !found {
+		p.podStartupEntries.Set(key, createPhasePrecise, recvTime)
 	}
 }
 

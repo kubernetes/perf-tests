@@ -1,12 +1,15 @@
-{{$totalSchedulerThroughputPods := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS 5000}}
-{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS  500}}
-{{$defaultBurst := DefaultParam .CL2_DEFAULT_BURST 1000}}
-{{$uniformQps := DefaultParam .CL2_UNIFORM_QPS 500}}
+{{$totalSchedulerThroughputPods := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS 200000}}
+{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS  1000}}
+{{$defaultBurst := DefaultParam .CL2_DEFAULT_BURST 10000}}
+{{$uniformQps := DefaultParam .CL2_UNIFORM_QPS 1000}}
 
 {{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 400}}
 
 name: direct-scheduler-throughput
 namespace:
+  prefix: pvc-sched-test
+  enableExistingNamespaces: true
+  deleteAutomanagedNamespaces: false
   number: 1
 tuningSets:
 # default is a tuningset that is meant to be used when we don't have any specific requirements on pace of operations.
@@ -17,6 +20,7 @@ tuningSets:
 - name: UniformQPS
   qpsLoad:
     qps: {{$uniformQps}}
+    burst: {{$defaultBurst}}
 steps:
 - name: Creating scheduler throughput measurements
   measurements:
@@ -51,7 +55,7 @@ steps:
     Method: WaitForRunningPods
     Params:
       action: gather
-      timeout: 5m
+      timeout: 20m
       desiredPodCount: {{$totalSchedulerThroughputPods}}
       labelSelector: group = direct-scheduler-throughput
 - name: Collecting scheduler throughput measurements

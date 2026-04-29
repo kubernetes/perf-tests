@@ -9,9 +9,9 @@ require (
 )
 
 replace (
-	k8s.io/api => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/api v0.0.0-20260420165437-4cff86bf8f9a
-	k8s.io/apimachinery => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20260420165437-4cff86bf8f9a
-	k8s.io/client-go => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/client-go v0.0.0-20260420165437-4cff86bf8f9a
+	k8s.io/api => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/api v0.0.0-20260429201250-c8a597498e32
+	k8s.io/apimachinery => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20260429201250-c8a597498e32
+	k8s.io/client-go => github.com/p0lyn0mial/kubernetes/staging/src/k8s.io/client-go v0.0.0-20260429201250-c8a597498e32
 )
 
 require (

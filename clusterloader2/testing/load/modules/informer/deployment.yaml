@@ -24,12 +24,15 @@ spec:
           effect: NoSchedule
 {{end}}
 {{if $RunOnControlPlane}}
+      # Use the node's network namespace so that 127.0.0.1 reaches the
+      # API server on the same host, not the pod's own loopback.
+      hostNetwork: true
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
 {{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4
+          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4-p0lyn0mial.2
           resources:
             requests:
               memory: "16Gi"
@@ -37,6 +40,15 @@ spec:
             limits:
               memory: "16Gi"
               cpu: "6"
+          # Override the in-cluster config to connect to the local API server via
+          # localhost, similar to how kops configures KCM.
+{{if $RunOnControlPlane}}
+          env:
+            - name: KUBERNETES_SERVICE_HOST
+              value: "127.0.0.1"
+            - name: KUBERNETES_SERVICE_PORT
+              value: "443"
+{{end}}
           command: [ "watch-list" ]
           args:
             - "--alsologtostderr=true"

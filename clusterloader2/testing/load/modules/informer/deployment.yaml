@@ -32,7 +32,7 @@ spec:
 {{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4-p0lyn0mial.1
+          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4-p0lyn0mial.2
           resources:
             requests:
               memory: "16Gi"

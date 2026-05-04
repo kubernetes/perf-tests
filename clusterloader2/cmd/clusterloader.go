@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -301,7 +300,7 @@ func main() {
 
 	klog.V(2).Infof("KubeConfigPath: %v", clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 	if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" {
-		content, err := ioutil.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+		content, err := os.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 		if err != nil {
 			klog.Errorf("Error reading kubeconfig: %v", err)
 		} else {
@@ -468,7 +467,7 @@ func dumpTestConfig(ctx test.Context, config *api.Config) error {
 		return fmt.Errorf("marshaling config error: %w", err)
 	}
 	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, "generatedConfig_"+config.Name+".yaml")
-	if err := ioutil.WriteFile(filePath, b, 0644); err != nil {
+	if err := os.WriteFile(filePath, b, 0644); err != nil {
 		return fmt.Errorf("saving file error: %w", err)
 	}
 	klog.Infof("Test config successfully dumped to: %s", filePath)

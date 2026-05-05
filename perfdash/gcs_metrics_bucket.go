@@ -19,7 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -137,7 +137,7 @@ func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([
 	}
 	defer rc.Close()
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		return nil, err
 	}

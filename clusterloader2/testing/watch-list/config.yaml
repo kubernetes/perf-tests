@@ -54,6 +54,25 @@ steps:
           templateFillMap:
             Duration: {{$testDuration}}
             EnableWatchListFeature: {{$enableWatchListFeature}}
+- name: Starting measurement for waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWatchListJobs
+      Params:
+        apiVersion: batch/v1
+        kind: Job
+    Params:
+      action: start
+      labelSelector: group = watch-list
+      operationTimeout: 2m
+- name: Waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWatchListJobs
+    Params:
+      action: gather
 - name: Wait for the secret informer job to finish
   measurements:
     - Identifier: WaitForFinishedJobs

@@ -17,7 +17,6 @@
 from __future__ import print_function
 
 import argparse
-import datetime
 import glob
 import json
 import mmap
@@ -75,15 +74,10 @@ def file_passes(filename, refs, regexs):
     # trim our file to the same number of lines as the reference file
     data = data[:len(ref)]
 
-    p = regexs["year"]
-    for d in data:
-        if p.search(d):
-            return False
-
-    # Replace all occurrences of the regex "2016|2015|2014" with "YEAR"
+    # Remove all occurrences of the year (regex "Copyright (2014|2015|...|2025) ")
     p = regexs["date"]
     for i, d in enumerate(data):
-        (data[i], found) = p.subn('YEAR', d)
+        (data[i], found) = p.subn('Copyright ', d)
         if found != 0:
             break
 
@@ -135,15 +129,15 @@ def get_files(extensions):
     return outfiles
 
 def get_dates():
-    years = datetime.datetime.now().year
-    return '(%s)' % '|'.join((str(year) for year in range(2014, years+1)))
+    # After 2025, we no longer allow new files to include the year in the copyright header.
+    final_year = 2025
+    return ' (%s) ' % '|'.join((str(year) for year in range(2014, final_year+1)))
 
 def get_regexs():
     regexs = {}
-    # Search for "YEAR" which exists in the boilerplate, but shouldn't in the real thing
-    regexs["year"] = re.compile( 'YEAR' )
-    # dates can be 2014, 2015,... till current year, company holder names can be anything
-    regexs["date"] = re.compile(get_dates())
+    # get_dates returns 2014, 2015, 2016, 2017, ..., 2025
+    # as a regex like: "(2014|2015|2016|2017|2018|...|2025)";
+    regexs["date"] = re.compile("Copyright" + get_dates())
     # strip // +build \n\n build constraints
     regexs["go_build_constraints"] = re.compile(r"^(// \+build.*\n)+\n", re.MULTILINE)
     # strip #!.* from shell scripts

@@ -1,0 +1,29 @@
+{{$RESTART_TIMEOUT := DefaultParam .CL2_APISERVER_RESTART_TIMEOUT "10m"}}
+{{$RESTART_DOWN_SECONDS := DefaultParam .CL2_APISERVER_RESTART_DOWN_SECONDS 30}}
+{{$SETTLE_DURATION := DefaultParam .CL2_APISERVER_RESTART_SETTLE "2m"}}
+
+steps:
+- module:
+    path: modules/restart-apiserver-metrics.yaml
+    params:
+      action: start
+
+- name: Restart kube-apiserver and wait for /readyz
+  measurements:
+  - Identifier: RestartApiserver
+    Method: RestartApiserver
+    Params:
+      downSeconds: {{$RESTART_DOWN_SECONDS}}
+      readyTimeout: {{$RESTART_TIMEOUT}}
+
+- name: Wait for watch-cache hydration to settle
+  measurements:
+  - Identifier: WaitAfterApiserverRestart
+    Method: Sleep
+    Params:
+      duration: {{$SETTLE_DURATION}}
+
+- module:
+    path: modules/restart-apiserver-metrics.yaml
+    params:
+      action: gather

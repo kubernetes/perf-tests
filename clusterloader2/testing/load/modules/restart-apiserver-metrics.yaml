@@ -1,0 +1,21 @@
+{{$action := .action}}
+
+steps:
+- name: {{$action}} watch-cache init metrics
+  measurements:
+  - Identifier: WatchCacheInitMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchCacheInit
+      metricVersion: v1
+      unit: count
+      enableViolations: false
+      dimensions:
+      - resource
+      - type
+      queries:
+      - name: InitEvents
+        query: sum by (resource) (increase(apiserver_init_events_total[%v]))
+      - name: EtcdListLatency
+        query: sum by (type) (increase(etcd_request_duration_seconds_sum{operation="list"}[%v])) / sum by (type) (increase(etcd_request_duration_seconds_count{operation="list"}[%v]))

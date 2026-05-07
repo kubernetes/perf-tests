@@ -280,6 +280,21 @@ steps:
         query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
       - name: max
         query: max_over_time(sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
+  - Identifier: ObjectCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ObjectCount
+      metricVersion: v1
+      unit: count
+      dimensions:
+      - resource
+      - group
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_objects)[%v:])
+      - name: max
+        query: max_over_time(sum by (group, resource) (apiserver_resource_objects)[%v:])
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

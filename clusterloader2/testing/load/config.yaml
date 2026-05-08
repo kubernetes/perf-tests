@@ -78,6 +78,7 @@
 {{$EXIT_AFTER_EXEC := DefaultParam .CL2_EXIT_AFTER_EXEC false}}
 {{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "3600s"}}
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
+{{$RESTART_APISERVER := DefaultParam .CL2_RESTART_APISERVER false}}
 
 {{$registry := DefaultParam .CL2_LATENCY_POD_REGISTRY "registry.k8s.io"}}
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE (Concat $registry "/pause:3.9")}}
@@ -286,6 +287,11 @@ steps:
     Method: Sleep
     Params:
       duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+{{end}}
+
+{{if $RESTART_APISERVER}}
+- module:
+    path: modules/restart-apiserver.yaml
 {{end}}
 
 {{if not $EXIT_AFTER_EXEC}}

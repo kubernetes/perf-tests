@@ -205,6 +205,14 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 		summary, err = execute(t.clusterOOMsTracker, config)
 		appendResults(&summaries, errList, summary, executeError(t.clusterOOMsTracker.String(), action, err))
+	case "pauseSystemPodMetrics":
+		forwarded := createConfig(config, map[string]interface{}{"action": "pause"})
+		summary, err := execute(t.systemPodMetrics, forwarded)
+		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
+	case "unpauseSystemPodMetrics":
+		forwarded := createConfig(config, map[string]interface{}{"action": "unpause"})
+		summary, err := execute(t.systemPodMetrics, forwarded)
+		appendResults(&summaries, errList, summary, executeError(t.systemPodMetrics.String(), action, err))
 	case "gather":
 		summary, err := execute(t.etcdMetrics, actionGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdMetrics.String(), action, err))

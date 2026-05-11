@@ -57,6 +57,9 @@ func main() {
 	if err := os.Setenv("KUBE_FEATURE_WatchListClient", strconv.FormatBool(enableWatchListAlphaFeature)); err != nil {
 		klog.Fatal(err)
 	}
+	if err := os.Setenv("HTTP2_MAX_READ_FRAME_SIZE", "16777215"); err != nil {
+		klog.Fatal(err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)

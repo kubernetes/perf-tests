@@ -20,6 +20,23 @@ steps:
     Params:
       action: pauseSystemPodMetrics
 
+- name: Start WatchCacheInitializationDuration measurement
+  measurements:
+  - Identifier: WatchCacheInitializationDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: Watch Cache Initialization Duration
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      queries:
+      - name: Avg
+        query: sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_count) > 0)
+      - name: Count
+        query: sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_count)
+
 - name: Restart kube-apiserver and wait for /readyz
   measurements:
   - Identifier: RestartApiserver
@@ -34,6 +51,13 @@ steps:
     Method: Sleep
     Params:
       duration: {{$SETTLE_DURATION}}
+
+- name: Gather WatchCacheInitializationDuration measurement
+  measurements:
+  - Identifier: WatchCacheInitializationDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
 
 - name: Unpausing SystemPodMetrics restart counts
   measurements:

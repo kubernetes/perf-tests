@@ -61,7 +61,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
 		timeout = time.Until(deadline)
 	}
-	klog.V(2).Infof("%s: %s: starting with timeout: %v", options.CallerName, ps.String(), timeout)
+	// klog.V(2).Infof("%s: %s: starting with timeout: %v", options.CallerName, ps.String(), timeout)
 	oldPods, err := ps.List()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
@@ -119,7 +119,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 				klog.Warningf("%s: %s: %d pods appeared: %v", options.CallerName, ps.String(), len(addedPods), strings.Join(addedPods, ", "))
 			}
 			if podsStatus.String() != oldPodsStatus.String() {
-				klog.V(2).Infof("%s: %s: %s", options.CallerName, ps.String(), podsStatus.String())
+				// klog.V(2).Infof("%s: %s: %s", options.CallerName, ps.String(), podsStatus.String())
 			}
 			// We allow inactive pods (e.g. eviction happened).
 			// We wait until there is a desired number of pods running and all other pods are inactive.

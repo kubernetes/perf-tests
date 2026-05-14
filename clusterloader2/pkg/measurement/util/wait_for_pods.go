@@ -57,11 +57,6 @@ type PodLister interface {
 // The current set of pods are fetched by calling List() on the provided PodStore.
 // In the case of failure returns list of pods that were in unexpected state
 func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) (*PodsStatus, error) {
-	var timeout time.Duration
-	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
-		timeout = time.Until(deadline)
-	}
-	// klog.V(2).Infof("%s: %s: starting with timeout: %v", options.CallerName, ps.String(), timeout)
 	oldPods, err := ps.List()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)

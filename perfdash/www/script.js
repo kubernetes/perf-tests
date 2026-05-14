@@ -171,6 +171,26 @@ PerfDashApp.prototype.metricNameChanged = function() {
 // Update the data to graph, using selected labels
 PerfDashApp.prototype.labelChanged = function() {
     this.setURLParameters();
+    var available = {};
+    var selected = this.selectedLabels;
+    angular.forEach(this.data, function(items) {
+        angular.forEach(items, function(item) {
+            if (!item.labels || !item.data) return;
+            for (var name in item.labels) {
+                var matchesOtherSelections = true;
+                for (var other in selected) {
+                    if (other !== name && item.labels[other] !== selected[other]) {
+                        matchesOtherSelections = false;
+                        break;
+                    }
+                }
+                if (!matchesOtherSelections) continue;
+                if (!available[name]) available[name] = {};
+                available[name][item.labels[name]] = true;
+            }
+        });
+    });
+    this.availableLabels = available;
     this.seriesData = [];
     this.series = [];
     result = this.getData(this.selectedLabels);

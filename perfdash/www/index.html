@@ -3,6 +3,12 @@
     <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/angular_material/0.9.4/angular-material.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=RobotoDraft:300,400,500,700,400italic">
     <meta name="viewport" content="initial-scale=1" />
+    <style>
+      md-option.unavailable {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
     <div layout="column" style="margin-top: 20px; width: 80%" offset="10" ng-controller="AppCtrl">
@@ -42,7 +48,8 @@
         <div ng-repeat="(name, items) in controller.labels" ng-model="controller.metricName" ng-change="controller.labelChanged()" style="width: 200px; display: inline-block;">
           <md-input-container>
             <md-select placeholder="name" ng-model="controller.selectedLabels[name]"  ng-change="controller.labelChanged()">
-              <md-option ng-value="item" ng-repeat="item in items">
+              <md-option ng-value="item" ng-repeat="item in items"
+                         ng-class="{'unavailable': !controller.availableLabels[name][item]}">
                 {{item}}
               </md-option>
             </md-select>

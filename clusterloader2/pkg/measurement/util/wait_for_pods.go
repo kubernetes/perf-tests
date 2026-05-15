@@ -63,7 +63,7 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 	}
 	scaling := uninitialized
 	var oldPodsStatus PodsStartupStatus
-	var lastIsPodUpdatedError error
+	// var lastIsPodUpdatedError error
 
 	for {
 		select {
@@ -72,9 +72,9 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			if ctx.Err() == context.DeadlineExceeded {
 				desiredPodCount := options.DesiredPodCount()
 
-				klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
-				klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
-				klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
+				// klog.V(2).Infof("%s: %s: expected %d pods, got %d pods (not RunningAndReady pods: %v)", options.CallerName, ps.String(), desiredPodCount, len(oldPods), pods.NotRunningAndReady())
+				// klog.V(2).Infof("%s: %s: all pods: %v", options.CallerName, ps.String(), pods)
+				// klog.V(2).Infof("%s: %s: last IsPodUpdated error: %v", options.CallerName, ps.String(), lastIsPodUpdatedError)
 				// In case of scaling down we expect unhealth pods to be in TERMINATING state
 				// If we end up with more than expected pods and they are all in RunningAndReady state
 				// we won't report them to the user
@@ -100,9 +100,9 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 				return nil, fmt.Errorf("failed to list pods: %w", err)
 			}
 			podsStatus := ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
-			if podsStatus.LastIsPodUpdatedError != nil {
-				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
-			}
+			// if podsStatus.LastIsPodUpdatedError != nil {
+			// 	lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
+			// }
 
 			diff := DiffPods(oldPods, pods)
 			deletedPods := diff.DeletedPods()

@@ -36,7 +36,7 @@ steps:
         query: |
           max_over_time(
           sum(
-            container_memory_working_set_bytes{namespace="monitoring", pod=~"kube-apiserver.*"} 
+            container_memory_working_set_bytes{namespace="monitoring", pod=~"kube-apiserver.*", container="kube-apiserver"}
             / 1024 / 1024
           )[%v:])
         threshold: {{$APISERVER_MEMORY_THRESHOLD_MEGABYTES}}

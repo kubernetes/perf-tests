@@ -28,6 +28,7 @@ var PerfDashApp = function(http, scope, route) {
     this.cap = 0;
     this.currentCall = 0;
     this.scope.$on('$routeChangeSuccess', this.routeChanged.bind(this));
+    this.scope.$on('$routeUpdate', this.routeChanged.bind(this));
     this.lastCall = {jobname: "", metriccategoryname: "", metricname: "", time: Date.now()};
 };
 
@@ -76,7 +77,7 @@ PerfDashApp.prototype.refresh = function() {
 // Update the select drop-downs based on the query params.
 PerfDashApp.prototype.routeChanged = function(event, data) {
     var app = this;
-    angular.forEach(this.route.current.params, function(value, name) {
+    angular.forEach(this.route.current ? this.route.current.params : {}, function(value, name) {
         switch (name) {
             case "jobname":
                 if (app.jobName !== value) {
@@ -106,10 +107,16 @@ PerfDashApp.prototype.routeChanged = function(event, data) {
 // Update the data to graph, using the selected jobName
 PerfDashApp.prototype.jobNameChanged = function() {
     this.setURLParameters();
+    if (!this.jobName) {
+        this.metricCategoryNames = [];
+        this.metricCategoryName = "";
+        this.metricCategoryNameChanged();
+        return;
+    }
     this.http.get("metriccategorynames", {params: {jobname: this.jobName}})
             .success(function(data) {
                     this.metricCategoryNames = data;
-                    if (this.metricCategoryName == undefined || this.metricCategoryNames.indexOf(this.metricCategoryName) == -1) {
+                    if (!this.metricCategoryName || this.metricCategoryNames.indexOf(this.metricCategoryName) == -1) {
                          this.metricCategoryName = this.metricCategoryNames[0]
                     }
                     this.metricCategoryNameChanged();
@@ -123,10 +130,16 @@ PerfDashApp.prototype.jobNameChanged = function() {
 // Update the data to graph, using the selected jobName
 PerfDashApp.prototype.metricCategoryNameChanged = function() {
     this.setURLParameters();
+    if (!this.jobName || !this.metricCategoryName) {
+        this.metricNames = [];
+        this.metricName = "";
+        this.metricNameChanged();
+        return;
+    }
     this.http.get("metricnames", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName}})
             .success(function(data) {
                     this.metricNames = data;
-                    if (this.metricName == undefined ||  this.metricNames.indexOf(this.metricName) == -1) {
+                    if (!this.metricName ||  this.metricNames.indexOf(this.metricName) == -1) {
                          this.metricName = this.metricNames[0]
                     }
                     this.metricNameChanged();
@@ -140,6 +153,14 @@ PerfDashApp.prototype.metricCategoryNameChanged = function() {
 // Update the data to graph, using the selected metricName
 PerfDashApp.prototype.metricNameChanged = function() {
     this.setURLParameters();
+    if (!this.jobName || !this.metricCategoryName || !this.metricName) {
+        this.data = {};
+        this.builds = [];
+        this.labels = {};
+        this.selectedLabels = {};
+        this.labelChanged();
+        return;
+    }
     if (
         this.lastCall.jobname == this.jobName &&
         this.lastCall.metriccategoryname == this.metricCategoryName &&
@@ -154,12 +175,13 @@ PerfDashApp.prototype.metricNameChanged = function() {
     this.http.get("buildsdata", {params: {jobname: this.jobName, metriccategoryname: this.metricCategoryName, metricname: this.metricName}})
             .success(function(data) {
                     if (this.currentCall != callId) {
-                            return;
+                             return;
                     }
                     this.data = data.builds;
                     this.job = data.job;
                     this.builds = this.getBuilds();
                     this.labels = this.getLabels();
+                    this.labelSearch = {};
                     this.labelChanged();
             }.bind(this))
     .error(function(data) {
@@ -222,6 +244,9 @@ PerfDashApp.prototype.labelChanged = function() {
 
 // Overwrite the URL query params with the current drop-down selections.
 PerfDashApp.prototype.setURLParameters = function() {
+    if (!this.route.current) {
+        return;
+    }
     var newParams = {};
     // By setting all existing params to null in newParams, we will delete label
     // parameters that do not apply to the current selection.
@@ -375,5 +400,7 @@ app.controller('AppCtrl', ['$scope', '$http', '$interval', '$route', function($s
 
 // Add a dummy route so that we can manipulate URL params.
 app.config(function($routeProvider) {
-    $routeProvider.when('/', {})
+    $routeProvider.when('/', {
+        reloadOnSearch: false
+    })
 });

@@ -4,6 +4,7 @@ List load test perform the following steps:
 - Create configmaps.
   - The namespaces used here are managed by CL2.
   - The size and number of configmaps can be specified using `CL2_LIST_CONFIG_MAP_BYTES` and `CL2_LIST_CONFIG_MAP_NUMBER`.
+  - Set `CL2_LIST_BENCHMARK_RESOURCE=pod` to benchmark realistic pod objects instead, with count set by `CL2_LIST_POD_NUMBER`.
 - Create RBAC rules to allow lister pods to access these configmaps
 - Create lister pods using deployment in a separate namespace to list configmaps and secrets.
   - The namespace is created using `namespace.yaml` as a template, but its lifecycle is managed by CL2.

@@ -4,8 +4,7 @@ go 1.26.0
 
 require (
 	github.com/prometheus/client_golang v1.23.2
-	golang.org/x/net v0.53.0
-	k8s.io/apimachinery v0.36.0
+	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v0.36.0
 )
 
@@ -33,6 +32,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/term v0.42.0 // indirect

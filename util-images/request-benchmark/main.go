@@ -42,10 +42,14 @@ const (
 type ContentType string
 
 const (
-	JSONContentType  ContentType = "json"
-	ProtoContentType ContentType = "proto"
-	CBORContentType  ContentType = "cbor"
-	YAMLContentType  ContentType = "yaml"
+	JSONContentType       ContentType = "json"
+	ProtoContentType      ContentType = "proto"
+	CBORContentType       ContentType = "cbor"
+	YAMLContentType       ContentType = "yaml"
+	TableContentType      ContentType = "table"
+	JSONPrettyContentType ContentType = "json-pretty"
+
+	tableAccept = "application/json;as=Table;v=v1;g=meta.k8s.io"
 )
 
 var (
@@ -63,22 +67,22 @@ func (c ContentType) String() string {
 
 func (c *ContentType) Set(value string) error {
 	switch ContentType(value) {
-	case JSONContentType, ProtoContentType, CBORContentType, YAMLContentType:
+	case JSONContentType, ProtoContentType, CBORContentType, YAMLContentType, TableContentType, JSONPrettyContentType:
 		*c = ContentType(value)
 		return nil
 	default:
-		return fmt.Errorf("invalid content type: %s. Must be one of: [json, proto, cbor, yaml]", value)
+		return fmt.Errorf("invalid content type: %s. Must be one of: [json, proto, cbor, yaml, table, json-pretty]", value)
 	}
 }
 
 func init() {
-	flag.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml]")
+	flag.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml, table, json-pretty]")
 	flag.Parse()
 }
 
 func getContentType(ct ContentType) (string, error) {
 	switch ct {
-	case JSONContentType:
+	case JSONContentType, JSONPrettyContentType:
 		return "application/json", nil
 	case ProtoContentType:
 		return "application/vnd.kubernetes.protobuf", nil
@@ -86,6 +90,8 @@ func getContentType(ct ContentType) (string, error) {
 		return "application/cbor", nil
 	case YAMLContentType:
 		return "application/yaml", nil
+	case TableContentType:
+		return tableAccept, nil
 	default:
 		return "", fmt.Errorf("unsupported content type: %s", ct)
 	}
@@ -113,6 +119,12 @@ func main() {
 	}
 	url.Host = serverURL.Host
 	url.Scheme = serverURL.Scheme
+
+	if contentType == JSONPrettyContentType {
+		q := url.Query()
+		q.Set("pretty", "true")
+		url.RawQuery = q.Encode()
+	}
 
 	var rateLimiter flowcontrol.RateLimiter
 	if *qps != -1 {

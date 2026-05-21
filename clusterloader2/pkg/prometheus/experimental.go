@@ -94,7 +94,7 @@ func (pc *Controller) tryRetrievePrometheusDiskMetadata() (bool, error) {
 	}
 	var pdName, zone string
 	for _, pv := range list.Items {
-		if pv.Spec.ClaimRef.Name != "prometheus-k8s-db-prometheus-k8s-0" {
+		if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.Name != "prometheus-k8s-db-prometheus-k8s-0" {
 			continue
 		}
 		if pv.Status.Phase != corev1.VolumeBound {

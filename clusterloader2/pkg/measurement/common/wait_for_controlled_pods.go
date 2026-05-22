@@ -86,7 +86,7 @@ func (s *sharedPodIndexerFactory) PodsIndexer(c clientset.Interface) (*measureme
 
 func (s *sharedPodIndexerFactory) start(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
 	ctx := context.Background()
-	informerFactory := informers.NewSharedInformerFactory(c, 0)
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(c, 0, informers.WithTransform(informer.TrimManagedFields))
 	podsIndexer, err := measurementutil.NewControlledPodsIndexer(
 		informerFactory.Core().V1().Pods(),
 		informerFactory.Apps().V1().ReplicaSets(),

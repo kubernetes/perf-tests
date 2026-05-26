@@ -243,7 +243,7 @@ func getInt(dict map[string]interface{}, key string) (int, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if i, err := strconv.Atoi(stringValue); err != nil {
+		if i, err := strconv.Atoi(stringValue); err == nil {
 			return i, nil
 		}
 	}
@@ -262,7 +262,7 @@ func getFloat64(dict map[string]interface{}, key string) (float64, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if f, err := strconv.ParseFloat(stringValue, 64); err != nil {
+		if f, err := strconv.ParseFloat(stringValue, 64); err == nil {
 			return f, nil
 		}
 	}
@@ -294,7 +294,7 @@ func getBool(dict map[string]interface{}, key string) (bool, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if b, err := strconv.ParseBool(stringValue); err != nil {
+		if b, err := strconv.ParseBool(stringValue); err == nil {
 			return b, nil
 		}
 	}

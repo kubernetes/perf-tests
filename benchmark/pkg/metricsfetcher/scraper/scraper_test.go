@@ -17,7 +17,6 @@ limitations under the License.
 package scraper
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -76,7 +75,7 @@ func TestGetMetricsForRun(t *testing.T) {
 	var latencyFilesContents [][]byte
 	latencyFiles := []string{"APIResponsiveness_testA_xyz123.txt", "APIResponsiveness_testB_xy123c.txt", "PodStartupLatency_testA_xyz123.txt"}
 	for _, latencyFile := range latencyFiles {
-		fileContents, err := ioutil.ReadFile(wd + "/test-data/" + latencyFile)
+		fileContents, err := os.ReadFile(wd + "/test-data/" + latencyFile)
 		if err != nil {
 			panic(err)
 		}

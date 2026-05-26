@@ -18,7 +18,7 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"k8s.io/contrib/test-utils/utils"
 )
@@ -92,7 +92,7 @@ func (utils GCSLogUtils) GetJobRunFileContents(job string, run int, filepath str
 		return nil, fmt.Errorf("couldn't read file from GCS: %v", err)
 	}
 	defer response.Body.Close()
-	return ioutil.ReadAll(response.Body)
+	return io.ReadAll(response.Body)
 }
 
 // ListJobRunFilesWithPrefix returns the list of files with a given path prefix in the job run's root dir.

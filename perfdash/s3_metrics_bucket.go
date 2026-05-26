@@ -19,7 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -117,5 +117,5 @@ func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]
 	}
 
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }

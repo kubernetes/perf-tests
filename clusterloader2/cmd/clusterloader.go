@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -35,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/heapprofile"
 	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
 	"k8s.io/perf-tests/clusterloader2/pkg/metadata"
 	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
@@ -65,6 +65,7 @@ var (
 	testSuiteConfigPath string
 	port                int
 	dryRun              bool
+	heapProfileInterval time.Duration
 )
 
 func initClusterFlags() {
@@ -133,6 +134,7 @@ func initFlags() {
 	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
+	flags.DurationEnvVar(&heapProfileInterval, "heap-profile-interval", "CL2_HEAP_PROFILE_INTERVAL", 0, "Interval between clusterloader2 heap profiles. 0 represents disabled.")
 	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
 
 	initClusterFlags()
@@ -150,6 +152,12 @@ func validateFlags() *errors.ErrorList {
 	}
 	if len(testConfigPaths) > 0 && testSuiteConfigPath != "" {
 		errList.Append(fmt.Errorf("test config path and test suite path cannot be provided at the same time"))
+	}
+	if heapProfileInterval < 0 {
+		errList.Append(fmt.Errorf("heap-profile-interval must be non-negative, got %s", heapProfileInterval))
+	}
+	if heapProfileInterval > 0 && clusterLoaderConfig.ReportDir == "" {
+		errList.Append(fmt.Errorf("heap-profile-interval requires --report-dir to be set"))
 	}
 	errList.Concat(validateClusterFlags())
 	errList.Concat(prometheus.ValidatePrometheusFlags(&clusterLoaderConfig.PrometheusConfig))
@@ -301,7 +309,7 @@ func main() {
 
 	klog.V(2).Infof("KubeConfigPath: %v", clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 	if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" {
-		content, err := ioutil.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+		content, err := os.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 		if err != nil {
 			klog.Errorf("Error reading kubeconfig: %v", err)
 		} else {
@@ -321,6 +329,10 @@ func main() {
 
 	if err = createReportDir(); err != nil {
 		klog.Exitf("Cannot create report directory: %v", err)
+	}
+
+	if heapProfileInterval > 0 {
+		heapprofile.Start(clusterLoaderConfig.ReportDir, heapProfileInterval)
 	}
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {
@@ -468,7 +480,7 @@ func dumpTestConfig(ctx test.Context, config *api.Config) error {
 		return fmt.Errorf("marshaling config error: %w", err)
 	}
 	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, "generatedConfig_"+config.Name+".yaml")
-	if err := ioutil.WriteFile(filePath, b, 0644); err != nil {
+	if err := os.WriteFile(filePath, b, 0644); err != nil {
 		return fmt.Errorf("saving file error: %w", err)
 	}
 	klog.Infof("Test config successfully dumped to: %s", filePath)

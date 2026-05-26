@@ -75,6 +75,26 @@ type systemPodsMetrics struct {
 
 // Execute gathers and prints system pod metrics.
 func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	action, err := util.GetString(config.Params, "action")
+	if err != nil {
+		return nil, err
+	}
+
+	if action == "pause" {
+		return nil, nil
+	}
+	if action == "unpause" {
+		if m.initSnapshot == nil {
+			return nil, nil
+		}
+		metrics, err := getPodMetrics(config)
+		if err != nil {
+			return nil, err
+		}
+		m.initSnapshot = metrics
+		return nil, nil
+	}
+
 	systemPodMetricsEnabled, err := util.GetBoolOrDefault(config.Params, systemPodMetricsEnabledFlagName, false)
 	if err != nil {
 		return nil, err
@@ -85,11 +105,6 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]mea
 	}
 
 	metrics, err := getPodMetrics(config)
-	if err != nil {
-		return nil, err
-	}
-
-	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
 	}

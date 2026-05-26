@@ -19,7 +19,6 @@ package executors
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -65,7 +64,7 @@ func (t *testSeries) seriesLoadingString() string {
 }
 
 func loadFromFile(filename string) (*testSeries, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

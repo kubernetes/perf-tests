@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG GOLANG_VERSION=1.24
+ARG GOLANG_VERSION=1.25
 FROM golang:${GOLANG_VERSION} AS builder
 
 WORKDIR /workspace

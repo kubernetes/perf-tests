@@ -20,7 +20,6 @@ import (
 	"context"
 	goflag "flag"
 	flag "github.com/spf13/pflag"
-	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"net"
 	"os"
@@ -98,7 +97,7 @@ func newConfig(tokenFile, rootCAFile string) (*rest.Config, error) {
 	if len(host) == 0 || len(port) == 0 {
 		return nil, rest.ErrNotInCluster
 	}
-	token, err := ioutil.ReadFile(tokenFile)
+	token, err := os.ReadFile(tokenFile)
 	if err != nil {
 		return nil, err
 	}

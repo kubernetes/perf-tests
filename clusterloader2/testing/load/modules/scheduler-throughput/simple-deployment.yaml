@@ -1,11 +1,10 @@
-{{$HostNetworkMode := DefaultParam .CL2_USE_HOST_NETWORK_PODS false}}
 # Keep the CpuRequest/MemoryRequest request equal percentage of 1-core, 4GB node.
 # For now we're setting it to 0.5%.
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
 {{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
-{{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -27,7 +26,6 @@ spec:
         svc: {{.SvcName}}-{{.Index}}
 {{end}}
     spec:
-      hostNetwork: {{$HostNetworkMode}}
       containers:
       - env:
         - name: ENV_VAR
@@ -51,9 +49,8 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 900
-      {{if $RUN_ON_ARM_NODES}}
-      - key: "kubernetes.io/arch"
-        operator: Equal
-        value: arm64
+      {{if $TOLERATION}}
+      - key: {{$TOLERATION}}
+        operator: Exists
         effect: NoSchedule
       {{end}}

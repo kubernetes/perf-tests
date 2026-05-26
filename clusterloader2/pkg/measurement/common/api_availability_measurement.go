@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -48,7 +49,7 @@ func createAPIAvailabilityMeasurement() measurement.Measurement {
 
 type apiAvailabilityMeasurement struct {
 	isRunning           bool
-	isPaused            bool
+	isPaused            atomic.Bool
 	pauseCh             chan struct{}
 	unpauseCh           chan struct{}
 	stopCh              chan struct{}
@@ -115,6 +116,9 @@ func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientse
 	availability := status == http.StatusOK
 	if !availability {
 		klog.Warningf("cluster not available; HTTP status code: %d", status)
+		if err := result.Error(); err != nil {
+			klog.Warningf("request error: %v", err)
+		}
 	}
 	a.clusterLevelMetrics.update(availability)
 }
@@ -158,17 +162,17 @@ func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
 	go func() {
 		defer a.wg.Done()
 		for {
-			if a.isPaused {
+			if a.isPaused.Load() {
 				select {
 				case <-a.unpauseCh:
-					a.isPaused = false
+					a.isPaused.Store(false)
 				case <-a.stopCh:
 					return
 				}
 			}
 			select {
 			case <-a.pauseCh:
-				a.isPaused = true
+				a.isPaused.Store(true)
 			case <-time.After(a.pollFrequency):
 				a.updateClusterAvailabilityMetrics(k8sClient)
 				if a.hostLevelAvailabilityEnabled() {
@@ -261,7 +265,7 @@ func (a *apiAvailabilityMeasurement) pause() {
 		klog.V(2).Infof("%s: measurement is not running", a)
 		return
 	}
-	if a.isPaused {
+	if a.isPaused.Load() {
 		klog.Warningf("%s: measurement already paused", a)
 		return
 	}
@@ -274,7 +278,7 @@ func (a *apiAvailabilityMeasurement) unpause() {
 		klog.V(2).Infof("%s: measurement is not running", a)
 		return
 	}
-	if !a.isPaused {
+	if !a.isPaused.Load() {
 		klog.Warningf("%s: measurement already unpaused", a)
 		return
 	}

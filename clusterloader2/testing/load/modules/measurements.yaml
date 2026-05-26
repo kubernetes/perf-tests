@@ -47,6 +47,7 @@
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL (IfThenElse (ge .Nodes 5000) "60s" "15s")}}
 
 steps:
 - name: "{{$action}}ing measurements"
@@ -81,6 +82,7 @@ steps:
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      checkProbesReadyInterval: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
       pingSleepDuration: {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION}}
       threshold: {{$NETWORK_LATENCY_THRESHOLD}}
@@ -99,6 +101,7 @@ steps:
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      checkProbesReadyInterval: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
 {{end}}
 {{if $PROMETHEUS_SCRAPE_KUBE_PROXY}}
@@ -277,6 +280,21 @@ steps:
         query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
       - name: max
         query: max_over_time(sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
+  - Identifier: ObjectCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ObjectCount
+      metricVersion: v1
+      unit: count
+      dimensions:
+      - resource
+      - group
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_objects)[%v:])
+      - name: max
+        query: max_over_time(sum by (group, resource) (apiserver_resource_objects)[%v:])
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

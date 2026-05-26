@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"regexp"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,8 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"os"
-	"regexp"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -52,17 +53,18 @@ type Target struct {
 
 // CheckAllTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // all of them are ready.
-func CheckAllTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int) (bool, error) {
-	return CheckTargetsReady(k8sClient, selector, minActiveTargets, allTargets)
+func CheckAllTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int) (bool, error) {
+	return CheckTargetsReady(ctx, k8sClient, selector, minActiveTargets, allTargets)
 }
 
 // CheckTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // at least minReadyTargets of them are ready.
-func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
+func CheckTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
+
 	raw, err := k8sClient.CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
-		DoRaw(context.TODO())
+		DoRaw(ctx)
 	if err != nil {
 		response := "(empty)"
 		if raw != nil {

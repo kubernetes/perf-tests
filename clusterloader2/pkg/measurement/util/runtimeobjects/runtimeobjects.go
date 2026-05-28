@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 
 	goerrors "github.com/go-errors/errors"
 	gocmp "github.com/google/go-cmp/cmp"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
@@ -102,11 +100,6 @@ func (lsde *lazySpecDiffError) Error() string {
 	return fmt.Sprintf("Not matching templates, diff: %v", gocmp.Diff(lsde.templateSpec, lsde.podSpec))
 }
 
-type podCacheKey struct {
-	uid types.UID
-	rv  string
-}
-
 func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) error, error) {
 	templateMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "template")
 	if err != nil {
@@ -117,30 +110,14 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 	}
 	template := corev1.PodTemplateSpec{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, &template); err != nil {
-		return nil, goerrors.Errorf("failed to parse spec.template as v1.PodTemplateSpec")
+		return nil, goerrors.Errorf("failed to parse spec.teemplate as v1.PodTemplateSpec")
 	}
 
-	cache := make(map[podCacheKey]error)
-	var mu sync.Mutex
-
 	return func(pod *corev1.Pod) error {
-		key := podCacheKey{uid: pod.UID, rv: pod.ResourceVersion}
-		mu.Lock()
-		if cachedErr, exists := cache[key]; exists {
-			mu.Unlock()
-			return cachedErr
-		}
-		mu.Unlock()
-
-		var err error
 		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
-			err = &lazySpecDiffError{template.Spec, pod.Spec}
+			return &lazySpecDiffError{template.Spec, pod.Spec}
 		}
-
-		mu.Lock()
-		cache[key] = err
-		mu.Unlock()
-		return err
+		return nil
 	}, nil
 }
 

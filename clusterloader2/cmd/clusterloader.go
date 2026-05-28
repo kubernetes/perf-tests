@@ -95,6 +95,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.MasterDNSEndpoint, "master-endpoint", "MASTER_DNS_ENDPOINT", "", "Endpoint of the master node, exclusive with --masterip and --master-internal-ips")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
 	flags.BoolVar(&clusterLoaderConfig.ClusterConfig.SkipClusterVerification, "skip-cluster-verification", false, "Whether to skip the cluster verification, which expects at least one schedulable node in the cluster")
+	flags.BoolVar(&clusterLoaderConfig.ClusterConfig.HashBasedPodComparison, "hash-based-pod-comparison", true, "Whether to use hash-based pod comparison to verify pod updates, enabling aggressive memory stripping of cached pods")
 
 	flags.StringEnvVar(&providerInitOptions.ProviderName, "provider", "PROVIDER", "", "Cluster provider name")
 	flags.StringSliceEnvVar(&providerInitOptions.ProviderConfigs, "provider-configs", "PROVIDER_CONFIGS", nil, "Cluster provider configurations")

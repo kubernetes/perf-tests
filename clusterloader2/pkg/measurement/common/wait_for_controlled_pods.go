@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +66,8 @@ const (
 
 var podIndexerFactory = &sharedPodIndexerFactory{}
 
+var automanagedNamespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
+
 func init() {
 	if err := measurement.Register(waitForControlledPodsRunningName, createWaitForControlledPodsRunningMeasurement); err != nil {
 		klog.Fatalf("Cannot register %s: %v", waitForControlledPodsRunningName, err)
@@ -86,7 +89,29 @@ func (s *sharedPodIndexerFactory) PodsIndexer(c clientset.Interface) (*measureme
 
 func (s *sharedPodIndexerFactory) start(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
 	ctx := context.Background()
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(c, 0, informers.WithTransform(informer.TrimManagedFields))
+	trimFn := func(obj interface{}) (interface{}, error) {
+		if accessor, err := meta.Accessor(obj); err == nil && accessor.GetManagedFields() != nil {
+			accessor.SetManagedFields(nil)
+		}
+		pod, ok := obj.(*v1.Pod)
+		if !ok {
+			return obj, nil
+		}
+		if automanagedNamespaceID.MatchString(pod.Namespace) {
+			// For pods managed by the clusterloader, we need to keep the full pod.Spec for checkIfPodsAreUpdated feature.
+			return obj, nil
+		}
+
+		pod.Spec = v1.PodSpec{
+			NodeName: pod.Spec.NodeName,
+		}
+		pod.Status = v1.PodStatus{
+			Phase:      pod.Status.Phase,
+			Conditions: pod.Status.Conditions,
+		}
+		return pod, nil
+	}
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(c, 0, informers.WithTransform(trimFn))
 	podsIndexer, err := measurementutil.NewControlledPodsIndexer(
 		informerFactory.Core().V1().Pods(),
 		informerFactory.Apps().V1().ReplicaSets(),

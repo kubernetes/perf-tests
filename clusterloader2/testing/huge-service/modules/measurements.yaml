@@ -22,6 +22,7 @@
 {{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
 {{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION := DefaultParam .CL2_PROBE_MEASUREMENTS_PING_SLEEP_DURATION "1s"}}
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
 
 {{$allowedSlowCalls := AddInt $ALLOWED_SLOW_API_CALLS $HUGE_SERVICE_ALLOWED_SLOW_API_CALLS}}
 
@@ -43,6 +44,7 @@ steps:
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
       allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
@@ -53,6 +55,7 @@ steps:
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:

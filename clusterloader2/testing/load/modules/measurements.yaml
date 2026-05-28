@@ -44,6 +44,7 @@
 {{$ENABLE_VIOLATIONS_FOR_NETWORK_PROGRAMMING_LATENCIES := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_NETWORK_PROGRAMMING_LATENCIES false}}
 {{$NETWORK_PROGRAMMING_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_PROGRAMMING_LATENCY_THRESHOLD "30s"}}
 {{$NETWORK_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_LATENCY_THRESHOLD "0s"}}
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
@@ -59,6 +60,7 @@ steps:
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
@@ -69,6 +71,7 @@ steps:
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
   - Identifier: CreatePhasePodStartupLatency
     Method: PodStartupLatency
     Params:

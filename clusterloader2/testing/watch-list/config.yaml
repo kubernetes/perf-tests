@@ -1,6 +1,7 @@
 {{$enableWatchListFeature := DefaultParam .CL2_ENABLE_WATCH_LIST_FEATURE false}}
 {{$testDuration := "5m"}}
 {{$customApiCallThresholds := DefaultParam .CUSTOM_API_CALL_THRESHOLDS ""}}
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
 name: watch-list
 namespace:
   number: 1
@@ -75,3 +76,4 @@ steps:
         useSimpleLatencyQuery: true
         summaryName: APIResponsivenessPrometheus_simple
         customThresholds: {{YamlQuote $customApiCallThresholds 4}}
+        singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -186,8 +187,15 @@ func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimi
 		log.Printf("Got bad status code: %v\n", resp.Status)
 		return false
 	}
-	if resp.Header.Get("Content-Type") != contentType {
-		log.Printf("Got bad content type: %q, expected %q\n", resp.Header.Get("Content-Type"), contentType)
+	respContentType := resp.Header.Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(respContentType)
+	if err != nil {
+		log.Printf("Got invalid Content-Type header %q: %v\n", respContentType, err)
+		return false
+	}
+	expectedMediaType, _, _ := mime.ParseMediaType(contentType)
+	if mediaType != expectedMediaType {
+		log.Printf("Got bad content type: %q, expected %q\n", mediaType, expectedMediaType)
 		return false
 	}
 	written, err := io.Copy(io.Discard, resp.Body)

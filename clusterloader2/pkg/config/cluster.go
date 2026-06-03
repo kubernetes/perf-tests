@@ -95,8 +95,6 @@ type PrometheusConfig struct {
 	APIServerScrapePort        int
 	SnapshotProject            string
 	AdditionalMonitorsPath     string
-	StorageClassProvisioner    string
-	StorageClassVolumeType     string
 	PVCStorageClass            string
 	ReadyTimeout               time.Duration
 	PrometheusMemoryRequest    string

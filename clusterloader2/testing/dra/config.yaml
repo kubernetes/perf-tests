@@ -1,3 +1,4 @@
+# TESTING 1, 2, 3 ...
 {{$MODE := DefaultParam .CL2_MODE "Indexed"}}
 {{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .CL2_NODES_PER_NAMESPACE 100)}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}

@@ -76,6 +76,7 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
+	ScrapeApiserverOnly        string
 	TearDownServer             bool
 	EnableServer               bool
 	EnablePushgateway          bool

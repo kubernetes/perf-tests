@@ -31,11 +31,12 @@ steps:
       unit: s
       dimensions:
       - resource
+      - instance
       queries:
-      - name: Avg
-        query: sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_count) > 0)
-      - name: Count
-        query: sum by (resource) (apiserver_watch_cache_initialization_duration_seconds_count)
+      - name: InitDuration
+        query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count) > 0)
+      - name: InitCount
+        query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count)
 
 - name: Restart kube-apiserver and wait for /readyz
   measurements:

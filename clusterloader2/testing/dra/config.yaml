@@ -210,7 +210,7 @@ steps:
       Params:
         action: gather
         labelSelector: job-type = short-lived
-        timeout: 15m
+        timeout: 30m
 - name: Measure scheduler metrics
   measurements:
     - Identifier: ChurnSchedulingMetrics

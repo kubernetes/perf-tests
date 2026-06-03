@@ -217,13 +217,20 @@ func (w *waitForFinishedJobsMeasurement) handleObject(oldObj, newObj interface{}
 		klog.Errorf("Failed obtaining meta key for Job: %v", err)
 		return
 	}
-	completed, condition := finishedJobCondition(newJob)
+	// Use handleJob (not newJob) to check completion status.
+	// When a job is deleted (newJob is nil), we need to check the old state
+	// to preserve completion status for jobs deleted via ttlSecondsAfterFinished.
+	completed, condition := finishedJobCondition(handleJob)
 
 	w.lock.Lock()
 	defer w.lock.Unlock()
+	// Once a job is marked complete/failed, preserve that state even if deleted.
+	// Only remove from tracking if job exists but is not yet complete.
 	if completed {
 		w.finishedJobs[key] = condition
-	} else {
+	} else if _, alreadyFinished := w.finishedJobs[key]; !alreadyFinished {
+		// Only delete if the job was never completed. If it was previously
+		// marked complete, keep that status even if the job is deleted.
 		delete(w.finishedJobs, key)
 	}
 }

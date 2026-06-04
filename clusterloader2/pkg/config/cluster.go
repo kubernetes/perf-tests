@@ -43,6 +43,7 @@ type ClusterConfig struct {
 	EtcdCertificatePath string
 	EtcdKeyPath         string
 	EtcdInsecurePort    int
+	EtcdPprofPort       int
 	MasterIPs           []string
 	MasterInternalIPs   []string
 	MasterName          string

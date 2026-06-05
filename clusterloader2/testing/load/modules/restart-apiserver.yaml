@@ -37,6 +37,18 @@ steps:
         query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count) > 0)
       - name: InitCount
         query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count)
+  - Identifier: WatchCacheInitializationDurationMax
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: Watch Cache Initialization Duration Max
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      queries:
+      - name: InitDuration
+        query: max by (resource) (sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count) > 0))
 
 - name: Restart kube-apiserver and wait for /readyz
   measurements:
@@ -56,6 +68,10 @@ steps:
 - name: Gather WatchCacheInitializationDuration measurement
   measurements:
   - Identifier: WatchCacheInitializationDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+  - Identifier: WatchCacheInitializationDurationMax
     Method: GenericPrometheusQuery
     Params:
       action: gather

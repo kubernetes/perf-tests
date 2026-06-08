@@ -768,3 +768,144 @@ func TestAPIResponsivenessCustomThresholds(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIResponsivenessSingleResourceThresholdOverride(t *testing.T) {
+	cases := []struct {
+		name             string
+		config           *measurement.Config
+		metricSamples    map[string][]*sample
+		hasError         bool
+		expectedMessages []string
+	}{
+		{
+			name: "no_override_pass",
+			config: &measurement.Config{
+				Params: map[string]interface{}{},
+			},
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pods",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  0.8,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
+			},
+			hasError: false,
+		},
+		{
+			name: "no_override_fail",
+			config: &measurement.Config{
+				Params: map[string]interface{}{},
+			},
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pods",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.5,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
+			},
+			hasError: true,
+		},
+		{
+			name: "override_pass",
+			config: &measurement.Config{
+				Params: map[string]interface{}{
+					"singleResourceThreshold": "2s",
+				},
+			},
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pods",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.5,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
+			},
+			hasError: false,
+		},
+		{
+			name: "override_fail",
+			config: &measurement.Config{
+				Params: map[string]interface{}{
+					"singleResourceThreshold": "2s",
+				},
+			},
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pods",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  2.5,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
+			},
+			hasError: true,
+		},
+		{
+			name: "override_invalid_fallback_fail",
+			config: &measurement.Config{
+				Params: map[string]interface{}{
+					"singleResourceThreshold": "invalid_duration",
+				},
+			},
+			metricSamples: map[string][]*sample{
+				"apiserver_request_sli_latency": {
+					{
+						resource: "pods",
+						verb:     "POST",
+						scope:    "resource",
+						latency:  1.5,
+					},
+				},
+				"apiserver_request_sli_duration_seconds": {},
+				"apiserver_watch_list_duration_seconds":  {},
+			},
+			hasError: true,
+			expectedMessages: []string{
+				"invalid singleResourceThreshold value",
+			},
+		},
+	}
+
+	klog.LogToStderr(false)
+	defer klog.LogToStderr(true)
+	changeLoggingVerbosity(t, "2")
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := bytes.NewBuffer(nil)
+			klog.SetOutput(buf)
+
+			executor := &fakeQueryExecutor{metricSamples: tc.metricSamples}
+			gatherer := &apiResponsivenessGatherer{}
+
+			_, err := gatherer.Gather(executor, time.Now(), time.Now(), tc.config)
+			klog.Flush()
+			if tc.hasError {
+				assert.NotNil(t, err, "expected an error, but got none")
+			} else {
+				assert.Nil(t, err, "expected no error, but got %v", err)
+			}
+
+			for _, msg := range tc.expectedMessages {
+				assert.Contains(t, buf.String(), msg)
+			}
+		})
+	}
+}

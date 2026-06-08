@@ -215,6 +215,11 @@ var (
 				OutputFilePrefix: "MetricsForE2E",
 				Parser:           parseApiserverInitEventsCount,
 			}},
+			"LoadWatchCacheInitializationDurationMax": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "GenericPrometheusQuery Watch Cache Initialization Duration Max",
+				Parser:           parsePerfData,
+			}},
 			"Responsiveness": []TestDescription{{
 				OutputFilePrefix: "APIResponsiveness",
 				Parser:           parsePerfData,

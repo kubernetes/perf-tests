@@ -591,6 +591,9 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 }
 
 func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
+	// do not log prometheus error for large clusters
+	logPrometheusError := pc.clusterLoaderConfig.ClusterConfig.Nodes < 5000
+
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -605,7 +608,7 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
-			expectedTargets)
+			expectedTargets, logPrometheusError)
 		if err != nil || !ok {
 			return ok, err
 		}
@@ -613,12 +616,13 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
-			1) // one of them should be healthy
+			1, // one of them should be healthy
+			logPrometheusError)
 	}
 	return CheckAllTargetsReady(ctx,
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
-		expectedTargets)
+		expectedTargets, logPrometheusError)
 }
 
 func retryCreateFunctionWithResponse(f func() (string, error)) (string, error) {

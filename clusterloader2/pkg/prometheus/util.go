@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 
@@ -53,29 +54,40 @@ type Target struct {
 
 // CheckAllTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // all of them are ready.
-func CheckAllTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int) (bool, error) {
-	return CheckTargetsReady(ctx, k8sClient, selector, minActiveTargets, allTargets)
+func CheckAllTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets int, logPrometheusError bool) (bool, error) {
+	return CheckTargetsReady(ctx, k8sClient, selector, minActiveTargets, allTargets, logPrometheusError)
 }
 
 // CheckTargetsReady returns true iff there is at least minActiveTargets matching the selector and
 // at least minReadyTargets of them are ready.
-func CheckTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
-
-	raw, err := k8sClient.CoreV1().
+func CheckTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int, logPrometheusError bool) (bool, error) {
+	reader, err := k8sClient.CoreV1().
 		Services(namespace).
 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
-		DoRaw(ctx)
+		Stream(ctx)
 	if err != nil {
-		response := "(empty)"
-		if raw != nil {
-			response = string(raw)
-		}
 		// This might happen if prometheus server is temporary down, log error but don't return it.
-		klog.Warningf("error while calling prometheus api: %v, response: %v", err, response)
+		if !logPrometheusError || reader == nil {
+			// Prometheus response might be very long, especially during large scale tests.
+			// If we don't log it, we avoid dumping large responses into the log.
+			klog.Warningf("error while getting prometheus targets: %v", err)
+			return false, nil
+		}
+		defer reader.Close()
+
+		resp, readErr := io.ReadAll(reader)
+		if readErr != nil {
+			klog.Warningf("error while calling prometheus api: %v, could not read response: %v", err, readErr)
+			return false, nil
+		}
+
+		klog.Warningf("error while calling prometheus api: %v, response: %s", err, string(resp))
 		return false, nil
 	}
+	defer reader.Close()
+
 	var response targetsResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
+	if err := json.NewDecoder(reader).Decode(&response); err != nil {
 		return false, err // This shouldn't happen, return error.
 	}
 	nReady, nTotal := 0, 0

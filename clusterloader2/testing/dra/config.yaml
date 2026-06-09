@@ -164,9 +164,6 @@ steps:
       Params:
         action: start
         labelSelector: job-type = short-lived
-        perc50Threshold: 40s
-        perc90Threshold: 60s
-        perc99Threshold: 80s
     - Identifier: ChurnClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:
@@ -221,9 +218,6 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
-        perc50Threshold: 40s
-        perc90Threshold: 60s
-        perc99Threshold: 80s
     - Identifier: ChurnClaimAllocationLatency
       Method: ResourceClaimAllocationLatency
       Params:

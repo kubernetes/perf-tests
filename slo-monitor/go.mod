@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/slo-monitor
 
-go 1.26.0
+go 1.26.4
 
 require (
 	github.com/golang/glog v1.2.5

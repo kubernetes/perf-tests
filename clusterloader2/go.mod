@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/clusterloader2
 
-go 1.25.0
+go 1.26.4
 
 replace (
 	k8s.io/api => k8s.io/api v0.34.0

@@ -1,6 +1,6 @@
 module k8s.io/perf-tests/dns/dnsperfgo
 
-go 1.26.0
+go 1.26.4
 
 require (
 	github.com/prometheus/client_golang v1.23.2

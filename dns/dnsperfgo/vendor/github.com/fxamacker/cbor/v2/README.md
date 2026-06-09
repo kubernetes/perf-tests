@@ -75,7 +75,7 @@ Notably, `fxamacker/cbor` is fast at rejecting malformed CBOR data.
 > 
 > Latest comparison for decoding CBOR data to Go `[]byte`:
 > - Input: `[]byte{0x9B, 0x00, 0x00, 0x42, 0xFA, 0x42, 0xFA, 0x42, 0xFA, 0x42}`
-> - go1.22.7, linux/amd64, i5-13600K (DDR4-2933, disabled e-cores)
+> - go1.26.4, linux/amd64, i5-13600K (DDR4-2933, disabled e-cores)
 > - go test -bench=. -benchmem -count=20
 > 
 > #### Prior comparisons
@@ -88,7 +88,7 @@ Notably, `fxamacker/cbor` is fast at rejecting malformed CBOR data.
 > | ugorji/go 1.1.0 - 1.2.6 | 💥 runtime: | out of memory: | cannot allocate |
 > 
 > - Input: `[]byte{0x9B, 0x00, 0x00, 0x42, 0xFA, 0x42, 0xFA, 0x42, 0xFA, 0x42}`
-> - go1.19.6, linux/amd64, i5-13600K (DDR4)
+> - go1.26.4, linux/amd64, i5-13600K (DDR4)
 > - go test -bench=. -benchmem -count=20
 > 
 > </details>
@@ -242,7 +242,7 @@ __Install__: `go get github.com/fxamacker/cbor/v2` and `import "github.com/fxama
 >
 > Branch [feature/cbor-tinygo-beta](https://github.com/fxamacker/cbor/tree/feature/cbor-tinygo-beta) is based on fxamacker/cbor v2.7.0 and it can be compiled using tinygo v0.33 (also compiles with golang/go).
 >
-> It passes unit tests (with both go1.22 and tinygo v0.33) and is considered beta/experimental for tinygo.
+> It passes unit tests (with both go1.26.4 and tinygo v0.33) and is considered beta/experimental for tinygo.
 >
 > :warning: The `feature/cbor-tinygo-beta` branch does not get fuzz tested yet.
 >

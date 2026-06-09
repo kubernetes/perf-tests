@@ -100,6 +100,23 @@ steps:
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_unprepare_resources
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
+    # Calibration: Prometheus memory + cardinality over the run. Uses prometheus self-scrape
+    # and TSDB meta (not cAdvisor), so it survives the cardinality relabeling. Lets us size
+    # CL2_PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR and see which scrape job drives cardinality.
+    - Identifier: PrometheusMemory
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: prometheus_memory
+        metricVersion: v1
+        unit: bytes
+        queries:
+          - name: prometheus_rss_peak_bytes
+            query: max_over_time(process_resident_memory_bytes{job="prometheus-k8s"}[%v])
+          - name: prometheus_head_series_peak
+            query: max_over_time(prometheus_tsdb_head_series{job="prometheus-k8s"}[%v])
+          - name: ingested_samples_by_job
+            query: sum by (job) (max_over_time(scrape_samples_post_metric_relabeling[%v]))
 {{if not $ENABLE_EXTENDED_RESOURCES}}
 - name: Create ResourceClaimTemplates in namespaces
   phases:
@@ -223,6 +240,10 @@ steps:
       Params:
         action: gather
     - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
+    - Identifier: PrometheusMemory
       Method: GenericPrometheusQuery
       Params:
         action: gather

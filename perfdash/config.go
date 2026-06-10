@@ -63,6 +63,58 @@ var (
 	// performanceDescriptions contains metrics exported by a --ginko.focus=[Feature:Performance]
 	// e2e test
 	performanceDescriptions = TestDescriptions{
+		"DRA": {
+			"FastFillPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "PodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "PodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillStatelessPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatelessPodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnStatelessPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatelessPodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillStatefulPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatefulPodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnStatefulPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatefulPodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillClaimAllocation": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ResourceClaimAllocationLatency_FastFillClaimAllocationLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnClaimAllocation": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ResourceClaimAllocationLatency_ChurnClaimAllocationLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillSchedulingMetrics": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "FastFillSchedulingMetrics_PrometheusSchedulingMetrics",
+				Parser:           parseSchedulingLatency("fastfill"),
+			}},
+			"ChurnSchedulingMetrics": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ChurnSchedulingMetrics_PrometheusSchedulingMetrics",
+				Parser:           parseSchedulingLatency("churn"),
+			}},
+		},
 		"E2E": {
 			"DensityResources": []TestDescription{{
 				Name:             "density",

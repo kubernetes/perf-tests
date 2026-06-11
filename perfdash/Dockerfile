@@ -27,7 +27,10 @@ RUN CGO_ENABLED=0 go build -o $PWD/perfdash
 
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/base:nonroot
-COPY --chmod=0644 www/ /www/
+# Must be 0755, not 0644: perfdash runs as nonroot (distroless:nonroot), and a
+# nonroot process cannot traverse a directory without the execute bit, so every
+# static asset under /www would 403 and the dashboard would fail to load.
+COPY --chmod=0755 www/ /www/
 COPY --from=builder /workspace/perfdash /
 
 EXPOSE 8080

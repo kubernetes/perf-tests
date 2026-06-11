@@ -42,8 +42,8 @@ spec:
         resources:
           requests:
             cpu: "3"
-            memory: 20Gi
+            memory: 40Gi
           limits:
             cpu: "3"
-            memory: 20Gi
+            memory: 40Gi
       restartPolicy: Always

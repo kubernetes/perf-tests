@@ -1,21 +1,30 @@
 ---
 name: download-ci-artifacts
 description: Download artifacts from a CI run's GCS bucket to local disk.
+allowed-tools: Bash
 ---
-# Task
-Download artifacts from a CI run's GCS bucket to a local directory. Accept a URI and a list of files or patterns to download. Do not decide what to download. Download only what the user requests.
 
-# Workflow
+# Goal
+Download artifacts from a CI run's GCS bucket to a local directory safely, handling credential constraints.
+
+# Instructions
+
 ## 1. Parse URI
-- **URI normalization**: Accept gcsweb URLs (`https://gcsweb.k8s.io/gcs/...`), raw `gs://` paths, or Prow job URLs (`https://prow.k8s.io/view/gs/...`).
-  Convert to GCS paths by replacing `https://gcsweb.k8s.io/gcs/` or `https://prow.k8s.io/view/gs/` with `gs://`.
+* **DO** normalize the input URI: accept gcsweb URLs (`https://gcsweb.k8s.io/gcs/...`), raw `gs://` paths, or Prow job URLs (`https://prow.k8s.io/view/gs/...`).
+* **DO** convert gcsweb/Prow URLs to standard GCS paths by replacing `https://gcsweb.k8s.io/gcs/` or `https://prow.k8s.io/view/gs/` with `gs://`.
 
 ## 2. Create Local Directory
-- **Output path**: If an output directory is provided, use it. Otherwise create a local directory using an identifier extracted from the URI (e.g., the Prow build ID).
+* **DO** create a local directory using an identifier extracted from the URI (e.g., the Prow build ID) if no output directory is provided.
 
 ## 3. Download
-- **Targeted download**: Download only the files or patterns the user specified (e.g., `kube-apiserver.log*`, `*.json`, `junit.xml`).
-- **Parallel transfer**: Use `gcloud storage cp` for downloads.
+* **DO** check if the environment is already authorized for `gcloud storage` by running a fast, timed-out query first (e.g., `timeout 5s gcloud storage ls gs://<bucket>`).
+* **DO** ask the user to authorize or refresh their credentials if the `gcloud storage` check fails or times out. Suggest that they run one of these commands in their local terminal:
+  - `gcloud auth login` (to log in again)
+  - `gcloud auth application-default login` (if Application Default Credentials are missing/outdated)
+  - Or simply run a command like `gcloud storage ls gs://<bucket>` in their own local terminal and touch their security key when prompted to refresh the cached session.
+* **DO** use `gcloud storage cp` to download the target files or patterns specified by the user (e.g., `etcd.log`, `*.json`, `junit.xml`).
+* **DO NOT** decide what to download. Download only what the user explicitly requests.
 
 ## 4. Report
-- **Summary**: List the files downloaded and their sizes.
+* **DO** list the files downloaded and their sizes in the summary report.
+

@@ -1,9 +1,7 @@
 ---
 name: download-ci-artifacts
 description: Download artifacts from a CI run's GCS bucket to local disk.
-globs: []
-tools: [Read, Write, Edit, Bash]
-alwaysApply: false
+allowed-tools: Bash
 ---
 
 # Goal
@@ -25,10 +23,8 @@ Download artifacts from a CI run's GCS bucket to a local directory safely, handl
   - `gcloud auth application-default login` (if Application Default Credentials are missing/outdated)
   - Or simply run a command like `gcloud storage ls gs://<bucket>` in their own local terminal and touch their security key when prompted to refresh the cached session.
 * **DO** use `gcloud storage cp` to download the target files or patterns specified by the user (e.g., `etcd.log`, `*.json`, `junit.xml`).
+* **DO NOT** decide what to download. Download only what the user explicitly requests.
 
 ## 4. Report
 * **DO** list the files downloaded and their sizes in the summary report.
 
-## Integration
-* **Expert Persona:** CI/CD Integration & Test Grid Engineer.
-* **MCP Tools:** None.

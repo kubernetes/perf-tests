@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: image-cacher
+spec:
+  selector:
+    matchLabels:
+      app: image-cacher
+  template:
+    metadata:
+      labels:
+        app: image-cacher
+    spec:
+      initContainers:
+      - name: cache-agnhost
+        image: registry.k8s.io/e2e-test-images/agnhost:2.40
+        command: ["/bin/sh", "-c", "echo cached"]
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.9

@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-api
+  template:
+    metadata:
+      labels:
+        app: gateway-api
+    spec:
+      containers:
+      - name: gateway
+        image: registry.k8s.io/e2e-test-images/agnhost:2.40
+        args: ["netexec", "--http-port=80"]
+        ports:
+        - containerPort: 80

@@ -1,0 +1,380 @@
+{{$MAX_SANDBOXES := DefaultParam .MAX_SANDBOXES 10}}
+{{$CHURN_ITERATIONS := DefaultParam .CHURN_ITERATIONS 5}}
+{{$SANDBOX_RUNTIME := DefaultParam .SANDBOX_RUNTIME "10s"}}
+{{$POD_CPU_REQ := DefaultParam .POD_CPU_REQ "10m"}}
+{{$POD_MEM_REQ := DefaultParam .POD_MEM_REQ "10Mi"}}
+{{$POD_CPU_LIM := DefaultParam .POD_CPU_LIM "100m"}}
+{{$POD_MEM_LIM := DefaultParam .POD_MEM_LIM "50Mi"}}
+
+name: agentic-sandboxes
+namespace:
+  number: 0 # We manage namespaces manually
+
+tuningSets:
+- name: Uniform
+  qpsLoad:
+    qps: 20
+
+steps:
+- name: Phase 0 - Prep Gateway Namespace and Policies
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Uniform
+    objectBundle:
+    - basename: agentic-gateway
+      objectTemplatePath: gateway-namespace.yaml
+    - basename: cluster-policy
+      objectTemplatePath: cluster-network-policy.yaml
+
+- name: Phase 0 - Prep Gateway and DaemonSet
+  phases:
+  - namespaceRange:
+      basename: agentic-gateway
+      min: 0
+      max: 0
+    replicasPerNamespace: 1
+    tuningSet: Uniform
+    objectBundle:
+    - basename: gateway-deploy
+      objectTemplatePath: gateway-deployment.yaml
+    - basename: gateway-svc
+      objectTemplatePath: gateway-service.yaml
+    - basename: image-cacher
+      objectTemplatePath: cache-daemonset.yaml
+
+- name: Wait for Gateway
+  measurements:
+  - Identifier: WaitForGatewayPods
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      labelSelector: app = gateway-api
+      desiredPodCount: 1
+      timeout: 5m
+
+- name: Start scheduling measurements
+  measurements:
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = sandbox
+  - Identifier: Phase1PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = sandbox
+      threshold: 5m
+  - Identifier: AnetdCPUUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+  - Identifier: AnetdMemoryUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+  - Identifier: AnetdEBPFPressure
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+  - Identifier: AnetdEndpointRegenerationTime
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+  - Identifier: AnetdDropCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+
+- name: Phase 1 - Initial Sandboxes (Namespaces)
+  phases:
+  - replicasPerNamespace: {{$MAX_SANDBOXES}}
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-ns-0
+      objectTemplatePath: namespace.yaml
+      templateFillMap:
+        Iter: 0
+
+- name: Phase 1 - Initial Sandboxes (Objects)
+  phases:
+  - namespaceRange:
+      basename: sandbox-ns-0
+      min: 0
+      max: {{SubtractInt $MAX_SANDBOXES 1}}
+    replicasPerNamespace: 1
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-netpol-0
+      objectTemplatePath: sandbox-network-policy.yaml
+      templateFillMap:
+        Iter: 0
+    - basename: sandbox-pod-0
+      objectTemplatePath: sandbox-pod.yaml
+      templateFillMap:
+        Iter: 0
+        CpuRequest: {{$POD_CPU_REQ}}
+        MemoryRequest: {{$POD_MEM_REQ}}
+        CpuLimit: {{$POD_CPU_LIM}}
+        MemoryLimit: {{$POD_MEM_LIM}}
+
+- name: Wait for Phase 1 Sandboxes
+  measurements:
+  - Identifier: WaitForPhase1Pods
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      labelSelector: group = sandbox
+      desiredPodCount: {{$MAX_SANDBOXES}}
+      timeout: 5m
+
+- name: Collect Phase 1 measurements
+  measurements:
+  - Identifier: SchedulingThroughput
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      enableViolations: false
+      summaryName: Phase1SchedulingThroughput
+  - Identifier: Phase1PodStartupLatency
+    Method: PodStartupLatency
+    Params:
+      action: gather
+      summaryName: Phase1PodStartupLatency
+
+# Phase 2: Churn
+{{range $iter := Loop $CHURN_ITERATIONS}}
+- name: Wait sandbox runtime iter {{$iter}}
+  measurements:
+  - Identifier: WaitSandboxRuntime
+    Method: Sleep
+    Params:
+      duration: {{$SANDBOX_RUNTIME}}
+
+- name: Phase 2 - Delete old sandboxes iter {{$iter}} (Objects)
+  phases:
+  - namespaceRange:
+      basename: sandbox-ns-{{$iter}}
+      min: 0
+      max: {{SubtractInt $MAX_SANDBOXES 1}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-pod-{{$iter}}
+      objectTemplatePath: sandbox-pod.yaml
+    - basename: sandbox-netpol-{{$iter}}
+      objectTemplatePath: sandbox-network-policy.yaml
+
+- name: Phase 2 - Delete old sandboxes iter {{$iter}} (Namespaces)
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-ns-{{$iter}}
+      objectTemplatePath: namespace.yaml
+
+- name: Wait for old sandboxes to delete iter {{$iter}}
+  measurements:
+  - Identifier: WaitForOldPodsDeleted-{{$iter}}
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      labelSelector: group = sandbox
+      desiredPodCount: 0
+      timeout: 5m
+
+- name: Start Churn Scheduling Measurements iter {{$iter}}
+  measurements:
+  - Identifier: ChurnSchedulingThroughput-{{$iter}}
+    Method: SchedulingThroughput
+    Params:
+      action: start
+      labelSelector: group = sandbox
+  - Identifier: ChurnPodStartupLatency-{{$iter}}
+    Method: PodStartupLatency
+    Params:
+      action: start
+      labelSelector: group = sandbox
+      threshold: 5m
+
+- name: Phase 2 - Create new sandboxes iter {{AddInt $iter 1}} (Namespaces)
+  phases:
+  - replicasPerNamespace: {{$MAX_SANDBOXES}}
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-ns-{{AddInt $iter 1}}
+      objectTemplatePath: namespace.yaml
+      templateFillMap:
+        Iter: {{AddInt $iter 1}}
+
+- name: Phase 2 - Create new sandboxes iter {{AddInt $iter 1}} (Objects)
+  phases:
+  - namespaceRange:
+      basename: sandbox-ns-{{AddInt $iter 1}}
+      min: 0
+      max: {{SubtractInt $MAX_SANDBOXES 1}}
+    replicasPerNamespace: 1
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-netpol-{{AddInt $iter 1}}
+      objectTemplatePath: sandbox-network-policy.yaml
+      templateFillMap:
+        Iter: {{AddInt $iter 1}}
+    - basename: sandbox-pod-{{AddInt $iter 1}}
+      objectTemplatePath: sandbox-pod.yaml
+      templateFillMap:
+        Iter: {{AddInt $iter 1}}
+        CpuRequest: {{$POD_CPU_REQ}}
+        MemoryRequest: {{$POD_MEM_REQ}}
+        CpuLimit: {{$POD_CPU_LIM}}
+        MemoryLimit: {{$POD_MEM_LIM}}
+
+- name: Wait for Churn Sandboxes iter {{AddInt $iter 1}}
+  measurements:
+  - Identifier: WaitForChurnPods-{{$iter}}
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      labelSelector: group = sandbox
+      desiredPodCount: {{$MAX_SANDBOXES}}
+      timeout: 5m
+
+- name: Collect Churn measurements iter {{$iter}}
+  measurements:
+  - Identifier: ChurnSchedulingThroughput-{{$iter}}
+    Method: SchedulingThroughput
+    Params:
+      action: gather
+      enableViolations: false
+      summaryName: ChurnSchedulingThroughput-{{$iter}}
+  - Identifier: ChurnPodStartupLatency-{{$iter}}
+    Method: PodStartupLatency
+    Params:
+      action: gather
+      summaryName: ChurnPodStartupLatency-{{$iter}}
+{{end}}
+
+- name: Wait final sandbox runtime
+  measurements:
+  - Identifier: WaitSandboxRuntime
+    Method: Sleep
+    Params:
+      duration: {{$SANDBOX_RUNTIME}}
+  - Identifier: AnetdCPUUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      metricName: Anetd CPU Usage
+      metricVersion: v1
+      prometheusClient: managed
+      unit: cores
+      enableViolations: false
+      queries:
+      - name: max_cpu_per_pod
+        query: max(max_over_time(rate(container_cpu_usage_seconds_total{namespace="kube-system", container="anetd"}[1m]) [%v:1m])) by (pod)
+  - Identifier: AnetdMemoryUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      metricName: Anetd Memory Usage
+      metricVersion: v1
+      prometheusClient: managed
+      unit: bytes
+      enableViolations: false
+      queries:
+      - name: max_memory_per_pod
+        query: max(max_over_time(container_memory_working_set_bytes{namespace="kube-system", container="anetd"} [%v:1m])) by (pod)
+  - Identifier: AnetdEBPFPressure
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      metricName: Anetd eBPF Map Pressure
+      metricVersion: v1
+      prometheusClient: managed
+      unit: ratio
+      enableViolations: false
+      queries:
+      - name: max_pressure_per_map
+        query: max(max_over_time(cilium_bpf_map_pressure{namespace="kube-system"} [%v:1m])) by (map_name)
+  - Identifier: AnetdEndpointRegenerationTime
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      metricName: Anetd Endpoint Regeneration Time P99
+      metricVersion: v1
+      prometheusClient: managed
+      unit: seconds
+      enableViolations: false
+      queries:
+      - name: p99_regeneration_time
+        query: histogram_quantile(0.99, sum by (le) (rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{namespace="kube-system"} [1m])))
+  - Identifier: AnetdDropCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      metricName: Anetd Drop Count Rate
+      metricVersion: v1
+      prometheusClient: managed
+      unit: drops_per_second
+      enableViolations: false
+      queries:
+      - name: max_drop_rate_per_reason
+        query: max(max_over_time(rate(cilium_drop_count_total{namespace="kube-system"} [1m]) [%v:1m])) by (reason)
+
+- name: Phase 3 - Delete final sandboxes (Objects)
+  phases:
+  - namespaceRange:
+      basename: sandbox-ns-{{$CHURN_ITERATIONS}}
+      min: 0
+      max: {{SubtractInt $MAX_SANDBOXES 1}}
+    replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-pod-{{$CHURN_ITERATIONS}}
+      objectTemplatePath: sandbox-pod.yaml
+    - basename: sandbox-netpol-{{$CHURN_ITERATIONS}}
+      objectTemplatePath: sandbox-network-policy.yaml
+
+- name: Phase 3 - Delete final sandboxes (Namespaces)
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: sandbox-ns-{{$CHURN_ITERATIONS}}
+      objectTemplatePath: namespace.yaml
+
+- name: Wait for final sandboxes to delete
+  measurements:
+  - Identifier: WaitForOldPodsDeleted-Final
+    Method: WaitForRunningPods
+    Params:
+      action: gather
+      labelSelector: group = sandbox
+      desiredPodCount: 0
+      timeout: 5m
+
+- name: Clean up gateway (Objects)
+  phases:
+  - namespaceRange:
+      basename: agentic-gateway
+      min: 0
+      max: 0
+    replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: gateway-deploy
+      objectTemplatePath: gateway-deployment.yaml
+    - basename: gateway-svc
+      objectTemplatePath: gateway-service.yaml
+    - basename: image-cacher
+      objectTemplatePath: cache-daemonset.yaml
+
+- name: Clean up gateway Namespace and Policies
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Uniform
+    objectBundle:
+    - basename: cluster-policy
+      objectTemplatePath: cluster-network-policy.yaml
+    - basename: agentic-gateway
+      objectTemplatePath: gateway-namespace.yaml

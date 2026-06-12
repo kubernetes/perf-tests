@@ -1,0 +1,10 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: sandbox-deny-all
+spec:
+  endpointSelector:
+    matchLabels:
+      group: sandbox
+  ingress: []
+  egress: []

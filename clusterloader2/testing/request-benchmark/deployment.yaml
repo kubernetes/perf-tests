@@ -1,4 +1,4 @@
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-testimages/perf-tests-util/request-benchmark:latest"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.10"}}
 {{$cpu := DefaultParam .CL2_BENCHMARK_POD_CPU (AddInt .Inflight 1)}}
 {{$memory := DefaultParam .CL2_BENCHMARK_POD_MEMORY "100Mi"}}
 

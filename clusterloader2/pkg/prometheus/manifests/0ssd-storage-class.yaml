@@ -11,12 +11,12 @@ parameters:
   kind: Managed
   storageaccounttype: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
   cachingmode: ReadOnly
-volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
 {{else}}
 parameters:
   type: {{$PROMETHEUS_STORAGE_CLASS_VOLUME_TYPE}}
 {{end}}
+volumeBindingMode: WaitForFirstConsumer
 {{if .RetainPD}}
 reclaimPolicy: Retain
 {{end}}

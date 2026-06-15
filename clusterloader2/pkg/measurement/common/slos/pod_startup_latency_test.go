@@ -17,163 +17,175 @@ limitations under the License.
 package slos
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
-func TestGatherScheduleTimes(t *testing.T) {
-	testCases := []struct {
-		name             string
-		mapEventsByOrder bool
-		podCreates       []struct {
-			name string
-			time time.Time
-		}
-		events []struct {
-			podName string
-			time    time.Time
-		}
-		wantScheduleTimes map[string]time.Time
-		wantErr           bool
-	}{
-		{
-			name:             "map by key (default)",
-			mapEventsByOrder: false,
-			podCreates: []struct {
-				name string
-				time time.Time
-			}{
-				{name: "pod1", time: time.Unix(100, 0)},
-				{name: "pod2", time: time.Unix(200, 0)},
-			},
-			events: []struct {
-				podName string
-				time    time.Time
-			}{
-				{podName: "pod2", time: time.Unix(210, 0)},
-				{podName: "pod1", time: time.Unix(110, 0)},
-			},
-			wantScheduleTimes: map[string]time.Time{
-				"default/pod1": time.Unix(110, 0),
-				"default/pod2": time.Unix(210, 0),
-			},
+func TestPodStartupLatency(t *testing.T) {
+	p := createPodStartupLatencyMeasurement().(*podStartupLatencyMeasurement)
+	t0 := time.Unix(100, 0)
+	fc := clocktesting.NewFakeClock(t0)
+	p.clock = fc
+	p.selector.Namespace = "default"
+	p.isRunning = true
+	p.stopCh = make(chan struct{})
+	p.threshold = 10 * time.Second
+	p.perc50Threshold = 10 * time.Second
+	p.perc90Threshold = 10 * time.Second
+	p.perc99Threshold = 10 * time.Second
+
+	// We will have 2 pods:
+	// pod-stateless:
+	//   created: t0
+	//   scheduled: t0 + 2s
+	//   running: t0 + 5s
+	//   latencies:
+	//     create_to_schedule: 2s (2000 ms)
+	//     schedule_to_run: 3s (3000 ms)
+	//     pod_startup: 5s (5000 ms)
+	// pod-stateful:
+	//   created: t0 + 10s
+	//   scheduled: t0 + 12s
+	//   running: t0 + 18s
+	//   latencies:
+	//     create_to_schedule: 2s (2000 ms)
+	//     schedule_to_run: 6s (6000 ms)
+	//     pod_startup: 8s (8000 ms) (This starts within 10s threshold to avoid SLO violation logspam)
+
+	// Event series:
+	// 1. Stateless pod created
+	podStateless := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-stateless",
+			Namespace: "default",
 		},
-		{
-			name:             "map by order",
-			mapEventsByOrder: true,
-			podCreates: []struct {
-				name string
-				time time.Time
-			}{
-				{name: "pod-late-create", time: time.Unix(200, 0)},
-				{name: "pod-early-create", time: time.Unix(100, 0)},
-			},
-			events: []struct {
-				podName string
-				time    time.Time
-			}{
-				{podName: "pod-late-create", time: time.Unix(210, 0)},
-				{podName: "pod-early-create", time: time.Unix(110, 0)},
-			},
-			wantScheduleTimes: map[string]time.Time{
-				"default/pod-early-create": time.Unix(110, 0),
-				"default/pod-late-create":  time.Unix(210, 0),
-			},
+	}
+	p.addEvent(nil, podStateless)
+
+	// 2. Stateless pod scheduled at t0 + 2s
+	fc.SetTime(t0.Add(2 * time.Second))
+	podStatelessScheduled := podStateless.DeepCopy()
+	podStatelessScheduled.Spec.NodeName = "node1"
+	p.addEvent(nil, podStatelessScheduled)
+
+	// 3. Stateless pod running at t0 + 5s
+	fc.SetTime(t0.Add(5 * time.Second))
+	podStatelessRunning := podStatelessScheduled.DeepCopy()
+	podStatelessRunning.Status.Phase = corev1.PodRunning
+	p.addEvent(nil, podStatelessRunning)
+
+	// 4. Stateful pod created at t0 + 10s
+	fc.SetTime(t0.Add(10 * time.Second))
+	podStateful := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-stateful",
+			Namespace: "default",
 		},
-		{
-			name:             "map by order - mismatch count",
-			mapEventsByOrder: true,
-			podCreates: []struct {
-				name string
-				time time.Time
-			}{
-				{name: "pod1", time: time.Unix(100, 0)},
-			},
-			events: []struct {
-				podName string
-				time    time.Time
-			}{
-				{podName: "event1", time: time.Unix(110, 0)},
-				{podName: "event2", time: time.Unix(120, 0)},
-			},
-		},
-		{
-			name:             "filtering untracked pods",
-			mapEventsByOrder: true,
-			podCreates: []struct {
-				name string
-				time time.Time
-			}{
-				{name: "tracked-pod", time: time.Unix(100, 0)},
-			},
-			events: []struct {
-				podName string
-				time    time.Time
-			}{
-				{podName: "untracked-pod", time: time.Unix(110, 0)},
-				{podName: "tracked-pod", time: time.Unix(120, 0)},
-			},
-			wantScheduleTimes: map[string]time.Time{
-				"default/tracked-pod": time.Unix(120, 0),
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: "stateful-vol",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{Path: "/data"},
+					},
+				},
 			},
 		},
 	}
+	p.addEvent(nil, podStateful)
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p := createPodStartupLatencyMeasurement().(*podStartupLatencyMeasurement)
-			p.mapEventsByOrder = tc.mapEventsByOrder
-			p.selector.Namespace = "default"
+	// 5. Stateful pod scheduled at t0 + 12s
+	fc.SetTime(t0.Add(12 * time.Second))
+	podStatefulScheduled := podStateful.DeepCopy()
+	podStatefulScheduled.Spec.NodeName = "node1"
+	p.addEvent(nil, podStatefulScheduled)
 
-			for _, pc := range tc.podCreates {
-				key := createMetaNamespaceKey("default", pc.name)
-				p.podStartupEntries.Set(key, createPhase, pc.time)
-			}
+	// 6. Stateful pod running at t0 + 18s
+	fc.SetTime(t0.Add(18 * time.Second))
+	podStatefulRunning := podStatefulScheduled.DeepCopy()
+	podStatefulRunning.Status.Phase = corev1.PodRunning
+	p.addEvent(nil, podStatefulRunning)
 
-			client := fake.NewSimpleClientset()
-			for _, e := range tc.events {
-				event := &corev1.Event{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      e.podName + "-event",
-						Namespace: "default",
-					},
-					InvolvedObject: corev1.ObjectReference{
-						Kind:      "Pod",
-						Name:      e.podName,
-						Namespace: "default",
-					},
-					Source:    corev1.EventSource{Component: defaultSchedulerName},
-					EventTime: metav1.MicroTime{Time: e.time},
-				}
-				_, err := client.CoreV1().Events("default").Create(context.TODO(), event, metav1.CreateOptions{})
-				if err != nil {
-					t.Fatalf("failed to create event: %v", err)
-				}
-			}
+	// Process all work items
+	for p.eventQueue.Len() > 0 {
+		ok := p.processNextWorkItem()
+		if !ok {
+			t.Fatalf("Failed to process next work item")
+		}
+	}
 
-			err := p.gatherScheduleTimes(client, defaultSchedulerName)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("gatherScheduleTimes() error = %v, wantErr %v", err, tc.wantErr)
-				return
-			}
+	// Gather the results
+	summaries, err := p.gather(nil, "test-run", "")
+	if err != nil {
+		t.Fatalf("Gather failed unexpectedly: %v", err)
+	}
 
-			if !tc.wantErr {
-				for key, wantTime := range tc.wantScheduleTimes {
-					gotTime, exists := p.podStartupEntries.Get(key, schedulePhase)
-					if !exists {
-						t.Errorf("schedule time for %s not found", key)
-						continue
-					}
-					if !gotTime.Equal(wantTime) {
-						t.Errorf("schedule time for %s = %v, want %v", key, gotTime, wantTime)
-					}
-				}
-			}
-		})
+	// We expect 3 summaries:
+	// 1. stateless & stateful combined (namePrefix: "")
+	// 2. stateless (namePrefix: "Stateless")
+	// 3. stateful (namePrefix: "Stateful")
+	if len(summaries) != 3 {
+		t.Fatalf("Expected 3 summaries, got %d", len(summaries))
+	}
+
+	summaryMap := make(map[string]string)
+	for _, s := range summaries {
+		summaryMap[s.SummaryName()] = s.SummaryContent()
+	}
+
+	assert.Contains(t, summaryMap, "PodStartupLatency_test-run")
+	assert.Contains(t, summaryMap, "StatelessPodStartupLatency_test-run")
+	assert.Contains(t, summaryMap, "StatefulPodStartupLatency_test-run")
+
+	// Verify stateless pod latencies
+	var statelessData measurementutil.PerfData
+	err = json.Unmarshal([]byte(summaryMap["StatelessPodStartupLatency_test-run"]), &statelessData)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal stateless summary: %v", err)
+	}
+
+	// For a single data point (percentiles 50, 90, 99 should be equal to that data point)
+	// create_to_schedule = 2s (2000ms)
+	// schedule_to_run = 3s (3000ms)
+	// pod_startup = 5s (5000ms)
+	for _, item := range statelessData.DataItems {
+		metric := item.Labels["Metric"]
+		switch metric {
+		case "create_to_schedule":
+			assert.Equal(t, 2000.0, item.Data["Perc50"])
+		case "schedule_to_run":
+			assert.Equal(t, 3000.0, item.Data["Perc50"])
+		case "pod_startup":
+			assert.Equal(t, 5000.0, item.Data["Perc50"])
+		}
+	}
+
+	// Verify stateful pod latencies
+	var statefulData measurementutil.PerfData
+	err = json.Unmarshal([]byte(summaryMap["StatefulPodStartupLatency_test-run"]), &statefulData)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal stateful summary: %v", err)
+	}
+
+	// create_to_schedule = 2s (2000ms)
+	// schedule_to_run = 6s (6000ms)
+	// pod_startup = 8s (8000ms)
+	for _, item := range statefulData.DataItems {
+		metric := item.Labels["Metric"]
+		switch metric {
+		case "create_to_schedule":
+			assert.Equal(t, 2000.0, item.Data["Perc50"])
+		case "schedule_to_run":
+			assert.Equal(t, 6000.0, item.Data["Perc50"])
+		case "pod_startup":
+			assert.Equal(t, 8000.0, item.Data["Perc50"])
+		}
 	}
 }

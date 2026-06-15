@@ -43,6 +43,8 @@
 # Configs
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
 
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
+
 name: access-tokens
 namespace:
   number: {{$namespaces}}
@@ -172,6 +174,7 @@ steps:
       Params:
         action: gather
         enableViolations: true
+        singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
     - Identifier: TestMetrics
       Method: TestMetrics
       Params:

@@ -232,9 +232,7 @@ func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (stri
 
 	var command string
 	if p.config.componentName == "etcd" {
-		etcdCert := config.ClusterFramework.GetClusterConfig().EtcdCertificatePath
-		etcdKey := config.ClusterFramework.GetClusterConfig().EtcdKeyPath
-		command = fmt.Sprintf("curl -s -k --cert %s --key %s %slocalhost:%v/debug/pprof/%s", etcdCert, etcdKey, profileProtocol, profilePort, p.config.kind)
+		command = fmt.Sprintf("curl -s http://localhost:%d/debug/pprof/%s", config.ClusterFramework.GetClusterConfig().EtcdPprofPort, p.config.kind)
 	} else {
 		command = fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
 	}

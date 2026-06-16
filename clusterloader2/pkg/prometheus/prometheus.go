@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -89,6 +90,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets (nodes + master). Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeMasterKubelets, "prometheus-scrape-master-kubelets", "PROMETHEUS_SCRAPE_MASTER_KUBELETS", false, "Whether to scrape kubelets running on master nodes.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
+	flags.StringEnvVar(&p.ScrapeApiserverOnly, "prometheus-scrape-apiserver-only", "PROMETHEUS_SCRAPE_APISERVER_ONLY", "", "Override scraping only the apiserver among master components (\"true\"/\"false\"). Empty uses the provider default.")
 	flags.StringEnvVar(&p.KubeProxySelectorKey, "prometheus-kube-proxy-selector-key", "PROMETHEUS_KUBE_PROXY_SELECTOR_KEY", "component", "Label key used to scrape kube proxy.")
 	flags.BoolEnvVar(&p.ScrapeKubeStateMetrics, "prometheus-scrape-kube-state-metrics", "PROMETHEUS_SCRAPE_KUBE_STATE_METRICS", false, "Whether to scrape kube-state-metrics. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeMetricsServerMetrics, "prometheus-scrape-metrics-server", "PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS", false, "Whether to scrape metrics-server. Only run occasionally.")
@@ -166,7 +168,11 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		}
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"]; !exists {
-		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
+		if v, err := strconv.ParseBool(clusterLoaderConfig.PrometheusConfig.ScrapeApiserverOnly); err == nil {
+			mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = v
+		} else {
+			mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
+		}
 	}
 	// TODO: Change to pure assignments when overrides are not used.
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ETCD"]; !exists {
@@ -585,6 +591,9 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 }
 
 func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
+	// do not log prometheus error for large clusters
+	logPrometheusError := pc.clusterLoaderConfig.ClusterConfig.Nodes < 5000
+
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -599,7 +608,7 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
-			expectedTargets)
+			expectedTargets, logPrometheusError)
 		if err != nil || !ok {
 			return ok, err
 		}
@@ -607,12 +616,13 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
-			1) // one of them should be healthy
+			1, // one of them should be healthy
+			logPrometheusError)
 	}
 	return CheckAllTargetsReady(ctx,
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
-		expectedTargets)
+		expectedTargets, logPrometheusError)
 }
 
 func retryCreateFunctionWithResponse(f func() (string, error)) (string, error) {

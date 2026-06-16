@@ -16,10 +16,10 @@ cd perf-tests
 
 ## Install GVM
 Follow instructions on [GVM install].
-Install golang with specific version (1.24.3 was tested in this tutorial):
+Install golang with specific version (1.26.4 was tested in this tutorial):
 ```bash
-gvm install go1.24.3
-gvm use go1.24.3
+gvm install go1.26.4
+gvm use go1.26.4
 ```
 Next, add perf-tests repository to GOPATH:
 

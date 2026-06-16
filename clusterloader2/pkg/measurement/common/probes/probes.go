@@ -324,8 +324,11 @@ func (p *probesMeasurement) checkProbesReady(ctx context.Context) (bool, error) 
 		}
 		return false
 	}
+
+	// do not log prometheus error for large clusters
+	logPrometheusError := p.framework.GetClusterConfig().Nodes < 5000
 	expectedTargets := p.replicasPerProbe * len(p.config.ProbeLabelValues)
-	return prometheus.CheckAllTargetsReady(ctx, p.framework.GetClientSets().GetClient(), selector, expectedTargets)
+	return prometheus.CheckAllTargetsReady(ctx, p.framework.GetClientSets().GetClient(), selector, expectedTargets, logPrometheusError)
 }
 
 func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {

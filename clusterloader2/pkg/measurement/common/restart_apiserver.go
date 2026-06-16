@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -71,10 +72,9 @@ func (r *restartApiserverMeasurement) Execute(config *measurement.Config) ([]mea
 		return nil, fmt.Errorf("%s: MasterIPs not configured", r)
 	}
 
-	for _, masterIP := range cc.MasterIPs {
-		if err := r.restartOne(masterIP, cc.Provider, downSeconds, readyTimeout); err != nil {
-			return nil, err
-		}
+	masterIP := cc.MasterIPs[rand.Intn(len(cc.MasterIPs))]
+	if err := r.restartOne(masterIP, cc.Provider, downSeconds, readyTimeout); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }

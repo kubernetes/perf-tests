@@ -34,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/execservice"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/heapprofile"
 	"k8s.io/perf-tests/clusterloader2/pkg/imagepreload"
 	"k8s.io/perf-tests/clusterloader2/pkg/metadata"
 	"k8s.io/perf-tests/clusterloader2/pkg/modifier"
@@ -64,6 +65,7 @@ var (
 	testSuiteConfigPath string
 	port                int
 	dryRun              bool
+	heapProfileInterval time.Duration
 )
 
 func initClusterFlags() {
@@ -75,6 +77,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdCertificatePath, "etcd-certificate", "ETCD_CERTIFICATE", "/etc/srv/kubernetes/pki/etcd-apiserver-server.crt", "Path to the etcd certificate on the master machine")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdInsecurePort, "etcd-insecure-port", "ETCD_INSECURE_PORT", 2382, "Inscure http port")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdPprofPort, "etcd-pprof-port", "ETCD_PPROF_PORT", 2385, "Insecure http port serving etcd /debug/pprof (etcd --listen-client-http-urls)")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteStaleNamespaces, "delete-stale-namespaces", "DELETE_STALE_NAMESPACES", false, "DEPRECATED: Whether to delete all stale namespaces before the test execution.")
 	err := flags.MarkDeprecated("delete-stale-namespaces", "specify deleteStaleNamespaces in testconfig file instead.")
 	if err != nil {
@@ -132,6 +135,7 @@ func initFlags() {
 	flags.StringArrayVar(&clusterLoaderConfig.OverridePaths, "testoverrides", []string{}, "Paths to the config overrides file. The latter overrides take precedence over changes in former files.")
 	flags.StringVar(&testSuiteConfigPath, "testsuite", "", "Path to the test suite config file")
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
+	flags.DurationEnvVar(&heapProfileInterval, "heap-profile-interval", "CL2_HEAP_PROFILE_INTERVAL", 0, "Interval between clusterloader2 heap profiles. 0 represents disabled.")
 	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
 
 	initClusterFlags()
@@ -149,6 +153,12 @@ func validateFlags() *errors.ErrorList {
 	}
 	if len(testConfigPaths) > 0 && testSuiteConfigPath != "" {
 		errList.Append(fmt.Errorf("test config path and test suite path cannot be provided at the same time"))
+	}
+	if heapProfileInterval < 0 {
+		errList.Append(fmt.Errorf("heap-profile-interval must be non-negative, got %s", heapProfileInterval))
+	}
+	if heapProfileInterval > 0 && clusterLoaderConfig.ReportDir == "" {
+		errList.Append(fmt.Errorf("heap-profile-interval requires --report-dir to be set"))
 	}
 	errList.Concat(validateClusterFlags())
 	errList.Concat(prometheus.ValidatePrometheusFlags(&clusterLoaderConfig.PrometheusConfig))
@@ -320,6 +330,10 @@ func main() {
 
 	if err = createReportDir(); err != nil {
 		klog.Exitf("Cannot create report directory: %v", err)
+	}
+
+	if heapProfileInterval > 0 {
+		heapprofile.Start(clusterLoaderConfig.ReportDir, heapProfileInterval)
 	}
 
 	if err = util.LogClusterNodes(mclient.GetClient()); err != nil {

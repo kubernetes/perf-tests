@@ -39,8 +39,8 @@ const (
 
 	// Thresholds for API call latency as defined in the official K8s SLO
 	// https://github.com/kubernetes/community/blob/master/sig-scalability/slos/api_call_latency.md
-	singleResourceThreshold    time.Duration = 1 * time.Second
-	multipleResourcesThreshold time.Duration = 30 * time.Second
+	defaultSingleResourceThreshold    time.Duration = 1 * time.Second
+	defaultMultipleResourcesThreshold time.Duration = 30 * time.Second
 
 	currentAPICallMetricsVersion = "v1"
 
@@ -147,7 +147,12 @@ func (a *apiResponsivenessGatherer) Gather(executor common.QueryExecutor, startT
 		return nil, err
 	}
 
-	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls, customThresholds)
+	singleResourceThreshold, err := util.GetDurationOrDefault(config.Params, "singleResourceThreshold", defaultSingleResourceThreshold)
+	if err != nil {
+		klog.V(1).Infof("WARNING: invalid singleResourceThreshold value: %v, defaulting to %v", err, defaultSingleResourceThreshold)
+	}
+
+	badMetrics := a.validateAPICalls(config.Identifier, allowedSlowCalls, apiCalls, customThresholds, singleResourceThreshold, defaultMultipleResourcesThreshold)
 	if len(badMetrics) > 0 {
 		err = errors.NewMetricViolationError("top latency metric", fmt.Sprintf("there should be no high-latency requests, but: %v", badMetrics))
 	}
@@ -273,7 +278,7 @@ func getCustomThresholds(config *measurement.Config, metrics *apiCallMetrics) (c
 	return customThresholds, nil
 }
 
-func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics, customThresholds customThresholds) []error {
+func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedSlowCalls int, metrics *apiCallMetrics, customThresholds customThresholds, singleResourceThreshold, multipleResourcesThreshold time.Duration) []error {
 	badMetrics := make([]error, 0)
 	top := topToPrint
 
@@ -282,7 +287,11 @@ func (a *apiResponsivenessGatherer) validateAPICalls(identifier string, allowedS
 		if customThreshold, ok := customThresholds[apiCall.getKey()]; ok {
 			threshold = customThreshold
 		} else {
-			threshold = apiCall.getSLOThreshold()
+			if apiCall.Scope == "resource" {
+				threshold = singleResourceThreshold
+			} else {
+				threshold = multipleResourcesThreshold
+			}
 		}
 		var err error
 		if err = apiCall.Validate(allowedSlowCalls, threshold); err != nil {
@@ -428,11 +437,4 @@ func (ap *apiCallMetric) Validate(allowedSlowCalls int, threshold time.Duration)
 		return fmt.Errorf("got: %+v; expected perc99 <= %v", ap, threshold)
 	}
 	return nil
-}
-
-func (ap *apiCallMetric) getSLOThreshold() time.Duration {
-	if ap.Scope == "resource" {
-		return singleResourceThreshold
-	}
-	return multipleResourcesThreshold
 }

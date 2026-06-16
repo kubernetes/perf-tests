@@ -1,11 +1,11 @@
 module k8s.io/perf-tests/network
 
-go 1.26.0
+go 1.26.4
 
 require (
-	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
-	k8s.io/client-go v0.36.1
+	k8s.io/api v0.36.2
+	k8s.io/apimachinery v0.36.2
+	k8s.io/client-go v0.36.2
 )
 
 require (

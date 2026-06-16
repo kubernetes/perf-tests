@@ -2,10 +2,13 @@ all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
 # Additionally please ensure to update the same in www/VERSION
-TAG?=2.57
+TAG?=2.59
 WWW_VERSION=$(shell cat www/VERSION)
 
 REPO?=gcr.io/k8s-staging-perf-tests
+# Image platform. Defaults to linux/amd64 (perfdash runs on amd64 nodes); override
+# to build another arch, e.g. make push PLATFORM=linux/arm64
+PLATFORM?=linux/amd64
 
 .PHONY: test
 test: WWW_VERSION = $(shell cat www/VERSION)
@@ -33,11 +36,11 @@ run: perfdash
 # Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
 .PHONY: container
 container:
-	DOCKER_BUILDKIT=1 docker build --pull -t $(REPO)/perfdash:$(TAG) .
+	DOCKER_BUILDKIT=1 docker build --platform=$(PLATFORM) --pull -t $(REPO)/perfdash:$(TAG) .
 
 .PHONY: push
 push: container
-	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
+	docker push $(REPO)/perfdash:$(TAG)
 
 .PHONY: clean
 clean:

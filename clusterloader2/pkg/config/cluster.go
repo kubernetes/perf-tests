@@ -43,6 +43,7 @@ type ClusterConfig struct {
 	EtcdCertificatePath string
 	EtcdKeyPath         string
 	EtcdInsecurePort    int
+	EtcdPprofPort       int
 	MasterIPs           []string
 	MasterInternalIPs   []string
 	MasterName          string
@@ -76,6 +77,7 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
+	ScrapeApiserverOnly        string
 	TearDownServer             bool
 	EnableServer               bool
 	EnablePushgateway          bool

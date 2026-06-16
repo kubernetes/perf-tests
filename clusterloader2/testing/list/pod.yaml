@@ -1,0 +1,12 @@
+{{$group := DefaultParam .group .Name}}
+
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: list-pod-
+  labels:
+    group: {{$group}}
+spec:
+  containers:
+  - image: registry.k8s.io/pause:3.9
+    name: pause

@@ -1,6 +1,7 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_NODE_SELECTOR := DefaultParam .CL2_PROMETHEUS_NODE_SELECTOR ""}}
 {{$PROMETHEUS_TOLERATE_MASTER := DefaultParam .CL2_PROMETHEUS_TOLERATE_MASTER false}}
+{{$PROMETHEUS_OPERATOR_MEM_REQUEST := DefaultParam .CL2_PROMETHEUS_OPERATOR_MEM_REQUEST (printf "%dMi" (IfThenElse (lt .Nodes 500) 200 400))}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -46,10 +47,10 @@ spec:
         resources:
           limits:
             cpu: 200m
-            memory: {{AddInt 100 (DivideInt .Nodes 2)}}Mi
+            memory: {{$PROMETHEUS_OPERATOR_MEM_REQUEST}}
           requests:
             cpu: 200m
-            memory: {{AddInt 100 (DivideInt .Nodes 2)}}Mi
+            memory: {{$PROMETHEUS_OPERATOR_MEM_REQUEST}}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

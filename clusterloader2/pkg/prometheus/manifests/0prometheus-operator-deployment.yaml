@@ -46,10 +46,10 @@ spec:
         resources:
           limits:
             cpu: 200m
-            memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi
+            memory: {{AddInt 100 (DivideInt .Nodes 2)}}Mi
           requests:
             cpu: 200m
-            memory: {{IfThenElse (lt .Nodes 500) 200 400}}Mi
+            memory: {{AddInt 100 (DivideInt .Nodes 2)}}Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

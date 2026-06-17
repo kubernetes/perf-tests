@@ -2,7 +2,7 @@
 # Valid actions: "create", "delete"
 {{$action := .action}}
 {{$RunOnControlPlane := DefaultParam .CL2_INFORMER_RUN_ON_CONTROL_PLANE false}}
-{{$EnableWatchList := DefaultParam .CL2_INFORMER_ENABLE_WATCHLIST true}}
+{{$EnableWatchList := DefaultParam .CL2_INFORMER_ENABLE_WATCHLIST false}}
 
 steps:
 - name: {{$action}} informer role

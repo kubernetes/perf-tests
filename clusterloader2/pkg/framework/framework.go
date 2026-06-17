@@ -285,25 +285,27 @@ func (f *Framework) ApplyTemplatedManifests(fsys fs.FS, manifestGlob string, tem
 	}
 	for _, manifest := range manifests {
 		klog.V(1).Infof("Applying %s\n", manifest)
-		obj, err := templateProvider.TemplateToObject(manifest, templateMapping)
+		objs, err := templateProvider.TemplateToObjects(manifest, templateMapping)
 		if err != nil {
 			if err == config.ErrorEmptyFile {
 				klog.Warningf("Skipping empty manifest %s", manifest)
 				continue
 			}
-			return fmt.Errorf("TemplateToObject error: %+v", err)
+			return fmt.Errorf("TemplateToObjects error: %+v", err)
 		}
-		objList := []unstructured.Unstructured{*obj}
-		if obj.IsList() {
-			list, err := obj.ToList()
-			if err != nil {
-				return err
+		for _, obj := range objs {
+			objList := []unstructured.Unstructured{*obj}
+			if obj.IsList() {
+				list, err := obj.ToList()
+				if err != nil {
+					return err
+				}
+				objList = list.Items
 			}
-			objList = list.Items
-		}
-		for _, item := range objList {
-			if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
-				return fmt.Errorf("error while applying (%s): %v", manifest, err)
+			for _, item := range objList {
+				if err := f.CreateObject(item.GetNamespace(), item.GetName(), &item, options...); err != nil {
+					return fmt.Errorf("error while applying (%s): %v", manifest, err)
+				}
 			}
 		}
 

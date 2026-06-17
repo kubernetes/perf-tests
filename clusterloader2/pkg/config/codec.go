@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,6 +45,30 @@ func convertToObject(raw []byte) (*unstructured.Unstructured, error) {
 		return nil, fmt.Errorf("unmarshaling error: %v", err)
 	}
 	return obj, nil
+}
+
+// convertToObjects converts array of bytes into a slice of unstructured objects.
+func convertToObjects(raw []byte) ([]*unstructured.Unstructured, error) {
+	if isEmpty(raw) {
+		return nil, ErrorEmptyFile
+	}
+	var objs []*unstructured.Unstructured
+	reader := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(raw), 4096)
+	for {
+		var obj unstructured.Unstructured
+		err := reader.Decode(&obj)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("unmarshaling error: %v", err)
+		}
+		if len(obj.Object) == 0 {
+			continue // Skip empty documents
+		}
+		objs = append(objs, &obj)
+	}
+	return objs, nil
 }
 
 func decodeInto(raw []byte, v interface{}) error {

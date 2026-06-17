@@ -33,6 +33,8 @@ spec:
         - --kubelet-service=kube-system/kubelet
         {{end}}
         - --prometheus-config-reloader=gcr.io/k8s-testimages/quay.io/prometheus-operator/prometheus-config-reloader:v0.91.0
+        - --watch-referenced-objects-in-all-namespaces=true
+        - --disable-unmanaged-prometheus-configuration=true
         - --kubelet-endpoints=true
         - --kubelet-endpointslice=false
         env:

@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var (
@@ -33,19 +32,6 @@ var (
 	// Useful to distinguish where the manifast was empty or malformed.
 	ErrorEmptyFile = errors.New("emptyfile")
 )
-
-// convertToObject converts array of bytes into unstructured object.
-func convertToObject(raw []byte) (*unstructured.Unstructured, error) {
-	if isEmpty(raw) {
-		return nil, ErrorEmptyFile
-	}
-	obj := &unstructured.Unstructured{}
-	_, _, err := scheme.Codecs.UniversalDeserializer().Decode(raw, nil, obj)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshaling error: %v", err)
-	}
-	return obj, nil
-}
 
 // convertToObjects converts array of bytes into a slice of unstructured objects.
 func convertToObjects(raw []byte) ([]*unstructured.Unstructured, error) {

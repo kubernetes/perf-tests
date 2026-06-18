@@ -302,7 +302,7 @@ func (ste *simpleExecutor) ExecutePhase(ctx Context, phase *api.Phase) *errors.E
 func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namespace string, replicaIndex int32, operation OperationType) *errors.ErrorList {
 	objName := fmt.Sprintf("%v-%d", object.Basename, replicaIndex)
 	var err error
-	var obj *unstructured.Unstructured
+	var objs []*unstructured.Unstructured
 	switch operation {
 	case createObject, patchObject:
 		mapping := ctx.GetTemplateMappingCopy()
@@ -313,12 +313,12 @@ func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namesp
 		mapping[indexPlaceholder] = replicaIndex
 		mapping[namePlaceholder] = objName
 		mapping[namespacePlaceholder] = namespace
-		obj, err = ctx.GetTemplateProvider().TemplateToObject(object.ObjectTemplatePath, mapping)
+		objs, err = ctx.GetTemplateProvider().TemplateToObjects(object.ObjectTemplatePath, mapping)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) error: %v", object.ObjectTemplatePath, err))
 		}
 	case deleteObject:
-		obj, err = ctx.GetTemplateProvider().RawToObject(object.ObjectTemplatePath)
+		objs, err = ctx.GetTemplateProvider().RawToObjects(object.ObjectTemplatePath)
 		if err != nil && err != config.ErrorEmptyFile {
 			return errors.NewErrorList(fmt.Errorf("reading template (%v) for deletion error: %v", object.ObjectTemplatePath, err))
 		}
@@ -329,19 +329,30 @@ func (ste *simpleExecutor) ExecuteObject(ctx Context, object *api.Object, namesp
 	if err == config.ErrorEmptyFile {
 		return errList
 	}
-	gvk := obj.GroupVersionKind()
-	switch operation {
-	case createObject:
-		if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+	gvkSet := make(map[string]bool)
+	for _, obj := range objs {
+		gvk := obj.GroupVersionKind()
+		gvkStr := fmt.Sprintf("%s/%s, Kind=%s", gvk.Group, gvk.Version, gvk.Kind)
+		if gvkSet[gvkStr] {
+			return errors.NewErrorList(fmt.Errorf("duplicate GroupVersionKind %q in multi-document template %s", gvkStr, object.ObjectTemplatePath))
 		}
-	case patchObject:
-		if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
-		}
-	case deleteObject:
-		if err := ctx.GetClusterFramework().DeleteObject(gvk, namespace, objName); err != nil {
-			errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+		gvkSet[gvkStr] = true
+	}
+	for _, obj := range objs {
+		gvk := obj.GroupVersionKind()
+		switch operation {
+		case createObject:
+			if err := ctx.GetClusterFramework().CreateObject(namespace, objName, obj); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v creation error: %v", namespace, objName, err))
+			}
+		case patchObject:
+			if err := ctx.GetClusterFramework().PatchObject(namespace, objName, obj); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v updating error: %v", namespace, objName, err))
+			}
+		case deleteObject:
+			if err := ctx.GetClusterFramework().DeleteObject(gvk, namespace, objName); err != nil {
+				errList.Append(fmt.Errorf("namespace %v object %v deletion error: %v", namespace, objName, err))
+			}
 		}
 	}
 	return errList

@@ -78,9 +78,9 @@ func (tp *TemplateProvider) getRaw(path string) ([]byte, error) {
 	return bin, nil
 }
 
-// RawToObject creates object from file specified by the given path
-// or uses cached object if available.
-func (tp *TemplateProvider) RawToObject(path string) (*unstructured.Unstructured, error) {
+// RawToObjects creates objects from file specified by the given path
+// or uses cached objects if available.
+func (tp *TemplateProvider) RawToObjects(path string) ([]*unstructured.Unstructured, error) {
 	bin, err := tp.getRaw(path)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,20 @@ func (tp *TemplateProvider) RawToObject(path string) (*unstructured.Unstructured
 		return nil, fmt.Errorf("regexp creation error: %v", err)
 	}
 	bin = r.ReplaceAll(bin, []byte{})
-	return convertToObject(bin)
+	return convertToObjects(bin)
+}
+
+// RawToObject creates object from file specified by the given path
+// or uses cached object if available.
+func (tp *TemplateProvider) RawToObject(path string) (*unstructured.Unstructured, error) {
+	objs, err := tp.RawToObjects(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(objs) == 0 {
+		return nil, fmt.Errorf("no objects found in %s", path)
+	}
+	return objs[0], nil
 }
 
 func (tp *TemplateProvider) getRawTemplate(path string) (*template.Template, error) {
@@ -136,15 +149,29 @@ func (tp *TemplateProvider) getMappedTemplate(path string, mapping map[string]in
 	return b.Bytes(), nil
 }
 
-// TemplateToObject creates object from file specified by the given path
-// or uses cached object if available. Template's placeholders are replaced based
+// TemplateToObjects creates objects from file specified by the given path
+// or uses cached objects if available. Template's placeholders are replaced based
 // on provided mapping.
-func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]interface{}) (*unstructured.Unstructured, error) {
+func (tp *TemplateProvider) TemplateToObjects(path string, mapping map[string]interface{}) ([]*unstructured.Unstructured, error) {
 	b, err := tp.getMappedTemplate(path, mapping)
 	if err != nil {
 		return nil, err
 	}
-	return convertToObject(b)
+	return convertToObjects(b)
+}
+
+// TemplateToObject creates object from file specified by the given path
+// or uses cached object if available. Template's placeholders are replaced based
+// on provided mapping.
+func (tp *TemplateProvider) TemplateToObject(path string, mapping map[string]interface{}) (*unstructured.Unstructured, error) {
+	objs, err := tp.TemplateToObjects(path, mapping)
+	if err != nil {
+		return nil, err
+	}
+	if len(objs) == 0 {
+		return nil, fmt.Errorf("no objects found in %s", path)
+	}
+	return objs[0], nil
 }
 
 // TemplateToConfig creates test config from file specified by the given path.

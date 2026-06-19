@@ -42,6 +42,7 @@ const (
 	clusterOOMsTrackerEnabledParamName   = "clusterOOMsTrackerEnabled"
 	clusterOOMsTrackerName               = "ClusterOOMsTracker"
 	clusterOOMsIgnoredProcessesParamName = "clusterOOMsIgnoredProcesses"
+	clusterOOMsFailureEnabledParamName   = "clusterOOMsFailureEnabled"
 	informerTimeout                      = time.Minute
 	oomEventReason                       = "OOMKilling"
 	initialListPageSize                  = 10000
@@ -107,7 +108,7 @@ func (m *clusterOOMsTrackerMeasurement) Execute(config *measurement.Config) ([]m
 	case "gather":
 		m.lock.Lock()
 		defer m.lock.Unlock()
-		return m.gather()
+		return m.gather(config)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -229,7 +230,7 @@ func (m *clusterOOMsTrackerMeasurement) stop() {
 	}
 }
 
-func (m *clusterOOMsTrackerMeasurement) gather() ([]measurement.Summary, error) {
+func (m *clusterOOMsTrackerMeasurement) gather(config *measurement.Config) ([]measurement.Summary, error) {
 	klog.V(2).Infof("%s: gathering cluster OOMs tracking measurement", clusterOOMsTrackerName)
 	if !m.isRunning {
 		return nil, fmt.Errorf("measurement %s has not been started", clusterOOMsTrackerName)
@@ -261,7 +262,15 @@ func (m *clusterOOMsTrackerMeasurement) gather() ([]measurement.Summary, error) 
 
 	summary := measurement.CreateSummary(clusterOOMsTrackerName, "json", content)
 	if oomFailures := oomData["failures"]; len(oomFailures) > 0 {
-		err = fmt.Errorf("OOMs recorded: %+v", oomFailures)
+		failOnOOMs, failOnOOMsErr := util.GetBoolOrDefault(config.Params, clusterOOMsFailureEnabledParamName, true)
+		if failOnOOMsErr != nil {
+			return []measurement.Summary{summary}, fmt.Errorf("problem with getting %s param: %w", clusterOOMsFailureEnabledParamName, failOnOOMsErr)
+		}
+		if failOnOOMs {
+			err = fmt.Errorf("OOMs recorded: %+v", oomFailures)
+		} else {
+			klog.Warningf("OOMs recorded but %s is false: %+v", clusterOOMsFailureEnabledParamName, oomFailures)
+		}
 	}
 	return []measurement.Summary{summary}, err
 }

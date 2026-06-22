@@ -43,7 +43,8 @@ const (
 // DynamicObjectStore is a convenient wrapper around cache.GenericLister.
 type DynamicObjectStore struct {
 	cache.GenericLister
-	namespaces map[string]bool
+	namespaces    map[string]bool
+	allNamespaces bool
 }
 
 // NewDynamicObjectStore creates DynamicObjectStore based on given object version resource and selector.
@@ -56,6 +57,7 @@ func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface,
 	return &DynamicObjectStore{
 		GenericLister: lister,
 		namespaces:    namespaces,
+		allNamespaces: len(namespaces) == 0,
 	}, nil
 }
 
@@ -72,7 +74,7 @@ func (s *DynamicObjectStore) ListObjectSimplifications() ([]ObjectSimplification
 		if err != nil {
 			return nil, err
 		}
-		if !s.namespaces[os.Metadata.Namespace] {
+		if !s.allNamespaces && !s.namespaces[os.Metadata.Namespace] {
 			continue
 		}
 		result = append(result, os)

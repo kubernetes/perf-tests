@@ -95,7 +95,6 @@ func (nr *NamespacesRange) getMap() map[string]bool {
 // fulfills given conditions requirements, ctx.Done() channel is used to
 // wait for timeout.
 func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interface, options *WaitForGenericK8sObjectsOptions) error {
-	klog.V(2).Infof("%s", options.Summary())
 	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap())
 	if err != nil {
 		return err

@@ -53,9 +53,10 @@ type WaitForGenericK8sObjectsOptions struct {
 
 // NamespacesRange represents namespace range which will be queried.
 type NamespacesRange struct {
-	Prefix string
-	Min    int
-	Max    int
+	AllNamespaces bool
+	Prefix        string
+	Min           int
+	Max           int
 }
 
 // Summary returns summary which should be included in all logs.
@@ -65,6 +66,9 @@ func (o *WaitForGenericK8sObjectsOptions) Summary() string {
 
 // String returns printable representation of the namespaces range.
 func (nr *NamespacesRange) String() string {
+	if nr.AllNamespaces {
+		return "*"
+	}
 	if nr.Prefix == "" {
 		return ""
 	}
@@ -74,6 +78,9 @@ func (nr *NamespacesRange) String() string {
 // getMap returns a map with namespaces which should be queried.
 func (nr *NamespacesRange) getMap() map[string]bool {
 	result := map[string]bool{}
+	if nr.AllNamespaces {
+		return result // all namespaces => empty map
+	}
 	if nr.Prefix == "" {
 		result[""] = true // Cluster-scoped objects.
 		return result

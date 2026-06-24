@@ -189,6 +189,40 @@ func TestWaitForGenericK8sObjects(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "successful objects across all namespaces with AllNamespaces true",
+			timeout: 1 * time.Second,
+			options: &WaitForGenericK8sObjectsOptions{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "kuberentes.io",
+					Version:  "v1alpha1",
+					Resource: "Conditions",
+				},
+				Namespaces: NamespacesRange{
+					AllNamespaces: true,
+				},
+				SuccessfulConditions:  []string{"Successful=True"},
+				FailedConditions:      []string{},
+				MinDesiredObjectCount: 2,
+				MaxFailedObjectCount:  0,
+				CallerName:            "test",
+				WaitInterval:          100 * time.Millisecond,
+			},
+			existingObjects: []exampleObject{
+				newExampleObject("test-1", "namespace-1", []interface{}{
+					map[string]interface{}{
+						"type":   "Successful",
+						"status": "True",
+					},
+				}),
+				newExampleObject("test-2", "namespace-2", []interface{}{
+					map[string]interface{}{
+						"type":   "Successful",
+						"status": "True",
+					},
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -232,5 +266,17 @@ func newExampleObject(name, namespace string, conditions []interface{}) exampleO
 				},
 			},
 		},
+	}
+}
+
+func TestNamespacesRange_AllNamespaces(t *testing.T) {
+	nr := NamespacesRange{
+		AllNamespaces: true,
+	}
+	if got := nr.String(); got != "*" {
+		t.Errorf("String() = %v, want *", got)
+	}
+	if got := nr.getMap(); len(got) != 0 {
+		t.Errorf("getMap() = %v, want empty map", got)
 	}
 }

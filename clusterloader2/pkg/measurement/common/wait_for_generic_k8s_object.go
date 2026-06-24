@@ -141,6 +141,12 @@ func getNamespaces(namespacesPrefix string, params map[string]interface{}) (meas
 		}
 		return measurementutil.NamespacesRange{}, err
 	}
+	allNamespaces, err := util.GetBool(namespaceRange, "allNamespaces")
+	if err == nil && allNamespaces {
+		return measurementutil.NamespacesRange{
+			AllNamespaces: true,
+		}, nil
+	}
 	minParam, err := util.GetInt(namespaceRange, "min")
 	if err != nil {
 		return measurementutil.NamespacesRange{}, err
@@ -149,9 +155,16 @@ func getNamespaces(namespacesPrefix string, params map[string]interface{}) (meas
 	if err != nil {
 		return measurementutil.NamespacesRange{}, err
 	}
-
+	prefix, err := util.GetString(namespaceRange, "prefix")
+	if err != nil {
+		return measurementutil.NamespacesRange{
+			Prefix: namespacesPrefix,
+			Min:    minParam,
+			Max:    maxParam,
+		}, nil
+	}
 	return measurementutil.NamespacesRange{
-		Prefix: namespacesPrefix,
+		Prefix: prefix,
 		Min:    minParam,
 		Max:    maxParam,
 	}, nil

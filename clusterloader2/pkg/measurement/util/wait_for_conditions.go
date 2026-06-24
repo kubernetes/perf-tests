@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -45,6 +46,8 @@ type WaitForGenericK8sObjectsOptions struct {
 	MinDesiredObjectCount int
 	// MaxFailedObjectCount describes maximum number of objects that could contain failed condition.
 	MaxFailedObjectCount int
+	// LabelSelector filters objects by label.
+	LabelSelector labels.Selector
 	// CallerName identifies the measurement making the calls.
 	CallerName string
 	// WaitInterval contains interval for which the function waits between refreshes.
@@ -100,7 +103,7 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 		return err
 	}
 
-	objects, err := store.ListObjectSimplifications()
+	objects, err := store.ListObjectSimplifications(options.LabelSelector)
 	if err != nil {
 		return err
 	}
@@ -111,7 +114,7 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d count=%d",
 				options.Summary(), options.MinDesiredObjectCount, len(successful), len(failed), count)
 		case <-time.After(options.WaitInterval):
-			objects, err := store.ListObjectSimplifications()
+			objects, err := store.ListObjectSimplifications(options.LabelSelector)
 			if err != nil {
 				return err
 			}

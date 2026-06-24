@@ -62,8 +62,11 @@ func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface,
 }
 
 // ListObjectSimplifications returns list of objects with conditions for each object that was returned by lister.
-func (s *DynamicObjectStore) ListObjectSimplifications() ([]ObjectSimplification, error) {
-	objects, err := s.GenericLister.List(labels.Everything())
+func (s *DynamicObjectStore) ListObjectSimplifications(labelSelector labels.Selector) ([]ObjectSimplification, error) {
+	if labelSelector == nil {
+		labelSelector = labels.Everything()
+	}
+	objects, err := s.GenericLister.List(labelSelector)
 	if err != nil {
 		return nil, err
 	}

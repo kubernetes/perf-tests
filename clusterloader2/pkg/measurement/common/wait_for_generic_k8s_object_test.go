@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/labels"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -95,6 +96,47 @@ func TestGetNamespaces_AllNamespaces(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.want, got)
+			}
+		})
+	}
+}
+
+func TestGetLabelSelector(t *testing.T) {
+	testCases := []struct {
+		name    string
+		params  map[string]interface{}
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "labelSelector omitted",
+			params: map[string]interface{}{},
+			want:   labels.Everything().String(),
+		},
+		{
+			name: "labelSelector provided",
+			params: map[string]interface{}{
+				"labelSelector": "app=worker,tier in (backend,cache)",
+			},
+			want: "app=worker,tier in (backend,cache)",
+		},
+		{
+			name: "invalid labelSelector",
+			params: map[string]interface{}{
+				"labelSelector": "app in (",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := getLabelSelector(tc.params)
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.want, got.String())
 			}
 		})
 	}

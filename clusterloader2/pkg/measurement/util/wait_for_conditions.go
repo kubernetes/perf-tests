@@ -98,12 +98,12 @@ func (nr *NamespacesRange) getMap() map[string]bool {
 // fulfills given conditions requirements, ctx.Done() channel is used to
 // wait for timeout.
 func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interface, options *WaitForGenericK8sObjectsOptions) error {
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap())
+	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap(), options.LabelSelector)
 	if err != nil {
 		return err
 	}
 
-	objects, err := store.ListObjectSimplifications(options.LabelSelector)
+	objects, err := store.ListObjectSimplifications()
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d count=%d",
 				options.Summary(), options.MinDesiredObjectCount, len(successful), len(failed), count)
 		case <-time.After(options.WaitInterval):
-			objects, err := store.ListObjectSimplifications(options.LabelSelector)
+			objects, err := store.ListObjectSimplifications()
 			if err != nil {
 				return err
 			}

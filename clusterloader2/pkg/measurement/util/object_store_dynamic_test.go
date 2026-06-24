@@ -95,11 +95,11 @@ func TestDynamicObjectStore_AllNamespaces(t *testing.T) {
 			_, err = dynamicClient.Resource(gvr).Namespace("ns-2").Create(ctx, obj2, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, tt.namespaces)
+			store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, tt.namespaces, nil)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantAllNsFlag, store.allNamespaces)
 
-			results, err := store.ListObjectSimplifications(nil)
+			results, err := store.ListObjectSimplifications()
 			require.NoError(t, err)
 
 			gotNames := make([]string, 0, len(results))
@@ -159,11 +159,11 @@ func TestDynamicObjectStore_LabelSelector(t *testing.T) {
 	_, err = dynamicClient.Resource(gvr).Namespace("ns-1").Create(ctx, nonMatchingObj, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, map[string]bool{"ns-1": true})
+	labelSelector := labels.SelectorFromSet(labels.Set{"app": "worker"})
+	store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, map[string]bool{"ns-1": true}, labelSelector)
 	require.NoError(t, err)
 
-	labelSelector := labels.SelectorFromSet(labels.Set{"app": "worker"})
-	results, err := store.ListObjectSimplifications(labelSelector)
+	results, err := store.ListObjectSimplifications()
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "ns-1/matching-item", results[0].String())

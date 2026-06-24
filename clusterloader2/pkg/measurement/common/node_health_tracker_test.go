@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 )
 
@@ -32,6 +33,8 @@ func TestNodeHealthTrackerMeasurement_HandleNodeEvent(t *testing.T) {
 		stopCh:    make(chan struct{}),
 		nodes:     make(map[string]bool),
 		hasSynced: true,
+		threshold: defaultNodeHealthTrackerThreshold,
+		ratio:     defaultNodeHealthTrackerRatio,
 	}
 
 	healthyNode := &corev1.Node{
@@ -80,6 +83,8 @@ func TestNodeHealthTrackerMeasurement_Debounce(t *testing.T) {
 		stopCh:    make(chan struct{}),
 		nodes:     make(map[string]bool),
 		hasSynced: true,
+		threshold: defaultNodeHealthTrackerThreshold,
+		ratio:     defaultNodeHealthTrackerRatio,
 	}
 
 	// Add 5 unhealthy nodes so unhealthyNodes (5) > max(4, 1% of 5 = 0.05)
@@ -118,6 +123,8 @@ func TestNodeHealthTrackerMeasurement_Gather(t *testing.T) {
 		nodes:        make(map[string]bool),
 		runningNodes: 5,
 		nodeCount:    10,
+		threshold:    defaultNodeHealthTrackerThreshold,
+		ratio:        defaultNodeHealthTrackerRatio,
 	}
 
 	config := &measurement.Config{
@@ -128,4 +135,67 @@ func TestNodeHealthTrackerMeasurement_Gather(t *testing.T) {
 	assert.Len(t, summaries, 1)
 	assert.Equal(t, nodeHealthTrackerMeasurementName, summaries[0].SummaryName())
 	assert.False(t, m.isRunning)
+}
+
+func TestNodeHealthTrackerMeasurement_Gather_Failure(t *testing.T) {
+	m := &nodeHealthTrackerMeasurement{
+		isRunning:        true,
+		stopCh:           make(chan struct{}),
+		nodes:            make(map[string]bool),
+		runningNodes:     5,
+		nodeCount:        10,
+		thresholdReached: true,
+		violationMsg:     "number of unhealthy nodes (5) is above threshold (4), total nodes: 10",
+		threshold:        defaultNodeHealthTrackerThreshold,
+		ratio:            defaultNodeHealthTrackerRatio,
+	}
+
+	config := &measurement.Config{
+		Params: map[string]interface{}{},
+	}
+	summaries, err := m.gather(config)
+	assert.Error(t, err)
+	assert.True(t, errors.IsMetricViolationError(err))
+	assert.Len(t, summaries, 1)
+}
+
+func TestNodeHealthTrackerMeasurement_ConfigurableParameters(t *testing.T) {
+	m := &nodeHealthTrackerMeasurement{
+		isRunning: true,
+		stopCh:    make(chan struct{}),
+		nodes:     make(map[string]bool),
+		hasSynced: true,
+		threshold: 10,
+		ratio:     0.05,
+	}
+
+	// Add 5 unhealthy nodes. With threshold=10, max(10, 5*0.05)=10. 5 <= 10, so should not trigger threshold.
+	for i := 1; i <= 5; i++ {
+		unhealthyNode := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("node-%d", i)},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{Type: corev1.NodeReady, Status: corev1.ConditionFalse},
+				},
+			},
+		}
+		m.handleNodeEvent(nil, unhealthyNode)
+	}
+
+	assert.False(t, m.thresholdReached)
+
+	// Add 6 more unhealthy nodes (total 11 unhealthy nodes). 11 > 10, so should trigger threshold.
+	for i := 6; i <= 11; i++ {
+		unhealthyNode := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("node-%d", i)},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{Type: corev1.NodeReady, Status: corev1.ConditionFalse},
+				},
+			},
+		}
+		m.handleNodeEvent(nil, unhealthyNode)
+	}
+
+	assert.True(t, m.thresholdReached)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,14 +29,17 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	nodeHealthTrackerMeasurementName = "NodeHealthTracker"
-	nodeHealthTrackerInformerTimeout = time.Minute
+	nodeHealthTrackerMeasurementName  = "NodeHealthTracker"
+	nodeHealthTrackerInformerTimeout  = time.Minute
+	defaultNodeHealthTrackerThreshold = 4
+	defaultNodeHealthTrackerRatio     = 0.01
 )
 
 func init() {
@@ -46,18 +49,25 @@ func init() {
 }
 
 func createNodeHealthTrackerMeasurement() measurement.Measurement {
-	return &nodeHealthTrackerMeasurement{}
+	return &nodeHealthTrackerMeasurement{
+		threshold: defaultNodeHealthTrackerThreshold,
+		ratio:     defaultNodeHealthTrackerRatio,
+	}
 }
 
 type nodeHealthTrackerMeasurement struct {
-	isRunning    bool
-	stopCh       chan struct{}
-	lock         sync.Mutex
-	nodes        map[string]bool
-	runningNodes int
-	nodeCount    int
-	hasSynced    bool
-	lastLogTime  time.Time
+	isRunning        bool
+	stopCh           chan struct{}
+	lock             sync.Mutex
+	nodes            map[string]bool
+	runningNodes     int
+	nodeCount        int
+	hasSynced        bool
+	lastLogTime      time.Time
+	thresholdReached bool
+	violationMsg     string
+	threshold        int
+	ratio            float64
 }
 
 func (m *nodeHealthTrackerMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
@@ -91,7 +101,17 @@ func (m *nodeHealthTrackerMeasurement) String() string {
 }
 
 func (m *nodeHealthTrackerMeasurement) start(config *measurement.Config) error {
+	threshold, err := util.GetIntOrDefault(config.Params, "threshold", defaultNodeHealthTrackerThreshold)
+	if err != nil {
+		return fmt.Errorf("problem with getting threshold param: %w", err)
+	}
+	ratio, err := util.GetFloat64OrDefault(config.Params, "ratio", defaultNodeHealthTrackerRatio)
+	if err != nil {
+		return fmt.Errorf("problem with getting ratio param: %w", err)
+	}
+
 	m.lock.Lock()
+	klog.V(2).Infof("%s: starting node health tracker measurement...", config.Identifier)
 	if m.isRunning {
 		m.lock.Unlock()
 		klog.V(2).Infof("%s: measurement already running", m)
@@ -104,6 +124,10 @@ func (m *nodeHealthTrackerMeasurement) start(config *measurement.Config) error {
 	m.nodeCount = 0
 	m.hasSynced = false
 	m.lastLogTime = time.Time{}
+	m.thresholdReached = false
+	m.violationMsg = ""
+	m.threshold = threshold
+	m.ratio = ratio
 	m.lock.Unlock()
 
 	selector := util.NewObjectSelector()
@@ -175,8 +199,9 @@ func (m *nodeHealthTrackerMeasurement) checkThresholdAndLog() {
 		return
 	}
 	unhealthyNodes := m.nodeCount - m.runningNodes
-	threshold := math.Max(4, float64(m.nodeCount)*0.01)
+	threshold := math.Max(float64(m.threshold), float64(m.nodeCount)*m.ratio)
 	if float64(unhealthyNodes) > threshold {
+		m.thresholdReached = true
 		now := time.Now()
 		if m.lastLogTime.IsZero() || now.Sub(m.lastLogTime) >= time.Minute {
 			exampleUnhealthyNode := ""
@@ -186,8 +211,12 @@ func (m *nodeHealthTrackerMeasurement) checkThresholdAndLog() {
 					break
 				}
 			}
-			klog.Warningf("%s: number of unhealthy nodes (%d) is above threshold (%v), total nodes: %d, example unhealthy node: %s", m.String(), unhealthyNodes, threshold, m.nodeCount, exampleUnhealthyNode)
+			msg := fmt.Sprintf("number of unhealthy nodes (%d) is above threshold (%v), total nodes: %d, example unhealthy node: %s", unhealthyNodes, threshold, m.nodeCount, exampleUnhealthyNode)
+			m.violationMsg = msg
+			klog.Warningf("%s: %s", m.String(), msg)
 			m.lastLogTime = now
+		} else if m.violationMsg == "" {
+			m.violationMsg = fmt.Sprintf("number of unhealthy nodes (%d) is above threshold (%v), total nodes: %d", unhealthyNodes, threshold, m.nodeCount)
 		}
 	}
 }
@@ -201,9 +230,10 @@ func (m *nodeHealthTrackerMeasurement) gather(config *measurement.Config) ([]mea
 
 	m.stopLocked()
 
-	summaryData := map[string]int{
-		"runningNodes": m.runningNodes,
-		"nodeCount":    m.nodeCount,
+	summaryData := map[string]interface{}{
+		"runningNodes":     m.runningNodes,
+		"nodeCount":        m.nodeCount,
+		"thresholdReached": m.thresholdReached,
 	}
 	content, err := util.PrettyPrintJSON(summaryData)
 	if err != nil {
@@ -211,7 +241,10 @@ func (m *nodeHealthTrackerMeasurement) gather(config *measurement.Config) ([]mea
 	}
 
 	summary := measurement.CreateSummary(nodeHealthTrackerMeasurementName, "json", content)
-	return []measurement.Summary{summary}, nil
+	if m.thresholdReached {
+		err = errors.NewMetricViolationError("node health", m.violationMsg)
+	}
+	return []measurement.Summary{summary}, err
 }
 
 func (m *nodeHealthTrackerMeasurement) stop() {

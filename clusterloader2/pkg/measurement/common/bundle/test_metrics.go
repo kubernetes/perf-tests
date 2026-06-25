@@ -60,6 +60,15 @@ func createTestMetricsMeasurement() measurement.Measurement {
 	if metrics.etcdBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
 		klog.Errorf("%v: etcdBlockProfile creation error: %v", metrics, err)
 	}
+	if metrics.etcdEventsCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
+		klog.Errorf("%v: etcdEventsCPUProfile creation error: %v", metrics, err)
+	}
+	if metrics.etcdEventsMemoryProfile, err = measurement.CreateMeasurement("MemoryProfile"); err != nil {
+		klog.Errorf("%v: etcdEventsMemoryProfile creation error: %v", metrics, err)
+	}
+	if metrics.etcdEventsBlockProfile, err = measurement.CreateMeasurement("BlockProfile"); err != nil {
+		klog.Errorf("%v: etcdEventsBlockProfile creation error: %v", metrics, err)
+	}
 	if metrics.apiserverCPUProfile, err = measurement.CreateMeasurement("CPUProfile"); err != nil {
 		klog.Errorf("%v: apiserverCPUProfile creation error: %v", metrics, err)
 	}
@@ -104,6 +113,9 @@ type testMetrics struct {
 	etcdCPUProfile                 measurement.Measurement
 	etcdMemoryProfile              measurement.Measurement
 	etcdBlockProfile               measurement.Measurement
+	etcdEventsCPUProfile           measurement.Measurement
+	etcdEventsMemoryProfile        measurement.Measurement
+	etcdEventsBlockProfile         measurement.Measurement
 	apiserverCPUProfile            measurement.Measurement
 	apiserverMemoryProfile         measurement.Measurement
 	apiserverBlockProfile          measurement.Measurement
@@ -144,6 +156,14 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		"action":        "gather",
 		"componentName": "etcd",
 	})
+	etcdEventsStartConfig := createConfig(config, map[string]interface{}{
+		"action":        "start",
+		"componentName": "etcd-events",
+	})
+	etcdEventsGatherConfig := createConfig(config, map[string]interface{}{
+		"action":        "gather",
+		"componentName": "etcd-events",
+	})
 	kubeApiserverStartConfig := createConfig(config, map[string]interface{}{
 		"action":        "start",
 		"componentName": "kube-apiserver",
@@ -183,6 +203,12 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdBlockProfile, etcdStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsCPUProfile, etcdEventsStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsCPUProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsMemoryProfile, etcdEventsStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsMemoryProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsBlockProfile, etcdEventsStartConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsBlockProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverStartConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverStartConfig)
@@ -228,6 +254,12 @@ func (t *testMetrics) Execute(config *measurement.Config) ([]measurement.Summary
 		appendResults(&summaries, errList, summary, executeError(t.etcdMemoryProfile.String(), action, err))
 		summary, err = execute(t.etcdBlockProfile, etcdGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.etcdBlockProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsCPUProfile, etcdEventsGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsCPUProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsMemoryProfile, etcdEventsGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsMemoryProfile.String(), action, err))
+		summary, err = execute(t.etcdEventsBlockProfile, etcdEventsGatherConfig)
+		appendResults(&summaries, errList, summary, executeError(t.etcdEventsBlockProfile.String(), action, err))
 		summary, err = execute(t.apiserverCPUProfile, kubeApiserverGatherConfig)
 		appendResults(&summaries, errList, summary, executeError(t.apiserverCPUProfile.String(), action, err))
 		summary, err = execute(t.apiserverMemoryProfile, kubeApiserverGatherConfig)
@@ -270,6 +302,9 @@ func (t *testMetrics) Dispose() {
 	t.etcdCPUProfile.Dispose()
 	t.etcdMemoryProfile.Dispose()
 	t.etcdBlockProfile.Dispose()
+	t.etcdEventsCPUProfile.Dispose()
+	t.etcdEventsMemoryProfile.Dispose()
+	t.etcdEventsBlockProfile.Dispose()
 	t.apiserverCPUProfile.Dispose()
 	t.apiserverMemoryProfile.Dispose()
 	t.apiserverBlockProfile.Dispose()

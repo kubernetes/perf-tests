@@ -225,19 +225,19 @@ func (p *profileMeasurement) shouldExposeAPIServerDebugEndpoint() bool {
 }
 
 func (p *profileMeasurement) getProfileCommand(config *measurement.Config) (string, error) {
-	profileProtocol, profilePort, err := config.ClusterFramework.GetClusterConfig().Provider.GetComponentProtocolAndPort(p.config.componentName)
+	clusterConfig := config.ClusterFramework.GetClusterConfig()
+	switch p.config.componentName {
+	case "etcd":
+		return fmt.Sprintf("curl -s http://localhost:%d/debug/pprof/%s", clusterConfig.EtcdPprofPort, p.config.kind), nil
+	case "etcd-events":
+		return fmt.Sprintf("curl -s http://localhost:%d/debug/pprof/%s", clusterConfig.EtcdEventsPprofPort, p.config.kind), nil
+	}
+
+	profileProtocol, profilePort, err := clusterConfig.Provider.GetComponentProtocolAndPort(p.config.componentName)
 	if err != nil {
 		return "", goerrors.Errorf("get profile command failed finding component protocol/port: %v", err)
 	}
-
-	var command string
-	if p.config.componentName == "etcd" {
-		command = fmt.Sprintf("curl -s http://localhost:%d/debug/pprof/%s", config.ClusterFramework.GetClusterConfig().EtcdPprofPort, p.config.kind)
-	} else {
-		command = fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind)
-	}
-
-	return command, nil
+	return fmt.Sprintf("curl -s -k %slocalhost:%v/debug/pprof/%s", profileProtocol, profilePort, p.config.kind), nil
 }
 
 func exposeAPIServerDebugEndpoint(c clientset.Interface) error {

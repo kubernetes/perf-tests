@@ -44,6 +44,7 @@ type ClusterConfig struct {
 	EtcdKeyPath         string
 	EtcdInsecurePort    int
 	EtcdPprofPort       int
+	EtcdEventsPprofPort int
 	MasterIPs           []string
 	MasterInternalIPs   []string
 	MasterName          string

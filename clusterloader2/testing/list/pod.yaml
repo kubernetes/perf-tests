@@ -1,5 +1,4 @@
 {{$group := DefaultParam .group .Name}}
-{{$RealisticPod := DefaultParam .CL2_REALISTIC_POD false}}
 
 apiVersion: v1
 kind: Pod
@@ -7,7 +6,6 @@ metadata:
   generateName: list-pod-
   labels:
     group: {{$group}}
-{{if $RealisticPod}}
     app.kubernetes.io/name: "payment-service"
     app.kubernetes.io/instance: "payment-service-primary"
     app.kubernetes.io/version: "v2.1.4"
@@ -26,9 +24,7 @@ metadata:
     fluentbit.io/parser: "json"
     argocd.argoproj.io/hook: "PreSync"
     argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
-{{end}}
 spec:
-{{if $RealisticPod}}
   initContainers:
   - name: init-0
     image: registry.k8s.io/e2e-test-images/agnhost:2.53
@@ -133,8 +129,3 @@ spec:
     secret:
       secretName: {{.Name}}
       optional: true
-{{else}}
-  containers:
-  - image: registry.k8s.io/pause:3.9
-    name: pause
-{{end}}

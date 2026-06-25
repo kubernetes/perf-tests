@@ -7,7 +7,7 @@ List load test perform the following steps:
 - Optionally create pods.
   - The number of pods can be specified using `CL2_LIST_POD_NUMBER`.
   - The pod list benchmark is skipped by default unless `CL2_LIST_POD_NUMBER` is greater than 0.
-  - The exemplar pod shape can be enabled using `CL2_REALISTIC_POD`.
+  - Pods use the exemplar pod shape from reconcile-objects to measure realistic per-pod list cost.
 - Create RBAC rules to allow lister pods to access these configmaps
 - Create lister pods using deployment in a separate namespace to list configured resources.
   - The namespace is created using `namespace.yaml` as a template, but its lifecycle is managed by CL2.

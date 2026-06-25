@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
@@ -94,7 +95,7 @@ func TestDynamicObjectStore_AllNamespaces(t *testing.T) {
 			_, err = dynamicClient.Resource(gvr).Namespace("ns-2").Create(ctx, obj2, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, tt.namespaces)
+			store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, tt.namespaces, nil)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantAllNsFlag, store.allNamespaces)
 
@@ -108,4 +109,62 @@ func TestDynamicObjectStore_AllNamespaces(t *testing.T) {
 			assert.ElementsMatch(t, tt.wantNames, gotNames)
 		})
 	}
+}
+
+func TestDynamicObjectStore_LabelSelector(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Group:    "test.group",
+		Version:  "v1",
+		Resource: "items",
+	}
+
+	matchingObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "matching-item",
+				"namespace": "ns-1",
+				"labels": map[string]interface{}{
+					"app": "worker",
+				},
+			},
+			"status": map[string]interface{}{
+				"conditions": []interface{}{},
+			},
+		},
+	}
+	nonMatchingObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "non-matching-item",
+				"namespace": "ns-1",
+				"labels": map[string]interface{}{
+					"app": "api",
+				},
+			},
+			"status": map[string]interface{}{
+				"conditions": []interface{}{},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dynamicClient := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
+		gvr: "ItemsList",
+	})
+
+	_, err := dynamicClient.Resource(gvr).Namespace("ns-1").Create(ctx, matchingObj, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = dynamicClient.Resource(gvr).Namespace("ns-1").Create(ctx, nonMatchingObj, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	labelSelector := labels.SelectorFromSet(labels.Set{"app": "worker"})
+	store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, map[string]bool{"ns-1": true}, labelSelector)
+	require.NoError(t, err)
+
+	results, err := store.ListObjectSimplifications()
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "ns-1/matching-item", results[0].String())
 }

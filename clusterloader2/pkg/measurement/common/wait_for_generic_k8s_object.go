@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
@@ -83,6 +84,10 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	if err != nil {
 		return nil, err
 	}
+	labelSelector, err := getLabelSelector(config.Params)
+	if err != nil {
+		return nil, err
+	}
 
 	dynamicClient := config.ClusterFramework.GetDynamicClients().GetClient()
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
@@ -95,6 +100,7 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 		FailedConditions:      failedConditions,
 		MinDesiredObjectCount: minDesiredObjectCount,
 		MaxFailedObjectCount:  maxFailedObjectCount,
+		LabelSelector:         labelSelector,
 		CallerName:            w.String(),
 		WaitInterval:          refreshInterval,
 	}
@@ -128,6 +134,17 @@ func getGroupVersionResource(params map[string]interface{}) (schema.GroupVersion
 		Version:  version,
 		Resource: resource,
 	}, nil
+}
+
+func getLabelSelector(params map[string]interface{}) (labels.Selector, error) {
+	labelSelector, err := util.GetString(params, "labelSelector")
+	if err != nil {
+		if util.IsErrKeyNotFound(err) {
+			return labels.Everything(), nil
+		}
+		return nil, err
+	}
+	return labels.Parse(labelSelector)
 }
 
 func getNamespaces(namespacesPrefix string, params map[string]interface{}) (measurementutil.NamespacesRange, error) {

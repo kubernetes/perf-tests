@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
@@ -223,6 +224,43 @@ func TestWaitForGenericK8sObjects(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name:    "successful object filtered by label selector",
+			timeout: 1 * time.Second,
+			options: &WaitForGenericK8sObjectsOptions{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "kuberentes.io",
+					Version:  "v1alpha1",
+					Resource: "Conditions",
+				},
+				Namespaces: NamespacesRange{
+					Prefix: "namespace",
+					Min:    1,
+					Max:    1,
+				},
+				LabelSelector:         labels.SelectorFromSet(labels.Set{"app": "worker"}),
+				SuccessfulConditions:  []string{"Successful=True"},
+				FailedConditions:      []string{},
+				MinDesiredObjectCount: 1,
+				MaxFailedObjectCount:  0,
+				CallerName:            "test",
+				WaitInterval:          100 * time.Millisecond,
+			},
+			existingObjects: []exampleObject{
+				newExampleObjectWithLabels("test-1", "namespace-1", map[string]string{"app": "worker"}, []interface{}{
+					map[string]interface{}{
+						"type":   "Successful",
+						"status": "True",
+					},
+				}),
+				newExampleObjectWithLabels("test-2", "namespace-1", map[string]string{"app": "api"}, []interface{}{
+					map[string]interface{}{
+						"type":   "Successful",
+						"status": "True",
+					},
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -253,6 +291,14 @@ type exampleObject struct {
 }
 
 func newExampleObject(name, namespace string, conditions []interface{}) exampleObject {
+	return newExampleObjectWithLabels(name, namespace, nil, conditions)
+}
+
+func newExampleObjectWithLabels(name, namespace string, objectLabels map[string]string, conditions []interface{}) exampleObject {
+	labels := map[string]interface{}{}
+	for k, v := range objectLabels {
+		labels[k] = v
+	}
 	return exampleObject{
 		Namespace: namespace,
 		Unstructured: &unstructured.Unstructured{
@@ -260,6 +306,7 @@ func newExampleObject(name, namespace string, conditions []interface{}) exampleO
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"labels":    labels,
 				},
 				"status": map[string]interface{}{
 					"conditions": conditions,

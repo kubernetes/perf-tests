@@ -48,8 +48,13 @@ type DynamicObjectStore struct {
 }
 
 // NewDynamicObjectStore creates DynamicObjectStore based on given object version resource and selector.
-func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface, gvr schema.GroupVersionResource, namespaces map[string]bool) (*DynamicObjectStore, error) {
-	informerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, defaultResyncInterval)
+func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface, gvr schema.GroupVersionResource, namespaces map[string]bool, labelSelector labels.Selector) (*DynamicObjectStore, error) {
+	tweakListOptions := func(options *metav1.ListOptions) {
+		if labelSelector != nil {
+			options.LabelSelector = labelSelector.String()
+		}
+	}
+	informerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, defaultResyncInterval, metav1.NamespaceAll, tweakListOptions)
 	lister := informerFactory.ForResource(gvr).Lister()
 	informerFactory.Start(ctx.Done())
 	informerFactory.WaitForCacheSync(ctx.Done())

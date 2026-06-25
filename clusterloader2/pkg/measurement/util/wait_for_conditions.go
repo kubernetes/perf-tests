@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -45,6 +46,8 @@ type WaitForGenericK8sObjectsOptions struct {
 	MinDesiredObjectCount int
 	// MaxFailedObjectCount describes maximum number of objects that could contain failed condition.
 	MaxFailedObjectCount int
+	// LabelSelector filters objects by label.
+	LabelSelector labels.Selector
 	// CallerName identifies the measurement making the calls.
 	CallerName string
 	// WaitInterval contains interval for which the function waits between refreshes.
@@ -95,7 +98,7 @@ func (nr *NamespacesRange) getMap() map[string]bool {
 // fulfills given conditions requirements, ctx.Done() channel is used to
 // wait for timeout.
 func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interface, options *WaitForGenericK8sObjectsOptions) error {
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap())
+	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap(), options.LabelSelector)
 	if err != nil {
 		return err
 	}

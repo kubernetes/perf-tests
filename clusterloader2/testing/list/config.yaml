@@ -58,40 +58,6 @@ steps:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 
-{{if $podNumber}}
-- name: Create pods
-  phases:
-  - namespaceRange:
-      min: 1
-      max: 1
-    tuningSet: Sequence
-    replicasPerNamespace: {{$podNumber}}
-    objectBundle:
-    - basename: {{$podGroup}}
-      objectTemplatePath: pod.yaml
-      templateFillMap:
-        group: {{$podGroup}}
-
-- name: Waiting for pods to be running
-  measurements:
-  - Identifier: WaitForListBenchmarkPods
-    Method: WaitForRunningPods
-    Params:
-      action: gather
-      timeout: 10m
-      desiredPodCount: {{$podNumber}}
-      labelSelector: group = {{$podGroup}}
-
-- module:
-    path: modules/list-benchmark.yaml
-    params:
-      namePrefix: "list-pods-"
-      replicas: {{$listReplicas}}
-      uri: /api/v1/pods?resourceVersion=0
-      namespaced: false
-      contentType: {{$contentType}}
-{{end}}
-
 - module:
     path: modules/list-benchmark.yaml
     params:
@@ -104,7 +70,7 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: start
-- name: Wait 5 minutes
+- name: Wait 5 minutes for configmap list benchmark
   measurements:
     - Identifier: Wait
       Method: Sleep
@@ -119,7 +85,43 @@ steps:
     params:
       namePrefix: "list-configmaps-"
       replicas: 0
+
 {{if $podNumber}}
+- name: Create pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$podNumber}}
+    objectBundle:
+    - basename: {{$podGroup}}
+      objectTemplatePath: pod.yaml
+      templateFillMap:
+        group: {{$podGroup}}
+
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: {{$listReplicas}}
+      uri: /api/v1/pods?resourceVersion=0
+      namespaced: false
+      contentType: {{$contentType}}
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Wait 5 minutes for pod list benchmark
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
 - module:
     path: modules/list-benchmark.yaml
     params:

@@ -78,6 +78,7 @@ func initClusterFlags() {
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdKeyPath, "etcd-key", "ETCD_KEY", "/etc/srv/kubernetes/pki/etcd-apiserver-server.key", "Path to the etcd key on the master machine")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdInsecurePort, "etcd-insecure-port", "ETCD_INSECURE_PORT", 2382, "Inscure http port")
 	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdPprofPort, "etcd-pprof-port", "ETCD_PPROF_PORT", 2385, "Insecure http port serving etcd /debug/pprof (etcd --listen-client-http-urls)")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.EtcdEventsPprofPort, "etcd-events-pprof-port", "ETCD_EVENTS_PPROF_PORT", 2386, "Insecure http port serving etcd-events /debug/pprof (etcd --listen-client-http-urls)")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.DeleteStaleNamespaces, "delete-stale-namespaces", "DELETE_STALE_NAMESPACES", false, "DEPRECATED: Whether to delete all stale namespaces before the test execution.")
 	err := flags.MarkDeprecated("delete-stale-namespaces", "specify deleteStaleNamespaces in testconfig file instead.")
 	if err != nil {

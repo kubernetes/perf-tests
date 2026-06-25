@@ -87,6 +87,20 @@ steps:
       replicas: 0
 
 {{if $podNumber}}
+- name: Delete configmaps before pod list benchmark
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 0
+    objectBundle:
+    - basename: {{$configMapGroup}}
+      objectTemplatePath: configmap.yaml
+      templateFillMap:
+        bytes: {{$configMapBytes}}
+        group: {{$configMapGroup}}
+
 - name: Create pods
   phases:
   - namespaceRange:

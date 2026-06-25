@@ -4,11 +4,15 @@ List load test perform the following steps:
 - Create configmaps.
   - The namespaces used here are managed by CL2.
   - The size and number of configmaps can be specified using `CL2_LIST_CONFIG_MAP_BYTES` and `CL2_LIST_CONFIG_MAP_NUMBER`.
+- Optionally create pods.
+  - The number of pods can be specified using `CL2_LIST_POD_NUMBER`.
+  - The pod list benchmark is skipped by default unless `CL2_LIST_POD_NUMBER` is greater than 0.
+  - Pods use the exemplar pod shape from reconcile-objects to measure realistic per-pod list cost.
 - Create RBAC rules to allow lister pods to access these configmaps
-- Create lister pods using deployment in a separate namespace to list configmaps and secrets.
+- Create lister pods using deployment in a separate namespace to list configured resources.
   - The namespace is created using `namespace.yaml` as a template, but its lifecycle is managed by CL2.
   - The number of replicas for the lister pods can be specified using `CL2_LIST_BENCHMARK_PODS`.
-- Measurement uses [`APIResponsivenessPrometheusSimple`](https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/README.md) to meansure API latency for list configmaps and secrets calls.
+- Measurement uses [`APIResponsivenessPrometheusSimple`](https://github.com/kubernetes/perf-tests/blob/master/clusterloader2/README.md) to measure API latency for list calls.
 
 The lister pods leverage https://github.com/kubernetes/perf-tests/tree/master/util-images/request-benchmark to create in-cluster list load.
 

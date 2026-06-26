@@ -2,7 +2,7 @@
 # due to the size of the total payload
 CUSTOM_API_CALL_THRESHOLDS: |
   - verb: LIST
-    resource: secrets
+    resource: pods
     subresource: ''
-    scope: namespace
+    scope: cluster
     threshold: 60s

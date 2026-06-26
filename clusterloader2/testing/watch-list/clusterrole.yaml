@@ -1,8 +1,8 @@
-kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
   name: {{.Name}}
 rules:
   - apiGroups: [""]
-    resources: ["secrets"]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]

@@ -9,9 +9,9 @@ namespace:
   number: {{$namespaces}}
   prefix: "watch-list"
 tuningSets:
-- name: Uniform500qps
+- name: Uniform2000qps
   qpsLoad:
-    qps: 500
+    qps: 2000
 steps:
 - name: Create pods
   phases:
@@ -20,7 +20,7 @@ steps:
       max: {{$namespaces}}
       basename: watch-list
     replicasPerNamespace: {{$podsPerNamespace}}
-    tuningSet: Uniform500qps
+    tuningSet: Uniform2000qps
     objectBundle:
     - basename: list-pod
       objectTemplatePath: "pod.yaml"
@@ -42,7 +42,7 @@ steps:
 - name: Start the informers
   phases:
     - replicasPerNamespace: 1
-      tuningSet: Uniform500qps
+      tuningSet: Uniform2000qps
       objectBundle:
         - basename: watch-list-rbac
           objectTemplatePath: clusterrole.yaml
@@ -55,7 +55,7 @@ steps:
         max: 1
         basename: watch-list
       replicasPerNamespace: 1
-      tuningSet: Uniform500qps
+      tuningSet: Uniform2000qps
       objectBundle:
         - basename: watch-list
           objectTemplatePath: "job.yaml"

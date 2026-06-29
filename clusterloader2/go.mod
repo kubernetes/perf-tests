@@ -41,7 +41,7 @@ require (
 	github.com/google/safetext v0.0.0-20230106111101-7156a760e523
 	github.com/montanaflynn/stats v0.9.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.69.0
 	github.com/prometheus/prometheus v1.8.2-0.20210331101223-3cafc58827d1
@@ -112,7 +112,7 @@ require (
 	go.uber.org/goleak v1.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

@@ -261,6 +261,32 @@ func TestWaitForGenericK8sObjects(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name:    "objects created with empty conditions (no conditions specified)",
+			timeout: 1 * time.Second,
+			options: &WaitForGenericK8sObjectsOptions{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "kubernetes.io",
+					Version:  "v1alpha1",
+					Resource: "Conditions",
+				},
+				Namespaces: NamespacesRange{
+					Prefix: "namespace",
+					Min:    1,
+					Max:    1,
+				},
+				SuccessfulConditions:  []string{},
+				FailedConditions:      []string{},
+				MinDesiredObjectCount: 2,
+				MaxFailedObjectCount:  0,
+				CallerName:            "test",
+				WaitInterval:          100 * time.Millisecond,
+			},
+			existingObjects: []exampleObject{
+				newExampleObject("test-1", "namespace-1", []interface{}{}),
+				newExampleObject("test-2", "namespace-1", []interface{}{}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

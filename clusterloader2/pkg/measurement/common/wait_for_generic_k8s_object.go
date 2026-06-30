@@ -70,17 +70,25 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	}
 	successfulConditions, err := util.GetStringArray(config.Params, "successfulConditions")
 	if err != nil {
-		return nil, err
+		if util.IsErrKeyNotFound(err) {
+			successfulConditions = []string{}
+		} else {
+			return nil, err
+		}
 	}
 	failedConditions, err := util.GetStringArray(config.Params, "failedConditions")
 	if err != nil {
-		return nil, err
+		if util.IsErrKeyNotFound(err) {
+			failedConditions = []string{}
+		} else {
+			return nil, err
+		}
 	}
 	minDesiredObjectCount, err := util.GetInt(config.Params, "minDesiredObjectCount")
 	if err != nil {
 		return nil, err
 	}
-	maxFailedObjectCount, err := util.GetInt(config.Params, "maxFailedObjectCount")
+	maxFailedObjectCount, err := util.GetIntOrDefault(config.Params, "maxFailedObjectCount", 0)
 	if err != nil {
 		return nil, err
 	}

@@ -17,16 +17,16 @@ limitations under the License.
 package common
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -155,36 +155,23 @@ func TestWaitForGenericK8sObjectsMeasurement_Execute_OmittedConditions(t *testin
 		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
 	})
 
-	pod1 := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Pod",
-			"metadata": map[string]interface{}{
-				"name":      "pod-1",
-				"namespace": "test-ns-0",
-			},
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-1",
+			Namespace: "test-ns-0",
 		},
 	}
-	pod2 := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Pod",
-			"metadata": map[string]interface{}{
-				"name":      "pod-2",
-				"namespace": "test-ns-0",
-			},
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-2",
+			Namespace: "test-ns-0",
 		},
 	}
-
-	ctx := context.Background()
-	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-	_, err := fakeClient.Resource(gvr).Namespace("test-ns-0").Create(ctx, pod1, metav1.CreateOptions{})
-	assert.NoError(t, err)
-	_, err = fakeClient.Resource(gvr).Namespace("test-ns-0").Create(ctx, pod2, metav1.CreateOptions{})
-	assert.NoError(t, err)
 
 	multiDynamic := framework.NewMultiDynamicClientFromClients(fakeClient)
-	clusterFramework := framework.NewFrameworkFromClients(nil, multiDynamic)
+	fakeTypedClient := fakeclientset.NewSimpleClientset(pod1, pod2)
+	multiClientSet := framework.NewMultiClientSetFromClients(fakeTypedClient)
+	clusterFramework := framework.NewFrameworkFromClients(multiClientSet, multiDynamic)
 
 	m := createWaitForGenericK8sObjectsMeasurement()
 	config := &measurement.Config{

@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -52,6 +52,10 @@ type WaitForGenericK8sObjectsOptions struct {
 	CallerName string
 	// WaitInterval contains interval for which the function waits between refreshes.
 	WaitInterval time.Duration
+	// GenericLister allows the caller to provide a pre-warmed cache to avoid
+	// instantiating a new dynamic informer. If provided, GroupVersionResource is
+	// ignored for informer creation.
+	GenericLister cache.GenericLister
 }
 
 // NamespacesRange represents namespace range which will be queried.
@@ -97,17 +101,18 @@ func (nr *NamespacesRange) getMap() map[string]bool {
 // WaitForGenericK8sObjects waits till the desired number of k8s objects
 // fulfills given conditions requirements, ctx.Done() channel is used to
 // wait for timeout.
-func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interface, options *WaitForGenericK8sObjectsOptions) error {
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap(), options.LabelSelector)
-	if err != nil {
-		return err
+func WaitForGenericK8sObjects(ctx context.Context, options *WaitForGenericK8sObjectsOptions) error {
+	lister := options.GenericLister
+	if lister == nil {
+		return fmt.Errorf("GenericLister is required")
 	}
 
+	namespacesMap := options.Namespaces.getMap()
 	var successful, failed []string
 	var count int
 
 	for {
-		objects, err := store.ListObjectSimplifications()
+		objects, err := ListObjectSimplifications(lister, namespacesMap, options.LabelSelector)
 		if err != nil {
 			return err
 		}

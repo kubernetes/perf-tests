@@ -95,6 +95,15 @@ func newFramework(clusterConfig *config.ClusterConfig, clientsNumber int, kubeCo
 	return &f, nil
 }
 
+// NewFrameworkFromClients creates new Framework with given clientSets and dynamicClients for testing.
+func NewFrameworkFromClients(clientSets *MultiClientSet, dynamicClients *MultiDynamicClient) *Framework {
+	return &Framework{
+		automanagedNamespaces: map[string]bool{},
+		clientSets:            clientSets,
+		dynamicClients:        dynamicClients,
+	}
+}
+
 // GetAutomanagedNamespacePrefix returns automanaged namespace prefix.
 func (f *Framework) GetAutomanagedNamespacePrefix() string {
 	return f.automanagedNamespacePrefix

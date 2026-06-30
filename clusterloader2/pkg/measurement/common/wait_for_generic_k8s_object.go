@@ -68,11 +68,11 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	if err != nil {
 		return nil, err
 	}
-	successfulConditions, err := util.GetStringArray(config.Params, "successfulConditions")
+	successfulConditions, err := util.GetStringArrayOrDefault(config.Params, "successfulConditions", []string{})
 	if err != nil {
 		return nil, err
 	}
-	failedConditions, err := util.GetStringArray(config.Params, "failedConditions")
+	failedConditions, err := util.GetStringArrayOrDefault(config.Params, "failedConditions", []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	if err != nil {
 		return nil, err
 	}
-	maxFailedObjectCount, err := util.GetInt(config.Params, "maxFailedObjectCount")
+	maxFailedObjectCount, err := util.GetIntOrDefault(config.Params, "maxFailedObjectCount", 0)
 	if err != nil {
 		return nil, err
 	}

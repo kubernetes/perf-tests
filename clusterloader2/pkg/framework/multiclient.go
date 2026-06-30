@@ -96,3 +96,10 @@ func (m *MultiDynamicClient) GetClient() dynamic.Interface {
 	m.current = (m.current + 1) % len(m.clients)
 	return m.clients[m.current]
 }
+
+// NewMultiDynamicClientFromClients creates new MultiDynamicClient for given slice of dynamic clients.
+func NewMultiDynamicClientFromClients(clients ...dynamic.Interface) *MultiDynamicClient {
+	return &MultiDynamicClient{
+		clients: clients,
+	}
+}

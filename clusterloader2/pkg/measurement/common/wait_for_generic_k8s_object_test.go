@@ -17,10 +17,18 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/perf-tests/clusterloader2/pkg/framework"
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
@@ -140,4 +148,63 @@ func TestGetLabelSelector(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWaitForGenericK8sObjectsMeasurement_Execute_OmittedConditions(t *testing.T) {
+	fakeClient := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	})
+
+	pod1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "pod-1",
+				"namespace": "test-ns-0",
+			},
+		},
+	}
+	pod2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "pod-2",
+				"namespace": "test-ns-0",
+			},
+		},
+	}
+
+	ctx := context.Background()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	_, err := fakeClient.Resource(gvr).Namespace("test-ns-0").Create(ctx, pod1, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, err = fakeClient.Resource(gvr).Namespace("test-ns-0").Create(ctx, pod2, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	multiDynamic := framework.NewMultiDynamicClientFromClients(fakeClient)
+	clusterFramework := framework.NewFrameworkFromClients(nil, multiDynamic)
+
+	m := createWaitForGenericK8sObjectsMeasurement()
+	config := &measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"objectGroup":           "",
+			"objectVersion":         "v1",
+			"objectResource":        "pods",
+			"minDesiredObjectCount": 2,
+			"refreshInterval":       "100ms",
+			"timeout":               "1s",
+			"namespaceRange": map[string]interface{}{
+				"prefix": "test-ns",
+				"min":    0,
+				"max":    0,
+			},
+		},
+	}
+
+	summaries, err := m.Execute(config)
+	assert.NoError(t, err)
+	assert.Nil(t, summaries)
 }

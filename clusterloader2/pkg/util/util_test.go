@@ -278,3 +278,48 @@ func TestGetBool(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStringArrayOrDefault(t *testing.T) {
+	tests := []struct {
+		name         string
+		dict         map[string]interface{}
+		key          string
+		defaultValue []string
+		want         []string
+		wantErr      bool
+	}{
+		{
+			name:         "key present",
+			dict:         map[string]interface{}{"conditions": []interface{}{"ConditionA=True", "ConditionB=True"}},
+			key:          "conditions",
+			defaultValue: []string{},
+			want:         []string{"ConditionA=True", "ConditionB=True"},
+		},
+		{
+			name:         "key missing - returns default",
+			dict:         map[string]interface{}{},
+			key:          "conditions",
+			defaultValue: []string{"DefaultCond=True"},
+			want:         []string{"DefaultCond=True"},
+		},
+		{
+			name:         "key missing - returns empty default",
+			dict:         map[string]interface{}{},
+			key:          "conditions",
+			defaultValue: []string{},
+			want:         []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetStringArrayOrDefault(tt.dict, tt.key, tt.defaultValue)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetStringArrayOrDefault() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

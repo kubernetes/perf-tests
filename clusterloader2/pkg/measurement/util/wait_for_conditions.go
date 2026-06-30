@@ -103,31 +103,34 @@ func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interfa
 		return err
 	}
 
-	objects, err := store.ListObjectSimplifications()
-	if err != nil {
-		return err
-	}
-	successful, failed, count := countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
+	var successful, failed []string
+	var count int
+
 	for {
+		objects, err := store.ListObjectSimplifications()
+		if err != nil {
+			return err
+		}
+		successful, failed, count = countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
+		klog.V(2).Infof("%s: successful=%d failed=%d count=%d", options.Summary(), len(successful), len(failed), count)
+
+		if len(options.SuccessfulConditions) == 0 && len(options.FailedConditions) == 0 {
+			if options.MinDesiredObjectCount <= count {
+				return nil
+			}
+		} else if options.MinDesiredObjectCount <= len(successful)+len(failed) {
+			if options.MaxFailedObjectCount < len(failed) {
+				return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d count=%d failed-objects=[%s]",
+					options.Summary(), options.MaxFailedObjectCount, len(successful), len(failed), count, strings.Join(failed, ","))
+			}
+			return nil
+		}
+
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d count=%d",
 				options.Summary(), options.MinDesiredObjectCount, len(successful), len(failed), count)
 		case <-time.After(options.WaitInterval):
-			objects, err := store.ListObjectSimplifications()
-			if err != nil {
-				return err
-			}
-			successful, failed, count = countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
-
-			klog.V(2).Infof("%s: successful=%d failed=%d count=%d", options.Summary(), len(successful), len(failed), count)
-			if options.MinDesiredObjectCount <= len(successful)+len(failed) {
-				if options.MaxFailedObjectCount < len(failed) {
-					return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d count=%d failed-objects=[%s]",
-						options.Summary(), options.MaxFailedObjectCount, len(successful), len(failed), count, strings.Join(failed, ","))
-				}
-				return nil
-			}
 		}
 	}
 }

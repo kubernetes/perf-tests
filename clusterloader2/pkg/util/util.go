@@ -95,6 +95,15 @@ func GetStringArray(dict map[string]interface{}, key string) ([]string, error) {
 	return getStringArray(dict, key)
 }
 
+// GetStringArrayOrDefault tries to return value from map cast to a []string type. If value doesn't exist default value is used.
+func GetStringArrayOrDefault(dict map[string]interface{}, key string, defaultValue []string) ([]string, error) {
+	value, err := getStringArray(dict, key)
+	if IsErrKeyNotFound(err) {
+		return defaultValue, nil
+	}
+	return value, err
+}
+
 // GetLabelSelector tries to return value from map parsed as labels.Selector type. If value doesn't exist, error is returned.
 func GetLabelSelector(dict map[string]interface{}, key string) (*labels.Selector, error) {
 	return getLabelSelector(dict, key)

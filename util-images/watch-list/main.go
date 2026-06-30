@@ -92,7 +92,7 @@ func main() {
 
 		klog.Infof("Waiting for gvr = %v informers to synced", targetGVR)
 		if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
-			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync", targetGVR)
+			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", targetGVR, ctx.Err())
 		}
 		klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Now().Sub(ts))
 		return false, nil

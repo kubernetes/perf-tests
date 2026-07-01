@@ -1,0 +1,62 @@
+# test-config.yaml
+name: kwok-dra-test
+
+tuningSets:
+- name: gpu-job-creation
+  qpsLoad:
+    qps: 5
+
+dependencies:
+- name: Install KWOK DRA for test
+  Method: DRAKWOKDriver
+  Params:
+    nodes: 3
+    gpusPerNode: 8
+  Timeout: 5m
+
+steps:
+- name: Start measurements
+  measurements:
+    - Identifier: WaitForControlledPodsRunning
+      Method: WaitForControlledPodsRunning
+      Params:
+        action: start
+        apiVersion: batch/v1
+        kind: Job
+        labelSelector: job-type = short-lived
+        operationTimeout: 120s
+
+- name: Create GPU ResourceClaimTemplate
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 1
+    tuningSet: gpu-job-creation
+    objectBundle:
+    - basename: kwok-gpu-claim-template
+      objectTemplatePath: "kwok-gpu-resource-claim-template.yaml"
+
+- name: Create KWOK GPU jobs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: 10
+    tuningSet: gpu-job-creation
+    objectBundle:
+    - basename: kwok-gpu-job
+      objectTemplatePath: "kwok-gpu-job.yaml"
+      templateFillMap:
+        Replicas: 1
+        Mode: "Indexed"
+        Sleep: "300s"  # 5 minute sleep
+
+- name: Wait for GPU jobs to be running
+  measurements:
+  - Identifier: WaitForControlledPodsRunning
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+      labelSelector: job-type = short-lived
+      timeout: 15m

@@ -112,12 +112,14 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
 	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Do(context.Background())
 	status := 0
-	result.StatusCode(&status)
-	availability := status == http.StatusOK
-	if !availability {
-		klog.Warningf("cluster not available; HTTP status code: %d", status)
-		if err := result.Error(); err != nil {
-			klog.Warningf("request error: %v", err)
+	availability := false
+	if err := result.Error(); err != nil {
+		klog.Warningf("cluster not available; request error: %v", err)
+	} else {
+		result.StatusCode(&status)
+		availability = status == http.StatusOK
+		if !availability {
+			klog.Warningf("cluster not available; HTTP status code: %d", status)
 		}
 	}
 	a.clusterLevelMetrics.update(availability)

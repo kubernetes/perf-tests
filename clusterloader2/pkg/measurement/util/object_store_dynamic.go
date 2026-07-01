@@ -22,64 +22,35 @@ with slight changes regarding labelSelector and flagSelector applied.
 package util
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	defaultResyncInterval = 10 * time.Second
-)
-
-// DynamicObjectStore is a convenient wrapper around cache.GenericLister.
-type DynamicObjectStore struct {
-	cache.GenericLister
-	namespaces    map[string]bool
-	allNamespaces bool
-}
-
-// NewDynamicObjectStore creates DynamicObjectStore based on given object version resource and selector.
-func NewDynamicObjectStore(ctx context.Context, dynamicClient dynamic.Interface, gvr schema.GroupVersionResource, namespaces map[string]bool, labelSelector labels.Selector) (*DynamicObjectStore, error) {
-	tweakListOptions := func(options *metav1.ListOptions) {
-		if labelSelector != nil {
-			options.LabelSelector = labelSelector.String()
-		}
+// ListObjectSimplifications returns a list of simplified objects using the provided lister.
+func ListObjectSimplifications(lister cache.GenericLister, namespaces map[string]bool, labelSelector labels.Selector) ([]ObjectSimplification, error) {
+	selector := labels.Everything()
+	if labelSelector != nil {
+		selector = labelSelector
 	}
-	informerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, defaultResyncInterval, metav1.NamespaceAll, tweakListOptions)
-	lister := informerFactory.ForResource(gvr).Lister()
-	informerFactory.Start(ctx.Done())
-	informerFactory.WaitForCacheSync(ctx.Done())
-
-	return &DynamicObjectStore{
-		GenericLister: lister,
-		namespaces:    namespaces,
-		allNamespaces: len(namespaces) == 0,
-	}, nil
-}
-
-// ListObjectSimplifications returns list of objects with conditions for each object that was returned by lister.
-func (s *DynamicObjectStore) ListObjectSimplifications() ([]ObjectSimplification, error) {
-	objects, err := s.GenericLister.List(labels.Everything())
+	objects, err := lister.List(selector)
 	if err != nil {
 		return nil, err
 	}
 
+	allNamespaces := len(namespaces) == 0
 	result := make([]ObjectSimplification, 0, len(objects))
 	for _, o := range objects {
 		os, err := getObjectSimplification(o)
 		if err != nil {
 			return nil, err
 		}
-		if !s.allNamespaces && !s.namespaces[os.Metadata.Namespace] {
+		if !allNamespaces && !namespaces[os.Metadata.Namespace] {
 			continue
 		}
 		result = append(result, os)
@@ -105,17 +76,56 @@ func (o ObjectSimplification) String() string {
 }
 
 func getObjectSimplification(o runtime.Object) (ObjectSimplification, error) {
-	dataMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-	if err != nil {
-		return ObjectSimplification{}, err
+	// Fast path for typed Pods
+	if pod, ok := o.(*corev1.Pod); ok {
+		var conditions []metav1.Condition
+		for _, c := range pod.Status.Conditions {
+			conditions = append(conditions, metav1.Condition{
+				Type:   string(c.Type),
+				Status: metav1.ConditionStatus(c.Status),
+			})
+		}
+		return ObjectSimplification{
+			Metadata: metav1.ObjectMeta{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+			},
+			Status: StatusWithConditions{
+				Conditions: conditions,
+			},
+		}, nil
 	}
 
-	jsonBytes, err := json.Marshal(dataMap)
-	if err != nil {
-		return ObjectSimplification{}, err
+	u, ok := o.(*unstructured.Unstructured)
+	if !ok {
+		dataMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
+		if err != nil {
+			return ObjectSimplification{}, err
+		}
+		u = &unstructured.Unstructured{Object: dataMap}
 	}
 
-	object := ObjectSimplification{}
-	err = json.Unmarshal(jsonBytes, &object)
-	return object, err
+	conditionsSlice, _, _ := unstructured.NestedSlice(u.Object, "status", "conditions")
+	var conditions []metav1.Condition
+	for _, c := range conditionsSlice {
+		cMap, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		cType, _ := cMap["type"].(string)
+		cStatus, _ := cMap["status"].(string)
+		conditions = append(conditions, metav1.Condition{
+			Type:   cType,
+			Status: metav1.ConditionStatus(cStatus),
+		})
+	}
+	return ObjectSimplification{
+		Metadata: metav1.ObjectMeta{
+			Name:      u.GetName(),
+			Namespace: u.GetNamespace(),
+		},
+		Status: StatusWithConditions{
+			Conditions: conditions,
+		},
+	}, nil
 }

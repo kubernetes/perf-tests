@@ -103,3 +103,10 @@ func NewMultiDynamicClientFromClients(clients ...dynamic.Interface) *MultiDynami
 		clients: clients,
 	}
 }
+
+// NewMultiClientSetFromClients creates new MultiClientSet for given slice of typed clients.
+func NewMultiClientSetFromClients(clients ...clientset.Interface) *MultiClientSet {
+	return &MultiClientSet{
+		clients: clients,
+	}
+}

@@ -23,11 +23,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 )
 
@@ -62,22 +64,19 @@ func TestDynamicObjectStore_AllNamespaces(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		namespaces    map[string]bool
-		wantNames     []string
-		wantAllNsFlag bool
+		name       string
+		namespaces map[string]bool
+		wantNames  []string
 	}{
 		{
-			name:          "allNamespaces enabled when namespaces map is empty",
-			namespaces:    map[string]bool{},
-			wantNames:     []string{"ns-1/item-1", "ns-2/item-2"},
-			wantAllNsFlag: true,
+			name:       "allNamespaces enabled when namespaces map is empty",
+			namespaces: map[string]bool{},
+			wantNames:  []string{"ns-1/item-1", "ns-2/item-2"},
 		},
 		{
-			name:          "allNamespaces disabled when specific namespaces are provided",
-			namespaces:    map[string]bool{"ns-1": true},
-			wantNames:     []string{"ns-1/item-1"},
-			wantAllNsFlag: false,
+			name:       "allNamespaces disabled when specific namespaces are provided",
+			namespaces: map[string]bool{"ns-1": true},
+			wantNames:  []string{"ns-1/item-1"},
 		},
 	}
 
@@ -95,11 +94,12 @@ func TestDynamicObjectStore_AllNamespaces(t *testing.T) {
 			_, err = dynamicClient.Resource(gvr).Namespace("ns-2").Create(ctx, obj2, metav1.CreateOptions{})
 			require.NoError(t, err)
 
-			store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, tt.namespaces, nil)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantAllNsFlag, store.allNamespaces)
+			informerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 10*time.Second, metav1.NamespaceAll, nil)
+			lister := informerFactory.ForResource(gvr).Lister()
+			informerFactory.Start(ctx.Done())
+			informerFactory.WaitForCacheSync(ctx.Done())
 
-			results, err := store.ListObjectSimplifications()
+			results, err := ListObjectSimplifications(lister, tt.namespaces, nil)
 			require.NoError(t, err)
 
 			gotNames := make([]string, 0, len(results))
@@ -160,11 +160,60 @@ func TestDynamicObjectStore_LabelSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	labelSelector := labels.SelectorFromSet(labels.Set{"app": "worker"})
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, gvr, map[string]bool{"ns-1": true}, labelSelector)
-	require.NoError(t, err)
 
-	results, err := store.ListObjectSimplifications()
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.LabelSelector = labelSelector.String()
+	}
+	informerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 10*time.Second, metav1.NamespaceAll, tweakListOptions)
+	lister := informerFactory.ForResource(gvr).Lister()
+	informerFactory.Start(ctx.Done())
+	informerFactory.WaitForCacheSync(ctx.Done())
+
+	results, err := ListObjectSimplifications(lister, map[string]bool{"ns-1": true}, labelSelector)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "ns-1/matching-item", results[0].String())
+}
+
+func getMockPod() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   corev1.PodInitialized,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+}
+
+func getMockUnstructured() *unstructured.Unstructured {
+	pod := getMockPod()
+	u, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(pod)
+	return &unstructured.Unstructured{Object: u}
+}
+
+func BenchmarkGetObjectSimplification_Pod(b *testing.B) {
+	pod := getMockPod()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = getObjectSimplification(pod)
+	}
+}
+
+func BenchmarkGetObjectSimplification_Unstructured(b *testing.B) {
+	u := getMockUnstructured()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = getObjectSimplification(u)
+	}
 }

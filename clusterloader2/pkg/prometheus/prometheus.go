@@ -79,6 +79,11 @@ func init() {
 	}
 }
 
+// ReadManifest returns a file from the embedded Prometheus manifests bundle.
+func ReadManifest(path string) ([]byte, error) {
+	return fs.ReadFile(manifestsFS, path)
+}
+
 // InitFlags initializes prometheus flags.
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")

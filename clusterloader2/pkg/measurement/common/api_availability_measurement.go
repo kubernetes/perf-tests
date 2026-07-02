@@ -110,6 +110,12 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 }
 
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
+	/* The exlude=shutdown param excludes the shutdown healthcheck from APIAvailability measurement.
+	This is done to accept cases when we hit the "old" VM during upgrade, which is shutting down.
+	The rationale behind it is that VMs have graceful degradation.
+	The crucial components are being shut down at the latest stage.
+	This enables the VM to respond to requests properly even during shutdown.
+	*/
 	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Param("exclude", "shutdown").Do(context.Background())
 	status := 0
 	availability := false

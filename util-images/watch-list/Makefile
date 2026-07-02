@@ -1,6 +1,6 @@
 PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/watch-list
-TAG = v0.0.4
+TAG = v0.0.5
 
 all: push
 

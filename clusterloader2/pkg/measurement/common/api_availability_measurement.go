@@ -110,7 +110,7 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 }
 
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
-	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Do(context.Background())
+	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Param("exclude", "shutdown").Do(context.Background())
 	status := 0
 	availability := false
 	if err := result.Error(); err != nil {

@@ -9,3 +9,9 @@ rules:
   - "*"
   verbs:
   - list
+- apiGroups:
+  - clusterloader.io-0
+  resources:
+  - listbenchmarkresources
+  verbs:
+  - list

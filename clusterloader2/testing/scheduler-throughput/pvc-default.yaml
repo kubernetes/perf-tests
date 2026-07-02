@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: direct-scheduler-throughput-pod-pvc-{{.Index}}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: sched-test
+  volumeName: direct-scheduler-throughput-pod-pv-{{.Index}}
+  volumeMode: Filesystem

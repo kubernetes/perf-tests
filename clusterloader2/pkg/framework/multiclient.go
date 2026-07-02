@@ -78,6 +78,8 @@ func NewMultiDynamicClient(kubeconfigPath string, number int) (*MultiDynamicClie
 		if err != nil {
 			return nil, fmt.Errorf("config prepare failed: %v", err)
 		}
+		conf.QPS = 500
+		conf.Burst = 500
 		if number < 1 {
 			return nil, fmt.Errorf("incorrect clients number")
 		}

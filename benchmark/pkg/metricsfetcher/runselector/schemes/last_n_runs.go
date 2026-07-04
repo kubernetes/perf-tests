@@ -34,7 +34,8 @@ func GetLastNJobRuns(job string, n int, utils util.JobLogUtils) ([]int, error) {
 	var runs []int
 	for index := 0; index < len(buildNumbers) && len(runs) < n; index++ {
 		buildNumber := buildNumbers[index]
-		if _, err := utils.GetJobRunFinishedStatus(job, buildNumber); err == nil {
+		finished, err := utils.GetJobRunFinishedStatus(job, buildNumber)
+		if err == nil && finished {
 			runs = append(runs, buildNumber)
 		}
 	}

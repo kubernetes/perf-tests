@@ -32,6 +32,7 @@ type ClusterLoaderConfig struct {
 	// OverridePaths defines what override files should be applied
 	// globally to the config specified by the ConfigPath for each TestScenario.
 	OverridePaths []string `json:"overridePaths"`
+	ImageRegistry string
 }
 
 // ClusterConfig is a structure that represents cluster description.

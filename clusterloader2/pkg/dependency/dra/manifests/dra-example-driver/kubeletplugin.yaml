@@ -35,7 +35,7 @@ spec:
         securityContext:
           privileged: true
         # image: /:v0.2.0
-        image: registry.k8s.io/dra-example-driver/dra-example-driver:v0.2.0
+        image: {{.ImageRegistry}}/dra-example-driver/dra-example-driver:v0.2.0
         imagePullPolicy: Always
         command: ["dra-example-kubeletplugin"]
         resources:

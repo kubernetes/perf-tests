@@ -1,7 +1,7 @@
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
-{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
 {{$RealisticPod := DefaultParam .CL2_REALISTIC_POD false}}
 
@@ -51,14 +51,14 @@ spec:
 {{if $RealisticPod }}
       initContainers:
       - name: init-0
-        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
         command: ["/bin/sh", "-c", "sleep 1"]
       - name: init-1
-        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
         command: ["/bin/sh", "-c", "sleep 1"]
       containers:
       - name: main
-        image: registry.k8s.io/pause:3.9
+        image: {{.ImageRegistry}}/pause:3.9
         ports:
           - containerPort: 80
             name: web
@@ -107,7 +107,7 @@ spec:
             mountPath: /var/pv
         {{end}}
       - name: sidecar
-        image: registry.k8s.io/pause:3.9
+        image: {{.ImageRegistry}}/pause:3.9
         resources:
           requests:
             cpu: 5m

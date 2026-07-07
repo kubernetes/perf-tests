@@ -205,7 +205,7 @@ so we don't need to worry with cleaning up cluster.
 
 Now, in order to finish our first test, we need to specify deployment template.
 You can think of it as regular kubernetes object, but with templating.
-CL2 by default adds parameter `Name` that you can use in your template.
+CL2 by default adds parameters like `Name` and `ImageRegistry` that you can use in your template. `ImageRegistry` defaults to `registry.k8s.io`, but can be overridden by passing the `--registry-k8s-repo` flag or setting the `REGISTRY_K8S_REPO` environment variable.
 In our config, we also passed `Replicas` parameter.
 We need to remember to set correct labels so PodStartupLatency
 and WaitForControlledPodsRunning will watch correct pods.
@@ -228,7 +228,7 @@ spec:
         group: test-pod
     spec:
       containers:
-      - image: registry.k8s.io/pause:3.9
+      - image: {{.ImageRegistry}}/pause:3.9
         name: {{.Name}}
 ```
 ## Execute test

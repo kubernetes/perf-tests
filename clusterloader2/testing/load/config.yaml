@@ -80,7 +80,7 @@
 {{$SLEEP_AFTER_EXEC_DURATION := DefaultParam .CL2_SLEEP_AFTER_EXEC_DURATION "0s"}}
 {{$RESTART_APISERVER := DefaultParam .CL2_RESTART_APISERVER false}}
 
-{{$registry := DefaultParam .CL2_LATENCY_POD_REGISTRY "registry.k8s.io"}}
+{{$registry := DefaultParam .CL2_LATENCY_POD_REGISTRY .ImageRegistry}}
 {{$latencyPodImage := DefaultParam .CL2_LATENCY_POD_IMAGE (Concat $registry "/pause:3.9")}}
 {{$defaultQps := DefaultParam .CL2_DEFAULT_QPS (IfThenElse (le .Nodes 500) 10 100)}}
 

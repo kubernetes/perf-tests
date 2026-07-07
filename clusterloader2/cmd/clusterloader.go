@@ -138,6 +138,7 @@ func initFlags() {
 	flags.IntVar(&port, "port", 8000, "Port to be used by http server with pprof.")
 	flags.DurationEnvVar(&heapProfileInterval, "heap-profile-interval", "CL2_HEAP_PROFILE_INTERVAL", 0, "Interval between clusterloader2 heap profiles. 0 represents disabled.")
 	flags.BoolVar(&dryRun, "dry-run", false, "Whether to skip running test and only compile test config")
+	flags.StringEnvVar(&clusterLoaderConfig.ImageRegistry, "registry-k8s-repo", "REGISTRY_K8S_REPO", "registry.k8s.io", "FQDN of registry.k8s.io image repo")
 
 	initClusterFlags()
 	execservice.InitFlags(&clusterLoaderConfig.ExecServiceConfig)
@@ -287,6 +288,7 @@ func main() {
 	if err := flags.Parse(); err != nil {
 		klog.Exitf("Flag parse failed: %v", err)
 	}
+	clusterLoaderConfig.ExecServiceConfig.ImageRegistry = clusterLoaderConfig.ImageRegistry
 
 	// Start http server with pprof.
 	go func() {

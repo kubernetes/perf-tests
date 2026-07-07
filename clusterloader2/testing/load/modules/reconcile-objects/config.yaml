@@ -13,12 +13,12 @@
 {{$operationTimeout := .operationTimeout}}
 
 # DaemonSets
-{{$daemonSetImage := DefaultParam .daemonSetImage "registry.k8s.io/pause:3.9"}}
+{{$daemonSetImage := DefaultParam .daemonSetImage (Concat .ImageRegistry "/pause:3.9")}}
 {{$daemonSetReplicas := .daemonSetReplicas}}
 {{$daemonSetEnv := .daemonSetEnv}}
 
 # Deployments
-{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
+{{$deploymentImage := DefaultParam .deploymentImage (Concat .ImageRegistry "/pause:3.9")}}
 {{$bigDeploymentSize := .bigDeploymentSize}}
 {{$bigDeploymentsPerNamespace := .bigDeploymentsPerNamespace}}
 {{$mediumDeploymentSize := .mediumDeploymentSize}}
@@ -27,14 +27,14 @@
 {{$smallDeploymentsPerNamespace := .smallDeploymentsPerNamespace}}
 
 # StatefulSets
-{{$statefulSetImage := DefaultParam .statefulSetImage "registry.k8s.io/pause:3.9"}}
+{{$statefulSetImage := DefaultParam .statefulSetImage (Concat .ImageRegistry "/pause:3.9")}}
 {{$smallStatefulSetSize := .smallStatefulSetSize}}
 {{$smallStatefulSetsPerNamespace := .smallStatefulSetsPerNamespace}}
 {{$mediumStatefulSetSize := .mediumStatefulSetSize}}
 {{$mediumStatefulSetsPerNamespace := .mediumStatefulSetsPerNamespace}}
 
 # Jobs
-{{$jobImage := DefaultParam .jobImage "registry.k8s.io/pause:3.10"}}
+{{$jobImage := DefaultParam .jobImage (Concat .ImageRegistry "/pause:3.10")}}
 {{$bigJobSize := .bigJobSize}}
 {{$bigJobsPerNamespace := .bigJobsPerNamespace}}
 {{$mediumJobSize := .mediumJobSize}}

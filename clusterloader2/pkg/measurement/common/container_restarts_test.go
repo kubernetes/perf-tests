@@ -110,6 +110,17 @@ func TestContainerRestartsMeasurement(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:               "double_restart_of_apiserver/violation_but_failure_disabled",
+			hasError:           false,
+			testSeriesFile:     "double_restart_of_apiserver.yaml",
+			testSeriesDuration: 10 * time.Minute,
+			config: &measurement.Config{
+				Params: map[string]interface{}{
+					"failureEnabled": false,
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {

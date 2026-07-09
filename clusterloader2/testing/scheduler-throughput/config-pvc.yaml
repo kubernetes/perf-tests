@@ -1,0 +1,36 @@
+{{$totalSchedulerThroughputPods := DefaultParam .CL2_SCHEDULER_THROUGHPUT_PODS 200000}}
+{{$defaultQps := DefaultParam .CL2_DEFAULT_QPS  1000}}
+{{$defaultBurst := DefaultParam .CL2_DEFAULT_BURST 10000}}
+{{$uniformQps := DefaultParam .CL2_UNIFORM_QPS 1000}}
+
+{{$SCHEDULER_THROUGHPUT_THRESHOLD := DefaultParam .CL2_SCHEDULER_THROUGHPUT_THRESHOLD 400}}
+
+name: direct-scheduler-throughput
+namespace:
+  prefix: pvc-sched-test
+  number: 1
+  enableExistingNamespaces: true
+  deleteAutomanagedNamespaces: false
+tuningSets:
+# default is a tuningset that is meant to be used when we don't have any specific requirements on pace of operations.
+- name: default
+  globalQPSLoad:
+    qps: {{$defaultQps}}
+    burst: {{$defaultBurst}}
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$uniformQps}}
+    burst: {{$defaultBurst}}
+steps:
+- name: create PVCs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    replicasPerNamespace: {{$totalSchedulerThroughputPods}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: direct-scheduler-throughput-pod-pvc
+      objectTemplatePath: pvc-default.yaml
+      templateFillMap:
+        Group: direct-scheduler-throughput

@@ -60,6 +60,7 @@ type systemPodMetricsMeasurement struct {
 
 type containerMetrics struct {
 	Name              string `json:"name"`
+	Image             string `json:"image"`
 	RestartCount      int32  `json:"restartCount"`
 	LastRestartReason string `json:"lastRestartReason"`
 }
@@ -254,9 +255,18 @@ func extractMetrics(lst *v1.PodList) *systemPodsMetrics {
 			Containers: []containerMetrics{},
 			Name:       pod.Name,
 		}
+		specImages := make(map[string]string)
+		for _, c := range pod.Spec.Containers {
+			specImages[c.Name] = c.Image
+		}
 		for _, container := range pod.Status.ContainerStatuses {
+			img := container.Image
+			if specImg, ok := specImages[container.Name]; ok {
+				img = specImg
+			}
 			metrics := containerMetrics{
 				Name:         container.Name,
+				Image:        extractImageName(img),
 				RestartCount: container.RestartCount,
 			}
 			if container.LastTerminationState.Terminated != nil {
@@ -285,4 +295,28 @@ func (m *systemPodMetricsMeasurement) Dispose() {}
 // String returns string representation of this measurement.
 func (*systemPodMetricsMeasurement) String() string {
 	return systemPodMetricsName
+}
+
+func extractImageName(image string) string {
+	parts := strings.Split(image, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Remove registry if it looks like one (contains dot or colon for port)
+	if len(parts) > 1 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":")) {
+		parts = parts[1:]
+	}
+
+	// Remove tag or digest from the last part
+	lastPart := parts[len(parts)-1]
+	if i := strings.Index(lastPart, ":"); i != -1 {
+		lastPart = lastPart[:i]
+	}
+	if i := strings.Index(lastPart, "@"); i != -1 {
+		lastPart = lastPart[:i]
+	}
+	parts[len(parts)-1] = lastPart
+
+	return strings.Join(parts, "/")
 }

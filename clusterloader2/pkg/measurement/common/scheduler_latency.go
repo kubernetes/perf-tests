@@ -97,12 +97,13 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 		return nil, err
 	}
 
-	var masterRegistered = false
+	var masterNames []string
 	for _, node := range nodes.Items {
 		if util.IsControlPlaneNode(&node) {
-			masterRegistered = true
+			masterNames = append(masterNames, node.Name)
 		}
 	}
+	masterRegistered := len(masterNames) > 0
 
 	if provider.Features().SchedulerInsecurePortDisabled || (!SSHToMasterSupported && !masterRegistered) {
 		klog.Warningf("unable to fetch scheduler metrics for provider: %s", provider.Name())
@@ -117,21 +118,24 @@ func (s *schedulerLatencyMeasurement) Execute(config *measurement.Config) ([]mea
 	if err != nil {
 		return nil, err
 	}
-	masterName, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterFramework.GetClusterConfig().MasterName)
-	if err != nil {
-		return nil, err
+	if !masterRegistered {
+		name, err := util.GetStringOrDefault(config.Params, "masterName", config.ClusterFramework.GetClusterConfig().MasterName)
+		if err != nil {
+			return nil, err
+		}
+		masterNames = []string{name}
 	}
 
 	switch action {
 	case "reset":
 		klog.V(2).Infof("%s: start collecting latency initial metrics in scheduler...", s)
-		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return nil, s.getSchedulingInitialLatency(c, masterIP, provider, masterNames, masterRegistered)
 	case "start":
 		klog.V(2).Infof("%s: start collecting latency metrics in scheduler...", s)
-		return nil, s.getSchedulingInitialLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return nil, s.getSchedulingInitialLatency(c, masterIP, provider, masterNames, masterRegistered)
 	case "gather":
 		klog.V(2).Infof("%s: gathering latency metrics in scheduler...", s)
-		return s.getSchedulingLatency(config.ClusterFramework.GetClientSets().GetClient(), masterIP, provider, masterName, masterRegistered)
+		return s.getSchedulingLatency(c, masterIP, provider, masterNames, masterRegistered)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -198,8 +202,8 @@ func (s *schedulerLatencyMeasurement) setQuantiles(metrics schedulerLatencyMetri
 }
 
 // getSchedulingLatency retrieves scheduler latency metrics.
-func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) ([]measurement.Summary, error) {
-	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
+func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface, host string, provider provider.Provider, masterNames []string, masterRegistered bool) ([]measurement.Summary, error) {
+	schedulerMetrics, err := s.getSchedulingMetrics(c, host, provider, masterNames, masterRegistered)
 	if err != nil {
 		return nil, err
 	}
@@ -217,9 +221,9 @@ func (s *schedulerLatencyMeasurement) getSchedulingLatency(c clientset.Interface
 }
 
 // getSchedulingInitialLatency retrieves initial values of scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) error {
+func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.Interface, host string, provider provider.Provider, masterNames []string, masterRegistered bool) error {
 	var err error
-	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterName, masterRegistered)
+	s.initialLatency, err = s.getSchedulingMetrics(c, host, provider, masterNames, masterRegistered)
 	if err != nil {
 		return err
 	}
@@ -227,7 +231,7 @@ func (s *schedulerLatencyMeasurement) getSchedulingInitialLatency(c clientset.In
 }
 
 // getSchedulingMetrics gets scheduler latency metrics
-func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host string, provider provider.Provider, masterName string, masterRegistered bool) (schedulerLatencyMetrics, error) {
+func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface, host string, provider provider.Provider, masterNames []string, masterRegistered bool) (schedulerLatencyMetrics, error) {
 	e2eSchedulingDurationHist := measurementutil.NewHistogram(nil)
 	schedulingAlgorithmDurationHist := measurementutil.NewHistogram(nil)
 	preemptionEvaluationHist := measurementutil.NewHistogram(nil)
@@ -242,13 +246,18 @@ func (s *schedulerLatencyMeasurement) getSchedulingMetrics(c clientset.Interface
 		frameworkExtensionPointDurationHist[ePoint] = measurementutil.NewHistogram(nil)
 	}
 
-	data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, masterRegistered)
-	if err != nil {
-		return latencyMetrics, err
-	}
-	samples, err := measurementutil.ExtractMetricSamples(data)
-	if err != nil {
-		return latencyMetrics, err
+	// The scheduler is leader-elected, so pool every master to catch the leader.
+	var samples []*model.Sample
+	for _, masterName := range masterNames {
+		data, err := s.sendRequestToScheduler(c, "GET", host, provider, masterName, masterRegistered)
+		if err != nil {
+			return latencyMetrics, err
+		}
+		masterSamples, err := measurementutil.ExtractMetricSamples(data)
+		if err != nil {
+			return latencyMetrics, err
+		}
+		samples = append(samples, masterSamples...)
 	}
 
 	for _, sample := range samples {

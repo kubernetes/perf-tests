@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	etcdMetricsMetricName = "EtcdMetrics"
+	etcdMetricsMetricName       = "EtcdMetrics"
+	etcdEventsMetricsMetricName = "EtcdEventsMetrics"
 )
 
 func init() {
@@ -43,18 +44,20 @@ func init() {
 
 func createEtcdMetricsMeasurement() measurement.Measurement {
 	return &etcdMetricsMeasurement{
-		stopCh:  make(chan struct{}),
-		wg:      &sync.WaitGroup{},
-		metrics: newEtcdMetrics(),
+		stopCh:        make(chan struct{}),
+		wg:            &sync.WaitGroup{},
+		metrics:       newEtcdMetrics(),
+		eventsMetrics: newEtcdMetrics(),
 	}
 }
 
 type etcdMetricsMeasurement struct {
 	sync.Mutex
-	isRunning bool
-	stopCh    chan struct{}
-	wg        *sync.WaitGroup
-	metrics   *etcdMetrics
+	isRunning     bool
+	stopCh        chan struct{}
+	wg            *sync.WaitGroup
+	metrics       *etcdMetrics
+	eventsMetrics *etcdMetrics
 }
 
 // Execute supports two actions:
@@ -80,6 +83,7 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 	}
 
 	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
+	etcdEventsInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdEventsInsecurePort
 	switch action {
 	case "start":
 		klog.V(2).Infof("%s: starting etcd metrics collecting...", e)
@@ -88,21 +92,43 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 			return nil, err
 		}
 		for _, h := range hosts {
-			e.startCollecting(h, provider, waitTime, etcdInsecurePort)
+			e.startCollecting(h, provider, waitTime, etcdInsecurePort, e.metrics, true)
+			if etcdEventsInsecurePort > 0 {
+				e.startCollecting(h, provider, waitTime, etcdEventsInsecurePort, e.eventsMetrics, false)
+			}
 		}
 		return nil, nil
 	case "gather":
 		for _, h := range hosts {
-			if err = e.stopAndSummarize(h, provider, etcdInsecurePort); err != nil {
+			if err = e.stopAndSummarize(h, provider, etcdInsecurePort, e.metrics, true); err != nil {
 				return nil, err
+			}
+		}
+		// The events etcd metrics port is best-effort: it is not exposed on every
+		// provider, and its absence must not fail the main measurement.
+		eventsCollected := false
+		if etcdEventsInsecurePort > 0 {
+			for _, h := range hosts {
+				if err := e.stopAndSummarize(h, provider, etcdEventsInsecurePort, e.eventsMetrics, false); err != nil {
+					klog.Warningf("%s: failed to collect etcd-events metrics on %s: %v", e, h, err)
+					continue
+				}
+				eventsCollected = true
 			}
 		}
 		content, err := util.PrettyPrintJSON(e.metrics)
 		if err != nil {
 			return nil, err
 		}
-		summary := measurement.CreateSummary(etcdMetricsMetricName, "json", content)
-		return []measurement.Summary{summary}, nil
+		summaries := []measurement.Summary{measurement.CreateSummary(etcdMetricsMetricName, "json", content)}
+		if eventsCollected {
+			eventsContent, err := util.PrettyPrintJSON(e.eventsMetrics)
+			if err != nil {
+				return nil, err
+			}
+			summaries = append(summaries, measurement.CreateSummary(etcdEventsMetricsMetricName, "json", eventsContent))
+		}
+		return summaries, nil
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -121,19 +147,19 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.Provider, interval time.Duration, port int) {
+func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.Provider, interval time.Duration, port int, metrics *etcdMetrics, allowFallback bool) {
 	e.isRunning = true
 	e.wg.Add(1)
 
 	collectEtcdDatabaseSize := func() error {
-		dbSize, err := e.getEtcdDatabaseSize(host, provider, port)
+		dbSize, err := e.getEtcdDatabaseSize(host, provider, port, allowFallback)
 		if err != nil {
 			return err
 		}
 
 		e.Lock()
 		defer e.Unlock()
-		e.metrics.MaxDatabaseSize = math.Max(e.metrics.MaxDatabaseSize, dbSize)
+		metrics.MaxDatabaseSize = math.Max(metrics.MaxDatabaseSize, dbSize)
 
 		return nil
 	}
@@ -154,10 +180,10 @@ func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider.Provider, port int) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider.Provider, port int, metrics *etcdMetrics, allowFallback bool) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(host, provider, port)
+	samples, err := e.getEtcdMetrics(host, provider, port, allowFallback)
 	if err != nil {
 		return err
 	}
@@ -166,13 +192,13 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider
 		var hist *measurementutil.HistogramVec
 		switch sample.Metric[model.MetricNameLabel] {
 		case "etcd_disk_backend_commit_duration_seconds_bucket":
-			hist = &e.metrics.BackendCommitDuration
+			hist = &metrics.BackendCommitDuration
 		case "etcd_debugging_snap_save_total_duration_seconds_bucket":
-			hist = &e.metrics.SnapshotSaveTotalDuration
+			hist = &metrics.SnapshotSaveTotalDuration
 		case "etcd_disk_wal_fsync_duration_seconds_bucket":
-			hist = &e.metrics.WalFsyncDuration
+			hist = &metrics.WalFsyncDuration
 		case "etcd_network_peer_round_trip_time_seconds_bucket":
-			hist = &e.metrics.PeerRoundTripTime
+			hist = &metrics.PeerRoundTripTime
 		default:
 			return
 		}
@@ -187,7 +213,7 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.Provider, port int) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.Provider, port int, allowFallback bool) ([]*model.Sample, error) {
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
 	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you
@@ -197,6 +223,11 @@ func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.P
 	samples, err := e.sshEtcdMetrics(cmd, host, provider)
 	if err == nil {
 		return samples, nil
+	}
+	if !allowFallback {
+		// Port 2379 serves the main etcd, so falling back to it would silently
+		// attribute main etcd metrics to another etcd instance.
+		return nil, err
 	}
 	klog.Warningf("%s: call on %d port (%s) failed due to %v. Falling back to default 2379 port.", e, port, cmd, err)
 
@@ -228,8 +259,8 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host string, provider provi
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provider.Provider, port int) (float64, error) {
-	samples, err := e.getEtcdMetrics(host, provider, port)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provider.Provider, port int, allowFallback bool) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider, port, allowFallback)
 	if err != nil {
 		return 0, err
 	}

@@ -610,6 +610,8 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version
 		// etcd metrics may be available at port 2379 xor 2382. We solve that by setting two etcd
 		// serviceMonitors one for 2379 and other for 2382 and expect that at least 1 of them should be healthy.
+		// Port 2384 serves the events etcd and is only exposed on some providers, so it must stay in
+		// the permissive etcd bucket rather than the all-must-be-ready bucket below.
 		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
@@ -617,10 +619,10 @@ func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
 		if err != nil || !ok {
 			return ok, err
 		}
-		return CheckTargetsReady(ctx, // 1 out of 2 etcd targets should be ready.
+		return CheckTargetsReady(ctx, // 1 out of the etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
-			2, // expected targets: etcd-2379 and etcd-2382
+			2, // expected targets: etcd-2379 and etcd-2382, etcd-2384 is optional
 			1, // one of them should be healthy
 			logPrometheusError)
 	}
@@ -726,5 +728,5 @@ func getMasterIpsFromKubernetesService(clusterConfig config.ClusterConfig) ([]st
 }
 
 func isEtcdEndpoint(endpoint string) bool {
-	return endpoint == "etcd-2379" || endpoint == "etcd-2382"
+	return endpoint == "etcd-2379" || endpoint == "etcd-2382" || endpoint == "etcd-2384"
 }

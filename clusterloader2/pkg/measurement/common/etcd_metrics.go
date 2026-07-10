@@ -60,6 +60,18 @@ type etcdMetricsMeasurement struct {
 	eventsMetrics *etcdMetrics
 }
 
+// etcdInstance is a single etcd instance scraped over master SSH.
+type etcdInstance struct {
+	summaryName string
+	// port is the insecure http port serving /metrics (etcd --listen-metrics-urls).
+	port    int
+	metrics *etcdMetrics
+	// isMain marks the etcd instance backing everything but events. It is the only
+	// one allowed to fall back to the hardcoded 2379 port, and the only one whose
+	// scrape failure fails the measurement.
+	isMain bool
+}
+
 // Execute supports two actions:
 // - start - Starts collecting etcd metrics.
 // - gather - Gathers and prints etcd metrics summary.
@@ -82,8 +94,20 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 		return nil, nil
 	}
 
-	etcdInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdInsecurePort
-	etcdEventsInsecurePort := config.ClusterFramework.GetClusterConfig().EtcdEventsInsecurePort
+	instances := []*etcdInstance{{
+		summaryName: etcdMetricsMetricName,
+		port:        config.ClusterFramework.GetClusterConfig().EtcdInsecurePort,
+		metrics:     e.metrics,
+		isMain:      true,
+	}}
+	if port := config.ClusterFramework.GetClusterConfig().EtcdEventsInsecurePort; port > 0 {
+		instances = append(instances, &etcdInstance{
+			summaryName: etcdEventsMetricsMetricName,
+			port:        port,
+			metrics:     e.eventsMetrics,
+		})
+	}
+
 	switch action {
 	case "start":
 		klog.V(2).Infof("%s: starting etcd metrics collecting...", e)
@@ -92,41 +116,35 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 			return nil, err
 		}
 		for _, h := range hosts {
-			e.startCollecting(h, provider, waitTime, etcdInsecurePort, e.metrics, true)
-			if etcdEventsInsecurePort > 0 {
-				e.startCollecting(h, provider, waitTime, etcdEventsInsecurePort, e.eventsMetrics, false)
+			for _, instance := range instances {
+				e.startCollecting(h, provider, waitTime, instance)
 			}
 		}
 		return nil, nil
 	case "gather":
-		for _, h := range hosts {
-			if err = e.stopAndSummarize(h, provider, etcdInsecurePort, e.metrics, true); err != nil {
-				return nil, err
-			}
-		}
-		// The events etcd metrics port is best-effort: it is not exposed on every
-		// provider, and its absence must not fail the main measurement.
-		eventsCollected := false
-		if etcdEventsInsecurePort > 0 {
+		var summaries []measurement.Summary
+		for _, instance := range instances {
+			collected := false
 			for _, h := range hosts {
-				if err := e.stopAndSummarize(h, provider, etcdEventsInsecurePort, e.eventsMetrics, false); err != nil {
-					klog.Warningf("%s: failed to collect etcd-events metrics on %s: %v", e, h, err)
+				if err := e.stopAndSummarize(h, provider, instance); err != nil {
+					// Only the main etcd is guaranteed to expose its metrics port,
+					// so a failure elsewhere must not fail the measurement.
+					if instance.isMain {
+						return nil, err
+					}
+					klog.Warningf("%s: failed to collect %s on %s: %v", e, instance.summaryName, h, err)
 					continue
 				}
-				eventsCollected = true
+				collected = true
 			}
-		}
-		content, err := util.PrettyPrintJSON(e.metrics)
-		if err != nil {
-			return nil, err
-		}
-		summaries := []measurement.Summary{measurement.CreateSummary(etcdMetricsMetricName, "json", content)}
-		if eventsCollected {
-			eventsContent, err := util.PrettyPrintJSON(e.eventsMetrics)
+			if !collected {
+				continue
+			}
+			content, err := util.PrettyPrintJSON(instance.metrics)
 			if err != nil {
 				return nil, err
 			}
-			summaries = append(summaries, measurement.CreateSummary(etcdEventsMetricsMetricName, "json", eventsContent))
+			summaries = append(summaries, measurement.CreateSummary(instance.summaryName, "json", content))
 		}
 		return summaries, nil
 	default:
@@ -147,19 +165,19 @@ func (e *etcdMetricsMeasurement) String() string {
 	return etcdMetricsMetricName
 }
 
-func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.Provider, interval time.Duration, port int, metrics *etcdMetrics, allowFallback bool) {
+func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.Provider, interval time.Duration, instance *etcdInstance) {
 	e.isRunning = true
 	e.wg.Add(1)
 
 	collectEtcdDatabaseSize := func() error {
-		dbSize, err := e.getEtcdDatabaseSize(host, provider, port, allowFallback)
+		dbSize, err := e.getEtcdDatabaseSize(host, provider, instance)
 		if err != nil {
 			return err
 		}
 
 		e.Lock()
 		defer e.Unlock()
-		metrics.MaxDatabaseSize = math.Max(metrics.MaxDatabaseSize, dbSize)
+		instance.metrics.MaxDatabaseSize = math.Max(instance.metrics.MaxDatabaseSize, dbSize)
 
 		return nil
 	}
@@ -180,10 +198,10 @@ func (e *etcdMetricsMeasurement) startCollecting(host string, provider provider.
 	}()
 }
 
-func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider.Provider, port int, metrics *etcdMetrics, allowFallback bool) error {
+func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider.Provider, instance *etcdInstance) error {
 	defer e.Dispose()
 	// Do some one-off collection of metrics.
-	samples, err := e.getEtcdMetrics(host, provider, port, allowFallback)
+	samples, err := e.getEtcdMetrics(host, provider, instance)
 	if err != nil {
 		return err
 	}
@@ -192,13 +210,13 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider
 		var hist *measurementutil.HistogramVec
 		switch sample.Metric[model.MetricNameLabel] {
 		case "etcd_disk_backend_commit_duration_seconds_bucket":
-			hist = &metrics.BackendCommitDuration
+			hist = &instance.metrics.BackendCommitDuration
 		case "etcd_debugging_snap_save_total_duration_seconds_bucket":
-			hist = &metrics.SnapshotSaveTotalDuration
+			hist = &instance.metrics.SnapshotSaveTotalDuration
 		case "etcd_disk_wal_fsync_duration_seconds_bucket":
-			hist = &metrics.WalFsyncDuration
+			hist = &instance.metrics.WalFsyncDuration
 		case "etcd_network_peer_round_trip_time_seconds_bucket":
-			hist = &metrics.PeerRoundTripTime
+			hist = &instance.metrics.PeerRoundTripTime
 		default:
 			return
 		}
@@ -213,23 +231,23 @@ func (e *etcdMetricsMeasurement) stopAndSummarize(host string, provider provider
 	return nil
 }
 
-func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.Provider, port int, allowFallback bool) ([]*model.Sample, error) {
+func (e *etcdMetricsMeasurement) getEtcdMetrics(host string, provider provider.Provider, instance *etcdInstance) ([]*model.Sample, error) {
 
 	// In https://github.com/kubernetes/kubernetes/pull/74690, mTLS is enabled for etcd server
 	// in order to bypass TLS credential requirement when checking etc /metrics and /health, you
 	// need to provide the insecure http port number to access etcd, http://localhost:2382 for
 	// example.
-	cmd := fmt.Sprintf("curl http://localhost:%d/metrics", port)
+	cmd := fmt.Sprintf("curl http://localhost:%d/metrics", instance.port)
 	samples, err := e.sshEtcdMetrics(cmd, host, provider)
 	if err == nil {
 		return samples, nil
 	}
-	if !allowFallback {
-		// Port 2379 serves the main etcd, so falling back to it would silently
-		// attribute main etcd metrics to another etcd instance.
+	if !instance.isMain {
+		// 2379 is served by the main etcd, so falling back to it would report
+		// main etcd's metrics under another instance's name.
 		return nil, err
 	}
-	klog.Warningf("%s: call on %d port (%s) failed due to %v. Falling back to default 2379 port.", e, port, cmd, err)
+	klog.Warningf("%s: call on %d port (%s) failed due to %v. Falling back to default 2379 port.", e, instance.port, cmd, err)
 
 	// Use old endpoint if new one fails, "2379" is hard-coded here as well, it is kept as is since
 	// we don't want to bloat the cluster config only for a fall-back attempt.
@@ -259,8 +277,8 @@ func (e *etcdMetricsMeasurement) sshEtcdMetrics(cmd, host string, provider provi
 	return measurementutil.ExtractMetricSamples(data)
 }
 
-func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provider.Provider, port int, allowFallback bool) (float64, error) {
-	samples, err := e.getEtcdMetrics(host, provider, port, allowFallback)
+func (e *etcdMetricsMeasurement) getEtcdDatabaseSize(host string, provider provider.Provider, instance *etcdInstance) (float64, error) {
+	samples, err := e.getEtcdMetrics(host, provider, instance)
 	if err != nil {
 		return 0, err
 	}

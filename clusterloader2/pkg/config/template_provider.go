@@ -264,6 +264,7 @@ func GetMapping(clusterLoaderConfig *ClusterLoaderConfig, testOverridePaths []st
 		return nil, errors.NewErrorList(fmt.Errorf("mapping creation error: %v", err))
 	}
 	mapping["Nodes"] = clusterLoaderConfig.ClusterConfig.Nodes
+	mapping["ImageRegistry"] = clusterLoaderConfig.ImageRegistry
 	envMapping, err := LoadCL2Envs()
 	if err != nil {
 		return nil, errors.NewErrorList(goerrors.Errorf("mapping creation error: %v", err))

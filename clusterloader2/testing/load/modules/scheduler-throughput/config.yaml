@@ -14,7 +14,7 @@
 {{$CHECK_IF_PODS_ARE_UPDATED := DefaultParam .CL2_CHECK_IF_PODS_ARE_UPDATED true}}
 
 
-{{$deploymentImage := DefaultParam .deploymentImage "registry.k8s.io/pause:3.9"}}
+{{$deploymentImage := DefaultParam .deploymentImage (Concat .ImageRegistry "/pause:3.9")}}
 
 steps:
 {{if $is_creating}}

@@ -3,7 +3,7 @@
 {{$CpuRequest := DefaultParam .CpuRequest "5m"}}
 {{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
 {{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
-{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 
 apiVersion: apps/v1

@@ -1,4 +1,4 @@
-{{$Image := DefaultParam .Image "registry.k8s.io/pause:3.9"}}
+{{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$Env := DefaultParam .Env ""}}
 {{$DaemonSetSurge := DefaultParam .CL2_DS_SURGE (MaxInt 10 (DivideInt .Nodes 20))}} # 5% of nodes, but not less than 10
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
@@ -54,14 +54,14 @@ spec:
 {{if $RealisticPod }}
       initContainers:
       - name: init-0
-        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
         command: ["/bin/sh", "-c", "sleep 1"]
       - name: init-1
-        image: registry.k8s.io/e2e-test-images/agnhost:2.53
+        image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
         command: ["/bin/sh", "-c", "sleep 1"]
       containers:
       - name: main
-        image: registry.k8s.io/pause:3.9
+        image: {{.ImageRegistry}}/pause:3.9
         env:
         - name: POD_NAME
           valueFrom:
@@ -102,7 +102,7 @@ spec:
             cpu: 5m
             memory: 20M
       - name: sidecar
-        image: registry.k8s.io/pause:3.9
+        image: {{.ImageRegistry}}/pause:3.9
         resources:
           requests:
             cpu: 5m

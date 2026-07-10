@@ -199,6 +199,7 @@ func (p *probesMeasurement) initialize(config *measurement.Config) error {
 	p.templateMapping = map[string]interface{}{
 		"Replicas":          replicasPerProbe,
 		"PingSleepDuration": pingSleepDuration,
+		"ImageRegistry":     config.ClusterLoaderConfig.ImageRegistry,
 	}
 	if p.config.Name == "DnsPropagation" {
 		dnsPropagationTemplateMapping, err := InitializeTemplateMappingForDNSPropagationProbe(config)

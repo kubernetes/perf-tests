@@ -34,7 +34,7 @@ type PVCsStartupStatus struct {
 
 // String returns string representation for PVCsStartupStatus.
 func (s *PVCsStartupStatus) String() string {
-	return fmt.Sprintf("PVCs: %d out of %d created, %d bound, %d pending, %d lost", s.Created, s.Expected, s.Bound, s.Pending, s.Lost)
+	return fmt.Sprintf("PVCs: %d created, %d desired, %d bound, %d pending, %d lost", s.Created, s.Expected, s.Bound, s.Pending, s.Lost)
 }
 
 // ComputePVCsStartupStatus computes PVCsStartupStatus for a group of PVCs.

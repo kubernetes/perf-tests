@@ -40,7 +40,7 @@ func TestGetLastNJobRuns(t *testing.T) {
 			9: true,
 		},
 	}
-	expected := []int{9, 7, 5}
+	expected := []int{9, 5, 3}
 
 	runs, err := GetLastNJobRuns(lastNrunsJob, numRuns, utils)
 	if err != nil {

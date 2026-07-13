@@ -41,7 +41,8 @@ func GetJobRunsFromLastNHours(job string, n int, utils util.JobLogUtils) ([]int,
 			if (currentTime - startTimestamp) >= uint64(3600*n) {
 				break
 			}
-			if _, err := utils.GetJobRunFinishedStatus(job, buildNumber); err == nil {
+			finished, err := utils.GetJobRunFinishedStatus(job, buildNumber)
+			if err == nil && finished {
 				runs = append(runs, buildNumber)
 			}
 		}

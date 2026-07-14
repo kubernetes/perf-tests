@@ -14,19 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [[ -n "${KUBETEST2_RUN_DIR:-}" ]]; then
-	export CLUSTER_NAME="${GKE_CLUSTER_NAMES}"
-	export PROJECT="${GKE_CLUSTER_PROJECTS}"
-	export CLUSTER_LOCATION="${GKE_CLUSTER_LOCATIONS}"
-	export KUBE_GKE_NETWORK="${GKE_CLUSTER_NAMES}"
-
-	if [[ "${CLUSTER_LOCATION}" =~ -[a-z]$ ]]; then
-	  export ZONE="${CLUSTER_LOCATION}"
-	else
-	  export REGION="${CLUSTER_LOCATION}"
-	fi
-fi
-
 echo "Installing agentic sandbox core manifest (latest release)"
 kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/manifest.yaml
 
@@ -69,7 +56,6 @@ kubectl get deployment agent-sandbox-controller -n agent-sandbox-system -o yaml
 echo "Waiting for agent sandbox controller to be ready"
 kubectl wait --for=condition=Ready pod -l app=agent-sandbox-controller -n agent-sandbox-system --timeout=5m || echo "WARNING: Timeout waiting for agent sandbox controller"
 
-# Check b/507017172 for the context of override.
 echo "Applying Cilium exclusion for Sandbox unique labels"
 kubectl patch cm -n kube-system cilium-config-emergency-override --patch '
 data:
@@ -84,15 +70,12 @@ gcloud container clusters upgrade "${CLUSTER_NAME}" \
     --location "${cluster_location}" \
     --project "${PROJECT}" \
     --cluster-version "$(gcloud container clusters describe "${CLUSTER_NAME}" --location "${cluster_location}" --project "${PROJECT}" --format="value(currentMasterVersion)")" \
-    --master
+    --master --quiet
 
 echo "Restart anetd"
 kubectl rollout restart daemonset anetd -n kube-system && \
 kubectl rollout status daemonset anetd -n kube-system --timeout=10m || \
 echo "WARNING: Timeout waiting for anetd daemonset restart"
 
-echo "Pre-test: running perf-tests/run-pre-test.sh"
-"${GOPATH}"/src/gke-internal.googlesource.com/test-infra/perf-tests/run-pre-test.sh "$@"
-
 echo "Installing agent-sandbox pprof scraper config"
-kubectl apply -f "${GOPATH}"/src/gke-internal.googlesource.com/test-infra/perf-tests/testing/agentic-sandbox/monitor/pprof-config.yaml
+kubectl apply -f "${GOPATH}"/src/k8s.io/perf-tests/clusterloader2/testing/agentic-sandbox/monitor/pprof-config.yaml

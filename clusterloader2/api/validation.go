@@ -273,6 +273,9 @@ func (v *ConfigValidator) validateSteppedLoad(sl *SteppedLoad, fldPath *field.Pa
 	if sl.BurstSize <= 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("burstSize"), sl.BurstSize, "must have positive value"))
 	}
+	if sl.StepDelay <= 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("stepDelay"), sl.StepDelay, "must have positive value"))
+	}
 	return allErrs
 }
 

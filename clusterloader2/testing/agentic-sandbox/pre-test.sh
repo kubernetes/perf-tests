@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo "Installing agentic sandbox core manifest (latest release)"
-kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/manifest.yaml
+MANIFEST_SRC="${AGENT_SANDBOX_MANIFEST_PATH:-https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/manifest.yaml}"
+EXTENSIONS_SRC="${AGENT_SANDBOX_EXTENSIONS_PATH:-https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/extensions.yaml}"
 
-echo "Installing agentic sandbox extensions (latest release)"
-kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/extensions.yaml
+echo "Installing agentic sandbox core manifest from ${MANIFEST_SRC}"
+kubectl apply -f "${MANIFEST_SRC}"
+
+echo "Installing agentic sandbox extensions from ${EXTENSIONS_SRC}"
+kubectl apply -f "${EXTENSIONS_SRC}"
 
 echo "Patching agent-sandbox-controller deployment with performance overrides"
 kubectl patch deployment agent-sandbox-controller -n agent-sandbox-system --type=strategic --patch '

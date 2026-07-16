@@ -7,6 +7,10 @@
 {{$SLEEP_FOR_CLUSTER_PREP := DefaultParam .CL2_SLEEP_FOR_CLUSTER_PREP "10m"}}
 {{$ENABLE_SYSTEM_POD_METRICS := DefaultParam .CL2_ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER false}}
+{{$CLUSTER_OOMS_FAILURE_ENABLED := DefaultParam .CL2_CLUSTER_OOMS_FAILURE_ENABLED true}}
+{{$sandboxClaimControllerStartupLatencyThreshold50Ms := DefaultParam .CL2_SANDBOX_CLAIM_CONTROLLER_STARTUP_LATENCY_THRESHOLD_50_MS 1000}}
+{{$sandboxClaimControllerStartupLatencyThreshold90Ms := DefaultParam .CL2_SANDBOX_CLAIM_CONTROLLER_STARTUP_LATENCY_THRESHOLD_90_MS 1000}}
+{{$sandboxClaimControllerStartupLatencyThreshold99Ms := DefaultParam .CL2_SANDBOX_CLAIM_CONTROLLER_STARTUP_LATENCY_THRESHOLD_99_MS 5000}}
 
 # Filtered burst throughput. Uses `> 0` to filter out pauses between bursts so that average/percentile metrics reflect active creation periods.
 {{$claimThroughputQuery := `((sum(irate(agent_sandbox_claim_controller_startup_latency_ms_count[5m])) by (launch_type, sandbox_template)) > 0)[%v:5s]`}}
@@ -46,15 +50,15 @@ steps:
       queries:
         - name: ControllerStartupLatency50
           query: histogram_quantile(0.50, {{$claimControllerStartupLatencyQuery}})
-          threshold: 1000  # Equivalent to 1s
+          threshold: {{$sandboxClaimControllerStartupLatencyThreshold50Ms}}
           requireSamples: true
         - name: ControllerStartupLatency90
           query: histogram_quantile(0.90, {{$claimControllerStartupLatencyQuery}})
-          threshold: 1000  # Equivalent to 1s
+          threshold: {{$sandboxClaimControllerStartupLatencyThreshold90Ms}}
           requireSamples: true
         - name: ControllerStartupLatency99
           query: histogram_quantile(0.99, {{$claimControllerStartupLatencyQuery}})
-          threshold: 5000  # Equivalent to 5s
+          threshold: {{$sandboxClaimControllerStartupLatencyThreshold99Ms}}
           requireSamples: true
 
   - Identifier: SandboxClaimControllerThroughput
@@ -109,6 +113,7 @@ steps:
       action: start
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      clusterOOMsFailureEnabled: {{$CLUSTER_OOMS_FAILURE_ENABLED}}
 
 - name: Setup Sandbox Template
   phases:
@@ -135,7 +140,7 @@ steps:
     Params:
       action: start
       objectGroup: "agents.x-k8s.io"
-      objectVersion: "v1alpha1"
+      objectVersion: "v1beta1"
       objectResource: "sandboxes"
       labelSelector: "agents.x-k8s.io/warm-pool-sandbox"
       namespaceRange: {min: 1, max: {{$namespaces}}}
@@ -166,7 +171,7 @@ steps:
     Params:
       action: start
       objectGroup: extensions.agents.x-k8s.io
-      objectVersion: v1alpha1
+      objectVersion: v1beta1
       objectResource: sandboxclaims
       namespaceRange: {min: 1, max: {{$namespaces}}}
       successfulConditions: ["Ready=True"]
@@ -239,6 +244,7 @@ steps:
       action: gather
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      clusterOOMsFailureEnabled: {{$CLUSTER_OOMS_FAILURE_ENABLED}}
 
 - name: Delete Sandbox Claims
   phases:

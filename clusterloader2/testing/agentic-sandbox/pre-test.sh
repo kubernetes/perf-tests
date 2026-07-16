@@ -40,9 +40,11 @@ spec:
         - --zap-encoder=json
         - --kube-api-qps=1000
         - --kube-api-burst=2000
-        - --sandbox-concurrent-workers=400
-        - --sandbox-claim-concurrent-workers=400
-        - --sandbox-warm-pool-concurrent-workers=1
+        - --sandbox-concurrent-workers=1000
+        - --sandbox-claim-concurrent-workers=1000
+        - --sandbox-warm-pool-concurrent-workers=1000
+        - --sandbox-template-concurrent-workers=1000
+        - --sandbox-warm-pool-max-batch-size=1000
         resources:
           requests:
             memory: "12Gi"
@@ -71,10 +73,11 @@ gcloud container clusters upgrade "${CLUSTER_NAME}" \
     --cluster-version "$(gcloud container clusters describe "${CLUSTER_NAME}" --location "${cluster_location}" --project "${PROJECT}" --format="value(currentMasterVersion)")" \
     --master --quiet
 
-echo "Restart anetd"
-kubectl rollout restart daemonset anetd -n kube-system && \
-kubectl rollout status daemonset anetd -n kube-system --timeout=10m || \
-echo "WARNING: Timeout waiting for anetd daemonset restart"
+kubectl delete pods -l k8s-app=cilium -n kube-system
+
+echo "Done. Kubernetes will now recreate the anetd pods."
+sleep 300
+
 
 echo "Installing agent-sandbox pprof scraper config"
 kubectl apply -f "${GOPATH}"/src/k8s.io/perf-tests/clusterloader2/testing/agentic-sandbox/monitor/pprof-config.yaml

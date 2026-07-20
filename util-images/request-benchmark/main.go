@@ -53,15 +53,6 @@ const (
 	tableAccept = "application/json;as=Table;v=v1;g=meta.k8s.io"
 )
 
-var (
-	inflight    = flag.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
-	namespace   = flag.String("namespace", "", "Replace %namespace% in URI with provided namespace")
-	URI         = flag.String("uri", "", "Request URI")
-	verb        = flag.String("verb", "GET", "A verb to be used in requests.")
-	qps         = flag.Float64("qps", -1, "The qps limit for all requests")
-	contentType = ContentType("json")
-)
-
 func (c ContentType) String() string {
 	return string(c)
 }
@@ -74,11 +65,6 @@ func (c *ContentType) Set(value string) error {
 	default:
 		return fmt.Errorf("invalid content type: %s. Must be one of: [json, proto, cbor, yaml, table, json-pretty]", value)
 	}
-}
-
-func init() {
-	flag.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml, table, json-pretty]")
-	flag.Parse()
 }
 
 func getContentType(ct ContentType) (string, error) {
@@ -99,24 +85,54 @@ func getContentType(ct ContentType) (string, error) {
 }
 
 func main() {
+	args := os.Args[1:]
+	mode := "http"
+	// if the first arg doesn't start with "-" it's a subcommand name
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		mode = args[0]
+		args = args[1:]
+	}
+	switch mode {
+	case "http":
+		if err := runHTTP(args); err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatalf("unknown subcommand %q, valid: http", mode)
+	}
+}
+
+func runHTTP(args []string) error {
+	fs := flag.NewFlagSet("http", flag.ExitOnError)
+	inflight := fs.Int("inflight", 1, "Benchmark inflight (number of parallel requests being made to the apiserver")
+	namespace := fs.String("namespace", "", "Replace %namespace% in URI with provided namespace")
+	URI := fs.String("uri", "", "Request URI")
+	verb := fs.String("verb", "GET", "A verb to be used in requests.")
+	qps := fs.Float64("qps", -1, "The qps limit for all requests")
+	contentType := ContentType("json")
+	fs.Var(&contentType, "content-type", "Content type for requests (required). Valid values: [json, proto, cbor, yaml, table, json-pretty]")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
 	config, err := getConfig()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	config.QPS = float32(*qps)
 	client, err := rest.HTTPClientFor(config)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	ctx := context.Background()
 
 	serverURL, _, err := rest.DefaultServerUrlFor(config)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	url, err := url.Parse(strings.ReplaceAll(*URI, NamespaceTmpl, *namespace))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	url.Host = serverURL.Host
 	url.Scheme = serverURL.Scheme
@@ -132,15 +148,15 @@ func main() {
 		rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(*qps), 10)
 	}
 
-	if err := healthCheck(ctx, client, *url, rateLimiter); err != nil {
-		panic(err)
+	if err := healthCheck(ctx, client, *url, rateLimiter, *verb, contentType); err != nil {
+		return err
 	}
 
 	log.Printf("Sending requests to '%s' with inflight %d. Press Ctrl+C to stop...", url, *inflight)
 	for i := 0; i < *inflight; i++ {
 		go func() {
 			for {
-				sendRequest(ctx, client, *url, rateLimiter)
+				sendRequest(ctx, client, *url, rateLimiter, *verb, contentType)
 			}
 		}()
 	}
@@ -148,23 +164,23 @@ func main() {
 	select {} // block main thread from ending
 }
 
-func healthCheck(ctx context.Context, client *http.Client, url url.URL, rateLimiter flowcontrol.RateLimiter) error {
+func healthCheck(ctx context.Context, client *http.Client, url url.URL, rateLimiter flowcontrol.RateLimiter, verb string, ct ContentType) error {
 	for i := 0; i < HealthCheckRequests; i++ {
-		if sendRequest(ctx, client, url, rateLimiter) {
+		if sendRequest(ctx, client, url, rateLimiter, verb, ct) {
 			return nil
 		}
 	}
 	return fmt.Errorf("could not successfully send a request to %s", url.String())
 }
 
-func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimiter flowcontrol.RateLimiter) bool {
-	req, err := http.NewRequestWithContext(ctx, *verb, url.String(), nil)
+func sendRequest(ctx context.Context, client *http.Client, url url.URL, rateLimiter flowcontrol.RateLimiter, verb string, ct ContentType) bool {
+	req, err := http.NewRequestWithContext(ctx, verb, url.String(), nil)
 	if err != nil {
 		log.Printf("Got error creating a request: %v\n", err)
 		return false
 	}
 
-	contentType, err := getContentType(contentType)
+	contentType, err := getContentType(ct)
 	if err != nil {
 		log.Printf("Invalid content type: %v", err)
 		return false

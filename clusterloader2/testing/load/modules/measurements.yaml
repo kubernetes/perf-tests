@@ -220,6 +220,19 @@ steps:
       - name: Watch cache reinitializations
         query: sum(increase(apiserver_watch_cache_initializations_total[%v:])) by (resource)
 {{end}}
+  - Identifier: InitEvents
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Init Events
+      metricVersion: v1
+      unit: events
+      dimensions:
+      - group
+      - resource
+      queries:
+      - name: Init events
+        query: sum(apiserver_init_events_total) by (group, resource)
 {{if $ENABLE_QUOTAS_USAGE_MEASUREMENT}}
   - Identifier: Quotas total usage
     Method: GenericPrometheusQuery

@@ -264,8 +264,8 @@ var (
 			}},
 			"LoadInitEventsCount": []TestDescription{{
 				Name:             "load",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverInitEventsCount,
+				OutputFilePrefix: "GenericPrometheusQuery Init Events",
+				Parser:           parsePerfData,
 			}},
 			"LoadWatchCacheInitializationDurationMax": []TestDescription{{
 				Name:             "load",

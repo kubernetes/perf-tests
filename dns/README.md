@@ -254,6 +254,7 @@ CREATE TABLE results (
 CREATE TABLE histograms (
   run_id,
   run_subid,
+  pod_name,
   rtt_ms,
   rtt_ms_count
 );

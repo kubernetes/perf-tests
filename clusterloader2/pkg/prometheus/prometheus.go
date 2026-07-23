@@ -61,6 +61,7 @@ const (
 	masterIPServiceMonitors      = "master-ip/*.yaml"
 	metricsServerManifests       = "exporters/metrics-server/*.yaml"
 	nodeExporterPod              = "exporters/node_exporter/node-exporter.yaml"
+	nodeExporterDaemonSet        = "exporters/node_exporter/node-exporter-daemonset.yaml"
 	windowsNodeExporterManifests = "exporters/windows_node_exporter/*.yaml"
 	pushgatewayManifests         = "pushgateway/*.yaml"
 )
@@ -542,7 +543,7 @@ func (pc *Controller) configureRBACForMetrics(testClusterClientSet kubernetes.In
 // TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
 // when master nodes have configured networking.
 func (pc *Controller) runNodeExporter() error {
-	klog.V(2).Infof("Starting node-exporter on master nodes.")
+	klog.V(2).Infof("Starting node-exporter.")
 	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
 	if err != nil {
 		return err
@@ -554,28 +555,48 @@ func (pc *Controller) runNodeExporter() error {
 		return err
 	}
 
-	var g errgroup.Group
-	numMasters := 0
+	hasControlPlaneNodesWithLabel := false
 	for _, node := range nodes {
-		node := node
 		if util.IsControlPlaneNode(&node) {
-			numMasters++
-			g.Go(func() error {
-				f, err := manifestsFS.Open(nodeExporterPod)
-				if err != nil {
-					return fmt.Errorf("unable to open manifest file: %v", err)
-				}
-				defer f.Close()
-				return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
-			})
+			if _, ok := node.Labels["node-role.kubernetes.io/control-plane"]; ok {
+				hasControlPlaneNodesWithLabel = true
+				break
+			}
 		}
 	}
 
-	if numMasters == 0 {
-		return fmt.Errorf("node-exporter requires master to be registered nodes")
+	if hasControlPlaneNodesWithLabel {
+		klog.V(2).Infof("Control-plane nodes with control-plane label are visible in the cluster. Starting node-exporter as DaemonSet.")
+		return pc.applyDefaultManifests(nodeExporterDaemonSet)
 	}
 
-	return g.Wait()
+	if pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportSSHToMaster {
+		klog.V(2).Infof("Control plane nodes are not visible in the cluster, but SSH is available. Starting node-exporter on master nodes via SSH.")
+		var g errgroup.Group
+		numMasters := 0
+		for _, node := range nodes {
+			node := node
+			if util.IsControlPlaneNode(&node) {
+				numMasters++
+				g.Go(func() error {
+					f, err := manifestsFS.Open(nodeExporterPod)
+					if err != nil {
+						return fmt.Errorf("unable to open manifest file: %v", err)
+					}
+					defer f.Close()
+					return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
+				})
+			}
+		}
+
+		if numMasters == 0 {
+			return fmt.Errorf("node-exporter requires master to be registered nodes for SSH deployment")
+		}
+
+		return g.Wait()
+	}
+
+	return fmt.Errorf("deploying node_exporter failed: control plane nodes are not visible and SSH to master is not supported")
 }
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {

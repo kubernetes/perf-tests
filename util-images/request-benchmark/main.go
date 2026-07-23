@@ -97,8 +97,12 @@ func main() {
 		if err := runHTTP(args); err != nil {
 			log.Fatal(err)
 		}
+	case "informer":
+		if err := runInformer(args); err != nil {
+			log.Fatal(err)
+		}
 	default:
-		log.Fatalf("unknown subcommand %q, valid: http", mode)
+		log.Fatalf("unknown subcommand %q, valid: http, informer", mode)
 	}
 }
 

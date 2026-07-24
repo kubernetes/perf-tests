@@ -1,0 +1,11 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://thanos-query:10902
+    isDefault: true
+    jsonData:
+      httpMethod: POST

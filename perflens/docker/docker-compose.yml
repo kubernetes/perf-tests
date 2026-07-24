@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: perflens-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ../config/grafana/provisioning:/etc/grafana/provisioning
+      - ../config/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      thanos-query:
+        condition: service_healthy
+
+  thanos-store:
+    image: quay.io/thanos/thanos:v0.31.0
+    container_name: perflens-thanos-store
+    restart: on-failure
+    user: root
+    volumes:
+      - ../../_artifacts/prometheus:/prometheus
+      - ../config/thanos/bucket.yml:/etc/thanos/bucket.yml
+    command:
+      - store
+      - --objstore.config-file=/etc/thanos/bucket.yml
+      - --data-dir=/tmp/thanos/cache
+      - --grpc-address=0.0.0.0:10901
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:10902/-/healthy"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  thanos-query:
+    image: quay.io/thanos/thanos:v0.31.0
+    container_name: perflens-thanos-query
+    restart: on-failure
+    ports:
+      - "${THANOS_PORT:-9090}:10902"
+    command:
+      - query
+      - --http-address=0.0.0.0:10902
+      - --endpoint=perflens-thanos-store:10901
+    depends_on:
+      thanos-store:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:10902/-/healthy"]
+      interval: 5s
+      timeout: 2s
+      retries: 10

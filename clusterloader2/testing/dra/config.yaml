@@ -100,6 +100,48 @@ steps:
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_unprepare_resources
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
+    - Identifier: FastFillResourceClaimControllerMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: fastfill_resource_claim_controller
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: workqueue_adds_rate
+            query: sum(rate(workqueue_adds_total{name="resource_claim"}[%v]))
+          - name: workqueue_depth_max
+            query: max(max_over_time(workqueue_depth{name="resource_claim"}[%v]))
+          - name: p99_workqueue_work_duration
+            query: histogram_quantile(0.99, sum(rate(workqueue_work_duration_seconds_bucket{name="resource_claim"}[%v])) by (le))
+          - name: p99_workqueue_queue_duration
+            query: histogram_quantile(0.99, sum(rate(workqueue_queue_duration_seconds_bucket{name="resource_claim"}[%v])) by (le))
+          - name: workqueue_retries_rate
+            query: sum(rate(workqueue_retries_total{name="resource_claim"}[%v]))
+          - name: workqueue_longest_running_processor_max
+            query: max(max_over_time(workqueue_longest_running_processor_seconds{name="resource_claim"}[%v]))
+          - name: workqueue_unfinished_work_max
+            query: max(max_over_time(workqueue_unfinished_work_seconds{name="resource_claim"}[%v]))
+    - Identifier: FastFillKCMResourceUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: fastfill_kcm_resource_usage
+        metricVersion: v1
+        unit: mixed
+        queries:
+          - name: cpu_avg_cores
+            query: avg_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: cpu_max_cores
+            query: max_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: cpu_min_cores
+            query: min_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: memory_rss_avg_mib
+            query: avg_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
+          - name: memory_rss_max_mib
+            query: max_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
+          - name: memory_rss_min_mib
+            query: min_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
     # Calibration: Prometheus memory + cardinality over the run. Uses prometheus self-scrape
     # and TSDB meta (not cAdvisor), so it survives the cardinality relabeling. Lets us size
     # CL2_PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR and see which scrape job drives cardinality.
@@ -170,6 +212,14 @@ steps:
       Method: GenericPrometheusQuery
       Params:
         action: gather
+    - Identifier: FastFillResourceClaimControllerMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
+    - Identifier: FastFillKCMResourceUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
 - name: reset metrics for steady state churn
   measurements:
     - Identifier: ChurnSchedulingMetrics
@@ -201,6 +251,48 @@ steps:
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodePrepareResources"}[%v])) by (le))
           - name: p99_dra_grpc_node_unprepare_resources
             query: histogram_quantile(0.99, sum(rate(dra_grpc_operations_duration_seconds_bucket{method_name=~".*NodeUnprepareResources"}[%v])) by (le))
+    - Identifier: ChurnResourceClaimControllerMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: churn_resource_claim_controller
+        metricVersion: v1
+        unit: s
+        queries:
+          - name: workqueue_adds_rate
+            query: sum(rate(workqueue_adds_total{name="resource_claim"}[%v]))
+          - name: workqueue_depth_max
+            query: max(max_over_time(workqueue_depth{name="resource_claim"}[%v]))
+          - name: p99_workqueue_work_duration
+            query: histogram_quantile(0.99, sum(rate(workqueue_work_duration_seconds_bucket{name="resource_claim"}[%v])) by (le))
+          - name: p99_workqueue_queue_duration
+            query: histogram_quantile(0.99, sum(rate(workqueue_queue_duration_seconds_bucket{name="resource_claim"}[%v])) by (le))
+          - name: workqueue_retries_rate
+            query: sum(rate(workqueue_retries_total{name="resource_claim"}[%v]))
+          - name: workqueue_longest_running_processor_max
+            query: max(max_over_time(workqueue_longest_running_processor_seconds{name="resource_claim"}[%v]))
+          - name: workqueue_unfinished_work_max
+            query: max(max_over_time(workqueue_unfinished_work_seconds{name="resource_claim"}[%v]))
+    - Identifier: ChurnKCMResourceUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: start
+        metricName: churn_kcm_resource_usage
+        metricVersion: v1
+        unit: mixed
+        queries:
+          - name: cpu_avg_cores
+            query: avg_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: cpu_max_cores
+            query: max_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: cpu_min_cores
+            query: min_over_time(rate(process_cpu_seconds_total{endpoint="kube-controller-manager"}[1m])[%v:15s])
+          - name: memory_rss_avg_mib
+            query: avg_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
+          - name: memory_rss_max_mib
+            query: max_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
+          - name: memory_rss_min_mib
+            query: min_over_time(process_resident_memory_bytes{endpoint="kube-controller-manager"}[%v]) / 1024 / 1024
 - name: Create steady state {{$MODE}} jobs
   phases:
     - namespaceRange:
@@ -240,6 +332,14 @@ steps:
       Params:
         action: gather
     - Identifier: ChurnDRAMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
+    - Identifier: ChurnResourceClaimControllerMetrics
+      Method: GenericPrometheusQuery
+      Params:
+        action: gather
+    - Identifier: ChurnKCMResourceUsage
       Method: GenericPrometheusQuery
       Params:
         action: gather

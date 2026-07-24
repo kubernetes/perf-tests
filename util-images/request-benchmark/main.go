@@ -86,6 +86,17 @@ func getContentType(ct ContentType) (string, error) {
 
 func main() {
 	args := os.Args[1:]
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprint(os.Stderr, `Usage: request-benchmark <subcommand> [flags]
+
+Subcommands:
+  http      Send HTTP requests to the apiserver (default when no subcommand given)
+  informer  Start informers and measure sync time
+
+Run 'request-benchmark <subcommand> --help' for subcommand-specific flags.
+`)
+		os.Exit(0)
+	}
 	mode := "http"
 	// if the first arg doesn't start with "-" it's a subcommand name
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -97,8 +108,12 @@ func main() {
 		if err := runHTTP(args); err != nil {
 			log.Fatal(err)
 		}
+	case "informer":
+		if err := runInformer(args); err != nil {
+			log.Fatal(err)
+		}
 	default:
-		log.Fatalf("unknown subcommand %q, valid: http", mode)
+		log.Fatalf("unknown subcommand %q, valid: http, informer", mode)
 	}
 }
 

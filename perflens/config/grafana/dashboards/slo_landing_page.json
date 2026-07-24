@@ -134,7 +134,7 @@
         "name": "run",
         "options": [],
         "query": {
-          "query": "label_values(k8s_slo_status, run)",
+          "query": "label_values(run)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,

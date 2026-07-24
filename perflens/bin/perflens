@@ -25,17 +25,18 @@ usage() {
   echo "Usage: perflens <command> [args]"
   echo ""
   echo "Commands:"
-  echo "  up                Start PerfLens stack (Thanos Store, Thanos Query, Grafana)"
-  echo "  down              Stop PerfLens stack"
-  echo "  status            Show status of PerfLens services"
-  echo "  ingest <BUILD_ID> Fetch & ingest Prow scale run metrics from GCS into Thanos TSDB"
+  echo "  up                       Start PerfLens stack (Grafana, Thanos Store, Thanos Query)"
+  echo "  down                     Stop PerfLens stack"
+  echo "  status                   Show container status"
+  echo "  download <BUILD_ID_OR_URL> Download scale run artifacts from GCS"
+  echo "  ingest <BUILD_ID_OR_URL>   Ingest local scale run metrics into Thanos TSDB"
   echo ""
   exit 1
 }
 
 cmd_up() {
   echo "==> Starting PerfLens Minimal Stack..."
-  mkdir -p "${ARTIFACTS_DIR}/prometheus" "${ARTIFACTS_DIR}/openmetrics"
+  mkdir -p "${ARTIFACTS_DIR}/prometheus" "${ARTIFACTS_DIR}/openmetrics" "${ARTIFACTS_DIR}/runs"
 
   if command -v docker &>/dev/null; then
     docker compose -f "${BASE_DIR}/docker/docker-compose.yml" up -d
@@ -70,22 +71,158 @@ cmd_status() {
   fi
 }
 
-cmd_ingest() {
-  BUILD_ID="$1"
+cmd_download() {
+  BUILD_ID=""
+  MODE="all"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode=*)
+        MODE="${1#*=}"
+        shift
+        ;;
+      --mode)
+        MODE="$2"
+        shift 2
+        ;;
+      *)
+        if [ -z "${BUILD_ID}" ]; then
+          BUILD_ID="$1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
   if [ -z "${BUILD_ID}" ]; then
     echo "Error: Missing BUILD_ID."
     usage
   fi
 
-  # Normalize Build ID if full URL given
-  BUILD_ID="$(echo "${BUILD_ID}" | sed -E 's|.*/([0-9]+)/?|\1|')"
+  RAW_BUILD_ID="$(echo "${BUILD_ID}" | sed -E 's|.*/([0-9]+)/?|\1|' | sed 's/^run-//')"
+  DEST_DIR="${ARTIFACTS_DIR}/runs/${RAW_BUILD_ID}"
+  mkdir -p "${DEST_DIR}/artifacts"
 
-  echo "==> Ingesting CL2 JSON metrics for Build ID ${BUILD_ID} into Thanos TSDB blocks..."
-  (cd "${BASE_DIR}" && go run ./cmd/ingest -build-id "${BUILD_ID}" -artifacts-dir "${ARTIFACTS_DIR}")
+  MODE_LOWER="$(echo "${MODE}" | tr '[:upper:]' '[:lower:]')"
+  HTTP_API="https://storage.googleapis.com/storage/v1/b/kubernetes-ci-logs/o"
+
+  # Resolve GCS Prefix
+  PREFIX=""
+  if [[ "${BUILD_ID}" == *"kubernetes-ci-logs"* || "${BUILD_ID}" == *"pr-logs/"* || "${BUILD_ID}" == *"logs/"* ]]; then
+    CLEAN_PATH="$(echo "${BUILD_ID}" | sed -E 's|.*kubernetes-ci-logs/||' | sed -E 's|^/||')"
+    if [[ "${CLEAN_PATH}" == *"directory/"* ]]; then
+      PTR_URL="https://storage.googleapis.com/kubernetes-ci-logs/${CLEAN_PATH}.txt"
+      RESOLVED="$(curl -s "${PTR_URL}" | sed 's|^gs://kubernetes-ci-logs/||' | tr -d '\r\n' || true)"
+      if [ -n "${RESOLVED}" ]; then
+        PREFIX="${RESOLVED}/artifacts/"
+      fi
+    else
+      PREFIX="${CLEAN_PATH%/}/artifacts/"
+    fi
+  fi
+
+  if [ -z "${PREFIX}" ]; then
+    # Default to periodic 5k job
+    PREFIX="logs/ci-kubernetes-e2e-gce-scale-performance-5000/${RAW_BUILD_ID}/artifacts/"
+  fi
+
+  echo "==> Downloading GCS artifacts (mode=${MODE_LOWER}) for Build ID ${RAW_BUILD_ID} into ${DEST_DIR}..."
+  echo "    Resolved GCS Prefix: ${PREFIX}"
+
+  if [[ "${MODE_LOWER}" == "slo-metrics" || "${MODE_LOWER}" == "slo" || "${MODE_LOWER}" == "all" ]]; then
+    mkdir -p "${DEST_DIR}/artifacts"
+    echo "  Downloading SLO JSON metrics..."
+    items=$(curl -s "${HTTP_API}?prefix=${PREFIX}" | grep -o '"name": "[^"]*' | cut -d'"' -f4 | grep '\.json$' || true)
+    if [ -n "${items}" ]; then
+      echo "${items}" | while read -r item; do
+        if [[ "${item}" == *"APIResponsivenessPrometheus_load_"* || "${item}" == *"PodStartupLatency_PodStartupLatency_load_"* || "${item}" == *"APIAvailability_load_"* || "${item}" == *"SchedulingThroughputPrometheus_load_"* || "${item}" == *"DnsLookupLatency_load_"* ]]; then
+          filename="$(basename "${item}")"
+          curl -s "https://storage.googleapis.com/kubernetes-ci-logs/${item}" -o "${DEST_DIR}/artifacts/${filename}"
+        fi
+      done
+    fi
+  fi
+
+  if [[ "${MODE_LOWER}" == "prometheus-metrics" || "${MODE_LOWER}" == "prometheus" || "${MODE_LOWER}" == "all" ]]; then
+    mkdir -p "${DEST_DIR}/artifacts/prometheus/snapshots"
+    echo "  Downloading Prometheus TSDB snapshot blocks..."
+    TAR_URL="https://storage.googleapis.com/kubernetes-ci-logs/${PREFIX}prometheus_snapshot.tar"
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${TAR_URL}" || true)
+    if [ "${HTTP_CODE}" = "200" ]; then
+      echo "  Found prometheus_snapshot.tar, downloading and extracting..."
+      curl -s "${TAR_URL}" -o "${DEST_DIR}/artifacts/prometheus_snapshot.tar"
+      tar -xf "${DEST_DIR}/artifacts/prometheus_snapshot.tar" -C "${DEST_DIR}/artifacts/" || true
+    else
+      PROM_PREFIX="${PREFIX}prometheus/snapshots/"
+      items=$(curl -s "${HTTP_API}?prefix=${PROM_PREFIX}" | grep -o '"name": "[^"]*' | cut -d'"' -f4 || true)
+      if [ -n "${items}" ]; then
+        echo "${items}" | while read -r item; do
+          rel_path="${item#"${PROM_PREFIX}"}"
+          if [ -n "${rel_path}" ]; then
+            target_file="${DEST_DIR}/artifacts/prometheus/snapshots/${rel_path}"
+            mkdir -p "$(dirname "${target_file}")"
+            curl -s "https://storage.googleapis.com/kubernetes-ci-logs/${item}" -o "${target_file}"
+          fi
+        done
+      fi
+    fi
+  fi
+
+  echo "==> Download complete for Build ID ${RAW_BUILD_ID} in ${DEST_DIR}."
+}
+
+cmd_ingest() {
+  BUILD_ID=""
+  MODE="all"
+
+  ARGS=("$@")
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode=*)
+        MODE="${1#*=}"
+        shift
+        ;;
+      --mode)
+        MODE="$2"
+        shift 2
+        ;;
+      *)
+        if [ -z "${BUILD_ID}" ]; then
+          BUILD_ID="$1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  if [ -z "${BUILD_ID}" ]; then
+    echo "Error: Missing BUILD_ID."
+    usage
+  fi
+
+  RAW_BUILD_ID="$(echo "${BUILD_ID}" | sed -E 's|.*/([0-9]+)/?|\1|' | sed 's/^run-//')"
+  DEST_DIR="${ARTIFACTS_DIR}/runs/${RAW_BUILD_ID}"
+
+  if [ ! -d "${DEST_DIR}" ]; then
+    echo "Error: Artifacts for Build ID ${RAW_BUILD_ID} not found at ${DEST_DIR}."
+    echo "Please run './bin/perflens download ${BUILD_ID}' first."
+    exit 1
+  fi
+
+  # Auto-extract prometheus_snapshot.tar if present and not yet extracted
+  if [ -f "${DEST_DIR}/artifacts/prometheus_snapshot.tar" ] && [ ! -d "${DEST_DIR}/artifacts/prometheus/snapshots" ]; then
+    echo "==> Found unextracted prometheus_snapshot.tar in ${DEST_DIR}, extracting..."
+    mkdir -p "${DEST_DIR}/artifacts"
+    tar -xf "${DEST_DIR}/artifacts/prometheus_snapshot.tar" -C "${DEST_DIR}/artifacts/" || true
+  fi
+
+  echo "==> Ingesting metrics (mode=${MODE}) for Build ID ${RAW_BUILD_ID} into Thanos TSDB blocks..."
+  (cd "${BASE_DIR}" && go run ./cmd/ingest -build-id "${RAW_BUILD_ID}" -mode "${MODE}" -artifacts-dir "${ARTIFACTS_DIR}")
   
   echo ""
-  echo "==> Successfully ingested Build ID ${BUILD_ID} into Thanos TSDB!"
-  echo "    View the SLO Landing Page: http://localhost:3000/d/perflens-slo-landing"
+  echo "==> Successfully ingested Build ID ${RAW_BUILD_ID} (mode=${MODE}) into Thanos TSDB!"
+  echo "    View SLO Landing Page: http://localhost:3000/d/perflens-slo-landing"
+  echo "    View API Server Metrics: http://localhost:3000/d/apiserver-metrics"
 }
 
 case "${1:-}" in
@@ -97,6 +234,10 @@ case "${1:-}" in
     ;;
   status)
     cmd_status
+    ;;
+  download)
+    shift
+    cmd_download "$@"
     ;;
   ingest)
     shift

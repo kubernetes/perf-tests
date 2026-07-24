@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# Copyright The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PERF_TESTS_ROOT="$(cd "${BASE_DIR}/.." && pwd)"
+ARTIFACTS_DIR="${PERF_TESTS_ROOT}/_artifacts"
+
+usage() {
+  echo "Usage: perflens <command> [args]"
+  echo ""
+  echo "Commands:"
+  echo "  up                Start PerfLens stack (Thanos Store, Thanos Query, Grafana)"
+  echo "  down              Stop PerfLens stack"
+  echo "  status            Show status of PerfLens services"
+  echo "  ingest <BUILD_ID> Fetch & ingest Prow scale run metrics from GCS into Thanos TSDB"
+  echo ""
+  exit 1
+}
+
+cmd_up() {
+  echo "==> Starting PerfLens Minimal Stack..."
+  mkdir -p "${ARTIFACTS_DIR}/prometheus" "${ARTIFACTS_DIR}/openmetrics"
+
+  if command -v docker &>/dev/null; then
+    docker compose -f "${BASE_DIR}/docker/docker-compose.yml" up -d
+  elif command -v podman-compose &>/dev/null; then
+    podman-compose -f "${BASE_DIR}/docker/docker-compose.yml" up -d
+  else
+    echo "Error: Neither docker compose nor podman-compose found."
+    exit 1
+  fi
+
+  echo ""
+  echo "==> PerfLens Stack is Running!"
+  echo "    Grafana Dashboard:  http://localhost:3000/d/perflens-slo-landing"
+  echo "    Thanos Query UI:    http://localhost:9090"
+  echo ""
+}
+
+cmd_down() {
+  echo "==> Stopping PerfLens Stack..."
+  if command -v docker &>/dev/null; then
+    docker compose -f "${BASE_DIR}/docker/docker-compose.yml" down
+  elif command -v podman-compose &>/dev/null; then
+    podman-compose -f "${BASE_DIR}/docker/docker-compose.yml" down
+  fi
+  echo "==> PerfLens stopped."
+}
+
+cmd_status() {
+  echo "==> PerfLens Container Status:"
+  if command -v docker &>/dev/null; then
+    docker ps --filter "name=perflens" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+  fi
+}
+
+cmd_ingest() {
+  BUILD_ID="$1"
+  if [ -z "${BUILD_ID}" ]; then
+    echo "Error: Missing BUILD_ID."
+    usage
+  fi
+
+  # Normalize Build ID if full URL given
+  BUILD_ID="$(echo "${BUILD_ID}" | sed -E 's|.*/([0-9]+)/?|\1|')"
+
+  echo "==> Ingesting CL2 JSON metrics for Build ID ${BUILD_ID} into Thanos TSDB blocks..."
+  (cd "${BASE_DIR}" && go run ./cmd/ingest -build-id "${BUILD_ID}" -artifacts-dir "${ARTIFACTS_DIR}")
+  
+  echo ""
+  echo "==> Successfully ingested Build ID ${BUILD_ID} into Thanos TSDB!"
+  echo "    View the SLO Landing Page: http://localhost:3000/d/perflens-slo-landing"
+}
+
+case "${1:-}" in
+  up)
+    cmd_up
+    ;;
+  down)
+    cmd_down
+    ;;
+  status)
+    cmd_status
+    ;;
+  ingest)
+    shift
+    cmd_ingest "$@"
+    ;;
+  *)
+    usage
+    ;;
+esac

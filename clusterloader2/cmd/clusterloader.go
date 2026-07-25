@@ -483,7 +483,11 @@ func dumpTestConfig(ctx test.Context, config *api.Config) error {
 	if err != nil {
 		return fmt.Errorf("marshaling config error: %w", err)
 	}
-	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, "generatedConfig_"+config.Name+".yaml")
+	fileName := "generatedConfig_" + config.Name
+	if identifier := ctx.GetTestScenario().Identifier; identifier != "" {
+		fileName += "_" + identifier
+	}
+	filePath := path.Join(ctx.GetClusterLoaderConfig().ReportDir, fileName+".yaml")
 	if err := os.WriteFile(filePath, b, 0644); err != nil {
 		return fmt.Errorf("saving file error: %w", err)
 	}

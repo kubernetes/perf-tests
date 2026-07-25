@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'PerfLens Dashboards'
+    orgId: 1
+    folder: 'Kubernetes Scale Analysis'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

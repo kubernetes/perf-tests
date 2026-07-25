@@ -57,25 +57,28 @@ func (s *S3MetricsBucket) GetBuildNumbers(job string) ([]int, error) {
 	jobPrefix := joinStringsAndInts(s.logPath, job) + "/"
 	klog.Infof("%s", jobPrefix)
 
-	objects, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
 		Bucket:    s.bucket,
 		Prefix:    ptr.To(jobPrefix),
 		Delimiter: ptr.To("/"),
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, key := range objects.CommonPrefixes {
-		build := *key.Prefix
-		build = strings.TrimPrefix(build, jobPrefix)
-		build = strings.TrimSuffix(build, "/")
-
-		buildNo, err := strconv.Atoi(build)
+	for paginator.HasMorePages() {
+		objects, err := paginator.NextPage(context.Background())
 		if err != nil {
-			return nil, fmt.Errorf("unknown build name convention: %s", build)
+			return nil, err
 		}
-		builds = append(builds, buildNo)
+
+		for _, key := range objects.CommonPrefixes {
+			build := *key.Prefix
+			build = strings.TrimPrefix(build, jobPrefix)
+			build = strings.TrimSuffix(build, "/")
+
+			buildNo, err := strconv.Atoi(build)
+			if err != nil {
+				return nil, fmt.Errorf("unknown build name convention: %s", build)
+			}
+			builds = append(builds, buildNo)
+		}
 	}
 
 	return builds, nil
@@ -86,15 +89,18 @@ func (s *S3MetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix s
 	var files []string
 	jobPrefix := joinStringsAndInts(s.logPath, job, buildNumber, prefix)
 
-	result, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
 		Bucket: s.bucket,
 		Prefix: ptr.To(jobPrefix),
 	})
-	if err != nil {
-		return nil, fmt.Errorf("while listing objects %v", err.Error())
-	}
-	for _, item := range result.Contents {
-		files = append(files, *item.Key)
+	for paginator.HasMorePages() {
+		result, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("while listing objects %v", err)
+		}
+		for _, item := range result.Contents {
+			files = append(files, *item.Key)
+		}
 	}
 
 	return files, nil

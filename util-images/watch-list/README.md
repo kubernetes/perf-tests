@@ -13,7 +13,5 @@ Example usage:
 
 ## Building and Releasing
 
-1. Increment the `TAG` in the Makefile.
-2. `make build`
-3. Test changes with `docker run gcr.io/k8s-staging-perf-tests/watch-list:latest -- ...`
-4. Release with `make push`
+1. Make your change and bump `TAG` in the Makefile in the same pull request.
+2. On merge, a postsubmit job builds and pushes the image automatically to `gcr.io/k8s-staging-perf-tests/watch-list:<TAG>`.

@@ -20,16 +20,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PERF_TESTS_ROOT="$(cd "${BASE_DIR}/.." && pwd)"
 ARTIFACTS_DIR="${PERF_TESTS_ROOT}/_artifacts"
+mkdir -p "${ARTIFACTS_DIR}"
+if [ ! -f "${ARTIFACTS_DIR}/.gitignore" ]; then
+  echo "*" > "${ARTIFACTS_DIR}/.gitignore"
+fi
 
 usage() {
   echo "Usage: perflens <command> [args]"
   echo ""
   echo "Commands:"
-  echo "  up                         Start PerfLens stack (Thanos Store, Thanos Query, Grafana)"
-  echo "  down                       Stop PerfLens stack"
-  echo "  status                     Show status of PerfLens services"
-  echo "  ingest <BUILD_ID> [--mode] Ingest scale run metrics into Thanos TSDB"
-  echo "                             Modes: slo-metrics, prometheus-metrics, all (default)"
+  echo "  up                  Start PerfLens stack (Thanos Store, Thanos Query, Grafana)"
+  echo "  down                Stop PerfLens stack"
+  echo "  status              Show status of PerfLens services"
+  echo "  download <PROW_URL> Download Prow scale run metrics from GCS locally"
+  echo "  ingest <RUN_DIR>           Ingest Prow scale run metrics from local run directory into Thanos TSDB"
   echo ""
   exit 1
 }
@@ -72,43 +76,100 @@ cmd_status() {
 }
 
 cmd_ingest() {
-  BUILD_ID=""
-  MODE="all"
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --mode=*)
-        MODE="${1#*=}"
-        shift
-        ;;
-      --mode)
-        MODE="$2"
-        shift 2
-        ;;
-      *)
-        if [ -z "${BUILD_ID}" ]; then
-          BUILD_ID="$1"
-        fi
-        shift
-        ;;
-    esac
-  done
-
-  if [ -z "${BUILD_ID}" ]; then
-    echo "Error: Missing BUILD_ID."
+  RUN_DIR="${1:-}"
+  if [ -z "${RUN_DIR}" ]; then
+    echo "Error: Missing RUN_DIR."
     usage
   fi
 
-  # Normalize Build ID if full URL given
-  BUILD_ID="$(echo "${BUILD_ID}" | sed -E 's|.*/([0-9]+)/?|\1|')"
+  if [ ! -d "${RUN_DIR}" ]; then
+    echo "Error: Run directory '${RUN_DIR}' does not exist."
+    exit 1
+  fi
 
-  echo "==> Ingesting metrics (mode=${MODE}) for Build ID ${BUILD_ID} into Thanos TSDB blocks..."
-  (cd "${BASE_DIR}" && go run ./cmd/ingest -build-id "${BUILD_ID}" -mode "${MODE}" -artifacts-dir "${ARTIFACTS_DIR}")
+  ABS_RUN_DIR="$(cd "${RUN_DIR}" && pwd)"
+  BUILD_ID="$(basename "${ABS_RUN_DIR}")"
+  # Target the parent directory of runs/ folder as the artifacts root
+  TARGET_ARTIFACTS_DIR="$(cd "${ABS_RUN_DIR}/../.." && pwd)"
+
+  if [ ! -d "${ABS_RUN_DIR}/artifacts" ]; then
+    echo "Error: '${ABS_RUN_DIR}/artifacts' does not exist. Did you run download first?"
+    exit 1
+  fi
+
+  # Auto-extract prometheus_snapshot.tar if present and not yet extracted
+  if [ -f "${ABS_RUN_DIR}/artifacts/prometheus_snapshot.tar" ] && [ ! -d "${ABS_RUN_DIR}/artifacts/prometheus/snapshots" ]; then
+    echo "==> Found unextracted prometheus_snapshot.tar, extracting..."
+    mkdir -p "${ABS_RUN_DIR}/artifacts"
+    tar -xf "${ABS_RUN_DIR}/artifacts/prometheus_snapshot.tar" -C "${ABS_RUN_DIR}/artifacts/" || true
+  fi
+
+  echo "==> Ingesting CL2 JSON metrics from ${ABS_RUN_DIR} into Thanos TSDB blocks..."
+  shift
+  (cd "${BASE_DIR}" && go run ./cmd/ingest -build-id "${BUILD_ID}" -artifacts-dir "${TARGET_ARTIFACTS_DIR}" "$@")
   
   echo ""
-  echo "==> Successfully ingested Build ID ${BUILD_ID} (mode=${MODE}) into Thanos TSDB!"
-  echo "    View SLO Landing Page: http://localhost:3000/d/perflens-slo-landing"
-  echo "    View API Server Metrics: http://localhost:3000/d/apiserver-metrics"
+  echo "==> Successfully ingested metrics from ${ABS_RUN_DIR} into Thanos TSDB!"
+  echo "    View the SLO Landing Page: http://localhost:3000/d/perflens-slo-landing"
+}
+
+cmd_download() {
+  INPUT="$1"
+  if [ -z "${INPUT}" ]; then
+    echo "Error: Missing Prow URL."
+    usage
+  fi
+
+  if [[ ! "${INPUT}" =~ prow\.k8s\.io/view/gs/([^/]+)/(.*) ]]; then
+    echo "Error: Input must be a full Prow URL (prow.k8s.io)."
+    exit 1
+  fi
+
+  BUCKET="${BASH_REMATCH[1]}"
+  GCS_PATH="${BASH_REMATCH[2]}"
+  BUILD_ID="$(basename "${GCS_PATH}")"
+
+  DEST_DIR="${ARTIFACTS_DIR}/runs/${BUILD_ID}"
+  mkdir -p "${DEST_DIR}"
+
+  PREFIX="gs://${BUCKET}/${GCS_PATH}"
+
+  # Resolve PROW directory pointers if needed
+  if [[ "${PREFIX}" == *"directory/"* ]]; then
+    POINTER_URL="$(echo "${PREFIX}" | sed 's|^gs://|https://storage.googleapis.com/|').txt"
+    PREFIX="$(curl -s "${POINTER_URL}" | tr -d '\r\n')"
+  fi
+
+  # Append artifacts suffix (stripping any trailing slash)
+  PREFIX="${PREFIX%/}/artifacts"
+
+  echo "==> Downloading GCS artifacts for Build ID ${BUILD_ID} into ${DEST_DIR}..."
+  echo "    Resolved GCS Prefix: ${PREFIX}"
+
+  LOCAL_DEST="${DEST_DIR}/artifacts"
+  mkdir -p "${LOCAL_DEST}"
+
+  PATTERNS=(
+    "${PREFIX}/APIResponsivenessPrometheus_load_*.json"
+    "${PREFIX}/PodStartupLatency_PodStartupLatency_load_*.json"
+    "${PREFIX}/APIAvailability_load_*.json"
+    "${PREFIX}/SchedulingThroughputPrometheus_load_*.json"
+    "${PREFIX}/DnsLookupLatency_load_*.json"
+    "${PREFIX}/prometheus_snapshot.tar"
+  )
+
+  # List files and process them sequentially
+  gcloud storage ls "${PATTERNS[@]}" 2>/dev/null | grep -v '/$' | while read -r gcs_path; do
+      rel_path="${gcs_path#"$PREFIX/"}"
+      local_file="${LOCAL_DEST}/${rel_path}"
+      mkdir -p "$(dirname "${local_file}")"
+      gcloud storage cp -n "${gcs_path}" "${local_file}"
+  done
+
+  ABS_RUN_DIR="$(cd "${DEST_DIR}" && pwd)"
+  echo "==> Download complete for Build ID ${BUILD_ID}."
+  echo "    Saved to: ${ABS_RUN_DIR}"
+  echo "    To ingest, run: ./bin/perflens ingest ${ABS_RUN_DIR}"
 }
 
 case "${1:-}" in
@@ -120,6 +181,10 @@ case "${1:-}" in
     ;;
   status)
     cmd_status
+    ;;
+  download)
+    shift
+    cmd_download "$@"
     ;;
   ingest)
     shift

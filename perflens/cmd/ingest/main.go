@@ -19,12 +19,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,7 +95,7 @@ func main() {
 	modeLower := strings.ToLower(opts.mode)
 
 	if modeLower == "slo" || modeLower == "all" {
-		entries, err := ingestBuildMetrics(opts.buildID)
+		entries, err := ingestBuildMetrics(opts.buildID, opts.artifactsDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error ingesting SLO metrics for build %s: %v\n", opts.buildID, err)
 			if modeLower != "all" {
@@ -155,22 +153,22 @@ func parseFlags() options {
 // Metric Ingestion Operations
 // -----------------------------------------------------------------------------
 
-func ingestBuildMetrics(buildID string) ([]SLOEntry, error) {
-	urls, err := findCL2JSONURLs(buildID)
+func ingestBuildMetrics(buildID string, artifactsDir string) ([]SLOEntry, error) {
+	files, err := findLocalCL2JSONFiles(buildID, artifactsDir)
 	if err != nil {
-		return nil, fmt.Errorf("finding GCS artifact URLs: %w", err)
+		return nil, fmt.Errorf("finding local artifact files: %w", err)
 	}
-	if len(urls) == 0 {
-		return nil, fmt.Errorf("no CL2 metric JSON files found on GCS for Build ID %s", buildID)
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no CL2 metric JSON files found locally for Build ID %s", buildID)
 	}
 
 	var allEntries []SLOEntry
 
-	for _, url := range urls {
-		filename := filepath.Base(url)
-		body, err := fetchRawJSON(url)
+	for _, file := range files {
+		filename := filepath.Base(file)
+		body, err := os.ReadFile(file)
 		if err != nil {
-			fmt.Printf("Warning: Skipping %s due to fetch error: %v\n", url, err)
+			fmt.Printf("Warning: Skipping %s due to read error: %v\n", file, err)
 			continue
 		}
 
@@ -560,61 +558,29 @@ func extractItems(file *MetricFile) []MetricItem {
 	return file.Data
 }
 
-type ListBucketResult struct {
-	Contents []struct {
-		Key string `xml:"Key"`
-	} `xml:"Contents"`
-}
+func findLocalCL2JSONFiles(buildID string, artifactsDir string) ([]string, error) {
+	rawBuildID := strings.TrimPrefix(buildID, "run-")
+	runDir := filepath.Join(artifactsDir, "runs", rawBuildID, "artifacts")
 
-func findCL2JSONURLs(buildID string) ([]string, error) {
-	prefix := fmt.Sprintf("logs/ci-kubernetes-e2e-gce-scale-performance-5000/%s/artifacts/", buildID)
-	xmlURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-ci-logs/?prefix=%s", prefix)
-
-	fmt.Printf("Searching GCS artifacts for Build ID %s...\n", buildID)
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(xmlURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var result ListBucketResult
-	if err := xml.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	var jsonURLs []string
-	for _, content := range result.Contents {
-		key := content.Key
-		if strings.HasSuffix(key, ".json") && (strings.Contains(key, "APIResponsivenessPrometheus_load_") ||
-			strings.Contains(key, "PodStartupLatency_PodStartupLatency_load_") ||
-			strings.Contains(key, "APIAvailability_load_") ||
-			strings.Contains(key, "SchedulingThroughputPrometheus_load_") ||
-			strings.Contains(key, "DnsLookupLatency_load_")) {
-			jsonURLs = append(jsonURLs, fmt.Sprintf("https://storage.googleapis.com/kubernetes-ci-logs/%s", key))
+	var jsonFiles []string
+	err := filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-	}
-	return jsonURLs, nil
-}
-
-func fetchRawJSON(url string) ([]byte, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, url)
-	}
-
-	return io.ReadAll(resp.Body)
+		if info.IsDir() {
+			return nil
+		}
+		filename := info.Name()
+		if strings.HasSuffix(filename, ".json") && (strings.Contains(filename, "APIResponsivenessPrometheus_load_") ||
+			strings.Contains(filename, "PodStartupLatency_PodStartupLatency_load_") ||
+			strings.Contains(filename, "APIAvailability_load_") ||
+			strings.Contains(filename, "SchedulingThroughputPrometheus_load_") ||
+			strings.Contains(filename, "DnsLookupLatency_load_")) {
+			jsonFiles = append(jsonFiles, path)
+		}
+		return nil
+	})
+	return jsonFiles, err
 }
 
 // ingestPrometheusSnapshot queries the GCS List API because Prometheus TSDB snapshot
@@ -628,8 +594,9 @@ func ingestPrometheusSnapshot(buildID string, runName string, tsdbDir string) er
 	}
 
 	foundBlocks := 0
-	if _, err := os.Stat(localRunDir); err == nil {
-		err := filepath.Walk(localRunDir, func(path string, info os.FileInfo, err error) error {
+	localSnapshotDir := filepath.Join(localRunDir, "artifacts", "prometheus", "snapshots")
+	if _, err := os.Stat(localSnapshotDir); err == nil {
+		err := filepath.Walk(localSnapshotDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil || !info.IsDir() {
 				return nil
 			}
@@ -657,75 +624,7 @@ func ingestPrometheusSnapshot(buildID string, runName string, tsdbDir string) er
 		}
 	}
 
-	prefix := fmt.Sprintf("logs/ci-kubernetes-e2e-gce-scale-performance-5000/%s/artifacts/prometheus/snapshots/", rawBuildID)
-	xmlURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-ci-logs/?prefix=%s", prefix)
-
-	fmt.Printf("Downloading Prometheus snapshots from GCS for Build ID %s...\n", rawBuildID)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(xmlURL)
-	if err != nil {
-		return fmt.Errorf("fetching GCS snapshot list: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("reading GCS snapshot response: %w", err)
-	}
-
-	var result ListBucketResult
-	if err := xml.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("parsing GCS snapshot XML: %w", err)
-	}
-
-	if len(result.Contents) == 0 {
-		return fmt.Errorf("no Prometheus snapshot files found on GCS for Build ID %s", rawBuildID)
-	}
-
-	downloadedBlocks := make(map[string]bool)
-
-	for _, content := range result.Contents {
-		key := content.Key
-		downloadURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-ci-logs/%s", key)
-		subPath := strings.TrimPrefix(key, prefix)
-		if subPath == "" {
-			continue
-		}
-
-		targetFile := filepath.Join(tsdbDir, subPath)
-		if err := os.MkdirAll(filepath.Dir(targetFile), 0755); err != nil {
-			return err
-		}
-
-		data, err := fetchRawJSON(downloadURL)
-		if err != nil {
-			fmt.Printf("Warning: Failed downloading %s: %v\n", downloadURL, err)
-			continue
-		}
-
-		if err := os.WriteFile(targetFile, data, 0644); err != nil {
-			return err
-		}
-
-		parts := strings.Split(subPath, string(os.PathSeparator))
-		if len(parts) > 0 {
-			blockULID := parts[0]
-			downloadedBlocks[blockULID] = true
-		}
-	}
-
-	for blockULID := range downloadedBlocks {
-		blockDir := filepath.Join(tsdbDir, blockULID)
-		metaPath := filepath.Join(blockDir, "meta.json")
-		if _, err := os.Stat(metaPath); err == nil {
-			if err := injectThanosRunLabel(blockDir, runName); err != nil {
-				fmt.Printf("Warning: Failed injecting Thanos metadata into block %s: %v\n", blockULID, err)
-			}
-		}
-	}
-
-	fmt.Printf("Successfully downloaded and ingested %d Prometheus snapshot blocks for %s from GCS\n", len(downloadedBlocks), runName)
-	return nil
+	return fmt.Errorf("no Prometheus snapshot TSDB blocks found locally at %s", localSnapshotDir)
 }
 
 func copyDir(src, dst string) error {

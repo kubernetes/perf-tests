@@ -147,18 +147,81 @@ type traceRecord struct {
 	steps     map[string]int64
 }
 
+var (
+	traceStartRe = regexp.MustCompile(`[IWEF]\d{4}\s+(\d{2}:\d{2}:\d{2}\.\d+).*?Trace\[(\d+)\]:\s*\\?"?([^"\\\s]+)`)
+	traceEndRe   = regexp.MustCompile(`Trace\[(\d+)\]:\s*\[([0-9\.]+[a-zA-Zµ]+)\]\s*\[([0-9\.]+[a-zA-Zµ]+)\]\s*END`)
+	traceStepRe  = regexp.MustCompile(`Trace\[(\d+)\]:\s*(?:\[|---\s*)\\?"?([^\("\\]+?)\\?"?\s+([0-9\.]+[a-zA-Zµ]+)`)
+	resourceRe   = regexp.MustCompile(`resource:([a-zA-Z0-9_\-\.\/]+)`)
+	groupRe      = regexp.MustCompile(`api-group:([a-zA-Z0-9_\-\.]+)`)
+)
+
 func processLogsAndWriteOpenMetrics(logFiles []string, outputFile string, dateStr string) error {
+	dirFilesMap := make(map[string][]string)
+	var dirKeys []string
+	for _, f := range logFiles {
+		dir := filepath.Dir(f)
+		if _, ok := dirFilesMap[dir]; !ok {
+			dirKeys = append(dirKeys, dir)
+		}
+		dirFilesMap[dir] = append(dirFilesMap[dir], f)
+	}
+
+	type nodeResult struct {
+		traces  []traceRecord
+		minTS   string
+		maxTS   string
+		secData map[int64]map[string]int64
+		err     error
+	}
+
+	resChan := make(chan nodeResult, len(dirKeys))
+
+	for _, dir := range dirKeys {
+		files := dirFilesMap[dir]
+		go func(files []string) {
+			traces, minTS, maxTS, secData, err := processSingleNodeLogFiles(files, dateStr)
+			resChan <- nodeResult{traces: traces, minTS: minTS, maxTS: maxTS, secData: secData, err: err}
+		}(files)
+	}
+
 	var globalTraces []traceRecord
 	minTimestamp := "23:59:59"
 	maxTimestamp := "00:00:00"
-
 	timestampSecData := make(map[int64]map[string]int64)
 
-	traceStartRe := regexp.MustCompile(`[IWEF]\d{4}\s+(\d{2}:\d{2}:\d{2}\.\d+).*?Trace\[(\d+)\]:\s*\\?"?([^"\\\s]+)`)
-	traceEndRe := regexp.MustCompile(`Trace\[(\d+)\]:\s*\[([0-9\.]+[a-zA-Zµ]+)\]\s*\[([0-9\.]+[a-zA-Zµ]+)\]\s*END`)
-	traceStepRe := regexp.MustCompile(`Trace\[(\d+)\]:\s*(?:\[|---\s*)\\?"?([^\("\\]+?)\\?"?\s+([0-9\.]+[a-zA-Zµ]+)`)
-	logLineRe := regexp.MustCompile(`^[IWEF](\d{4})\s+(\d{2}:\d{2}:\d{2})`)
+	for i := 0; i < len(dirKeys); i++ {
+		res := <-resChan
+		if res.err != nil {
+			return res.err
+		}
+		if res.minTS < minTimestamp {
+			minTimestamp = res.minTS
+		}
+		if res.maxTS > maxTimestamp {
+			maxTimestamp = res.maxTS
+		}
+		globalTraces = append(globalTraces, res.traces...)
+		for epoch, counts := range res.secData {
+			secMap, ok := timestampSecData[epoch]
+			if !ok {
+				secMap = make(map[string]int64)
+				timestampSecData[epoch] = secMap
+			}
+			for k, v := range counts {
+				secMap[k] += v
+			}
+		}
+	}
 
+	slog.Info("Parsed log traces", "count", len(globalTraces), "files", len(logFiles))
+	return writeOpenMetricsFile(outputFile, dateStr, minTimestamp, maxTimestamp, timestampSecData, globalTraces)
+}
+
+func processSingleNodeLogFiles(logFiles []string, dateStr string) ([]traceRecord, string, string, map[int64]map[string]int64, error) {
+	var traces []traceRecord
+	minTimestamp := "23:59:59"
+	maxTimestamp := "00:00:00"
+	timestampSecData := make(map[int64]map[string]int64)
 	activeTraces := make(map[string]*traceRecord)
 
 	for _, file := range logFiles {
@@ -175,88 +238,93 @@ func processLogsAndWriteOpenMetrics(logFiles []string, outputFile string, dateSt
 			line := scanner.Text()
 			lineLen := int64(len(line))
 
-			matches := logLineRe.FindStringSubmatch(line)
-			if len(matches) == 3 {
-				ts := matches[2]
-				if ts < minTimestamp {
-					minTimestamp = ts
-				}
-				if ts > maxTimestamp {
-					maxTimestamp = ts
-				}
+			// Fast log line timestamp and level extraction without regex
+			if len(line) >= 14 && (line[0] == 'I' || line[0] == 'W' || line[0] == 'E' || line[0] == 'F') && line[5] == ' ' {
+				ts := line[6:14]
+				if ts[2] == ':' && ts[5] == ':' {
+					if ts < minTimestamp {
+						minTimestamp = ts
+					}
+					if ts > maxTimestamp {
+						maxTimestamp = ts
+					}
 
-				epoch := convertToEpoch(dateStr, ts)
-				if _, ok := timestampSecData[epoch]; !ok {
-					timestampSecData[epoch] = make(map[string]int64)
-				}
+					epoch := convertToEpoch(dateStr, ts)
+					secMap, ok := timestampSecData[epoch]
+					if !ok {
+						secMap = make(map[string]int64)
+						timestampSecData[epoch] = secMap
+					}
 
-				levelChar := line[0:1]
-				switch levelChar {
-				case "I":
-					timestampSecData[epoch]["info_lines"]++
-					timestampSecData[epoch]["info_bytes"] += lineLen
-				case "W":
-					timestampSecData[epoch]["warn_lines"]++
-					timestampSecData[epoch]["warn_bytes"] += lineLen
-				case "E":
-					timestampSecData[epoch]["error_lines"]++
-					timestampSecData[epoch]["error_bytes"] += lineLen
-				case "F":
-					timestampSecData[epoch]["fatal_lines"]++
-					timestampSecData[epoch]["fatal_bytes"] += lineLen
-				default:
-					timestampSecData[epoch]["other_lines"]++
-					timestampSecData[epoch]["other_bytes"] += lineLen
+					switch line[0] {
+					case 'I':
+						secMap["info_lines"]++
+						secMap["info_bytes"] += lineLen
+					case 'W':
+						secMap["warn_lines"]++
+						secMap["warn_bytes"] += lineLen
+					case 'E':
+						secMap["error_lines"]++
+						secMap["error_bytes"] += lineLen
+					case 'F':
+						secMap["fatal_lines"]++
+						secMap["fatal_bytes"] += lineLen
+					default:
+						secMap["other_lines"]++
+						secMap["other_bytes"] += lineLen
+					}
 				}
 			}
 
-			if endMatch := traceEndRe.FindStringSubmatch(line); len(endMatch) == 4 {
-				id := endMatch[1]
-				durStr := endMatch[3]
-				if tr, ok := activeTraces[id]; ok {
-					tr.totalMS = parseDurationMS(durStr)
-					globalTraces = append(globalTraces, *tr)
-					delete(activeTraces, id)
-				}
-			} else if startMatch := traceStartRe.FindStringSubmatch(line); len(startMatch) == 4 {
-				ts := startMatch[1]
-				if idx := strings.Index(ts, "."); idx != -1 {
-					ts = ts[:idx]
-				}
-				id := startMatch[2]
-				rawName := strings.Trim(startMatch[3], `"`)
+			// Prefilter: only evaluate trace regexes if the line contains "Trace["
+			if strings.Contains(line, "Trace[") {
+				if endMatch := traceEndRe.FindStringSubmatch(line); len(endMatch) == 4 {
+					id := endMatch[1]
+					durStr := endMatch[3]
+					if tr, ok := activeTraces[id]; ok {
+						tr.totalMS = parseDurationMS(durStr)
+						traces = append(traces, *tr)
+						delete(activeTraces, id)
+					}
+				} else if startMatch := traceStartRe.FindStringSubmatch(line); len(startMatch) == 4 {
+					ts := startMatch[1]
+					if idx := strings.Index(ts, "."); idx != -1 {
+						ts = ts[:idx]
+					}
+					id := startMatch[2]
+					rawName := strings.Trim(startMatch[3], `"`)
 
-				name, group, resource := parseTraceLabels(rawName, line)
-				tr, ok := activeTraces[id]
-				if !ok {
-					tr = &traceRecord{
-						steps: make(map[string]int64),
+					name, group, resource := parseTraceLabels(rawName, line)
+					tr, ok := activeTraces[id]
+					if !ok {
+						tr = &traceRecord{
+							steps: make(map[string]int64),
+						}
+						activeTraces[id] = tr
 					}
-					activeTraces[id] = tr
-				}
-				tr.timestamp = ts
-				tr.name = name
-				tr.group = group
-				tr.resource = resource
-			} else if stepMatch := traceStepRe.FindStringSubmatch(line); len(stepMatch) == 4 {
-				id := stepMatch[1]
-				stepName := strings.TrimSpace(strings.Trim(stepMatch[2], `"`))
-				durStr := stepMatch[3]
-				tr, ok := activeTraces[id]
-				if !ok {
-					tr = &traceRecord{
-						steps: make(map[string]int64),
+					tr.timestamp = ts
+					tr.name = name
+					tr.group = group
+					tr.resource = resource
+				} else if stepMatch := traceStepRe.FindStringSubmatch(line); len(stepMatch) == 4 {
+					id := stepMatch[1]
+					stepName := strings.TrimSpace(strings.Trim(stepMatch[2], `"`))
+					durStr := stepMatch[3]
+					tr, ok := activeTraces[id]
+					if !ok {
+						tr = &traceRecord{
+							steps: make(map[string]int64),
+						}
+						activeTraces[id] = tr
 					}
-					activeTraces[id] = tr
+					tr.steps[stepName] = parseDurationMS(durStr)
 				}
-				tr.steps[stepName] = parseDurationMS(durStr)
 			}
 		}
 		f.Close()
 	}
 
-	fmt.Printf("Parsed %d completed log traces from %d log files.\n", len(globalTraces), len(logFiles))
-	return writeOpenMetricsFile(outputFile, dateStr, minTimestamp, maxTimestamp, timestampSecData, globalTraces)
+	return traces, minTimestamp, maxTimestamp, timestampSecData, nil
 }
 
 func parseTraceLabels(rawName string, line string) (name, group, resource string) {
@@ -264,12 +332,10 @@ func parseTraceLabels(rawName string, line string) (name, group, resource string
 	group = ""
 	resource = ""
 
-	resourceRe := regexp.MustCompile(`resource:([a-zA-Z0-9_\-\.\/]+)`)
 	if matches := resourceRe.FindStringSubmatch(line); len(matches) == 2 {
 		resource = matches[1]
 	}
 
-	groupRe := regexp.MustCompile(`api-group:([a-zA-Z0-9_\-\.]+)`)
 	if matches := groupRe.FindStringSubmatch(line); len(matches) == 2 {
 		group = matches[1]
 	}

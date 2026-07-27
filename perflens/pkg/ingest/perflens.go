@@ -58,5 +58,12 @@ func Run(buildID string, mode string, artifactsDir string) error {
 		}
 	}
 
+	if modeLower == "log-metrics" || modeLower == "logs" || modeLower == "all" {
+		logIngester := NewLogIngester()
+		if err := logIngester.Ingest(ctx, runDir, runName, tsdbDir, omDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning/Info: Log trace ingestion for build %s: %v\n", buildID, err)
+		}
+	}
+
 	return nil
 }

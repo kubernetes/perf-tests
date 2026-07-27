@@ -156,6 +156,7 @@ cmd_download() {
     "${PREFIX}/SchedulingThroughputPrometheus_load_*.json"
     "${PREFIX}/DnsLookupLatency_load_*.json"
     "${PREFIX}/prometheus_snapshot.tar"
+    "${PREFIX}/control-plane-*/kube-apiserver.log*"
   )
 
   # List files and process them sequentially

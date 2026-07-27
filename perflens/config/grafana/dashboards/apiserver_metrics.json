@@ -675,6 +675,111 @@
         }
       },
       "transformations": []
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 200,
+      "title": "API Server Log Traces",
+      "type": "row",
+      "panels": []
+    },
+    {
+      "id": 101,
+      "title": "Slow Trace Duration (99th Percentile)",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": false
+          },
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum(rate(apiserver_log_traces_duration_seconds_bucket{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (le, name, step, resource))",
+          "legendFormat": "{{name}} - {{step}} - {{resource}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      }
+    },
+    {
+      "id": 102,
+      "title": "Slow Trace Occurrence Rate",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": false
+          },
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(apiserver_log_traces_duration_seconds_count{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (name, step, resource)",
+          "legendFormat": "{{name}} - {{step}} - {{resource}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      }
     }
   ],
   "refresh": "",
@@ -741,6 +846,31 @@
         "options": [],
         "query": "label_values(apiserver_request_total, verb)",
         "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(apiserver_log_traces_duration_seconds_bucket{run=~\"^$run$\"}, step)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Step",
+        "multi": true,
+        "name": "step",
+        "options": [],
+        "query": "label_values(apiserver_log_traces_duration_seconds_bucket{run=~\"^$run$\"}, step)",
+        "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,

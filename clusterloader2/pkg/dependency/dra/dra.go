@@ -20,7 +20,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +34,7 @@ const (
 	draDependencyName      = "DRATestDriver"
 	draNamespace           = "dra-example-driver"
 	draManifests           = "dra-example-driver"
-	defaultWorkerNodeCount = "100"
+	defaultWorkerNodeCount = 100
 	draDaemonsetName       = "dra-example-driver-kubeletplugin"
 	checkDRAReadyInterval  = 30 * time.Second
 	defaultDRATimeout      = 10 * time.Minute
@@ -78,9 +77,14 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 		return err
 	}
 
+	workerCount, err := getWorkerCount(config)
+	if err != nil {
+		return err
+	}
+
 	mapping := map[string]interface{}{
 		"Namespace":       namespace,
-		"WorkerNodeCount": getWorkerCount(config),
+		"WorkerNodeCount": workerCount,
 		"ImageRegistry":   config.ClusterLoaderConfig.ImageRegistry,
 	}
 
@@ -150,7 +154,7 @@ func (d *draDependency) waitForDRADriverToBeHealthy(config *dependency.Config, t
 }
 
 func (d *draDependency) isDRADriverReady(config *dependency.Config, daemonsetName string, namespace string) (done bool, err error) {
-	expectedWorkers, err := getExpectedWorkerCount(config)
+	expectedWorkers, err := getWorkerCount(config)
 	if err != nil {
 		return false, err
 	}
@@ -184,7 +188,7 @@ func (d *draDependency) isDRADriverReady(config *dependency.Config, daemonsetNam
 }
 
 func isResourceSlicesPublished(config *dependency.Config) (bool, error) {
-	expectedWorkers, err := getExpectedWorkerCount(config)
+	expectedWorkers, err := getWorkerCount(config)
 	if err != nil {
 		return false, err
 	}
@@ -201,20 +205,8 @@ func isResourceSlicesPublished(config *dependency.Config) (bool, error) {
 	return true, nil
 }
 
-func getExpectedWorkerCount(config *dependency.Config) (int, error) {
-	defaultWorkers, err := strconv.Atoi(defaultWorkerNodeCount)
-	if err != nil {
-		return 0, fmt.Errorf("invalid default worker node count %q: %w", defaultWorkerNodeCount, err)
-	}
-	return util.GetIntOrDefault(config.Params, "WorkerNodeCount", defaultWorkers)
-}
-
-func getWorkerCount(config *dependency.Config) interface{} {
-	workerCount, ok := config.Params["WorkerNodeCount"]
-	if !ok {
-		workerCount = defaultWorkerNodeCount
-	}
-	return workerCount
+func getWorkerCount(config *dependency.Config) (int, error) {
+	return util.GetIntOrDefault(config.Params, "WorkerNodeCount", defaultWorkerNodeCount)
 }
 
 func getNamespace(config *dependency.Config) (string, error) {

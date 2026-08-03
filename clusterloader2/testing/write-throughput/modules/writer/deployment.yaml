@@ -1,0 +1,40 @@
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:latest"}}
+{{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
+{{$cpu := DefaultParam .cpu "200m"}}
+{{$memory := DefaultParam .memory "512Mi"}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: benchmark-write
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: benchmark-write
+    spec:
+      containers:
+      - name: write-generator
+        image: {{$image}}
+        imagePullPolicy: {{$imagePullPolicy}}
+        args:
+        - patch
+        - --namespace={{.Namespace}}
+        - --pod-count={{.PodCount}}
+        - --pod-name-prefix=bench-pod-
+        - --qps={{.Qps}}
+
+        resources:
+          requests:
+            cpu: {{$cpu}}
+            memory: {{$memory}}
+          limits:
+            cpu: {{$cpu}}
+            memory: {{$memory}}

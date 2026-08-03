@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{.Name}}
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: watch-0
+roleRef:
+  kind: ClusterRole
+  name: watch-clusterrole-0
+  apiGroup: rbac.authorization.k8s.io

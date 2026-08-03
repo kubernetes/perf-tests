@@ -92,6 +92,8 @@ func main() {
 Subcommands:
   http      Send HTTP requests to the apiserver (default when no subcommand given)
   informer  Start informers and measure sync time
+  patch     Send Strategic Merge Patch requests to target Pods
+  watch     Start continuous watches/informers and measure event delivery and lag
 
 Run 'request-benchmark <subcommand> --help' for subcommand-specific flags.
 `)
@@ -112,8 +114,16 @@ Run 'request-benchmark <subcommand> --help' for subcommand-specific flags.
 		if err := runInformer(args); err != nil {
 			log.Fatal(err)
 		}
+	case "patch":
+		if err := runPatch(args); err != nil {
+			log.Fatal(err)
+		}
+	case "watch":
+		if err := runWatch(args); err != nil {
+			log.Fatal(err)
+		}
 	default:
-		log.Fatalf("unknown subcommand %q, valid: http, informer", mode)
+		log.Fatalf("unknown subcommand %q, valid: http, informer, patch, watch", mode)
 	}
 }
 

@@ -1,0 +1,58 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$action := DefaultParam .action "create"}}
+{{$namePrefix := DefaultParam .namePrefix "watch-workload-"}}
+{{$replicas := DefaultParam .replicas 1}}
+{{$targetNamespace := DefaultParam .targetNamespace ""}}
+
+steps:
+{{if eq $action "create"}}
+- name: {{$action}} watch generator namespace and RBAC
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: watch-role
+      objectTemplatePath: modules/watch/role.yaml
+    - basename: watch-rolebinding
+      objectTemplatePath: modules/watch/rolebinding.yaml
+{{end}}
+
+- name: Starting measurement for '{{$action}}' watch generators
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWatchDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = benchmark-watch
+      operationTimeout: 5m
+
+- name: {{$action}} watch generator deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: {{$namePrefix}}deploy
+      objectTemplatePath: modules/watch/deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+
+
+- name: Waiting for '{{$action}}' watch generators to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWatchDeployments
+    Params:
+      action: gather

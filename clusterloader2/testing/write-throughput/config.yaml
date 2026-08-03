@@ -1,0 +1,88 @@
+# Write throughput with background watch benchmark
+{{$podCount := DefaultParam .CL2_PODS_BENCHMARK_POD_COUNT 10000}}
+{{$watchReplicas := DefaultParam .CL2_PODS_WATCH_REPLICAS 10}}
+{{$writeReplicas := DefaultParam .CL2_PODS_WRITE_REPLICAS 1}}
+{{$patchQps := DefaultParam .CL2_PODS_PATCH_QPS 20}}
+{{$duration := DefaultParam .CL2_PODS_BENCHMARK_DURATION "5m"}}
+{{$targetNamespace := "write-throughput-1"}}
+
+name: write-throughput
+namespace:
+  number: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 50
+
+steps:
+- name: Create initial baseline realistic target pods
+  module:
+
+    path: modules/initial-pods/config.yaml
+    params:
+      action: create
+      podCount: {{$podCount}}
+
+- name: Start API responsiveness and resource measurements
+  module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+
+- name: Start background watch generator workload & RBAC
+  module:
+    path: modules/watch/config.yaml
+    params:
+      action: create
+      namePrefix: "watch-workload-"
+      replicas: {{$watchReplicas}}
+      targetNamespace: {{$targetNamespace}}
+
+- name: Start PATCH writer workload & RBAC
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: create
+      namePrefix: "write-patch-"
+      replicas: {{$writeReplicas}}
+      podCount: {{$podCount}}
+      qps: {{$patchQps}}
+      targetNamespace: {{$targetNamespace}}
+
+- name: Run write throughput benchmark duration
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+
+- name: Gather API responsiveness and resource measurements
+  module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
+
+- name: Teardown PATCH writer workload & RBAC
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: delete
+      namePrefix: "write-patch-"
+      replicas: 0
+      targetNamespace: {{$targetNamespace}}
+
+- name: Teardown background watch workload & RBAC
+  module:
+    path: modules/watch/config.yaml
+    params:
+      action: delete
+      namePrefix: "watch-workload-"
+      replicas: 0
+      targetNamespace: {{$targetNamespace}}
+
+- name: Delete initial baseline realistic target pods
+  module:
+    path: modules/initial-pods/config.yaml
+    params:
+      action: delete
+      podCount: {{$podCount}}

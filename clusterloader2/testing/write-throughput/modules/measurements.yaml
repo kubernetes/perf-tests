@@ -1,0 +1,34 @@
+## Measurement module defines test scoped measurement.
+
+## Input params
+# Valid actions: "start", "gather"
+{{$action := .action}}
+{{$ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD := DefaultParam .CL2_ENABLE_APISERVER_MEMORY_USAGE_THRESHOLD_MEASUREMENT true}}
+{{$APISERVER_MEMORY_THRESHOLD_MEGABYTES := DefaultParam .CL2_APISERVER_MEMORY_THRESHOLD_MEGABYTES 6000}}
+
+
+steps:
+- name: "{{$action}}ing measurements"
+  measurements:
+  - Identifier: APIResponsivenessPrometheusSimple
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: {{$action}}
+      enableViolations: false
+      useSimpleLatencyQuery: true
+  - Identifier: ActiveWatchRequestsPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ActiveWatchRequests
+      metricVersion: v1
+      unit: watches
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
+      - name: Perc90
+        query: quantile_over_time(0.90, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
+      - name: Perc50
+        query: quantile_over_time(0.50, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
+
+

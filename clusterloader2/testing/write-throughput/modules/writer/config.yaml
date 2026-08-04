@@ -1,0 +1,64 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$action := DefaultParam .action "create"}}
+{{$namePrefix := DefaultParam .namePrefix "write-workload-"}}
+{{$replicas := DefaultParam .replicas 1}}
+{{$podCount := DefaultParam .podCount 1000}}
+{{$qps := DefaultParam .qps 50}}
+
+{{$targetNamespace := DefaultParam .targetNamespace "default"}}
+
+steps:
+{{if eq $action "create"}}
+- name: {{$action}} writer generator namespace and RBAC
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: writer-role
+      objectTemplatePath: modules/writer/role.yaml
+    - basename: writer-rolebinding
+      objectTemplatePath: modules/writer/rolebinding.yaml
+{{end}}
+
+- name: Starting measurement for '{{$action}}' writer generators
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWriterDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = benchmark-write
+      operationTimeout: 5m
+
+- name: {{$action}} write generator deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: {{$namePrefix}}deploy
+      objectTemplatePath: modules/writer/deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+        PodCount: {{$podCount}}
+        Qps: {{$qps}}
+
+
+
+- name: Waiting for '{{$action}}' writer generators to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningWriterDeployments
+    Params:
+      action: gather

@@ -2,7 +2,6 @@ IMAGE_NAME ?= gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:la
 REQUEST_BENCHMARK_DIR ?= ../../../util-images/request-benchmark
 CLUSTER_NAME ?= kind
 CONFIG ?= ./config.yaml
-OVERRIDES ?= ./local-kind-overrides.yaml
 REPORT_DIR ?= ./report
 
 .PHONY: image load-image cluster test test-local clean
@@ -27,7 +26,6 @@ test:
 	CL2_PROMETHEUS_TOLERATE_MASTER=true \
 	go run ./cmd/clusterloader.go --provider kind -v=2 \
 		--testconfig ./testing/write-throughput/$(CONFIG) \
-		--testoverrides ./testing/write-throughput/$(OVERRIDES) \
 		--kubeconfig $(HOME)/.kube/config \
 		--enable-prometheus-server=true \
 		--tear-down-prometheus-server=false \

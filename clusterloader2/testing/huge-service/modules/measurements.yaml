@@ -65,6 +65,7 @@ steps:
     Params:
       action: {{$action}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      systemPodsFailureEnabled: {{$CONTAINER_RESTARTS_FAILURE_ENABLED}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
       clusterOOMsIgnoredProcesses: {{YamlQuote $CLUSTER_OOMS_IGNORED_PROCESSES 4}}

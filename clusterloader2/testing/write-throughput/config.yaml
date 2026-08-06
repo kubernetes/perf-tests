@@ -1,10 +1,9 @@
 # Write throughput with background watch benchmark
 {{$podCount := DefaultParam .CL2_PODS_BENCHMARK_POD_COUNT 10000}}
 {{$watchReplicas := DefaultParam .CL2_PODS_WATCH_REPLICAS 10}}
-{{$writeReplicas := DefaultParam .CL2_PODS_WRITE_REPLICAS 1}}
-{{$patchQps := DefaultParam .CL2_PODS_PATCH_QPS 20}}
-{{$duration := DefaultParam .CL2_PODS_BENCHMARK_DURATION "5m"}}
-{{$targetNamespace := "write-throughput-1"}}
+{{$writeReplicas := DefaultParam .CL2_PODS_WRITE_REPLICAS 10}}
+{{$patchQps := DefaultParam .CL2_PODS_PATCH_QPS 100}}
+{{$duration := DefaultParam .CL2_PODS_BENCHMARK_DURATION "15m"}}
 
 name: write-throughput
 namespace:
@@ -36,7 +35,6 @@ steps:
       action: create
       namePrefix: "watch-workload-"
       replicas: {{$watchReplicas}}
-      targetNamespace: {{$targetNamespace}}
 
 - name: Start PATCH writer workload & RBAC
   module:
@@ -47,7 +45,6 @@ steps:
       replicas: {{$writeReplicas}}
       podCount: {{$podCount}}
       qps: {{$patchQps}}
-      targetNamespace: {{$targetNamespace}}
 
 - name: Run write throughput benchmark duration
   measurements:
@@ -69,7 +66,6 @@ steps:
       action: delete
       namePrefix: "write-patch-"
       replicas: 0
-      targetNamespace: {{$targetNamespace}}
 
 - name: Teardown background watch workload & RBAC
   module:
@@ -78,7 +74,6 @@ steps:
       action: delete
       namePrefix: "watch-workload-"
       replicas: 0
-      targetNamespace: {{$targetNamespace}}
 
 - name: Delete initial baseline realistic target pods
   module:

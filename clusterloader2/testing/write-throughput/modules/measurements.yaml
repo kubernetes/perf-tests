@@ -30,5 +30,31 @@ steps:
         query: quantile_over_time(0.90, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
       - name: Perc50
         query: quantile_over_time(0.50, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
-
-
+  - Identifier: WatchCacheLagPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchCacheLag
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - name: Perc90
+        query: quantile_over_time(0.90,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - name: Perc50
+        query: quantile_over_time(0.50,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+  - Identifier: InformerCacheLagPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: InformerCacheLagPrometheus
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: quantile_over_time(0.99,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - name: Perc90
+        query: quantile_over_time(0.90,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - name: Perc50
+        query: quantile_over_time(0.50,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])

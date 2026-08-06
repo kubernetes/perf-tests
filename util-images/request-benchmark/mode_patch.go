@@ -80,17 +80,18 @@ func runPatch(args []string) error {
 	for {
 		id := rand.Intn(*podCount)
 		podName := fmt.Sprintf("%s%d", *podPrefix, id)
-		runPatchCycle(ctx, clientset, *namespace, podName, rateLimiter)
+
+		if err := tryThrottle(ctx, rateLimiter); err != nil {
+			klog.Warningf("Got error throttling a request: %v", err)
+			continue
+		}
+
+		go patch(ctx, clientset, *namespace, podName)
 	}
 
 }
 
-func runPatchCycle(ctx context.Context, clientset kubernetes.Interface, namespace, podName string, rateLimiter flowcontrol.RateLimiter) {
-	if err := tryThrottle(ctx, rateLimiter); err != nil {
-		klog.Warningf("Got error throttling a request: %v", err)
-		return
-	}
-
+func patch(ctx context.Context, clientset kubernetes.Interface, namespace, podName string) {
 	patchPayload := []byte(fmt.Sprintf(`{"metadata":{"labels":{"bench-updated":"%d"}}}`, time.Now().UnixNano()))
 	_, err := clientset.CoreV1().Pods(namespace).Patch(ctx, podName, types.StrategicMergePatchType, patchPayload, metav1.PatchOptions{})
 	if err != nil {

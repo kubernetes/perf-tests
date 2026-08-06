@@ -89,22 +89,22 @@ func (i *SLOIngester) ingestBuildMetrics(runDir string) ([]SLOEntry, error) {
 			continue
 		}
 
-		if strings.HasPrefix(filename, "PodStartupLatency_PodStartupLatency_load_") {
+		if strings.HasPrefix(filename, "PodStartupLatency_") {
 			var metricFile MetricFile
 			if err := json.Unmarshal(body, &metricFile); err == nil {
 				allEntries = append(allEntries, evaluatePodStartupLatency(extractItems(&metricFile))...)
 			}
-		} else if strings.HasPrefix(filename, "APIResponsivenessPrometheus_load_") {
+		} else if strings.HasPrefix(filename, "APIResponsivenessPrometheus_") {
 			var metricFile MetricFile
 			if err := json.Unmarshal(body, &metricFile); err == nil {
 				allEntries = append(allEntries, evaluateAPIResponsiveness(extractItems(&metricFile))...)
 			}
-		} else if strings.HasPrefix(filename, "DnsLookupLatency_load_") {
+		} else if strings.HasPrefix(filename, "DnsLookupLatency_") {
 			var metricFile MetricFile
 			if err := json.Unmarshal(body, &metricFile); err == nil {
 				allEntries = append(allEntries, evaluateGenericLatency("DNS Lookup Latency [s]", extractItems(&metricFile))...)
 			}
-		} else if strings.HasPrefix(filename, "APIAvailability_load_") {
+		} else if strings.HasPrefix(filename, "APIAvailability_") {
 			var avail APIAvailabilityFile
 			if err := json.Unmarshal(body, &avail); err == nil {
 				actualPct := avail.ClusterMetrics.AvailabilityPercentage
@@ -125,7 +125,7 @@ func (i *SLOIngester) ingestBuildMetrics(runDir string) ([]SLOEntry, error) {
 					})
 				}
 			}
-		} else if strings.HasPrefix(filename, "SchedulingThroughputPrometheus_load_") {
+		} else if strings.HasPrefix(filename, "SchedulingThroughputPrometheus_") {
 			var st SchedulingThroughputFile
 			if err := json.Unmarshal(body, &st); err == nil {
 				if st.Max > 0.0 {
@@ -284,11 +284,11 @@ func findLocalCL2JSONFiles(runDir string) ([]string, error) {
 			return nil
 		}
 		filename := info.Name()
-		if strings.HasSuffix(filename, ".json") && (strings.Contains(filename, "APIResponsivenessPrometheus_load_") ||
-			strings.Contains(filename, "PodStartupLatency_PodStartupLatency_load_") ||
-			strings.Contains(filename, "APIAvailability_load_") ||
-			strings.Contains(filename, "SchedulingThroughputPrometheus_load_") ||
-			strings.Contains(filename, "DnsLookupLatency_load_")) {
+		if strings.HasSuffix(filename, ".json") && (strings.HasPrefix(filename, "APIResponsivenessPrometheus_") ||
+			strings.HasPrefix(filename, "PodStartupLatency_") ||
+			strings.HasPrefix(filename, "APIAvailability_") ||
+			strings.HasPrefix(filename, "SchedulingThroughputPrometheus_") ||
+			strings.HasPrefix(filename, "DnsLookupLatency_")) {
 			jsonFiles = append(jsonFiles, path)
 		}
 		return nil

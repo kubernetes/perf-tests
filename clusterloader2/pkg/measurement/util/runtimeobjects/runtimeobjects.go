@@ -18,6 +18,7 @@ package runtimeobjects
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 )
 
@@ -435,4 +437,51 @@ func podMatchesNodeAffinity(affinity *corev1.Affinity, node *corev1.Node) (bool,
 		return corev1helpers.MatchNodeSelectorTerms(node, nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
 	}
 	return true, nil
+}
+
+// FindMatchingReplicaSet returns the ReplicaSet whose Spec.Template matches the expected template.
+func FindMatchingReplicaSet(replicaSets []*appsv1.ReplicaSet, template *corev1.PodTemplateSpec) (*appsv1.ReplicaSet, error) {
+	for _, rs := range replicaSets {
+		if equality.Semantic.DeepDerivative(template.Spec, rs.Spec.Template.Spec) {
+			return rs, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching ReplicaSet found")
+}
+
+// FindMatchingControllerRevision returns the ControllerRevision whose Data matches the expected template.
+func FindMatchingControllerRevision(revisions []*appsv1.ControllerRevision, template *corev1.PodTemplateSpec) (*appsv1.ControllerRevision, error) {
+	for _, rev := range revisions {
+		revTemplate, err := getTemplateFromRevision(rev.Data.Raw)
+		if err != nil {
+			klog.V(4).Infof("Failed to parse template from revision %s: %v", rev.Name, err)
+			continue
+		}
+		if equality.Semantic.DeepDerivative(template.Spec, revTemplate.Spec) {
+			return rev, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching ControllerRevision found")
+}
+
+func getTemplateFromRevision(raw []byte) (*corev1.PodTemplateSpec, error) {
+	var objMap map[string]interface{}
+	if err := json.Unmarshal(raw, &objMap); err != nil {
+		return nil, err
+	}
+	if spec, ok := objMap["spec"].(map[string]interface{}); ok {
+		if template, ok := spec["template"].(map[string]interface{}); ok {
+			return convertToTemplate(template)
+		}
+	}
+	if template, ok := objMap["template"].(map[string]interface{}); ok {
+		return convertToTemplate(template)
+	}
+	return convertToTemplate(objMap)
+}
+
+func convertToTemplate(m map[string]interface{}) (*corev1.PodTemplateSpec, error) {
+	template := &corev1.PodTemplateSpec{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(m, template)
+	return template, err
 }

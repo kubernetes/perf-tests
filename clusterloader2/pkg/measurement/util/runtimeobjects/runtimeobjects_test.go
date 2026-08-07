@@ -30,6 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientfeatures "k8s.io/client-go/features"
+	clientfeaturestesting "k8s.io/client-go/features/testing"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
@@ -495,7 +497,7 @@ const fullCompareErrorDifferentEnv = `Not matching templates, diff:   v1.PodSpec
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 15 identical fields
+    ... // 16 identical fields
   }
 `
 
@@ -536,7 +538,7 @@ const fullCompareErrorDifferentImage = `Not matching templates, diff:   v1.PodSp
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 15 identical fields
+    ... // 16 identical fields
   }`
 
 func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
@@ -618,6 +620,10 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 }
 
 func TestGetReplicasFromRuntimeObject(t *testing.T) {
+	// The fake clientset does not emit the end-of-initial-events bookmark that the
+	// streaming WatchList reflector waits for, so disable it and use plain List+Watch.
+	clientfeaturestesting.SetFeatureDuringTest(t, clientfeatures.WatchListClient, false)
+
 	objects := []runtime.Object{
 		replicationcontroller,
 		replicaset,

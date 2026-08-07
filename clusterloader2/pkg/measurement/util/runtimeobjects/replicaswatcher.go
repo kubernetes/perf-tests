@@ -156,9 +156,9 @@ func (n *NodeCounter) shouldRun(obj interface{}) (bool, error) {
 	matched, err := podMatchesNodeAffinity(n.affinity, node)
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/nodelifecycle/node_lifecycle_controller.go:633
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/daemon/daemon_controller.go:1247
-	_, hasUntoleratedTaint := corev1helpers.FindMatchingUntoleratedTaint(node.Spec.Taints, n.tolerations, func(t *corev1.Taint) bool {
+	_, hasUntoleratedTaint := corev1helpers.FindMatchingUntoleratedTaint(klog.Background(), node.Spec.Taints, n.tolerations, func(t *corev1.Taint) bool {
 		return t.Effect == corev1.TaintEffectNoExecute || t.Effect == corev1.TaintEffectNoSchedule
-	})
+	}, false)
 	return !hasUntoleratedTaint && matched, err
 }
 

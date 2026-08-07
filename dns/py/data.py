@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS histograms (
       data = {
           'run_id': results['params']['run_id'],
           'run_subid': results['params']['run_subid'],
+          'pod_name': results['params']['pod_name'],
           'rtt_ms': rtt_ms,
           'rtt_ms_count': count,
       }
@@ -198,7 +199,7 @@ CREATE TABLE IF NOT EXISTS histograms (
       _log.debug('histogram sql -- %s', stmt)
       self.c.execute(stmt, list(data.values()))
 
-  def get_results(self, run_id, run_subid):
+  def get_results(self, run_id, run_subid, pod_name):
     sql = ('SELECT ' + ','.join([r.name for r in RESULTS])
            + ' FROM results WHERE run_id = ? and run_subid = ? and pod_name = ?')
     _log.debug('%s', sql)

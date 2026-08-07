@@ -1,0 +1,17 @@
+{
+  "skill_name": "establish-perf-baseline",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The current test run failed with a P99 LIST pods latency of 41s and Count 581. Establish a baseline and tell me if this is a regression.",
+      "expected_output": "The agent finds a recent successful run, extracts its metrics, calculates the delta, and uses circumspect language to suggest a regression.",
+      "files": [],
+      "assertions": [
+        "The agent identifies a successful LKG build by checking finished.json for SUCCESS",
+        "The agent calculates the delta between the failed run's Count and the baseline Count",
+        "The agent avoids categorical language like 'mathematically proves' or '100% verified'",
+        "The agent uses circumspect language like 'strongly suggests' or 'highly probable'"
+      ]
+    }
+  ]
+}

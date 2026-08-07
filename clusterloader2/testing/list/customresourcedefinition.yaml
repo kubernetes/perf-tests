@@ -1,0 +1,240 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: {{.Name}}
+spec:
+  group: clusterloader.io-0
+  scope: Namespaced
+  names:
+    plural: listbenchmarkresources
+    singular: listbenchmarkresource
+    kind: ListBenchmarkResource
+    listKind: ListBenchmarkResourceList
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              queueName:
+                type: string
+              priorityClassName:
+                type: string
+              priority:
+                type: integer
+                format: int32
+              active:
+                type: boolean
+              podSets:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - name
+                  - count
+                  properties:
+                    name:
+                      type: string
+                    count:
+                      type: integer
+                      format: int32
+                    minCount:
+                      type: integer
+                      format: int32
+                    template:
+                      type: object
+                      properties:
+                        metadata:
+                          type: object
+                          properties:
+                            labels:
+                              type: object
+                              additionalProperties:
+                                type: string
+                            annotations:
+                              type: object
+                              additionalProperties:
+                                type: string
+                        spec:
+                          type: object
+                          properties:
+                            restartPolicy:
+                              type: string
+                            schedulerName:
+                              type: string
+                            serviceAccountName:
+                              type: string
+                            nodeSelector:
+                              type: object
+                              additionalProperties:
+                                type: string
+                            tolerations:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  value:
+                                    type: string
+                                  effect:
+                                    type: string
+                            containers:
+                              type: array
+                              items:
+                                type: object
+                                required:
+                                - name
+                                properties:
+                                  name:
+                                    type: string
+                                  image:
+                                    type: string
+                                  command:
+                                    type: array
+                                    items:
+                                      type: string
+                                  args:
+                                    type: array
+                                    items:
+                                      type: string
+                                  env:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        name:
+                                          type: string
+                                        value:
+                                          type: string
+                                  resources:
+                                    type: object
+                                    properties:
+                                      requests:
+                                        type: object
+                                        additionalProperties:
+                                          type: string
+                                      limits:
+                                        type: object
+                                        additionalProperties:
+                                          type: string
+                                  volumeMounts:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        name:
+                                          type: string
+                                        mountPath:
+                                          type: string
+                                        readOnly:
+                                          type: boolean
+                            volumes:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                  configMap:
+                                    type: object
+                                    properties:
+                                      name:
+                                        type: string
+                                  secret:
+                                    type: object
+                                    properties:
+                                      secretName:
+                                        type: string
+                    topologyRequest:
+                      type: object
+                      properties:
+                        required:
+                          type: string
+                        preferred:
+                          type: string
+                    payload:
+                      type: string
+              admission:
+                type: object
+                properties:
+                  clusterQueue:
+                    type: string
+                  podSetAssignments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        flavors:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        resourceUsage:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        count:
+                          type: integer
+                          format: int32
+              admissionChecks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    state:
+                      type: string
+                    message:
+                      type: string
+                    podSetUpdates:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          labels:
+                            type: object
+                            additionalProperties:
+                              type: string
+                          annotations:
+                            type: object
+                            additionalProperties:
+                              type: string
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+              requeueState:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    format: int32
+                  requeueAt:
+                    type: string
+                    format: date-time
+              payload:
+                type: string

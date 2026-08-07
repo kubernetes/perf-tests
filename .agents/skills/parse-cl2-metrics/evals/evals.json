@@ -1,0 +1,27 @@
+{
+  "skill_name": "parse-cl2-metrics",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Evaluate the API responsiveness SLO breaches for the clusterloader2 run. The artifacts have already been downloaded to /tmp/artifacts.",
+      "expected_output": "The agent should parse APIResponsivenessPrometheus_load_overall.json using jq and output the Perc50, Perc90, Perc99, Count, and SlowCount values with the explicit file path.",
+      "files": [],
+      "assertions": [
+        "The agent extracts Perc99, Count, and SlowCount",
+        "The agent uses jq to parse the JSON",
+        "The output includes the explicit file path to the json file"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Investigate the kube-apiserver.log in /tmp/artifacts to see if there are any panics.",
+      "expected_output": "The agent should use a zero-memory stream (grep) to filter the log instead of trying to read the whole file.",
+      "files": [],
+      "assertions": [
+        "The agent uses grep to search the log",
+        "The agent does not attempt to read the entire file into memory",
+        "The agent searches for 'panic' or 'WithPanicRecovery'"
+      ]
+    }
+  ]
+}

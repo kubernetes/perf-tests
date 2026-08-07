@@ -72,37 +72,43 @@ func Test_validateRestartCounts(t *testing.T) {
 		{
 			name:    "check-disabled",
 			metrics: generatePodMetrics("p", "c", 1),
-			config:  buildConfig(t, false, nil),
+			config:  buildConfig(t, false, true, nil),
 			wantErr: false,
 		},
 		{
 			name:    "check-enabled-violation",
 			metrics: generatePodMetrics("p", "c", 1),
-			config:  buildConfig(t, true, nil),
+			config:  buildConfig(t, true, true, nil),
 			wantErr: true,
+		},
+		{
+			name:    "check-enabled-failure-disabled",
+			metrics: generatePodMetrics("p", "c", 1),
+			config:  buildConfig(t, true, false, nil),
+			wantErr: false,
 		},
 		{
 			name:    "check-enabled-ok",
 			metrics: generatePodMetrics("p", "c", 0),
-			config:  buildConfig(t, true, nil),
+			config:  buildConfig(t, true, true, nil),
 			wantErr: false,
 		},
 		{
 			name:    "override-equal-to-actual-count",
 			metrics: generatePodMetrics("p", "c", 3),
-			config:  buildConfig(t, true, map[string]int{"c": 3}),
+			config:  buildConfig(t, true, true, map[string]int{"c": 3}),
 			wantErr: false,
 		},
 		{
 			name:    "override-default-used",
 			metrics: generatePodMetrics("p", "c", 3),
-			config:  buildConfig(t, true, map[string]int{"default": 3}),
+			config:  buildConfig(t, true, true, map[string]int{"default": 3}),
 			wantErr: false,
 		},
 		{
 			name:    "override-default-not-used",
 			metrics: generatePodMetrics("p", "c", 3),
-			config: buildConfig(t, true, map[string]int{
+			config: buildConfig(t, true, true, map[string]int{
 				"default": 5,
 				"c":       0,
 			}),
@@ -111,13 +117,13 @@ func Test_validateRestartCounts(t *testing.T) {
 		{
 			name:    "override-below-actual-count",
 			metrics: generatePodMetrics("p", "c", 3),
-			config:  buildConfig(t, true, map[string]int{"c": 2}),
+			config:  buildConfig(t, true, true, map[string]int{"c": 2}),
 			wantErr: true,
 		},
 		{
 			name:    "override-for-different-container",
 			metrics: generatePodMetrics("p", "c1", 3),
-			config:  buildConfig(t, true, map[string]int{"c2": 4}),
+			config:  buildConfig(t, true, true, map[string]int{"c2": 4}),
 			wantErr: true,
 		},
 	}
@@ -149,7 +155,7 @@ func generatePodMetrics(podName string, contName string, restartCount int32) *sy
 	}
 }
 
-func buildConfig(t *testing.T, checkEnabled bool, thresholdOverrides map[string]int) *measurement.Config {
+func buildConfig(t *testing.T, checkEnabled bool, failureEnabled bool, thresholdOverrides map[string]int) *measurement.Config {
 	serializedOverrides, err := yaml.Marshal(thresholdOverrides)
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +163,7 @@ func buildConfig(t *testing.T, checkEnabled bool, thresholdOverrides map[string]
 	return &measurement.Config{
 		Params: map[string]interface{}{
 			"enableRestartCountCheck":        checkEnabled,
+			"systemPodsFailureEnabled":       failureEnabled,
 			"restartCountThresholdOverrides": string(serializedOverrides),
 		},
 	}

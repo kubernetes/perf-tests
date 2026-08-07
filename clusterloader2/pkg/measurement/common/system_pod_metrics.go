@@ -36,6 +36,7 @@ const (
 	systemPodMetricsEnabledFlagName   = "systemPodMetricsEnabled"
 	restartThresholdOverridesFlagName = "restartCountThresholdOverrides"
 	enableRestartCountCheckFlagName   = "enableRestartCountCheck"
+	systemPodsFailureEnabledFlagName  = "systemPodsFailureEnabled"
 	defaultRestartCountThresholdKey   = "default"
 )
 
@@ -191,6 +192,11 @@ func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Confi
 		return nil
 	}
 
+	failureEnabled, err := util.GetBoolOrDefault(config.Params, systemPodsFailureEnabledFlagName, true)
+	if err != nil {
+		return err
+	}
+
 	violations := make([]string, 0)
 	for _, p := range metrics.Pods {
 		for _, c := range p.Containers {
@@ -207,6 +213,11 @@ func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Confi
 		return nil
 	}
 	violationsJoined := strings.Join(violations, "; ")
+
+	if !failureEnabled {
+		klog.Warningf("System pod restart counts validation failed but %s is false: %v", systemPodsFailureEnabledFlagName, violationsJoined)
+		return nil
+	}
 	return fmt.Errorf("restart counts violation: %v", violationsJoined)
 }
 

@@ -20,10 +20,8 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -36,7 +34,7 @@ const (
 	draDependencyName      = "DRATestDriver"
 	draNamespace           = "dra-example-driver"
 	draManifests           = "dra-example-driver"
-	defaultWorkerNodeCount = "100"
+	defaultWorkerNodeCount = 100
 	draDaemonsetName       = "dra-example-driver-kubeletplugin"
 	checkDRAReadyInterval  = 30 * time.Second
 	defaultDRATimeout      = 10 * time.Minute
@@ -79,9 +77,14 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 		return err
 	}
 
+	workerCount, err := getWorkerCount(config)
+	if err != nil {
+		return err
+	}
+
 	mapping := map[string]interface{}{
 		"Namespace":       namespace,
-		"WorkerNodeCount": getWorkerCount(config),
+		"WorkerNodeCount": workerCount,
 		"ImageRegistry":   config.ClusterLoaderConfig.ImageRegistry,
 	}
 
@@ -143,7 +146,7 @@ func (d *draDependency) waitForDRADriverToBeHealthy(config *dependency.Config, t
 		checkDRAReadyInterval,
 		timeout,
 		func() (done bool, err error) {
-			return isResourceSlicesPublished(config, namespace)
+			return isResourceSlicesPublished(config)
 		}); err != nil {
 		return err
 	}
@@ -151,6 +154,12 @@ func (d *draDependency) waitForDRADriverToBeHealthy(config *dependency.Config, t
 }
 
 func (d *draDependency) isDRADriverReady(config *dependency.Config, daemonsetName string, namespace string) (done bool, err error) {
+	expectedWorkers, err := getWorkerCount(config)
+	if err != nil {
+		return false, err
+	}
+	expected := int32(expectedWorkers)
+
 	ds, err := config.ClusterFramework.GetClientSets().
 		GetClient().
 		AppsV1().
@@ -159,66 +168,45 @@ func (d *draDependency) isDRADriverReady(config *dependency.Config, daemonsetNam
 	if err != nil {
 		return false, fmt.Errorf("failed to get %s: %v", daemonsetName, err)
 	}
-	ready := ds.Status.NumberReady == ds.Status.DesiredNumberScheduled
-	if !ready {
-		klog.V(2).Infof("%s is not ready, "+
-			"DesiredNumberScheduled: %d, NumberReady: %d", daemonsetName, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady)
+
+	if ds.Status.DesiredNumberScheduled < expected {
+		klog.V(2).Infof("%s is not ready, expected workers: %d, DesiredNumberScheduled: %d, NumberReady: %d",
+			daemonsetName, expectedWorkers, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady)
+		return false, nil
 	}
-	return ready, nil
-}
-
-func isResourceSlicesPublished(config *dependency.Config, namespace string) (bool, error) {
-	// Get a list of all nodes
-	// nodes, err := getReadyNodesCount(config)
-	// if err != nil {
-	// 	return false, fmt.Errorf("failed to list nodes: %v", err)
-	// }
-
-	driverPluginPods, err := getDriverPluginPods(config, namespace, draDaemonsetName)
-	if err != nil {
-		return false, fmt.Errorf("failed to list driverPluginPods: %v", err)
+	if ds.Status.NumberReady < expected {
+		klog.V(2).Infof("%s is not ready, expected workers: %d, DesiredNumberScheduled: %d, NumberReady: %d",
+			daemonsetName, expectedWorkers, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady)
+		return false, nil
 	}
-
-	workerCount := driverPluginPods
-
-	resourceSlices, err := config.ClusterFramework.GetClientSets().GetClient().ResourceV1().ResourceSlices().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return false, fmt.Errorf("failed to list resourceslices: %v", err)
-	}
-	if len(resourceSlices.Items) != workerCount {
-		klog.V(2).Infof("waiting for resourceslices to be available, "+
-			"DesiredResourceSliceCount: %d, NumberResourceSlicesAvailable: %d", workerCount, len(resourceSlices.Items))
+	if ds.Status.NumberReady != ds.Status.DesiredNumberScheduled {
+		klog.V(2).Infof("%s is not ready, DesiredNumberScheduled: %d, NumberReady: %d",
+			daemonsetName, ds.Status.DesiredNumberScheduled, ds.Status.NumberReady)
 		return false, nil
 	}
 	return true, nil
 }
 
-func getDriverPluginPods(config *dependency.Config, namespace string, namePrefix string) (int, error) {
-	pods, err := config.ClusterFramework.GetClientSets().GetClient().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+func isResourceSlicesPublished(config *dependency.Config) (bool, error) {
+	expectedWorkers, err := getWorkerCount(config)
 	if err != nil {
-		return 0, fmt.Errorf("failed to list pods in namespace %s: %w", namespace, err)
+		return false, err
 	}
 
-	runningPods := 0
-	for _, pod := range pods.Items {
-		if !strings.HasPrefix(pod.Name, namePrefix) {
-			continue
-		}
-
-		if pod.Status.Phase == corev1.PodRunning {
-			runningPods++
-		}
+	resourceSlices, err := config.ClusterFramework.GetClientSets().GetClient().ResourceV1().ResourceSlices().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list resourceslices: %v", err)
 	}
-
-	return runningPods, nil
+	if len(resourceSlices.Items) < expectedWorkers {
+		klog.V(2).Infof("waiting for resourceslices to be available, expected: %d, available: %d",
+			expectedWorkers, len(resourceSlices.Items))
+		return false, nil
+	}
+	return true, nil
 }
 
-func getWorkerCount(config *dependency.Config) interface{} {
-	workerCount, ok := config.Params["WorkerNodeCount"]
-	if !ok {
-		workerCount = defaultWorkerNodeCount
-	}
-	return workerCount
+func getWorkerCount(config *dependency.Config) (int, error) {
+	return util.GetIntOrDefault(config.Params, "WorkerNodeCount", defaultWorkerNodeCount)
 }
 
 func getNamespace(config *dependency.Config) (string, error) {

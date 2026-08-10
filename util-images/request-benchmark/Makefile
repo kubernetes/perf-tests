@@ -1,6 +1,6 @@
 PROJECT ?= k8s-staging-perf-tests
 IMG = gcr.io/$(PROJECT)/perf-tests-util/request-benchmark
-TAG = v0.0.12
+TAG = v0.0.13
 
 all: build push
 

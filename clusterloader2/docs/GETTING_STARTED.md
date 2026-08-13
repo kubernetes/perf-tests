@@ -6,25 +6,14 @@ In this tutorial, we will:
 - Implement a simple CL2 test and run it
 - Run load test on 100 nodes cluster
 
+You need Go installed, see the [Go install] guide.
+
 ## Clone perf-tests repository
 
 Start with cloning perf-tests repository:
 ```bash
 git clone git@github.com:kubernetes/perf-tests.git
 cd perf-tests
-```
-
-## Install GVM
-Follow instructions on [GVM install].
-Install golang with specific version (1.26.4 was tested in this tutorial):
-```bash
-gvm install go1.26.4
-gvm use go1.26.4
-```
-Next, add perf-tests repository to GOPATH:
-
-```bash
-gvm linkthis k8s.io/perf-tests
 ```
 
 ## Create cluster using kind
@@ -314,7 +303,7 @@ There are various measurements that depend on prometheus metrics, for example:
 - NodeLocalDNS latency
 
 [Kind]: https://kind.sigs.k8s.io/
-[GVM install]: https://github.com/moovweb/gvm#installing
+[Go install]: https://go.dev/doc/install
 [Kind config]: https://kind.sigs.k8s.io/docs/user/quick-start/#advanced
 [Kind install]: https://kind.sigs.k8s.io/docs/user/quick-start#installation
 [Load test]: https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/testing/load

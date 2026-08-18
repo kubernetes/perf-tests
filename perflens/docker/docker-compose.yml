@@ -5,7 +5,7 @@ services:
     image: grafana/grafana:10.0.3
     container_name: perflens-grafana
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
@@ -40,7 +40,7 @@ services:
     container_name: perflens-thanos-query
     restart: on-failure
     ports:
-      - "${THANOS_PORT:-9090}:10902"
+      - "127.0.0.1:${THANOS_PORT:-9090}:10902"
     command:
       - query
       - --http-address=0.0.0.0:10902

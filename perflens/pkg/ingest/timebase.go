@@ -38,8 +38,10 @@ var AnchorTime = time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
 // AnchorTimeMillis is AnchorTime as a Unix millisecond timestamp.
 const AnchorTimeMillis int64 = 946684800000
 
-// RunStartMetric carries a run's original wall clock start time, so absolute
-// time stays recoverable after normalization.
+// RunStartMetric carries the original wall clock time that a run's normalized
+// origin maps back to, so absolute time stays recoverable after normalization.
+// It reports the anchor, not the first sample, so it always answers "what real
+// instant is t=0 on this axis".
 const RunStartMetric = "perflens_run_start_timestamp_seconds"
 
 // cl2ArtifactTimeRe matches the RFC3339 stamp CL2 puts in its summary filenames,
@@ -58,14 +60,22 @@ type Timebase struct {
 	// Known reports whether the run's wall clock window could be determined.
 	Known bool
 	// StartMS and EndMS are the run's original wall clock window in Unix millis.
+	// This is the extent of the data, which begins before the test does.
 	StartMS int64
 	EndMS   int64
+	// AnchorMS is the original wall clock instant that maps onto AnchorTime, in
+	// other words what t=0 means on the normalized axis. It is the start of the
+	// test rather than the start of the data, so samples scraped during bring-up
+	// land before the origin.
+	AnchorMS int64
+	// AnchorSource names where AnchorMS came from, for the ingest log.
+	AnchorSource string
 	// OffsetMS is added to every sample timestamp of this run.
 	OffsetMS int64
 }
 
-// NewTimebase determines a run's wall clock window and the offset that maps it
-// onto AnchorTime.
+// NewTimebase determines a run's wall clock window and the offset that maps its
+// anchor onto AnchorTime.
 func NewTimebase(runDir string, runName string, normalize bool) *Timebase {
 	tb := &Timebase{RunName: runName}
 
@@ -76,12 +86,27 @@ func NewTimebase(runDir string, runName string, normalize bool) *Timebase {
 	tb.Known = true
 	tb.StartMS = start
 	tb.EndMS = end
+	tb.AnchorMS, tb.AnchorSource = runAnchor(runDir, start)
 
 	if normalize {
 		tb.Enabled = true
-		tb.OffsetMS = AnchorTimeMillis - start
+		tb.OffsetMS = AnchorTimeMillis - tb.AnchorMS
 	}
 	return tb
+}
+
+// runAnchor picks the instant that becomes t=0 for a run.
+//
+// ClusterLoader2's first step is the right anchor because it is the same event
+// in every run. The data window start is not: it is when Prometheus began
+// scraping, which trails cluster bring-up by a run dependent amount, so
+// anchoring on it offsets two overlaid runs by the difference in their bring-up
+// times. It stays as the fallback for runs whose CL2 log was not collected.
+func runAnchor(runDir string, windowStartMS int64) (int64, string) {
+	if ms, ok := cl2TestStart(runDir, windowStartMS); ok {
+		return ms, "clusterloader2 first step"
+	}
+	return windowStartMS, "start of scraped data"
 }
 
 // Shift maps an original sample timestamp in Unix millis onto the normalized axis.
@@ -113,13 +138,14 @@ func (t *Timebase) Describe() string {
 	if t == nil || !t.Enabled {
 		return "time normalization off, samples keep their original wall clock"
 	}
-	start := time.UnixMilli(t.StartMS).UTC()
-	return fmt.Sprintf("re-basing %s from %s to %s (offset %s, duration %s)",
+	return fmt.Sprintf("re-basing %s: anchor %s (%s) to %s, offset %s, data spans %s from %s before the anchor",
 		t.RunName,
-		start.Format(time.RFC3339),
+		time.UnixMilli(t.AnchorMS).UTC().Format(time.RFC3339),
+		t.AnchorSource,
 		AnchorTime.Format(time.RFC3339),
 		time.Duration(t.OffsetMS)*time.Millisecond,
 		time.Duration(t.EndMS-t.StartMS)*time.Millisecond,
+		time.Duration(t.AnchorMS-t.StartMS)*time.Millisecond,
 	)
 }
 
@@ -218,8 +244,8 @@ func artifactFilenameWindow(runDir string) (int64, int64, bool) {
 }
 
 // writeRunTimebaseBlock emits RunStartMetric for the run, spanning the run's
-// normalized window so the original start time is readable from any point in
-// the dashboard time range.
+// normalized window so the anchor's original wall clock time is readable from
+// any point in the dashboard time range.
 func writeRunTimebaseBlock(ctx context.Context, tsdbDir string, tb *Timebase) error {
 	if tb == nil || !tb.Known {
 		return fmt.Errorf("run window unknown, skipping %s", RunStartMetric)
@@ -227,7 +253,7 @@ func writeRunTimebaseBlock(ctx context.Context, tsdbDir string, tb *Timebase) er
 
 	startMS := tb.NormalizedStart()
 	endMS := tb.NormalizedEnd()
-	value := float64(tb.StartMS) / 1000.0
+	value := float64(tb.AnchorMS) / 1000.0
 
 	lbls := labels.FromMap(map[string]string{
 		"__name__": RunStartMetric,
@@ -251,7 +277,8 @@ func writeRunTimebaseBlock(ctx context.Context, tsdbDir string, tb *Timebase) er
 		return err
 	}
 
-	fmt.Printf("Wrote %s block %s for %s (original start %s)\n",
-		RunStartMetric, blockULID, tb.RunName, time.UnixMilli(tb.StartMS).UTC().Format(time.RFC3339))
+	fmt.Printf("Wrote %s block %s for %s (anchor %s, %s)\n",
+		RunStartMetric, blockULID, tb.RunName,
+		time.UnixMilli(tb.AnchorMS).UTC().Format(time.RFC3339), tb.AnchorSource)
 	return nil
 }

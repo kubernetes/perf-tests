@@ -29,9 +29,19 @@ so the x-axis reads as elapsed time since run start instead of wall clock. Midni
 deliberate: Grafana has no duration axis mode, so an axis labelled `00:00`, `00:30`,
 `01:00` reads as elapsed time for free.
 
-The offset is computed once per run, from the earliest `minTime` across its Prometheus
-snapshot blocks, and every block of the run shifts by the same amount. Only the origin
-moves, values and durations are untouched.
+The origin, `t=0`, is **ClusterLoader2's first step**, read from the run's
+`build-log.txt`. That is the same event in every run, which is what makes two runs
+comparable. The start of the Prometheus data is not: it is when scraping began, which
+trails cluster bring-up by a run dependent amount, so anchoring on it would offset two
+overlaid runs by the difference in their bring-up times. Runs whose CL2 log was not
+collected fall back to the start of scraped data, and `perflens ingest` prints which
+anchor it used.
+
+Samples scraped before the test started therefore land *before* the origin, outside the
+default dashboard window. Widen the range to the left to see bring-up.
+
+The offset is computed once per run and every block of the run shifts by the same amount.
+Only the origin moves, values and durations are untouched.
 
 Consequences:
 
@@ -45,7 +55,7 @@ Consequences:
 - The SLO block used to be stamped at ingest time, far from the metrics block of the same
   run. It now carries the run's offset and holds constant across the run's window.
 
-Recover the original wall clock start from `perflens_run_start_timestamp_seconds`:
+Recover the anchor's original wall clock time from `perflens_run_start_timestamp_seconds`:
 
 ```bash
 curl -s -G localhost:9090/api/v1/query \

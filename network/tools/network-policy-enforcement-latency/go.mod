@@ -4,8 +4,8 @@ go 1.26.4
 
 require (
 	github.com/prometheus/client_golang v1.24.1
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
 	k8s.io/client-go v0.36.3
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.140.0

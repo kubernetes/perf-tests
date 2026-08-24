@@ -33,6 +33,7 @@ type WaitForNodeOptions struct {
 	MaxDesiredNodeCount  int
 	CallerName           string
 	WaitForNodesInterval time.Duration
+	TolerationTimeout    time.Duration
 }
 
 // WaitForNodes waits till the desired number of nodes is ready.
@@ -44,16 +45,39 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 	}
 	defer ps.Stop()
 
+	var tolerationCh <-chan time.Time
+	if options.TolerationTimeout > 0 {
+		timer := time.NewTimer(options.TolerationTimeout)
+		defer timer.Stop()
+		tolerationCh = timer.C
+	}
+
+	var tolerationExpired bool
+	var tolerationExpiredAt time.Time
+
 	nodeCount := getNumReadyNodes(ps.List())
 	for {
 		select {
 		case <-stopCh:
 			return fmt.Errorf("timeout while waiting for [%d-%d] Nodes with selector '%v' to be ready - currently there is %d Nodes",
 				options.MinDesiredNodeCount, options.MaxDesiredNodeCount, options.Selector.String(), nodeCount)
+		case <-tolerationCh:
+			nodeCount = getNumReadyNodes(ps.List())
+			klog.V(2).Infof("%s: toleration timeout expired, node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
+			if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
+				return nil
+			}
+			tolerationExpired = true
+			tolerationExpiredAt = time.Now()
 		case <-time.After(options.WaitForNodesInterval):
 			nodeCount = getNumReadyNodes(ps.List())
 			klog.V(2).Infof("%s: node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
 			if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
+				if tolerationExpired {
+					delay := time.Since(tolerationExpiredAt)
+					return fmt.Errorf("desired number of [%d-%d] Nodes with selector '%v' reached after tolerationTimeout (%v), delay after tolerationTimeout was %v",
+						options.MinDesiredNodeCount, options.MaxDesiredNodeCount, options.Selector.String(), options.TolerationTimeout, delay)
+				}
 				return nil
 			}
 		}

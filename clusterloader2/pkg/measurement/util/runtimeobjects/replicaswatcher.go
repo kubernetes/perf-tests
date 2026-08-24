@@ -96,17 +96,18 @@ func NewNodeCounter(client clientset.Interface, nodeSelector labels.Selector, af
 }
 
 func (n *NodeCounter) Start(stopCh <-chan struct{}) error {
-	i := informer.NewInformer(
-		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.LabelSelector = n.nodeSelector.String()
-				return n.client.CoreV1().Nodes().List(context.TODO(), options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.LabelSelector = n.nodeSelector.String()
-				return n.client.CoreV1().Nodes().Watch(context.TODO(), options)
-			},
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.LabelSelector = n.nodeSelector.String()
+			return n.client.CoreV1().Nodes().List(context.TODO(), options)
 		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = n.nodeSelector.String()
+			return n.client.CoreV1().Nodes().Watch(context.TODO(), options)
+		},
+	}
+	i := informer.NewInformer(
+		cache.ToListWatcherWithWatchListSemantics(lw, n.client),
 		func(oldObj, newObj interface{}) {
 			if err := n.handleObject(oldObj, newObj); err != nil {
 				klog.Errorf("Error while processing node: %v", err)
@@ -156,9 +157,9 @@ func (n *NodeCounter) shouldRun(obj interface{}) (bool, error) {
 	matched, err := podMatchesNodeAffinity(n.affinity, node)
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/nodelifecycle/node_lifecycle_controller.go:633
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/daemon/daemon_controller.go:1247
-	_, hasUntoleratedTaint := corev1helpers.FindMatchingUntoleratedTaint(node.Spec.Taints, n.tolerations, func(t *corev1.Taint) bool {
+	_, hasUntoleratedTaint := corev1helpers.FindMatchingUntoleratedTaint(klog.Background(), node.Spec.Taints, n.tolerations, func(t *corev1.Taint) bool {
 		return t.Effect == corev1.TaintEffectNoExecute || t.Effect == corev1.TaintEffectNoSchedule
-	})
+	}, false)
 	return !hasUntoleratedTaint && matched, err
 }
 

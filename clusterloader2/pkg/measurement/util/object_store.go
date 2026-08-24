@@ -46,7 +46,7 @@ type ObjectStore struct {
 }
 
 // newObjectStore creates ObjectStore based on given object selector.
-func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *util.ObjectSelector) (*ObjectStore, error) {
+func newObjectStore(obj runtime.Object, lw cache.ListerWatcher, selector *util.ObjectSelector) (*ObjectStore, error) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
 	name := fmt.Sprintf("%sStore: %s", reflect.TypeOf(obj).String(), selector.String())
@@ -93,7 +93,7 @@ func NewPodStore(c clientset.Interface, selector *util.ObjectSelector) (*PodStor
 			return c.CoreV1().Pods(selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
-	objectStore, err := newObjectStore(&v1.Pod{}, lw, selector)
+	objectStore, err := newObjectStore(&v1.Pod{}, cache.ToListWatcherWithWatchListSemantics(lw, c), selector)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func NewPVCStore(c clientset.Interface, selector *util.ObjectSelector) (*PVCStor
 			return c.CoreV1().PersistentVolumeClaims(selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
-	objectStore, err := newObjectStore(&v1.PersistentVolumeClaim{}, lw, selector)
+	objectStore, err := newObjectStore(&v1.PersistentVolumeClaim{}, cache.ToListWatcherWithWatchListSemantics(lw, c), selector)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func NewPVStore(c clientset.Interface, selector *util.ObjectSelector, provisione
 			return c.CoreV1().PersistentVolumes().Watch(context.TODO(), options)
 		},
 	}
-	objectStore, err := newObjectStore(&v1.PersistentVolume{}, lw, selector)
+	objectStore, err := newObjectStore(&v1.PersistentVolume{}, cache.ToListWatcherWithWatchListSemantics(lw, c), selector)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func NewNodeStore(c clientset.Interface, selector *util.ObjectSelector) (*NodeSt
 			return c.CoreV1().Nodes().Watch(context.TODO(), options)
 		},
 	}
-	objectStore, err := newObjectStore(&v1.Node{}, lw, selector)
+	objectStore, err := newObjectStore(&v1.Node{}, cache.ToListWatcherWithWatchListSemantics(lw, c), selector)
 	if err != nil {
 		return nil, err
 	}

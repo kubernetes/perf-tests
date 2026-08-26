@@ -57,11 +57,19 @@ func (o *ObjectSelector) Parse(params map[string]interface{}) error {
 
 // String returns string representation of the selector.
 func (o *ObjectSelector) String() string {
+	if o == nil {
+		return "everything"
+	}
+
 	return CreateSelectorsString(o.Namespace, o.LabelSelector, o.FieldSelector)
 }
 
 // ApplySelectors sets label and field selectors in a given ListOptions object.
 func (o *ObjectSelector) ApplySelectors(options *metav1.ListOptions) {
+	if o == nil {
+		return
+	}
+
 	options.FieldSelector = o.FieldSelector
 	options.LabelSelector = o.LabelSelector
 }

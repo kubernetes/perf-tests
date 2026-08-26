@@ -17,25 +17,16 @@ limitations under the License.
 package runtimeobjects
 
 import (
-	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
-)
-
-const (
-	informerSyncTimeout = time.Minute
+	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
 // ReplicasWatcher is a struct that allows to check a number of replicas at a given time.
@@ -74,13 +65,11 @@ var _ ReplicasWatcher = &ConstReplicas{}
 // NodeCounter counts a number of node objects matching nodeSelector and affinity.
 type NodeCounter struct {
 	client       clientset.Interface
+	nodeIndexer  cache.Indexer
 	nodeSelector labels.Selector
 	affinity     *corev1.Affinity
-
-	mu       sync.Mutex
-	replicas int
-
-	tolerations []corev1.Toleration
+	mu           sync.Mutex
+	tolerations  []corev1.Toleration
 }
 
 var _ ReplicasWatcher = &NodeCounter{}
@@ -96,71 +85,84 @@ func NewNodeCounter(client clientset.Interface, nodeSelector labels.Selector, af
 }
 
 func (n *NodeCounter) Start(stopCh <-chan struct{}) error {
-	lw := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = n.nodeSelector.String()
-			return n.client.CoreV1().Nodes().List(context.TODO(), options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = n.nodeSelector.String()
-			return n.client.CoreV1().Nodes().Watch(context.TODO(), options)
-		},
+	indexer, err := util.NodeIndexerFactory.NodeIndexer(n.client)
+	if err != nil {
+		return fmt.Errorf("failed to get shared node indexer: %w", err)
 	}
-	i := informer.NewInformer(
-		cache.ToListWatcherWithWatchListSemantics(lw, n.client),
-		func(oldObj, newObj interface{}) {
-			if err := n.handleObject(oldObj, newObj); err != nil {
-				klog.Errorf("Error while processing node: %v", err)
-			}
-		},
-	)
-	// StartAndSync blocks until elements from initial list call are processed.
-	return informer.StartAndSync(i, stopCh, informerSyncTimeout)
-}
 
-func (n *NodeCounter) handleObject(oldObj, newObj interface{}) error {
-	oldO, err := n.shouldRun(oldObj)
-	if err != nil {
-		return err
-	}
-	newO, err := n.shouldRun(newObj)
-	if err != nil {
-		return err
-	}
-	if newO == oldO {
-		return nil
-	}
 	n.mu.Lock()
-	defer n.mu.Unlock()
-	if newO && !oldO {
-		n.replicas++
-	} else {
-		n.replicas--
-	}
+	n.nodeIndexer = indexer
+	n.mu.Unlock()
+
 	return nil
 }
 
-func (n *NodeCounter) Replicas() int {
+func (n *NodeCounter) getIndexer() (cache.Indexer, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return n.replicas
+
+	if n.nodeIndexer != nil {
+		return n.nodeIndexer, nil
+	}
+
+	indexer, err := util.NodeIndexerFactory.NodeIndexer(n.client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shared node indexer: %w", err)
+	}
+
+	n.nodeIndexer = indexer
+	return n.nodeIndexer, nil
 }
 
-func (n *NodeCounter) shouldRun(obj interface{}) (bool, error) {
+func (n *NodeCounter) Replicas() int {
+	indexer, err := n.getIndexer()
+	if err != nil {
+		klog.Errorf("failed to get shared node indexer: %v", err)
+		return 0
+	}
+
+	count := 0
+	for _, obj := range indexer.List() {
+		match, err := n.ShouldRun(obj)
+		if err != nil {
+			klog.Errorf("Error while processing node: %v", err)
+			continue
+		}
+
+		if match {
+			count++
+		}
+	}
+
+	return count
+}
+
+func (n *NodeCounter) ShouldRun(obj interface{}) (bool, error) {
 	if obj == nil {
 		return false, nil
 	}
+
 	node, ok := obj.(*corev1.Node)
 	if !ok {
 		return false, fmt.Errorf("unexpected type of obj: %v. got %T, want *corev1.Node", obj, obj)
 	}
+
+	if n.nodeSelector != nil && !n.nodeSelector.Matches(labels.Set(node.Labels)) {
+		return false, nil
+	}
+
 	matched, err := podMatchesNodeAffinity(n.affinity, node)
+	if err != nil {
+		return false, err
+	}
+
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/nodelifecycle/node_lifecycle_controller.go:633
 	// refer to k8s.io/kubernetes@v1.22.15/pkg/controller/daemon/daemon_controller.go:1247
 	_, hasUntoleratedTaint := corev1helpers.FindMatchingUntoleratedTaint(klog.Background(), node.Spec.Taints, n.tolerations, func(t *corev1.Taint) bool {
 		return t.Effect == corev1.TaintEffectNoExecute || t.Effect == corev1.TaintEffectNoSchedule
 	}, false)
-	return !hasUntoleratedTaint && matched, err
+
+	return !hasUntoleratedTaint && matched, nil
 }
 
 // GetReplicasOnce starts ReplicasWatcher and gets a number of replicas.

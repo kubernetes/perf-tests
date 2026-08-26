@@ -139,7 +139,7 @@ func (m *clusterOOMsTrackerMeasurement) getOOMsTrackerInformer(ctx context.Conte
 		options.FieldSelector = m.selector.FieldSelector
 		return client.CoreV1().Events(metav1.NamespaceAll).Watch(ctx, options)
 	}
-	i := cache.NewSharedInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, nil, 0)
+	i := cache.NewSharedInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, &corev1.Event{}, 0)
 	_, err := i.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			m.handleOOMEvent(obj)

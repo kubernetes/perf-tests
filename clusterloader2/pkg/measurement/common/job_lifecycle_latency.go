@@ -127,6 +127,7 @@ func (p *jobLifecycleLatencyMeasurement) start(c clientset.Interface) error {
 				return c.BatchV1().Jobs(p.selector.Namespace).Watch(context.TODO(), options)
 			},
 		},
+		&batchv1.Job{},
 		p.addEvent,
 	)
 	go p.processEvents()

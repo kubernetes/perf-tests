@@ -17,27 +17,26 @@ limitations under the License.
 package common
 
 import (
-	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
 	nodeHealthTrackerMeasurementName  = "NodeHealthTracker"
-	nodeHealthTrackerInformerTimeout  = time.Minute
 	defaultNodeHealthTrackerThreshold = 4
 	defaultNodeHealthTrackerRatio     = 0.01
 )
@@ -68,6 +67,10 @@ type nodeHealthTrackerMeasurement struct {
 	violationMsg     string
 	threshold        int
 	ratio            float64
+	labelSelector    labels.Selector
+	fieldSelector    fields.Selector
+	nodeInformer     coreinformers.NodeInformer
+	registration     cache.ResourceEventHandlerRegistration
 }
 
 func (m *nodeHealthTrackerMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
@@ -105,18 +108,50 @@ func (m *nodeHealthTrackerMeasurement) start(config *measurement.Config) error {
 	if err != nil {
 		return fmt.Errorf("problem with getting threshold param: %w", err)
 	}
+
 	ratio, err := util.GetFloat64OrDefault(config.Params, "ratio", defaultNodeHealthTrackerRatio)
 	if err != nil {
 		return fmt.Errorf("problem with getting ratio param: %w", err)
 	}
 
+	selector := util.NewObjectSelector()
+	if err := selector.Parse(config.Params); err != nil {
+		return err
+	}
+
+	var labelSelector labels.Selector = labels.Everything()
+	if selector.LabelSelector != "" {
+		var err error
+		labelSelector, err = labels.Parse(selector.LabelSelector)
+		if err != nil {
+			return fmt.Errorf("failed to parse label selector: %w", err)
+		}
+	}
+
+	var fieldSelector fields.Selector = fields.Everything()
+	if selector.FieldSelector != "" {
+		var err error
+		fieldSelector, err = fields.ParseSelector(selector.FieldSelector)
+		if err != nil {
+			return fmt.Errorf("failed to parse field selector: %w", err)
+		}
+	}
+
+	client := config.ClusterFramework.GetClientSets().GetClient()
+	nodeInformer, err := measurementutil.NodeIndexerFactory.NodeInformer(client)
+	if err != nil {
+		return fmt.Errorf("problem getting shared node informer: %w", err)
+	}
+
 	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	klog.V(2).Infof("%s: starting node health tracker measurement...", config.Identifier)
 	if m.isRunning {
-		m.lock.Unlock()
 		klog.V(2).Infof("%s: measurement already running", m)
 		return nil
 	}
+
 	m.isRunning = true
 	m.stopCh = make(chan struct{})
 	m.nodes = make(map[string]bool)
@@ -128,66 +163,125 @@ func (m *nodeHealthTrackerMeasurement) start(config *measurement.Config) error {
 	m.violationMsg = ""
 	m.threshold = threshold
 	m.ratio = ratio
-	m.lock.Unlock()
+	m.nodeInformer = nodeInformer
+	m.labelSelector = labelSelector
+	m.fieldSelector = fieldSelector
 
-	selector := util.NewObjectSelector()
-	if err := selector.Parse(config.Params); err != nil {
-		return err
+	for _, obj := range nodeInformer.Informer().GetIndexer().List() {
+		node, ok := obj.(*corev1.Node)
+		if ok && m.matchesSelector(node) {
+			healthy := util.IsNodeSchedulableAndUntainted(node)
+			m.nodes[node.Name] = healthy
+			if healthy {
+				m.runningNodes++
+			}
+			m.nodeCount++
+		}
 	}
-
-	ctx := context.Background()
-	client := config.ClusterFramework.GetClientSets().GetClient()
-
-	lw := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = selector.LabelSelector
-			options.FieldSelector = selector.FieldSelector
-			return client.CoreV1().Nodes().List(ctx, options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = selector.LabelSelector
-			options.FieldSelector = selector.FieldSelector
-			return client.CoreV1().Nodes().Watch(ctx, options)
-		},
-	}
-
-	i := informer.NewInformer(lw, m.handleNodeEvent)
-	if err := informer.StartAndSync(i, m.stopCh, nodeHealthTrackerInformerTimeout); err != nil {
-		return fmt.Errorf("problem starting node health tracker informer: %w", err)
-	}
-
-	m.lock.Lock()
 	m.hasSynced = true
 	m.checkThresholdAndLog()
-	m.lock.Unlock()
+
+	reg, err := nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			m.handleNodeEvent(nil, obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			m.handleNodeEvent(oldObj, newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				m.handleNodeEvent(tombstone.Obj, nil)
+			} else {
+				m.handleNodeEvent(obj, nil)
+			}
+		},
+	})
+	if err != nil {
+		m.isRunning = false
+		close(m.stopCh)
+		return fmt.Errorf("cannot add event handler: %w", err)
+	}
+	m.registration = reg
 
 	return nil
+}
+
+func (m *nodeHealthTrackerMeasurement) matchesSelector(node *corev1.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	if m.labelSelector != nil && !m.labelSelector.Matches(labels.Set(node.Labels)) {
+		return false
+	}
+
+	if m.fieldSelector != nil && !m.fieldSelector.Empty() {
+		nodeFields := fields.Set{
+			"metadata.name":      node.Name,
+			"spec.unschedulable": strconv.FormatBool(node.Spec.Unschedulable),
+		}
+		if !m.fieldSelector.Matches(nodeFields) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (m *nodeHealthTrackerMeasurement) handleNodeEvent(oldObj, newObj interface{}) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if !m.isRunning {
+		return
+	}
+
 	if newObj != nil {
 		node, ok := newObj.(*corev1.Node)
-		if ok {
-			m.nodes[node.Name] = util.IsNodeSchedulableAndUntainted(node)
+		if !ok {
+			return
+		}
+
+		matches := m.matchesSelector(node)
+		oldHealthy, hadOld := m.nodes[node.Name]
+
+		if matches {
+			newHealthy := util.IsNodeSchedulableAndUntainted(node)
+			m.nodes[node.Name] = newHealthy
+
+			if !hadOld {
+				m.nodeCount++
+				if newHealthy {
+					m.runningNodes++
+				}
+			} else if oldHealthy != newHealthy {
+				if newHealthy {
+					m.runningNodes++
+				} else {
+					m.runningNodes--
+				}
+			}
+		} else if hadOld {
+			delete(m.nodes, node.Name)
+			m.nodeCount--
+			if oldHealthy {
+				m.runningNodes--
+			}
 		}
 	} else if oldObj != nil {
 		node, ok := oldObj.(*corev1.Node)
-		if ok {
-			delete(m.nodes, node.Name)
+		if !ok {
+			return
 		}
-	}
 
-	runningNodes := 0
-	for _, healthy := range m.nodes {
-		if healthy {
-			runningNodes++
+		if oldHealthy, hadOld := m.nodes[node.Name]; hadOld {
+			delete(m.nodes, node.Name)
+			m.nodeCount--
+			if oldHealthy {
+				m.runningNodes--
+			}
 		}
 	}
-	m.runningNodes = runningNodes
-	m.nodeCount = len(m.nodes)
 
 	if m.hasSynced {
 		m.checkThresholdAndLog()
@@ -257,5 +351,11 @@ func (m *nodeHealthTrackerMeasurement) stopLocked() {
 	if m.isRunning {
 		m.isRunning = false
 		close(m.stopCh)
+		if m.registration != nil && m.nodeInformer != nil {
+			if err := m.nodeInformer.Informer().RemoveEventHandler(m.registration); err != nil {
+				klog.Warningf("%s: failed to remove event handler: %v", m.String(), err)
+			}
+			m.registration = nil
+		}
 	}
 }

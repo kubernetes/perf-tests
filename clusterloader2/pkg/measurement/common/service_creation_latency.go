@@ -169,6 +169,7 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 				return s.client.CoreV1().Services(s.selector.Namespace).Watch(context.TODO(), options)
 			},
 		},
+		&corev1.Service{},
 		func(oldObj, newObj interface{}) {
 			f := func() {
 				s.handleObject(oldObj, newObj)
@@ -191,6 +192,7 @@ func (s *serviceCreationLatencyMeasurement) start() error {
 					return s.client.NetworkingV1().Ingresses(s.selector.Namespace).Watch(context.TODO(), options)
 				},
 			},
+			&networkingv1.Ingress{},
 			func(oldObj, newObj interface{}) {
 				f := func() {
 					s.handleIngressObject(oldObj, newObj)

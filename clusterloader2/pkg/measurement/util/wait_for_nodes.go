@@ -18,10 +18,14 @@ package util
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -39,11 +43,20 @@ type WaitForNodeOptions struct {
 // WaitForNodes waits till the desired number of nodes is ready.
 // If stopCh is closed before all nodes are ready, the error will be returned.
 func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options *WaitForNodeOptions) error {
-	ps, err := NewNodeStore(clientSet, options.Selector)
+	nodeIndexer, err := NodeIndexerFactory.NodeIndexer(clientSet)
 	if err != nil {
-		return fmt.Errorf("node store creation error: %v", err)
+		return fmt.Errorf("node indexer creation error: %w", err)
 	}
-	defer ps.Stop()
+
+	nodes, err := filterNodes(nodeIndexer, options.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to filter nodes: %w", err)
+	}
+
+	nodeCount := getNumReadyNodes(nodes)
+	if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
+		return nil
+	}
 
 	var tolerationCh <-chan time.Time
 	if options.TolerationTimeout > 0 {
@@ -55,14 +68,18 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 	var tolerationExpired bool
 	var tolerationExpiredAt time.Time
 
-	nodeCount := getNumReadyNodes(ps.List())
 	for {
 		select {
 		case <-stopCh:
 			return fmt.Errorf("timeout while waiting for [%d-%d] Nodes with selector '%v' to be ready - currently there is %d Nodes",
 				options.MinDesiredNodeCount, options.MaxDesiredNodeCount, options.Selector.String(), nodeCount)
 		case <-tolerationCh:
-			nodeCount = getNumReadyNodes(ps.List())
+			nodes, err := filterNodes(nodeIndexer, options.Selector)
+			if err != nil {
+				return fmt.Errorf("failed to filter nodes: %w", err)
+			}
+
+			nodeCount = getNumReadyNodes(nodes)
 			klog.V(2).Infof("%s: toleration timeout expired, node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
 			if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
 				return nil
@@ -70,7 +87,12 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 			tolerationExpired = true
 			tolerationExpiredAt = time.Now()
 		case <-time.After(options.WaitForNodesInterval):
-			nodeCount = getNumReadyNodes(ps.List())
+			nodes, err := filterNodes(nodeIndexer, options.Selector)
+			if err != nil {
+				return fmt.Errorf("failed to filter nodes: %w", err)
+			}
+
+			nodeCount = getNumReadyNodes(nodes)
 			klog.V(2).Infof("%s: node count (selector = %v): %d", options.CallerName, options.Selector.String(), nodeCount)
 			if options.MinDesiredNodeCount <= nodeCount && nodeCount <= options.MaxDesiredNodeCount {
 				if tolerationExpired {
@@ -82,6 +104,54 @@ func WaitForNodes(clientSet clientset.Interface, stopCh <-chan struct{}, options
 			}
 		}
 	}
+}
+
+func filterNodes(indexer cache.Indexer, selector *util.ObjectSelector) ([]*v1.Node, error) {
+	objects := indexer.List()
+
+	var labelSelector labels.Selector = labels.Everything()
+	if selector != nil && selector.LabelSelector != "" {
+		var err error
+		labelSelector, err = labels.Parse(selector.LabelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse label selector: %w", err)
+		}
+	}
+
+	var fieldSelector fields.Selector = fields.Everything()
+	if selector != nil && selector.FieldSelector != "" {
+		var err error
+		fieldSelector, err = fields.ParseSelector(selector.FieldSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse field selector: %w", err)
+		}
+	}
+
+	nodes := make([]*v1.Node, 0, len(objects))
+	for _, obj := range objects {
+		node, ok := obj.(*v1.Node)
+		if !ok {
+			continue
+		}
+
+		if !labelSelector.Matches(labels.Set(node.Labels)) {
+			continue
+		}
+
+		if !fieldSelector.Empty() {
+			nodeFields := fields.Set{
+				"metadata.name":      node.Name,
+				"spec.unschedulable": strconv.FormatBool(node.Spec.Unschedulable),
+			}
+			if !fieldSelector.Matches(nodeFields) {
+				continue
+			}
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
 }
 
 func getNumReadyNodes(nodes []*v1.Node) int {

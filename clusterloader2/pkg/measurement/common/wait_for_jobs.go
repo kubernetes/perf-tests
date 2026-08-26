@@ -134,6 +134,7 @@ func (w *waitForFinishedJobsMeasurement) start() error {
 				return c.BatchV1().Jobs(w.selector.Namespace).Watch(ctx, options)
 			},
 		},
+		&batchv1.Job{},
 		func(oldObj, newObj interface{}) {
 			f := func() {
 				w.handleObject(oldObj, newObj)

@@ -223,11 +223,15 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (Re
 
 // getDaemonSetNumSchedulableNodes returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
 func getDaemonSetNumSchedulableNodes(c clientset.Interface, podSpec *corev1.PodSpec) (ReplicasWatcher, error) {
-	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpec.NodeSelector))
+	podSpecCopy := podSpec.DeepCopy()
+	addOrUpdateDaemonPodTolerations(podSpecCopy)
+
+	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpecCopy.NodeSelector))
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeCounter(c, selector, podSpec.Affinity, podSpec.Tolerations), nil
+
+	return NewNodeCounter(c, selector, podSpecCopy.Affinity, podSpecCopy.Tolerations), nil
 }
 
 // Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
@@ -335,6 +339,11 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 	tolerations := []corev1.Toleration{
 		{
 			Key:      corev1.TaintNodeNotReady,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoExecute,
+		},
+		{
+			Key:      corev1.TaintNodeUnreachable,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoExecute,
 		},

@@ -554,6 +554,7 @@ func (p *podPeriodicCommandMeasurement) start(
 				return clientset.CoreV1().Pods("").Watch(context.TODO(), options)
 			},
 		},
+		&v1.Pod{},
 		// Use the informer's internal cache to handle listing pods, no need to handle events.
 		func(_, _ interface{}) {},
 	)

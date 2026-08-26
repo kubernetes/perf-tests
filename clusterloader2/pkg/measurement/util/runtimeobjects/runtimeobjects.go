@@ -382,7 +382,6 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 }
 
 func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec *corev1.PodSpec) error {
-	addOrUpdateDaemonPodTolerations(spec)
 	unstructuredTolerations, found, err := unstructured.NestedSlice(p, "tolerations")
 	if err != nil || !found {
 		return err

@@ -19,27 +19,24 @@ package imagepreload
 import (
 	"context"
 	"embed"
+	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
-	informerTimeout = time.Minute
 	manifest        = "manifests/daemonset.yaml"
 	namespace       = "preload"
 	daemonsetName   = "preload"
@@ -59,9 +56,6 @@ func InitFlags() {
 }
 
 type controller struct {
-	// lock for controlling access to doneNodes in PreloadImages
-	lock sync.Mutex
-
 	config          *config.ClusterLoaderConfig
 	framework       *framework.Framework
 	templateMapping map[string]interface{}
@@ -100,22 +94,9 @@ func (c *controller) PreloadImages() error {
 
 	kclient := c.framework.GetClientSets().GetClient()
 
-	doneNodes := make(map[string]struct{})
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	nodeInformer := informer.NewInformer(
-		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return kclient.CoreV1().Nodes().List(context.TODO(), options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return kclient.CoreV1().Nodes().Watch(context.TODO(), options)
-			},
-		},
-		func(oldObj, newObj interface{}) { c.checkNode(doneNodes, oldObj, newObj) })
-	if err := informer.StartAndSync(nodeInformer, stopCh, informerTimeout); err != nil {
-		return err
+	nodeIndexer, err := measurementutil.NodeIndexerFactory.NodeIndexer(kclient)
+	if err != nil {
+		return fmt.Errorf("failed to get shared node indexer: %w", err)
 	}
 
 	klog.V(2).Infof("Creating namespace %s...", namespace)
@@ -134,6 +115,10 @@ func (c *controller) PreloadImages() error {
 	if err != nil {
 		return err
 	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	size, err := runtimeobjects.GetReplicasFromRuntimeObject(kclient, ds)
 	if err != nil {
 		return err
@@ -141,14 +126,35 @@ func (c *controller) PreloadImages() error {
 	if err := size.Start(stopCh); err != nil {
 		return err
 	}
+	nodeCounter, _ := size.(*runtimeobjects.NodeCounter)
 
 	var clusterSize, doneCount int
 	klog.V(2).Infof("Waiting for %d Node objects to be updated...", size.Replicas())
 	if err := wait.Poll(pollingInterval, pollingTimeout, func() (bool, error) {
 		clusterSize = size.Replicas()
-		doneCount = c.countDone(doneNodes)
+		doneCount = 0
+		for _, obj := range nodeIndexer.List() {
+			node, ok := obj.(*v1.Node)
+			if !ok {
+				continue
+			}
+
+			if nodeCounter != nil {
+				match, err := nodeCounter.ShouldRun(node)
+				if err != nil || !match {
+					continue
+				}
+			} else if !util.IsNodeSchedulableAndUntainted(node) {
+				continue
+			}
+
+			if c.hasPreloadedImages(node) {
+				doneCount++
+			}
+		}
+
 		klog.V(3).Infof("%d out of %d nodes have pulled images", doneCount, clusterSize)
-		return doneCount == clusterSize, nil
+		return doneCount >= clusterSize, nil
 	}); err != nil {
 		klog.Errorf("%d out of %d nodes have pulled images", doneCount, clusterSize)
 		return err
@@ -163,37 +169,6 @@ func (c *controller) PreloadImages() error {
 		return err
 	}
 	return nil
-}
-
-func (c *controller) checkNode(set map[string]struct{}, oldObj, newObj interface{}) {
-	if newObj != nil {
-		node := newObj.(*v1.Node)
-		preloaded := c.hasPreloadedImages(node)
-		c.markDone(set, node.Name, preloaded)
-		return
-	}
-	if oldObj != nil {
-		node := oldObj.(*v1.Node)
-		c.markDone(set, node.Name, false)
-		return
-	}
-
-}
-
-func (c *controller) markDone(set map[string]struct{}, node string, done bool) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if done {
-		set[node] = struct{}{}
-	} else {
-		delete(set, node)
-	}
-}
-
-func (c *controller) countDone(set map[string]struct{}) int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return len(set)
 }
 
 func (c *controller) hasPreloadedImages(node *v1.Node) bool {

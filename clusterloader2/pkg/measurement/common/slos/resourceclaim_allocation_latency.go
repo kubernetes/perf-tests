@@ -155,7 +155,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 			return c.ResourceV1().ResourceClaims(m.selector.Namespace).Watch(context.TODO(), options)
 		},
 	}
-	claimInf := informer.NewInformer(lw, m.addEvent)
+	claimInf := informer.NewInformer(lw, &resourcev1.ResourceClaim{}, m.addEvent)
 
 	podLW := &cache.ListWatch{
 		ListFunc: func(o metav1.ListOptions) (runtime.Object, error) {
@@ -167,7 +167,7 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 			return c.CoreV1().Pods(m.selector.Namespace).Watch(context.TODO(), o)
 		},
 	}
-	podInf := informer.NewInformer(podLW, m.addPodEvent)
+	podInf := informer.NewInformer(podLW, &corev1.Pod{}, m.addPodEvent)
 
 	go m.processEvents()
 

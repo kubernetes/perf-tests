@@ -17,11 +17,13 @@ limitations under the License.
 package informer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -40,9 +42,10 @@ func TrimManagedFields(obj interface{}) (interface{}, error) {
 // NewInformer creates a new informer.
 func NewInformer(
 	lw cache.ListerWatcher,
+	expectedType runtime.Object,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
-	informer := cache.NewSharedInformer(lw, nil, 0)
+	informer := cache.NewSharedInformer(lw, expectedType, 0)
 	if err := informer.SetTransform(TrimManagedFields); err != nil {
 		klog.Errorf("cannot set transform: %v", err)
 	}
@@ -99,13 +102,22 @@ func addEventHandler(i cache.SharedInformer,
 // StartAndSync starts informer and waits for it to be synced.
 func StartAndSync(i cache.SharedInformer, stopCh <-chan struct{}, timeout time.Duration) error {
 	go i.Run(stopCh)
-	timeoutCh := make(chan struct{})
-	timeoutTimer := time.AfterFunc(timeout, func() {
-		close(timeoutCh)
-	})
-	defer timeoutTimer.Stop()
-	if !cache.WaitForCacheSync(timeoutCh, i.HasSynced) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	syncStopCh := make(chan struct{})
+	go func() {
+		select {
+		case <-stopCh:
+		case <-ctx.Done():
+		}
+		close(syncStopCh)
+	}()
+
+	if !cache.WaitForCacheSync(syncStopCh, i.HasSynced) {
 		return fmt.Errorf("timed out waiting for caches to sync")
 	}
+
 	return nil
 }

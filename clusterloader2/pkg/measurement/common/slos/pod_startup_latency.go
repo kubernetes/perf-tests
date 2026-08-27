@@ -178,6 +178,7 @@ func (p *podStartupLatencyMeasurement) start(c clientset.Interface) error {
 				return c.CoreV1().Pods(p.selector.Namespace).Watch(context.TODO(), options)
 			},
 		},
+		&corev1.Pod{},
 		p.addEvent,
 	)
 	go p.processEvents()

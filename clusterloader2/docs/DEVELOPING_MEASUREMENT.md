@@ -123,6 +123,7 @@ func (m *maxRunningPodsMeasurement) start(c clientset.Interface) error {
 				return c.CoreV1().Pods("").Watch(context.TODO(), options)
 			},
 		},
+		&corev1.Pod{},
 		m.checkPod,
 	)
 	return informer.StartAndSync(i, m.stopCh, informerSyncTimeout)
@@ -286,6 +287,7 @@ func (m *maxRunningPodsMeasurement) start(c clientset.Interface) error {
 				return c.CoreV1().Pods("").Watch(context.TODO(), options)
 			},
 		},
+		&corev1.Pod{},
 		m.checkPod,
 	)
 	return informer.StartAndSync(i, m.stopCh, informerSyncTimeout)

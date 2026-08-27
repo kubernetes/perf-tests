@@ -208,7 +208,7 @@ func (s *LoadBalancerNodeSyncMeasurement) getEventInformer() cache.Controller {
 		return s.client.CoreV1().Events(metav1.NamespaceAll).Watch(ctx, options)
 	}
 
-	_, eventInformer := cache.NewInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, nil, 0,
+	_, eventInformer := cache.NewInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, &v1.Event{}, 0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				s.processEvent(obj.(*v1.Event))

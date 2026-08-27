@@ -254,6 +254,25 @@ var daemonsetNoAffinityTolerateAll = &apps.DaemonSet{
 	},
 }
 
+var daemonsetNoNodeSelector = &apps.DaemonSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName,
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: apps.DaemonSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: simpleLabel,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: simpleLabel,
+			},
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
+		},
+	},
+}
+
 var job = &batch.Job{
 	TypeMeta: metav1.TypeMeta{Kind: "Job"},
 	ObjectMeta: metav1.ObjectMeta{
@@ -630,6 +649,7 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		daemonset,
 		daemonsetNoAffinity,
 		daemonsetNoAffinityTolerateAll,
+		daemonsetNoNodeSelector,
 	}
 	expected := []int32{
 		defaultReplicas,
@@ -639,6 +659,7 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		daemonsetReplicas,
 		daemonsetReplicasNoAffinity,
 		daemonsetReplicasNoAffinityTolerateAll,
+		daemonsetReplicasNoAffinity,
 	}
 
 	fakeClient := fake.NewSimpleClientset(&node1, &node2, &node3, &node4, &node5)

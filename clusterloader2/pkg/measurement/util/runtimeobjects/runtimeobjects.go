@@ -226,7 +226,7 @@ func getDaemonSetNumSchedulableNodes(c clientset.Interface, podSpec *corev1.PodS
 	podSpecCopy := podSpec.DeepCopy()
 	addOrUpdateDaemonPodTolerations(podSpecCopy)
 
-	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpecCopy.NodeSelector))
+	selector, err := labels.ValidatedSelectorFromSet(podSpecCopy.NodeSelector)
 	if err != nil {
 		return nil, err
 	}

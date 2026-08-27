@@ -46,36 +46,24 @@ func TestSharedNodeIndexerFactory_Lifecycle(t *testing.T) {
 	}
 
 	fakeClient := fake.NewSimpleClientset(node1, node2)
-	factory := NewSharedNodeIndexerFactory()
-	defer factory.Stop()
+	factory := &SharedNodeIndexerFactory{}
 
 	// Initial fetch
-	inf1, err := factory.NodeInformer(fakeClient)
-	if err != nil {
-		t.Fatalf("expected no error from NodeInformer, got: %v", err)
-	}
-
-	// Singleton verification
-	inf2, err := factory.NodeInformer(fakeClient)
-	if err != nil {
-		t.Fatalf("expected no error from second NodeInformer call, got: %v", err)
-	}
-	if inf1 != inf2 {
-		t.Fatalf("expected identical informer instances from singleton factory")
-	}
-
-	indexer, err := factory.NodeIndexer(fakeClient)
+	indexer1, err := factory.NodeIndexer(fakeClient)
 	if err != nil {
 		t.Fatalf("expected no error from NodeIndexer, got: %v", err)
 	}
-	if len(indexer.List()) != 2 {
-		t.Fatalf("expected 2 indexed nodes, got: %d", len(indexer.List()))
+	if len(indexer1.List()) != 2 {
+		t.Fatalf("expected 2 indexed nodes, got: %d", len(indexer1.List()))
 	}
 
-	// Reset / Stop
-	factory.Reset()
-	if factory.synced || factory.nodeInformer != nil {
-		t.Fatalf("expected factory to be fully cleared after Reset")
+	// Singleton verification
+	indexer2, err := factory.NodeIndexer(fakeClient)
+	if err != nil {
+		t.Fatalf("expected no error from second NodeIndexer call, got: %v", err)
+	}
+	if indexer1 != indexer2 {
+		t.Fatalf("expected identical indexer instances from singleton factory")
 	}
 }
 
@@ -84,8 +72,7 @@ func TestSharedNodeIndexerFactory_ConcurrentAccess(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "node-concurrent"},
 	}
 	fakeClient := fake.NewSimpleClientset(node)
-	factory := NewSharedNodeIndexerFactory()
-	defer factory.Stop()
+	factory := &SharedNodeIndexerFactory{}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
@@ -103,23 +90,4 @@ func TestSharedNodeIndexerFactory_ConcurrentAccess(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-}
-
-func TestSharedNodeIndexerFactory_StructLiteral_LazyInit(t *testing.T) {
-	node := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "node-literal"},
-	}
-	fakeClient := fake.NewSimpleClientset(node)
-
-	// Direct struct literal without calling NewSharedNodeIndexerFactory
-	factory := &SharedNodeIndexerFactory{}
-	defer factory.Stop()
-
-	indexer, err := factory.NodeIndexer(fakeClient)
-	if err != nil {
-		t.Fatalf("expected no error from struct literal factory, got: %v", err)
-	}
-	if len(indexer.List()) != 1 {
-		t.Fatalf("expected 1 node, got: %d", len(indexer.List()))
-	}
 }

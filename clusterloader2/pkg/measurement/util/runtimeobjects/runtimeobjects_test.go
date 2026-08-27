@@ -619,8 +619,8 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 }
 
 func TestGetReplicasFromRuntimeObject(t *testing.T) {
-	measurementutil.NodeIndexerFactory.Reset()
-	defer measurementutil.NodeIndexerFactory.Reset()
+	measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{}
+	defer func() { measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{} }()
 
 	objects := []runtime.Object{
 		replicationcontroller,
@@ -664,8 +664,8 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 }
 
 func TestGetReplicasFromRuntimeObject_DaemonSetTolerations(t *testing.T) {
-	measurementutil.NodeIndexerFactory.Reset()
-	defer measurementutil.NodeIndexerFactory.Reset()
+	measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{}
+	defer func() { measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{} }()
 
 	unreachableNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{

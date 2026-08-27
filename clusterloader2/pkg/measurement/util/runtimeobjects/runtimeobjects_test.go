@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 )
 
@@ -249,6 +250,25 @@ var daemonsetNoAffinityTolerateAll = &apps.DaemonSet{
 				}
 				return podSpec
 			}(),
+		},
+	},
+}
+
+var daemonsetNoNodeSelector = &apps.DaemonSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName,
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: apps.DaemonSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: simpleLabel,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: simpleLabel,
+			},
+			Spec: resourcePodSpec("", "50M", "0.5", nil, nil),
 		},
 	},
 }
@@ -618,6 +638,9 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 }
 
 func TestGetReplicasFromRuntimeObject(t *testing.T) {
+	measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{}
+	defer func() { measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{} }()
+
 	objects := []runtime.Object{
 		replicationcontroller,
 		replicaset,
@@ -626,6 +649,7 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		daemonset,
 		daemonsetNoAffinity,
 		daemonsetNoAffinityTolerateAll,
+		daemonsetNoNodeSelector,
 	}
 	expected := []int32{
 		defaultReplicas,
@@ -635,6 +659,7 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		daemonsetReplicas,
 		daemonsetReplicasNoAffinity,
 		daemonsetReplicasNoAffinityTolerateAll,
+		daemonsetReplicasNoAffinity,
 	}
 
 	fakeClient := fake.NewSimpleClientset(&node1, &node2, &node3, &node4, &node5)
@@ -656,5 +681,78 @@ func TestGetReplicasFromRuntimeObject(t *testing.T) {
 		if int(expected[i]) != replicas {
 			t.Fatalf("unexpected replicas from runtime object, expected: %d, actual: %d", expected[i], replicas)
 		}
+	}
+}
+
+func TestGetReplicasFromRuntimeObject_DaemonSetTolerations(t *testing.T) {
+	measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{}
+	defer func() { measurementutil.NodeIndexerFactory = &measurementutil.SharedNodeIndexerFactory{} }()
+
+	unreachableNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node-unreachable",
+			Labels: simpleLabel,
+		},
+		Spec: corev1.NodeSpec{
+			Taints: []corev1.Taint{
+				{
+					Key:    corev1.TaintNodeUnreachable,
+					Effect: corev1.TaintEffectNoExecute,
+				},
+			},
+		},
+	}
+
+	notReadyNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node-not-ready",
+			Labels: simpleLabel,
+		},
+		Spec: corev1.NodeSpec{
+			Taints: []corev1.Taint{
+				{
+					Key:    corev1.TaintNodeNotReady,
+					Effect: corev1.TaintEffectNoExecute,
+				},
+			},
+		},
+	}
+
+	customTaintedNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node-custom-taint",
+			Labels: simpleLabel,
+		},
+		Spec: corev1.NodeSpec{
+			Taints: []corev1.Taint{
+				{
+					Key:    "custom-taint",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewSimpleClientset(unreachableNode, notReadyNode, customTaintedNode)
+
+	unstructuredObj := &unstructured.Unstructured{}
+	if err := scheme.Scheme.Convert(daemonsetNoAffinity, unstructuredObj, nil); err != nil {
+		t.Fatalf("error converting daemonset to unstructured: %v", err)
+	}
+
+	replicasWatcher, err := runtimeobjects.GetReplicasFromRuntimeObject(fakeClient, unstructuredObj)
+	if err != nil {
+		t.Fatalf("get replicas from runtime object failed: %v", err)
+	}
+
+	replicas, err := runtimeobjects.GetReplicasOnce(replicasWatcher)
+	if err != nil {
+		t.Fatalf("unexpected error while getting replicas: %v", err)
+	}
+
+	// unreachableNode and notReadyNode are tolerated by default DaemonSet tolerations; customTaintedNode is not.
+	expectedReplicas := 2
+	if replicas != expectedReplicas {
+		t.Fatalf("unexpected replicas count, expected: %d, actual: %d", expectedReplicas, replicas)
 	}
 }

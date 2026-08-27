@@ -223,11 +223,15 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (Re
 
 // getDaemonSetNumSchedulableNodes returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
 func getDaemonSetNumSchedulableNodes(c clientset.Interface, podSpec *corev1.PodSpec) (ReplicasWatcher, error) {
-	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpec.NodeSelector))
+	podSpecCopy := podSpec.DeepCopy()
+	addOrUpdateDaemonPodTolerations(podSpecCopy)
+
+	selector, err := labels.ValidatedSelectorFromSet(podSpecCopy.NodeSelector)
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeCounter(c, selector, podSpec.Affinity, podSpec.Tolerations), nil
+
+	return NewNodeCounter(c, selector, podSpecCopy.Affinity, podSpecCopy.Tolerations), nil
 }
 
 // Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
@@ -339,6 +343,11 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 			Effect:   corev1.TaintEffectNoExecute,
 		},
 		{
+			Key:      corev1.TaintNodeUnreachable,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoExecute,
+		},
+		{
 			Key:      corev1.TaintNodeDiskPressure,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoSchedule,
@@ -373,7 +382,6 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 }
 
 func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec *corev1.PodSpec) error {
-	addOrUpdateDaemonPodTolerations(spec)
 	unstructuredTolerations, found, err := unstructured.NestedSlice(p, "tolerations")
 	if err != nil || !found {
 		return err

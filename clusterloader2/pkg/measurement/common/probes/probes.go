@@ -80,7 +80,7 @@ var (
 	dnsPropagationConfig = proberConfig{
 		Name:             "DnsPropagation",
 		MetricVersion:    "v1",
-		Query:            "probes_dns_propagation_seconds",
+		Query:            "max_over_time(probes_dns_propagation_seconds[%v])",
 		Manifests:        "dnsPropagation/*.yaml",
 		ProbeLabelValues: []string{"dns-propagation-prober"},
 		ProberType:       "propagation",

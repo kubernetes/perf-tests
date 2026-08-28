@@ -18,7 +18,6 @@ package dnspropagation
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,9 +31,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 )
 
@@ -52,8 +54,8 @@ var (
 )
 
 var (
-	errorLogger   *slog.Logger
-	latencyLogger *slog.Logger
+	errorLogger   = slog.New(slog.NewJSONHandler(io.Discard, nil))
+	latencyLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 )
 
 type DNSPodPropagationResult struct {
@@ -93,6 +95,9 @@ func Run() {
 	if err != nil {
 		klog.Fatalf("Can not build inClusterConfig, error:%v", err)
 	}
+	kubeConfig.QPS = 100.0
+	kubeConfig.Burst = 200
+
 	// creates the inCluster kube client
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 
@@ -111,50 +116,134 @@ func Run() {
 // runProbe runs the DNS propagation probe.
 func runProbe(client kubernetes.Interface) {
 	klog.V(1).Infof("DNS propagation probe started")
+
+	indices := selectSample(*podCount, *sampleCount)
+	targetPods := make(map[string]struct{}, len(indices))
+	for _, idx := range indices {
+		targetPods[fmt.Sprintf("%s-%d", *statefulSet, idx)] = struct{}{}
+	}
+
+	var mu sync.Mutex
 	var wg sync.WaitGroup
 	ch := make(chan DNSPodPropagationResult, *sampleCount)
-	indices := selectSample(*podCount, *sampleCount)
+
 	durations := make([]float64, 0, *sampleCount)
-	for _, idx := range indices {
-		podName := fmt.Sprintf("%s-%d", *statefulSet, idx)
-		url := fmt.Sprintf("%s.%s.%s.%s.%s.%s", podName, *service, *namespace, "svc", *clusterDomain, *suffix)
-		wg.Add(1)
-		go func(client kubernetes.Interface, url, podName string, namespace string, interval time.Duration) {
-			defer wg.Done()
-			result := runSinglePod(client, url, podName, namespace, interval)
-			ch <- DNSPodPropagationResult{
-				podName:  podName,
-				duration: result,
-			}
-		}(client, url, podName, *namespace, *interval)
-	}
-	klog.V(2).Infof("Waiting for all sample pods processes to finish")
+	collectorDone := make(chan struct{})
 	go func() {
-		wg.Wait()
-		close(ch)
+		for propagationResult := range ch {
+			labels := prometheus.Labels{
+				"namespace": *namespace,
+				"service":   *service,
+				"podName":   propagationResult.podName,
+			}
+			DNSPropagationSeconds.With(labels).Set(propagationResult.duration.Seconds())
+			DNSPropagationCount.With(labels).Inc()
+			durations = append(durations, propagationResult.duration.Seconds())
+		}
+		close(collectorDone)
 	}()
 
-	for propagationResult := range ch {
-		labels := prometheus.Labels{
-			"namespace": *namespace,
-			"service":   *service,
-			"podName":   propagationResult.podName,
-		}
-		DNSPropagationSeconds.With(labels).Set(propagationResult.duration.Seconds())
-		DNSPropagationCount.With(labels).Inc()
-		durations = append(durations, propagationResult.duration.Seconds())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	factory := informers.NewSharedInformerFactoryWithOptions(
+		client,
+		0,
+		informers.WithNamespace(*namespace),
+	)
+	podInformer := factory.Core().V1().Pods().Informer()
+
+	if err := podInformer.SetTransform(transformPod); err != nil {
+		klog.Fatalf("Failed to set pod transform: %v", err)
 	}
+
+	handlePod := func(obj interface{}) {
+		pod, ok := obj.(*v1.Pod)
+		if !ok {
+			return
+		}
+
+		mu.Lock()
+		if _, exists := targetPods[pod.Name]; !exists {
+			mu.Unlock()
+			return
+		}
+
+		readyTime, isReady := getPodReadyTransitionTime(pod)
+		if !isReady {
+			mu.Unlock()
+			return
+		}
+
+		delete(targetPods, pod.Name)
+		remaining := len(targetPods)
+		mu.Unlock()
+
+		url := fmt.Sprintf("%s.%s.%s.%s.%s.%s", pod.Name, *service, *namespace, "svc", *clusterDomain, *suffix)
+
+		wg.Add(1)
+		go func(url, podName string, readyTime time.Time) {
+			defer wg.Done()
+
+			duration := probeDNSUntilResolved(url, readyTime, *interval)
+			ch <- DNSPodPropagationResult{
+				podName:  podName,
+				duration: duration,
+			}
+		}(url, pod.Name, readyTime)
+
+		if remaining == 0 {
+			cancel()
+		}
+	}
+
+	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: handlePod,
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			handlePod(newObj)
+		},
+	}); err != nil {
+		klog.Fatalf("Failed to add event handler: %v", err)
+	}
+
+	factory.Start(ctx.Done())
+	factory.WaitForCacheSync(ctx.Done())
+
+	<-ctx.Done()
+
+	klog.V(2).Infof("Waiting for all sample pods processes to finish")
+	wg.Wait()
+	close(ch)
+	<-collectorDone
 	klog.V(2).Infof("Finished calculating DNS propagation for all sample pods")
 
 	if len(durations) == 0 {
 		klog.Warningf("DNS propagation probe has zero observations")
 		return
 	}
+
 	sum := 0.0
 	for _, duration := range durations {
 		sum += duration
 	}
 	klog.V(1).Infof("DNS propagation probe finished, total of %v observations, average duration, %v s", len(durations), sum/float64(len(durations)))
+}
+
+// transformPod strips spec and unneeded metadata to minimize memory usage under scale testing.
+func transformPod(obj interface{}) (interface{}, error) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return obj, nil
+	}
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		},
+		Status: v1.PodStatus{
+			Conditions: pod.Status.Conditions,
+		},
+	}, nil
 }
 
 // selectSample returns a slice of indices of length sampleCount, randomly selected from the range [0, podCount).
@@ -168,49 +257,21 @@ func selectSample(podCount int, sampleCount int) []int {
 	return indices
 }
 
-// runSinglePod runs a single DNS propagation test for the given pod.
-// It returns the duration between the time the DNS lookup succeeds and the time the pod was created.
-func runSinglePod(client kubernetes.Interface, url string, podName string, namespace string, interval time.Duration) time.Duration {
+func probeDNSUntilResolved(url string, readyTimestamp time.Time, interval time.Duration) time.Duration {
 	klog.V(4).Infof("Starting dns propagation calculation for pod %s ...", url)
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
-	var lookupErrorLogged = false
+
 	for {
 		select {
 		case <-tick.C:
-			klog.V(4).Infof("DNS lookup %s", url)
-			if err := lookup(url); err != nil {
-				var dnsErr *net.DNSError
-				if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
-					klog.Warningf("DNS lookup error: %v", err)
-					continue
-				}
-				if !lookupErrorLogged {
-					lookupErrorLogged = true
-					errTimestamp := time.Now()
-					klog.Errorf("DNS lookup error for url %s at %v: %v", url, errTimestamp.Format(time.RFC3339), err)
-					errorLogger.Error("DNS propagation probe failed",
-						"hostname", url,
-						"error", err.Error(),
-					)
-					labels := prometheus.Labels{
-						"namespace": namespace,
-						"service":   *service,
-						"podName":   podName,
-					}
-					DNSLookupErrors.With(labels).Inc()
-				}
+			if err := lookupFunc(url); err != nil {
 				continue
 			}
+
 			endTime := time.Now()
-			klog.V(2).Infof("DNS lookup finished for pod %s, finding pod running time...", url)
-			timestamp, err := fetchPodRunningTime(client, podName, namespace)
-			if err != nil {
-				klog.Fatalf("K8s error: %v", err)
-				continue
-			}
-			duration := endTime.Sub(timestamp)
-			klog.V(2).Infof("Pod running time fetched for pod %s, timestamp= %v, DNS propagation duration= %v s", url, timestamp, duration)
+			duration := endTime.Sub(readyTimestamp)
+			klog.V(2).Infof("DNS lookup succeeded for pod %s, timestamp= %v, DNS propagation duration= %v s", url, readyTimestamp, duration)
 			latencyLogger.Info("DNS propagation latency recorded",
 				"hostname", url,
 				"timestamp", time.Now(),
@@ -220,47 +281,19 @@ func runSinglePod(client kubernetes.Interface, url string, podName string, names
 	}
 }
 
+var lookupFunc = lookup
+
 // lookup performs a DNS lookup for the given URL.
-// It returns nil if the lookup succeeds, or an error otherwise.
 func lookup(url string) error {
 	_, err := net.LookupIP(url)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
-// fetchPodRunningTime fetches the running time of the given pod.
-// It retries 3 times with 1 second intervals between retries.
-// It returns the running time of the pod, or an error if the pod is not found or if the running time cannot be fetched.
-func fetchPodRunningTime(client kubernetes.Interface, podName string, namespace string) (time.Time, error) {
-	trials := 0
-	for trials < 3 {
-		readyTimestamp, err := getPodRunningTimeFromClient(client, podName, namespace)
-		if err == nil {
-			return readyTimestamp, nil
-		}
-		klog.Warningf("Failed at obtaining pod running time for pod %s, reason: %v", podName, err)
-		trials++
-		time.Sleep(1 * time.Second)
-	}
-	return getPodRunningTimeFromClient(client, podName, namespace)
-}
-
-// getPodRunningTimeFromClient fetches the running time of the given pod.
-// It returns the running time of the pod, or an error if the pod is not found or if the running time cannot be fetched.
-func getPodRunningTimeFromClient(client kubernetes.Interface, podName string, namespace string) (time.Time, error) {
-	options := metav1.GetOptions{ResourceVersion: "0"}
-	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, options)
-	if err != nil {
-		return time.Now(), err
-	}
-
+func getPodReadyTransitionTime(pod *v1.Pod) (time.Time, bool) {
 	for _, condition := range pod.Status.Conditions {
-		if condition.Type == "Ready" && condition.Status == "True" {
-			readyTimestamp := condition.LastTransitionTime.Time
-			return readyTimestamp, nil
+		if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
+			return condition.LastTransitionTime.Time, true
 		}
 	}
-	return time.Now(), errors.New("Ready status wasn't found")
+	return time.Time{}, false
 }

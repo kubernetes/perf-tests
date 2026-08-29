@@ -1,0 +1,80 @@
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: node-initialize
+spec:
+  next:
+    statusTemplate: |
+      {{print "{{ $now := Now }}"}}
+      {{print "{{ $lastTransitionTime := or .metadata.creationTimestamp $now }}"}}
+      conditions:
+      {{print "{{ range NodeConditions }}"}}
+      - lastHeartbeatTime: {{print "{{ $now | Quote }}"}}
+        lastTransitionTime: {{print "{{ $lastTransitionTime | Quote }}"}}
+        message: {{print "{{ .message | Quote }}"}}
+        reason: {{print "{{ .reason | Quote }}"}}
+        status: {{print "{{ .status | Quote }}"}}
+        type: {{print "{{ .type  | Quote}}"}}
+      {{print "{{ end }}"}}
+
+      addresses:
+      {{print "{{ with .status.addresses }}"}}
+      {{print "{{ YAML . 1 }}"}}
+      {{print "{{ else }}"}}
+      {{print "{{ with NodeIP }}"}}
+      - address: {{print "{{ . | Quote }}"}}
+        type: InternalIP
+      {{print "{{ end }}"}}
+      {{print "{{ with NodeName }}"}}
+      - address: {{print "{{ . | Quote }}"}}
+        type: Hostname
+      {{print "{{ end }}"}}
+      {{print "{{ end }}"}}
+
+      {{print "{{ with NodePort }}"}}
+      daemonEndpoints:
+        kubeletEndpoint:
+          Port: {{print "{{ . }}"}}
+      {{print "{{ end }}"}}
+
+      allocatable:
+      {{print "{{ with .status.allocatable }}"}}
+      {{print "{{ YAML . 1 }}"}}
+      {{print "{{ else }}"}}
+        cpu: 1k
+        memory: 1Ti
+        pods: 1M
+      {{print "{{ end }}"}}
+      capacity:
+      {{print "{{ with .status.capacity }}"}}
+      {{print "{{ YAML . 1 }}"}}
+      {{print "{{ else }}"}}
+        cpu: 1k
+        memory: 1Ti
+        pods: 1M
+      {{print "{{ end }}"}}
+
+      {{print "{{ $nodeInfo := .status.nodeInfo }}"}}
+      {{print "{{ $kwokVersion := printf \"kwok-%s\" Version }}"}}
+      nodeInfo:
+        architecture: {{print "{{ or $nodeInfo.architecture \"amd64\" }}"}}
+        bootID: {{print "{{ or $nodeInfo.bootID \"\" }}"}}
+        containerRuntimeVersion: {{print "{{ or $nodeInfo.containerRuntimeVersion $kwokVersion }}"}}
+        kernelVersion: {{print "{{ or $nodeInfo.kernelVersion $kwokVersion }}"}}
+        kubeProxyVersion: {{print "{{ or $nodeInfo.kubeProxyVersion $kwokVersion }}"}}
+        kubeletVersion: {{print "{{ or $nodeInfo.kubeletVersion $kwokVersion }}"}}
+        machineID: {{print "{{ or $nodeInfo.machineID \"\" }}"}}
+        operatingSystem: {{print "{{ or $nodeInfo.operatingSystem \"linux\" }}"}}
+        osImage: {{print "{{ or $nodeInfo.osImage \"\" }}"}}
+        systemUUID: {{print "{{ or $nodeInfo.systemUUID \"\" }}"}}
+      phase: Running
+  resourceRef:
+    apiGroup: v1
+    kind: Node
+  selector:
+    matchExpressions:
+    - key: .status.conditions.[] | select( .type == "Ready" ) | .status
+      operator: NotIn
+      values:
+      - "True"

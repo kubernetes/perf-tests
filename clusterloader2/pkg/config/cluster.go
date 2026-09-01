@@ -79,9 +79,17 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
-	ScrapeApiserverOnly        string
-	TearDownServer             bool
-	EnableServer               bool
+	ScrapeApiserverOnly string
+	TearDownServer      bool
+	EnableServer        bool
+	// UseExistingServer queries Prometheus already running in the cluster
+	// (via apiserver proxy) instead of deploying the CL2 kube-prometheus stack.
+	UseExistingServer bool
+	// ServiceName is the monitoring-namespace Service used for in-cluster PromQL.
+	// Default is prometheus-k8s (the Service created by --enable-prometheus-server).
+	ServiceName string
+	// ProxyScheme is the apiserver service-proxy scheme (http or https). Default http.
+	ProxyScheme                string
 	EnablePushgateway          bool
 	ScrapeEtcd                 bool
 	ScrapeNodeExporter         bool

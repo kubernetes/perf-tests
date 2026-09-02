@@ -8,6 +8,10 @@
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
 {{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
 
+{{$mode := DefaultParam .CL2_LIST_BENCHMARK_MODE "http"}}
+{{$informerCount := DefaultParam .CL2_LIST_INFORMER_COUNT 1}}
+{{$enableWatchList := DefaultParam .CL2_LIST_ENABLE_WATCHLIST false}}
+
 name: list-benchmark
 namespace:
   number: 1
@@ -58,6 +62,19 @@ steps:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 
+{{if eq $mode "informer"}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-configmaps-"
+      replicas: {{$listReplicas}}
+      contentType: {{$contentType}}
+      mode: {{$mode}}
+      resource: configmaps
+      apiVersion: v1
+      count: {{$informerCount}}
+      enableWatchList: {{$enableWatchList}}
+{{else}}
 - module:
     path: modules/list-benchmark.yaml
     params:
@@ -66,6 +83,7 @@ steps:
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
+{{end}}
 - module:
     path: /modules/measurements.yaml
     params:
@@ -114,6 +132,19 @@ steps:
       templateFillMap:
         group: {{$podGroup}}
 
+{{if eq $mode "informer"}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: {{$listReplicas}}
+      contentType: {{$contentType}}
+      mode: {{$mode}}
+      resource: pods
+      apiVersion: v1
+      count: {{$informerCount}}
+      enableWatchList: {{$enableWatchList}}
+{{else}}
 - module:
     path: modules/list-benchmark.yaml
     params:
@@ -122,6 +153,7 @@ steps:
       uri: /api/v1/pods?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
+{{end}}
 - module:
     path: /modules/measurements.yaml
     params:

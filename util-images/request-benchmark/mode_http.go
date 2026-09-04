@@ -99,6 +99,9 @@ func runHTTP(args []string) error {
 		return err
 	}
 	config.QPS = float32(*qps)
+	if config.UserAgent == "" {
+		config.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
 	client, err := rest.HTTPClientFor(config)
 	if err != nil {
 		return err

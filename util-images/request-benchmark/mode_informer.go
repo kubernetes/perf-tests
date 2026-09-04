@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -65,8 +63,6 @@ func runInformer(args []string) error {
 		return fmt.Errorf("failed to set KUBE_FEATURE_WatchListClient: %w", err)
 	}
 
-	ctx := context.Background()
-
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
@@ -98,28 +94,32 @@ func runInformer(args []string) error {
 	}
 	targetGVR := gv.WithResource(*resource)
 
-	err = wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		ts := time.Now()
-		ctxInformer, cancelInformers := context.WithCancel(ctx)
-		defer cancelInformers()
-
-		klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %q", *informerCount, targetGVR, *targetNamespace)
-		informersSynced, err := startInformersForResource(ctxInformer, client, targetGVR, *informerCount, *targetNamespace)
-		if err != nil {
-			return false, err
+	ctx := context.Background()
+	for {
+		if err = syncInformersForResource(ctx, client, targetGVR, *informerCount, *targetNamespace); err != nil {
+			errorRetryBackoff := time.Second
+			klog.Errorf("informer sync round failed, retrying in %v: %v", errorRetryBackoff, err)
+			time.Sleep(errorRetryBackoff)
 		}
+	}
+}
 
-		klog.Infof("Waiting for gvr = %v informers to sync", targetGVR)
-		if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
-			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", targetGVR, ctx.Err())
-		}
-		klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Since(ts))
-		return false, nil
-	})
-	if err != nil && !isInformerContextDoneErr(err) {
+func syncInformersForResource(ctx context.Context, client kubernetes.Interface, gvr schema.GroupVersionResource, count int, namespace string) error {
+	ts := time.Now()
+	ctxInformer, cancelInformers := context.WithCancel(ctx)
+	defer cancelInformers()
+
+	klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %q", count, gvr, namespace)
+	informersSynced, err := startInformersForResource(ctxInformer, client, gvr, count, namespace)
+	if err != nil {
 		return err
 	}
-	klog.Info("Exiting the informer subcommand")
+
+	klog.Infof("Waiting for gvr = %v informers to sync", gvr)
+	if ok := cache.WaitForCacheSync(ctxInformer.Done(), informersSynced...); !ok {
+		return fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", gvr, ctxInformer.Err())
+	}
+	klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), gvr, time.Since(ts))
 	return nil
 }
 
@@ -149,8 +149,4 @@ func startInformersForResource(ctx context.Context, client kubernetes.Interface,
 		factory.Start(ctx.Done())
 	}
 	return informersSynced, nil
-}
-
-func isInformerContextDoneErr(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

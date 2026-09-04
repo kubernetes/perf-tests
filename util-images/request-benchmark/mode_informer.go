@@ -46,7 +46,6 @@ func runInformer(args []string) error {
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig.")
 	targetNamespace := fs.String("namespace", "", "namespace to run informers for. If empty will open on all namespaces.")
 	informerCount := fs.Int("count", 4, "the number of informers per namespace to run.")
-	testTimeout := fs.Duration("timeout", time.Minute, "timeout duration for the test")
 	enableWatchListFeature := fs.Bool("enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
 	disableCompression := fs.Bool("disableCompression", false, "whether to disable gzip compression for API requests")
 	apiVersion := fs.String("api-version", "v1", "apiVersion of the target resource (e.g. v1, apps/v1).")
@@ -66,8 +65,7 @@ func runInformer(args []string) error {
 		return fmt.Errorf("failed to set KUBE_FEATURE_WatchListClient: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), *testTimeout)
-	defer cancel()
+	ctx := context.Background()
 
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {

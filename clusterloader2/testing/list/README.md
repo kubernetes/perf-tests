@@ -1,14 +1,17 @@
 # List load test
 
-List load test perform the following steps:
-- Create configmaps.
+List load test performs the following steps:
+- Create configured resources.
   - The namespaces used here are managed by CL2.
-  - The size and number of configmaps can be specified using `CL2_LIST_CONFIG_MAP_BYTES` and `CL2_LIST_CONFIG_MAP_NUMBER`.
-- Optionally create pods.
+  - Configmaps are always created. The size and number of configmaps can be specified using `CL2_LIST_CONFIG_MAP_BYTES` and `CL2_LIST_CONFIG_MAP_NUMBER`.
+  - The number of custom resources can be specified using `CL2_LIST_CUSTOM_RESOURCE_NUMBER`.
+  - The size of each custom resource payload can be specified using `CL2_LIST_CUSTOM_RESOURCE_BYTES`.
+  - The custom resource list benchmark is skipped by default unless `CL2_LIST_CUSTOM_RESOURCE_NUMBER` is greater than 0.
+  - The custom resource shape uses a larger, Kueue-like nested schema to exercise list cost for bigger CRD-backed objects.
   - The number of pods can be specified using `CL2_LIST_POD_NUMBER`.
   - The pod list benchmark is skipped by default unless `CL2_LIST_POD_NUMBER` is greater than 0.
   - Pods use the exemplar pod shape from reconcile-objects to measure realistic per-pod list cost.
-- Create RBAC rules to allow lister pods to access these configmaps
+- Create RBAC rules to allow lister pods to access the configured resources.
 - Create lister pods using deployment in a separate namespace to list configured resources.
   - The namespace is created using `namespace.yaml` as a template, but its lifecycle is managed by CL2.
   - The number of replicas for the lister pods can be specified using `CL2_LIST_BENCHMARK_PODS`.

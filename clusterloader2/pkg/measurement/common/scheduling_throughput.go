@@ -27,6 +27,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	podsutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
@@ -75,8 +76,12 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([
 		if err != nil {
 			return nil, err
 		}
-		s.stopCh = make(chan struct{})
-		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector, measurmentInterval)
+		measurementType, err := util.GetStringOrDefault(config.Params, "measurementType", "")
+		if err != nil {
+			klog.Warningf("error while getting measurementType param: %v", err)
+		}
+		klog.Infof("%v: starting collecting throughput data, %s, interval %v, measurementType %s", s, selector.String(), measurmentInterval, measurementType)
+		return nil, s.start(config.ClusterFramework.GetClientSets().GetClient(), selector, measurmentInterval, measurementType)
 	case "gather":
 		threshold, err := util.GetFloat64OrDefault(config.Params, "threshold", 0)
 		if err != nil {
@@ -86,7 +91,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([
 		if err != nil {
 			klog.Warningf("error while getting enableViolations param: %v", err)
 		}
-		summary, err := s.gather(threshold)
+		summary, err := s.gather(threshold, config.Identifier)
 		if err != nil {
 			if !errors.IsMetricViolationError(err) {
 				klog.Errorf("%s gathering error: %v", config.Identifier, err)
@@ -112,17 +117,24 @@ func (*schedulingThroughputMeasurement) String() string {
 	return schedulingThroughputMeasurementName
 }
 
-func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *util.ObjectSelector, measurmentInterval time.Duration) error {
+func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *util.ObjectSelector, measurmentInterval time.Duration, measurementType string) error {
 	ps, err := measurementutil.NewPodStore(clientSet, selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
 	}
+	s.stopCh = make(chan struct{})
 	s.isRunning = true
 	klog.V(2).Infof("%s: starting collecting throughput data", s)
 
+	fn := measurmentTypeToFn(measurementType)
+
 	go func() {
 		defer ps.Stop()
-		lastScheduledCount := 0
+		pods, err := ps.List()
+		if err != nil {
+			panic(fmt.Errorf("unexpected error on PodStore.List: %w", err))
+		}
+		lastCount := fn(measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */))
 		for {
 			select {
 			case <-s.stopCh:
@@ -135,19 +147,33 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 					panic(fmt.Errorf("unexpected error on PodStore.List: %w", err))
 				}
 				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */)
-				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(measurmentInterval/time.Second)
+				count := fn(podsStatus)
+				throughput := float64(count-lastCount) / measurmentInterval.Seconds()
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
-				lastScheduledCount = podsStatus.Scheduled
-				klog.V(3).Infof("%v: %s: %d pods scheduled", s, selector.String(), lastScheduledCount)
+				lastCount = count
+				klog.V(3).Infof("%v: %s: %d pods scheduled", s, selector.String(), lastCount)
 			}
 		}
 	}()
 	return nil
 }
 
-func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measurement.Summary, error) {
+func measurmentTypeToFn(measurmentType string) func(ps podsutil.PodsStartupStatus) int {
+	switch measurmentType {
+	case "Running":
+		return func(ps podsutil.PodsStartupStatus) int {
+			return ps.Running
+		}
+	default:
+		return func(ps podsutil.PodsStartupStatus) int {
+			return ps.Scheduled
+		}
+	}
+}
+
+func (s *schedulingThroughputMeasurement) gather(threshold float64, name string) ([]measurement.Summary, error) {
 	if !s.isRunning {
-		klog.Errorf("%s: measurement is not running", s)
+		klog.Errorf("%s: measurement is not running", name)
 		return nil, fmt.Errorf("measurement is not running")
 	}
 	s.stop()
@@ -165,7 +191,7 @@ func (s *schedulingThroughputMeasurement) gather(threshold float64) ([]measureme
 	if err != nil {
 		return nil, err
 	}
-	summary := measurement.CreateSummary(schedulingThroughputMeasurementName, "json", content)
+	summary := measurement.CreateSummary(name, "json", content)
 	if threshold > 0 && throughputSummary.Max < threshold {
 		err = errors.NewMetricViolationError(
 			"scheduler throughput",

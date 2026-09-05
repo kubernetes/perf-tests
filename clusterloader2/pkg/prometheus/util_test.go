@@ -18,6 +18,9 @@ package prometheus
 
 import (
 	"testing"
+
+	"k8s.io/perf-tests/clusterloader2/pkg/config"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 func TestVerifySnapshotName(t *testing.T) {
@@ -37,5 +40,61 @@ func TestVerifySnapshotName(t *testing.T) {
 			t.Errorf("Incorrect validation result of %s, got: %v, want: %v",
 				test.name, (err == nil), test.isValid)
 		}
+	}
+}
+
+func TestValidatePrometheusFlagsUseExisting(t *testing.T) {
+	t.Cleanup(func() { prom.ConfigureInClusterProxy(prom.DefaultProxyScheme, prom.DefaultServiceName) })
+
+	tests := []struct {
+		name    string
+		cfg     config.PrometheusConfig
+		wantErr bool
+	}{
+		{
+			name: "defaults",
+			cfg:  config.PrometheusConfig{ProxyScheme: "http", ServiceName: "prometheus-k8s"},
+		},
+		{
+			name: "use existing https",
+			cfg: config.PrometheusConfig{
+				UseExistingServer: true,
+				ProxyScheme:       "https",
+				ServiceName:       "prometheus-k8s-shard-0",
+			},
+		},
+		{
+			name: "both enable and use existing",
+			cfg: config.PrometheusConfig{
+				EnableServer:      true,
+				UseExistingServer: true,
+				ProxyScheme:       "http",
+			},
+			wantErr: true,
+		},
+		{
+			name:    "bad scheme",
+			cfg:     config.PrometheusConfig{ProxyScheme: "ftp"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errList := ValidatePrometheusFlags(&tc.cfg)
+			gotErr := !errList.IsEmpty()
+			if gotErr != tc.wantErr {
+				t.Fatalf("ValidatePrometheusFlags() error=%v (%s), wantErr=%v", gotErr, errList.String(), tc.wantErr)
+			}
+			if tc.wantErr {
+				return
+			}
+			if got := prom.InClusterProxyScheme(); got != tc.cfg.ProxyScheme {
+				t.Errorf("scheme = %q, want %q", got, tc.cfg.ProxyScheme)
+			}
+			if tc.cfg.ServiceName != "" && prom.InClusterServiceName() != tc.cfg.ServiceName {
+				t.Errorf("service = %q, want %q", prom.InClusterServiceName(), tc.cfg.ServiceName)
+			}
+		})
 	}
 }

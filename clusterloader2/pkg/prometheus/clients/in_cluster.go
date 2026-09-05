@@ -23,9 +23,48 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
+const (
+	// DefaultServiceName is the Service created by --enable-prometheus-server.
+	DefaultServiceName = "prometheus-k8s"
+	// DefaultProxyScheme matches kube-prometheus (http Service port).
+	DefaultProxyScheme = "http"
+)
+
+var (
+	inClusterServiceName = DefaultServiceName
+	inClusterProxyScheme = DefaultProxyScheme
+)
+
+// ConfigureInClusterProxy sets the Service name and scheme used for apiserver
+// proxy PromQL. Empty values reset to defaults.
+func ConfigureInClusterProxy(scheme, serviceName string) {
+	if scheme == "" {
+		inClusterProxyScheme = DefaultProxyScheme
+	} else {
+		inClusterProxyScheme = scheme
+	}
+	if serviceName == "" {
+		inClusterServiceName = DefaultServiceName
+	} else {
+		inClusterServiceName = serviceName
+	}
+}
+
+// InClusterServiceName returns the monitoring-namespace Service used for PromQL.
+func InClusterServiceName() string {
+	return inClusterServiceName
+}
+
+// InClusterProxyScheme returns the apiserver service-proxy scheme (http or https).
+func InClusterProxyScheme() string {
+	return inClusterProxyScheme
+}
+
 // inClusterPrometheusClient talks to the Prometheus instance deployed in the test cluster.
 type inClusterPrometheusClient struct {
-	client clientset.Interface
+	client      clientset.Interface
+	scheme      string
+	serviceName string
 }
 
 func (icpc *inClusterPrometheusClient) Query(query string, queryTime time.Time) ([]byte, error) {
@@ -35,12 +74,16 @@ func (icpc *inClusterPrometheusClient) Query(query string, queryTime time.Time) 
 	}
 	return icpc.client.CoreV1().
 		Services("monitoring").
-		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
+		ProxyGet(icpc.scheme, icpc.serviceName, "9090", "api/v1/query", params).
 		DoRaw(context.TODO())
 }
 
 func NewInClusterPrometheusClient(c clientset.Interface) Client {
-	return &inClusterPrometheusClient{client: c}
+	return &inClusterPrometheusClient{
+		client:      c,
+		scheme:      InClusterProxyScheme(),
+		serviceName: InClusterServiceName(),
+	}
 }
 
 var _ Client = &inClusterPrometheusClient{}

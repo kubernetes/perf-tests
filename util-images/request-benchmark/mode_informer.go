@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -46,7 +44,6 @@ func runInformer(args []string) error {
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig.")
 	targetNamespace := fs.String("namespace", "", "namespace to run informers for. If empty will open on all namespaces.")
 	informerCount := fs.Int("count", 4, "the number of informers per namespace to run.")
-	testTimeout := fs.Duration("timeout", time.Minute, "timeout duration for the test")
 	enableWatchListFeature := fs.Bool("enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
 	disableCompression := fs.Bool("disableCompression", false, "whether to disable gzip compression for API requests")
 	apiVersion := fs.String("api-version", "v1", "apiVersion of the target resource (e.g. v1, apps/v1).")
@@ -65,9 +62,6 @@ func runInformer(args []string) error {
 	if err := os.Setenv("KUBE_FEATURE_WatchListClient", strconv.FormatBool(*enableWatchListFeature)); err != nil {
 		return fmt.Errorf("failed to set KUBE_FEATURE_WatchListClient: %w", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), *testTimeout)
-	defer cancel()
 
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
@@ -100,29 +94,31 @@ func runInformer(args []string) error {
 	}
 	targetGVR := gv.WithResource(*resource)
 
-	err = wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		ts := time.Now()
-		ctxInformer, cancelInformers := context.WithCancel(ctx)
-		defer cancelInformers()
+	ctx := context.Background()
+	for {
+		if err = func(ctx context.Context) error {
+			ts := time.Now()
+			ctxInformer, cancelInformers := context.WithCancel(ctx)
+			defer cancelInformers()
 
-		klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %q", *informerCount, targetGVR, *targetNamespace)
-		informersSynced, err := startInformersForResource(ctxInformer, client, targetGVR, *informerCount, *targetNamespace)
-		if err != nil {
-			return false, err
-		}
+			klog.Infof("Starting %d informers for gvr = %v, targetNamespace = %q", *informerCount, targetGVR, *targetNamespace)
+			informersSynced, err := startInformersForResource(ctxInformer, client, targetGVR, *informerCount, *targetNamespace)
+			if err != nil {
+				return err
+			}
 
-		klog.Infof("Waiting for gvr = %v informers to sync", targetGVR)
-		if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
-			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", targetGVR, ctx.Err())
+			klog.Infof("Waiting for gvr = %v informers to sync", targetGVR)
+			if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
+				return fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", targetGVR, ctx.Err())
+			}
+			klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Since(ts))
+			return nil
+		}(ctx); err != nil {
+			errorRetryBackoff := time.Second
+			klog.Errorf("informer sync round failed, retrying in %v: %v", errorRetryBackoff, err)
+			time.Sleep(errorRetryBackoff)
 		}
-		klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Since(ts))
-		return false, nil
-	})
-	if err != nil && !isInformerContextDoneErr(err) {
-		return err
 	}
-	klog.Info("Exiting the informer subcommand")
-	return nil
 }
 
 func startInformersForResource(ctx context.Context, client kubernetes.Interface, gvr schema.GroupVersionResource, count int, namespace string) ([]cache.InformerSynced, error) {
@@ -151,8 +147,4 @@ func startInformersForResource(ctx context.Context, client kubernetes.Interface,
 		factory.Start(ctx.Done())
 	}
 	return informersSynced, nil
-}
-
-func isInformerContextDoneErr(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -2,6 +2,7 @@
 {{$replicas := DefaultParam .replicas 0}}
 {{$uri := DefaultParam .uri "/"}}
 {{$contentType := DefaultParam .contentType "json"}}
+{{$mode := DefaultParam .mode "http"}}
 
 steps:
 - name: Creating WaitForControlledPodsRunning measurement
@@ -27,9 +28,20 @@ steps:
     - basename: {{$namePrefix}}deploy
       objectTemplatePath: deployment.yaml
       templateFillMap:
+{{if eq $mode "informer"}}
+        Replicas: {{$replicas}}
+        ContentType: {{$contentType}}
+        Mode: {{$mode}}
+        Resource: {{DefaultParam .resource "configmaps"}}
+        ApiVersion: {{DefaultParam .apiVersion "v1"}}
+        Count: {{DefaultParam .count 1}}
+        Timeout: {{DefaultParam .timeout "876000h"}}
+        EnableWatchList: {{DefaultParam .enableWatchList false}}
+{{else}}
         Replicas: {{$replicas}}
         Uri: {{$uri}}
         ContentType: {{$contentType}}
+{{end}}
 - name: Waiting for WaitForControlledPodsRunning gather
   measurements:
   - Identifier: WaitForListBenchmarkDeployment

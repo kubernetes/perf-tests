@@ -1,7 +1,14 @@
 # The source of the image is at https://github.com/kubernetes/perf-tests/tree/master/util-images/request-benchmark
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.10"}}
 {{$cpu := DefaultParam .cpu "1250m"}}
+{{$mode := DefaultParam .Mode "http"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.15"}}
+# http mode streams responses to io.Discard, so 32Mi is plenty. informer mode
+# caches the full result set (~1GB per informer for 10k x 100KB configmaps),
+# so it needs a much larger limit that scales with .Count.
 {{$memory := DefaultParam .memory "32Mi"}}
+{{if eq $mode "informer"}}
+{{$memory = DefaultParam .memory "2Gi"}}
+{{end}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -25,9 +32,20 @@ spec:
         image: {{$image}}
         imagePullPolicy: Always
         args:
+{{if eq $mode "informer"}}
+        - informer
+        - --resource={{.Resource}}
+        - --api-version={{.ApiVersion}}
+        - --count={{.Count}}
+        - --timeout={{.Timeout}}
+        - --content-type={{.ContentType}}
+        - --enableWatchListFeature={{.EnableWatchList}}
+        - --namespace=
+{{else}}
         - --namespace={{.Namespace}}
         - --uri={{.Uri}}
         - --content-type={{.ContentType}}
+{{end}}
         resources:
           requests:
             cpu: {{$cpu}}

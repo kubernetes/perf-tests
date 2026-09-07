@@ -1,0 +1,65 @@
+## Etcd Write Throughput and Latency Prometheus Measurements
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+steps:
+- name: "{{$action}}ing etcd write measurements"
+  measurements:
+  - Identifier: EtcdTotalRequestsExecuted
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdTotalRequestsExecuted
+      metricVersion: v1
+      unit: requests
+      queries:
+      - name: TotalPutRequests
+        query: sum(increase(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+      - name: TotalWALFsyncs
+        query: sum(increase(etcd_disk_wal_fsync_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+      - name: TotalBackendCommits
+        query: sum(increase(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+
+  - Identifier: EtcdWriteThroughput
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdWriteThroughput
+      metricVersion: v1
+      unit: ops/s
+      queries:
+      - name: PutThroughput
+        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+      - name: BackendCommitRate
+        query: sum(rate(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+
+  - Identifier: EtcdWalFsyncDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdWalFsyncDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+
+  - Identifier: EtcdBackendCommitDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdBackendCommitDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+

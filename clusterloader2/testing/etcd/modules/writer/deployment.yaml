@@ -1,0 +1,50 @@
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.16"}}
+{{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
+{{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
+{{$qps := DefaultParam .Qps 100}}
+{{$concurrency := DefaultParam .Concurrency 10}}
+{{$keyCount := DefaultParam .KeyCount 10000}}
+{{$keySize := DefaultParam .KeySize 64}}
+{{$valSize := DefaultParam .ValSize 1024}}
+{{$cpu := DefaultParam .cpu "500m"}}
+{{$memory := DefaultParam .memory "256Mi"}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: benchmark-write
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: benchmark-write
+    spec:
+      containers:
+      - name: etcd-writer
+        image: {{$image}}
+        imagePullPolicy: {{$imagePullPolicy}}
+        args:
+        - etcd-put
+        - --endpoints={{$endpoints}}
+        - --qps={{$qps}}
+        - --concurrency={{$concurrency}}
+        - --key-count={{$keyCount}}
+        - --key-size={{$keySize}}
+        - --val-size={{$valSize}}
+        ports:
+        - name: metrics
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: {{$cpu}}
+            memory: {{$memory}}
+          limits:
+            cpu: {{$cpu}}
+            memory: {{$memory}}

@@ -1,0 +1,52 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$namePrefix := DefaultParam .namePrefix "etcd-writer-"}}
+{{$replicas := DefaultParam .replicas 3}}
+{{$qps := DefaultParam .qps 200}}
+{{$concurrency := DefaultParam .concurrency 10}}
+{{$keyCount := DefaultParam .keyCount 10000}}
+{{$keySize := DefaultParam .keySize 64}}
+{{$valSize := DefaultParam .valSize 1024}}
+{{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
+
+steps:
+- name: Starting measurement for etcd writer generators
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningEtcdWriterDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = benchmark-write
+      operationTimeout: 5m
+
+- name: Deploy etcd writer generator deployment
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: {{$namePrefix}}deploy
+      objectTemplatePath: modules/writer/deployment.yaml
+      templateFillMap:
+        Replicas: {{$replicas}}
+        Qps: {{$qps}}
+        Concurrency: {{$concurrency}}
+        KeyCount: {{$keyCount}}
+        KeySize: {{$keySize}}
+        ValSize: {{$valSize}}
+        Endpoints: {{$endpoints}}
+
+- name: Waiting for etcd writer generators to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningEtcdWriterDeployments
+    Params:
+      action: gather

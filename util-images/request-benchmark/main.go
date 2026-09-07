@@ -29,6 +29,7 @@ func main() {
 		fmt.Fprint(os.Stderr, `Usage: request-benchmark <subcommand> [flags]
 
 Subcommands:
+  etcd-put  Send Put requests to an etcd cluster
   http      Send HTTP requests to the apiserver (default when no subcommand given)
   informer  Start informers and measure sync time
   patch     Send Strategic Merge Patch requests to target Pods
@@ -45,6 +46,10 @@ Run 'request-benchmark <subcommand> --help' for subcommand-specific flags.
 		args = args[1:]
 	}
 	switch mode {
+	case "etcd-put":
+		if err := runEtcdPut(args); err != nil {
+			log.Fatal(err)
+		}
 	case "http":
 		if err := runHTTP(args); err != nil {
 			log.Fatal(err)
@@ -62,6 +67,6 @@ Run 'request-benchmark <subcommand> --help' for subcommand-specific flags.
 			log.Fatal(err)
 		}
 	default:
-		log.Fatalf("unknown subcommand %q, valid: http, informer, patch, watch", mode)
+		log.Fatalf("unknown subcommand %q, valid: etcd-put, http, informer, patch, watch", mode)
 	}
 }

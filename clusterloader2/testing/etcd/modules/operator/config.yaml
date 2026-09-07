@@ -1,0 +1,23 @@
+{{$manifest := DefaultParam .manifest "./testing/etcd/modules/operator/etcd-operator.yaml"}}
+
+steps:
+- name: Apply official etcd-operator manifests
+  measurements:
+  - Identifier: InstallEtcdOperator
+    Method: Exec
+    Params:
+      command:
+      - kubectl
+      - apply
+      - -f
+      - {{$manifest}}
+      timeout: 1m
+
+- name: Wait for etcd operator controller manager to be ready
+  measurements:
+  - Identifier: WaitForRunningEtcdOperator
+    Method: WaitForRunningPods
+    Params:
+      desiredPodCount: 1
+      labelSelector: control-plane = controller-manager
+      timeout: 2m

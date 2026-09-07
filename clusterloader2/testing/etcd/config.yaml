@@ -1,0 +1,61 @@
+# Etcd Write Throughput Benchmark with HA Operator and Builtin Prometheus Metrics
+{{$etcdReplicas := DefaultParam .CL2_ETCD_REPLICAS 3}}
+{{$writerReplicas := DefaultParam .CL2_ETCD_WRITER_REPLICAS 3}}
+{{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 200}}
+{{$writerConcurrency := DefaultParam .CL2_ETCD_WRITER_CONCURRENCY 10}}
+{{$keyCount := DefaultParam .CL2_ETCD_KEY_COUNT 10000}}
+{{$keySize := DefaultParam .CL2_ETCD_KEY_SIZE 64}}
+{{$valSize := DefaultParam .CL2_ETCD_VAL_SIZE 1024}}
+{{$duration := DefaultParam .CL2_ETCD_BENCHMARK_DURATION "1m"}}
+
+name: etcd-write-throughput
+namespace:
+  number: 1
+  deleteAutomanagedNamespaces: false
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 50
+
+steps:
+- name: Install official etcd operator
+  module:
+    path: modules/operator/config.yaml
+
+- name: Create operator-managed HA etcd cluster
+  module:
+    path: modules/cluster/config.yaml
+    params:
+      etcdReplicas: {{$etcdReplicas}}
+
+- name: Start etcd write throughput and latency measurements
+  module:
+    path: modules/measurements.yaml
+    params:
+      action: start
+
+- name: Start etcd write workload generators
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: create
+      replicas: {{$writerReplicas}}
+      qps: {{$writerQps}}
+      concurrency: {{$writerConcurrency}}
+      keyCount: {{$keyCount}}
+      keySize: {{$keySize}}
+      valSize: {{$valSize}}
+
+- name: Run etcd write throughput benchmark duration
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+
+- name: Gather etcd write throughput and latency measurements
+  module:
+    path: modules/measurements.yaml
+    params:
+      action: gather
+

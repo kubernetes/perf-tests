@@ -1,0 +1,15 @@
+{{$replicas := DefaultParam .Replicas 3}}
+{{$version := DefaultParam .Version "3.5.15-0"}}
+{{$imageRegistry := DefaultParam .EtcdImageRegistry "registry.k8s.io/etcd"}}
+
+apiVersion: operator.etcd.io/v1alpha1
+kind: EtcdCluster
+metadata:
+  name: {{.Name}}
+  labels:
+    app: etcd
+    group: etcd-cluster
+spec:
+  size: {{$replicas}}
+  version: "{{$version}}"
+  imageRegistry: "{{$imageRegistry}}"

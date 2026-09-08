@@ -15,10 +15,13 @@ steps:
       queries:
       - name: TotalPutRequests
         query: sum(increase(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+        requireSamples: true
       - name: TotalWALFsyncs
         query: sum(increase(etcd_disk_wal_fsync_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+        requireSamples: true
       - name: TotalBackendCommits
         query: sum(increase(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+        requireSamples: true
 
   - Identifier: EtcdWriteThroughput
     Method: GenericPrometheusQuery
@@ -30,8 +33,10 @@ steps:
       queries:
       - name: PutThroughput
         query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+        requireSamples: true
       - name: BackendCommitRate
         query: sum(rate(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+        requireSamples: true
 
   - Identifier: EtcdWalFsyncDuration
     Method: GenericPrometheusQuery
@@ -43,10 +48,13 @@ steps:
       queries:
       - name: Perc99
         query: histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
       - name: Perc90
         query: histogram_quantile(0.90, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
       - name: Perc50
         query: histogram_quantile(0.50, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
 
   - Identifier: EtcdBackendCommitDuration
     Method: GenericPrometheusQuery
@@ -58,8 +66,11 @@ steps:
       queries:
       - name: Perc99
         query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
       - name: Perc90
         query: histogram_quantile(0.90, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
       - name: Perc50
         query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        requireSamples: true
 

@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -91,8 +93,14 @@ func runWatch(args []string) error {
 			continue
 		}
 		for event := range w.ResultChan() {
-			if meta, ok := event.Object.(metav1.Object); ok {
-				opts.ResourceVersion = meta.GetResourceVersion()
+			switch event.Type {
+			case watch.Added, watch.Modified, watch.Deleted, watch.Bookmark:
+			case watch.Error:
+				err := apierrors.FromObject(event.Object)
+				klog.Errorf("Watch failed: %v. Retrying in 1s...", err)
+				time.Sleep(1 * time.Second)
+			default:
+				panic(fmt.Sprintf("unexpected watch event type %q: %#v", event.Type, event))
 			}
 		}
 		w.Stop()

@@ -1,0 +1,718 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+    control-plane: controller-manager
+  name: etcd-operator-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: etcdclusters.operator.etcd.io
+spec:
+  group: operator.etcd.io
+  names:
+    kind: EtcdCluster
+    listKind: EtcdClusterList
+    plural: etcdclusters
+    singular: etcdcluster
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: EtcdCluster is the Schema for the etcdclusters API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EtcdClusterSpec defines the desired state of EtcdCluster.
+            properties:
+              etcdOptions:
+                description: etcd configuration options are passed as command line
+                  arguments to the etcd container, refer to etcd documentation for
+                  configuration options applicable for the version of etcd being used.
+                items:
+                  type: string
+                type: array
+              imageRegistry:
+                description: |-
+                  ImageRegistry specifies the container registry that hosts the etcd images.
+                  If unset, it defaults to the value provided via the controller's
+                  --image-registry flag, which itself defaults to "gcr.io/etcd-development/etcd".
+                type: string
+              podTemplate:
+                description: PodTemplate is the pod template to use for the etcd cluster.
+                properties:
+                  metadata:
+                    description: Metadata is the metadata to add to the pod.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
+                type: object
+              size:
+                description: Size is the expected size of the etcd cluster.
+                minimum: 1
+                type: integer
+              storageSpec:
+                description: StorageSpec is the name of the StorageSpec to use for
+                  the etcd cluster. If not provided, then each POD just uses the temporary
+                  storage inside the container.
+                properties:
+                  accessModes:
+                    type: string
+                  pvcName:
+                    type: string
+                  storageClassName:
+                    type: string
+                  volumeSizeLimit:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  volumeSizeRequest:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                required:
+                - volumeSizeRequest
+                type: object
+              tls:
+                description: TLS is the TLS certificate configuration to use for the
+                  etcd cluster and etcd operator.
+                properties:
+                  provider:
+                    type: string
+                  providerCfg:
+                    properties:
+                      autoCfg:
+                        properties:
+                          altNames:
+                            description: |-
+                              AltNames contains the domain names and IP addresses that will be added
+                              to the x509 certificate SubAltNames fields. The values will be passed
+                              directly to the x509.Certificate object.
+                            properties:
+                              dnsNames:
+                                description: |-
+                                  DNSNames is the expected array of DNS subject alternative names.
+                                  if empty defaults to $(POD_NAME).$(ETCD_CLUSTER_NAME).$(POD_NAMESPACE).svc.cluster.local
+                                items:
+                                  type: string
+                                type: array
+                              ipAddresses:
+                                description: IPs is the expected array of IP address
+                                  subject alternative names.
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          caBundleSecret:
+                            description: |-
+                              CABundleSecret is the expected secret name with CABundle present. It's used
+                              by each etcd POD to verify TLS communications with its peers or clients. If it isn't
+                              provided, the CA included in the secret generated by certificate provider will be
+                              used instead if present; otherwise, there is no way to verify TLS communications.
+                            type: string
+                          commonName:
+                            description: |-
+                              CommonName is the expected common name X509 certificate subject attribute.
+                              Should have a length of 64 characters or fewer to avoid generating invalid CSRs.
+                            type: string
+                          organizations:
+                            description: Organization is the expected array of Organization
+                              names to be used on the Certificate.
+                            items:
+                              type: string
+                            type: array
+                          validityDuration:
+                            description: |-
+                              ValidityDuration is the expected duration until which the certificate will be valid,
+                              expects in human-readable duration: 100d12h, if empty defaults to 90d for cert-manager
+                              and 365d for auto as per: https://github.com/etcd-io/etcd/blob/b87bc1c3a275d7d4904f4d201b963a2de2264f0d/client/pkg/transport/listener.go#L275
+                            type: string
+                        type: object
+                      certManagerCfg:
+                        properties:
+                          altNames:
+                            description: |-
+                              AltNames contains the domain names and IP addresses that will be added
+                              to the x509 certificate SubAltNames fields. The values will be passed
+                              directly to the x509.Certificate object.
+                            properties:
+                              dnsNames:
+                                description: |-
+                                  DNSNames is the expected array of DNS subject alternative names.
+                                  if empty defaults to $(POD_NAME).$(ETCD_CLUSTER_NAME).$(POD_NAMESPACE).svc.cluster.local
+                                items:
+                                  type: string
+                                type: array
+                              ipAddresses:
+                                description: IPs is the expected array of IP address
+                                  subject alternative names.
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          caBundleSecret:
+                            description: |-
+                              CABundleSecret is the expected secret name with CABundle present. It's used
+                              by each etcd POD to verify TLS communications with its peers or clients. If it isn't
+                              provided, the CA included in the secret generated by certificate provider will be
+                              used instead if present; otherwise, there is no way to verify TLS communications.
+                            type: string
+                          commonName:
+                            description: |-
+                              CommonName is the expected common name X509 certificate subject attribute.
+                              Should have a length of 64 characters or fewer to avoid generating invalid CSRs.
+                            type: string
+                          issuerKind:
+                            description: IssuerKind is the expected kind of Issuer,
+                              either "ClusterIssuer" or "Issuer"
+                            type: string
+                          issuerName:
+                            description: IssuerName is the expected name of Issuer
+                              required to issue a certificate
+                            type: string
+                          organizations:
+                            description: Organization is the expected array of Organization
+                              names to be used on the Certificate.
+                            items:
+                              type: string
+                            type: array
+                          validityDuration:
+                            description: |-
+                              ValidityDuration is the expected duration until which the certificate will be valid,
+                              expects in human-readable duration: 100d12h, if empty defaults to 90d for cert-manager
+                              and 365d for auto as per: https://github.com/etcd-io/etcd/blob/b87bc1c3a275d7d4904f4d201b963a2de2264f0d/client/pkg/transport/listener.go#L275
+                            type: string
+                        required:
+                        - issuerKind
+                        - issuerName
+                        type: object
+                    type: object
+                type: object
+              version:
+                description: Version is the expected version of the etcd container
+                  image.
+                type: string
+            required:
+            - size
+            - version
+            type: object
+          status:
+            description: EtcdClusterStatus defines the observed state of EtcdCluster.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the EtcdCluster's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              currentReplicas:
+                description: |-
+                  CurrentReplicas is the number of etcd pods managed by the StatefulSet for this cluster.
+                  This reflects the .spec.replicas of the underlying StatefulSet.
+                format: int32
+                type: integer
+              currentVersion:
+                description: |-
+                  CurrentVersion is the observed etcd version of the cluster.
+                  This is typically derived from the version of the healthy leader or a consensus among healthy members.
+                type: string
+              leaderID:
+                description: LeaderID is the hex-encoded ID of the current etcd cluster
+                  leader, if one exists and is known.
+                type: string
+              memberCount:
+                description: |-
+                  MemberCount is the number of members currently registered in the etcd cluster,
+                  as reported by the etcd 'member list' API. This may differ from CurrentReplicas
+                  during scaling operations or if members are added/removed outside the operator's direct control.
+                format: int32
+                type: integer
+              members:
+                description: |-
+                  Members provides the status of each individual etcd member.
+                  Alternative listMapKey could be 'name' if 'id' is not always immediately available or stable during init.
+                  However, 'id' is more canonical once a member is part of the cluster.
+                items:
+                  description: MemberStatus defines the observed state of a single
+                    etcd member.
+                  properties:
+                    id:
+                      description: |-
+                        ID is the hex-encoded member ID as reported by etcd.
+                        This is the canonical identifier for an etcd member.
+                      type: string
+                    isHealthy:
+                      description: |-
+                        IsHealthy indicates if the member is considered healthy.
+                        A member is healthy if its etcd /health endpoint is reachable and reports OK,
+                        and its Status endpoint does not report any 'Errors'.
+                      type: boolean
+                    isLeader:
+                      description: IsLeader indicates if this member is currently
+                        the cluster leader.
+                      type: boolean
+                    isLearner:
+                      description: IsLearner indicates if the member is currently
+                        a learner in the etcd cluster.
+                      type: boolean
+                    name:
+                      description: |-
+                        Name of the etcd member, typically the pod name (e.g., "etcd-cluster-example-0").
+                        This can also be the name reported by etcd itself if set.
+                      type: string
+                    version:
+                      description: Version of etcd running on this member.
+                      type: string
+                  required:
+                  - id
+                  - isHealthy
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  for this EtcdCluster by the controller.
+                format: int64
+                type: integer
+              readyReplicas:
+                description: |-
+                  ReadyReplicas is the number of etcd pods managed by the StatefulSet that are currently ready.
+                  This reflects the .status.readyReplicas of the underlying StatefulSet.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-controller-manager
+  namespace: etcd-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-leader-election-role
+  namespace: etcd-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-etcdcluster-editor-role
+rules:
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-etcdcluster-viewer-role
+rules:
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  - issuers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.etcd.io
+  resources:
+  - etcdclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-operator-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-leader-election-rolebinding
+  namespace: etcd-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etcd-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: etcd-operator-controller-manager
+  namespace: etcd-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+  name: etcd-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: etcd-operator-controller-manager
+  namespace: etcd-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-operator-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: etcd-operator-controller-manager
+  namespace: etcd-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+    control-plane: controller-manager
+  name: etcd-operator-controller-manager-metrics-service
+  namespace: etcd-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: etcd-operator
+    control-plane: controller-manager
+  name: etcd-operator-controller-manager
+  namespace: etcd-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: gcr.io/etcd-development/etcd-operator:v0.2.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: etcd-operator-controller-manager
+      terminationGracePeriodSeconds: 10

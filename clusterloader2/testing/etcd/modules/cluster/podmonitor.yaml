@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{.Name}}
+  labels:
+    app: etcd
+spec:
+  jobLabel: app
+  selector:
+    matchLabels:
+      app: {{.ClusterName}}
+  namespaceSelector:
+    any: true
+  podMetricsEndpoints:
+  - port: client
+    path: /metrics
+    interval: 5s
+    scrapeTimeout: 4s

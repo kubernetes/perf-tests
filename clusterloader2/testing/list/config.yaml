@@ -2,6 +2,9 @@
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 100000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
+{{$customResourceBytes := DefaultParam .CL2_LIST_CUSTOM_RESOURCE_BYTES 100000}}
+{{$customResourceNumber := DefaultParam .CL2_LIST_CUSTOM_RESOURCE_NUMBER 0}}
+{{$customResourceGroup := DefaultParam .CL2_LIST_CUSTOM_RESOURCE_GROUP "list-custom-resource"}}
 {{$podNumber := DefaultParam .CL2_LIST_POD_NUMBER 0}}
 {{$podGroup := DefaultParam .CL2_LIST_POD_GROUP "list-pod"}}
 
@@ -85,6 +88,98 @@ steps:
     params:
       namePrefix: "list-configmaps-"
       replicas: 0
+
+{{if $customResourceNumber}}
+- name: Delete configmaps before custom resource list benchmark
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 0
+    objectBundle:
+    - basename: {{$configMapGroup}}
+      objectTemplatePath: configmap.yaml
+      templateFillMap:
+        bytes: {{$configMapBytes}}
+        group: {{$configMapGroup}}
+
+- name: Create custom resource definition
+  phases:
+  - replicasPerNamespace: 1
+    tuningSet: Sequence
+    objectBundle:
+    - basename: listbenchmarkresources.clusterloader.io
+      objectTemplatePath: customresourcedefinition.yaml
+
+- name: Wait for custom resource definition to be served
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 30s
+
+- name: Create custom resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$customResourceNumber}}
+    objectBundle:
+    - basename: {{$customResourceGroup}}
+      objectTemplatePath: customresource.yaml
+      templateFillMap:
+        bytes: {{$customResourceBytes}}
+        group: {{$customResourceGroup}}
+
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-customresources-"
+      replicas: {{$listReplicas}}
+      uri: /apis/clusterloader.io-0/v1alpha1/listbenchmarkresources?resourceVersion=0
+      namespaced: false
+      contentType: {{$contentType}}
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Wait 5 minutes for custom resource list benchmark
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-customresources-"
+      replicas: 0
+
+- name: Delete custom resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 0
+    objectBundle:
+    - basename: {{$customResourceGroup}}
+      objectTemplatePath: customresource.yaml
+
+- name: Delete custom resource definition
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Sequence
+    objectBundle:
+    - basename: listbenchmarkresources.clusterloader.io
+      objectTemplatePath: customresourcedefinition.yaml
+{{end}}
 
 {{if $podNumber}}
 - name: Delete configmaps before pod list benchmark

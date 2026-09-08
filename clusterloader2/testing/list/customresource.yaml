@@ -1,0 +1,184 @@
+{{$bytes := .bytes}}
+{{$group := DefaultParam .group .Name}}
+
+apiVersion: clusterloader.io-0/v1alpha1
+kind: ListBenchmarkResource
+metadata:
+  name: {{.Name}}
+  labels:
+    group: {{$group}}
+    kueue.x-k8s.io/queue-name: benchmark-queue
+    app.kubernetes.io/name: list-benchmark-resource
+    app.kubernetes.io/component: workload
+  annotations:
+    list-benchmark.k8s.io/description: "large custom resource for LIST benchmark"
+    list-benchmark.k8s.io/source: "clusterloader2"
+spec:
+  queueName: benchmark-queue
+  priorityClassName: batch
+  priority: 1000
+  active: true
+  podSets:
+  - name: main
+    count: 100
+    minCount: 80
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/name: list-benchmark-resource
+          app.kubernetes.io/component: worker
+          workload-type: batch
+        annotations:
+          prometheus.io/scrape: "false"
+          sidecar.istio.io/inject: "false"
+      spec:
+        restartPolicy: Never
+        schedulerName: default-scheduler
+        serviceAccountName: default
+        nodeSelector:
+          kubernetes.io/os: linux
+          workload-profile: benchmark
+        tolerations:
+        - key: dedicated
+          operator: Equal
+          value: batch
+          effect: NoSchedule
+        containers:
+        - name: main
+          image: registry.k8s.io/pause:3.9
+          command:
+          - /bin/sh
+          - -c
+          args:
+          - sleep 3600
+          env:
+          - name: WORKLOAD_NAME
+            value: {{.Name}}
+          - name: QUEUE_NAME
+            value: benchmark-queue
+          - name: PAYLOAD_CLASS
+            value: large
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+          - name: config
+            mountPath: /etc/config
+            readOnly: true
+          - name: scratch
+            mountPath: /var/tmp
+        - name: sidecar
+          image: registry.k8s.io/pause:3.9
+          env:
+          - name: WORKLOAD_NAME
+            value: {{.Name}}
+          - name: QUEUE_NAME
+            value: benchmark-queue
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        volumes:
+        - name: config
+          configMap:
+            name: benchmark-config
+        - name: credentials
+          secret:
+            secretName: benchmark-secret
+        - name: scratch
+          configMap:
+            name: benchmark-scratch
+    topologyRequest:
+      required: "cloud.google.com/gke-nodepool in (benchmark-pool)"
+      preferred: "topology.kubernetes.io/zone in (us-central1-a,us-central1-b)"
+    payload: "{{RandData $bytes}}"
+  - name: reducer
+    count: 25
+    minCount: 10
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/name: list-benchmark-resource
+          app.kubernetes.io/component: reducer
+          workload-type: batch
+        annotations:
+          prometheus.io/scrape: "false"
+      spec:
+        restartPolicy: Never
+        schedulerName: default-scheduler
+        containers:
+        - name: reducer
+          image: registry.k8s.io/pause:3.9
+          env:
+          - name: WORKLOAD_NAME
+            value: {{.Name}}
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+    topologyRequest:
+      preferred: "topology.kubernetes.io/zone in (us-central1-a,us-central1-b)"
+    payload: "{{RandData $bytes}}"
+  admission:
+    clusterQueue: benchmark-cluster-queue
+    podSetAssignments:
+    - name: main
+      flavors:
+        cpu: default
+        memory: default
+      resourceUsage:
+        cpu: "25"
+        memory: 25Gi
+      count: 100
+    - name: reducer
+      flavors:
+        cpu: default
+        memory: default
+      resourceUsage:
+        cpu: "12"
+        memory: 12Gi
+      count: 25
+  admissionChecks:
+  - name: quota-reservation
+    state: Ready
+    message: "quota reserved for benchmark workload"
+    podSetUpdates:
+    - name: main
+      labels:
+        quota.kueue.x-k8s.io/reserved: "true"
+      annotations:
+        quota.kueue.x-k8s.io/flavor: default
+  - name: topology-assignment
+    state: Ready
+    message: "topology assignment is available"
+    podSetUpdates:
+    - name: reducer
+      labels:
+        topology.kueue.x-k8s.io/zone: us-central1-a
+      annotations:
+        topology.kueue.x-k8s.io/request: preferred
+  conditions:
+  - type: QuotaReserved
+    status: "True"
+    reason: QuotaReserved
+    message: "quota has been reserved"
+    lastTransitionTime: "2026-01-01T00:00:00Z"
+  - type: Admitted
+    status: "True"
+    reason: Admitted
+    message: "workload admitted for benchmark"
+    lastTransitionTime: "2026-01-01T00:00:00Z"
+  requeueState:
+    count: 0
+    requeueAt: "2026-01-01T00:00:00Z"
+  payload: "{{RandData $bytes}}"

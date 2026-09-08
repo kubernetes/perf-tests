@@ -6,9 +6,6 @@ apiVersion: operator.etcd.io/v1alpha1
 kind: EtcdCluster
 metadata:
   name: {{.Name}}
-  labels:
-    app: etcd
-    group: etcd-cluster
 spec:
   size: {{$replicas}}
   version: "{{$version}}"

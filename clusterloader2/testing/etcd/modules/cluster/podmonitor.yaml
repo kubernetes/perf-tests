@@ -9,7 +9,6 @@ spec:
   selector:
     matchLabels:
       app: {{.ClusterName}}
-      group: etcd-cluster
   namespaceSelector:
     any: true
   podMetricsEndpoints:

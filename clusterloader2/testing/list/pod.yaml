@@ -1,0 +1,553 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payment-service
+  namespace: default
+  uid: pod-uid-00000000
+  resourceVersion: "1"
+  generation: 1
+  creationTimestamp: "2023-11-14T22:13:20Z"
+  labels:
+    group: bench-pod
+    app.kubernetes.io/name: "payment-service"
+    app.kubernetes.io/instance: "payment-service-primary"
+    app.kubernetes.io/version: "v2.1.4"
+    app.kubernetes.io/component: "backend"
+    app.kubernetes.io/part-of: "ecommerce-platform"
+    env: "production"
+    track: "canary"
+  annotations:
+    prometheus.io/scrape: "false"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+    sidecar.istio.io/inject: "false"
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    vault.hashicorp.com/agent-inject: "false"
+    vault.hashicorp.com/role: "my-app-db-role"
+    fluentbit.io/parser: "json"
+    argocd.argoproj.io/hook: "PreSync"
+    argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
+  managedFields:
+  - manager: kube-controller-manager
+    operation: Update
+    apiVersion: v1
+    time: "2023-11-14T22:13:20Z"
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:argocd.argoproj.io/hook: {}
+          f:argocd.argoproj.io/hook-delete-policy: {}
+          f:cluster-autoscaler.kubernetes.io/safe-to-evict: {}
+          f:fluentbit.io/parser: {}
+          f:prometheus.io/path: {}
+          f:prometheus.io/port: {}
+          f:prometheus.io/scrape: {}
+          f:sidecar.istio.io/inject: {}
+          f:vault.hashicorp.com/agent-inject: {}
+          f:vault.hashicorp.com/role: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/name: {}
+          f:app.kubernetes.io/part-of: {}
+          f:app.kubernetes.io/version: {}
+          f:env: {}
+          f:group: {}
+          f:track: {}
+      f:spec:
+        f:containers:
+          k:{"name":"main"}:
+            .: {}
+            f:env:
+              .: {}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/var/configmap"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/secret"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+          k:{"name":"sidecar"}:
+            .: {}
+            f:env:
+              .: {}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:initContainers:
+          k:{"name":"init-0"}:
+            .: {}
+            f:command: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+          k:{"name":"init-1"}:
+            .: {}
+            f:command: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+        f:nodeSelector: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:terminationGracePeriodSeconds: {}
+        f:volumes:
+          .: {}
+          k:{"name":"configmap"}:
+            .: {}
+            f:configMap:
+              .: {}
+              f:name: {}
+              f:optional: {}
+            f:name: {}
+          k:{"name":"secret"}:
+            .: {}
+            f:name: {}
+            f:secret:
+              .: {}
+              f:optional: {}
+              f:secretName: {}
+  - manager: kubelet
+    operation: Update
+    apiVersion: v1
+    time: "2023-11-14T22:13:20Z"
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodScheduled"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:initContainerStatuses: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.244.1.5"}:
+            .: {}
+            f:ip: {}
+        f:startTime: {}
+    subresource: status
+spec:
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  dnsPolicy: ClusterFirst
+  securityContext: {}
+  serviceAccountName: default
+  serviceAccount: default
+  nodeName: benchmark-node-0
+  schedulerName: non-existent-scheduler
+  nodeSelector:
+    kubernetes.io/hostname: "non-existent-node"
+  enableServiceLinks: true
+  priority: 0
+  preemptionPolicy: PreemptLowerPriority
+  tolerations:
+  - key: "node.kubernetes.io/not-ready"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 300
+  - key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 300
+  volumes:
+  - name: configmap
+    configMap:
+      name: bench-pod
+      optional: true
+  - name: secret
+    secret:
+      secretName: bench-pod
+      optional: true
+  - name: kube-api-access-abcde
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+  initContainers:
+  - name: init-0
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    command: ["/bin/sh", "-c", "sleep 1"]
+    imagePullPolicy: IfNotPresent
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-abcde
+      readOnly: true
+  - name: init-1
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    command: ["/bin/sh", "-c", "sleep 1"]
+    imagePullPolicy: IfNotPresent
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-abcde
+      readOnly: true
+  containers:
+  - name: main
+    image: registry.k8s.io/pause:3.9
+    imagePullPolicy: IfNotPresent
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          containerName: main
+          resource: limits.cpu
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: main
+          resource: limits.memory
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=75.0"
+    - name: REDIS_URL
+      value: "redis://main:6379/0"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: NODE_ENV
+      value: "prod"
+    resources:
+      requests:
+        cpu: 5m
+        memory: 20M
+    volumeMounts:
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-abcde
+      readOnly: true
+  - name: sidecar
+    image: registry.k8s.io/pause:3.9
+    imagePullPolicy: IfNotPresent
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          containerName: sidecar
+          resource: limits.cpu
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: sidecar
+          resource: limits.memory
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=75.0"
+    - name: REDIS_URL
+      value: "redis://main:6379/0"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: NODE_ENV
+      value: "prod"
+    resources:
+      requests:
+        cpu: 5m
+        memory: 20M
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-abcde
+      readOnly: true
+status:
+  phase: Running
+  conditions:
+  - type: PodReadyToStartContainers
+    status: "True"
+    lastProbeTime: null
+    lastTransitionTime: "2023-11-14T22:13:25Z"
+  - type: Initialized
+    status: "True"
+    lastProbeTime: null
+    lastTransitionTime: "2023-11-14T22:13:22Z"
+  - type: Ready
+    status: "True"
+    lastProbeTime: null
+    lastTransitionTime: "2023-11-14T22:13:25Z"
+  - type: ContainersReady
+    status: "True"
+    lastProbeTime: null
+    lastTransitionTime: "2023-11-14T22:13:25Z"
+  - type: PodScheduled
+    status: "True"
+    lastProbeTime: null
+    lastTransitionTime: "2023-11-14T22:13:20Z"
+  hostIP: 10.40.0.2
+  hostIPs:
+  - ip: 10.40.0.2
+  podIP: 10.244.1.5
+  podIPs:
+  - ip: 10.244.1.5
+  startTime: "2023-11-14T22:13:20Z"
+  initContainerStatuses:
+  - name: init-0
+    state:
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2023-11-14T22:13:21Z"
+        finishedAt: "2023-11-14T22:13:22Z"
+        containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-init0
+    lastState: {}
+    ready: true
+    restartCount: 0
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    imageID: registry.k8s.io/e2e-test-images/agnhost@sha256:b173c7d0ffe3d80ddb6da0fa37050477f928b12191bbfb56b92f7c1199934232
+    containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-init0
+  - name: init-1
+    state:
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2023-11-14T22:13:21Z"
+        finishedAt: "2023-11-14T22:13:22Z"
+        containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-init1
+    lastState: {}
+    ready: true
+    restartCount: 0
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    imageID: registry.k8s.io/e2e-test-images/agnhost@sha256:b173c7d0ffe3d80ddb6da0fa37050477f928b12191bbfb56b92f7c1199934232
+    containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-init1
+  containerStatuses:
+  - name: main
+    state:
+      running:
+        startedAt: "2023-11-14T22:13:25Z"
+    lastState: {}
+    ready: true
+    restartCount: 0
+    image: registry.k8s.io/pause:3.9
+    imageID: registry.k8s.io/pause@sha256:7031c1b283388d2c2e0974269d076ca982197138bd9c176f9ce4db81f490debe
+    containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-main
+    started: true
+  - name: sidecar
+    state:
+      running:
+        startedAt: "2023-11-14T22:13:25Z"
+    lastState: {}
+    ready: true
+    restartCount: 0
+    image: registry.k8s.io/pause:3.9
+    imageID: registry.k8s.io/pause@sha256:7031c1b283388d2c2e0974269d076ca982197138bd9c176f9ce4db81f490debe
+    containerID: containerd://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef-sidecar
+    started: true
+  qosClass: Burstable

@@ -121,12 +121,12 @@ def get_flags(rootdir, files):
     excluded_flags = set(f.read().splitlines())
     f.close()
 
-    regexs = [ re.compile('Var[P]?\([^,]*, "([^"]*)"'),
-               re.compile('.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
+    regexs = [ re.compile(r'Var[P]?\([^,]*, "([^"]*)"'),
+               re.compile(r'\.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile(r'\.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile(r'\.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile(r'\.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile(r'\.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
 
     flags = set()
     new_excluded_flags = set()
@@ -166,7 +166,7 @@ def flags_to_re(flags):
         # turn all flag names into regexs which will find both types
         newre = dashRE.sub('[-_]', flag)
         # only match if there is not a leading or trailing alphanumeric character
-        flagREs.append("[^\w${]" + newre + "[^\w]")
+        flagREs.append(r"[^\w${]" + newre + r"[^\w]")
     # turn that list of regex strings into a single large RE
     flagRE = "|".join(flagREs)
     flagRE = re.compile(flagRE)

@@ -5,8 +5,9 @@
 {{$qps := DefaultParam .qps 200}}
 {{$concurrency := DefaultParam .concurrency 10}}
 {{$keyCount := DefaultParam .keyCount 10000}}
-{{$keySize := DefaultParam .keySize 64}}
-{{$valSize := DefaultParam .valSize 1024}}
+{{$payloadType := DefaultParam .payloadType "pod"}}
+{{$compactInterval := DefaultParam .compactInterval "150s"}}
+{{$keyPrefix := DefaultParam .keyPrefix "/registry/pods/default/pod-"}}
 {{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
 
 steps:
@@ -39,8 +40,9 @@ steps:
         Qps: {{$qps}}
         Concurrency: {{$concurrency}}
         KeyCount: {{$keyCount}}
-        KeySize: {{$keySize}}
-        ValSize: {{$valSize}}
+        PayloadType: {{$payloadType}}
+        CompactInterval: {{$compactInterval}}
+        KeyPrefix: {{$keyPrefix}}
         Endpoints: {{$endpoints}}
 
 - name: Waiting for etcd writer generators to be running

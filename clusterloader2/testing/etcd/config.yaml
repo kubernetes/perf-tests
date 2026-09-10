@@ -4,8 +4,9 @@
 {{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 200}}
 {{$writerConcurrency := DefaultParam .CL2_ETCD_WRITER_CONCURRENCY 10}}
 {{$keyCount := DefaultParam .CL2_ETCD_KEY_COUNT 10000}}
-{{$keySize := DefaultParam .CL2_ETCD_KEY_SIZE 64}}
-{{$valSize := DefaultParam .CL2_ETCD_VAL_SIZE 1024}}
+{{$payloadType := DefaultParam .CL2_ETCD_PAYLOAD_TYPE "pod"}}
+{{$compactInterval := DefaultParam .CL2_ETCD_COMPACT_INTERVAL "150s"}}
+{{$keyPrefix := DefaultParam .CL2_ETCD_KEY_PREFIX "/registry/pods/default/pod-"}}
 {{$duration := DefaultParam .CL2_ETCD_BENCHMARK_DURATION "1m"}}
 
 name: etcd-write-throughput
@@ -43,8 +44,9 @@ steps:
       qps: {{$writerQps}}
       concurrency: {{$writerConcurrency}}
       keyCount: {{$keyCount}}
-      keySize: {{$keySize}}
-      valSize: {{$valSize}}
+      payloadType: {{$payloadType}}
+      compactInterval: {{$compactInterval}}
+      keyPrefix: {{$keyPrefix}}
 
 - name: Run etcd write throughput benchmark duration
   measurements:

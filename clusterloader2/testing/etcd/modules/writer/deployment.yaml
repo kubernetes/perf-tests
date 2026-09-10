@@ -1,11 +1,12 @@
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.17"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.18"}}
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
 {{$qps := DefaultParam .Qps 100}}
 {{$concurrency := DefaultParam .Concurrency 10}}
 {{$keyCount := DefaultParam .KeyCount 10000}}
-{{$keySize := DefaultParam .KeySize 64}}
-{{$valSize := DefaultParam .ValSize 1024}}
+{{$keyPrefix := DefaultParam .KeyPrefix "/registry/pods/default/pod-"}}
+{{$payloadType := DefaultParam .PayloadType "pod"}}
+{{$compactInterval := DefaultParam .CompactInterval "150s"}}
 {{$cpu := DefaultParam .cpu "500m"}}
 {{$memory := DefaultParam .memory "256Mi"}}
 
@@ -36,8 +37,9 @@ spec:
         - --qps={{$qps}}
         - --concurrency={{$concurrency}}
         - --key-count={{$keyCount}}
-        - --key-size={{$keySize}}
-        - --val-size={{$valSize}}
+        - --key-prefix={{$keyPrefix}}
+        - --payload-type={{$payloadType}}
+        - --compact-interval={{$compactInterval}}
         ports:
         - name: metrics
           containerPort: 8080

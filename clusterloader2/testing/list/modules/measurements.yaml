@@ -42,4 +42,50 @@ steps:
         threshold: {{$APISERVER_MEMORY_THRESHOLD_MEGABYTES}}
         requireSamples: false
         lowerBound: false
+  - Identifier: APIServerHeapInuse
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: kube-apiserver heap inuse
+      metricVersion: v1
+      unit: MiB
+      queries:
+      - name: MaxHeapInuse
+        query: |
+          max_over_time(
+          sum(
+            go_memstats_heap_inuse_bytes{job="master",endpoint="apiserver"}
+            / 1024 / 1024
+          )[%v:])
+        requireSamples: false
+  - Identifier: APIServerGCRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: kube-apiserver GC rate
+      metricVersion: v1
+      unit: count/s
+      queries:
+      - name: GCRate
+        query: |
+          sum(
+            rate(
+              go_gc_duration_seconds_count{job="master", endpoint="apiserver"}[%v])
+          )
+        requireSamples: false
+  - Identifier: APIServerAllocationRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: kube-apiserver allocation rate
+      metricVersion: v1
+      unit: MiB/s
+      queries:
+      - name: AllocationRate
+        query: |
+          sum(
+            rate(go_memstats_alloc_bytes_total{job="master",endpoint="apiserver"}[%v])
+            / 1024 / 1024
+          )
+        requireSamples: false
   {{end}}

@@ -44,6 +44,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	_ "k8s.io/perf-tests/clusterloader2/pkg/dependency/dra"
+	_ "k8s.io/perf-tests/clusterloader2/pkg/dependency/kwok/dra"
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/bundle"
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common/dns"

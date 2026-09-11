@@ -1,0 +1,37 @@
+---
+# Source: kwok/templates/flow_schema.yaml
+apiVersion: flowcontrol.apiserver.k8s.io/v1
+kind: FlowSchema
+metadata:
+  name: kwok-controller
+  labels:
+    helm.sh/chart: kwok-0.2.0
+    app.kubernetes.io/name: kwok
+    app.kubernetes.io/instance: kwok-controller
+    app.kubernetes.io/version: "v0.7.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  priorityLevelConfiguration:
+    name: exempt
+  matchingPrecedence: 1000
+  rules:
+  - nonResourceRules:
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
+    resourceRules:
+    - apiGroups:
+      - '*'
+      clusterScope: true
+      namespaces:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: kwok-controller
+        namespace: kwok-system

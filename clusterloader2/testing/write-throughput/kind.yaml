@@ -18,3 +18,4 @@ nodes:
       local:
         extraArgs:
           listen-metrics-urls: "http://0.0.0.0:2382"
+          quota-backend-bytes: "8589934592"

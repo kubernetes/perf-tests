@@ -25,6 +25,7 @@ metadata:
     argocd.argoproj.io/hook: "PreSync"
     argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
 spec:
+  schedulerName: "do-not-schedule"
   initContainers:
   - name: init-0
     image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53

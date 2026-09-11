@@ -87,6 +87,10 @@ func (e *etcdMetricsMeasurement) Execute(config *measurement.Config) ([]measurem
 		if err != nil {
 			return nil, err
 		}
+		// Re-create stopCh so that a second start/gather cycle can Dispose
+		// cleanly. Dispose closes stopCh, so reusing the one from a previous
+		// cycle (or the constructor) would panic with "close of closed channel".
+		e.stopCh = make(chan struct{})
 		for _, h := range hosts {
 			e.startCollecting(h, provider, waitTime, etcdInsecurePort)
 		}

@@ -37,19 +37,20 @@ type ClusterLoaderConfig struct {
 
 // ClusterConfig is a structure that represents cluster description.
 type ClusterConfig struct {
-	KubeConfigPath      string
-	RunFromCluster      bool
-	Nodes               int
-	Provider            provider.Provider
-	EtcdCertificatePath string
-	EtcdKeyPath         string
-	EtcdInsecurePort    int
-	EtcdPprofPort       int
-	EtcdEventsPprofPort int
-	MasterIPs           []string
-	MasterInternalIPs   []string
-	MasterName          string
-	MasterDNSEndpoint   string
+	KubeConfigPath         string
+	RunFromCluster         bool
+	Nodes                  int
+	Provider               provider.Provider
+	EtcdCertificatePath    string
+	EtcdKeyPath            string
+	EtcdInsecurePort       int
+	EtcdEventsInsecurePort int
+	EtcdPprofPort          int
+	EtcdEventsPprofPort    int
+	MasterIPs              []string
+	MasterInternalIPs      []string
+	MasterName             string
+	MasterDNSEndpoint      string
 	// Deprecated: use NamespaceConfig.DeleteStaleNamespaces instead.
 	DeleteStaleNamespaces bool
 	// TODO(#1696): Clean up after removing automanagedNamespaces

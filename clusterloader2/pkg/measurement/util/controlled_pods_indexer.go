@@ -39,11 +39,13 @@ const (
 // ControlledPodsIndexer is able to efficiently find pods with ownerReference pointing a given controller object.
 // For Deployments, it performs indirect lookup with ReplicaSets in the middle.
 type ControlledPodsIndexer struct {
-	podsIndexer cache.Indexer
-	podsSynced  cache.InformerSynced
-	rsSynced    cache.InformerSynced
+	podsIndexer     cache.Indexer
+	podsSynced      cache.InformerSynced
+	rsSynced        cache.InformerSynced
+	revisionsSynced cache.InformerSynced
 
-	rsIndexer cache.Indexer
+	rsIndexer        cache.Indexer
+	revisionsIndexer cache.Indexer
 
 	// lock is a lock for accessing rsPendingDeletion.
 	lock sync.Mutex
@@ -77,9 +79,13 @@ func (p *ControlledPodsIndexer) GetIndexer() cache.Indexer {
 }
 
 // NewControlledPodsIndexer creates a new ControlledPodsIndexer instance.
-func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer) (*ControlledPodsIndexer, error) {
+func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer, revisionsInformer appsinformers.ControllerRevisionInformer) (*ControlledPodsIndexer, error) {
 	if err := podsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc}); err != nil {
 		return nil, fmt.Errorf("failed to register indexer: %w", err)
+	}
+
+	if err := revisionsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc}); err != nil {
+		return nil, fmt.Errorf("failed to register revisions indexer: %w", err)
 	}
 
 	// We need a separate storage from rsInformer as we postpone deletion until all pods are removed.
@@ -90,6 +96,8 @@ func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer
 		podsSynced:        podsInformer.Informer().HasSynced,
 		rsIndexer:         rsIndexer,
 		rsSynced:          rsInformer.Informer().HasSynced,
+		revisionsIndexer:  revisionsInformer.Informer().GetIndexer(),
+		revisionsSynced:   revisionsInformer.Informer().HasSynced,
 		rsPendingDeletion: make(map[types.UID]bool),
 	}
 
@@ -210,7 +218,7 @@ func controllerUIDIndexFunc(obj interface{}) ([]string, error) {
 
 // WaitForCacheSync waits for all required informers to be initialized.
 func (p *ControlledPodsIndexer) WaitForCacheSync(ctx context.Context) bool {
-	return cache.WaitForNamedCacheSync("PodsIndexer", ctx.Done(), p.podsSynced, p.rsSynced)
+	return cache.WaitForNamedCacheSync("PodsIndexer", ctx.Done(), p.podsSynced, p.rsSynced, p.revisionsSynced)
 }
 
 // PodsControlledBy returns pods controlled by a given controller object.
@@ -265,6 +273,32 @@ func (p *ControlledPodsIndexer) appendPodsControlledBy(res []*corev1.Pod, uid ty
 			return nil, fmt.Errorf("expected *corev1.Pod; got: %T", obj)
 		}
 		res = append(res, pod)
+	}
+	return res, nil
+}
+
+// ReplicaSetsControlledBy returns ReplicaSets controlled by a given Deployment.
+func (p *ControlledPodsIndexer) ReplicaSetsControlledBy(deploymentUID types.UID) ([]*appsv1.ReplicaSet, error) {
+	replicaSets, err := p.rsIndexer.ByIndex(controllerUIDIndex, string(deploymentUID))
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*appsv1.ReplicaSet, len(replicaSets))
+	for i, obj := range replicaSets {
+		res[i] = obj.(*appsv1.ReplicaSet)
+	}
+	return res, nil
+}
+
+// ControllerRevisionsControlledBy returns ControllerRevisions controlled by a given controller (StatefulSet/DaemonSet).
+func (p *ControlledPodsIndexer) ControllerRevisionsControlledBy(controllerUID types.UID) ([]*appsv1.ControllerRevision, error) {
+	revisions, err := p.revisionsIndexer.ByIndex(controllerUIDIndex, string(controllerUID))
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*appsv1.ControllerRevision, len(revisions))
+	for i, obj := range revisions {
+		res[i] = obj.(*appsv1.ControllerRevision)
 	}
 	return res, nil
 }

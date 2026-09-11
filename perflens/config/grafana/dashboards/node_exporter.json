@@ -15421,7 +15421,7 @@
         "hide": 0,
         "includeAll": false,
         "label": "Scale Run",
-        "multi": false,
+        "multi": true,
         "name": "run",
         "options": [],
         "query": {
@@ -15458,8 +15458,8 @@
     ]
   },
   "time": {
-    "from": "now-7d",
-    "to": "now"
+    "from": "2000-01-01T00:00:00Z",
+    "to": "2000-01-01T02:00:00Z"
   },
   "timepicker": {},
   "timezone": "browser",

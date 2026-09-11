@@ -32,7 +32,9 @@ usage() {
   echo "  up                  Start PerfLens stack (Thanos Store, Thanos Query, Grafana)"
   echo "  down                Stop PerfLens stack"
   echo "  status              Show status of PerfLens services"
-  echo "  download <PROW_URL> Download Prow scale run metrics from GCS locally"
+  echo "  download <PROW_URL> [--logs]"
+  echo "                      Download Prow scale run metrics from GCS locally."
+  echo "                      --logs also fetches control-plane kube-apiserver logs."
   echo "  ingest <RUN_DIR>           Ingest Prow scale run metrics from local run directory into Thanos TSDB"
   echo ""
   exit 1
@@ -114,7 +116,19 @@ cmd_ingest() {
 }
 
 cmd_download() {
-  INPUT="$1"
+  INPUT=""
+  WITH_LOGS="false"
+  for arg in "$@"; do
+    case "${arg}" in
+      --logs)
+        WITH_LOGS="true"
+        ;;
+      *)
+        INPUT="${arg}"
+        ;;
+    esac
+  done
+
   if [ -z "${INPUT}" ]; then
     echo "Error: Missing Prow URL."
     usage
@@ -156,8 +170,14 @@ cmd_download() {
     "${PREFIX}/SchedulingThroughputPrometheus_load_*.json"
     "${PREFIX}/DnsLookupLatency_load_*.json"
     "${PREFIX}/prometheus_snapshot.tar"
-    "${PREFIX}/control-plane-*/kube-apiserver.log*"
   )
+
+  # Control-plane logs are multi-GB, so only fetch them when explicitly asked.
+  if [ "${WITH_LOGS}" = "true" ]; then
+    PATTERNS+=("${PREFIX}/control-plane-*/kube-apiserver.log*")
+  else
+    echo "    Skipping control-plane logs (pass --logs to include them)"
+  fi
 
   # List files and process them sequentially
   gcloud storage ls "${PATTERNS[@]}" 2>/dev/null | grep -v '/$' | while read -r gcs_path; do

@@ -26,8 +26,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/pager"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
@@ -43,6 +45,12 @@ const (
 	// MasterAndNonDaemons - all containers on Master nodes and non-daemons on other nodes.
 	MasterAndNonDaemons NodesSet = 1
 )
+
+// gathererPodListPageSize bounds the size of each pod LIST page issued at
+// gatherer startup. On large clusters a single unpaginated pod list can be
+// hundreds of MB and exceed the apiserver --request-timeout while being
+// serialized, resetting the connection. Tunable if needed.
+const gathererPodListPageSize = 2000
 
 // ResourceUsageSummary represents summary of resource usage per container.
 type ResourceUsageSummary map[string][]util.SingleContainerSummary
@@ -103,13 +111,7 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			provider:                    provider,
 		})
 	} else {
-		listOptions := metav1.ListOptions{ResourceVersion: "0"}
-		pods, err := c.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
-		if err != nil {
-			return nil, fmt.Errorf("listing pods error: %v", err)
-		}
-
-		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), listOptions)
+		nodeList, err := c.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{ResourceVersion: "0"})
 		if err != nil {
 			return nil, fmt.Errorf("listing nodes error: %v", err)
 		}
@@ -122,9 +124,18 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		}
 
 		nodesToConsider := make(map[string]bool)
-		for _, pod := range pods.Items {
-			if (options.Nodes == MasterAndNonDaemons) && !masterNodes.Has(pod.Spec.NodeName) && isDaemonPod(&pod) {
-				continue
+		// List pods in pages rather than in a single call.
+		podListPager := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+			return c.CoreV1().Pods(namespace).List(ctx, opts)
+		})
+		podListPager.PageSize = gathererPodListPageSize
+		if err := podListPager.EachListItem(context.TODO(), metav1.ListOptions{}, func(obj runtime.Object) error {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				return fmt.Errorf("unexpected object type %T", obj)
+			}
+			if (options.Nodes == MasterAndNonDaemons) && !masterNodes.Has(pod.Spec.NodeName) && isDaemonPod(pod) {
+				return nil
 			}
 			for _, container := range pod.Status.InitContainerStatuses {
 				g.containerIDs = append(g.containerIDs, container.Name)
@@ -135,6 +146,9 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 			if options.Nodes == MasterAndNonDaemons {
 				nodesToConsider[pod.Spec.NodeName] = true
 			}
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("listing pods error: %v", err)
 		}
 
 		for _, node := range nodeList.Items {

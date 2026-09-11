@@ -373,6 +373,8 @@ func main() {
 			if clusterLoaderConfig.PrometheusConfig.TearDownServer {
 				prometheusController.EnableTearDownPrometheusStackOnInterrupt()
 			}
+		} else if clusterLoaderConfig.PrometheusConfig.UseExistingServer {
+			prometheusFramework = f
 		}
 		if clusterLoaderConfig.ExecServiceConfig.Enable {
 			if err := execservice.SetUpExecService(f, clusterLoaderConfig.ExecServiceConfig); err != nil {

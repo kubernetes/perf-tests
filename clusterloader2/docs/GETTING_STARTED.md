@@ -297,6 +297,21 @@ then you can run cluster scale test with this command:
 `--enable-prometheus-server=true` deploys prometheus server
 using prometheus-operator.
 
+If the cluster already has Prometheus exposed as a Service in `monitoring`,
+skip the deploy and query it instead:
+
+```bash
+./clusterloader --provider=skeleton --kubeconfig=${HOME}/.kube/config \
+  --testconfig=./testing/list/config.yaml \
+  --use-existing-prometheus=true \
+  --prometheus-service=prometheus-k8s \
+  --prometheus-proxy-scheme=http \
+  --enable-prometheus-server=false
+```
+
+`--prometheus-proxy-scheme` defaults to `http` (kube-prometheus). Set `https`
+only if the apiserver service proxy requires it.
+
 There are various measurements that depend on prometheus metrics, for example:
 - API responsiveness - measures the latency of requests to kube-apiserver
 - Scheduling throughput

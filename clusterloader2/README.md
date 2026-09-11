@@ -38,6 +38,10 @@ If not specified, summaries are printed to the standard log.
  - `masterip` - DNS Name or IP of the master node.
  - `testoverrides` - path to file with overrides.
  - `kubelet-port` - TCP port of the kubelet to use (*default: 10250*).
+ - `enable-prometheus-server` - deploy CL2's kube-prometheus stack in `monitoring` (*default: false*).
+ - `use-existing-prometheus` - query Prometheus already running in the cluster (apiserver proxy to `monitoring/<prometheus-service>`). Mutually exclusive with `enable-prometheus-server`.
+ - `prometheus-service` - Service name used for in-cluster PromQL (*default: prometheus-k8s*).
+ - `prometheus-proxy-scheme` - `http` or `https` for the apiserver service proxy (*default: http*).
 
 ## Tests
 

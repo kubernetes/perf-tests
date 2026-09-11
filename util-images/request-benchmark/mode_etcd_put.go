@@ -55,7 +55,7 @@ func runEtcdPut(args []string) error {
 	concurrency := fs.Int("concurrency", 10, "Number of concurrent writer goroutines.")
 	keyCount := fs.Int("key-count", 10000, "Number of distinct keys to mutate.")
 	keyPrefix := fs.String("key-prefix", "/registry/pods/default/pod-", "Prefix for target keys.")
-	valSize := fs.Int("val-size", 256, "Total size of each value in bytes (for random payload-type).")
+	valSize := fs.Int("val-size", 0, "Total size of each value in bytes (for random payload-type).")
 	payloadType := fs.String("payload-type", "pod", "Payload type: 'pod' for realistic serialized Kubernetes Pod proto, 'random' for random bytes.")
 	compactInterval := fs.Duration("compact-interval", 150*time.Second, "Interval for background compaction simulating Kubernetes apiserver (0 to disable).")
 	dialTimeout := fs.Duration("dial-timeout", 5*time.Second, "Timeout for connecting to etcd cluster.")

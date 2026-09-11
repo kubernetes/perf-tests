@@ -1,4 +1,4 @@
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.18"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.19"}}
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
 {{$qps := DefaultParam .Qps 100}}

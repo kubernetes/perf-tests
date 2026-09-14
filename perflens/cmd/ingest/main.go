@@ -26,22 +26,24 @@ import (
 
 func main() {
 	opts := parseFlags()
-	if err := ingest.Run(opts.buildID, opts.mode, opts.artifactsDir); err != nil {
+	if err := ingest.Run(opts.buildID, opts.mode, opts.artifactsDir, opts.normalizeTime); err != nil {
 		fmt.Fprintf(os.Stderr, "Ingestion error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 type options struct {
-	buildID      string
-	mode         string
-	artifactsDir string
+	buildID       string
+	mode          string
+	artifactsDir  string
+	normalizeTime bool
 }
 
 func parseFlags() options {
 	buildID := flag.String("build-id", "", "Prow Build ID, run identifier, or run directory path")
 	mode := flag.String("mode", "all", "Ingestion mode: slo-metrics, prometheus-metrics, or all")
 	artifactsDir := flag.String("artifacts-dir", "", "Root _artifacts directory")
+	normalizeTime := flag.Bool("normalize-time", true, "Re-base sample timestamps so every run starts at the common anchor "+ingest.AnchorTime.Format("2006-01-02T15:04:05Z")+". Disable to keep original wall clock timestamps")
 	flag.Parse()
 
 	if *buildID == "" || *artifactsDir == "" {
@@ -49,8 +51,9 @@ func parseFlags() options {
 		os.Exit(1)
 	}
 	return options{
-		buildID:      *buildID,
-		mode:         *mode,
-		artifactsDir: *artifactsDir,
+		buildID:       *buildID,
+		mode:          *mode,
+		artifactsDir:  *artifactsDir,
+		normalizeTime: *normalizeTime,
 	}
 }

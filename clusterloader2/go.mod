@@ -49,7 +49,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.56.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.36.4

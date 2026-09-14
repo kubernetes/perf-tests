@@ -48,6 +48,7 @@ steps:
     - basename: list-rolebinding
       objectTemplatePath: rolebinding.yaml
 
+{{if $configMapNumber}}
 - name: Create configmaps
   phases:
   - namespaceRange:
@@ -103,6 +104,7 @@ steps:
     params:
       namePrefix: "list-configmaps-"
       replicas: 0
+{{end}}
 
 {{if $podNumber}}
 - name: Delete configmaps before pod list benchmark

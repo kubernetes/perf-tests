@@ -34,31 +34,17 @@ import (
 )
 
 const (
-	waitForRunningPodsRestartMeasurementName = "WaitForRunningPodsRestart"
+	waitForRunningPodsRestartMeasurementName = "WaitForPodsRecovery"
 )
 
 func init() {
-	names := []string{
-		waitForRunningPodsRestartMeasurementName,
-		"WaitForPodsRestart",
-		"WaitForRunningPodsResync",
-		"WaitForPodsResync",
-		"WaitForRunningPodsRecovery",
-		"WaitForPodsRecovery",
-	}
-	for _, name := range names {
-		if err := measurement.Register(name, createWaitForRunningPodsRestartMeasurementFactory(name)); err != nil {
-			klog.Fatalf("Cannot register %s: %v", name, err)
-		}
+	if err := measurement.Register(waitForRunningPodsRestartMeasurementName, createWaitForRunningPodsRestartMeasurement); err != nil {
+		klog.Fatalf("Cannot register %s: %v", waitForRunningPodsRestartMeasurementName, err)
 	}
 }
 
-func createWaitForRunningPodsRestartMeasurementFactory(name string) func() measurement.Measurement {
-	return func() measurement.Measurement {
-		return &waitForRunningPodsRestartMeasurement{
-			callerName: name,
-		}
-	}
+func createWaitForRunningPodsRestartMeasurement() measurement.Measurement {
+	return &waitForRunningPodsRestartMeasurement{}
 }
 
 type waitForRunningPodsRestartMeasurement struct {
@@ -66,7 +52,6 @@ type waitForRunningPodsRestartMeasurement struct {
 	isRunning      bool
 	totalPodsCount int
 	selector       *util.ObjectSelector
-	callerName     string
 }
 
 // Execute supports "start", "gather", and "stop" actions.
@@ -427,15 +412,11 @@ func calculateDesiredPodRange(params map[string]interface{}, initialRunningCount
 	}
 	computedMax := initialRunningCount + margin
 
-	if hasMin {
-		minDesired = minDesired
-	} else {
+	if !hasMin {
 		minDesired = computedMin
 	}
 
-	if hasMax {
-		maxDesired = maxDesired
-	} else {
+	if !hasMax {
 		maxDesired = computedMax
 	}
 
@@ -456,6 +437,6 @@ func (w *waitForRunningPodsRestartMeasurement) Dispose() {
 }
 
 // String returns a string representation of the measurement.
-func (w *waitForRunningPodsRestartMeasurement) String() string {
-	return w.callerName
+func (*waitForRunningPodsRestartMeasurement) String() string {
+	return waitForRunningPodsRestartMeasurementName
 }

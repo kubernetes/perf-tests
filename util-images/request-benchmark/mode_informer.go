@@ -48,7 +48,7 @@ func runInformer(args []string) error {
 	disableCompression := fs.Bool("disableCompression", false, "whether to disable gzip compression for API requests")
 	apiVersion := fs.String("api-version", "v1", "apiVersion of the target resource (e.g. v1, apps/v1).")
 	resource := fs.String("resource", "secrets", "resource name of the target resource (e.g. pods, deployments).")
-	contentType := fs.String("content-type", "proto", "Content type for informer requests. Valid values: [json, proto]")
+	contentType := fs.String("content-type", "", "Content type for informer requests (required). Valid values: [json, proto]")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -77,7 +77,7 @@ func runInformer(args []string) error {
 		config.AcceptContentTypes = "application/vnd.kubernetes.protobuf"
 		config.ContentType = "application/vnd.kubernetes.protobuf"
 	default:
-		return fmt.Errorf("only json,proto values are supported for --content-type")
+		return fmt.Errorf("--content-type is required. Valid values: [json, proto]")
 	}
 
 	config.DisableCompression = *disableCompression

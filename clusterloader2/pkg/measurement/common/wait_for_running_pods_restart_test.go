@@ -244,7 +244,7 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 	multiClientSet := framework.NewMultiClientSetFromClients(fakeClient)
 	clusterFramework := framework.NewFrameworkFromClients(multiClientSet, nil)
 
-	m := createWaitForRunningPodsRestartMeasurementFactory("WaitForRunningPodsRestart")()
+	m := createWaitForRunningPodsRestartMeasurement()
 
 	// 1. Gather before start should error
 	_, err := m.Execute(&measurement.Config{
@@ -310,9 +310,7 @@ func TestWaitForRunningPodsRestart_WaitForPodsWithDifference(t *testing.T) {
 	}
 
 	lister := &fakePodLister{pods: pods99}
-	w := &waitForRunningPodsRestartMeasurement{
-		callerName: "TestWait",
-	}
+	w := &waitForRunningPodsRestartMeasurement{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -400,9 +398,7 @@ func TestWaitForPods_TimeoutListsNotRunningPods(t *testing.T) {
 	}
 
 	lister := &fakePodLister{pods: pods}
-	w := &waitForRunningPodsRestartMeasurement{
-		callerName: "TestTimeout",
-	}
+	w := &waitForRunningPodsRestartMeasurement{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()

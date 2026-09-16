@@ -302,127 +302,48 @@ func isPodRunning(p *corev1.Pod) bool {
 }
 
 func calculateDesiredPodRange(params map[string]interface{}, initialRunningCount int) (minDesired, maxDesired, margin int, err error) {
-	hasMin := false
-	hasMax := false
-	if minVal, err := util.GetInt(params, "minDesiredPodCount"); err == nil {
-		minDesired = minVal
-		hasMin = true
+	minVal, minErr := util.GetInt(params, "minDesiredPodCount")
+	if minErr != nil && !util.IsErrKeyNotFound(minErr) {
+		return 0, 0, 0, minErr
 	}
-	if maxVal, err := util.GetInt(params, "maxDesiredPodCount"); err == nil {
-		maxDesired = maxVal
-		hasMax = true
+	maxVal, maxErr := util.GetInt(params, "maxDesiredPodCount")
+	if maxErr != nil && !util.IsErrKeyNotFound(maxErr) {
+		return 0, 0, 0, maxErr
 	}
+
+	hasMin := minErr == nil
+	hasMax := maxErr == nil
+	if hasMin != hasMax {
+		return 0, 0, 0, fmt.Errorf("both minDesiredPodCount and maxDesiredPodCount must be specified together")
+	}
+
+	toleration, tolErr := util.GetFloat64(params, "toleration")
+	if tolErr != nil && !util.IsErrKeyNotFound(tolErr) {
+		return 0, 0, 0, tolErr
+	}
+	hasToleration := tolErr == nil
+
 	if hasMin && hasMax {
-		if minDesired > maxDesired {
-			return 0, 0, 0, fmt.Errorf("minDesiredPodCount (%d) cannot be greater than maxDesiredPodCount (%d)", minDesired, maxDesired)
+		if hasToleration {
+			return 0, 0, 0, fmt.Errorf("cannot specify both minDesiredPodCount/maxDesiredPodCount and toleration")
 		}
-		margin = (maxDesired - minDesired) / 2
-		return minDesired, maxDesired, margin, nil
+		if minVal > maxVal {
+			return 0, 0, 0, fmt.Errorf("minDesiredPodCount (%d) cannot be greater than maxDesiredPodCount (%d)", minVal, maxVal)
+		}
+		margin = (maxVal - minVal) / 2
+		return minVal, maxVal, margin, nil
 	}
 
-	// Check countErrorMargin (absolute pod count margin)
-	countErrorMargin, err := util.GetIntOrDefault(params, "countErrorMargin", 0)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	if countErrorMargin > 0 {
-		margin = countErrorMargin
+	if toleration < 0.0 || toleration > 100.0 {
+		return 0, 0, 0, fmt.Errorf("toleration (%v) must be between 0 and 100", toleration)
 	}
 
-	// Check allowedDifferencePercentage / tolerancePercentage / tolerationPercentage / differencePercentage
-	percentage, err := util.GetFloat64OrDefault(params, "allowedDifferencePercentage", 0.0)
-	if err != nil {
-		return 0, 0, 0, err
+	margin = int(math.Ceil(float64(initialRunningCount) * toleration / 100.0))
+	minDesired = initialRunningCount - margin
+	if minDesired < 0 {
+		minDesired = 0
 	}
-	if percentage == 0.0 {
-		percentage, err = util.GetFloat64OrDefault(params, "tolerancePercentage", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if percentage == 0.0 {
-		percentage, err = util.GetFloat64OrDefault(params, "tolerationPercentage", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if percentage == 0.0 {
-		percentage, err = util.GetFloat64OrDefault(params, "differencePercentage", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if percentage > 0.0 {
-		percentMargin := int(math.Ceil(float64(initialRunningCount) * percentage / 100.0))
-		if percentMargin > margin {
-			margin = percentMargin
-		}
-	}
-
-	// Check allowedDifferenceRatio / tolerationRatio / toleranceRatio
-	ratio, err := util.GetFloat64OrDefault(params, "allowedDifferenceRatio", 0.0)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	if ratio == 0.0 {
-		ratio, err = util.GetFloat64OrDefault(params, "tolerationRatio", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if ratio == 0.0 {
-		ratio, err = util.GetFloat64OrDefault(params, "toleranceRatio", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if ratio > 0.0 {
-		ratioMargin := int(math.Ceil(float64(initialRunningCount) * ratio))
-		if ratioMargin > margin {
-			margin = ratioMargin
-		}
-	}
-
-	// Check general tolerance / toleration float parameter
-	tolerance, err := util.GetFloat64OrDefault(params, "tolerance", 0.0)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	if tolerance == 0.0 {
-		tolerance, err = util.GetFloat64OrDefault(params, "toleration", 0.0)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-	}
-	if tolerance > 0.0 {
-		var tolMargin int
-		if tolerance <= 1.0 {
-			tolMargin = int(math.Ceil(float64(initialRunningCount) * tolerance))
-		} else {
-			tolMargin = int(math.Ceil(float64(initialRunningCount) * tolerance / 100.0))
-		}
-		if tolMargin > margin {
-			margin = tolMargin
-		}
-	}
-
-	computedMin := initialRunningCount - margin
-	if computedMin < 0 {
-		computedMin = 0
-	}
-	computedMax := initialRunningCount + margin
-
-	if !hasMin {
-		minDesired = computedMin
-	}
-
-	if !hasMax {
-		maxDesired = computedMax
-	}
-
-	if minDesired > maxDesired {
-		return 0, 0, 0, fmt.Errorf("minDesiredPodCount (%d) cannot be greater than maxDesiredPodCount (%d)", minDesired, maxDesired)
-	}
+	maxDesired = initialRunningCount + margin
 
 	return minDesired, maxDesired, margin, nil
 }

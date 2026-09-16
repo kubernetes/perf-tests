@@ -51,9 +51,9 @@ func TestCalculateDesiredPodRange(t *testing.T) {
 			expectedMargin:      0,
 		},
 		{
-			name: "allowedDifferencePercentage 1%",
+			name: "toleration 1%",
 			params: map[string]interface{}{
-				"allowedDifferencePercentage": 1.0,
+				"toleration": 1.0,
 			},
 			initialRunningCount: 1000,
 			expectedMin:         990,
@@ -61,9 +61,9 @@ func TestCalculateDesiredPodRange(t *testing.T) {
 			expectedMargin:      10,
 		},
 		{
-			name: "tolerancePercentage 5%",
+			name: "toleration 5%",
 			params: map[string]interface{}{
-				"tolerancePercentage": 5.0,
+				"toleration": 5.0,
 			},
 			initialRunningCount: 200,
 			expectedMin:         190,
@@ -71,34 +71,24 @@ func TestCalculateDesiredPodRange(t *testing.T) {
 			expectedMargin:      10,
 		},
 		{
-			name: "tolerationPercentage 2%",
+			name: "toleration with decimal places 1.5%",
 			params: map[string]interface{}{
-				"tolerationPercentage": 2.0,
+				"toleration": 1.5,
 			},
-			initialRunningCount: 100,
-			expectedMin:         98,
-			expectedMax:         102,
-			expectedMargin:      2,
+			initialRunningCount: 1000,
+			expectedMin:         985,
+			expectedMax:         1015,
+			expectedMargin:      15,
 		},
 		{
-			name: "allowedDifferenceRatio 0.01 (1%)",
+			name: "toleration with decimal places ceiling rounding",
 			params: map[string]interface{}{
-				"allowedDifferenceRatio": 0.01,
+				"toleration": 0.25,
 			},
 			initialRunningCount: 100,
 			expectedMin:         99,
 			expectedMax:         101,
 			expectedMargin:      1,
-		},
-		{
-			name: "countErrorMargin 5",
-			params: map[string]interface{}{
-				"countErrorMargin": 5,
-			},
-			initialRunningCount: 50,
-			expectedMin:         45,
-			expectedMax:         55,
-			expectedMargin:      5,
 		},
 		{
 			name: "explicit minDesiredPodCount and maxDesiredPodCount",
@@ -121,9 +111,51 @@ func TestCalculateDesiredPodRange(t *testing.T) {
 			expectErr:           true,
 		},
 		{
-			name: "initial count 0 with percentage",
+			name: "only minDesiredPodCount specified",
 			params: map[string]interface{}{
-				"allowedDifferencePercentage": 1.0,
+				"minDesiredPodCount": 80,
+			},
+			initialRunningCount: 100,
+			expectErr:           true,
+		},
+		{
+			name: "only maxDesiredPodCount specified",
+			params: map[string]interface{}{
+				"maxDesiredPodCount": 120,
+			},
+			initialRunningCount: 100,
+			expectErr:           true,
+		},
+		{
+			name: "both min/max and toleration specified",
+			params: map[string]interface{}{
+				"minDesiredPodCount": 80,
+				"maxDesiredPodCount": 120,
+				"toleration":         5.0,
+			},
+			initialRunningCount: 100,
+			expectErr:           true,
+		},
+		{
+			name: "toleration out of range negative",
+			params: map[string]interface{}{
+				"toleration": -1.0,
+			},
+			initialRunningCount: 100,
+			expectErr:           true,
+		},
+		{
+			name: "toleration out of range > 100",
+			params: map[string]interface{}{
+				"toleration": 100.1,
+			},
+			initialRunningCount: 100,
+			expectErr:           true,
+		},
+		{
+			name: "initial count 0 with toleration",
+			params: map[string]interface{}{
+				"toleration": 1.0,
 			},
 			initialRunningCount: 0,
 			expectedMin:         0,

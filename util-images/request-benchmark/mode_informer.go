@@ -67,6 +67,7 @@ func runInformer(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
 	}
+	config.QPS = -1
 
 	// TODO: add cbor support
 	switch *contentType {

@@ -626,7 +626,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		o.duration = time.Since(start)
 
 		if err != nil {
-			klog.Errorf("%s: error for %v: %v", w, key, err)
+			// klog.Errorf("%s: error for %v: %v", w, key, err)
 			o.status = failed
 			o.err = fmt.Errorf("%s: %v", key, err)
 			o.failedPods = failedPods
@@ -638,7 +638,7 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 				} else {
 					o.status = timeout
 				}
-				klog.Errorf("%s: %s timed out", w, key)
+				// klog.Errorf("%s: %s timed out", w, key)
 			}
 			return
 		}

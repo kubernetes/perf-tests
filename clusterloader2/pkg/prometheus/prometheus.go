@@ -42,6 +42,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/flags"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -88,6 +89,9 @@ func ReadManifest(path string) ([]byte, error) {
 // InitFlags initializes prometheus flags.
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
+	flags.BoolEnvVar(&p.UseExistingServer, "use-existing-prometheus", "USE_EXISTING_PROMETHEUS", false, "Use Prometheus already running in the cluster for in-cluster PromQL. Mutually exclusive with --enable-prometheus-server. Queries monitoring/<prometheus-service> via apiserver proxy.")
+	flags.StringEnvVar(&p.ServiceName, "prometheus-service", "PROMETHEUS_SERVICE", prom.DefaultServiceName, "Name of the Service in the monitoring namespace used for in-cluster PromQL (apiserver proxy).")
+	flags.StringEnvVar(&p.ProxyScheme, "prometheus-proxy-scheme", "PROMETHEUS_PROXY_SCHEME", prom.DefaultProxyScheme, "Scheme used for apiserver service proxy to Prometheus (http or https). Default http matches kube-prometheus.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
@@ -119,6 +123,19 @@ func ValidatePrometheusFlags(p *config.PrometheusConfig) *clerrors.ErrorList {
 	errList := clerrors.NewErrorList()
 	if shouldSnapshotPrometheusDisk && p.SnapshotProject == "" {
 		errList.Append(fmt.Errorf("requesting snapshot, but snapshot project not configured. Use --experimental-snapshot-project flag"))
+	}
+	if p.EnableServer && p.UseExistingServer {
+		errList.Append(fmt.Errorf("--enable-prometheus-server and --use-existing-prometheus are mutually exclusive"))
+	}
+	scheme := p.ProxyScheme
+	if scheme == "" {
+		scheme = prom.DefaultProxyScheme
+	}
+	if scheme != "http" && scheme != "https" {
+		errList.Append(fmt.Errorf("--prometheus-proxy-scheme must be http or https, got %q", p.ProxyScheme))
+	}
+	if errList.IsEmpty() {
+		prom.ConfigureInClusterProxy(scheme, p.ServiceName)
 	}
 	return errList
 }
@@ -676,10 +693,11 @@ func (pc *Controller) isKubemark() bool {
 }
 
 func dumpAdditionalLogsOnPrometheusSetupFailure(k8sClient kubernetes.Interface) {
-	klog.V(2).Info("Dumping monitoring/prometheus-k8s events...")
-	list, err := client.ListEvents(k8sClient, namespace, "prometheus-k8s")
+	svcName := prom.InClusterServiceName()
+	klog.V(2).Infof("Dumping monitoring/%s events...", svcName)
+	list, err := client.ListEvents(k8sClient, namespace, svcName)
 	if err != nil {
-		klog.Warningf("Error while listing monitoring/prometheus-k8s events: %v", err)
+		klog.Warningf("Error while listing monitoring/%s events: %v", svcName, err)
 		return
 	}
 	s, err := json.MarshalIndent(list, "" /*=prefix*/, "  " /*=indent*/)

@@ -19,11 +19,13 @@ package common
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -65,6 +67,8 @@ const (
 
 var podIndexerFactory = &sharedPodIndexerFactory{}
 
+var automanagedNamespaceID = regexp.MustCompile(`^test-[a-z0-9]+-[0-9]+$`)
+
 func init() {
 	if err := measurement.Register(waitForControlledPodsRunningName, createWaitForControlledPodsRunningMeasurement); err != nil {
 		klog.Fatalf("Cannot register %s: %v", waitForControlledPodsRunningName, err)
@@ -77,19 +81,48 @@ type sharedPodIndexerFactory struct {
 	once        sync.Once
 }
 
-func (s *sharedPodIndexerFactory) PodsIndexer(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
+func (s *sharedPodIndexerFactory) PodsIndexer(c clientset.Interface, hashBasedComparison bool) (*measurementutil.ControlledPodsIndexer, error) {
 	s.once.Do(func() {
-		s.podsIndexer, s.err = s.start(c)
+		s.podsIndexer, s.err = s.start(c, hashBasedComparison)
 	})
 	return s.podsIndexer, s.err
 }
 
-func (s *sharedPodIndexerFactory) start(c clientset.Interface) (*measurementutil.ControlledPodsIndexer, error) {
+func (s *sharedPodIndexerFactory) start(c clientset.Interface, hashBasedComparison bool) (*measurementutil.ControlledPodsIndexer, error) {
 	ctx := context.Background()
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(c, 0, informers.WithTransform(informer.TrimManagedFields))
+	trimFn := func(obj interface{}) (interface{}, error) {
+		if accessor, err := meta.Accessor(obj); err == nil && accessor.GetManagedFields() != nil {
+			accessor.SetManagedFields(nil)
+		}
+		pod, ok := obj.(*v1.Pod)
+		if !ok {
+			return obj, nil
+		}
+		if hashBasedComparison {
+			// Strip Spec and Status completely, keeping only fields needed for ControlledPodsIndexer, WaitForPods, and Hash-Based comparison.
+			pod.Spec = v1.PodSpec{
+				NodeName: pod.Spec.NodeName,
+			}
+			pod.Status = v1.PodStatus{
+				Phase:      pod.Status.Phase,
+				Conditions: pod.Status.Conditions,
+			}
+		} else if !automanagedNamespaceID.MatchString(pod.Namespace) {
+			pod.Spec = v1.PodSpec{
+				NodeName: pod.Spec.NodeName,
+			}
+			pod.Status = v1.PodStatus{
+				Phase:      pod.Status.Phase,
+				Conditions: pod.Status.Conditions,
+			}
+		}
+		return pod, nil
+	}
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(c, 0, informers.WithTransform(trimFn))
 	podsIndexer, err := measurementutil.NewControlledPodsIndexer(
 		informerFactory.Core().V1().Pods(),
 		informerFactory.Apps().V1().ReplicaSets(),
+		informerFactory.Apps().V1().ControllerRevisions(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize controlledPodsIndexer: %w", err)
@@ -264,7 +297,8 @@ func (w *waitForControlledPodsRunningMeasurement) start() error {
 
 	w.isRunning = true
 	w.stopCh = make(chan struct{})
-	podsIndexer, err := podIndexerFactory.PodsIndexer(w.clusterFramework.GetClientSets().GetClient())
+	hashBasedComparison := w.clusterFramework.GetClusterConfig().HashBasedPodComparison
+	podsIndexer, err := podIndexerFactory.PodsIndexer(w.clusterFramework.GetClientSets().GetClient(), hashBasedComparison)
 	if err != nil {
 		return err
 	}
@@ -571,13 +605,6 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 	if err != nil {
 		return nil, err
 	}
-	var isPodUpdated func(*v1.Pod) error
-	if w.checkIfPodsAreUpdated {
-		isPodUpdated, err = runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(obj)
-		if err != nil {
-			return nil, err
-		}
-	}
 	if isDeleted {
 		runtimeObjectReplicas = &runtimeobjects.ConstReplicas{
 			ReplicasCount: 0,
@@ -606,9 +633,52 @@ func (w *waitForControlledPodsRunningMeasurement) waitForRuntimeObject(obj runti
 		}
 		if err := runtimeObjectReplicas.Start(ctx.Done()); err != nil {
 			klog.Errorf("%s: error while starting runtimeObjectReplicas: %v", key, err)
+			o.lock.Lock()
 			o.err = fmt.Errorf("failed to start runtimeObjectReplicas: %v", err)
+			o.lock.Unlock()
 			return
 		}
+
+		var isPodUpdated func(*v1.Pod) error
+		if w.checkIfPodsAreUpdated {
+			if w.clusterFramework.GetClusterConfig().HashBasedPodComparison {
+				var hashLabel, hashValue string
+				err = wait.PollImmediate(500*time.Millisecond, 15*time.Second, func() (bool, error) {
+					var err error
+					hashLabel, hashValue, err = w.resolveExpectedHash(obj)
+					if err != nil {
+						klog.V(4).Infof("Failed to resolve expected hash for %s, retrying: %v", key, err)
+						return false, nil
+					}
+					return true, nil
+				})
+				if err != nil {
+					klog.Errorf("%s: failed to resolve expected hash: %v", key, err)
+					o.lock.Lock()
+					o.err = fmt.Errorf("failed to resolve expected hash: %w", err)
+					o.status = failed
+					o.lock.Unlock()
+					return
+				}
+				isPodUpdated = func(pod *v1.Pod) error {
+					if pod.Labels[hashLabel] != hashValue {
+						return fmt.Errorf("hash mismatch on label %s: expected %s, got %s", hashLabel, hashValue, pod.Labels[hashLabel])
+					}
+					return nil
+				}
+			} else {
+				isPodUpdated, err = runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(obj)
+				if err != nil {
+					klog.Errorf("%s: failed to get predicate: %v", key, err)
+					o.lock.Lock()
+					o.err = err
+					o.status = failed
+					o.lock.Unlock()
+					return
+				}
+			}
+		}
+
 		options := &measurementutil.WaitForPodOptions{
 			DesiredPodCount:     runtimeObjectReplicas.Replicas,
 			CountErrorMargin:    w.countErrorMargin,
@@ -698,4 +768,82 @@ func (o *objectChecker) getStatus() (objectStatus, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 	return o.status, o.err
+}
+
+
+
+func (w *waitForControlledPodsRunningMeasurement) resolveExpectedHash(obj runtime.Object) (string, string, error) {
+	metaAccessor, err := meta.Accessor(obj)
+	if err != nil {
+		return "", "", fmt.Errorf("object has no meta: %w", err)
+	}
+	typeAccessor, err := meta.TypeAccessor(obj)
+	if err != nil {
+		return "", "", fmt.Errorf("object has unknown type: %w", err)
+	}
+
+	unstructuredObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return "", "", fmt.Errorf("expected *unstructured.Unstructured; got: %T", obj)
+	}
+
+	switch typeAccessor.GetKind() {
+	case "Deployment":
+		templateMap, ok, err := unstructured.NestedMap(unstructuredObj.UnstructuredContent(), "spec", "template")
+		if err != nil || !ok {
+			return "", "", fmt.Errorf("failed to get pod template from Deployment: %w", err)
+		}
+		template := &v1.PodTemplateSpec{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, template); err != nil {
+			return "", "", fmt.Errorf("failed to parse spec.template: %w", err)
+		}
+
+		replicaSets, err := w.podsIndexer.ReplicaSetsControlledBy(metaAccessor.GetUID())
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get replica sets for deployment %s: %w", metaAccessor.GetName(), err)
+		}
+
+		rs, err := runtimeobjects.FindMatchingReplicaSet(replicaSets, template)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to find matching ReplicaSet: %w", err)
+		}
+
+		hash, ok := rs.Labels["pod-template-hash"]
+		if !ok || hash == "" {
+			return "", "", fmt.Errorf("ReplicaSet %s has no pod-template-hash label", rs.Name)
+		}
+		return "pod-template-hash", hash, nil
+
+	case "StatefulSet", "DaemonSet":
+		templateMap, ok, err := unstructured.NestedMap(unstructuredObj.UnstructuredContent(), "spec", "template")
+		if err != nil || !ok {
+			return "", "", fmt.Errorf("failed to get pod template from %s: %w", typeAccessor.GetKind(), err)
+		}
+		template := &v1.PodTemplateSpec{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, template); err != nil {
+			return "", "", fmt.Errorf("failed to parse spec.template: %w", err)
+		}
+
+		revisions, err := w.podsIndexer.ControllerRevisionsControlledBy(metaAccessor.GetUID())
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get controller revisions for %s %s: %w", typeAccessor.GetKind(), metaAccessor.GetName(), err)
+		}
+
+		rev, err := runtimeobjects.FindMatchingControllerRevision(revisions, template)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to find matching ControllerRevision: %w", err)
+		}
+
+		return "controller-revision-hash", rev.Name, nil
+
+	case "Job":
+		uid, found, err := unstructured.NestedString(unstructuredObj.UnstructuredContent(), "metadata", "uid")
+		if err != nil || !found || uid == "" {
+			return "", "", fmt.Errorf("failed to get UID from Job: %w", err)
+		}
+		return "controller-uid", uid, nil
+
+	default:
+		return "", "", fmt.Errorf("hash-based pod comparison not supported for kind: %s", typeAccessor.GetKind())
+	}
 }

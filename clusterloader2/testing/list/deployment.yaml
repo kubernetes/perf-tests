@@ -7,7 +7,7 @@
 # so it needs a much larger limit that scales with .Count.
 {{$memory := DefaultParam .memory "32Mi"}}
 {{if eq $mode "informer"}}
-{{$memory = DefaultParam .memory "4Gi"}}
+{{$memory = DefaultParam .memory "8Gi"}}
 {{end}}
 
 apiVersion: apps/v1

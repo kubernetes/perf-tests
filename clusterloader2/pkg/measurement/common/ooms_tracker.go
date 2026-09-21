@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/pager"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
@@ -43,9 +42,9 @@ const (
 	clusterOOMsTrackerName               = "ClusterOOMsTracker"
 	clusterOOMsIgnoredProcessesParamName = "clusterOOMsIgnoredProcesses"
 	clusterOOMsFailureEnabledParamName   = "clusterOOMsFailureEnabled"
-	informerTimeout                      = time.Minute
+	clusterOOMsTrackerTimeoutParamName   = "clusterOOMsTrackerTimeout"
+	defaultInformerTimeout               = 30 * time.Minute
 	oomEventReason                       = "OOMKilling"
-	initialListPageSize                  = 10000
 )
 
 var (
@@ -123,23 +122,19 @@ func (m *clusterOOMsTrackerMeasurement) String() string {
 }
 
 func (m *clusterOOMsTrackerMeasurement) getOOMsTrackerInformer(ctx context.Context, client clientset.Interface) cache.SharedInformer {
-	listFunc := func(_ metav1.ListOptions) (runtime.Object, error) {
-		o := metav1.ListOptions{
-			Limit: 1,
-		}
-		result, err := client.CoreV1().Events(metav1.NamespaceAll).List(ctx, o)
-		if err != nil {
-			return nil, err
-		}
-		result.Continue = ""
-		result.Items = nil
-		return result, nil
+	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
+		options.FieldSelector = m.selector.FieldSelector
+		return client.CoreV1().Events(metav1.NamespaceAll).List(ctx, options)
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = m.selector.FieldSelector
 		return client.CoreV1().Events(metav1.NamespaceAll).Watch(ctx, options)
 	}
-	i := cache.NewSharedInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, nil, 0)
+	lw := cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+		ListFunc:  listFunc,
+		WatchFunc: watchFunc,
+	}, client)
+	i := cache.NewSharedInformer(lw, &corev1.Event{}, 0)
 	_, err := i.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			m.handleOOMEvent(obj)
@@ -155,21 +150,6 @@ func (m *clusterOOMsTrackerMeasurement) getOOMsTrackerInformer(ctx context.Conte
 	return i
 }
 
-func (m *clusterOOMsTrackerMeasurement) handlePriorOOMs(ctx context.Context, client clientset.Interface) error {
-	pg := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-		return client.CoreV1().Events(metav1.NamespaceAll).List(ctx, opts)
-	}))
-	pg.PageSize = initialListPageSize
-
-	if err := pg.EachListItem(ctx, metav1.ListOptions{}, func(obj runtime.Object) error {
-		m.handleOOMEvent(obj)
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (m *clusterOOMsTrackerMeasurement) start(config *measurement.Config) error {
 	if m.isRunning {
 		klog.V(2).Infof("%s: cluster OOMs tracking measurement already running", m)
@@ -179,6 +159,10 @@ func (m *clusterOOMsTrackerMeasurement) start(config *measurement.Config) error 
 	if err := m.initFields(config); err != nil {
 		return fmt.Errorf("problem with OOMs tracking measurement fields initialization: %w", err)
 	}
+	informerTimeout, err := util.GetDurationOrDefault(config.Params, clusterOOMsTrackerTimeoutParamName, defaultInformerTimeout)
+	if err != nil {
+		return fmt.Errorf("problem with getting %s param: %w", clusterOOMsTrackerTimeoutParamName, err)
+	}
 	ctx := context.Background()
 	client := config.ClusterFramework.GetClientSets().GetClient()
 
@@ -186,13 +170,6 @@ func (m *clusterOOMsTrackerMeasurement) start(config *measurement.Config) error 
 	i := m.getOOMsTrackerInformer(ctx, client)
 	if err := informer.StartAndSync(i, m.stopCh, informerTimeout); err != nil {
 		return fmt.Errorf("problem with OOM events informer starting: %w", err)
-	}
-
-	// Searching for OOM events that happened before the measurement start.
-	// We're running this *after* initiating the informer above because doing
-	// the same in the reverse order might make us miss some OOMs.
-	if err := m.handlePriorOOMs(ctx, client); err != nil {
-		return fmt.Errorf("problem with handling prior OOMs: %w", err)
 	}
 
 	return nil

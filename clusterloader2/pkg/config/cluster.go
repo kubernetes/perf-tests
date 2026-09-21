@@ -32,6 +32,7 @@ type ClusterLoaderConfig struct {
 	// OverridePaths defines what override files should be applied
 	// globally to the config specified by the ConfigPath for each TestScenario.
 	OverridePaths []string `json:"overridePaths"`
+	ImageRegistry string
 }
 
 // ClusterConfig is a structure that represents cluster description.
@@ -43,6 +44,8 @@ type ClusterConfig struct {
 	EtcdCertificatePath string
 	EtcdKeyPath         string
 	EtcdInsecurePort    int
+	EtcdPprofPort       int
+	EtcdEventsPprofPort int
 	MasterIPs           []string
 	MasterInternalIPs   []string
 	MasterName          string
@@ -76,6 +79,7 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
+	ScrapeApiserverOnly        string
 	TearDownServer             bool
 	EnableServer               bool
 	EnablePushgateway          bool

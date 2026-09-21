@@ -122,7 +122,7 @@ func (o *ObjectTransitionTimes) CalculateTransitionsLatency(t map[string]Transit
 		lag := make([]LatencyData, 0, len(o.times))
 		for key, transitionTimes := range o.times {
 			if !filter(key) {
-				klog.V(4).Infof("%s: filter doesn match key %s", o.name, key)
+				klog.V(4).Infof("%s: filter doesn't match key %s", o.name, key)
 				continue
 			}
 			fromPhaseTime, exists := transitionTimes[transition.From]

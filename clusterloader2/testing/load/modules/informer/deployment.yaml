@@ -1,4 +1,6 @@
 {{$TolerateControlPlane := DefaultParam .CL2_INFORMER_TOLERATE_CONTROL_PLANE false}}
+{{$RunOnControlPlane := DefaultParam .RunOnControlPlane false}}
+{{$DisableCompression := DefaultParam .DisableCompression false}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -15,15 +17,20 @@ spec:
       labels:
         group: informer
     spec:
-{{if $TolerateControlPlane}}
+{{if or $TolerateControlPlane $RunOnControlPlane}}
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
 {{end}}
+{{if $RunOnControlPlane}}
+      hostNetwork: true
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+{{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.3
+          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4
           resources:
             requests:
               memory: "16Gi"
@@ -31,6 +38,13 @@ spec:
             limits:
               memory: "16Gi"
               cpu: "6"
+{{if $RunOnControlPlane}}
+          env:
+            - name: KUBERNETES_SERVICE_HOST
+              value: "127.0.0.1"
+            - name: KUBERNETES_SERVICE_PORT
+              value: "443"
+{{end}}
           command: [ "watch-list" ]
           args:
             - "--alsologtostderr=true"
@@ -40,3 +54,4 @@ spec:
             - "--enableWatchListFeature={{.EnableWatchListFeature}}"
             - "--api-version=v1"
             - "--resource=pods"
+            - "--disableCompression={{$DisableCompression}}"

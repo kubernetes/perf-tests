@@ -18,8 +18,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -62,6 +63,58 @@ var (
 	// performanceDescriptions contains metrics exported by a --ginko.focus=[Feature:Performance]
 	// e2e test
 	performanceDescriptions = TestDescriptions{
+		"DRA": {
+			"FastFillPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "PodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "PodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillStatelessPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatelessPodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnStatelessPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatelessPodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillStatefulPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatefulPodStartupLatency_FastFillPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnStatefulPodStartup": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "StatefulPodStartupLatency_ChurnPodStartupLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillClaimAllocation": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ResourceClaimAllocationLatency_FastFillClaimAllocationLatency",
+				Parser:           parsePerfData,
+			}},
+			"ChurnClaimAllocation": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ResourceClaimAllocationLatency_ChurnClaimAllocationLatency",
+				Parser:           parsePerfData,
+			}},
+			"FastFillSchedulingMetrics": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "FastFillSchedulingMetrics_PrometheusSchedulingMetrics",
+				Parser:           parseSchedulingLatency("fastfill"),
+			}},
+			"ChurnSchedulingMetrics": []TestDescription{{
+				Name:             "dra-steady-state",
+				OutputFilePrefix: "ChurnSchedulingMetrics_PrometheusSchedulingMetrics",
+				Parser:           parseSchedulingLatency("churn"),
+			}},
+		},
 		"E2E": {
 			"DensityResources": []TestDescription{{
 				Name:             "density",
@@ -211,8 +264,13 @@ var (
 			}},
 			"LoadInitEventsCount": []TestDescription{{
 				Name:             "load",
-				OutputFilePrefix: "MetricsForE2E",
-				Parser:           parseApiserverInitEventsCount,
+				OutputFilePrefix: "GenericPrometheusQuery Init Events",
+				Parser:           parsePerfData,
+			}},
+			"LoadWatchCacheInitializationDurationMax": []TestDescription{{
+				Name:             "load",
+				OutputFilePrefix: "GenericPrometheusQuery Watch Cache Initialization Duration Max",
+				Parser:           parsePerfData,
 			}},
 			"Responsiveness": []TestDescription{{
 				OutputFilePrefix: "APIResponsiveness",
@@ -733,7 +791,7 @@ func urlConfigRead(url string) ([]byte, error) {
 		return nil, fmt.Errorf("error fetching prow config from %s: %v", url, err)
 	}
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading prow config from %s: %v", url, err)
 	}
@@ -741,7 +799,7 @@ func urlConfigRead(url string) ([]byte, error) {
 }
 
 func fileConfigRead(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 func getProwConfig(configPaths []string) (Jobs, error) {

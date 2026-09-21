@@ -67,6 +67,11 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 		return nil, err
 	}
 
+	tolerationTimeout, err := util.GetDurationOrDefault(config.Params, "tolerationTimeout", 0)
+	if err != nil {
+		return nil, err
+	}
+
 	stopCh := make(chan struct{})
 	time.AfterFunc(timeout, func() {
 		close(stopCh)
@@ -78,6 +83,7 @@ func (w *waitForNodesMeasurement) Execute(config *measurement.Config) ([]measure
 		MaxDesiredNodeCount:  maxNodeCount,
 		CallerName:           w.String(),
 		WaitForNodesInterval: refreshInterval,
+		TolerationTimeout:    tolerationTimeout,
 	}
 	return nil, measurementutil.WaitForNodes(config.ClusterFramework.GetClientSets().GetClient(), stopCh, options)
 }

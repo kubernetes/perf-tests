@@ -36,7 +36,7 @@ type PVsStartupStatus struct {
 
 // String returns string representation for PVsStartupStatus.
 func (s *PVsStartupStatus) String() string {
-	return fmt.Sprintf("PVs: %d out of %d created, %d bound, %d pending, %d available, %d failed",
+	return fmt.Sprintf("PVs: %d created, %d desired, %d bound, %d pending, %d available, %d failed",
 		s.Created, s.Expected, s.Bound, s.Pending, s.Available, s.Failed)
 }
 

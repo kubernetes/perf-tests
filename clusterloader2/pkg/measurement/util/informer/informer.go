@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -29,12 +30,22 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
+func TrimManagedFields(obj interface{}) (interface{}, error) {
+	if accessor, err := meta.Accessor(obj); err == nil && accessor.GetManagedFields() != nil {
+		accessor.SetManagedFields(nil)
+	}
+	return obj, nil
+}
+
 // NewInformer creates a new informer.
 func NewInformer(
 	lw cache.ListerWatcher,
 	handleObj func(interface{}, interface{}),
 ) cache.SharedInformer {
 	informer := cache.NewSharedInformer(lw, nil, 0)
+	if err := informer.SetTransform(TrimManagedFields); err != nil {
+		klog.Errorf("cannot set transform: %v", err)
+	}
 	addEventHandler(informer, handleObj)
 	return informer
 }
@@ -55,6 +66,9 @@ func NewDynamicInformer(
 	dInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c, 0, selector.Namespace, tweakListOptions)
 
 	informer := dInformerFactory.ForResource(gvr).Informer()
+	if err := informer.SetTransform(TrimManagedFields); err != nil {
+		klog.Errorf("cannot set transform: %v", err)
+	}
 	addEventHandler(informer, handleObj)
 	return informer
 }

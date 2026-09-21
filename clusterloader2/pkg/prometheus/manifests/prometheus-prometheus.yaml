@@ -8,6 +8,7 @@
 {{$PROMETHEUS_PVC_ENABLED := DefaultParam .CL2_PROMETHEUS_PVC_ENABLED (not $PROMETHEUS_TOLERATE_MASTER)}}
 {{$PROMETHEUS_PVC_STORAGE_CLASS := DefaultParam .PROMETHEUS_PVC_STORAGE_CLASS "ssd"}}
 {{$PROMETHEUS_MEMORY_REQUEST := DefaultParam .PROMETHEUS_MEMORY_REQUEST "10Gi"}}
+{{$PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR 10}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -28,14 +29,16 @@ spec:
     requests:
       cpu: {{AddInt 200 (MultiplyInt $PROMETHEUS_CPU_SCALE_FACTOR 500 (DivideInt .Nodes 1000))}}m
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-      memory: {{$PROMETHEUS_MEMORY_REQUEST}}
+      # Kubelet + cAdvisor scraping is memory-heavy; scale ~10Gi per 1K nodes (10Gi floor below 1K).
+      memory: {{MultiplyInt $PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{else}}
       # Start with 2Gi and add 2Gi for each 1K nodes.
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{end}}
     limits:
       {{if $PROMETHEUS_SCRAPE_KUBELETS}}
-      memory: 10Gi
+      # Kubelet + cAdvisor scraping is memory-heavy; scale ~10Gi per 1K nodes (10Gi floor below 1K).
+      memory: {{MultiplyInt $PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi
       {{else}}
       # Default: Start with 2Gi and add 2Gi for each 1K nodes.
       memory: {{MultiplyInt $PROMETHEUS_MEMORY_SCALE_FACTOR (AddInt 1 (DivideInt .Nodes 1000))}}Gi

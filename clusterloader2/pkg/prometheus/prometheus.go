@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -60,6 +61,7 @@ const (
 	masterIPServiceMonitors      = "master-ip/*.yaml"
 	metricsServerManifests       = "exporters/metrics-server/*.yaml"
 	nodeExporterPod              = "exporters/node_exporter/node-exporter.yaml"
+	nodeExporterDaemonSet        = "exporters/node_exporter/node-exporter-daemonset.yaml"
 	windowsNodeExporterManifests = "exporters/windows_node_exporter/*.yaml"
 	pushgatewayManifests         = "pushgateway/*.yaml"
 )
@@ -78,6 +80,11 @@ func init() {
 	}
 }
 
+// ReadManifest returns a file from the embedded Prometheus manifests bundle.
+func ReadManifest(path string) ([]byte, error) {
+	return fs.ReadFile(manifestsFS, path)
+}
+
 // InitFlags initializes prometheus flags.
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
@@ -89,6 +96,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets (nodes + master). Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeMasterKubelets, "prometheus-scrape-master-kubelets", "PROMETHEUS_SCRAPE_MASTER_KUBELETS", false, "Whether to scrape kubelets running on master nodes.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
+	flags.StringEnvVar(&p.ScrapeApiserverOnly, "prometheus-scrape-apiserver-only", "PROMETHEUS_SCRAPE_APISERVER_ONLY", "", "Override scraping only the apiserver among master components (\"true\"/\"false\"). Empty uses the provider default.")
 	flags.StringEnvVar(&p.KubeProxySelectorKey, "prometheus-kube-proxy-selector-key", "PROMETHEUS_KUBE_PROXY_SELECTOR_KEY", "component", "Label key used to scrape kube proxy.")
 	flags.BoolEnvVar(&p.ScrapeKubeStateMetrics, "prometheus-scrape-kube-state-metrics", "PROMETHEUS_SCRAPE_KUBE_STATE_METRICS", false, "Whether to scrape kube-state-metrics. Only run occasionally.")
 	flags.BoolEnvVar(&p.ScrapeMetricsServerMetrics, "prometheus-scrape-metrics-server", "PROMETHEUS_SCRAPE_METRICS_SERVER_METRICS", false, "Whether to scrape metrics-server. Only run occasionally.")
@@ -166,7 +174,11 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 		}
 	}
 	if _, exists := mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"]; !exists {
-		mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
+		if v, err := strconv.ParseBool(clusterLoaderConfig.PrometheusConfig.ScrapeApiserverOnly); err == nil {
+			mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = v
+		} else {
+			mapping["PROMETHEUS_SCRAPE_APISERVER_ONLY"] = clusterLoaderConfig.ClusterConfig.Provider.Features().ShouldPrometheusScrapeApiserverOnly
+		}
 	}
 	// TODO: Change to pure assignments when overrides are not used.
 	if _, exists := mapping["PROMETHEUS_SCRAPE_ETCD"]; !exists {
@@ -531,7 +543,7 @@ func (pc *Controller) configureRBACForMetrics(testClusterClientSet kubernetes.In
 // TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
 // when master nodes have configured networking.
 func (pc *Controller) runNodeExporter() error {
-	klog.V(2).Infof("Starting node-exporter on master nodes.")
+	klog.V(2).Infof("Starting node-exporter.")
 	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
 	if err != nil {
 		return err
@@ -543,28 +555,48 @@ func (pc *Controller) runNodeExporter() error {
 		return err
 	}
 
-	var g errgroup.Group
-	numMasters := 0
+	hasControlPlaneNodesWithLabel := false
 	for _, node := range nodes {
-		node := node
 		if util.IsControlPlaneNode(&node) {
-			numMasters++
-			g.Go(func() error {
-				f, err := manifestsFS.Open(nodeExporterPod)
-				if err != nil {
-					return fmt.Errorf("unable to open manifest file: %v", err)
-				}
-				defer f.Close()
-				return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
-			})
+			if _, ok := node.Labels["node-role.kubernetes.io/control-plane"]; ok {
+				hasControlPlaneNodesWithLabel = true
+				break
+			}
 		}
 	}
 
-	if numMasters == 0 {
-		return fmt.Errorf("node-exporter requires master to be registered nodes")
+	if hasControlPlaneNodesWithLabel {
+		klog.V(2).Infof("Control-plane nodes with control-plane label are visible in the cluster. Starting node-exporter as DaemonSet.")
+		return pc.applyDefaultManifests(nodeExporterDaemonSet)
 	}
 
-	return g.Wait()
+	if pc.clusterLoaderConfig.ClusterConfig.Provider.Features().SupportSSHToMaster {
+		klog.V(2).Infof("Control plane nodes are not visible in the cluster, but SSH is available. Starting node-exporter on master nodes via SSH.")
+		var g errgroup.Group
+		numMasters := 0
+		for _, node := range nodes {
+			node := node
+			if util.IsControlPlaneNode(&node) {
+				numMasters++
+				g.Go(func() error {
+					f, err := manifestsFS.Open(nodeExporterPod)
+					if err != nil {
+						return fmt.Errorf("unable to open manifest file: %v", err)
+					}
+					defer f.Close()
+					return pc.ssh.Exec("sudo tee /etc/kubernetes/manifests/node-exporter.yaml > /dev/null", &node, f)
+				})
+			}
+		}
+
+		if numMasters == 0 {
+			return fmt.Errorf("node-exporter requires master to be registered nodes for SSH deployment")
+		}
+
+		return g.Wait()
+	}
+
+	return fmt.Errorf("deploying node_exporter failed: control plane nodes are not visible and SSH to master is not supported")
 }
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {
@@ -572,10 +604,22 @@ func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	return wait.PollImmediate(
 		checkPrometheusReadyInterval,
 		pc.readyTimeout,
-		pc.isPrometheusReady)
+		func() (bool, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), checkPrometheusReadyInterval)
+			defer cancel()
+			done, err := pc.isPrometheusReady(ctx)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				return done, nil
+			}
+			return done, err
+		},
+	)
 }
 
-func (pc *Controller) isPrometheusReady() (bool, error) {
+func (pc *Controller) isPrometheusReady(ctx context.Context) (bool, error) {
+	// do not log prometheus error for large clusters
+	logPrometheusError := pc.clusterLoaderConfig.ClusterConfig.Nodes < 5000
+
 	// TODO(mm4tt): Re-enable kube-proxy monitoring and expect more targets.
 	// This is a safeguard from a race condition where the prometheus server is started before
 	// targets are registered. These 4 targets are always expected, in all possible configurations:
@@ -587,23 +631,24 @@ func (pc *Controller) isPrometheusReady() (bool, error) {
 		// changed in https://github.com/kubernetes/kubernetes/pull/77561, depending on the k8s version
 		// etcd metrics may be available at port 2379 xor 2382. We solve that by setting two etcd
 		// serviceMonitors one for 2379 and other for 2382 and expect that at least 1 of them should be healthy.
-		ok, err := CheckAllTargetsReady( // All non-etcd targets should be ready.
+		ok, err := CheckAllTargetsReady(ctx, // All non-etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return !isEtcdEndpoint(t.Labels["endpoint"]) },
-			expectedTargets)
+			expectedTargets, logPrometheusError)
 		if err != nil || !ok {
 			return ok, err
 		}
-		return CheckTargetsReady( // 1 out of 2 etcd targets should be ready.
+		return CheckTargetsReady(ctx, // 1 out of 2 etcd targets should be ready.
 			pc.framework.GetClientSets().GetClient(),
 			func(t Target) bool { return isEtcdEndpoint(t.Labels["endpoint"]) },
 			2, // expected targets: etcd-2379 and etcd-2382
-			1) // one of them should be healthy
+			1, // one of them should be healthy
+			logPrometheusError)
 	}
-	return CheckAllTargetsReady(
+	return CheckAllTargetsReady(ctx,
 		pc.framework.GetClientSets().GetClient(),
 		func(Target) bool { return true }, // All targets.
-		expectedTargets)
+		expectedTargets, logPrometheusError)
 }
 
 func retryCreateFunctionWithResponse(f func() (string, error)) (string, error) {

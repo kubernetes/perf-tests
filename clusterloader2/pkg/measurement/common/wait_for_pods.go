@@ -67,6 +67,11 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 		return nil, err
 	}
 
+	tolerationTimeout, err := util.GetDurationOrDefault(config.Params, "tolerationTimeout", 0)
+	if err != nil {
+		return nil, err
+	}
+
 	isFatal, err := util.GetBoolOrDefault(config.Params, "isFatal", defaultIsFatal)
 	if err != nil {
 		return nil, err
@@ -78,6 +83,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 		DesiredPodCount:     func() int { return desiredPodCount },
 		CallerName:          w.String(),
 		WaitForPodsInterval: refreshInterval,
+		TolerationTimeout:   tolerationTimeout,
 	}
 	podStore, err := measurementutil.NewPodStore(config.ClusterFramework.GetClientSets().GetClient(), selector)
 	if err != nil {

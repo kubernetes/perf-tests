@@ -91,7 +91,7 @@ func (m *simpleModifier) modifyOverwrite(c *api.Config) error {
 				return fmt.Errorf("cannot overwrite config for key '%s'. Path does not exist", k)
 			}
 			// We want to dereference pointers if any happen along the way
-			if curValue.Kind() == reflect.Ptr {
+			if curValue.Kind() == reflect.Pointer {
 				// If path came across ptr to nil, we need to create zero value before dereferencing
 				if curValue.IsNil() {
 					expectedType := curValue.Type().Elem()

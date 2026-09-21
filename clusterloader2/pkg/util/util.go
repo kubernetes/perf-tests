@@ -95,6 +95,15 @@ func GetStringArray(dict map[string]interface{}, key string) ([]string, error) {
 	return getStringArray(dict, key)
 }
 
+// GetStringArrayOrDefault tries to return value from map cast to a []string type. If value doesn't exist default value is used.
+func GetStringArrayOrDefault(dict map[string]interface{}, key string, defaultValue []string) ([]string, error) {
+	value, err := getStringArray(dict, key)
+	if IsErrKeyNotFound(err) {
+		return defaultValue, nil
+	}
+	return value, err
+}
+
 // GetLabelSelector tries to return value from map parsed as labels.Selector type. If value doesn't exist, error is returned.
 func GetLabelSelector(dict map[string]interface{}, key string) (*labels.Selector, error) {
 	return getLabelSelector(dict, key)
@@ -243,7 +252,7 @@ func getInt(dict map[string]interface{}, key string) (int, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if i, err := strconv.Atoi(stringValue); err != nil {
+		if i, err := strconv.Atoi(stringValue); err == nil {
 			return i, nil
 		}
 	}
@@ -262,7 +271,7 @@ func getFloat64(dict map[string]interface{}, key string) (float64, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if f, err := strconv.ParseFloat(stringValue, 64); err != nil {
+		if f, err := strconv.ParseFloat(stringValue, 64); err == nil {
 			return f, nil
 		}
 	}
@@ -294,7 +303,7 @@ func getBool(dict map[string]interface{}, key string) (bool, error) {
 	}
 	stringValue, ok := value.(string)
 	if ok {
-		if b, err := strconv.ParseBool(stringValue); err != nil {
+		if b, err := strconv.ParseBool(stringValue); err == nil {
 			return b, nil
 		}
 	}

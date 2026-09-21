@@ -52,6 +52,9 @@ type NoStoreQueue struct {
 	// index of the (last process item + 1) which is equivalent to the index of the first item currently in the queue.
 	// This means that indices in the queue are [offset, offset+1, offset+2, ...].
 	offset int64
+
+	// syncedCh is used to implement cache.DoneChecker interface
+	syncedCh chan struct{}
 }
 
 var keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
@@ -59,10 +62,12 @@ var keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
 // NewNoStoreQueue returns newly created NoStoreQueue
 func NewNoStoreQueue() *NoStoreQueue {
 	q := &NoStoreQueue{
-		queue:   []workItem{},
-		indices: map[string]int64{},
+		queue:    []workItem{},
+		indices:  map[string]int64{},
+		syncedCh: make(chan struct{}),
 	}
 
+	close(q.syncedCh)
 	q.cond.L = q
 	return q
 }
@@ -115,26 +120,6 @@ func (q *NoStoreQueue) Delete(obj interface{}) error {
 	return nil
 }
 
-// List implements List function from Store interface
-func (q *NoStoreQueue) List() []interface{} {
-	return []interface{}{}
-}
-
-// ListKeys implements ListKeys function from Store interface
-func (q *NoStoreQueue) ListKeys() []string {
-	return []string{}
-}
-
-// Get implements Get function from Store interface
-func (q *NoStoreQueue) Get(_ interface{}) (item interface{}, exists bool, err error) {
-	return "", false, fmt.Errorf("unimplemented Get")
-}
-
-// GetByKey implements GetByKey function from Store interface
-func (q *NoStoreQueue) GetByKey(_ string) (item interface{}, exists bool, err error) {
-	return "", false, fmt.Errorf("unimplemented GetByKey")
-}
-
 // Replace implements Replace function from Store interface
 func (q *NoStoreQueue) Replace(_ []interface{}, _ string) error {
 	// Replace is called during re-lists, so we can't return "unimplemented" here.
@@ -175,33 +160,24 @@ func (q *NoStoreQueue) Pop(process cache.PopProcessFunc) (interface{}, error) {
 	return item, err
 }
 
-// AddIfNotPresent implements AddIfNotPresent function from Queue interface
-func (q *NoStoreQueue) AddIfNotPresent(obj interface{}) error {
-	key, err := keyFunc(obj)
-	if err != nil {
-		return cache.KeyError{Obj: obj, Err: err}
-	}
-
-	defer q.cond.Broadcast()
-	q.Lock()
-	defer q.Unlock()
-
-	if _, ok := q.indices[key]; ok {
-		return nil
-	}
-	q.indices[key] = q.nextIndex
-	q.nextIndex++
-	q.queue = append(q.queue, workItem{
-		operationType: deleteOperationType,
-		key:           key,
-		obj:           obj,
-	})
-	return nil
-}
-
 // HasSynced implements HasSynced function from Queue interface
 func (q *NoStoreQueue) HasSynced() bool {
 	return true
+}
+
+// HasSyncedChecker implements HasSyncedChecker function from Queue interface.
+func (q *NoStoreQueue) HasSyncedChecker() cache.DoneChecker {
+	return q
+}
+
+// Name implements cache.DoneChecker interface.
+func (q *NoStoreQueue) Name() string {
+	return "NoQueueStore"
+}
+
+// Done implements cache.DoneChecker interface.
+func (q *NoStoreQueue) Done() <-chan struct{} {
+	return q.syncedCh
 }
 
 // Close implements Close function from Queue interface

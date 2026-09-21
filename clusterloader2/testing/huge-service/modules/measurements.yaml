@@ -7,6 +7,8 @@
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
 {{$HUGE_SERVICE_ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_HUGE_SERVICE_ALLOWED_SLOW_API_CALLS 2}}
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
+{{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL (IfThenElse (ge .Nodes 5000) "60s" "15s")}}
+
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
 
@@ -15,13 +17,16 @@
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
 {{$ENABLE_SYSTEM_POD_METRICS := DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES := DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$CONTAINER_RESTARTS_FAILURE_ENABLED := DefaultParam .CL2_CONTAINER_RESTARTS_FAILURE_ENABLED true}}
 {{$USE_SIMPLE_LATENCY_QUERY := DefaultParam .USE_SIMPLE_LATENCY_QUERY false}}
 {{$CLUSTER_OOMS_IGNORED_PROCESSES := DefaultParam .CL2_CLUSTER_OOMS_IGNORED_PROCESSES ""}}
 {{$ENABLE_CLUSTER_OOMS_TRACKER := DefaultParam .CL2_ENABLE_CLUSTER_OOMS_TRACKER true}}
+{{$CLUSTER_OOMS_FAILURE_ENABLED := DefaultParam .CL2_CLUSTER_OOMS_FAILURE_ENABLED true}}
 {{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
 {{$ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_ALLOWED_CONTAINER_RESTARTS 1}}
 {{$CUSTOM_ALLOWED_CONTAINER_RESTARTS := DefaultParam .CL2_CUSTOM_ALLOWED_CONTAINER_RESTARTS ""}}
 {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION := DefaultParam .CL2_PROBE_MEASUREMENTS_PING_SLEEP_DURATION "1s"}}
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
 
 {{$allowedSlowCalls := AddInt $ALLOWED_SLOW_API_CALLS $HUGE_SERVICE_ALLOWED_SLOW_API_CALLS}}
 
@@ -43,6 +48,7 @@ steps:
       enableViolations: {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS}}
       allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
 {{end}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
@@ -53,21 +59,25 @@ steps:
       summaryName: APIResponsivenessPrometheus_simple
       allowedSlowCalls: {{$allowedSlowCalls}}
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
+      singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
   - Identifier: TestMetrics
     Method: TestMetrics
     Params:
       action: {{$action}}
       systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+      systemPodsFailureEnabled: {{$CONTAINER_RESTARTS_FAILURE_ENABLED}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
       clusterOOMsIgnoredProcesses: {{YamlQuote $CLUSTER_OOMS_IGNORED_PROCESSES 4}}
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
+      clusterOOMsFailureEnabled: {{$CLUSTER_OOMS_FAILURE_ENABLED}}
 {{if $ENABLE_IN_CLUSTER_NETWORK_LATENCY}}
   - Identifier: InClusterNetworkLatency
     Method: InClusterNetworkLatency
     Params:
       action: {{$action}}
       checkProbesReadyTimeout: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT}}
+      checkProbesReadyInterval: {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_INTERVAL}}
       replicasPerProbe: {{AddInt 2 (DivideInt .Nodes 100)}}
       pingSleepDuration: {{$PROBE_MEASUREMENTS_PING_SLEEP_DURATION}}
 {{end}}
@@ -76,6 +86,7 @@ steps:
     Method: ContainerRestarts
     Params:
       action: {{$action}}
+      failureEnabled: {{$CONTAINER_RESTARTS_FAILURE_ENABLED}}
       enableViolations: true
       defaultAllowedRestarts: {{$ALLOWED_CONTAINER_RESTARTS}}
       customAllowedRestarts: {{YamlQuote $CUSTOM_ALLOWED_CONTAINER_RESTARTS 4}}

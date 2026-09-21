@@ -71,6 +71,11 @@ func deletionHandlingUIDKeyFunc(obj interface{}) (string, error) {
 	return string(getObjUID(obj)), nil
 }
 
+// GetIndexer returns the underlying pods indexer.
+func (p *ControlledPodsIndexer) GetIndexer() cache.Indexer {
+	return p.podsIndexer
+}
+
 // NewControlledPodsIndexer creates a new ControlledPodsIndexer instance.
 func NewControlledPodsIndexer(podsInformer coreinformers.PodInformer, rsInformer appsinformers.ReplicaSetInformer) (*ControlledPodsIndexer, error) {
 	if err := podsInformer.Informer().AddIndexers(cache.Indexers{controllerUIDIndex: controllerUIDIndexFunc}); err != nil {

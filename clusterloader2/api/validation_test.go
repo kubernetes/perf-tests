@@ -112,6 +112,21 @@ func TestVerifySteppedLoad(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "zero step delay",
+			input: SteppedLoad{
+				BurstSize: 10,
+			},
+			expected: false,
+		},
+		{
+			name: "negative step delay",
+			input: SteppedLoad{
+				BurstSize: 10,
+				StepDelay: -1000,
+			},
+			expected: false,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			v := NewConfigValidator("", &Config{})

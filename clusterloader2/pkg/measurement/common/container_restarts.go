@@ -77,6 +77,11 @@ func (a *containerRestartsGatherer) Gather(executor QueryExecutor, startTime, en
 		return nil, err
 	}
 
+	failureEnabled, err := util.GetBoolOrDefault(config.Params, "failureEnabled", true)
+	if err != nil {
+		return nil, err
+	}
+
 	containerRestarts, err := a.gatherContainerRestarts(executor, startTime, endTime)
 	if err != nil {
 		return nil, err
@@ -89,7 +94,10 @@ func (a *containerRestartsGatherer) Gather(executor QueryExecutor, startTime, en
 
 	summaries := []measurement.Summary{measurement.CreateSummary(containerRestartsMeasurementName, "json", content)}
 	if badContainers := a.validateRestarts(containerRestarts, defaultAllowedRestarts, restartCountOverrides); len(badContainers) > 0 {
-		return summaries, errors.NewMetricViolationError("container restarts", fmt.Sprintf("container restart count validation: %v", badContainers))
+		if failureEnabled {
+			return summaries, errors.NewMetricViolationError("container restarts", fmt.Sprintf("container restart count validation: %v", badContainers))
+		}
+		klog.Warningf("container restarts validation failed but failureEnabled is set to false: %v", badContainers)
 	}
 	return summaries, nil
 }

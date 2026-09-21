@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: writer-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: {{.Namespace}}
+roleRef:
+  kind: Role
+  name: writer-role-0
+  apiGroup: rbac.authorization.k8s.io
+

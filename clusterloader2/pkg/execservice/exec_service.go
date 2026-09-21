@@ -67,12 +67,6 @@ func InitFlags(c *config.ExecServiceConfig) {
 		true,
 		"Whether to enable exec service that allows executing arbitrary commands from a pod running in the cluster.",
 	)
-	flags.StringVar(
-		&c.ImageRegistry,
-		"registry-k8s-repo",
-		"registry.k8s.io",
-		"FQDN of registry.k8s.io image repo",
-	)
 }
 
 // SetUpExecService creates exec pod.

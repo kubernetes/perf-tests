@@ -6,5 +6,5 @@ metadata:
     group: {{.Group}}  
 spec:
   containers:
-  - image: registry.k8s.io/pause:3.9
+  - image: {{.ImageRegistry}}/pause:3.9
     name: pause

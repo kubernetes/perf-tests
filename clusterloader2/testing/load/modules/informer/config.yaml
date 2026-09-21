@@ -1,6 +1,8 @@
 ## Input params
 # Valid actions: "create", "delete"
 {{$action := .action}}
+{{$RunOnControlPlane := DefaultParam .CL2_INFORMER_RUN_ON_CONTROL_PLANE false}}
+{{$EnableWatchList := DefaultParam .CL2_INFORMER_ENABLE_WATCHLIST false}}
 
 steps:
 - name: {{$action}} informer role
@@ -25,6 +27,7 @@ steps:
           objectTemplatePath: /modules/informer/deployment.yaml
           templateFillMap:
             EnableWatchListFeature: "false"
+{{if $EnableWatchList}}
     - namespaceList: ["informer-0"]
       replicasPerNamespace: 1
       tuningSet: default
@@ -33,3 +36,49 @@ steps:
           objectTemplatePath: /modules/informer/deployment.yaml
           templateFillMap:
             EnableWatchListFeature: "true"
+{{end}}
+{{if $RunOnControlPlane}}
+    - namespaceList: ["informer-0"]
+      replicasPerNamespace: 1
+      tuningSet: default
+      objectBundle:
+        - basename: informer-watch-list-off-control-plane
+          objectTemplatePath: /modules/informer/deployment.yaml
+          templateFillMap:
+            EnableWatchListFeature: "false"
+            RunOnControlPlane: "true"
+            DisableCompression: "true"
+{{if $EnableWatchList}}
+    - namespaceList: ["informer-0"]
+      replicasPerNamespace: 1
+      tuningSet: default
+      objectBundle:
+        - basename: informer-watch-list-on-control-plane
+          objectTemplatePath: /modules/informer/deployment.yaml
+          templateFillMap:
+            EnableWatchListFeature: "true"
+            RunOnControlPlane: "true"
+            DisableCompression: "true"
+{{end}}
+{{end}}
+{{if eq $action "create"}}
+- name: Starting measurement for waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningInformerDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: group = informer
+      operationTimeout: 2m
+- name: Waiting for informer pods to be running
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningInformerDeployments
+    Params:
+      action: gather
+{{end}}

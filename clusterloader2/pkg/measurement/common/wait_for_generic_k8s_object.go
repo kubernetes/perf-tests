@@ -18,9 +18,14 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -67,11 +72,11 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	if err != nil {
 		return nil, err
 	}
-	successfulConditions, err := util.GetStringArray(config.Params, "successfulConditions")
+	successfulConditions, err := util.GetStringArrayOrDefault(config.Params, "successfulConditions", []string{})
 	if err != nil {
 		return nil, err
 	}
-	failedConditions, err := util.GetStringArray(config.Params, "failedConditions")
+	failedConditions, err := util.GetStringArrayOrDefault(config.Params, "failedConditions", []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -79,12 +84,15 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 	if err != nil {
 		return nil, err
 	}
-	maxFailedObjectCount, err := util.GetInt(config.Params, "maxFailedObjectCount")
+	maxFailedObjectCount, err := util.GetIntOrDefault(config.Params, "maxFailedObjectCount", 0)
+	if err != nil {
+		return nil, err
+	}
+	labelSelector, err := getLabelSelector(config.Params)
 	if err != nil {
 		return nil, err
 	}
 
-	dynamicClient := config.ClusterFramework.GetDynamicClients().GetClient()
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
@@ -95,10 +103,35 @@ func (w *waitForGenericK8sObjectsMeasurement) Execute(config *measurement.Config
 		FailedConditions:      failedConditions,
 		MinDesiredObjectCount: minDesiredObjectCount,
 		MaxFailedObjectCount:  maxFailedObjectCount,
+		LabelSelector:         labelSelector,
 		CallerName:            w.String(),
 		WaitInterval:          refreshInterval,
 	}
-	return nil, measurementutil.WaitForGenericK8sObjects(ctx, dynamicClient, options)
+
+	// Special fast path for performance-critical resource type: pods.
+	if groupVersionResource.Resource == "pods" && groupVersionResource.Group == "" && groupVersionResource.Version == "v1" {
+		klog.V(2).Infof("%s: Using optimized typed pod informer", waitForGenericK8sObjectsMeasurementName)
+		typedClient := config.ClusterFramework.GetClientSets().GetClient()
+		podsIndexer, err := podIndexerFactory.PodsIndexer(typedClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve shared pods indexer: %w", err)
+		}
+		options.GenericLister = cache.NewGenericLister(podsIndexer.GetIndexer(), groupVersionResource.GroupResource())
+	} else {
+		klog.V(2).Infof("%s: Using dynamic informer", waitForGenericK8sObjectsMeasurementName)
+		dynamicClient := config.ClusterFramework.GetDynamicClients().GetClient()
+		tweakListOptions := func(listOptions *metav1.ListOptions) {
+			if labelSelector != nil {
+				listOptions.LabelSelector = labelSelector.String()
+			}
+		}
+		informerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 10*time.Second, metav1.NamespaceAll, tweakListOptions)
+		options.GenericLister = informerFactory.ForResource(groupVersionResource).Lister()
+		informerFactory.Start(ctx.Done())
+		informerFactory.WaitForCacheSync(ctx.Done())
+	}
+
+	return nil, measurementutil.WaitForGenericK8sObjects(ctx, options)
 }
 
 // Dispose cleans up after the measurement.
@@ -130,6 +163,17 @@ func getGroupVersionResource(params map[string]interface{}) (schema.GroupVersion
 	}, nil
 }
 
+func getLabelSelector(params map[string]interface{}) (labels.Selector, error) {
+	labelSelector, err := util.GetString(params, "labelSelector")
+	if err != nil {
+		if util.IsErrKeyNotFound(err) {
+			return labels.Everything(), nil
+		}
+		return nil, err
+	}
+	return labels.Parse(labelSelector)
+}
+
 func getNamespaces(namespacesPrefix string, params map[string]interface{}) (measurementutil.NamespacesRange, error) {
 	namespaceRange, err := util.GetMap(params, "namespaceRange")
 	if err != nil {
@@ -141,6 +185,12 @@ func getNamespaces(namespacesPrefix string, params map[string]interface{}) (meas
 		}
 		return measurementutil.NamespacesRange{}, err
 	}
+	allNamespaces, err := util.GetBool(namespaceRange, "allNamespaces")
+	if err == nil && allNamespaces {
+		return measurementutil.NamespacesRange{
+			AllNamespaces: true,
+		}, nil
+	}
 	minParam, err := util.GetInt(namespaceRange, "min")
 	if err != nil {
 		return measurementutil.NamespacesRange{}, err
@@ -149,9 +199,16 @@ func getNamespaces(namespacesPrefix string, params map[string]interface{}) (meas
 	if err != nil {
 		return measurementutil.NamespacesRange{}, err
 	}
-
+	prefix, err := util.GetString(namespaceRange, "prefix")
+	if err != nil {
+		return measurementutil.NamespacesRange{
+			Prefix: namespacesPrefix,
+			Min:    minParam,
+			Max:    maxParam,
+		}, nil
+	}
 	return measurementutil.NamespacesRange{
-		Prefix: namespacesPrefix,
+		Prefix: prefix,
 		Min:    minParam,
 		Max:    maxParam,
 	}, nil

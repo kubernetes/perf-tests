@@ -1,13 +1,25 @@
 all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
-TAG?=2.56
+# Additionally please ensure to update the same in www/VERSION
+TAG?=2.59
+WWW_VERSION=$(shell cat www/VERSION)
 
 REPO?=gcr.io/k8s-staging-perf-tests
+# Image platform. Defaults to linux/amd64 (perfdash runs on amd64 nodes); override
+# to build another arch, e.g. make push PLATFORM=linux/arm64
+PLATFORM?=linux/amd64
 
 .PHONY: test
+test: WWW_VERSION = $(shell cat www/VERSION)
+
 test: perfdash.go parser.go config.go metrics-downloader-helper.go metrics-downloader.go gcs_metrics_bucket.go s3_metrics_bucket.go local_metrics_dir.go
 	go test
+	@WWW_VERSION=$$(cat www/VERSION); \
+	if [ "$(TAG)" != "$$WWW_VERSION" ]; then \
+		echo "Version mismatch! Makefile=$(TAG), www/VERSION=$(WWW_VERSION). Please align" >&2; \
+		exit 1; \
+	fi
 
 perfdash: test
 	go build -a -installsuffix cgo -ldflags '-w' -o perfdash
@@ -24,11 +36,11 @@ run: perfdash
 # Use buildkit to have "COPY --chmod=" support (availability of it in "regular" docker build depends on docker version).
 .PHONY: container
 container:
-	DOCKER_BUILDKIT=1 docker build --pull -t $(REPO)/perfdash:$(TAG) .
+	DOCKER_BUILDKIT=1 docker build --platform=$(PLATFORM) --pull -t $(REPO)/perfdash:$(TAG) .
 
 .PHONY: push
 push: container
-	gcloud docker -s $(REPO) -- push $(REPO)/perfdash:$(TAG)
+	docker push $(REPO)/perfdash:$(TAG)
 
 .PHONY: clean
 clean:

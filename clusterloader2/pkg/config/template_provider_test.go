@@ -20,6 +20,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"testing/fstest"
 
 	"k8s.io/perf-tests/clusterloader2/api"
 )
@@ -182,4 +183,95 @@ func TestMergeMappings(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTemplateProvider(t *testing.T) {
+	fsys := fstest.MapFS{
+		"single.yaml": &fstest.MapFile{
+			Data: []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+`),
+		},
+		"multi.yaml": &fstest.MapFile{
+			Data: []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+---
+# Some comment
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-1
+---
+`),
+		},
+		"templated.yaml": &fstest.MapFile{
+			Data: []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.Name}}-pod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Name}}-svc
+`),
+		},
+	}
+
+	tp := NewTemplateProvider(fsys)
+
+	t.Run("RawToObjects single document", func(t *testing.T) {
+		objs, err := tp.RawToObjects("single.yaml")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(objs) != 1 {
+			t.Fatalf("expected 1 object, got %d", len(objs))
+		}
+		if objs[0].GetName() != "pod-1" {
+			t.Errorf("expected name pod-1, got %s", objs[0].GetName())
+		}
+	})
+
+	t.Run("RawToObjects multiple documents", func(t *testing.T) {
+		objs, err := tp.RawToObjects("multi.yaml")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(objs) != 2 {
+			t.Fatalf("expected 2 objects, got %d", len(objs))
+		}
+		if objs[0].GetName() != "pod-1" || objs[0].GetKind() != "Pod" {
+			t.Errorf("expected pod-1 (Pod), got %s (%s)", objs[0].GetName(), objs[0].GetKind())
+		}
+		if objs[1].GetName() != "svc-1" || objs[1].GetKind() != "Service" {
+			t.Errorf("expected svc-1 (Service), got %s (%s)", objs[1].GetName(), objs[1].GetKind())
+		}
+	})
+
+	t.Run("TemplateToObjects multiple documents with mapping", func(t *testing.T) {
+		mapping := map[string]interface{}{
+			"Name": "test-app",
+		}
+		objs, err := tp.TemplateToObjects("templated.yaml", mapping)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(objs) != 2 {
+			t.Fatalf("expected 2 objects, got %d", len(objs))
+		}
+		if objs[0].GetName() != "test-app-pod" || objs[0].GetKind() != "Pod" {
+			t.Errorf("expected test-app-pod (Pod), got %s (%s)", objs[0].GetName(), objs[0].GetKind())
+		}
+		if objs[1].GetName() != "test-app-svc" || objs[1].GetKind() != "Service" {
+			t.Errorf("expected test-app-svc (Service), got %s (%s)", objs[1].GetName(), objs[1].GetKind())
+		}
+	})
 }

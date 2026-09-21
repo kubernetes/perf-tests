@@ -36,6 +36,8 @@ func TestRemoveDisambiguationInfixes(t *testing.T) {
 		{"l7-default-backend-6d477bf555-jfmgt/default-http-backend", "l7-default-backend/default-http-backend"},
 		{"l7-lb-controller-v0.9.7-e2e-scalability-master/l7-lb-controller", "l7-lb-controller/l7-lb-controller"},
 		{"kube-proxy-e2e-scalability-minion-group-2mh1/kube-proxy", "kube-proxy-e2e-scalability-minion-group/kube-proxy"},
+		{"v2-controller-6d4f5d4b7f-zx9pl/controller", "v2-controller/controller"},
+		{"cdbf-agent-6d4f5d4b7f-zx9pl/agent", "cdbf-agent/agent"},
 	}
 	for _, testCase := range testCases {
 		v := RemoveDisambiguationInfixes(testCase.Input)

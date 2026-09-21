@@ -36,6 +36,7 @@ const (
 	systemPodMetricsEnabledFlagName   = "systemPodMetricsEnabled"
 	restartThresholdOverridesFlagName = "restartCountThresholdOverrides"
 	enableRestartCountCheckFlagName   = "enableRestartCountCheck"
+	systemPodsFailureEnabledFlagName  = "systemPodsFailureEnabled"
 	defaultRestartCountThresholdKey   = "default"
 )
 
@@ -60,6 +61,7 @@ type systemPodMetricsMeasurement struct {
 
 type containerMetrics struct {
 	Name              string `json:"name"`
+	Image             string `json:"image"`
 	RestartCount      int32  `json:"restartCount"`
 	LastRestartReason string `json:"lastRestartReason"`
 }
@@ -75,6 +77,26 @@ type systemPodsMetrics struct {
 
 // Execute gathers and prints system pod metrics.
 func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	action, err := util.GetString(config.Params, "action")
+	if err != nil {
+		return nil, err
+	}
+
+	if action == "pause" {
+		return nil, nil
+	}
+	if action == "unpause" {
+		if m.initSnapshot == nil {
+			return nil, nil
+		}
+		metrics, err := getPodMetrics(config)
+		if err != nil {
+			return nil, err
+		}
+		m.initSnapshot = metrics
+		return nil, nil
+	}
+
 	systemPodMetricsEnabled, err := util.GetBoolOrDefault(config.Params, systemPodMetricsEnabledFlagName, false)
 	if err != nil {
 		return nil, err
@@ -85,11 +107,6 @@ func (m *systemPodMetricsMeasurement) Execute(config *measurement.Config) ([]mea
 	}
 
 	metrics, err := getPodMetrics(config)
-	if err != nil {
-		return nil, err
-	}
-
-	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +192,11 @@ func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Confi
 		return nil
 	}
 
+	failureEnabled, err := util.GetBoolOrDefault(config.Params, systemPodsFailureEnabledFlagName, true)
+	if err != nil {
+		return err
+	}
+
 	violations := make([]string, 0)
 	for _, p := range metrics.Pods {
 		for _, c := range p.Containers {
@@ -191,6 +213,11 @@ func validateRestartCounts(metrics *systemPodsMetrics, config *measurement.Confi
 		return nil
 	}
 	violationsJoined := strings.Join(violations, "; ")
+
+	if !failureEnabled {
+		klog.Warningf("System pod restart counts validation failed but %s is false: %v", systemPodsFailureEnabledFlagName, violationsJoined)
+		return nil
+	}
 	return fmt.Errorf("restart counts violation: %v", violationsJoined)
 }
 
@@ -239,9 +266,18 @@ func extractMetrics(lst *v1.PodList) *systemPodsMetrics {
 			Containers: []containerMetrics{},
 			Name:       pod.Name,
 		}
+		specImages := make(map[string]string)
+		for _, c := range pod.Spec.Containers {
+			specImages[c.Name] = c.Image
+		}
 		for _, container := range pod.Status.ContainerStatuses {
+			img := container.Image
+			if specImg, ok := specImages[container.Name]; ok {
+				img = specImg
+			}
 			metrics := containerMetrics{
 				Name:         container.Name,
+				Image:        extractImageName(img),
 				RestartCount: container.RestartCount,
 			}
 			if container.LastTerminationState.Terminated != nil {
@@ -270,4 +306,28 @@ func (m *systemPodMetricsMeasurement) Dispose() {}
 // String returns string representation of this measurement.
 func (*systemPodMetricsMeasurement) String() string {
 	return systemPodMetricsName
+}
+
+func extractImageName(image string) string {
+	parts := strings.Split(image, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Remove registry if it looks like one (contains dot or colon for port)
+	if len(parts) > 1 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":")) {
+		parts = parts[1:]
+	}
+
+	// Remove tag or digest from the last part
+	lastPart := parts[len(parts)-1]
+	if i := strings.Index(lastPart, ":"); i != -1 {
+		lastPart = lastPart[:i]
+	}
+	if i := strings.Index(lastPart, "@"); i != -1 {
+		lastPart = lastPart[:i]
+	}
+	parts[len(parts)-1] = lastPart
+
+	return strings.Join(parts, "/")
 }

@@ -1,0 +1,21 @@
+## Input params
+# Valid actions: "create", "delete"
+{{$action := .action}}
+{{$podCount := DefaultParam .podCount 10000}}
+{{$replicas := 0}}
+{{if eq $action "create"}}
+{{$replicas = $podCount}}
+{{end}}
+
+
+steps:
+- name: {{$action}} baseline realistic target pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$replicas}}
+    objectBundle:
+    - basename: bench-pod
+      objectTemplatePath: modules/initial-pods/pod.yaml

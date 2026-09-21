@@ -40,6 +40,7 @@ var (
 	informerCount               int
 	testTimeout                 time.Duration
 	enableWatchListAlphaFeature bool
+	disableCompression          bool
 	apiVersion                  string
 	resource                    string
 )
@@ -64,6 +65,7 @@ func main() {
 	}
 	config.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 	config.ContentType = "application/vnd.kubernetes.protobuf"
+	config.DisableCompression = disableCompression
 	klog.Infof("The following Kubernetes client config will be used\n%v", config.String())
 
 	client, err := kubernetes.NewForConfig(config)
@@ -90,7 +92,7 @@ func main() {
 
 		klog.Infof("Waiting for gvr = %v informers to synced", targetGVR)
 		if ok := cache.WaitForCacheSync(ctx.Done(), informersSynced...); !ok {
-			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync", targetGVR)
+			return false, fmt.Errorf("timed out waiting for gvr %v informers to sync: %w", targetGVR, ctx.Err())
 		}
 		klog.Infof("All %v informers for gvr = %v synced, time needed = %v", len(informersSynced), targetGVR, time.Now().Sub(ts))
 		return false, nil
@@ -103,12 +105,18 @@ func main() {
 
 func registerFlags() {
 	klog.InitFlags(flag.CommandLine)
+	// Opt into the new klog behavior so that -stderrthreshold is honored even
+	// when -logtostderr=true (the default).
+	// Ref: kubernetes/klog#212, kubernetes/klog#432
+	flag.CommandLine.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
+	flag.CommandLine.Set("stderrthreshold", "INFO")                   //nolint:errcheck
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig.")
 	flag.StringVar(&targetNamespace, "namespace", "", "namespace to run informers for. If empty will open on all namespaces.")
 	flag.IntVar(&informerCount, "count", 4, "the number of informers per targetNamespace to run. If empty a default (4) value will be used.")
 	flag.DurationVar(&testTimeout, "timeout", time.Minute, "timeout duration for the test")
 	flag.BoolVar(&enableWatchListAlphaFeature, "enableWatchListFeature", false, "whether to set KUBE_FEATURE_WatchListClient env var")
+	flag.BoolVar(&disableCompression, "disableCompression", false, "whether to disable gzip compression for API requests")
 	flag.StringVar(&apiVersion, "api-version", "v1", "apiVersion of the target resource (e.g. v1, apps/v1). If empty a default (v1) value will be used.")
 	flag.StringVar(&resource, "resource", "secrets", "resource name of the target resource (e.g. pods, deployments). If empty a default (secrets) value will be used.")
 }

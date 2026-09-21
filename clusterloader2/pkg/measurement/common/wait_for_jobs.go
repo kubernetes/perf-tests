@@ -217,13 +217,14 @@ func (w *waitForFinishedJobsMeasurement) handleObject(oldObj, newObj interface{}
 		klog.Errorf("Failed obtaining meta key for Job: %v", err)
 		return
 	}
-	completed, condition := finishedJobCondition(newJob)
+	completed, condition := finishedJobCondition(handleJob)
 
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	if completed {
 		w.finishedJobs[key] = condition
-	} else {
+	} else if _, alreadyFinished := w.finishedJobs[key]; !alreadyFinished {
+		// Keep finished jobs deleted via ttlSecondsAfterFinished.
 		delete(w.finishedJobs, key)
 	}
 }

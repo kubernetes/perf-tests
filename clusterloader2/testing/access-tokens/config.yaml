@@ -39,9 +39,13 @@
 {{$ENABLE_SYSTEM_POD_METRICS:= DefaultParam .ENABLE_SYSTEM_POD_METRICS true}}
 {{$ENABLE_RESTART_COUNT_CHECK := DefaultParam .ENABLE_RESTART_COUNT_CHECK true}}
 {{$RESTART_COUNT_THRESHOLD_OVERRIDES:= DefaultParam .RESTART_COUNT_THRESHOLD_OVERRIDES ""}}
+{{$CLUSTER_OOMS_FAILURE_ENABLED := DefaultParam .CL2_CLUSTER_OOMS_FAILURE_ENABLED true}}
+{{$CONTAINER_RESTARTS_FAILURE_ENABLED := DefaultParam .CL2_CONTAINER_RESTARTS_FAILURE_ENABLED true}}
 
 # Configs
 {{$ALLOWED_SLOW_API_CALLS := DefaultParam .CL2_ALLOWED_SLOW_API_CALLS 0}}
+
+{{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
 
 name: access-tokens
 namespace:
@@ -62,9 +66,11 @@ steps:
       Params:
         action: start
         systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+        systemPodsFailureEnabled: {{$CONTAINER_RESTARTS_FAILURE_ENABLED}}
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
         allowedSlowCalls: {{$ALLOWED_SLOW_API_CALLS}}
+        clusterOOMsFailureEnabled: {{$CLUSTER_OOMS_FAILURE_ENABLED}}
 
 - name: Creating ServiceAccounts
   phases:
@@ -172,10 +178,13 @@ steps:
       Params:
         action: gather
         enableViolations: true
+        singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
     - Identifier: TestMetrics
       Method: TestMetrics
       Params:
         action: gather
         systemPodMetricsEnabled: {{$ENABLE_SYSTEM_POD_METRICS}}
+        systemPodsFailureEnabled: {{$CONTAINER_RESTARTS_FAILURE_ENABLED}}
         restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
         enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+        clusterOOMsFailureEnabled: {{$CLUSTER_OOMS_FAILURE_ENABLED}}

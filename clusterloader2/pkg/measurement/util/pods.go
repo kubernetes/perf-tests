@@ -67,7 +67,7 @@ type PodsStartupStatus struct {
 
 // String returns string representation for podsStartupStatus.
 func (s *PodsStartupStatus) String() string {
-	return fmt.Sprintf("Pods: %d out of %d created, %d running (%d updated), %d pending scheduled, %d not scheduled, %d inactive, %d terminating, %d unknown, %d runningButNotReady ",
+	return fmt.Sprintf("Pods: %d created, %d desired, %d running (%d updated), %d pending scheduled, %d not scheduled, %d inactive, %d terminating, %d unknown, %d runningButNotReady ",
 		s.Created, s.Expected, s.Running, s.RunningUpdated, s.Pending, s.Waiting, s.Inactive, s.Terminating, s.Unknown, s.RunningButNotReady)
 }
 

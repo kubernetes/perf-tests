@@ -31,7 +31,8 @@ func RemoveDisambiguationInfixes(podAndContainer string) string {
 	pieces := strings.Split(pod, "-")
 	var last string
 	for i, piece := range pieces {
-		if looksLikeHash(piece) || versionRegexp.MatchString(piece) {
+		// Only strip version/hash segments after we've already seen a stable pod-name prefix.
+		if i > 0 && (looksLikeHash(piece) || versionRegexp.MatchString(piece)) {
 			break
 		}
 		last = strings.Join(pieces[:i+1], "-")

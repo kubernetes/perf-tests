@@ -19,7 +19,6 @@ package executors
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -27,10 +26,12 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"gopkg.in/yaml.v2"
+
+	cl2prometheus "k8s.io/perf-tests/clusterloader2/pkg/prometheus"
 )
 
 const (
-	pathToPrometheusRules = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/prometheus/manifests/prometheus-rules.yaml"
+	prometheusRulesManifestPath = "prometheus-rules.yaml"
 )
 
 func toModelSample(s promql.Sample) *model.Sample {
@@ -65,7 +66,7 @@ func (t *testSeries) seriesLoadingString() string {
 }
 
 func loadFromFile(filename string) (*testSeries, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -114,10 +115,15 @@ func NewPromqlExecutor(timeSeriesFile string) (*PromqlExecutor, error) {
 	}
 	m := rules.NewManager(opts)
 
-	rulesFile, err := createRulesFile(os.ExpandEnv(pathToPrometheusRules))
+	rulesManifest, err := cl2prometheus.ReadManifest(prometheusRulesManifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read embedded rules manifest: %v", err)
+	}
+	rulesFile, err := createRulesFile(rulesManifest)
 	if err != nil {
 		return nil, fmt.Errorf("could not create rules file: %v", err)
 	}
+	defer rulesFile.Close()
 	defer os.Remove(rulesFile.Name())
 	groupsMap, ers := m.LoadGroups(interval, nil, rulesFile.Name())
 	if ers != nil {

@@ -1,16 +1,21 @@
 # Request benchmark
 
-This tool generates inflight for a specific URI against Kubernetes control
-plane. For example:
+A multi-mode benchmark tool for the Kubernetes API server.
 
-``` sh
-# The following command assumes that kubeconfig is already set
-$ go run . --inflight=1 --uri=/api/v1/pods
-# 2022/10/11 12:54:58 Sending requests to '/api/v1/pods' with inflight 1. Press Ctrl+C to stop...
-# 2022/10/11 12:54:59 Got response of 90571 bytes in 424.810402ms
-# 2022/10/11 12:54:59 Got response of 90571 bytes in 145.033023ms
-# 2022/10/11 12:54:59 Got response of 90571 bytes in 137.122805ms
-# ...
+## `http` subcommand
+
+Sends HTTP requests to a given URI.
+
+```sh
+$ go run . http --inflight=1 --uri=/api/v1/pods
+```
+
+## `informer` subcommand
+
+Starts N informers for a given resource, waits for them to fully sync, then repeats until a timeout elapses.
+
+```sh
+$ go run . informer --resource=pods --count=4 --timeout=5m
 ```
 
 ## Releasing

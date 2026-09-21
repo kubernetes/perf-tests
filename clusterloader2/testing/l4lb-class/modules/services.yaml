@@ -1,0 +1,65 @@
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+{{$LARGE_BACKEND_SIZE := DefaultParam .CL2_LARGE_BACKEND_SIZE 300}}
+{{$MEDIUM_BACKEND_SIZE := DefaultParam .CL2_MEDIUM_BACKEND_SIZE 150}}
+{{$SMALL_BACKEND_SIZE := DefaultParam .CL2_SMALL_BACKEND_SIZE 10}}
+{{$LARGE_BACKEND_LB_SERVICE_COUNT := .largeBackendLbServiceCount}}
+{{$MEDIUM_BACKEND_LB_SERVICE_COUNT := .mediumBackendLbServiceCount}}
+{{$SMALL_BACKEND_LB_SERVICE_COUNT := .smallBackendLbServiceCount}}
+{{$LOAD_BALANCER_CLASS := DefaultParam .CL2_LOAD_BALANCER_CLASS "invalid.scalability.gke.io"}}
+{{$actionName := .actionName}}
+{{$namespaces := 1}}
+
+steps:
+- name: {{$actionName}} LBs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LARGE_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: large-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: large-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        LBSizeLabel: lb-large
+        LoadBalancerClass: {{$LOAD_BALANCER_CLASS}}
+    - basename: large-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LARGE_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$MEDIUM_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: medium-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: medium-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        LBSizeLabel: lb-medium
+        LoadBalancerClass: {{$LOAD_BALANCER_CLASS}}
+    - basename: medium-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$MEDIUM_BACKEND_SIZE}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$SMALL_BACKEND_LB_SERVICE_COUNT}}
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: small-backends-service
+      objectTemplatePath: service.yaml
+      templateFillMap:
+        DeploymentBaseName: small-backends-dep
+        ExternalTrafficPolicy: {{$EXTERNAL_TRAFFIC_POLICY}}
+        LBSizeLabel: lb-small
+        LoadBalancerClass: {{$LOAD_BALANCER_CLASS}}
+    - basename: small-backends-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$SMALL_BACKEND_SIZE}}

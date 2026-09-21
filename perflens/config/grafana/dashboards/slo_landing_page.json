@@ -1,0 +1,255 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 30,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Kubernetes Scalability SLO Verification Report ($run)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "last_over_time(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\", verb=~\"$verb\"}[100y])",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "run": true
+            },
+            "indexByName": {
+              "slo": 0,
+              "resource": 1,
+              "verb": 2,
+              "target": 3,
+              "actual": 4,
+              "Value": 5
+            },
+            "renameByName": {
+              "Value": "Status",
+              "actual": "Measured",
+              "resource": "Resource",
+              "slo": "SLO Category",
+              "target": "Threshold",
+              "verb": "Verb"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "🔴 FAIL"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "🟢 PASS"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["perflens", "slo"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(k8s_slo_status, run)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Scale Run",
+        "multi": false,
+        "name": "run",
+        "options": [],
+        "query": {
+          "query": "label_values(k8s_slo_status, run)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 2,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(k8s_slo_status{run=~\"$run\"}, slo)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "SLO Category",
+        "multi": true,
+        "name": "slo",
+        "options": [],
+        "query": {
+          "query": "label_values(k8s_slo_status{run=~\"$run\"}, slo)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\"}, resource)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Resource",
+        "multi": true,
+        "name": "resource",
+        "options": [],
+        "query": {
+          "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\"}, resource)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\"}, verb)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Verb",
+        "multi": true,
+        "name": "verb",
+        "options": [],
+        "query": {
+          "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\"}, verb)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-100y",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "timezone": "browser",
+  "title": "PerfLens - Kubernetes SLO Landing Page",
+  "uid": "perflens-slo-landing",
+  "version": 1
+}

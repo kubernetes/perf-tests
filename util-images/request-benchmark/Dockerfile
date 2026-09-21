@@ -1,4 +1,4 @@
-FROM golang:1.26 as builder
+FROM golang:1.27 as builder
 
 # Define build env
 ENV GOOS linux

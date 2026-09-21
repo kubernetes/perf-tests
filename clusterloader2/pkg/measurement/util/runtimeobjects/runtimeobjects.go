@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	goerrors "github.com/go-errors/errors"
 	gocmp "github.com/google/go-cmp/cmp"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	clientset "k8s.io/client-go/kubernetes"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
@@ -100,6 +102,11 @@ func (lsde *lazySpecDiffError) Error() string {
 	return fmt.Sprintf("Not matching templates, diff: %v", gocmp.Diff(lsde.templateSpec, lsde.podSpec))
 }
 
+type podCacheKey struct {
+	uid types.UID
+	rv  string
+}
+
 func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured) (func(_ *corev1.Pod) error, error) {
 	templateMap, ok, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "template")
 	if err != nil {
@@ -110,14 +117,30 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 	}
 	template := corev1.PodTemplateSpec{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, &template); err != nil {
-		return nil, goerrors.Errorf("failed to parse spec.teemplate as v1.PodTemplateSpec")
+		return nil, goerrors.Errorf("failed to parse spec.template as v1.PodTemplateSpec")
 	}
 
+	cache := make(map[podCacheKey]error)
+	var mu sync.Mutex
+
 	return func(pod *corev1.Pod) error {
-		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
-			return &lazySpecDiffError{template.Spec, pod.Spec}
+		key := podCacheKey{uid: pod.UID, rv: pod.ResourceVersion}
+		mu.Lock()
+		if cachedErr, exists := cache[key]; exists {
+			mu.Unlock()
+			return cachedErr
 		}
-		return nil
+		mu.Unlock()
+
+		var err error
+		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
+			err = &lazySpecDiffError{template.Spec, pod.Spec}
+		}
+
+		mu.Lock()
+		cache[key] = err
+		mu.Unlock()
+		return err
 	}, nil
 }
 
@@ -200,11 +223,15 @@ func GetReplicasFromRuntimeObject(c clientset.Interface, obj runtime.Object) (Re
 
 // getDaemonSetNumSchedulableNodes returns the number of schedulable nodes matching both nodeSelector and NodeAffinity.
 func getDaemonSetNumSchedulableNodes(c clientset.Interface, podSpec *corev1.PodSpec) (ReplicasWatcher, error) {
-	selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(podSpec.NodeSelector))
+	podSpecCopy := podSpec.DeepCopy()
+	addOrUpdateDaemonPodTolerations(podSpecCopy)
+
+	selector, err := labels.ValidatedSelectorFromSet(podSpecCopy.NodeSelector)
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeCounter(c, selector, podSpec.Affinity, podSpec.Tolerations), nil
+
+	return NewNodeCounter(c, selector, podSpecCopy.Affinity, podSpecCopy.Tolerations), nil
 }
 
 // Note: This function assumes each controller has field Spec.Replicas, except DaemonSets and Job.
@@ -316,6 +343,11 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 			Effect:   corev1.TaintEffectNoExecute,
 		},
 		{
+			Key:      corev1.TaintNodeUnreachable,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoExecute,
+		},
+		{
 			Key:      corev1.TaintNodeDiskPressure,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoSchedule,
@@ -350,7 +382,6 @@ func addOrUpdateDaemonPodTolerations(spec *corev1.PodSpec) {
 }
 
 func (p daemonSetPodSpecParser) getDaemonSetTolerationsFromUnstructuredSpec(spec *corev1.PodSpec) error {
-	addOrUpdateDaemonPodTolerations(spec)
 	unstructuredTolerations, found, err := unstructured.NestedSlice(p, "tolerations")
 	if err != nil || !found {
 		return err

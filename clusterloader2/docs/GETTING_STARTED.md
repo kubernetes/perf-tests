@@ -6,25 +6,14 @@ In this tutorial, we will:
 - Implement a simple CL2 test and run it
 - Run load test on 100 nodes cluster
 
+You need Go installed, see the [Go install] guide.
+
 ## Clone perf-tests repository
 
 Start with cloning perf-tests repository:
 ```bash
 git clone git@github.com:kubernetes/perf-tests.git
 cd perf-tests
-```
-
-## Install GVM
-Follow instructions on [GVM install].
-Install golang with specific version (1.24.3 was tested in this tutorial):
-```bash
-gvm install go1.24.3
-gvm use go1.24.3
-```
-Next, add perf-tests repository to GOPATH:
-
-```bash
-gvm linkthis k8s.io/perf-tests
 ```
 
 ## Create cluster using kind
@@ -205,7 +194,7 @@ so we don't need to worry with cleaning up cluster.
 
 Now, in order to finish our first test, we need to specify deployment template.
 You can think of it as regular kubernetes object, but with templating.
-CL2 by default adds parameter `Name` that you can use in your template.
+CL2 by default adds parameters like `Name` and `ImageRegistry` that you can use in your template. `ImageRegistry` defaults to `registry.k8s.io`, but can be overridden by passing the `--registry-k8s-repo` flag or setting the `REGISTRY_K8S_REPO` environment variable.
 In our config, we also passed `Replicas` parameter.
 We need to remember to set correct labels so PodStartupLatency
 and WaitForControlledPodsRunning will watch correct pods.
@@ -228,7 +217,7 @@ spec:
         group: test-pod
     spec:
       containers:
-      - image: registry.k8s.io/pause:3.9
+      - image: {{.ImageRegistry}}/pause:3.9
         name: {{.Name}}
 ```
 ## Execute test
@@ -314,7 +303,7 @@ There are various measurements that depend on prometheus metrics, for example:
 - NodeLocalDNS latency
 
 [Kind]: https://kind.sigs.k8s.io/
-[GVM install]: https://github.com/moovweb/gvm#installing
+[Go install]: https://go.dev/doc/install
 [Kind config]: https://kind.sigs.k8s.io/docs/user/quick-start/#advanced
 [Kind install]: https://kind.sigs.k8s.io/docs/user/quick-start#installation
 [Load test]: https://github.com/kubernetes/perf-tests/tree/master/clusterloader2/testing/load

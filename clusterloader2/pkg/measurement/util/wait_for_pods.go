@@ -41,6 +41,7 @@ type WaitForPodOptions struct {
 	CountErrorMargin    int
 	CallerName          string
 	WaitForPodsInterval time.Duration
+	TolerationTimeout   time.Duration
 
 	// IsPodUpdated can be used to detect which pods have been already updated.
 	// nil value means all pods are updated.
@@ -70,6 +71,16 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 	var oldPodsStatus PodsStartupStatus
 	var lastIsPodUpdatedError error
 
+	var tolerationCh <-chan time.Time
+	if options.TolerationTimeout > 0 {
+		timer := time.NewTimer(options.TolerationTimeout)
+		defer timer.Stop()
+		tolerationCh = timer.C
+	}
+
+	var tolerationExpired bool
+	var tolerationExpiredAt time.Time
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,6 +98,25 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 					desiredPodCount, ps.String(), oldPodsStatus.String())
 			}
 			return pods.NotRunningAndReady(), ctx.Err()
+
+		case <-tolerationCh:
+			desiredPodCount := options.DesiredPodCount()
+			pods, err := ps.List()
+			if err != nil {
+				return nil, fmt.Errorf("failed to list pods: %w", err)
+			}
+			podsStatus := ComputePodsStartupStatus(pods, desiredPodCount, options.IsPodUpdated)
+			if podsStatus.LastIsPodUpdatedError != nil {
+				lastIsPodUpdatedError = podsStatus.LastIsPodUpdatedError
+			}
+			klog.V(2).Infof("%s: %s: toleration timeout expired, pods status: %s", options.CallerName, ps.String(), podsStatus.String())
+			if isPodsStatusAcceptable(pods, podsStatus, desiredPodCount, options.CountErrorMargin) {
+				return nil, nil
+			}
+			tolerationExpired = true
+			tolerationExpiredAt = time.Now()
+			oldPods = pods
+			oldPodsStatus = podsStatus
 
 		case <-time.After(options.WaitForPodsInterval):
 			desiredPodCount := options.DesiredPodCount()
@@ -121,18 +151,30 @@ func WaitForPods(ctx context.Context, ps PodLister, options *WaitForPodOptions) 
 			if podsStatus.String() != oldPodsStatus.String() {
 				klog.V(2).Infof("%s: %s: %s", options.CallerName, ps.String(), podsStatus.String())
 			}
-			// We allow inactive pods (e.g. eviction happened).
-			// We wait until there is a desired number of pods running and all other pods are inactive.
-			if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {
-				return nil, nil
-			}
-			// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
-			// Overall number of pods (especially Inactive pods) should not grow unchecked.
-			if options.CountErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-options.CountErrorMargin && len(pods)-podsStatus.Inactive <= desiredPodCount && podsStatus.Inactive <= options.CountErrorMargin {
+			if isPodsStatusAcceptable(pods, podsStatus, desiredPodCount, options.CountErrorMargin) {
+				if tolerationExpired {
+					delay := time.Since(tolerationExpiredAt)
+					return nil, fmt.Errorf("desired number of %d pods in %s reached after tolerationTimeout (%v), delay after tolerationTimeout was %v",
+						desiredPodCount, ps.String(), options.TolerationTimeout, delay)
+				}
 				return nil, nil
 			}
 			oldPods = pods
 			oldPodsStatus = podsStatus
 		}
 	}
+}
+
+func isPodsStatusAcceptable(pods []*v1.Pod, podsStatus PodsStartupStatus, desiredPodCount int, countErrorMargin int) bool {
+	// We allow inactive pods (e.g. eviction happened).
+	// We wait until there is a desired number of pods running and all other pods are inactive.
+	if len(pods) == (podsStatus.Running+podsStatus.Inactive) && podsStatus.Running == podsStatus.RunningUpdated && podsStatus.RunningUpdated == desiredPodCount {
+		return true
+	}
+	// When using preemptibles on large scale, number of ready nodes is not stable and reaching DesiredPodCount could take a very long time.
+	// Overall number of pods (especially Inactive pods) should not grow unchecked.
+	if countErrorMargin > 0 && podsStatus.RunningUpdated >= desiredPodCount-countErrorMargin && len(pods)-podsStatus.Inactive <= desiredPodCount && podsStatus.Inactive <= countErrorMargin {
+		return true
+	}
+	return false
 }

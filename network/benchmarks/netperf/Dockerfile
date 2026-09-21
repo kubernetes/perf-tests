@@ -21,7 +21,7 @@
 #
 # Args: --mode=worker --host=<service cluster ip> --port=5202
 #
-ARG GOLANG_VERSION=1.18
+ARG GOLANG_VERSION=1.26.4
 FROM golang:${GOLANG_VERSION} as builder
 WORKDIR /workspace
 

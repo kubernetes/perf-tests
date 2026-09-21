@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -48,7 +49,7 @@ func createAPIAvailabilityMeasurement() measurement.Measurement {
 
 type apiAvailabilityMeasurement struct {
 	isRunning           bool
-	isPaused            bool
+	isPaused            atomic.Bool
 	pauseCh             chan struct{}
 	unpauseCh           chan struct{}
 	stopCh              chan struct{}
@@ -109,12 +110,23 @@ func (a *apiAvailabilityMeasurement) pollHost(hostIP string) (string, error) {
 }
 
 func (a *apiAvailabilityMeasurement) updateClusterAvailabilityMetrics(c clientset.Interface) {
-	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Do(context.Background())
+	/* The exlude=shutdown param excludes the shutdown healthcheck from APIAvailability measurement.
+	This is done to accept cases when we hit the "old" VM during upgrade, which is shutting down.
+	The rationale behind it is that VMs have graceful degradation.
+	The crucial components are being shut down at the latest stage.
+	This enables the VM to respond to requests properly even during shutdown.
+	*/
+	result := c.CoreV1().RESTClient().Get().AbsPath("/readyz").Param("exclude", "shutdown").Do(context.Background())
 	status := 0
-	result.StatusCode(&status)
-	availability := status == http.StatusOK
-	if !availability {
-		klog.Warningf("cluster not available; HTTP status code: %d", status)
+	availability := false
+	if err := result.Error(); err != nil {
+		klog.Warningf("cluster not available; request error: %v", err)
+	} else {
+		result.StatusCode(&status)
+		availability = status == http.StatusOK
+		if !availability {
+			klog.Warningf("cluster not available; HTTP status code: %d", status)
+		}
 	}
 	a.clusterLevelMetrics.update(availability)
 }
@@ -158,17 +170,17 @@ func (a *apiAvailabilityMeasurement) start(config *measurement.Config) error {
 	go func() {
 		defer a.wg.Done()
 		for {
-			if a.isPaused {
+			if a.isPaused.Load() {
 				select {
 				case <-a.unpauseCh:
-					a.isPaused = false
+					a.isPaused.Store(false)
 				case <-a.stopCh:
 					return
 				}
 			}
 			select {
 			case <-a.pauseCh:
-				a.isPaused = true
+				a.isPaused.Store(true)
 			case <-time.After(a.pollFrequency):
 				a.updateClusterAvailabilityMetrics(k8sClient)
 				if a.hostLevelAvailabilityEnabled() {
@@ -261,7 +273,7 @@ func (a *apiAvailabilityMeasurement) pause() {
 		klog.V(2).Infof("%s: measurement is not running", a)
 		return
 	}
-	if a.isPaused {
+	if a.isPaused.Load() {
 		klog.Warningf("%s: measurement already paused", a)
 		return
 	}
@@ -274,7 +286,7 @@ func (a *apiAvailabilityMeasurement) unpause() {
 		klog.V(2).Infof("%s: measurement is not running", a)
 		return
 	}
-	if !a.isPaused {
+	if !a.isPaused.Load() {
 		klog.Warningf("%s: measurement already unpaused", a)
 		return
 	}

@@ -148,6 +148,93 @@ func Test_parseContainerRestarts(t *testing.T) {
 	}
 }
 
+func Test_parseResourceUsageDataAddsAverageResourcesBackwardCompatible(t *testing.T) {
+	data := []byte(`{
+		"Perc50": [
+			{"Name": "ip-10-0-0-1/kubelet", "CPU": 1, "Mem": 104857600},
+			{"Name": "ip-10-0-0-2/kubelet", "CPU": 3, "Mem": 314572800}
+		],
+		"Perc90": [
+			{"Name": "ip-10-0-0-1/kubelet", "CPU": 2, "Mem": 209715200},
+			{"Name": "ip-10-0-0-2/kubelet", "CPU": 4, "Mem": 419430400}
+		]
+	}`)
+
+	got := &BuildData{Builds: NewBuilds(nil)}
+	parseResourceUsageData(data, 7, got)
+
+	assert.Equal(t, "v1", got.Version)
+	require.NotNil(t, got.Builds)
+	assert.ElementsMatch(t, []perftype.DataItem{
+		{
+			Unit: "cores",
+			Labels: map[string]string{
+				"PodName":  "ip-10-0-0-1/kubelet",
+				"Resource": "CPU",
+			},
+			Data: map[string]float64{
+				"Perc50": 1,
+				"Perc90": 2,
+			},
+		},
+		{
+			Unit: "MiB",
+			Labels: map[string]string{
+				"PodName":  "ip-10-0-0-1/kubelet",
+				"Resource": "memory",
+			},
+			Data: map[string]float64{
+				"Perc50": 100,
+				"Perc90": 200,
+			},
+		},
+		{
+			Unit: "cores",
+			Labels: map[string]string{
+				"PodName":  "ip-10-0-0-2/kubelet",
+				"Resource": "CPU",
+			},
+			Data: map[string]float64{
+				"Perc50": 3,
+				"Perc90": 4,
+			},
+		},
+		{
+			Unit: "MiB",
+			Labels: map[string]string{
+				"PodName":  "ip-10-0-0-2/kubelet",
+				"Resource": "memory",
+			},
+			Data: map[string]float64{
+				"Perc50": 300,
+				"Perc90": 400,
+			},
+		},
+		{
+			Unit: "cores",
+			Labels: map[string]string{
+				"PodName":  "all-nodes",
+				"Resource": "CPU_Average",
+			},
+			Data: map[string]float64{
+				"Perc50": 2,
+				"Perc90": 3,
+			},
+		},
+		{
+			Unit: "MiB",
+			Labels: map[string]string{
+				"PodName":  "all-nodes",
+				"Resource": "memory_Average",
+			},
+			Data: map[string]float64{
+				"Perc50": 200,
+				"Perc90": 300,
+			},
+		},
+	}, got.Builds.Builds("7"))
+}
+
 func Test_BuildDataToJson(t *testing.T) {
 	tests := []struct {
 		name      string

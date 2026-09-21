@@ -82,6 +82,7 @@ func (d *draDependency) Setup(config *dependency.Config) error {
 	mapping := map[string]interface{}{
 		"Namespace":       namespace,
 		"WorkerNodeCount": getWorkerCount(config),
+		"ImageRegistry":   config.ClusterLoaderConfig.ImageRegistry,
 	}
 
 	if extendedResourceName, ok := config.Params["ExtendedResourceName"]; ok {

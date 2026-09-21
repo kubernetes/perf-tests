@@ -2,9 +2,15 @@
 {{$configMapBytes := DefaultParam .CL2_LIST_CONFIG_MAP_BYTES 100000}}
 {{$configMapNumber := DefaultParam .CL2_LIST_CONFIG_MAP_NUMBER 10000}}
 {{$configMapGroup := DefaultParam .CL2_LIST_CONFIG_MAP_GROUP "list-configmap"}}
+{{$podNumber := DefaultParam .CL2_LIST_POD_NUMBER 0}}
+{{$podGroup := DefaultParam .CL2_LIST_POD_GROUP "list-pod"}}
 
 {{$listReplicas := DefaultParam .CL2_LIST_BENCHMARK_PODS 1}}
 {{$contentType := DefaultParam .CL2_LIST_BENCHMARK_CONTENT_TYPE "json"}}
+
+{{$mode := DefaultParam .CL2_LIST_BENCHMARK_MODE "http"}}
+{{$informerCount := DefaultParam .CL2_LIST_INFORMER_COUNT 1}}
+{{$enableWatchList := DefaultParam .CL2_LIST_ENABLE_WATCHLIST false}}
 
 name: list-benchmark
 namespace:
@@ -42,6 +48,7 @@ steps:
     - basename: list-rolebinding
       objectTemplatePath: rolebinding.yaml
 
+{{if $configMapNumber}}
 - name: Create configmaps
   phases:
   - namespaceRange:
@@ -56,6 +63,19 @@ steps:
         bytes: {{$configMapBytes}}
         group: {{$configMapGroup}}
 
+{{if eq $mode "informer"}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-configmaps-"
+      replicas: {{$listReplicas}}
+      contentType: {{$contentType}}
+      mode: {{$mode}}
+      resource: configmaps
+      apiVersion: v1
+      count: {{$informerCount}}
+      enableWatchList: {{$enableWatchList}}
+{{else}}
 - module:
     path: modules/list-benchmark.yaml
     params:
@@ -64,11 +84,12 @@ steps:
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
+{{end}}
 - module:
     path: /modules/measurements.yaml
     params:
       action: start
-- name: Wait 5 minutes
+- name: Wait 5 minutes for configmap list benchmark
   measurements:
     - Identifier: Wait
       Method: Sleep
@@ -83,3 +104,75 @@ steps:
     params:
       namePrefix: "list-configmaps-"
       replicas: 0
+{{end}}
+
+{{if $podNumber}}
+- name: Delete configmaps before pod list benchmark
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 0
+    objectBundle:
+    - basename: {{$configMapGroup}}
+      objectTemplatePath: configmap.yaml
+      templateFillMap:
+        bytes: {{$configMapBytes}}
+        group: {{$configMapGroup}}
+
+- name: Create pods
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: {{$podNumber}}
+    objectBundle:
+    - basename: {{$podGroup}}
+      objectTemplatePath: pod.yaml
+      templateFillMap:
+        group: {{$podGroup}}
+
+{{if eq $mode "informer"}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: {{$listReplicas}}
+      contentType: {{$contentType}}
+      mode: {{$mode}}
+      resource: pods
+      apiVersion: v1
+      count: {{$informerCount}}
+      enableWatchList: {{$enableWatchList}}
+{{else}}
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: {{$listReplicas}}
+      uri: /api/v1/pods?resourceVersion=0
+      namespaced: false
+      contentType: {{$contentType}}
+{{end}}
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
+- name: Wait 5 minutes for pod list benchmark
+  measurements:
+    - Identifier: Wait
+      Method: Sleep
+      Params:
+        duration: 5m
+- module:
+    path: /modules/measurements.yaml
+    params:
+      action: gather
+- module:
+    path: modules/list-benchmark.yaml
+    params:
+      namePrefix: "list-pods-"
+      replicas: 0
+{{end}}

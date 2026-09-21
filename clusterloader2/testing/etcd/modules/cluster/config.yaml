@@ -1,0 +1,41 @@
+## Input params
+{{$etcdReplicas := DefaultParam .etcdReplicas 3}}
+{{$clusterName := "etcd-cluster-0"}}
+
+steps:
+- name: Create official etcd PodMonitor
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: etcd-monitor
+      objectTemplatePath: modules/cluster/podmonitor.yaml
+      templateFillMap:
+        ClusterName: {{$clusterName}}
+
+- name: Create official EtcdCluster Custom Resource
+  phases:
+  - namespaceRange:
+      min: 1
+      max: 1
+    tuningSet: Sequence
+    replicasPerNamespace: 1
+    objectBundle:
+    - basename: etcd-cluster
+      objectTemplatePath: modules/cluster/cluster.yaml
+      templateFillMap:
+        Replicas: {{$etcdReplicas}}
+        EtcdImageRegistry: "registry.k8s.io/etcd"
+
+- name: Waiting for official etcd-operator cluster to be healthy
+  measurements:
+  - Method: WaitForRunningPods
+    Identifier: WaitForRunningEtcdPods
+    Params:
+      desiredPodCount: {{$etcdReplicas}}
+      labelSelector: app = {{$clusterName}}
+      timeout: 5m
+

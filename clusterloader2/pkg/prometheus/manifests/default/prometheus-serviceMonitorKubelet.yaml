@@ -1,4 +1,5 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$KEEP_ONLY_DRA := DefaultParam .CL2_PROMETHEUS_KUBELET_KEEP_ONLY_DRA false}}
 
 {{if $PROMETHEUS_SCRAPE_KUBELETS}}
 apiVersion: monitoring.coreos.com/v1
@@ -19,6 +20,16 @@ spec:
     bearerTokenSecret:
       name: prometheus-token
       key: token
+    {{if $KEEP_ONLY_DRA}}
+    # DRA scale tests only query the kubelet DRA-plugin metrics (dra_*). Keeping just those
+    # drops the per-node go_*/process_*/rest_client_*/workqueue_*/apiserver_* series
+    # (x node count), which bounds Prometheus memory at 5k+ nodes. DRA-specific: enabled
+    # only via CL2_PROMETHEUS_KUBELET_KEEP_ONLY_DRA so other kubelet-scraping uses are unaffected.
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        regex: 'dra_.*|up'
+        action: keep
+    {{end}}
   - port: https-metrics
     scheme: https
     path: /metrics/cadvisor

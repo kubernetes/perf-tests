@@ -23,8 +23,9 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
@@ -45,17 +46,24 @@ type WaitForGenericK8sObjectsOptions struct {
 	MinDesiredObjectCount int
 	// MaxFailedObjectCount describes maximum number of objects that could contain failed condition.
 	MaxFailedObjectCount int
+	// LabelSelector filters objects by label.
+	LabelSelector labels.Selector
 	// CallerName identifies the measurement making the calls.
 	CallerName string
 	// WaitInterval contains interval for which the function waits between refreshes.
 	WaitInterval time.Duration
+	// GenericLister allows the caller to provide a pre-warmed cache to avoid
+	// instantiating a new dynamic informer. If provided, GroupVersionResource is
+	// ignored for informer creation.
+	GenericLister cache.GenericLister
 }
 
 // NamespacesRange represents namespace range which will be queried.
 type NamespacesRange struct {
-	Prefix string
-	Min    int
-	Max    int
+	AllNamespaces bool
+	Prefix        string
+	Min           int
+	Max           int
 }
 
 // Summary returns summary which should be included in all logs.
@@ -65,6 +73,9 @@ func (o *WaitForGenericK8sObjectsOptions) Summary() string {
 
 // String returns printable representation of the namespaces range.
 func (nr *NamespacesRange) String() string {
+	if nr.AllNamespaces {
+		return "*"
+	}
 	if nr.Prefix == "" {
 		return ""
 	}
@@ -74,6 +85,9 @@ func (nr *NamespacesRange) String() string {
 // getMap returns a map with namespaces which should be queried.
 func (nr *NamespacesRange) getMap() map[string]bool {
 	result := map[string]bool{}
+	if nr.AllNamespaces {
+		return result // all namespaces => empty map
+	}
 	if nr.Prefix == "" {
 		result[""] = true // Cluster-scoped objects.
 		return result
@@ -87,37 +101,41 @@ func (nr *NamespacesRange) getMap() map[string]bool {
 // WaitForGenericK8sObjects waits till the desired number of k8s objects
 // fulfills given conditions requirements, ctx.Done() channel is used to
 // wait for timeout.
-func WaitForGenericK8sObjects(ctx context.Context, dynamicClient dynamic.Interface, options *WaitForGenericK8sObjectsOptions) error {
-	store, err := NewDynamicObjectStore(ctx, dynamicClient, options.GroupVersionResource, options.Namespaces.getMap())
-	if err != nil {
-		return err
+func WaitForGenericK8sObjects(ctx context.Context, options *WaitForGenericK8sObjectsOptions) error {
+	lister := options.GenericLister
+	if lister == nil {
+		return fmt.Errorf("GenericLister is required")
 	}
 
-	objects, err := store.ListObjectSimplifications()
-	if err != nil {
-		return err
-	}
-	successful, failed, count := countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
+	namespacesMap := options.Namespaces.getMap()
+	var successful, failed []string
+	var count int
+
 	for {
+		objects, err := ListObjectSimplifications(lister, namespacesMap, options.LabelSelector)
+		if err != nil {
+			return err
+		}
+		successful, failed, count = countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
+		klog.V(2).Infof("%s: successful=%d failed=%d count=%d", options.Summary(), len(successful), len(failed), count)
+
+		if len(options.SuccessfulConditions) == 0 && len(options.FailedConditions) == 0 {
+			if options.MinDesiredObjectCount <= count {
+				return nil
+			}
+		} else if options.MinDesiredObjectCount <= len(successful)+len(failed) {
+			if options.MaxFailedObjectCount < len(failed) {
+				return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d count=%d failed-objects=[%s]",
+					options.Summary(), options.MaxFailedObjectCount, len(successful), len(failed), count, strings.Join(failed, ","))
+			}
+			return nil
+		}
+
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%s: timeout while waiting for %d objects to be successful or failed - currently there are: successful=%d failed=%d count=%d",
 				options.Summary(), options.MinDesiredObjectCount, len(successful), len(failed), count)
 		case <-time.After(options.WaitInterval):
-			objects, err := store.ListObjectSimplifications()
-			if err != nil {
-				return err
-			}
-			successful, failed, count = countObjectsMatchingConditions(objects, options.SuccessfulConditions, options.FailedConditions)
-
-			klog.V(2).Infof("%s: successful=%d failed=%d count=%d", options.Summary(), len(successful), len(failed), count)
-			if options.MinDesiredObjectCount <= len(successful)+len(failed) {
-				if options.MaxFailedObjectCount < len(failed) {
-					return fmt.Errorf("%s: too many failed objects, expected at most %d - currently there are: successful=%d failed=%d count=%d failed-objects=[%s]",
-						options.Summary(), options.MaxFailedObjectCount, len(successful), len(failed), count, strings.Join(failed, ","))
-				}
-				return nil
-			}
 		}
 	}
 }

@@ -1,5 +1,5 @@
 # Build image
-FROM golang:1.26 AS build-env
+FROM golang:1.27 AS build-env
 
 ARG gopkg=k8s.io/perf-tests/network/tools/network-policy-enforcement-latency
 ADD ["./", "/go/src/$gopkg"]
@@ -8,7 +8,7 @@ WORKDIR /go/src/$gopkg/pod-creation-reachability-latency
 RUN go build -o /pod-creation-reachability-latency
 
 # Runtime image
-FROM alpine:3.23
+FROM alpine:3.24
 # Need to install curl to send requests to pods
 RUN apk --no-cache add curl
 

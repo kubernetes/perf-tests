@@ -53,6 +53,11 @@ set the value of `clusterOOMsIgnoredProcesses` TestMetrics parameter to a
 sequence of comma-separated processes names. The OOMs from the mentioned
 processes will still be included in the measurement summary.
 
+Alternatively, you can prevent any OOM from failing the test entirely while still
+tracking and recording them in the measurement summary. To do so, set the
+`clusterOOMsFailureEnabled` TestMetrics parameter to `false`. By default, this
+is `true` and the test will fail if any non-ignored OOM is detected.
+
 ## Further debugging steps
 
 `ClusterOOMsTracker` watches for events emitted by `node-problem-detector` when

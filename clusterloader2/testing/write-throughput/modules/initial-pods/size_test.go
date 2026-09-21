@@ -39,8 +39,7 @@ func TestPodSize(t *testing.T) {
 
 	var rendered bytes.Buffer
 	err = tmpl.Execute(&rendered, map[string]interface{}{
-		"Name":          "bench-pod-0",
-		"ImageRegistry": "registry.k8s.io",
+		"Name": "bench-pod-0",
 	})
 	require.NoError(t, err)
 
@@ -60,5 +59,5 @@ func TestPodSize(t *testing.T) {
 	err = protoSerializer.Encode(pod, &buf)
 	require.NoError(t, err)
 
-	require.Equal(t, 2068, buf.Len())
+	require.Equal(t, 10276, buf.Len())
 }

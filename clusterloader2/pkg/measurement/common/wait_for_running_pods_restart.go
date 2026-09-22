@@ -19,12 +19,8 @@ package common
 import (
 	"context"
 	"fmt"
-	"math"
-	"strings"
 	"sync"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -48,15 +44,15 @@ func createWaitForRunningPodsRestartMeasurement() measurement.Measurement {
 }
 
 type waitForRunningPodsRestartMeasurement struct {
-	lock           sync.Mutex
-	isRunning      bool
-	totalPodsCount int
-	selector       *util.ObjectSelector
+	lock      sync.Mutex
+	isRunning bool
+	podsCount int
+	selector  *util.ObjectSelector
 }
 
 // Execute supports "start", "gather", and "stop" actions.
 // On "start", all pods matching the given selector are counted and saved.
-// On "gather", the measurement waits until all counted pods (within configurable % difference) are back up and Running.
+// On "gather", the measurement waits until the number of pods matching the selector is within the configured range/toleration.
 func (w *waitForRunningPodsRestartMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
@@ -93,14 +89,14 @@ func (w *waitForRunningPodsRestartMeasurement) start(config *measurement.Config)
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
-	totalPodsCount := len(podList.Items)
+	podsCount := len(podList.Items)
 
-	w.totalPodsCount = totalPodsCount
+	w.podsCount = podsCount
 	w.selector = selector
 	w.isRunning = true
 
 	klog.V(2).Infof("%s: started, found %d total pods matching selector '%s'",
-		w, totalPodsCount, selector.String())
+		w, podsCount, selector.String())
 	return nil
 }
 
@@ -110,7 +106,7 @@ func (w *waitForRunningPodsRestartMeasurement) gather(config *measurement.Config
 		w.lock.Unlock()
 		return fmt.Errorf("measurement %s has not been started", w)
 	}
-	totalPodsCount := w.totalPodsCount
+	podsCount := w.podsCount
 	selector := w.selector
 	w.lock.Unlock()
 
@@ -131,13 +127,17 @@ func (w *waitForRunningPodsRestartMeasurement) gather(config *measurement.Config
 		return err
 	}
 
-	minDesired, maxDesired, margin, err := calculateDesiredPodRange(config.Params, totalPodsCount)
+	minDesiredPtr, maxDesiredPtr, tolerationPtr, err := measurementutil.ParseDesiredPodRange(config.Params)
+	if err != nil {
+		return err
+	}
+	minDesired, maxDesired, margin, err := measurementutil.CalculateDesiredPodRange(config.Params, podsCount)
 	if err != nil {
 		return err
 	}
 
-	klog.V(2).Infof("%s: waiting for %d-%d pods (initially %d, margin %d) with selector '%s' to be running",
-		w, minDesired, maxDesired, totalPodsCount, margin, selector.String())
+	klog.V(2).Infof("%s: waiting for %d-%d pods (initially %d, margin %d) with selector '%s'",
+		w, minDesired, maxDesired, podsCount, margin, selector.String())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
@@ -148,204 +148,23 @@ func (w *waitForRunningPodsRestartMeasurement) gather(config *measurement.Config
 	}
 	defer podStore.Stop()
 
-	err = w.waitForPods(ctx, podStore, minDesired, maxDesired, totalPodsCount, refreshInterval, tolerationTimeout)
+	checkPodsRunning := false
+	options := &measurementutil.WaitForPodOptions{
+		DesiredPodCount:     func() int { return podsCount },
+		MinDesiredPodCount:  minDesiredPtr,
+		MaxDesiredPodCount:  maxDesiredPtr,
+		Toleration:          tolerationPtr,
+		CallerName:          w.String(),
+		WaitForPodsInterval: refreshInterval,
+		TolerationTimeout:   tolerationTimeout,
+		CheckPodsRunning:    &checkPodsRunning,
+	}
+
+	_, err = measurementutil.WaitForPods(ctx, podStore, options)
 	if err != nil && isFatal {
 		return errors.NewErrCritical(err)
 	}
 	return err
-}
-
-func (w *waitForRunningPodsRestartMeasurement) waitForPods(
-	ctx context.Context,
-	ps measurementutil.PodLister,
-	minDesired, maxDesired, initialCount int,
-	refreshInterval, tolerationTimeout time.Duration,
-) error {
-	var timeout time.Duration
-	if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
-		timeout = time.Until(deadline)
-	}
-	klog.V(2).Infof("%s: %s: starting with timeout: %v, expecting %d-%d running pods (initially %d)",
-		w, ps.String(), timeout, minDesired, maxDesired, initialCount)
-
-	oldPods, err := ps.List()
-	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
-	}
-
-	oldPodsStatus := measurementutil.ComputePodsStartupStatus(oldPods, initialCount, nil)
-	var tolerationCh <-chan time.Time
-	if tolerationTimeout > 0 {
-		timer := time.NewTimer(tolerationTimeout)
-		defer timer.Stop()
-		tolerationCh = timer.C
-	}
-
-	var tolerationExpired bool
-	var tolerationExpiredAt time.Time
-
-	for {
-		select {
-		case <-ctx.Done():
-			latestPods, listErr := ps.List()
-			if listErr == nil {
-				oldPods = latestPods
-				oldPodsStatus = measurementutil.ComputePodsStartupStatus(oldPods, initialCount, nil)
-			}
-			if ctx.Err() == context.DeadlineExceeded {
-				notRunning := getNotRunningPods(oldPods)
-				klog.V(2).Infof("%s: %s: expected %d-%d pods, got %d pods (not running pods: %s)",
-					w, ps.String(), minDesired, maxDesired, len(oldPods), strings.Join(notRunning, ", "))
-				klog.V(2).Infof("%s: %s: pods still not in Running state: %s",
-					w, ps.String(), strings.Join(notRunning, ", "))
-				if minDesired == maxDesired {
-					return fmt.Errorf("got %w while waiting for %d pods to be running in %s - summary of pods : %s, not running pods: %s",
-						ctx.Err(), minDesired, ps.String(), oldPodsStatus.String(), strings.Join(notRunning, ", "))
-				}
-				return fmt.Errorf("got %w while waiting for %d-%d pods to be running in %s - summary of pods : %s, not running pods: %s",
-					ctx.Err(), minDesired, maxDesired, ps.String(), oldPodsStatus.String(), strings.Join(notRunning, ", "))
-			}
-			return ctx.Err()
-
-		case <-tolerationCh:
-			pods, err := ps.List()
-			if err != nil {
-				return fmt.Errorf("failed to list pods: %w", err)
-			}
-			podsStatus := measurementutil.ComputePodsStartupStatus(pods, initialCount, nil)
-			klog.V(2).Infof("%s: %s: toleration timeout expired, pods status: %s", w, ps.String(), podsStatus.String())
-			if isPodsStatusAcceptable(pods, podsStatus, minDesired, maxDesired) {
-				return nil
-			}
-			notRunning := getNotRunningPods(pods)
-			klog.V(2).Infof("%s: %s: toleration timeout expired, pods not in Running state: %s",
-				w, ps.String(), strings.Join(notRunning, ", "))
-			tolerationExpired = true
-			tolerationExpiredAt = time.Now()
-			oldPods = pods
-			oldPodsStatus = podsStatus
-
-		case <-time.After(refreshInterval):
-			pods, err := ps.List()
-			if err != nil {
-				return fmt.Errorf("failed to list pods: %w", err)
-			}
-			podsStatus := measurementutil.ComputePodsStartupStatus(pods, initialCount, nil)
-
-			diff := measurementutil.DiffPods(oldPods, pods)
-			deletedPods := diff.DeletedPods()
-			if len(oldPods) < minDesired && len(deletedPods) > 0 {
-				klog.Warningf("%s: %s: %d pods disappeared: %v", w, ps.String(), len(deletedPods), strings.Join(deletedPods, ", "))
-			}
-			addedPods := diff.AddedPods()
-			if len(oldPods) > maxDesired && len(addedPods) > 0 {
-				klog.Warningf("%s: %s: %d pods appeared: %v", w, ps.String(), len(addedPods), strings.Join(addedPods, ", "))
-			}
-			if podsStatus.String() != oldPodsStatus.String() {
-				klog.V(2).Infof("%s: %s: %s", w, ps.String(), podsStatus.String())
-			}
-			if isPodsStatusAcceptable(pods, podsStatus, minDesired, maxDesired) {
-				if tolerationExpired {
-					delay := time.Since(tolerationExpiredAt)
-					if minDesired == maxDesired {
-						return fmt.Errorf("desired number of %d pods in %s reached after tolerationTimeout (%v), delay after tolerationTimeout was %v",
-							minDesired, ps.String(), tolerationTimeout, delay)
-					}
-					return fmt.Errorf("desired number of %d-%d pods in %s reached after tolerationTimeout (%v), delay after tolerationTimeout was %v",
-						minDesired, maxDesired, ps.String(), tolerationTimeout, delay)
-				}
-				return nil
-			}
-			oldPods = pods
-			oldPodsStatus = podsStatus
-		}
-	}
-}
-
-func isPodsStatusAcceptable(pods []*corev1.Pod, podsStatus measurementutil.PodsStartupStatus, minDesired, maxDesired int) bool {
-	// We wait until all pods are running and ready, and the total running count is in [minDesired, maxDesired].
-	if len(pods) == podsStatus.Running &&
-		podsStatus.Running == podsStatus.RunningUpdated &&
-		podsStatus.RunningUpdated >= minDesired && podsStatus.RunningUpdated <= maxDesired {
-		return true
-	}
-	return false
-}
-
-func getNotRunningPods(pods []*corev1.Pod) []string {
-	var notRunning []string
-	for _, p := range pods {
-		if !isPodRunning(p) {
-			if p.Namespace != "" {
-				notRunning = append(notRunning, fmt.Sprintf("%s/%s", p.Namespace, p.Name))
-			} else {
-				notRunning = append(notRunning, p.Name)
-			}
-		}
-	}
-	return notRunning
-}
-
-func isPodRunning(p *corev1.Pod) bool {
-	if p.DeletionTimestamp != nil {
-		return false
-	}
-	if p.Status.Phase != corev1.PodRunning {
-		return false
-	}
-	for _, c := range p.Status.Conditions {
-		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func calculateDesiredPodRange(params map[string]interface{}, initialRunningCount int) (minDesired, maxDesired, margin int, err error) {
-	minVal, minErr := util.GetInt(params, "minDesiredPodCount")
-	if minErr != nil && !util.IsErrKeyNotFound(minErr) {
-		return 0, 0, 0, minErr
-	}
-	maxVal, maxErr := util.GetInt(params, "maxDesiredPodCount")
-	if maxErr != nil && !util.IsErrKeyNotFound(maxErr) {
-		return 0, 0, 0, maxErr
-	}
-
-	hasMin := minErr == nil
-	hasMax := maxErr == nil
-	if hasMin != hasMax {
-		return 0, 0, 0, fmt.Errorf("both minDesiredPodCount and maxDesiredPodCount must be specified together")
-	}
-
-	toleration, tolErr := util.GetFloat64(params, "toleration")
-	if tolErr != nil && !util.IsErrKeyNotFound(tolErr) {
-		return 0, 0, 0, tolErr
-	}
-	hasToleration := tolErr == nil
-
-	if hasMin && hasMax {
-		if hasToleration {
-			return 0, 0, 0, fmt.Errorf("cannot specify both minDesiredPodCount/maxDesiredPodCount and toleration")
-		}
-		if minVal > maxVal {
-			return 0, 0, 0, fmt.Errorf("minDesiredPodCount (%d) cannot be greater than maxDesiredPodCount (%d)", minVal, maxVal)
-		}
-		margin = (maxVal - minVal) / 2
-		return minVal, maxVal, margin, nil
-	}
-
-	if toleration < 0.0 || toleration > 100.0 {
-		return 0, 0, 0, fmt.Errorf("toleration (%v) must be between 0 and 100", toleration)
-	}
-
-	margin = int(math.Ceil(float64(initialRunningCount) * toleration / 100.0))
-	minDesired = initialRunningCount - margin
-	if minDesired < 0 {
-		minDesired = 0
-	}
-	maxDesired = initialRunningCount + margin
-
-	return minDesired, maxDesired, margin, nil
 }
 
 // Dispose cleans up after the measurement.
@@ -353,7 +172,7 @@ func (w *waitForRunningPodsRestartMeasurement) Dispose() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	w.isRunning = false
-	w.totalPodsCount = 0
+	w.podsCount = 0
 	w.selector = nil
 }
 

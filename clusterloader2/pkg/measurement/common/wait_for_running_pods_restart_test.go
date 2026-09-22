@@ -17,184 +17,28 @@ limitations under the License.
 package common
 
 import (
-	"context"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 )
 
-func TestCalculateDesiredPodRange(t *testing.T) {
-	testCases := []struct {
-		name                string
-		params              map[string]interface{}
-		initialRunningCount int
-		expectedMin         int
-		expectedMax         int
-		expectedMargin      int
-		expectErr           bool
-	}{
-		{
-			name:                "no difference specified (exact count)",
-			params:              map[string]interface{}{},
-			initialRunningCount: 100,
-			expectedMin:         100,
-			expectedMax:         100,
-			expectedMargin:      0,
-		},
-		{
-			name: "toleration 1%",
-			params: map[string]interface{}{
-				"toleration": 1.0,
-			},
-			initialRunningCount: 1000,
-			expectedMin:         990,
-			expectedMax:         1010,
-			expectedMargin:      10,
-		},
-		{
-			name: "toleration 5%",
-			params: map[string]interface{}{
-				"toleration": 5.0,
-			},
-			initialRunningCount: 200,
-			expectedMin:         190,
-			expectedMax:         210,
-			expectedMargin:      10,
-		},
-		{
-			name: "toleration with decimal places 1.5%",
-			params: map[string]interface{}{
-				"toleration": 1.5,
-			},
-			initialRunningCount: 1000,
-			expectedMin:         985,
-			expectedMax:         1015,
-			expectedMargin:      15,
-		},
-		{
-			name: "toleration with decimal places ceiling rounding",
-			params: map[string]interface{}{
-				"toleration": 0.25,
-			},
-			initialRunningCount: 100,
-			expectedMin:         99,
-			expectedMax:         101,
-			expectedMargin:      1,
-		},
-		{
-			name: "explicit minDesiredPodCount and maxDesiredPodCount",
-			params: map[string]interface{}{
-				"minDesiredPodCount": 80,
-				"maxDesiredPodCount": 120,
-			},
-			initialRunningCount: 100,
-			expectedMin:         80,
-			expectedMax:         120,
-			expectedMargin:      20,
-		},
-		{
-			name: "invalid range min > max",
-			params: map[string]interface{}{
-				"minDesiredPodCount": 120,
-				"maxDesiredPodCount": 80,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "only minDesiredPodCount specified",
-			params: map[string]interface{}{
-				"minDesiredPodCount": 80,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "only maxDesiredPodCount specified",
-			params: map[string]interface{}{
-				"maxDesiredPodCount": 120,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "both min/max and toleration specified",
-			params: map[string]interface{}{
-				"minDesiredPodCount": 80,
-				"maxDesiredPodCount": 120,
-				"toleration":         5.0,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "toleration out of range negative",
-			params: map[string]interface{}{
-				"toleration": -1.0,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "toleration out of range > 100",
-			params: map[string]interface{}{
-				"toleration": 100.1,
-			},
-			initialRunningCount: 100,
-			expectErr:           true,
-		},
-		{
-			name: "initial count 0 with toleration",
-			params: map[string]interface{}{
-				"toleration": 1.0,
-			},
-			initialRunningCount: 0,
-			expectedMin:         0,
-			expectedMax:         0,
-			expectedMargin:      0,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			minDesired, maxDesired, margin, err := calculateDesiredPodRange(tc.params, tc.initialRunningCount)
-			if tc.expectErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if minDesired != tc.expectedMin {
-				t.Errorf("minDesired = %d, want %d", minDesired, tc.expectedMin)
-			}
-			if maxDesired != tc.expectedMax {
-				t.Errorf("maxDesired = %d, want %d", maxDesired, tc.expectedMax)
-			}
-			if margin != tc.expectedMargin {
-				t.Errorf("margin = %d, want %d", margin, tc.expectedMargin)
-			}
-		})
-	}
-}
-
-func createTestRunningPod(name, namespace string, labels map[string]string) *corev1.Pod {
+func createTestRunningPod(name, namespace string, podLabels map[string]string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          podLabels,
+			ResourceVersion: "1",
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -208,12 +52,13 @@ func createTestRunningPod(name, namespace string, labels map[string]string) *cor
 	}
 }
 
-func createTestPendingPod(name, namespace string, labels map[string]string) *corev1.Pod {
+func createTestPendingPod(name, namespace string, podLabels map[string]string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          podLabels,
+			ResourceVersion: "1",
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
@@ -221,14 +66,15 @@ func createTestPendingPod(name, namespace string, labels map[string]string) *cor
 	}
 }
 
-func createTestTerminatingPod(name, namespace string, labels map[string]string) *corev1.Pod {
+func createTestTerminatingPod(name, namespace string, podLabels map[string]string) *corev1.Pod {
 	now := metav1.Now()
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              name,
 			Namespace:         namespace,
-			Labels:            labels,
+			Labels:            podLabels,
 			DeletionTimestamp: &now,
+			ResourceVersion:   "1",
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -242,25 +88,47 @@ func createTestTerminatingPod(name, namespace string, labels map[string]string) 
 	}
 }
 
-type fakePodLister struct {
-	lock sync.Mutex
-	pods []*corev1.Pod
-}
-
-func (f *fakePodLister) List() ([]*corev1.Pod, error) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	return f.pods, nil
-}
-
-func (f *fakePodLister) setPods(pods []*corev1.Pod) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	f.pods = pods
-}
-
-func (f *fakePodLister) String() string {
-	return "fakePodStore"
+func newFakePodClient(objs ...runtime.Object) *fake.Clientset {
+	client := fake.NewSimpleClientset(objs...)
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listAction := action.(k8stesting.ListAction)
+		gvk := schema.GroupVersionKind{Version: "v1", Kind: "Pod"}
+		res, err := client.Tracker().List(action.GetResource(), gvk, listAction.GetNamespace())
+		if err != nil {
+			return true, nil, err
+		}
+		if list, ok := res.(*corev1.PodList); ok {
+			labelSelector := listAction.GetListRestrictions().Labels
+			var filtered []corev1.Pod
+			for _, pod := range list.Items {
+				if labelSelector == nil || labelSelector.Matches(labels.Set(pod.Labels)) {
+					filtered = append(filtered, pod)
+				}
+			}
+			list.Items = filtered
+			list.ListMeta.ResourceVersion = "1"
+			return true, list, nil
+		}
+		return false, res, nil
+	})
+	client.PrependWatchReactor("pods", func(action k8stesting.Action) (bool, watch.Interface, error) {
+		watchAction := action.(k8stesting.WatchAction)
+		w, err := client.Tracker().Watch(action.GetResource(), watchAction.GetNamespace())
+		if err != nil {
+			return true, nil, err
+		}
+		labelSelector := watchAction.GetWatchRestrictions().Labels
+		if labelSelector == nil || labelSelector.Empty() {
+			return true, w, nil
+		}
+		return true, watch.Filter(w, func(in watch.Event) (watch.Event, bool) {
+			if pod, ok := in.Object.(*corev1.Pod); ok {
+				return in, labelSelector.Matches(labels.Set(pod.Labels))
+			}
+			return in, true
+		}), nil
+	})
+	return client
 }
 
 func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
@@ -272,7 +140,7 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 		createTestRunningPod("pod-other", "test-ns", map[string]string{"app": "bar"}),
 	}
 
-	fakeClient := fake.NewSimpleClientset(objects...)
+	fakeClient := newFakePodClient(objects...)
 	multiClientSet := framework.NewMultiClientSetFromClients(fakeClient)
 	clusterFramework := framework.NewFrameworkFromClients(multiClientSet, nil)
 
@@ -289,7 +157,7 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 		t.Fatalf("expected error when calling gather before start, got nil")
 	}
 
-	// 2. Start should count all pods matching selector
+	// 2. Start should count all pods matching selector (4 pods: 2 running, 1 pending, 1 terminating)
 	_, err = m.Execute(&measurement.Config{
 		ClusterFramework: clusterFramework,
 		Params: map[string]interface{}{
@@ -303,11 +171,25 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 	}
 
 	measInstance := m.(*waitForRunningPodsRestartMeasurement)
-	if measInstance.totalPodsCount != 4 {
-		t.Fatalf("expected 4 total pods counted on start, got %d", measInstance.totalPodsCount)
+	if measInstance.podsCount != 4 {
+		t.Fatalf("expected 4 total pods counted on start, got %d", measInstance.podsCount)
 	}
 
-	// 3. Stop should reset state
+	// 3. Gather should succeed even though pod-3 is Pending and pod-4 is Terminating,
+	// because WaitForPodsRecovery checks total pod count matching the selector.
+	_, err = m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"action":          "gather",
+			"timeout":         "1s",
+			"refreshInterval": "10ms",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error on gather: %v", err)
+	}
+
+	// 4. Stop should reset state
 	_, err = m.Execute(&measurement.Config{
 		ClusterFramework: clusterFramework,
 		Params: map[string]interface{}{
@@ -321,7 +203,7 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 		t.Fatalf("expected isRunning to be false after stop")
 	}
 
-	// 4. Unknown action should error
+	// 5. Unknown action should error
 	_, err = m.Execute(&measurement.Config{
 		ClusterFramework: clusterFramework,
 		Params: map[string]interface{}{
@@ -333,113 +215,123 @@ func TestWaitForRunningPodsRestart_Lifecycle(t *testing.T) {
 	}
 }
 
-func TestWaitForRunningPodsRestart_WaitForPodsWithDifference(t *testing.T) {
-	// Initially 100 pods, ±2% difference -> [98, 102]
-	// If cluster has 99 running pods (less by 1%), it should succeed.
-	pods99 := make([]*corev1.Pod, 99)
-	for i := 0; i < 99; i++ {
-		pods99[i] = createTestRunningPod(string(rune('a'+i)), "test-ns", map[string]string{"app": "foo"})
+func TestWaitForRunningPodsRestart_GatherWithTolerationAndRange(t *testing.T) {
+	// Start with 4 pods matching selector
+	objects := []runtime.Object{
+		createTestRunningPod("pod-1", "test-ns", map[string]string{"app": "foo"}),
+		createTestPendingPod("pod-2", "test-ns", map[string]string{"app": "foo"}),
+		createTestPendingPod("pod-3", "test-ns", map[string]string{"app": "foo"}),
+		createTestRunningPod("pod-4", "test-ns", map[string]string{"app": "foo"}),
 	}
 
-	lister := &fakePodLister{pods: pods99}
-	w := &waitForRunningPodsRestartMeasurement{}
+	fakeClient := newFakePodClient(objects...)
+	multiClientSet := framework.NewMultiClientSetFromClients(fakeClient)
+	clusterFramework := framework.NewFrameworkFromClients(multiClientSet, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+	m := createWaitForRunningPodsRestartMeasurement()
 
-	err := w.waitForPods(ctx, lister, 98, 102, 100, 10*time.Millisecond, 0)
-	if err != nil {
-		t.Fatalf("expected success when running pods (99) is within range [98, 102], got: %v", err)
-	}
-}
-
-func TestIsPodsStatusAcceptable(t *testing.T) {
-	podRunning1 := createTestRunningPod("pod-1", "test-ns", nil)
-	podRunning2 := createTestRunningPod("pod-2", "test-ns", nil)
-	podPending := createTestPendingPod("pod-3", "test-ns", nil)
-	podTerminating := createTestTerminatingPod("pod-4", "test-ns", nil)
-
-	// Case 1: 2 pods running, within [1, 3] -> acceptable
-	status2 := measurementutil.ComputePodsStartupStatus([]*corev1.Pod{podRunning1, podRunning2}, 2, nil)
-	if !isPodsStatusAcceptable([]*corev1.Pod{podRunning1, podRunning2}, status2, 1, 3) {
-		t.Errorf("expected status to be acceptable when running pods is within range")
-	}
-
-	// Case 2: 1 pod running, 1 pod pending -> not acceptable
-	statusPending := measurementutil.ComputePodsStartupStatus([]*corev1.Pod{podRunning1, podPending}, 2, nil)
-	if isPodsStatusAcceptable([]*corev1.Pod{podRunning1, podPending}, statusPending, 1, 3) {
-		t.Errorf("expected status to NOT be acceptable when a pod is pending")
-	}
-
-	// Case 3: 0 pods running, min is 1 -> not acceptable
-	status0 := measurementutil.ComputePodsStartupStatus([]*corev1.Pod{}, 0, nil)
-	if isPodsStatusAcceptable([]*corev1.Pod{}, status0, 1, 3) {
-		t.Errorf("expected status to NOT be acceptable when running pods (0) < min (1)")
-	}
-
-	// Case 4: 1 pod running, 1 pod terminating -> not acceptable
-	statusTerminating := measurementutil.ComputePodsStartupStatus([]*corev1.Pod{podRunning1, podTerminating}, 2, nil)
-	if isPodsStatusAcceptable([]*corev1.Pod{podRunning1, podTerminating}, statusTerminating, 1, 3) {
-		t.Errorf("expected status to NOT be acceptable when a pod is terminating")
-	}
-}
-
-func TestGetNotRunningPods(t *testing.T) {
-	pods := []*corev1.Pod{
-		createTestRunningPod("pod-running", "default", nil),
-		createTestPendingPod("pod-pending", "kube-system", nil),
-		createTestTerminatingPod("pod-terminating", "custom-ns", nil),
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pod-not-ready",
-				Namespace: "test-ns",
-			},
-			Status: corev1.PodStatus{
-				Phase: corev1.PodRunning,
-				Conditions: []corev1.PodCondition{
-					{
-						Type:   corev1.PodReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
+	_, err := m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"action":        "start",
+			"namespace":     "test-ns",
+			"labelSelector": "app=foo",
 		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error on start: %v", err)
 	}
 
-	notRunning := getNotRunningPods(pods)
-	expected := []string{
-		"kube-system/pod-pending",
-		"custom-ns/pod-terminating",
-		"test-ns/pod-not-ready",
+	// Delete 1 pod so only 3 pods remain
+	_ = fakeClient.Tracker().Delete(schema.GroupVersionResource{Version: "v1", Resource: "pods"}, "test-ns", "pod-4")
+
+	// Gather with toleration 25% (4 ± ceil(4*0.25) = [3, 5]) should succeed with 3 pods
+	_, err = m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"action":          "gather",
+			"toleration":      25.0,
+			"timeout":         "1s",
+			"refreshInterval": "10ms",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected gather with 25%% toleration to succeed when 3 of 4 pods exist, got: %v", err)
 	}
 
-	if len(notRunning) != len(expected) {
-		t.Fatalf("expected %d not running pods, got %d: %v", len(expected), len(notRunning), notRunning)
+	// Gather with explicit [minDesiredPodCount, maxDesiredPodCount] = [2, 3] should also succeed
+	_, err = m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"action":             "gather",
+			"minDesiredPodCount": 2,
+			"maxDesiredPodCount": 3,
+			"timeout":            "1s",
+			"refreshInterval":    "10ms",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected gather with [2, 3] range to succeed when 3 pods exist, got: %v", err)
 	}
-	for i, exp := range expected {
-		if notRunning[i] != exp {
-			t.Errorf("notRunning[%d] = %s, want %s", i, notRunning[i], exp)
-		}
-	}
-}
 
-func TestWaitForPods_TimeoutListsNotRunningPods(t *testing.T) {
-	pods := []*corev1.Pod{
-		createTestRunningPod("pod-1", "test-ns", nil),
-		createTestPendingPod("pod-2", "test-ns", nil),
-	}
-
-	lister := &fakePodLister{pods: pods}
-	w := &waitForRunningPodsRestartMeasurement{}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
-	err := w.waitForPods(ctx, lister, 2, 2, 2, 10*time.Millisecond, 0)
+	// Gather with no toleration (requiring 4 pods) should time out when only 3 exist
+	_, err = m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"action":          "gather",
+			"timeout":         50 * time.Millisecond,
+			"refreshInterval": 10 * time.Millisecond,
+		},
+	})
 	if err == nil {
-		t.Fatalf("expected timeout error, got nil")
-	}
-	if !strings.Contains(err.Error(), "test-ns/pod-2") {
-		t.Errorf("expected error message to contain not running pod 'test-ns/pod-2', got: %v", err)
+		t.Fatalf("expected timeout error when 4 pods expected and only 3 exist, got nil")
 	}
 }
+
+func TestWaitForRunningPods_RangeAndToleration(t *testing.T) {
+	objects := []runtime.Object{
+		createTestRunningPod("pod-1", "test-ns", map[string]string{"app": "foo"}),
+		createTestRunningPod("pod-2", "test-ns", map[string]string{"app": "foo"}),
+		createTestRunningPod("pod-3", "test-ns", map[string]string{"app": "foo"}),
+	}
+
+	fakeClient := newFakePodClient(objects...)
+	multiClientSet := framework.NewMultiClientSetFromClients(fakeClient)
+	clusterFramework := framework.NewFrameworkFromClients(multiClientSet, nil)
+
+	m := createWaitForRunningPodsMeasurement()
+
+	// 1. Explicit [minDesiredPodCount, maxDesiredPodCount] = [2, 4] without desiredPodCount
+	_, err := m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"namespace":          "test-ns",
+			"labelSelector":      "app=foo",
+			"minDesiredPodCount": 2,
+			"maxDesiredPodCount": 4,
+			"timeout":            "1s",
+			"refreshInterval":    "10ms",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected WaitForRunningPods with [2, 4] range to succeed for 3 running pods, got: %v", err)
+	}
+
+	// 2. desiredPodCount = 4 with toleration = 25% ([3, 5])
+	_, err = m.Execute(&measurement.Config{
+		ClusterFramework: clusterFramework,
+		Params: map[string]interface{}{
+			"namespace":       "test-ns",
+			"labelSelector":   "app=foo",
+			"desiredPodCount": 4,
+			"toleration":      25.0,
+			"timeout":         "1s",
+			"refreshInterval": "10ms",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected WaitForRunningPods with desiredPodCount=4 and 25%% toleration to succeed for 3 running pods, got: %v", err)
+	}
+}
+
+

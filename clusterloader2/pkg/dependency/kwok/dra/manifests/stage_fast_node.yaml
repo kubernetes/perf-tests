@@ -1,0 +1,54 @@
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: node-heartbeat-with-lease
+spec:
+  delay:
+    durationMilliseconds: 600000
+    jitterDurationMilliseconds: 610000
+  next:
+    statusTemplate: |
+      {{print "{{ $now := Now }}"}}
+      {{print "{{ $lastTransitionTime := or .metadata.creationTimestamp $now }}"}}
+      conditions:
+      {{print "{{ range NodeConditions }}"}}
+      - lastHeartbeatTime: {{print "{{ $now | Quote }}"}}
+        lastTransitionTime: {{print "{{ $lastTransitionTime | Quote }}"}}
+        message: {{print "{{ .message | Quote }}"}}
+        reason: {{print "{{ .reason | Quote }}"}}
+        status: {{print "{{ .status | Quote }}"}}
+        type: {{print "{{ .type | Quote }}"}}
+      {{print "{{ end }}"}}
+
+      addresses:
+      {{print "{{ with .status.addresses }}"}}
+      {{print "{{ YAML . 1 }}"}}
+      {{print "{{ else }}"}}
+      {{print "{{ with NodeIP }}"}}
+      - address: {{print "{{ . | Quote }}"}}
+        type: InternalIP
+      {{print "{{ end }}"}}
+      {{print "{{ with NodeName }}"}}
+      - address: {{print "{{ . | Quote }}"}}
+        type: Hostname
+      {{print "{{ end }}"}}
+      {{print "{{ end }}"}}
+
+      {{print "{{ with NodePort }}"}}
+      daemonEndpoints:
+        kubeletEndpoint:
+          Port: {{print "{{ . }}"}}
+      {{print "{{ end }}"}}
+  resourceRef:
+    apiGroup: v1
+    kind: Node
+  selector:
+    matchExpressions:
+    - key: .status.phase
+      operator: In
+      values:
+      - Running
+    - key: .status.conditions.[] | select( .type == "Ready" ) | .status
+      operator: In
+      values:
+      - "True"

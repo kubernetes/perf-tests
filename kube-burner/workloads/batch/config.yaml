@@ -1,0 +1,67 @@
+# kube-burner/workloads/batch/config.yml
+{{- $MODE := default "Indexed" (or .MODE (env "MODE")) }}
+{{- $NODES := int (or (index . "NODES") (env "NODES") "3") }}
+{{- $NODES_PER_NAMESPACE := min (int (default 100 (or (index . "NODES_PER_NAMESPACE") (env "NODES_PER_NAMESPACE")))) $NODES }}
+{{- $PODS_PER_NODE := int (default 30 (or (index . "PODS_PER_NODE") (env "PODS_PER_NODE"))) }}
+{{- $LOAD_TEST_THROUGHPUT := int (default 10 (or (index . "LOAD_TEST_THROUGHPUT") (env "LOAD_TEST_THROUGHPUT"))) }}
+{{- $jobRunningTime := default "30s" (or (index . "CL2_JOB_RUNNING_TIME") (env "CL2_JOB_RUNNING_TIME")) }}
+
+{{- $totalPods := mul $PODS_PER_NODE $NODES }}
+{{- $namespaces := div $NODES $NODES_PER_NAMESPACE }}
+{{- $podsPerNamespace := div $totalPods $namespaces }}
+
+{{- $smallJobSize := 5 }}
+{{- $smallJobsPerNamespace := div $podsPerNamespace (mul 2 $smallJobSize) }}
+{{- $mediumJobSize := 20 }}
+{{- $mediumJobsPerNamespace := div $podsPerNamespace (mul 4 $mediumJobSize) }}
+{{- $largeJobSize := 400 }}
+{{- $largeJobsPerNamespace := div $podsPerNamespace (mul 4 $largeJobSize) }}
+
+global:
+  gc: true
+  measurements:
+    - name: jobLatency
+
+metricsEndpoints:
+  - indexer:
+      type: local
+
+jobs:
+  - name: batch-jobs
+    jobType: create
+    jobIterations: {{ $namespaces }}
+    qps: {{ $LOAD_TEST_THROUGHPUT }}
+    burst: 1  
+    namespace: batch-workload
+    namespacedIterations: true
+    waitWhenFinished: true 
+    verifyObjects: true
+    objects:
+      # Object 1: Small jobs (replicas = jobs per namespace)
+      - objectTemplate: workloads/batch/templates/job-dynamic.yaml
+        replicas: {{ $smallJobsPerNamespace }}
+        inputVars:
+          jobSize: {{ $smallJobSize }}
+          completionMode: {{ $MODE }}
+          sleepDuration: {{ $jobRunningTime }}
+          jobType: small
+
+      # Object 2: Medium jobs
+      - objectTemplate: workloads/batch/templates/job-dynamic.yaml
+        replicas: {{ $mediumJobsPerNamespace }}
+        inputVars:
+          jobSize: {{ $mediumJobSize }}
+          completionMode: {{ $MODE }}
+          sleepDuration: {{ $jobRunningTime }}
+          jobType: medium
+
+{{- if gt $largeJobsPerNamespace 0 }}
+      # Object 3: Large jobs
+      - objectTemplate: workloads/batch/templates/job-dynamic.yaml
+        replicas: {{ $largeJobsPerNamespace }}
+        inputVars:
+          jobSize: {{ $largeJobSize }}
+          completionMode: {{ $MODE }}
+          sleepDuration: {{ $jobRunningTime }}
+          jobType: large
+{{- end }}

@@ -12,40 +12,40 @@
         <a href="https://k8s.io"><img src="k8s_logo.png" style="width:84; height: 84" /></a>
       </md-toolbar>
       <div id="content" class="md-whiteframe-z2" style="padding: 20px;">
-        <div style="width: 200px; display: inline-block;">
+        <div style="width: 250px; display: inline-block;">
           <md-input-container>
-            <md-select ng-model="controller.jobName" ng-change="controller.jobNameChanged()" aria-label="job name">
-              <md-option ng-value="jobName" ng-repeat="jobName in controller.jobNames">
-                {{jobName}}
-              </md-option>
-            </md-select>
+            <label>Job Name</label>
+            <input list="jobNames" ng-model="controller.jobName" ng-change="controller.jobNameChanged()">
+            <datalist id="jobNames">
+              <option ng-repeat="jobName in controller.jobNames" value="{{jobName}}"></option>
+            </datalist>
           </md-input-container>
         </div>
         <div style="width: 300px; display: inline-block;">
           <md-input-container>
-            <md-select placeholder="MetricCategoryName" ng-model="controller.metricCategoryName"  ng-change="controller.metricCategoryNameChanged()">
-              <md-option ng-value="metricCategoryName" ng-repeat="metricCategoryName in controller.metricCategoryNames">
-                {{metricCategoryName}}
-              </md-option>
-            </md-select>
+            <label>Metric Category</label>
+            <input list="metricCategoryNames" ng-model="controller.metricCategoryName" ng-change="controller.metricCategoryNameChanged()" ng-disabled="!controller.jobName">
+            <datalist id="metricCategoryNames">
+              <option ng-repeat="metricCategoryName in controller.metricCategoryNames" value="{{metricCategoryName}}"></option>
+            </datalist>
           </md-input-container>
         </div>
-        <div style="width: 250px; display: inline-block;">
+        <div style="width: 300px; display: inline-block;">
           <md-input-container>
-            <md-select placeholder="MetricName" ng-model="controller.metricName" ng-change="controller.metricNameChanged()">
-              <md-option ng-value="metricName" ng-repeat="metricName in controller.metricNames">
-                {{metricName}}
-              </md-option>
-            </md-select>
+            <label>Metric Name</label>
+            <input list="metricNames" ng-model="controller.metricName" ng-change="controller.metricNameChanged()" ng-disabled="!controller.metricCategoryName">
+            <datalist id="metricNames">
+              <option ng-repeat="metricName in controller.metricNames" value="{{metricName}}"></option>
+            </datalist>
           </md-input-container>
         </div>
-        <div ng-repeat="(name, items) in controller.labels" ng-model="controller.metricName" ng-change="controller.labelChanged()" style="width: 200px; display: inline-block;">
+        <div ng-repeat="(name, items) in controller.labels" style="width: 200px; display: inline-block;">
           <md-input-container>
-            <md-select placeholder="name" ng-model="controller.selectedLabels[name]"  ng-change="controller.labelChanged()">
-              <md-option ng-value="item" ng-repeat="item in items">
-                {{item}}
-              </md-option>
-            </md-select>
+            <label>{{name}}</label>
+            <input list="label-{{name}}" ng-model="controller.selectedLabels[name]" ng-change="controller.labelChanged()" ng-disabled="!controller.metricName">
+            <datalist id="label-{{name}}">
+              <option ng-repeat="item in items" value="{{item}}" ng-disabled="!controller.availableLabels[name][item]"></option>
+            </datalist>
           </md-input-container>
         </div>
         <canvas id="line" class="chart chart-line" chart-data="controller.seriesData"

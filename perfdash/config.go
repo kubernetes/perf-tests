@@ -39,6 +39,7 @@ type TestDescription struct {
 	OutputFilePrefix            string
 	Parser                      func(data []byte, buildNumber int, testResult *BuildData)
 	FetchMetricNameFromArtifact bool
+	MatchAllTests               bool
 }
 
 // TestDescriptions is a map job->component->description.
@@ -762,6 +763,17 @@ var (
 		},
 	}
 
+	genericDescriptions = TestDescriptions{
+		"GenericMeasurements": {
+			"GenericMeasurements": []TestDescription{{
+				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
+				MatchAllTests:               true,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
 		"performance":      performanceDescriptions,
 		"benchmark":        benchmarkDescriptions,
@@ -773,6 +785,7 @@ var (
 		"watchlist":        watchListDescriptions,
 		"benchmarkList":    benchmarkListDescription,
 		"etcdAPIBenchmark": etcdAPIBenchmarkDescription,
+		"generic":          genericDescriptions,
 	}
 )
 

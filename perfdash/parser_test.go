@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -281,3 +282,66 @@ func Test_BuildDataToJson(t *testing.T) {
 		})
 	}
 }
+
+type fakeMetricsBucket struct {
+	builds []int
+	files  map[string][]byte
+}
+
+func (f *fakeMetricsBucket) GetBuildNumbers(job string) ([]int, error) {
+	return f.builds, nil
+}
+
+func (f *fakeMetricsBucket) ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error) {
+	var out []string
+	for k := range f.files {
+		out = append(out, k)
+	}
+	return out, nil
+}
+
+func (f *fakeMetricsBucket) GetFilePrefix(job string, buildNumber int, prefix string) string {
+	return joinStringsAndInts(job, buildNumber, prefix)
+}
+
+func (f *fakeMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+	return f.files[joinStringsAndInts(job, buildNumber, path)], nil
+}
+
+func Test_getJobDataGenericMeasurementsWithMatchAllTests(t *testing.T) {
+	job := "ci-kubernetes-benchmark-etcd-write-throughput"
+	artifactPath := "artifacts/GenericPrometheusQuery EtcdWriteThroughput_etcd-write-throughput_2026-09-17T06:53:53Z.json"
+	bucket := &fakeMetricsBucket{
+		builds: []int{1},
+		files: map[string][]byte{
+			joinStringsAndInts(job, 1, artifactPath): []byte(`{
+				"version": "v1",
+				"dataItems": [{
+					"data": {"PutThroughput": 988.03, "BackendCommitRate": 6.44},
+					"unit": "ops/s"
+				}]
+			}`),
+		},
+	}
+
+	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false)
+	result := make(JobToCategoryData)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wg.Add(1)
+	downloader.getJobData(&wg, result, &mu, job, Tests{
+		Prefix:       "benchmark etcd write throughput",
+		Descriptions: performanceDescriptions,
+		BuildsCount:  1,
+		ArtifactsDir: "artifacts",
+	})
+	wg.Wait()
+
+	require.Contains(t, result, "benchmark etcd write throughput")
+	require.Contains(t, result["benchmark etcd write throughput"], "GenericMeasurements")
+	require.Contains(t, result["benchmark etcd write throughput"]["GenericMeasurements"], "EtcdWriteThroughput")
+	items := result["benchmark etcd write throughput"]["GenericMeasurements"]["EtcdWriteThroughput"].Builds.Builds("1")
+	require.Len(t, items, 1)
+	assert.InDelta(t, 988.03, items[0].Data["PutThroughput"], 0.01)
+}
+

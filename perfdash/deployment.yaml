@@ -20,9 +20,17 @@ spec:
       labels:
         app: perfdash
     spec:
+      volumes:
+      - name: thanos-tsdb
+        emptyDir: {}
+      - name: thanos-cache
+        emptyDir: {}
+      - name: thanos-config
+        configMap:
+          name: thanos-bucket-config
       containers:
       - name: perfdash
-        image: gcr.io/k8s-staging-perf-tests/perfdash:2.62
+        image: gcr.io/k8s-staging-perf-tests/perfdash:2.63
         command:
           - /perfdash
           -   --www=true
@@ -35,10 +43,16 @@ spec:
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes-sigs/sig-windows
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/etcd
           -   --allow-parsers-matching-all-tests=false
+          -   --thanos-mode=true
+          -   --thanos-query-url=http://127.0.0.1:10902
+          -   --thanos-tsdb-dir=/prometheus
         imagePullPolicy: Always
         ports:
         - name: status
           containerPort: 8080
+        volumeMounts:
+        - name: thanos-tsdb
+          mountPath: /prometheus
         livenessProbe:
           httpGet:
             path: /
@@ -58,4 +72,74 @@ spec:
           limits:
             cpu: "3"
             memory: 40Gi
+      - name: thanos-store
+        image: quay.io/thanos/thanos:v0.31.0
+        command:
+          - store
+          - --objstore.config-file=/etc/thanos/bucket.yml
+          - --data-dir=/tmp/thanos/cache
+          - --sync-block-duration=30s
+          - --grpc-address=127.0.0.1:10901
+          - --http-address=0.0.0.0:10903
+        volumeMounts:
+        - name: thanos-tsdb
+          mountPath: /prometheus
+        - name: thanos-cache
+          mountPath: /tmp/thanos/cache
+        - name: thanos-config
+          mountPath: /etc/thanos
+        ports:
+        - name: store-grpc
+          containerPort: 10901
+        - name: store-http
+          containerPort: 10903
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 10903
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 2Gi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+      - name: thanos-query
+        image: quay.io/thanos/thanos:v0.31.0
+        command:
+          - query
+          - --http-address=0.0.0.0:10902
+          - --grpc-address=127.0.0.1:10904
+          - --endpoint=127.0.0.1:10901
+        ports:
+        - name: query-http
+          containerPort: 10902
+        - name: query-grpc
+          containerPort: 10904
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 10902
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 2Gi
+          limits:
+            cpu: "2"
+            memory: 4Gi
       restartPolicy: Always
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thanos-bucket-config
+  namespace: perfdash
+data:
+  bucket.yml: |
+    type: FILESYSTEM
+    config:
+      directory: "/prometheus"

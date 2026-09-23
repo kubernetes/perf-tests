@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -24,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/perftype"
@@ -45,6 +48,7 @@ type Downloader struct {
 	MetricsBkt              MetricsBucket
 	Options                 *DownloaderOptions
 	allowParsersForAllTests bool
+	thanosIngester          *ThanosIngester
 }
 
 // NewDownloader creates a new Downloader.
@@ -54,6 +58,11 @@ func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bo
 		Options:                 opt,
 		allowParsersForAllTests: allowAllParsers,
 	}
+}
+
+// SetThanosIngester sets the ThanosIngester for persistent TSDB block writes.
+func (g *Downloader) SetThanosIngester(ti *ThanosIngester) {
+	g.thanosIngester = ti
 }
 
 // TODO(random-liu): Only download and update new data each time.
@@ -155,11 +164,23 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	}
 	klog.Infof("Builds to fetch for %v: %v", job, buildsToFetch)
 
+	jobKey := tests.Prefix
+	if jobKey == "" {
+		jobKey = job
+	}
+
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
+		if g.thanosIngester != nil && g.thanosIngester.HasBuild(jobKey, buildNumber) {
+			continue
+		}
+
 		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
+		buildResult := make(JobToCategoryData)
+		var buildLock sync.Mutex
+
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
@@ -191,10 +212,34 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 							trimmed := strings.TrimPrefix(metricsFileName, filePrefix+" ")
 							testLabel = strings.Split(trimmed, "_")[0]
 						}
-						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
+
+						var buildData *BuildData
+						if g.thanosIngester == nil {
+							buildData = getBuildData(result, jobKey, resultCategory, testLabel, job, resultLock)
+						} else {
+							buildData = getBuildData(buildResult, jobKey, resultCategory, testLabel, job, &buildLock)
+						}
 						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
 				}
+			}
+		}
+
+		if g.thanosIngester != nil {
+			var buildTime time.Time
+			if startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json"); err == nil {
+				var started struct {
+					Timestamp int64 `json:"timestamp"`
+				}
+				if json.Unmarshal(startedBytes, &started) == nil && started.Timestamp > 0 {
+					buildTime = time.Unix(started.Timestamp, 0)
+				}
+			}
+			if buildTime.IsZero() {
+				buildTime = time.Now().UTC()
+			}
+			if err := g.thanosIngester.IngestBuild(context.Background(), jobKey, buildNumber, buildResult[jobKey], buildTime); err != nil {
+				klog.Errorf("Error ingesting %s build %d to Thanos: %v", job, buildNumber, err)
 			}
 		}
 	}

@@ -188,6 +188,14 @@ func (s *LoadBalancerNodeSyncMeasurement) measureNodeSyncLatency() error {
 	})
 }
 
+type unSupportedWatchList struct {
+	cache.ListWatch
+}
+
+func (unSupportedWatchList) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
 func (s *LoadBalancerNodeSyncMeasurement) getEventInformer() cache.Controller {
 	ctx := context.Background()
 	listFunc := func(_ metav1.ListOptions) (runtime.Object, error) {
@@ -208,7 +216,7 @@ func (s *LoadBalancerNodeSyncMeasurement) getEventInformer() cache.Controller {
 		return s.client.CoreV1().Events(metav1.NamespaceAll).Watch(ctx, options)
 	}
 
-	_, eventInformer := cache.NewInformer(&cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}, nil, 0,
+	_, eventInformer := cache.NewInformer(&unSupportedWatchList{cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}}, nil, 0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				s.processEvent(obj.(*v1.Event))

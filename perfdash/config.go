@@ -564,6 +564,7 @@ var (
 				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
 				Parser:                      parsePerfData,
 				FetchMetricNameFromArtifact: true,
+				MatchAllTests:               true,
 			}},
 		},
 	}
@@ -598,6 +599,7 @@ var (
 				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
 				Parser:                      parsePerfData,
 				FetchMetricNameFromArtifact: true,
+				MatchAllTests:               true,
 			}},
 		},
 	}
@@ -774,18 +776,42 @@ var (
 		},
 	}
 
+	benchmarkWriteThroughputDescriptions = TestDescriptions{
+		"APIServer": {
+			"Latency": []TestDescription{{
+				Name:             "write-throughput",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parsePerfData,
+			}},
+			"RequestCount": []TestDescription{{
+				Name:             "write-throughput",
+				OutputFilePrefix: "APIResponsivenessPrometheus",
+				Parser:           parseRequestCountData,
+			}},
+		},
+		"GenericMeasurements": {
+			"GenericMeasurements": []TestDescription{{
+				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
+				Parser:                      parsePerfData,
+				FetchMetricNameFromArtifact: true,
+				MatchAllTests:               true,
+			}},
+		},
+	}
+
 	jobTypeToDescriptions = map[string]TestDescriptions{
-		"performance":      performanceDescriptions,
-		"benchmark":        benchmarkDescriptions,
-		"networking":       networkingDescriptions,
-		"dnsBenchmark":     dnsBenchmarkDescriptions,
-		"storage":          storageDescriptions,
-		"throughput":       throughputDescriptions,
-		"windows":          windowsDescriptions,
-		"watchlist":        watchListDescriptions,
-		"benchmarkList":    benchmarkListDescription,
-		"etcdAPIBenchmark": etcdAPIBenchmarkDescription,
-		"generic":          genericDescriptions,
+		"performance":              performanceDescriptions,
+		"benchmark":                benchmarkDescriptions,
+		"networking":               networkingDescriptions,
+		"dnsBenchmark":             dnsBenchmarkDescriptions,
+		"storage":                  storageDescriptions,
+		"throughput":               throughputDescriptions,
+		"windows":                  windowsDescriptions,
+		"watchlist":                watchListDescriptions,
+		"benchmarkList":            benchmarkListDescription,
+		"etcdAPIBenchmark":         etcdAPIBenchmarkDescription,
+		"generic":                  genericDescriptions,
+		"benchmarkWriteThroughput": benchmarkWriteThroughputDescriptions,
 	}
 )
 

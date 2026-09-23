@@ -344,4 +344,3 @@ func Test_getJobDataGenericMeasurementsWithMatchAllTests(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.InDelta(t, 988.03, items[0].Data["PutThroughput"], 0.01)
 }
-

@@ -1,11 +1,9 @@
-{{$group := DefaultParam .group "bench-pod"}}
-
 apiVersion: v1
 kind: Pod
 metadata:
   name: {{.Name}}
   labels:
-    group: {{$group}}
+    group: load
     app.kubernetes.io/name: "payment-service"
     app.kubernetes.io/instance: "payment-service-primary"
     app.kubernetes.io/version: "v2.1.4"
@@ -13,6 +11,7 @@ metadata:
     app.kubernetes.io/part-of: "ecommerce-platform"
     env: "production"
     track: "canary"
+    pod-template-hash: 5d96b5bcbc
   annotations:
     prometheus.io/scrape: "false"
     prometheus.io/port: "8080"
@@ -24,46 +23,529 @@ metadata:
     fluentbit.io/parser: "json"
     argocd.argoproj.io/hook: "PreSync"
     argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:allocatedResources:
+          .: {}
+          f:cpu: {}
+          f:memory: {}
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:observedGeneration: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:observedGeneration: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:observedGeneration: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodScheduled"}:
+            f:observedGeneration: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:observedGeneration: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:initContainerStatuses: {}
+        f:observedGeneration: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.244.11.41"}:
+            .: {}
+            f:ip: {}
+        f:resources:
+          .: {}
+          f:requests:
+            .: {}
+            f:memory: {}
+        f:startTime: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: "2026-09-21T17:59:59Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:argocd.argoproj.io/hook: {}
+          f:argocd.argoproj.io/hook-delete-policy: {}
+          f:cluster-autoscaler.kubernetes.io/safe-to-evict: {}
+          f:fluentbit.io/parser: {}
+          f:prometheus.io/path: {}
+          f:prometheus.io/port: {}
+          f:prometheus.io/scrape: {}
+          f:sidecar.istio.io/inject: {}
+          f:vault.hashicorp.com/agent-inject: {}
+          f:vault.hashicorp.com/role: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/name: {}
+          f:app.kubernetes.io/part-of: {}
+          f:app.kubernetes.io/version: {}
+          f:env: {}
+          f:group: {}
+          f:pod-template-hash: {}
+          f:track: {}
+      f:spec:
+        f:containers:
+          k:{"name":"main"}:
+            .: {}
+            f:env:
+              .: {}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/var/configmap"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+              k:{"mountPath":"/var/secret"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+          k:{"name":"sidecar"}:
+            .: {}
+            f:env:
+              .: {}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:initContainers:
+          .: {}
+          k:{"name":"init-0"}:
+            .: {}
+            f:command: {}
+            f:env:
+              .: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+          k:{"name":"init-1"}:
+            .: {}
+            f:command: {}
+            f:env:
+              .: {}
+              k:{"name":"NODE_ENV"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"NODE_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_IP"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"POD_NAMESPACE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:fieldRef: {}
+              k:{"name":"PYTHONUNBUFFERED"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"REDIS_URL"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:resources: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:nodeSelector: {}
+        f:preemptionPolicy: {}
+        f:priority: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:serviceAccount: {}
+        f:serviceAccountName: {}
+        f:terminationGracePeriodSeconds: {}
+        f:tolerations: {}
+        f:volumes:
+          .: {}
+          k:{"name":"configmap"}:
+            .: {}
+            f:configMap:
+              .: {}
+              f:defaultMode: {}
+              f:name: {}
+              f:optional: {}
+            f:name: {}
+          k:{"name":"kube-api-access-lsjvf"}:
+            .: {}
+            f:name: {}
+            f:projected:
+              .: {}
+              f:defaultMode: {}
+              f:sources: {}
+          k:{"name":"secret"}:
+            .: {}
+            f:name: {}
+            f:secret:
+              .: {}
+              f:defaultMode: {}
+              f:optional: {}
+              f:secretName: {}
+    manager: clusterloader
+    operation: Update
+    time: "2026-09-22T14:09:32Z"
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          f:bench-updated: {}
+    manager: benchmark
+    operation: Update
+    time: "2026-09-22T14:16:22Z"
 spec:
   schedulerName: "non-existent-scheduler"
   nodeSelector:
     kubernetes.io/hostname: "non-existent-node"
   initContainers:
   - name: init-0
-    image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    imagePullPolicy: IfNotPresent
     command: ["/bin/sh", "-c", "sleep 1"]
-  - name: init-1
-    image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
-    command: ["/bin/sh", "-c", "sleep 1"]
-  containers:
-  - name: main
-    image: {{.ImageRegistry}}/pause:3.9
     env:
     - name: POD_NAME
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: metadata.name
     - name: POD_NAMESPACE
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: metadata.namespace
     - name: NODE_NAME
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: spec.nodeName
     - name: POD_IP
       valueFrom:
         fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: REDIS_URL
+      value: "redis://main:6379/0"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: NODE_ENV
+      value: "prod"
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lsjvf
+      readOnly: true
+  - name: init-1
+    image: registry.k8s.io/e2e-test-images/agnhost:2.53
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/sh", "-c", "sleep 1"]
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: REDIS_URL
+      value: "redis://main:6379/0"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: NODE_ENV
+      value: "prod"
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lsjvf
+      readOnly: true
+  containers:
+  - name: main
+    image: registry.k8s.io/pause:3.9
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
           fieldPath: status.podIP
     - name: GOMAXPROCS
       valueFrom:
         resourceFieldRef:
           containerName: main
+          divisor: "0"
           resource: limits.cpu
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:
           containerName: main
+          divisor: "0"
           resource: limits.memory
     - name: JAVA_TOOL_OPTIONS
       value: "-XX:MaxRAMPercentage=75.0"
@@ -77,39 +559,51 @@ spec:
       requests:
         cpu: 5m
         memory: 20M
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
     volumeMounts:
     - mountPath: /var/configmap
       name: configmap
     - mountPath: /var/secret
       name: secret
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lsjvf
+      readOnly: true
   - name: sidecar
-    image: {{.ImageRegistry}}/pause:3.9
+    image: registry.k8s.io/pause:3.9
+    imagePullPolicy: IfNotPresent
     env:
     - name: POD_NAME
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: metadata.name
     - name: POD_NAMESPACE
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: metadata.namespace
     - name: NODE_NAME
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: spec.nodeName
     - name: POD_IP
       valueFrom:
         fieldRef:
+          apiVersion: v1
           fieldPath: status.podIP
     - name: GOMAXPROCS
       valueFrom:
         resourceFieldRef:
           containerName: sidecar
+          divisor: "0"
           resource: limits.cpu
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:
           containerName: sidecar
+          divisor: "0"
           resource: limits.memory
     - name: JAVA_TOOL_OPTIONS
       value: "-XX:MaxRAMPercentage=75.0"
@@ -123,12 +617,59 @@ spec:
       requests:
         cpu: 5m
         memory: 20M
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lsjvf
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 1
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 900
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 900
   volumes:
   - name: configmap
     configMap:
-      name: {{.Name}}
+      name: small-deployment-0
+      defaultMode: 420
       optional: true
   - name: secret
     secret:
-      secretName: {{.Name}}
+      secretName: small-deployment-0
+      defaultMode: 420
       optional: true
+  - name: kube-api-access-lsjvf
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  phase: Pending
+  qosClass: Burstable

@@ -163,7 +163,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
-					if !g.allowParsersForAllTests && testDescription.Name == "" {
+					if !g.allowParsersForAllTests && !testDescription.MatchAllTests && testDescription.Name == "" {
 						continue
 					}
 					filePrefix := testDescription.OutputFilePrefix

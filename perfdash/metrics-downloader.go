@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -24,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/perftype"
@@ -45,6 +48,9 @@ type Downloader struct {
 	MetricsBkt              MetricsBucket
 	Options                 *DownloaderOptions
 	allowParsersForAllTests bool
+	thanosIngester          *ThanosIngester
+	ingestedBuilds          map[string]bool
+	ingestedMu              sync.Mutex
 }
 
 // NewDownloader creates a new Downloader.
@@ -53,7 +59,13 @@ func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bo
 		MetricsBkt:              bkt,
 		Options:                 opt,
 		allowParsersForAllTests: allowAllParsers,
+		ingestedBuilds:          make(map[string]bool),
 	}
+}
+
+// SetThanosIngester sets the ThanosIngester for persistent TSDB block writes.
+func (g *Downloader) SetThanosIngester(ti *ThanosIngester) {
+	g.thanosIngester = ti
 }
 
 // TODO(random-liu): Only download and update new data each time.
@@ -146,7 +158,8 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	defer wg.Done()
 	buildNumbers, err := g.MetricsBkt.GetBuildNumbers(job)
 	if err != nil {
-		panic(err)
+		klog.Errorf("Error fetching build numbers for job %s: %v", job, err)
+		return
 	}
 
 	buildsToFetch := tests.BuildsCount
@@ -155,11 +168,30 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	}
 	klog.Infof("Builds to fetch for %v: %v", job, buildsToFetch)
 
+	jobKey := tests.Prefix
+	if jobKey == "" {
+		jobKey = job
+	}
+
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
+		buildKey := fmt.Sprintf("%s/%d", job, buildNumber)
+
+		// Check if build was already ingested in memory or on disk
+		g.ingestedMu.Lock()
+		alreadyIngested := g.ingestedBuilds[buildKey]
+		g.ingestedMu.Unlock()
+
+		if g.thanosIngester != nil && (alreadyIngested || g.thanosIngester.HasBuild(jobKey, buildNumber) || g.thanosIngester.HasBuild(job, buildNumber)) {
+			continue
+		}
+
 		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
+		buildResult := make(CategoryToMetricData)
+		buildLock := &sync.Mutex{}
+
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
@@ -191,13 +223,55 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 							trimmed := strings.TrimPrefix(metricsFileName, filePrefix+" ")
 							testLabel = strings.Split(trimmed, "_")[0]
 						}
-						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
+
+						var buildData *BuildData
+						if g.thanosIngester == nil {
+							buildData = getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
+						} else {
+							buildData = getBuildDataDirect(buildResult, resultCategory, testLabel, job, buildLock)
+						}
 						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
 				}
 			}
 		}
+
+		if g.thanosIngester != nil {
+			var buildTime time.Time
+			startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json")
+			if err == nil {
+				var started struct {
+					Timestamp int64 `json:"timestamp"`
+				}
+				if json.Unmarshal(startedBytes, &started) == nil && started.Timestamp > 0 {
+					buildTime = time.Unix(started.Timestamp, 0)
+				}
+			}
+			if buildTime.IsZero() {
+				buildTime = time.Now().UTC()
+			}
+
+			if err := g.thanosIngester.IngestBuild(context.Background(), jobKey, buildNumber, buildResult, buildTime); err != nil {
+				klog.Errorf("Error ingesting %s build %d to Thanos: %v", job, buildNumber, err)
+			} else {
+				g.ingestedMu.Lock()
+				g.ingestedBuilds[buildKey] = true
+				g.ingestedMu.Unlock()
+			}
+		}
 	}
+}
+
+func getBuildDataDirect(categories CategoryToMetricData, category string, label string, job string, lock *sync.Mutex) *BuildData {
+	lock.Lock()
+	defer lock.Unlock()
+	if _, found := categories[category]; !found {
+		categories[category] = make(MetricToBuildData)
+	}
+	if _, found := categories[category][label]; !found {
+		categories[category][label] = &BuildData{Job: job, Version: "", Builds: NewBuilds(map[string][]perftype.DataItem{})}
+	}
+	return categories[category][label]
 }
 
 func (g *Downloader) artifactName(jobAttrs Tests, file string) string {

@@ -1,0 +1,10 @@
+interval: 30s
+input_series:
+  - series: 'etcd_debugging_mvcc_current_revision'
+    values: '0 30 60 90 120 150'
+  - series: 'informer_store_resource_version{name="kube-apiserver", resource="pods"}'
+    values: '0 30 53.929241191832046 88.51988465082417 118.84490131195675 148.3188431260308'
+  - series: 'informer_store_resource_version{name="kube-controller-manager", resource="pods"}'
+    values: '0 30 55.94257280107243 89.3490279499926 119.44844802274369 149.18471330359724'
+  - series: 'informer_store_resource_version{name="kube-scheduler", resource="pods"}'
+    values: '0 30 54.4214648789808 88.67615775763022 119.05389975065831 148.50034855844163'

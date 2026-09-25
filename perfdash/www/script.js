@@ -168,6 +168,50 @@ PerfDashApp.prototype.metricNameChanged = function() {
     });
 };
 
+// Format metric values with human-readable units for Y-axis labels and tooltips.
+function humanizeValue(value, unit) {
+    var num = parseFloat(value);
+    if (isNaN(num)) {
+        return value + (unit ? " " + unit : "");
+    }
+    if (num === 0) {
+        if (unit === "Bps") return "0 B/s";
+        if (unit === "percentunit") return "0 %";
+        return "0" + (unit ? " " + unit : "");
+    }
+    var abs = Math.abs(num);
+    if (unit === "B" || unit === "Bps") {
+        var suffix = (unit === "Bps") ? "/s" : "";
+        var byteUnits = ["B", "kB", "MB", "GB", "TB", "PB"];
+        var idx = 0;
+        while (abs >= 1000 && idx < byteUnits.length - 1) {
+            abs /= 1000;
+            num /= 1000;
+            idx++;
+        }
+        return parseFloat(num.toPrecision(4)) + " " + byteUnits[idx] + suffix;
+    }
+    if (unit === "s") {
+        if (abs >= 60) {
+            return parseFloat((num / 60).toPrecision(4)) + " min";
+        }
+        if (abs >= 1) {
+            return parseFloat(num.toPrecision(4)) + " s";
+        }
+        if (abs >= 1e-3) {
+            return parseFloat((num * 1e3).toPrecision(4)) + " ms";
+        }
+        if (abs >= 1e-6) {
+            return parseFloat((num * 1e6).toPrecision(4)) + " µs";
+        }
+        return parseFloat((num * 1e9).toPrecision(4)) + " ns";
+    }
+    if (unit === "percentunit") {
+        return parseFloat((num * 100).toPrecision(4)) + " %";
+    }
+    return parseFloat(num.toPrecision(4)) + (unit ? " " + unit : "");
+}
+
 // Update the data to graph, using selected labels
 PerfDashApp.prototype.labelChanged = function() {
     this.setURLParameters();
@@ -180,7 +224,13 @@ PerfDashApp.prototype.labelChanged = function() {
     for (; a < result.length; a++) {
         if ("unit" in result[a] && "data" in result[a] && result[a].data != {}) {
             // All the unit should be the same
-            this.options = {scaleLabel: "<%=value%> "+result[a].unit, animation: false};
+            var unit = result[a].unit || "";
+            this.options = {
+                scaleLabel: "<%=humanizeValue(value, '" + unit + "')%>",
+                tooltipTemplate: "<%if (label){%><%=label%>: <%}%><%=humanizeValue(value, '" + unit + "')%>",
+                multiTooltipTemplate: "<%if (datasetLabel){%><%=datasetLabel%>: <%}%><%=humanizeValue(value, '" + unit + "')%>",
+                animation: false
+            };
             // Start with higher percentiles, since their values are usually strictly higher
             // than lower percentiles, which avoids obscuring graph data. It also orders data
             // in the onHover labels more naturally.

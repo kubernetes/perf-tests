@@ -75,6 +75,22 @@ func ExtractMetricSamples2(response []byte) ([]*model.Sample, error) {
 	return []*model.Sample(vector), nil
 }
 
+// ExtractMetricMatrix unpacks metric blob into a prometheus model.Matrix structure.
+func ExtractMetricMatrix(response []byte) (model.Matrix, error) {
+	var pqr promQueryResponse
+	if err := json.Unmarshal(response, &pqr); err != nil {
+		return nil, err
+	}
+	if pqr.Status != "success" {
+		return nil, fmt.Errorf("non-success response status: %v", pqr.Status)
+	}
+	matrix, ok := pqr.Data.v.(model.Matrix)
+	if !ok {
+		return nil, fmt.Errorf("incorrect response type: %v", pqr.Data.v.Type())
+	}
+	return matrix, nil
+}
+
 // promQueryResponse stores the response from the Prometheus server.
 // This struct follows the format described in the Prometheus documentation:
 // https://prometheus.io/docs/prometheus/latest/querying/api/#format-overview.
@@ -100,8 +116,7 @@ type PrometheusQueryExecutor struct {
 	client prom.Client
 }
 
-// Query executes given prometheus query at given point in time.
-func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
+func (e *PrometheusQueryExecutor) executeRawQuery(query string, queryTime time.Time) ([]byte, error) {
 	if queryTime.IsZero() {
 		return nil, fmt.Errorf("query time can't be zero")
 	}
@@ -126,6 +141,15 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 		}
 		return nil, fmt.Errorf("error: %v", err)
 	}
+	return body, nil
+}
+
+// Query executes given prometheus query at given point in time.
+func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*model.Sample, error) {
+	body, err := e.executeRawQuery(query, queryTime)
+	if err != nil {
+		return nil, err
+	}
 
 	samples, err := ExtractMetricSamples2(body)
 	if err != nil {
@@ -140,6 +164,37 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 	}
 	klog.V(4).Infof("Got %d samples", len(resultSamples))
 	return resultSamples, nil
+}
+
+// QueryMatrix executes given prometheus range/subquery at given point in time and returns a Matrix.
+func (e *PrometheusQueryExecutor) QueryMatrix(query string, queryTime time.Time) (model.Matrix, error) {
+	body, err := e.executeRawQuery(query, queryTime)
+	if err != nil {
+		return nil, err
+	}
+
+	matrix, err := ExtractMetricMatrix(body)
+	if err != nil {
+		return nil, fmt.Errorf("extracting error: %v", err)
+	}
+
+	var resultMatrix model.Matrix
+	for _, stream := range matrix {
+		var validValues []model.SamplePair
+		for _, pair := range stream.Values {
+			if !math.IsNaN(float64(pair.Value)) {
+				validValues = append(validValues, pair)
+			}
+		}
+		if len(validValues) > 0 {
+			resultMatrix = append(resultMatrix, &model.SampleStream{
+				Metric: stream.Metric,
+				Values: validValues,
+			})
+		}
+	}
+	klog.V(4).Infof("Got %d sample streams", len(resultMatrix))
+	return resultMatrix, nil
 }
 
 // UnmarshalJSON unmarshals json into promResponseData structure.

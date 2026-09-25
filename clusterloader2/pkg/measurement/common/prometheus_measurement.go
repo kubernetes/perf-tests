@@ -40,6 +40,12 @@ type QueryExecutor interface {
 	Query(query string, queryTime time.Time) ([]*model.Sample, error)
 }
 
+// MatrixQueryExecutor is an optional extension of QueryExecutor for range/subqueries returning a Matrix.
+type MatrixQueryExecutor interface {
+	QueryExecutor
+	QueryMatrix(query string, queryTime time.Time) (model.Matrix, error)
+}
+
 // Gatherer is an interface for measurements based on Prometheus metrics. Those measurments don't require any preparation.
 // It's assumed Prometheus is up, running and instructed to scrape required metrics in the test cluster
 // (please see clusterloader2/pkg/prometheus/manifests).

@@ -179,6 +179,46 @@ func (p *PromqlExecutor) Query(query string, queryTime time.Time) ([]*model.Samp
 	}
 }
 
+func toModelSampleStream(s promql.Series) *model.SampleStream {
+	ls := make(model.Metric)
+	for _, l := range s.Metric {
+		ls[model.LabelName(l.Name)] = model.LabelValue(l.Value)
+	}
+	values := make([]model.SamplePair, 0, len(s.Points))
+	for _, pt := range s.Points {
+		values = append(values, model.SamplePair{
+			Timestamp: model.Time(pt.T),
+			Value:     model.SampleValue(pt.V),
+		})
+	}
+	return &model.SampleStream{
+		Metric: ls,
+		Values: values,
+	}
+}
+
+// QueryMatrix queries prometheus mock engine for a range/subquery returning a Matrix.
+func (p *PromqlExecutor) QueryMatrix(query string, queryTime time.Time) (model.Matrix, error) {
+	qe := p.ll.QueryEngine()
+	q, err := qe.NewInstantQuery(p.ll.Queryable(), query, queryTime)
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	res := q.Exec(p.ll.Context())
+
+	switch v := res.Value.(type) {
+	case promql.Matrix:
+		out := make(model.Matrix, 0, len(v))
+		for _, s := range v {
+			out = append(out, toModelSampleStream(s))
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("query result is not a matrix. query: %s", query)
+	}
+}
+
 func (p *PromqlExecutor) Close() {
 	p.ll.Close()
 }

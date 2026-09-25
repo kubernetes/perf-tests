@@ -19,6 +19,10 @@ package common
 import (
 	goerrors "errors"
 	"fmt"
+	"math"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +37,7 @@ import (
 
 const (
 	genericPrometheusQueryMeasurementName = "GenericPrometheusQuery"
+	defaultSubqueryStep                   = 30 * time.Second
 )
 
 func init() {
@@ -70,8 +75,8 @@ func (p *StartParams) Validate() error {
 		return goerrors.New("unit is required")
 	}
 
-	for idx, query := range p.Queries {
-		if err := query.Validate(); err != nil {
+	for idx, q := range p.Queries {
+		if err := q.Validate(len(p.Queries) > 1); err != nil {
 			return fmt.Errorf("params.queries[%d] validation failed: %v", idx, err)
 		}
 	}
@@ -82,19 +87,126 @@ func (p *StartParams) Validate() error {
 type GenericQuery struct {
 	Name           string
 	Query          string
+	Aggregations   []string
 	Threshold      *float64
 	LowerBound     bool
 	RequireSamples bool
 }
 
-func (q *GenericQuery) Validate() error {
-	if q.Name == "" {
-		return goerrors.New("name is required")
-	}
+func (q *GenericQuery) Validate(multipleQueries bool) error {
 	if q.Query == "" {
 		return goerrors.New("query is required")
 	}
+	if len(q.Aggregations) == 0 {
+		if q.Name == "" {
+			return goerrors.New("name is required")
+		}
+		return nil
+	}
+	if multipleQueries && q.Name == "" {
+		return goerrors.New("name is required when multiple queries use aggregations")
+	}
+	for _, agg := range q.Aggregations {
+		if err := validateAggregation(agg); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateAggregation(agg string) error {
+	lower := strings.ToLower(agg)
+	switch lower {
+	case "max", "min", "avg", "sum", "count", "last":
+		return nil
+	}
+	if strings.HasPrefix(lower, "perc") {
+		p, err := strconv.ParseFloat(agg[4:], 64)
+		if err != nil || p < 0 || p > 100 {
+			return fmt.Errorf("invalid percentile aggregation %q: must be between 0 and 100", agg)
+		}
+		return nil
+	}
+	return fmt.Errorf("unsupported aggregation %q", agg)
+}
+
+func computeAggregation(agg string, values []model.SamplePair) (float64, error) {
+	if len(values) == 0 {
+		return 0, goerrors.New("no sample values")
+	}
+	floats := make([]float64, len(values))
+	var sum float64
+	for i, v := range values {
+		fv := float64(v.Value)
+		floats[i] = fv
+		sum += fv
+	}
+
+	lower := strings.ToLower(agg)
+	switch lower {
+	case "max":
+		return slices.Max(floats), nil
+	case "min":
+		return slices.Min(floats), nil
+	case "avg":
+		return sum / float64(len(floats)), nil
+	case "sum":
+		return sum, nil
+	case "count":
+		return float64(len(floats)), nil
+	case "last":
+		return floats[len(floats)-1], nil
+	}
+	if strings.HasPrefix(lower, "perc") {
+		p, err := strconv.ParseFloat(agg[4:], 64)
+		if err != nil || p < 0 || p > 100 {
+			return 0, fmt.Errorf("invalid percentile aggregation %q", agg)
+		}
+		return computePrometheusQuantile(p/100.0, floats), nil
+	}
+	return 0, fmt.Errorf("unsupported aggregation %q", agg)
+}
+
+// computePrometheusQuantile matches Prometheus's quantile_over_time linear interpolation.
+func computePrometheusQuantile(q float64, values []float64) float64 {
+	sorted := slices.Clone(values)
+	sort.Float64s(sorted)
+	n := len(sorted)
+	if n == 1 {
+		return sorted[0]
+	}
+	rank := q * float64(n-1)
+	lowerIndex := max(0, int(math.Floor(rank)))
+	upperIndex := min(n-1, lowerIndex+1)
+	weight := rank - math.Floor(rank)
+	return sorted[lowerIndex]*(1-weight) + sorted[upperIndex]*weight
+}
+
+func metricDataKey(queryName, agg string) string {
+	if queryName == "" {
+		return agg
+	}
+	return fmt.Sprintf("%s_%s", queryName, agg)
+}
+
+func stripPromQLComments(query string) string {
+	lines := strings.Split(query, "\n")
+	cleaned := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		cleaned = append(cleaned, line)
+	}
+	return strings.TrimSpace(strings.Join(cleaned, "\n"))
+}
+
+func (g *genericQueryGatherer) buildSubquery(rawQuery string, duration time.Duration) string {
+	promDuration := measurementutil.ToPrometheusTime(duration)
+	promStep := measurementutil.ToPrometheusTime(defaultSubqueryStep)
+	cleaned := strings.ReplaceAll(stripPromQLComments(rawQuery), "%v", promDuration)
+	return fmt.Sprintf("(%s)[%s:%s]", cleaned, promDuration, promStep)
 }
 
 func (g *genericQueryGatherer) Configure(config *measurement.Config) error {
@@ -153,10 +265,62 @@ func (g *genericQueryGatherer) validateSample(q GenericQuery, val float64) error
 	return nil
 }
 
+func (g *genericQueryGatherer) gatherAggregatedQuery(q GenericQuery, executor QueryExecutor, startTime, endTime time.Time, dataItems map[string]*measurementutil.DataItem, errs *[]error) error {
+	matrixExec, ok := executor.(MatrixQueryExecutor)
+	if !ok {
+		return fmt.Errorf("executor %T does not support matrix queries required for aggregations", executor)
+	}
+
+	duration := endTime.Sub(startTime)
+	subquery := g.buildSubquery(q.Query, duration)
+	klog.V(2).Infof("subquery: %s, duration: %v", subquery, duration)
+
+	matrix, err := matrixExec.QueryMatrix(subquery, endTime)
+	if err != nil {
+		return err
+	}
+	if len(matrix) == 0 {
+		qLabel := q.Name
+		if qLabel == "" {
+			qLabel = strings.Join(q.Aggregations, ",")
+		}
+		if q.RequireSamples {
+			*errs = append(*errs, errors.NewMetricViolationError(qLabel, fmt.Sprintf("query returned no samples for %v", g.MetricName)))
+		}
+		klog.Warningf("query returned no samples for %v: %v", g.MetricName, qLabel)
+		return nil
+	}
+
+	for _, stream := range matrix {
+		k, labels := key(stream.Metric, g.Dimensions)
+		dataItem := getOrCreate(dataItems, k, g.Unit, labels)
+		for _, agg := range q.Aggregations {
+			val, err := computeAggregation(agg, stream.Values)
+			if err != nil {
+				return err
+			}
+			dataKey := metricDataKey(q.Name, agg)
+			if prevVal, exists := dataItem.Data[dataKey]; exists {
+				*errs = append(*errs, errors.NewMetricViolationError(dataKey, fmt.Sprintf("too many samples for %s: query returned %v and %v, expected single value.", k, val, prevVal)))
+			} else {
+				dataItem.Data[dataKey] = val
+			}
+		}
+	}
+	return nil
+}
+
 func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime time.Time, _ *measurement.Config) ([]measurement.Summary, error) {
 	var errs []error
 	dataItems := map[string]*measurementutil.DataItem{}
 	for _, q := range g.Queries {
+		if len(q.Aggregations) > 0 {
+			if err := g.gatherAggregatedQuery(q, executor, startTime, endTime, dataItems, &errs); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
 		samples, err := g.query(q, executor, startTime, endTime)
 		if err != nil {
 			return nil, err

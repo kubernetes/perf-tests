@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -125,15 +126,18 @@ func run() error {
 		return nil
 	}
 
+	var ready atomic.Bool
 	go func() {
 		for {
 			klog.Infof("Fetching new data...")
-			result, err = downloader.getData()
+			data, err := downloader.getData()
 			if err != nil {
 				klog.Errorf("Error fetching data: %v", err)
 				time.Sleep(errorDelay)
 				continue
 			}
+			result = data
+			ready.Store(true)
 			klog.Infof("Data fetched, sleeping %v...", *syncInterval)
 			time.Sleep(*syncInterval)
 		}
@@ -146,6 +150,13 @@ func run() error {
 	http.HandleFunc("/metricnames", result.ServeMetricNames)
 	http.HandleFunc("/buildsdata", result.ServeBuildsData)
 	http.HandleFunc("/config", serveConfig)
+	http.HandleFunc("/readyz", func(res http.ResponseWriter, _ *http.Request) {
+		if !ready.Load() {
+			http.Error(res, "initial data fetch in progress", http.StatusServiceUnavailable)
+			return
+		}
+		res.WriteHeader(http.StatusOK)
+	})
 	return http.ListenAndServe(*addr, nil)
 }
 

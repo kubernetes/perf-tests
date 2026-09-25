@@ -9,6 +9,12 @@ spec:
   selector:
     matchLabels:
       app: perfdash
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  progressDeadlineSeconds: 43200
   template:
     metadata:
       labels:
@@ -16,7 +22,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-staging-perf-tests/perfdash:2.61
+        image: gcr.io/k8s-staging-perf-tests/perfdash:2.62
         command:
           - /perfdash
           -   --www=true
@@ -38,6 +44,12 @@ spec:
             path: /
             port: 8080
           initialDelaySeconds: 10
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          periodSeconds: 10
           timeoutSeconds: 1
         resources:
           requests:

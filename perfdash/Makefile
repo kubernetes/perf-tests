@@ -2,7 +2,7 @@ all: push
 
 # See deployment.yaml for the version currently running-- bump this ahead before rebuilding!
 # Additionally please ensure to update the same in www/VERSION
-TAG?=2.61
+TAG?=2.62
 WWW_VERSION=$(shell cat www/VERSION)
 
 REPO?=gcr.io/k8s-staging-perf-tests

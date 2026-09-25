@@ -18,8 +18,6 @@ package common
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -29,6 +27,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/common/executors"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"sigs.k8s.io/yaml"
 )
 
 type fakeQueryExecutor struct {
@@ -581,59 +580,113 @@ func TestGather(t *testing.T) {
 }
 
 func TestGatherPromqlEquivalence(t *testing.T) {
-	seriesYAML := `interval: 30s
-input_series:
-  - series: 'apiserver_longrunning_requests{verb="WATCH", resource="pods"}'
-    values: '10+5x20'
-`
-	tmpFile := filepath.Join(t.TempDir(), "series.yaml")
-	require.NoError(t, os.WriteFile(tmpFile, []byte(seriesYAML), 0600))
-
-	executor, err := executors.NewPromqlExecutor(tmpFile)
+	executor, err := executors.NewPromqlExecutor("testdata/generic_query_measurement/informer_cache_lag.yaml")
 	require.NoError(t, err)
 	defer executor.Close()
 
-	start := time.Unix(0, 0).UTC()
-	end := start.Add(10 * time.Minute)
+	start := time.Unix(31, 0).UTC()
+	end := time.Unix(162, 0).UTC()
 
-	legacyGatherer := &genericQueryGatherer{}
-	require.NoError(t, legacyGatherer.Configure(&measurement.Config{
-		Params: map[string]interface{}{
-			"metricName":    "ActiveWatchRequests",
-			"metricVersion": "v1",
-			"unit":          "watches",
-			"queries": []map[string]interface{}{
-				{"name": "Perc99", "query": `quantile_over_time(0.99, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-				{"name": "Perc90", "query": `quantile_over_time(0.90, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-				{"name": "Perc50", "query": `quantile_over_time(0.50, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-				{"name": "Max", "query": `max_over_time(sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-				{"name": "Min", "query": `min_over_time(sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-				{"name": "Avg", "query": `avg_over_time(sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])`},
-			},
-		},
-	}))
-	legacySummaries, err := legacyGatherer.Gather(executor, start, end, nil)
-	require.NoError(t, err)
-	require.Len(t, legacySummaries, 1)
+	aggregatedMeasurementYAML := `
+Identifier: InformerCacheLagPrometheus
+Method: GenericPrometheusQuery
+Params:
+  metricName: InformerCacheLagPrometheus
+  metricVersion: v1
+  unit: s
+  dimensions:
+  - name
+  queries:
+  - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+    aggregations:
+    - Perc99
+    - Perc90
+    - Perc50
+`
 
-	aggregatedGatherer := &genericQueryGatherer{}
-	require.NoError(t, aggregatedGatherer.Configure(&measurement.Config{
-		Params: map[string]interface{}{
-			"metricName":    "ActiveWatchRequests",
-			"metricVersion": "v1",
-			"unit":          "watches",
-			"queries": []map[string]interface{}{
-				{
-					"query":        `sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})`,
-					"aggregations": []interface{}{"Perc99", "Perc90", "Perc50", "Max", "Min", "Avg"},
-				},
-			},
-		},
-	}))
-	aggregatedSummaries, err := aggregatedGatherer.Gather(executor, start, end, nil)
-	require.NoError(t, err)
-	require.Len(t, aggregatedSummaries, 1)
+	legacyMeasurementYAML := `
+Identifier: InformerCacheLagPrometheus
+Method: GenericPrometheusQuery
+Params:
+  metricName: InformerCacheLagPrometheus
+  metricVersion: v1
+  unit: s
+  dimensions:
+  - name
+  queries:
+  - name: Perc99
+    query: quantile_over_time(0.99, (((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0)))[%v:30s])
+  - name: Perc90
+    query: quantile_over_time(0.90, (((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0)))[%v:30s])
+  - name: Perc50
+    query: quantile_over_time(0.50, (((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0)))[%v:30s])
+`
 
-	assert.Equal(t, legacySummaries[0].SummaryName(), aggregatedSummaries[0].SummaryName())
-	assert.JSONEq(t, legacySummaries[0].SummaryContent(), aggregatedSummaries[0].SummaryContent())
+	wantJSON := `{
+  "version": "v1",
+  "dataItems": [
+    {
+      "data": {
+        "Perc50": 1.5806361115725167,
+        "Perc90": 4.753878227908327,
+        "Perc99": 5.939070750141988
+      },
+      "unit": "s",
+      "labels": {
+        "name": "kube-apiserver"
+      }
+    },
+    {
+      "data": {
+        "Perc50": 0.7331293732050739,
+        "Perc90": 3.084785048170125,
+        "Perc99": 3.960162983851825
+      },
+      "unit": "s",
+      "labels": {
+        "name": "kube-controller-manager"
+      }
+    },
+    {
+      "data": {
+        "Perc50": 1.4117468419640744,
+        "Perc90": 4.354870017180952,
+        "Perc99": 5.456168610635375
+      },
+      "unit": "s",
+      "labels": {
+        "name": "kube-scheduler"
+      }
+    }
+  ]
+}`
+
+	for _, tc := range []struct {
+		name            string
+		measurementYAML string
+	}{
+		{name: "new_aggregations_config", measurementYAML: aggregatedMeasurementYAML},
+		{name: "legacy_quantile_over_time_config", measurementYAML: legacyMeasurementYAML},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var parsed struct {
+				Params map[string]interface{} `yaml:"Params"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(tc.measurementYAML), &parsed))
+
+			gatherer := &genericQueryGatherer{}
+			require.NoError(t, gatherer.Configure(&measurement.Config{Params: parsed.Params}))
+
+			summaries, err := gatherer.Gather(executor, start, end, nil)
+			require.NoError(t, err)
+			require.Len(t, summaries, 1)
+
+			var gotPerfData, wantPerfData measurementutil.PerfData
+			require.NoError(t, json.Unmarshal([]byte(summaries[0].SummaryContent()), &gotPerfData))
+			require.NoError(t, json.Unmarshal([]byte(wantJSON), &wantPerfData))
+
+			assert.Equal(t, wantPerfData.Version, gotPerfData.Version)
+			assert.ElementsMatch(t, wantPerfData.DataItems, gotPerfData.DataItems)
+		})
+	}
 }

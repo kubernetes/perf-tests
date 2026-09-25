@@ -144,7 +144,7 @@ func run() error {
 	}()
 
 	klog.Infof("Starting server...")
-	http.Handle("/", http.FileServer(http.Dir(*wwwDir)))
+	http.Handle("/", noCache(http.FileServer(http.Dir(*wwwDir))))
 	http.HandleFunc("/jobnames", result.ServeJobNames)
 	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
 	http.HandleFunc("/metricnames", result.ServeMetricNames)
@@ -168,4 +168,14 @@ func initGlobalConfig() {
 
 func serveConfig(res http.ResponseWriter, req *http.Request) {
 	serveHTTPObject(res, req, &globalConfig)
+}
+
+// noCache makes browsers revalidate static files on every load, so a new release
+// is picked up without a hard refresh. Unchanged files still get a cheap 304
+// thanks to the Last-Modified header set by http.FileServer.
+func noCache(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Cache-Control", "no-cache")
+		h.ServeHTTP(res, req)
+	})
 }

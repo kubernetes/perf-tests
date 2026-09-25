@@ -1,0 +1,238 @@
+## Control-plane cost of running HorizontalPodAutoscalers.
+#
+# Every query here is aggregated across kube-controller-manager instances,
+# because Prometheus scrapes all control-plane IPs and the standby replicas
+# export the same series sitting at zero.
+#
+# Valid actions: "start", "gather"
+{{$action := .action}}
+{{$enableViolations := DefaultParam .enableViolations false}}
+{{$enableEtcdMetrics := DefaultParam .enableEtcdMetrics false}}
+# The sync period the cluster's kube-controller-manager is actually running
+# with. Only used to derive the threshold below; it does not configure anything.
+{{$expectedSyncPeriodSeconds := DefaultParam .expectedSyncPeriodSeconds 15}}
+{{$syncPeriodTolerance := DefaultParam .syncPeriodTolerance 1.5}}
+{{$etcdEndpoint := DefaultParam .etcdEndpoint "etcd-2379"}}
+
+steps:
+- name: "{{$action}}ing HPA control-plane measurements"
+  measurements:
+
+  # How often the controller actually gets through the whole set of HPAs.
+  - Identifier: HPAReconciliationRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAReconciliationRate
+      metricVersion: v1
+      unit: reconciles/s
+      queries:
+      - name: Total
+        query: sum(rate(horizontal_pod_autoscaler_controller_reconciliations_total[%v]))
+        requireSamples: true
+      - name: Errors
+        query: sum(rate(horizontal_pod_autoscaler_controller_reconciliations_total{error!="none"}[%v])) or vector(0)
+      - name: ScaleUp
+        query: sum(rate(horizontal_pod_autoscaler_controller_reconciliations_total{action="scale_up"}[%v])) or vector(0)
+      - name: ScaleDown
+        query: sum(rate(horizontal_pod_autoscaler_controller_reconciliations_total{action="scale_down"}[%v])) or vector(0)
+      - name: StaleSyncSkips
+        query: sum(rate(horizontal_pod_autoscaler_controller_stale_sync_skips_total[%v])) or vector(0)
+
+  # Observed interval between two reconciliations of the same HPA, derived from
+  # the aggregate rate and the number of controlled objects. This is the
+  # aggregate form of the delay-ratio SLI: if the controller keeps up it lands
+  # on the configured sync period, and it grows once the workqueue falls behind.
+  - Identifier: HPAEffectiveSyncPeriod
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAEffectiveSyncPeriod
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Observed
+        query: max(horizontal_pod_autoscaler_controller_num_horizontal_pod_autoscalers) / sum(rate(horizontal_pod_autoscaler_controller_reconciliations_total[%v]))
+        threshold: {{MultiplyFloat $expectedSyncPeriodSeconds $syncPeriodTolerance}}
+        requireSamples: true
+
+  - Identifier: HPAReconciliationDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAReconciliationDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(horizontal_pod_autoscaler_controller_reconciliation_duration_seconds_bucket[%v])) by (le))
+        requireSamples: true
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(horizontal_pod_autoscaler_controller_reconciliation_duration_seconds_bucket[%v])) by (le))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(horizontal_pod_autoscaler_controller_reconciliation_duration_seconds_bucket[%v])) by (le))
+
+  - Identifier: HPAMetricComputationDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAMetricComputationDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(horizontal_pod_autoscaler_controller_metric_computation_duration_seconds_bucket[%v])) by (le))
+        requireSamples: true
+      - name: Perc90
+        query: histogram_quantile(0.90, sum(rate(horizontal_pod_autoscaler_controller_metric_computation_duration_seconds_bucket[%v])) by (le))
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(horizontal_pod_autoscaler_controller_metric_computation_duration_seconds_bucket[%v])) by (le))
+
+  # Backlog on the HPA workqueue. The delaying queue holds an item until its
+  # delay expires before handing it to the queue proper, so these series show
+  # real backlog rather than the sync period itself.
+  - Identifier: HPAWorkqueueDepth
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAWorkqueueDepth
+      metricVersion: v1
+      unit: items
+      queries:
+      - name: Max
+        query: max(max_over_time(workqueue_depth{name="horizontalpodautoscaler"}[%v]))
+        requireSamples: true
+      - name: Avg
+        query: max(avg_over_time(workqueue_depth{name="horizontalpodautoscaler"}[%v]))
+
+  - Identifier: HPAWorkqueueLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAWorkqueueLatency
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: QueueDurationPerc99
+        query: histogram_quantile(0.99, sum(rate(workqueue_queue_duration_seconds_bucket{name="horizontalpodautoscaler"}[%v])) by (le))
+        requireSamples: true
+      - name: WorkDurationPerc99
+        query: histogram_quantile(0.99, sum(rate(workqueue_work_duration_seconds_bucket{name="horizontalpodautoscaler"}[%v])) by (le))
+      - name: MaxUnfinishedWork
+        query: max(max_over_time(workqueue_unfinished_work_seconds{name="horizontalpodautoscaler"}[%v]))
+      - name: MaxLongestRunningProcessor
+        query: max(max_over_time(workqueue_longest_running_processor_seconds{name="horizontalpodautoscaler"}[%v]))
+
+  # The per-reconcile API cost the KEP's cost model is built on: one read of the
+  # target's scale subresource, at most one HPA status write, and one metrics
+  # query per metric spec.
+  - Identifier: HPAAPIServerRequestRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAAPIServerRequestRate
+      metricVersion: v1
+      unit: requests/s
+      queries:
+      - name: HPAStatusWrites
+        query: sum(rate(apiserver_request_total{resource="horizontalpodautoscalers",subresource="status"}[%v])) or vector(0)
+      - name: ScaleReads
+        query: sum(rate(apiserver_request_total{subresource="scale",verb="GET"}[%v])) or vector(0)
+      - name: ScaleWrites
+        query: sum(rate(apiserver_request_total{subresource="scale",verb="PUT"}[%v])) or vector(0)
+      - name: MetricsAPIReads
+        query: sum(rate(apiserver_request_total{group=~".*metrics.k8s.io"}[%v])) or vector(0)
+
+  - Identifier: HPAControllerManagerCPU
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAControllerManagerCPU
+      metricVersion: v1
+      unit: cores
+      queries:
+      - name: Max
+        query: max(rate(process_cpu_seconds_total{job="master",endpoint="kube-controller-manager"}[%v]))
+        requireSamples: true
+
+  - Identifier: HPAControllerManagerMemory
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAControllerManagerMemory
+      metricVersion: v1
+      unit: bytes
+      queries:
+      - name: Max
+        query: max(max_over_time(process_resident_memory_bytes{job="master",endpoint="kube-controller-manager"}[%v]))
+        requireSamples: true
+
+{{if $enableEtcdMetrics}}
+  - Identifier: HPAEtcdWriteRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAEtcdWriteRate
+      metricVersion: v1
+      unit: ops/s
+      queries:
+      - name: PutThroughput
+        query: sum(rate(grpc_server_handled_total{endpoint="{{$etcdEndpoint}}",grpc_method="Put"}[%v]))
+        requireSamples: true
+      - name: BackendCommitRate
+        query: sum(rate(etcd_disk_backend_commit_duration_seconds_count{endpoint="{{$etcdEndpoint}}"}[%v]))
+        requireSamples: true
+
+  - Identifier: HPAEtcdBackendCommitDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAEtcdBackendCommitDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{endpoint="{{$etcdEndpoint}}"}[%v])) by (le))
+        requireSamples: true
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{endpoint="{{$etcdEndpoint}}"}[%v])) by (le))
+
+  - Identifier: HPAEtcdWalFsyncDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAEtcdWalFsyncDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{endpoint="{{$etcdEndpoint}}"}[%v])) by (le))
+        requireSamples: true
+      - name: Perc50
+        query: histogram_quantile(0.50, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{endpoint="{{$etcdEndpoint}}"}[%v])) by (le))
+
+  - Identifier: HPAEtcdDBSize
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: {{$enableViolations}}
+      metricName: HPAEtcdDBSize
+      metricVersion: v1
+      unit: bytes
+      queries:
+      - name: Max
+        query: max(max_over_time(etcd_mvcc_db_total_size_in_bytes{endpoint="{{$etcdEndpoint}}"}[%v]))
+        requireSamples: true
+{{end}}

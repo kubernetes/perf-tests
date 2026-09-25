@@ -1,0 +1,36 @@
+# Basename of the Deployment this HPA scales. Defaulted rather than required so
+# that the deletion phases, which pass no fill map, still render.
+{{$TargetBasename := DefaultParam .TargetBasename "hpa-target"}}
+# MaxInt normalizes to int: values arriving through templateFillMap or CL2_*
+# env vars are floats or strings, which neither compare nor render cleanly.
+{{$MinReplicas := MaxInt 1 (DefaultParam .MinReplicas 1)}}
+{{$MaxReplicas := MaxInt 1 (DefaultParam .MaxReplicas 1)}}
+{{$TargetCPUUtilization := MaxInt 1 (DefaultParam .TargetCPUUtilization 50)}}
+# Per-object sync period proposed by KEP-6003. Unset by default: on a cluster
+# without the feature the field is pruned, so leaving it out keeps the object
+# identical across versions.
+{{$SyncPeriodSeconds := MaxInt 0 (DefaultParam .SyncPeriodSeconds 0)}}
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{.Name}}
+  labels:
+    group: hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{$TargetBasename}}-{{.Index}}
+  minReplicas: {{$MinReplicas}}
+  maxReplicas: {{$MaxReplicas}}
+{{if gt $SyncPeriodSeconds 0}}
+  syncPeriodSeconds: {{$SyncPeriodSeconds}}
+{{end}}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{$TargetCPUUtilization}}

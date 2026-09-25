@@ -24,12 +24,11 @@ steps:
       metricVersion: v1
       unit: watches
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
-      - name: Perc90
-        query: quantile_over_time(0.90, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
-      - name: Perc50
-        query: quantile_over_time(0.50, sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})[%v:30s])
+      - query: sum(apiserver_longrunning_requests{verb="WATCH", resource="pods"})
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
   - Identifier: WatchCacheLagPrometheus
     Method: GenericPrometheusQuery
     Params:
@@ -38,12 +37,11 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
-      - name: Perc90
-        query: quantile_over_time(0.90,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
-      - name: Perc50
-        query: quantile_over_time(0.50,((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
   - Identifier: InformerCacheLagPrometheus
     Method: GenericPrometheusQuery
     Params:
@@ -51,10 +49,12 @@ steps:
       metricName: InformerCacheLagPrometheus
       metricVersion: v1
       unit: s
+      dimensions:
+      - name
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
-      - name: Perc90
-        query: quantile_over_time(0.90,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
-      - name: Perc50
-        query: quantile_over_time(0.50,((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))[%v:30s])
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
+

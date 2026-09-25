@@ -61,6 +61,11 @@ var (
 	awsRegion = pflag.String("aws-region", "us-west-2", "AWS region of the S3 bucket")
 
 	allowParsersForAllTests = pflag.Bool("allow-parsers-matching-all-tests", true, "Allow parsers for common measurement matching any test name")
+
+	// Thanos Backend flags
+	thanosMode     = pflag.Bool("thanos-mode", false, "Enable Thanos persistent TSDB storage and PromQL query backend")
+	thanosQueryURL = pflag.String("thanos-query-url", "http://127.0.0.1:10902", "URL of thanos-query HTTP endpoint")
+	thanosTSDBDir  = pflag.String("thanos-tsdb-dir", "/tmp/thanos/prometheus", "Local directory where TSDB blocks are created and stored")
 )
 
 func initDownloaderOptions() {
@@ -111,6 +116,14 @@ func run() error {
 	}
 
 	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests)
+	var thanosClient *ThanosClient
+	if *thanosMode {
+		klog.Infof("Thanos backend mode enabled. TSDB dir: %s, Thanos Query URL: %s", *thanosTSDBDir, *thanosQueryURL)
+		ingester := NewThanosIngester(*thanosTSDBDir)
+		downloader.SetThanosIngester(ingester)
+		thanosClient = NewThanosClient(*thanosQueryURL)
+	}
+
 	result := make(JobToCategoryData)
 
 	if !*www {
@@ -145,10 +158,17 @@ func run() error {
 
 	klog.Infof("Starting server...")
 	http.Handle("/", noCache(http.FileServer(http.Dir(*wwwDir))))
-	http.HandleFunc("/jobnames", result.ServeJobNames)
-	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
-	http.HandleFunc("/metricnames", result.ServeMetricNames)
-	http.HandleFunc("/buildsdata", result.ServeBuildsData)
+	if *thanosMode {
+		http.HandleFunc("/jobnames", thanosClient.ServeJobNames)
+		http.HandleFunc("/metriccategorynames", thanosClient.ServeCategoryNames)
+		http.HandleFunc("/metricnames", thanosClient.ServeMetricNames)
+		http.HandleFunc("/buildsdata", thanosClient.ServeBuildsData)
+	} else {
+		http.HandleFunc("/jobnames", result.ServeJobNames)
+		http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
+		http.HandleFunc("/metricnames", result.ServeMetricNames)
+		http.HandleFunc("/buildsdata", result.ServeBuildsData)
+	}
 	http.HandleFunc("/config", serveConfig)
 	http.HandleFunc("/readyz", func(res http.ResponseWriter, _ *http.Request) {
 		if !ready.Load() {

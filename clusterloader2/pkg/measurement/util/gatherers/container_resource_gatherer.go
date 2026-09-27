@@ -138,6 +138,9 @@ func NewResourceUsageGatherer(c clientset.Interface, host string, port int, prov
 		}
 
 		for _, node := range nodeList.Items {
+			if node.Labels["kubelite.k8s.io/simulated"] == "true" || node.Labels["kubelite.io/simulated"] == "true" {
+				continue
+			}
 			if options.Nodes == AllNodes || masterNodes.Has(node.Name) || nodesToConsider[node.Name] {
 				g.workerWg.Add(1)
 				resourceDataGatheringPeriod := options.ResourceDataGatheringPeriod

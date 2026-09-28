@@ -3,7 +3,7 @@ module k8s.io/perf-tests/util-images/network/netperfbenchmark
 go 1.26.4
 
 require (
-	k8s.io/apimachinery v0.37.0
+	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.0
 	k8s.io/klog v1.0.0
 )

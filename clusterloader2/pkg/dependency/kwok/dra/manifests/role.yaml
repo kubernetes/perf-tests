@@ -1,0 +1,104 @@
+---
+# Source: kwok/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kwok-controller
+  labels:
+    helm.sh/chart: kwok-0.2.0
+    app.kubernetes.io/name: kwok
+    app.kubernetes.io/instance: kwok-controller
+    app.kubernetes.io/version: "v0.7.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  - pods/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kwok.x-k8s.io
+  resources:
+  - attaches
+  - clusterattaches
+  - clusterexecs
+  - clusterlogs
+  - clusterportforwards
+  - clusterresourceusages
+  - execs
+  - logs
+  - metrics
+  - portforwards
+  - resourceusages
+  - stages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kwok.x-k8s.io
+  resources:
+  - attaches/status
+  - clusterattaches/status
+  - clusterexecs/status
+  - clusterlogs/status
+  - clusterportforwards/status
+  - clusterresourceusages/status
+  - execs/status
+  - logs/status
+  - metrics/status
+  - portforwards/status
+  - resourceusages/status
+  - stages/status
+  verbs:
+  - patch
+  - update

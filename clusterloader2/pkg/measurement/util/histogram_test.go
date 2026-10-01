@@ -150,3 +150,24 @@ func TestHistogramQuantile(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertSampleToHistogram(t *testing.T) {
+	sample := &model.Sample{
+		Metric: model.Metric{
+			"name":             "test_metric",
+			model.BucketLabel: "1.0",
+		},
+		Value: 5,
+	}
+	hist := NewHistogram(nil)
+	ConvertSampleToHistogram(sample, hist)
+
+	expectedLabels := map[string]string{"name": "test_metric"}
+	if !reflect.DeepEqual(hist.Labels, expectedLabels) {
+		t.Errorf("expected labels %v, got %v", expectedLabels, hist.Labels)
+	}
+
+	if hist.Buckets["1.0"] != 5 {
+		t.Errorf("expected bucket 1.0 to have value 5, got %d", hist.Buckets["1.0"])
+	}
+}

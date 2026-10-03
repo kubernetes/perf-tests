@@ -58,6 +58,10 @@ tracking and recording them in the measurement summary. To do so, set the
 `clusterOOMsFailureEnabled` TestMetrics parameter to `false`. By default, this
 is `true` and the test will fail if any non-ignored OOM is detected.
 
+To configure how long `ClusterOOMsTracker` waits for the initial OOM events
+informer cache sync during the `start` action, set the `clusterOOMsTrackerTimeout`
+TestMetrics parameter (defaults to `30m`).
+
 ## Further debugging steps
 
 `ClusterOOMsTracker` watches for events emitted by `node-problem-detector` when

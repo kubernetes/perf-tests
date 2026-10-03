@@ -22,12 +22,6 @@ steps:
       action: create
       podCount: {{$podCount}}
 
-- name: Start API responsiveness and resource measurements
-  module:
-    path: /modules/measurements.yaml
-    params:
-      action: start
-
 - name: Start background watch generator workload & RBAC
   module:
     path: modules/watch/config.yaml
@@ -45,6 +39,12 @@ steps:
       replicas: {{$writeReplicas}}
       podCount: {{$podCount}}
       qps: {{$patchQps}}
+
+- name: Start API responsiveness and resource measurements
+  module:
+    path: /modules/measurements.yaml
+    params:
+      action: start
 
 - name: Run write throughput benchmark duration
   measurements:

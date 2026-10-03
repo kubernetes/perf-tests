@@ -84,6 +84,7 @@ steps:
       uri: /api/v1/configmaps?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
+      enableWatchList: {{$enableWatchList}}
 {{end}}
 - module:
     path: /modules/measurements.yaml
@@ -155,6 +156,7 @@ steps:
       uri: /api/v1/pods?resourceVersion=0
       namespaced: false
       contentType: {{$contentType}}
+      enableWatchList: {{$enableWatchList}}
 {{end}}
 - module:
     path: /modules/measurements.yaml

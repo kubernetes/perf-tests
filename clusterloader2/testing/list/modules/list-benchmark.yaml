@@ -28,6 +28,7 @@ steps:
     - basename: {{$namePrefix}}deploy
       objectTemplatePath: deployment.yaml
       templateFillMap:
+        EnableWatchList: {{DefaultParam .enableWatchList false}}
 {{if eq $mode "informer"}}
         Replicas: {{$replicas}}
         ContentType: {{$contentType}}
@@ -35,7 +36,6 @@ steps:
         Resource: {{DefaultParam .resource "configmaps"}}
         ApiVersion: {{DefaultParam .apiVersion "v1"}}
         Count: {{DefaultParam .count 1}}
-        EnableWatchList: {{DefaultParam .enableWatchList false}}
 {{else}}
         Replicas: {{$replicas}}
         Uri: {{$uri}}

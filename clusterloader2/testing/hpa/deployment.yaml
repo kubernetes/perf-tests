@@ -1,0 +1,42 @@
+{{$Image := DefaultParam .Image (Concat .ImageRegistry "/e2e-test-images/resource-consumer:1.9")}}
+{{$Replicas := DefaultParam .Replicas 1}}
+{{$CpuRequest := DefaultParam .CpuRequest "20m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
+# Millicores consumed per pod. Kept at half of CpuRequest so that the observed
+# utilization sits on the HPA target and the autoscaler settles instead of
+# oscillating.
+{{$ConsumedMillicores := DefaultParam .ConsumedMillicores 10}}
+# Must outlast the whole test run, otherwise consume-cpu exits, the container
+# restarts and the utilization signal drops out mid-measurement.
+{{$ConsumeDurationSeconds := DefaultParam .ConsumeDurationSeconds 86400}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: hpa
+spec:
+  replicas: {{$Replicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        group: hpa
+    spec:
+      containers:
+      - name: main
+        image: {{$Image}}
+        command:
+        - ./consume-cpu/consume-cpu
+        args:
+        - --duration-sec={{$ConsumeDurationSeconds}}
+        - --millicores={{$ConsumedMillicores}}
+        resources:
+          requests:
+            cpu: {{$CpuRequest}}
+            memory: {{$MemoryRequest}}
+      terminationGracePeriodSeconds: 1

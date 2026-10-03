@@ -1,0 +1,203 @@
+# HPA reconciliation baseline.
+#
+# Measures what it costs the control plane to keep N HorizontalPodAutoscalers
+# reconciling in steady state: how often the HPA controller actually gets
+# through the set, how deep its workqueue gets, and how many API server and
+# etcd operations that translates into.
+#
+# The load dimension here is the number of HPAs, not the number of nodes. Each
+# HPA drives a single-replica Deployment, so 1000 HPAs is roughly 1000 pods and
+# fits comfortably on a small cluster.
+#
+# REQUIRES a working metrics.k8s.io (metrics-server). ClusterLoader2 does not
+# install one. See README.md.
+
+# Number of HPAs to run. Rounded up to a whole number of namespaces.
+{{$HPA_COUNT := DefaultParam .CL2_HPA_COUNT 100}}
+{{$HPAS_PER_NAMESPACE := DefaultParam .CL2_HPAS_PER_NAMESPACE 50}}
+
+# Replica bounds on each HPA. The default pins every HPA to a single replica:
+# the controller still runs the full metric computation and status update every
+# cycle, but nothing scales, so pod churn does not confound the measurement.
+# Widening the range measures scaling behaviour instead of reconciliation cost.
+{{$HPA_MIN_REPLICAS := DefaultParam .CL2_HPA_MIN_REPLICAS 1}}
+{{$HPA_MAX_REPLICAS := DefaultParam .CL2_HPA_MAX_REPLICAS 1}}
+{{$HPA_TARGET_CPU_UTILIZATION := DefaultParam .CL2_HPA_TARGET_CPU_UTILIZATION 50}}
+
+# Per-object sync period from KEP-6003. Left unset by default, which keeps the
+# HPAs identical on clusters that do not have the field.
+{{$HPA_SYNC_PERIOD_SECONDS := DefaultParam .CL2_HPA_SYNC_PERIOD_SECONDS 0}}
+# The sync period kube-controller-manager is running with. This describes the
+# cluster, it does not configure it: --horizontal-pod-autoscaler-sync-period is
+# a controller-manager flag and has to be set when the cluster is brought up.
+{{$EXPECTED_SYNC_PERIOD_SECONDS := DefaultParam .CL2_HPA_EXPECTED_SYNC_PERIOD_SECONDS 15}}
+{{$SYNC_PERIOD_TOLERANCE := DefaultParam .CL2_HPA_SYNC_PERIOD_TOLERANCE 1.5}}
+
+{{$STEADY_STATE_DURATION := DefaultParam .CL2_HPA_STEADY_STATE_DURATION "10m"}}
+{{$CREATE_QPS := DefaultParam .CL2_HPA_CREATE_QPS 20}}
+{{$OPERATION_TIMEOUT := DefaultParam .CL2_HPA_OPERATION_TIMEOUT "15m"}}
+
+# Requires --prometheus-scrape-etcd=true, which is off by default.
+{{$ENABLE_ETCD_METRICS := DefaultParam .CL2_HPA_ENABLE_ETCD_METRICS false}}
+{{$ENABLE_VIOLATIONS := DefaultParam .CL2_HPA_ENABLE_VIOLATIONS false}}
+
+{{$registry := DefaultParam .CL2_HPA_POD_REGISTRY .ImageRegistry}}
+{{$image := DefaultParam .CL2_HPA_POD_IMAGE (Concat $registry "/e2e-test-images/resource-consumer:1.9")}}
+{{$CPU_REQUEST := DefaultParam .CL2_HPA_POD_CPU_REQUEST "20m"}}
+{{$CONSUMED_MILLICORES := DefaultParam .CL2_HPA_POD_CONSUMED_MILLICORES 10}}
+
+{{$namespaces := MaxInt 1 (Ceil (DivideFloat $HPA_COUNT $HPAS_PER_NAMESPACE))}}
+{{$hpasPerNamespace := MaxInt 1 (Ceil (DivideFloat $HPA_COUNT $namespaces))}}
+{{$totalHPAs := MultiplyInt $namespaces $hpasPerNamespace}}
+
+name: hpa
+namespace:
+  number: {{$namespaces}}
+
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+- name: UniformQPS
+  qpsLoad:
+    qps: {{$CREATE_QPS}}
+
+steps:
+- name: Start API responsiveness measurement
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: start
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: group = hpa
+      operationTimeout: {{$OPERATION_TIMEOUT}}
+
+- name: Create scale targets
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$hpasPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: hpa-target
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Image: {{$image}}
+        CpuRequest: {{$CPU_REQUEST}}
+        ConsumedMillicores: {{$CONSUMED_MILLICORES}}
+
+- name: Wait for scale target pods to be running
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+
+- name: Create HPAs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$hpasPerNamespace}}
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: hpa
+      objectTemplatePath: hpa.yaml
+      templateFillMap:
+        TargetBasename: hpa-target
+        MinReplicas: {{$HPA_MIN_REPLICAS}}
+        MaxReplicas: {{$HPA_MAX_REPLICAS}}
+        TargetCPUUtilization: {{$HPA_TARGET_CPU_UTILIZATION}}
+        SyncPeriodSeconds: {{$HPA_SYNC_PERIOD_SECONDS}}
+
+# Gates the measurement on a working metrics pipeline. ScalingActive only goes
+# True once the controller has successfully computed the metric, so a missing
+# or broken metrics-server fails here with the list of offending HPAs instead
+# of producing a plausible-looking but meaningless baseline.
+- name: Wait for HPAs to become active
+  measurements:
+  - Identifier: WaitForHPAsActive
+    Method: WaitForGenericK8sObjects
+    Params:
+      objectGroup: autoscaling
+      objectVersion: v2
+      objectResource: horizontalpodautoscalers
+      namespaceRange:
+        min: 1
+        max: {{$namespaces}}
+      successfulConditions:
+      - ScalingActive=True
+      failedConditions:
+      - ScalingActive=False
+      minDesiredObjectCount: {{$totalHPAs}}
+      # HPAs report ScalingActive=False until metrics-server has scraped the
+      # new pods, so failures are expected while ramping up. The timeout is
+      # what actually fails the step.
+      maxFailedObjectCount: {{$totalHPAs}}
+      timeout: {{$OPERATION_TIMEOUT}}
+      refreshInterval: 15s
+
+# Measurement window starts here so that it covers steady-state reconciliation
+# only, not the object creation burst.
+- name: Start HPA measurements
+  module:
+    path: modules/measurements.yaml
+    params:
+      action: start
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      enableEtcdMetrics: {{$ENABLE_ETCD_METRICS}}
+      expectedSyncPeriodSeconds: {{$EXPECTED_SYNC_PERIOD_SECONDS}}
+      syncPeriodTolerance: {{$SYNC_PERIOD_TOLERANCE}}
+
+- name: Hold steady state
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: {{$STEADY_STATE_DURATION}}
+
+- name: Gather HPA measurements
+  module:
+    path: modules/measurements.yaml
+    params:
+      action: gather
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      enableEtcdMetrics: {{$ENABLE_ETCD_METRICS}}
+      expectedSyncPeriodSeconds: {{$EXPECTED_SYNC_PERIOD_SECONDS}}
+      syncPeriodTolerance: {{$SYNC_PERIOD_TOLERANCE}}
+
+- name: Delete HPAs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: hpa
+      objectTemplatePath: hpa.yaml
+
+- name: Delete scale targets
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: UniformQPS
+    objectBundle:
+    - basename: hpa-target
+      objectTemplatePath: deployment.yaml
+
+- name: Gather API responsiveness measurement
+  measurements:
+  - Identifier: APIResponsivenessPrometheus
+    Method: APIResponsivenessPrometheus
+    Params:
+      action: gather

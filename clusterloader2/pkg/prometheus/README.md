@@ -14,6 +14,29 @@ Prometheus stack in ClusterLoader2 framework.
 2. Visit http://localhost:3000
 3. Login/password: admin/admin
 
+## Using an existing Prometheus
+
+By default, in-cluster PromQL measurements are skipped unless CL2 deployed
+Prometheus (`--enable-prometheus-server=true`).
+
+To query Prometheus that is already running in the cluster:
+
+```bash
+--use-existing-prometheus=true \
+--prometheus-service=prometheus-k8s \
+--prometheus-proxy-scheme=http
+```
+
+CL2 still talks to Prometheus only via the apiserver service proxy:
+
+`/api/v1/namespaces/monitoring/services/<scheme>:<service>:9090/proxy/api/v1/query`
+
+Defaults match kube-prometheus (`prometheus-k8s` over `http`). Do not change
+the scheme to `https` unless that proxy path requires it.
+
+`--enable-prometheus-server` and `--use-existing-prometheus` cannot be set
+together.
+
 ## How to measure the Latency of metrics-server
 
 Make sure to configure the following flags

@@ -17,15 +17,25 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -42,6 +52,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/provider"
 	"k8s.io/perf-tests/clusterloader2/pkg/test"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
+	"k8s.io/utils/ptr"
 
 	_ "k8s.io/perf-tests/clusterloader2/pkg/dependency/dra"
 	_ "k8s.io/perf-tests/clusterloader2/pkg/measurement/common"
@@ -325,6 +336,16 @@ func main() {
 		klog.Exitf("Client creation error: %v", err)
 	}
 
+	stopKubelite := func() {}
+	if !dryRun {
+		var err error
+		stopKubelite, err = setupHybridKubeliteCluster(mclient.GetClient(), clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+		if err != nil {
+			klog.Exitf("Hybrid kubelite setup error: %v", err)
+		}
+		defer stopKubelite()
+	}
+
 	if err = completeConfig(mclient); err != nil {
 		klog.Exitf("Config completing error: %v", err)
 	}
@@ -452,6 +473,7 @@ func main() {
 			klog.Errorf("Error while tearing down exec service: %v", err)
 		}
 	}
+	stopKubelite()
 	if failedTestItems := testReporter.GetNumberOfFailedTestItems(); failedTestItems > 0 {
 		klog.Exitf("%d tests have failed!", failedTestItems)
 	}
@@ -493,4 +515,195 @@ func dumpTestConfig(ctx test.Context, config *api.Config) error {
 	}
 	klog.Infof("Test config successfully dumped to: %s", filePath)
 	return nil
+}
+
+const (
+	defaultKeepRealWorkers = 2
+	kubeliteSimLabelKey    = "kubelite.k8s.io/simulated"
+	kubeliteTaintKey       = "kubelite.io/simulated"
+)
+
+// setupHybridKubeliteCluster replaces excess real GCE worker nodes with
+// simulated kubelite nodes while keeping keepReal real worker VMs for
+// DaemonSet probers, CoreDNS, and Prometheus.
+func setupHybridKubeliteCluster(kclient kubernetes.Interface, kubeconfigPath string) (func(), error) {
+	if os.Getenv("CL2_ENABLE_HYBRID_KUBELITE") == "false" {
+		return func() {}, nil
+	}
+	ctx := context.Background()
+	nodeList, err := kclient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("listing initial nodes: %w", err)
+	}
+	keepReal := defaultKeepRealWorkers
+	if parsed, err := strconv.Atoi(os.Getenv("CL2_KEEP_REAL_WORKERS")); err == nil && parsed >= 1 {
+		keepReal = parsed
+	}
+
+	var realWorkers, existingSim []corev1.Node
+	hasKopsGCE := false
+	for _, n := range nodeList.Items {
+		if strings.HasPrefix(n.Spec.ProviderID, "gce://") && (n.Labels["kops.k8s.io/instancegroup"] != "" || strings.HasPrefix(n.Name, "nodes-")) {
+			hasKopsGCE = true
+		}
+		switch {
+		case util.IsControlPlaneNode(&n), n.Labels["kops.k8s.io/instancegroup"] == "addons", strings.HasPrefix(n.Name, "addons-"):
+		case n.Labels[kubeliteSimLabelKey] == "true", n.Labels[kubeliteTaintKey] == "true":
+			existingSim = append(existingSim, n)
+		default:
+			realWorkers = append(realWorkers, n)
+		}
+	}
+	if !hasKopsGCE || (len(realWorkers) <= keepReal && len(existingSim) == 0) {
+		return func() {}, nil
+	}
+
+	corednsNodes := make(map[string]bool)
+	if sysPods, err := kclient.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{}); err == nil {
+		for _, p := range sysPods.Items {
+			if strings.HasPrefix(p.Name, "coredns-") && !strings.HasPrefix(p.Name, "coredns-autoscaler") {
+				corednsNodes[p.Spec.NodeName] = true
+			}
+		}
+	}
+	sort.Slice(realWorkers, func(i, j int) bool {
+		bi := strings.HasPrefix(realWorkers[i].Name, "nodes-us-east1-b-") || realWorkers[i].Labels["topology.kubernetes.io/zone"] == "us-east1-b"
+		bj := strings.HasPrefix(realWorkers[j].Name, "nodes-us-east1-b-") || realWorkers[j].Labels["topology.kubernetes.io/zone"] == "us-east1-b"
+		if bi != bj {
+			return bi
+		}
+		if corednsNodes[realWorkers[i].Name] != corednsNodes[realWorkers[j].Name] {
+			return corednsNodes[realWorkers[i].Name]
+		}
+		return realWorkers[i].Name < realWorkers[j].Name
+	})
+
+	keepReal = min(keepReal, len(realWorkers))
+	nodesToDelete := realWorkers[keepReal:]
+	numSimulated := max(len(nodesToDelete), len(existingSim))
+	deletedSet := make(map[string]bool, len(nodesToDelete))
+	for _, n := range nodesToDelete {
+		deletedSet[n.Name] = true
+	}
+	klog.Infof("[hybrid-kubelite] keeping %d real workers, replacing %d workers with %d simulated nodes", keepReal, len(nodesToDelete), numSimulated)
+
+	binPath := filepath.Join(os.TempDir(), "kubelite-bin")
+	if out, err := exec.CommandContext(ctx, "go", "build", "-o", binPath, "./cmd/kubelite").CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("building kubelite: %w (%s)", err, string(out))
+	}
+	kubeliteCmd := exec.Command(binPath, "--kubeconfig="+kubeconfigPath, fmt.Sprintf("--nodes=%d", numSimulated), "--taint-simulated=true")
+	kubeliteCmd.Stdout, kubeliteCmd.Stderr = os.Stdout, os.Stderr
+	if err := kubeliteCmd.Start(); err != nil {
+		return nil, fmt.Errorf("starting kubelite: %w", err)
+	}
+
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		nodes, err := kclient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: kubeliteSimLabelKey + "=true"})
+		if err != nil {
+			return false, nil
+		}
+		return len(nodes.Items) >= numSimulated, nil
+	}); err != nil {
+		return nil, fmt.Errorf("waiting for %d simulated nodes to register: %w", numSimulated, err)
+	}
+
+	if len(nodesToDelete) > 0 {
+		purgeDeletedWorkerNodes(ctx, kclient, deletedSet)
+		deleteGCEWorkerInstances(ctx, nodesToDelete)
+		purgeDeletedWorkerNodes(ctx, kclient, deletedSet)
+	}
+
+	stopBgCh := make(chan struct{})
+	go wait.Until(func() { purgeDeletedWorkerNodes(ctx, kclient, deletedSet) }, 2*time.Second, stopBgCh)
+
+	_ = wait.PollUntilContextTimeout(ctx, 2*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		nodes, err := kclient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+		for i := range nodes.Items {
+			if deletedSet[nodes.Items[i].Name] {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+
+	var stopOnce sync.Once
+	return func() {
+		stopOnce.Do(func() {
+			close(stopBgCh)
+			if kubeliteCmd.Process != nil {
+				_ = kubeliteCmd.Process.Kill()
+				_, _ = kubeliteCmd.Process.Wait()
+			}
+			simSet := make(map[string]bool, numSimulated)
+			for i := 0; i < numSimulated; i++ {
+				simSet[fmt.Sprintf("kubelite-%04d", i)] = true
+			}
+			purgeDeletedWorkerNodes(ctx, kclient, simSet)
+		})
+	}, nil
+}
+
+// deleteGCEWorkerInstances removes replaced worker VMs from their managed instance groups.
+func deleteGCEWorkerInstances(ctx context.Context, nodesToDelete []corev1.Node) {
+	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	project := os.Getenv("PROJECT")
+	byZone := make(map[string][]string)
+	for _, n := range nodesToDelete {
+		if parts := strings.Split(strings.TrimPrefix(n.Spec.ProviderID, "gce://"), "/"); len(parts) == 3 {
+			project = parts[0]
+			byZone[parts[1]] = append(byZone[parts[1]], parts[2])
+		}
+	}
+	if project == "" || len(byZone) == 0 {
+		return
+	}
+	migByZone := make(map[string]string)
+	if out, err := exec.CommandContext(cctx, "gcloud", "compute", "instance-groups", "managed", "list", "--project="+project, "--format=value(name,zone)").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if f := strings.Fields(line); len(f) >= 2 && strings.Contains(f[0], "nodes-") {
+				migByZone[f[1]] = f[0]
+			}
+		}
+	}
+	var wg sync.WaitGroup
+	for zone, insts := range byZone {
+		wg.Add(1)
+		go func(zone string, insts []string) {
+			defer wg.Done()
+			if mig := migByZone[zone]; mig != "" {
+				if err := exec.CommandContext(cctx, "gcloud", "compute", "instance-groups", "managed", "delete-instances", mig, "--project="+project, "--zone="+zone, "--instances="+strings.Join(insts, ","), "--quiet").Run(); err == nil {
+					return
+				}
+			}
+			args := append(append([]string{"compute", "instances", "delete"}, insts...), "--project="+project, "--zone="+zone, "--quiet")
+			_ = exec.CommandContext(cctx, "gcloud", args...).Run()
+		}(zone, insts)
+	}
+	wg.Wait()
+}
+
+// purgeDeletedWorkerNodes force-deletes Pods, Nodes, and Leases belonging to deletedSet.
+func purgeDeletedWorkerNodes(ctx context.Context, kclient kubernetes.Interface, deletedSet map[string]bool) {
+	if len(deletedSet) == 0 {
+		return
+	}
+	zeroGrace := metav1.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))}
+	if pods, err := kclient.CoreV1().Pods("").List(ctx, metav1.ListOptions{}); err == nil {
+		for i := range pods.Items {
+			if p := &pods.Items[i]; deletedSet[p.Spec.NodeName] {
+				if p.Namespace == "kube-system" && len(p.Labels) > 0 {
+					_, _ = kclient.CoreV1().Pods(p.Namespace).Patch(ctx, p.Name, types.MergePatchType, []byte(`{"metadata":{"labels":{"k8s-app":null,"component":null}}}`), metav1.PatchOptions{})
+				}
+				_ = kclient.CoreV1().Pods(p.Namespace).Delete(ctx, p.Name, zeroGrace)
+			}
+		}
+	}
+	for name := range deletedSet {
+		_ = kclient.CoreV1().Nodes().Delete(ctx, name, zeroGrace)
+		_ = kclient.CoordinationV1().Leases(corev1.NamespaceNodeLease).Delete(ctx, name, zeroGrace)
+	}
 }

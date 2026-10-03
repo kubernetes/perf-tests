@@ -6,7 +6,7 @@
 {{$podPayloadSize := DefaultParam .CL2_DEPLOYMENT_POD_PAYLOAD_SIZE 0}}
 # Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
 {{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
-{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION "kubelite.io/simulated"}}
 
 {{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
 {{$TargetLabelValue := DefaultParam .TargetLabelValue "enforcement-latency"}}

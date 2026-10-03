@@ -1,5 +1,5 @@
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
-{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION "kubelite.io/simulated"}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}

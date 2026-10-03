@@ -50,10 +50,21 @@ type waitForRunningPodsMeasurement struct{}
 // Pods can be specified by field and/or label selectors.
 // If namespace is not passed by parameter, all-namespace scope is assumed.
 func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
-	desiredPodCount, err := util.GetInt(config.Params, "desiredPodCount")
+	minDesired, maxDesired, toleration, err := measurementutil.ParseDesiredPodRange(config.Params)
 	if err != nil {
 		return nil, err
 	}
+
+	var desiredPodCount int
+	if minDesired != nil && maxDesired != nil {
+		desiredPodCount, err = util.GetIntOrDefault(config.Params, "desiredPodCount", (*minDesired+*maxDesired)/2)
+	} else {
+		desiredPodCount, err = util.GetInt(config.Params, "desiredPodCount")
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	selector := util.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
@@ -81,6 +92,9 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
 		DesiredPodCount:     func() int { return desiredPodCount },
+		MinDesiredPodCount:  minDesired,
+		MaxDesiredPodCount:  maxDesired,
+		Toleration:          toleration,
 		CallerName:          w.String(),
 		WaitForPodsInterval: refreshInterval,
 		TolerationTimeout:   tolerationTimeout,
@@ -89,6 +103,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
+	defer podStore.Stop()
 
 	_, err = measurementutil.WaitForPods(ctx, podStore, options)
 	if err != nil && isFatal {

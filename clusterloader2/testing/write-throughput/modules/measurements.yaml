@@ -123,10 +123,28 @@ steps:
       metricVersion: v1
       unit: ops
       dimensions:
-      - storage
+      - operation
       - resource
       queries:
-      - query: sum by (storage, resource) (rate(apiserver_storage_update_conflicts_total{resource="pods"}[1m]))
+      - query: sum by (operation, resource) (rate(etcd_request_errors_total{resource="pods", reason="Conflict"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: StorageUpdateConflictRatioPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: StorageUpdateConflictRatio
+      metricVersion: v1
+      unit: ratio
+      dimensions:
+      - operation
+      - resource
+      queries:
+      - query: sum by (operation, resource) (rate(etcd_request_errors_total{resource="pods", reason="Conflict"}[1m])) / sum by (operation, resource) (rate(etcd_requests_total{resource="pods"}[1m]))
         aggregations:
         - Max
         - Perc99
@@ -141,10 +159,9 @@ steps:
       metricVersion: v1
       unit: ratio
       dimensions:
-      - storage
       - resource
       queries:
-      - query: sum(rate(apiserver_storage_update_attempts_sum{resource="pods"}[1m])) by (storage, resource) / sum(rate(apiserver_storage_update_attempts_count{resource="pods"}[1m])) by (storage, resource)
+      - query: sum by (resource) (rate(etcd_requests_total{resource="pods", operation=~"update|updateGet"}[1m])) / (sum by (resource) (rate(etcd_requests_total{resource="pods", operation="update"}[1m])) - (sum by (resource) (rate(etcd_request_errors_total{resource="pods", operation="update"}[1m])) or sum by (resource) (0 * rate(etcd_requests_total{resource="pods", operation="update"}[1m]))))
         aggregations:
         - Max
         - Perc99

@@ -255,6 +255,7 @@ steps:
       queries:
       - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
         aggregations:
+        - Max
         - Perc99
         - Perc90
         - Perc50
@@ -642,3 +643,73 @@ steps:
         - Perc99
         - Avg
         - Min
+
+  # === Resources ===
+  - Identifier: ContainerCPUPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ContainerCPU
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - container
+      queries:
+      - query: sum by (container) (rate(container_cpu_usage_seconds_total{container!=""}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: ContainerMemoryPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ContainerMemory
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - container
+      queries:
+      - query: sum by (container) (container_memory_working_set_bytes{container!=""})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: VMCPUPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: VMCPU
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(container_cpu_usage_seconds_total{id="/"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: VMMemoryPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: VMMemory
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (container_memory_working_set_bytes{id="/"})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg

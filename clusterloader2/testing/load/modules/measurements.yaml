@@ -66,6 +66,52 @@ steps:
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
       singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
 {{end}}
+  - Identifier: WatchCacheLag
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchCacheLag
+      metricVersion: v1
+      unit: s
+      queries:
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+  - Identifier: WatchCacheReadWaitLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchCacheReadWaitLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      queries:
+      - query: histogram_quantile(0.99, sum by (resource, le) (rate(apiserver_watch_cache_read_wait_seconds_bucket{resource="pods"}[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: InformerCacheLag
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: InformerCacheLag
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - name
+      queries:
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:

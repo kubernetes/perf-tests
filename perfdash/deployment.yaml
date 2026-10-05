@@ -79,6 +79,7 @@ spec:
           - --objstore.config-file=/etc/thanos/bucket.yml
           - --data-dir=/tmp/thanos/cache
           - --sync-block-duration=30s
+          - --log.level=warn
           - --grpc-address=127.0.0.1:10901
           - --http-address=0.0.0.0:10903
         volumeMounts:
@@ -113,6 +114,7 @@ spec:
           - --http-address=0.0.0.0:10902
           - --grpc-address=127.0.0.1:10904
           - --endpoint=127.0.0.1:10901
+          - --log.level=warn
         ports:
         - name: query-http
           containerPort: 10902

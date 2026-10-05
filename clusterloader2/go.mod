@@ -34,7 +34,7 @@ replace (
 )
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
 	github.com/go-errors/errors v1.5.1
 	github.com/google/go-cmp v0.7.0

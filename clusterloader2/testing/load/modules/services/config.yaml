@@ -6,7 +6,6 @@
 {{$smallServicesPerNamespace := .smallServicesPerNamespace}}
 {{$mediumServicesPerNamespace := .mediumServicesPerNamespace}}
 {{$bigServicesPerNamespace := .bigServicesPerNamespace}}
-{{$tuningSet := DefaultParam .tuningSet "default"}}
 
 steps:
 - name: "{{$actionName}} k8s services"
@@ -15,7 +14,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$bigServicesPerNamespace}}
-    tuningSet: {{$tuningSet}}
+    tuningSet: Sequence
     objectBundle:
     - basename: big-service
       objectTemplatePath: /modules/services/service.yaml
@@ -23,7 +22,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$mediumServicesPerNamespace}}
-    tuningSet: {{$tuningSet}}
+    tuningSet: Sequence
     objectBundle:
     - basename: medium-service
       objectTemplatePath: /modules/services/service.yaml
@@ -31,7 +30,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$smallServicesPerNamespace}}
-    tuningSet: {{$tuningSet}}
+    tuningSet: Sequence
     objectBundle:
     - basename: small-service
       objectTemplatePath: /modules/services/service.yaml

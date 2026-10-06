@@ -21,20 +21,6 @@ steps:
       objectTemplatePath: modules/watch/rolebinding.yaml
 {{end}}
 
-- name: Starting measurement for '{{$action}}' watch generators
-  measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForRunningWatchDeployments
-      Params:
-        apiVersion: apps/v1
-        kind: Deployment
-    Params:
-      action: start
-      checkIfPodsAreUpdated: true
-      labelSelector: group = benchmark-watch
-      operationTimeout: 5m
-
 - name: {{$action}} watch generator deployment
   phases:
   - tuningSet: Sequence
@@ -48,11 +34,10 @@ steps:
       templateFillMap:
         Replicas: {{$replicas}}
 
-
 - name: Waiting for '{{$action}}' watch generators to be completed
   measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForRunningWatchDeployments
+  - Method: WaitForRunningPods
     Params:
-      action: gather
+      desiredPodCount: {{$replicas}}
+      labelSelector: group = benchmark-watch
+      timeout: 5m

@@ -515,7 +515,7 @@ const fullCompareErrorDifferentEnv = `Not matching templates, diff:   v1.PodSpec
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 16 identical fields
+    ... // 17 identical fields
   }
 `
 
@@ -556,7 +556,7 @@ const fullCompareErrorDifferentImage = `Not matching templates, diff:   v1.PodSp
     },
     HostAliases:       nil,
     PriorityClassName: "",
-    ... // 16 identical fields
+    ... // 17 identical fields
   }`
 
 func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {

@@ -42,6 +42,7 @@ steps:
 - name: Waiting for '{{$action}}' writer generators to be completed
   measurements:
   - Method: WaitForRunningPods
+    Identifier: WaitForRunningWriterPods
     Params:
       desiredPodCount: {{$replicas}}
       labelSelector: group = benchmark-write

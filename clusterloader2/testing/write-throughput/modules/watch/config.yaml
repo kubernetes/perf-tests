@@ -37,6 +37,7 @@ steps:
 - name: Waiting for '{{$action}}' watch generators to be completed
   measurements:
   - Method: WaitForRunningPods
+    Identifier: WaitForRunningWatchPods
     Params:
       desiredPodCount: {{$replicas}}
       labelSelector: group = benchmark-watch

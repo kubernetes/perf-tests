@@ -24,20 +24,6 @@ steps:
       objectTemplatePath: modules/writer/rolebinding.yaml
 {{end}}
 
-- name: Starting measurement for '{{$action}}' writer generators
-  measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForRunningWriterDeployments
-      Params:
-        apiVersion: apps/v1
-        kind: Deployment
-    Params:
-      action: start
-      checkIfPodsAreUpdated: true
-      labelSelector: group = benchmark-write
-      operationTimeout: 5m
-
 - name: {{$action}} write generator deployment
   phases:
   - tuningSet: Sequence
@@ -53,12 +39,10 @@ steps:
         PodCount: {{$podCount}}
         Qps: {{$qps}}
 
-
-
 - name: Waiting for '{{$action}}' writer generators to be completed
   measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForRunningWriterDeployments
+  - Method: WaitForRunningPods
     Params:
-      action: gather
+      desiredPodCount: {{$replicas}}
+      labelSelector: group = benchmark-write
+      timeout: 5m

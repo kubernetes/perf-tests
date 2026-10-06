@@ -89,6 +89,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
+	defer podStore.Stop()
 
 	_, err = measurementutil.WaitForPods(ctx, podStore, options)
 	if err != nil && isFatal {

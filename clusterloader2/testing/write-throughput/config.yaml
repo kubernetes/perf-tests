@@ -1,6 +1,9 @@
 # Write throughput with background watch benchmark
 {{$podCount := DefaultParam .CL2_PODS_BENCHMARK_POD_COUNT 10000}}
 {{$watchReplicas := DefaultParam .CL2_PODS_WATCH_REPLICAS 10}}
+{{$watchesPerReplica := DefaultParam .CL2_PODS_WATCHES_PER_REPLICA 1}}
+{{$configmapsWatchReplicas := DefaultParam .CL2_CONFIGMAPS_WATCH_REPLICAS 0}}
+{{$configmapsWatchesPerReplica := DefaultParam .CL2_CONFIGMAPS_WATCHES_PER_REPLICA 1}}
 {{$writeReplicas := DefaultParam .CL2_PODS_WRITE_REPLICAS 10}}
 {{$patchQps := DefaultParam .CL2_PODS_PATCH_QPS 100}}
 {{$duration := DefaultParam .CL2_PODS_BENCHMARK_DURATION "15m"}}
@@ -29,6 +32,17 @@ steps:
       action: create
       namePrefix: "watch-workload-"
       replicas: {{$watchReplicas}}
+      watchesPerReplica: {{$watchesPerReplica}}
+
+- name: Start background configmaps watch generator workload & RBAC
+  module:
+    path: modules/watch/config.yaml
+    params:
+      action: create
+      namePrefix: "watch-configmaps-"
+      resource: "configmaps"
+      replicas: {{$configmapsWatchReplicas}}
+      watchesPerReplica: {{$configmapsWatchesPerReplica}}
 
 - name: Start PATCH writer workload & RBAC
   module:
@@ -65,6 +79,14 @@ steps:
     params:
       action: delete
       namePrefix: "write-patch-"
+      replicas: 0
+
+- name: Teardown background configmaps watch workload & RBAC
+  module:
+    path: modules/watch/config.yaml
+    params:
+      action: delete
+      namePrefix: "watch-configmaps-"
       replicas: 0
 
 - name: Teardown background watch workload & RBAC

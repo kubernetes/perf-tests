@@ -178,7 +178,7 @@ steps:
       dimensions:
       - resource
       queries:
-      - query: sum by (resource) (rate(apiserver_terminated_watchers_total{resource="pods"}[1m]))
+      - query: sum by (resource) (rate(apiserver_terminated_watchers_total{resource="pods"}[1m])) or (sum by (resource) (0 * apiserver_resource_objects{resource="pods"}))
         aggregations:
         - Max
         - Perc99

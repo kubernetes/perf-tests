@@ -29,12 +29,6 @@ steps:
     params:
       etcdReplicas: {{$etcdReplicas}}
 
-- name: Start etcd write throughput and latency measurements
-  module:
-    path: modules/measurements.yaml
-    params:
-      action: start
-
 - name: Start etcd write workload generators
   module:
     path: modules/writer/config.yaml
@@ -48,6 +42,12 @@ steps:
       compactInterval: {{$compactInterval}}
       keyPrefix: {{$keyPrefix}}
 
+- name: Start etcd write throughput and latency measurements
+  module:
+    path: modules/measurements.yaml
+    params:
+      action: start
+
 - name: Run etcd write throughput benchmark duration
   measurements:
   - Identifier: Wait
@@ -60,4 +60,11 @@ steps:
     path: modules/measurements.yaml
     params:
       action: gather
+
+- name: Teardown etcd write workload generators
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: delete
+      replicas: 0
 

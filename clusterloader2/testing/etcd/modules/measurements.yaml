@@ -5,6 +5,7 @@
 steps:
 - name: "{{$action}}ing etcd write measurements"
   measurements:
+  # === Benchmark ===
   - Identifier: EtcdTotalRequestsExecuted
     Method: GenericPrometheusQuery
     Params:
@@ -32,12 +33,85 @@ steps:
       unit: ops/s
       queries:
       - name: PutThroughput
-        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[1m]))
         requireSamples: true
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
       - name: BackendCommitRate
-        query: sum(rate(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+        query: sum(rate(etcd_disk_backend_commit_duration_seconds_count{job="etcd-cluster-0"}[1m]))
         requireSamples: true
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
 
+  - Identifier: EtcdServerRequestRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdServerRequestRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - type
+      queries:
+      - query: sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
+
+  - Identifier: EtcdServerErrorRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdServerErrorRate
+      metricVersion: v1
+      unit: percentunit
+      dimensions:
+      - type
+      queries:
+      - query: sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0", success="false"}[1m])) / sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: EtcdServerLatencyPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdServerLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - type
+      queries:
+      - query: histogram_quantile(0.99, sum by (type, le) (rate(etcd_server_request_duration_seconds_bucket{job="etcd-cluster-0"}[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  # === Etcd Disk & Storage ===
   - Identifier: EtcdWalFsyncDuration
     Method: GenericPrometheusQuery
     Params:
@@ -46,15 +120,14 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - name: Perc99
-        query: histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - query: histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[1m])) by (le))
         requireSamples: true
-      - name: Perc90
-        query: histogram_quantile(0.90, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
-        requireSamples: true
-      - name: Perc50
-        query: histogram_quantile(0.50, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
-        requireSamples: true
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
 
   - Identifier: EtcdBackendCommitDuration
     Method: GenericPrometheusQuery
@@ -64,13 +137,323 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - name: Perc99
-        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[1m])) by (le))
         requireSamples: true
-      - name: Perc90
-        query: histogram_quantile(0.90, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
-        requireSamples: true
-      - name: Perc50
-        query: histogram_quantile(0.50, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
-        requireSamples: true
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: EtcdKeysTotalPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdKeysTotal
+      metricVersion: v1
+      unit: objects
+      queries:
+      - query: max(etcd_debugging_mvcc_keys_total{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+
+  - Identifier: EtcdDBSizePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdDBSize
+      metricVersion: v1
+      unit: B
+      queries:
+      - name: Total
+        query: max(etcd_mvcc_db_total_size_in_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+      - name: InUse
+        query: max(etcd_mvcc_db_total_size_in_use_in_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+      - name: Quota
+        query: max(etcd_server_quota_backend_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+
+  - Identifier: EtcdCompactWindowPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdCompactWindow
+      metricVersion: v1
+      unit: s
+      queries:
+      - query: max((etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"} - etcd_debugging_mvcc_compact_revision{job="etcd-cluster-0"}) / rate(etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"}[5m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  # === Go Runtime ===
+  - Identifier: GoAllocationsBytesRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoAllocationsBytesRate
+      metricVersion: v1
+      unit: Bps
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_memstats_alloc_bytes_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoAllocationsMallocsRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoAllocationsMallocsRate
+      metricVersion: v1
+      unit: ops
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_memstats_mallocs_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoMutexWaitTimePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoMutexWaitTime
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_sync_mutex_wait_total_seconds_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoGCDurationRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCDurationRate
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_gc_duration_seconds_sum{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoSchedLatencyPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoSchedLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - job
+      queries:
+      - query: histogram_quantile(0.99, sum by (job, le) (rate(go_sched_latencies_seconds_bucket{job="etcd-cluster-0"}[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoUserCPURatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoUserCPURate
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_cpu_classes_user_cpu_seconds_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoGCMarkAssistCPURatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCMarkAssistCPURate
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_cpu_classes_gc_mark_assist_cpu_seconds_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoRunnableGoroutinesPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoRunnableGoroutines
+      metricVersion: v1
+      unit: goroutines
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (go_sched_goroutines_runnable_goroutines{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoGoroutinesPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGoroutines
+      metricVersion: v1
+      unit: goroutines
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (go_goroutines{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoNextGCBytesPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoNextGCBytes
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (go_memstats_next_gc_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+
+  - Identifier: GoGCSaturationPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCSaturation
+      metricVersion: v1
+      unit: ratio
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(go_memstats_alloc_bytes_total{job="etcd-cluster-0"}[1m]) * (100 + go_gc_gogc_percent{job="etcd-cluster-0"}) / (8192 * go_gc_gogc_percent{job="etcd-cluster-0"}) / 1.7e6)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: GoHeapInuseBytesPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoHeapInuseBytes
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (go_memstats_heap_inuse_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+
+  # === Resources ===
+  - Identifier: ProcessCPUPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ProcessCPU
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (rate(process_cpu_seconds_total{job="etcd-cluster-0"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
+  - Identifier: ProcessMemoryPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ProcessMemory
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - job
+      queries:
+      - query: max by (job) (process_resident_memory_bytes{job="etcd-cluster-0"})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
 

@@ -1,5 +1,6 @@
 ## Input params
 # Valid actions: "create", "delete"
+{{$action := DefaultParam .action "create"}}
 {{$namePrefix := DefaultParam .namePrefix "etcd-writer-"}}
 {{$replicas := DefaultParam .replicas 3}}
 {{$qps := DefaultParam .qps 200}}
@@ -11,7 +12,7 @@
 {{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
 
 steps:
-- name: Starting measurement for etcd writer generators
+- name: Starting measurement for '{{$action}}' etcd writer generators
   measurements:
   - Method: WaitForControlledPodsRunning
     Instances:
@@ -25,7 +26,7 @@ steps:
       labelSelector: group = benchmark-write
       operationTimeout: 5m
 
-- name: Deploy etcd writer generator deployment
+- name: {{$action}} etcd writer generator deployment
   phases:
   - tuningSet: Sequence
     replicasPerNamespace: 1
@@ -45,7 +46,7 @@ steps:
         KeyPrefix: {{$keyPrefix}}
         Endpoints: {{$endpoints}}
 
-- name: Waiting for etcd writer generators to be running
+- name: Waiting for '{{$action}}' etcd writer generators to be running
   measurements:
   - Method: WaitForControlledPodsRunning
     Instances:

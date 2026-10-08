@@ -21,6 +21,11 @@ import "strings"
 
 var /* const */ versionRegexp = regexp.MustCompile("^v[0-9].*")
 
+// ec2InstanceIDHexRegexp matches the hex part of an EC2 instance id (i-0e39c6d2c2304ee3c),
+// which kops uses as the node name on AWS. Most ids contain an "a" or "e", so looksLikeHash
+// misses ~90% of them and every node ends up as its own series.
+var /* const */ ec2InstanceIDHexRegexp = regexp.MustCompile("^[0-9a-f]{17}$")
+
 // RemoveDisambiguationInfixes removes (from pod/container names) version strings and hashes inserted replication controllers and the like.
 func RemoveDisambiguationInfixes(podAndContainer string) string {
 	split := strings.SplitN(podAndContainer, "/", 2)
@@ -32,7 +37,7 @@ func RemoveDisambiguationInfixes(podAndContainer string) string {
 	var last string
 	for i, piece := range pieces {
 		// Only strip version/hash segments after we've already seen a stable pod-name prefix.
-		if i > 0 && (looksLikeHash(piece) || versionRegexp.MatchString(piece)) {
+		if i > 0 && (looksLikeHash(piece) || versionRegexp.MatchString(piece) || isEC2InstanceID(pieces[i:])) {
 			break
 		}
 		last = strings.Join(pieces[:i+1], "-")
@@ -43,4 +48,13 @@ func RemoveDisambiguationInfixes(podAndContainer string) string {
 // looksLikeHash returns true if piece seems to be one of those pseudo-random disambiguation strings
 func looksLikeHash(piece string) bool {
 	return len(piece) >= 4 && !strings.ContainsAny(piece, "eyuioa")
+}
+
+// isEC2InstanceID returns true if the remaining pieces start with an EC2 instance id ("i", "<17 hex>"),
+// or with just its hex part (when "i" was the first piece and is kept as the stable prefix).
+func isEC2InstanceID(rest []string) bool {
+	if len(rest) >= 2 && rest[0] == "i" && ec2InstanceIDHexRegexp.MatchString(rest[1]) {
+		return true
+	}
+	return ec2InstanceIDHexRegexp.MatchString(rest[0])
 }

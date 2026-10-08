@@ -38,6 +38,16 @@ func TestRemoveDisambiguationInfixes(t *testing.T) {
 		{"kube-proxy-e2e-scalability-minion-group-2mh1/kube-proxy", "kube-proxy-e2e-scalability-minion-group/kube-proxy"},
 		{"v2-controller-6d4f5d4b7f-zx9pl/controller", "v2-controller/controller"},
 		{"cdbf-agent-6d4f5d4b7f-zx9pl/agent", "cdbf-agent/agent"},
+		// kops on AWS names nodes by EC2 instance id; collapse them like hashes.
+		{"i-0e39c6d2c2304ee3c/kubelet", "i/kubelet"},
+		{"i-0e39c6d2c2304ee3c/pods", "i/pods"},
+		{"i-0f39c6d2c2304ff3c/kubelet", "i/kubelet"},
+		{"kube-proxy-i-0e39c6d2c2304ee3c/kube-proxy", "kube-proxy/kube-proxy"},
+		{"kube-proxy-i-0f39c6d2c2304ff3c/kube-proxy", "kube-proxy/kube-proxy"},
+		{"kube-apiserver-i-0e39c6d2c2304ee3c/kube-apiserver", "kube-apiserver/kube-apiserver"},
+		{"etcd-manager-main-i-0e39c6d2c2304ee3c/etcd-manager", "etcd-manager-main/etcd-manager"},
+		{"i-0e39c6d2c2304ee3/kubelet", "i-0e39c6d2c2304ee3/kubelet"},
+		{"ip-10-0-0-1/kubelet", "ip-10-0-0-1/kubelet"},
 	}
 	for _, testCase := range testCases {
 		v := RemoveDisambiguationInfixes(testCase.Input)

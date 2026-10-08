@@ -20,11 +20,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -41,16 +40,20 @@ func runWatch(args []string) error {
 	apiVersion := fs.String("api-version", "", "apiVersion of the target resource.")
 	resource := fs.String("resource", "", "resource name of the target resource.")
 	contentyType := fs.String("content-type", "", "Content type for requests (required). Valid values: [json, proto]")
+	watches := fs.Int("watches", 1, "Number of concurrent watches to maintain.")
 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	if *apiVersion != "v1" || *resource != "pods" {
-		return fmt.Errorf("only v1/pods are supported for --api-version and --resource flags")
+	if *apiVersion != "v1" || (*resource != "pods" && *resource != "configmaps") {
+		return fmt.Errorf("only v1/pods and v1/configmaps are supported for --api-version and --resource flags")
 	}
 	if *namespace == "" {
 		return fmt.Errorf("--namespace must be non empty")
+	}
+	if *watches <= 0 {
+		return fmt.Errorf("--watches must be > 0")
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
@@ -60,6 +63,7 @@ func runWatch(args []string) error {
 			return fmt.Errorf("failed to build kubeconfig: %w", err)
 		}
 	}
+	config.QPS = -1
 
 	switch *contentyType {
 	case "json":
@@ -78,31 +82,34 @@ func runWatch(args []string) error {
 	}
 
 	ctx := context.Background()
-	opts := metav1.ListOptions{
-		FieldSelector: *fieldSelector,
-		LabelSelector: *labelSelector,
-	}
-
-	klog.Infof("Starting pure watch workload: apiVersion=%q, resource=%q, namespace=%q, fieldSelector=%q", *apiVersion, *resource, *namespace, *fieldSelector)
-
-	for {
-		w, err := client.CoreV1().Pods(*namespace).Watch(ctx, opts)
-		if err != nil {
-			klog.Errorf("Watch failed: %v. Retrying in 1s...", err)
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		for event := range w.ResultChan() {
-			switch event.Type {
-			case watch.Added, watch.Modified, watch.Deleted, watch.Bookmark:
-			case watch.Error:
-				err := apierrors.FromObject(event.Object)
-				klog.Errorf("Watch failed: %v. Retrying in 1s...", err)
-				time.Sleep(1 * time.Second)
-			default:
-				panic(fmt.Sprintf("unexpected watch event type %q: %#v", event.Type, event))
+	opts := []informers.SharedInformerOption{
+		informers.WithNamespace(*namespace),
+		// Transform objects to metadata-only so we don't hold full payloads in memory for every watcher.
+		informers.WithTransform(func(obj any) (any, error) {
+			if m, err := meta.Accessor(obj); err == nil {
+				return &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: m.GetName(), Namespace: m.GetNamespace()}}, nil
 			}
-		}
-		w.Stop()
+			return obj, nil
+		}),
+		informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
+			listOpts.FieldSelector = *fieldSelector
+			listOpts.LabelSelector = *labelSelector
+		}),
 	}
+
+	klog.Infof("Starting pure watch workload: apiVersion=%q, resource=%q, namespace=%q, watches=%d, fieldSelector=%q", *apiVersion, *resource, *namespace, *watches, *fieldSelector)
+
+	for range *watches {
+		factory := informers.NewSharedInformerFactoryWithOptions(client, 0, opts...)
+		switch *resource {
+		case "pods":
+			factory.Core().V1().Pods().Informer()
+		case "configmaps":
+			factory.Core().V1().ConfigMaps().Informer()
+		}
+		factory.Start(ctx.Done())
+	}
+
+	<-ctx.Done()
+	return nil
 }

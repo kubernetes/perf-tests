@@ -3,6 +3,8 @@
 {{$action := DefaultParam .action "create"}}
 {{$namePrefix := DefaultParam .namePrefix "watch-workload-"}}
 {{$replicas := DefaultParam .replicas 1}}
+{{$resource := DefaultParam .resource "pods"}}
+{{$watchesPerReplica := DefaultParam .watchesPerReplica 1}}
 {{$targetNamespace := DefaultParam .targetNamespace ""}}
 
 steps:
@@ -33,6 +35,8 @@ steps:
       objectTemplatePath: modules/watch/deployment.yaml
       templateFillMap:
         Replicas: {{$replicas}}
+        Resource: {{$resource}}
+        WatchesPerReplica: {{$watchesPerReplica}}
 
 - name: Waiting for '{{$action}}' watch generators to be completed
   measurements:
@@ -40,5 +44,5 @@ steps:
     Identifier: WaitForRunningWatchPods
     Params:
       desiredPodCount: {{$replicas}}
-      labelSelector: group = benchmark-watch
+      labelSelector: name = {{$namePrefix}}deploy-0
       timeout: 5m

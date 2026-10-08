@@ -1,7 +1,9 @@
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.18"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.23"}}
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$cpu := DefaultParam .cpu "1000m"}}
 {{$memory := DefaultParam .memory "500Mi"}}
+{{$resource := DefaultParam .Resource "pods"}}
+{{$watchesPerReplica := DefaultParam .WatchesPerReplica 1}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -28,7 +30,8 @@ spec:
         - watch
         - --namespace={{.Namespace}}
         - --api-version=v1
-        - --resource=pods
+        - --resource={{$resource}}
+        - --watches={{$watchesPerReplica}}
         - --content-type=proto
         resources:
           requests:

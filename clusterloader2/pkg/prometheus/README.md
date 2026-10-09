@@ -19,12 +19,13 @@ Prometheus stack in ClusterLoader2 framework.
 By default, in-cluster PromQL measurements are skipped unless CL2 deployed
 Prometheus (`--enable-prometheus-server=true`).
 
-To query Prometheus that is already running in the cluster:
+To query Prometheus that is already running in the cluster, it must be exposed
+as a Service in the `monitoring` namespace:
 
 ```bash
 --use-existing-prometheus=true \
 --prometheus-service=prometheus-k8s \
---prometheus-proxy-scheme=http
+--prometheus-scheme=http
 ```
 
 CL2 still talks to Prometheus only via the apiserver service proxy:

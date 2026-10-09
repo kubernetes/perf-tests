@@ -89,9 +89,9 @@ func ReadManifest(path string) ([]byte, error) {
 // InitFlags initializes prometheus flags.
 func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.EnableServer, "enable-prometheus-server", "ENABLE_PROMETHEUS_SERVER", false, "Whether to set-up the prometheus server in the cluster.")
-	flags.BoolEnvVar(&p.UseExistingServer, "use-existing-prometheus", "USE_EXISTING_PROMETHEUS", false, "Use Prometheus already running in the cluster for in-cluster PromQL. Mutually exclusive with --enable-prometheus-server. Queries monitoring/<prometheus-service> via apiserver proxy.")
+	flags.BoolEnvVar(&p.UseExistingServer, "use-existing-prometheus", "USE_EXISTING_PROMETHEUS", false, "Use Prometheus already running in the cluster for in-cluster PromQL. The existing Prometheus must be exposed as a Service in the monitoring namespace, which is queried as monitoring/<prometheus-service> via apiserver proxy. Mutually exclusive with --enable-prometheus-server.")
 	flags.StringEnvVar(&p.ServiceName, "prometheus-service", "PROMETHEUS_SERVICE", prom.DefaultServiceName, "Name of the Service in the monitoring namespace used for in-cluster PromQL (apiserver proxy).")
-	flags.StringEnvVar(&p.ProxyScheme, "prometheus-proxy-scheme", "PROMETHEUS_PROXY_SCHEME", prom.DefaultProxyScheme, "Scheme used for apiserver service proxy to Prometheus (http or https). Default http matches kube-prometheus.")
+	flags.StringEnvVar(&p.ProxyScheme, "prometheus-scheme", "PROMETHEUS_SCHEME", prom.DefaultProxyScheme, "Scheme used for apiserver service proxy to Prometheus (http or https). Default http matches kube-prometheus.")
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.BoolEnvVar(&p.EnablePushgateway, "enable-pushgateway", "PROMETHEUS_ENABLE_PUSHGATEWAY", false, "Whether to set-up the Pushgateway. Only work with enabled Prometheus server.")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
@@ -132,7 +132,7 @@ func ValidatePrometheusFlags(p *config.PrometheusConfig) *clerrors.ErrorList {
 		scheme = prom.DefaultProxyScheme
 	}
 	if scheme != "http" && scheme != "https" {
-		errList.Append(fmt.Errorf("--prometheus-proxy-scheme must be http or https, got %q", p.ProxyScheme))
+		errList.Append(fmt.Errorf("--prometheus-scheme must be http or https, got %q", p.ProxyScheme))
 	}
 	if errList.IsEmpty() {
 		prom.ConfigureInClusterProxy(scheme, p.ServiceName)

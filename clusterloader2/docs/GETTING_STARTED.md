@@ -305,11 +305,11 @@ skip the deploy and query it instead:
   --testconfig=./testing/list/config.yaml \
   --use-existing-prometheus=true \
   --prometheus-service=prometheus-k8s \
-  --prometheus-proxy-scheme=http \
+  --prometheus-scheme=http \
   --enable-prometheus-server=false
 ```
 
-`--prometheus-proxy-scheme` defaults to `http` (kube-prometheus). Set `https`
+`--prometheus-scheme` defaults to `http` (kube-prometheus). Set `https`
 only if the apiserver service proxy requires it.
 
 There are various measurements that depend on prometheus metrics, for example:

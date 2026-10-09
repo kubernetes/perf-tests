@@ -1,36 +1,31 @@
-{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.23"}}
+{{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.19"}}
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
-{{$qps := DefaultParam .Qps 100}}
-{{$concurrency := DefaultParam .Concurrency 10}}
+{{$qps := DefaultParam .Qps 0}}
+{{$concurrency := DefaultParam .Concurrency 50}}
 {{$keyCount := DefaultParam .KeyCount 10000}}
 {{$keyPrefix := DefaultParam .KeyPrefix "/registry/pods/default/pod-"}}
 {{$payloadType := DefaultParam .PayloadType "pod"}}
-{{$compactInterval := DefaultParam .CompactInterval "150s"}}
-{{$compactPhysical := DefaultParam .CompactPhysical true}}
-{{$defragInterval := DefaultParam .DefragInterval "0s"}}
-{{$cpu := DefaultParam .cpu "500m"}}
-{{$memory := DefaultParam .memory "256Mi"}}
+{{$cpu := DefaultParam .cpu "1000m"}}
+{{$memory := DefaultParam .memory "512Mi"}}
 
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: {{.Name}}
   labels:
-    group: benchmark-write
+    group: benchmark-init
 spec:
-  replicas: {{.Replicas}}
-  selector:
-    matchLabels:
-      name: {{.Name}}
+  backoffLimit: 3
   template:
     metadata:
       labels:
         name: {{.Name}}
-        group: benchmark-write
+        group: benchmark-init
     spec:
+      restartPolicy: OnFailure
       containers:
-      - name: etcd-writer
+      - name: etcd-init
         image: {{$image}}
         imagePullPolicy: {{$imagePullPolicy}}
         args:
@@ -39,14 +34,11 @@ spec:
         - --qps={{$qps}}
         - --concurrency={{$concurrency}}
         - --key-count={{$keyCount}}
+        - --total-writes={{$keyCount}}
         - --key-prefix={{$keyPrefix}}
         - --payload-type={{$payloadType}}
-        - --compact-interval={{$compactInterval}}
-        - --compact-physical={{$compactPhysical}}
-        - --defrag-interval={{$defragInterval}}
-        ports:
-        - name: metrics
-          containerPort: 8080
+        - --compact-interval=0s
+        - --defrag-interval=0s
         resources:
           requests:
             cpu: {{$cpu}}

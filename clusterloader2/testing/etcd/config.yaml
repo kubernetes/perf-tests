@@ -1,11 +1,23 @@
-# Etcd Write Throughput Benchmark with HA Operator and Builtin Prometheus Metrics
-{{$etcdReplicas := DefaultParam .CL2_ETCD_REPLICAS 3}}
+# Etcd Write Throughput & Storage Benchmark with Operator and Builtin Prometheus Metrics
+{{$etcdReplicas := DefaultParam .CL2_ETCD_REPLICAS 1}}
+{{$etcdVersion := DefaultParam .CL2_ETCD_VERSION "3.5.15-0"}}
+{{$quotaBackendBytes := DefaultParam .CL2_ETCD_QUOTA_BACKEND_BYTES 34359738368}}
+{{$storageSize := DefaultParam .CL2_ETCD_STORAGE_SIZE ""}}
+{{$storageClass := DefaultParam .CL2_ETCD_STORAGE_CLASS ""}}
+
+{{$init := DefaultParam .CL2_ETCD_INIT true}}
+{{$initQps := DefaultParam .CL2_ETCD_INIT_QPS 0}}
+{{$initConcurrency := DefaultParam .CL2_ETCD_INIT_CONCURRENCY 50}}
+{{$initTimeout := DefaultParam .CL2_ETCD_INIT_TIMEOUT "15m"}}
+
 {{$writerReplicas := DefaultParam .CL2_ETCD_WRITER_REPLICAS 3}}
 {{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 200}}
 {{$writerConcurrency := DefaultParam .CL2_ETCD_WRITER_CONCURRENCY 10}}
 {{$keyCount := DefaultParam .CL2_ETCD_KEY_COUNT 10000}}
 {{$payloadType := DefaultParam .CL2_ETCD_PAYLOAD_TYPE "pod"}}
 {{$compactInterval := DefaultParam .CL2_ETCD_COMPACT_INTERVAL "150s"}}
+{{$compactPhysical := DefaultParam .CL2_ETCD_COMPACT_PHYSICAL true}}
+{{$defragInterval := DefaultParam .CL2_ETCD_DEFRAG_INTERVAL "0s"}}
 {{$keyPrefix := DefaultParam .CL2_ETCD_KEY_PREFIX "/registry/pods/default/pod-"}}
 {{$duration := DefaultParam .CL2_ETCD_BENCHMARK_DURATION "1m"}}
 
@@ -23,11 +35,28 @@ steps:
   module:
     path: modules/operator/config.yaml
 
-- name: Create operator-managed HA etcd cluster
+- name: Create operator-managed etcd cluster
   module:
     path: modules/cluster/config.yaml
     params:
       etcdReplicas: {{$etcdReplicas}}
+      etcdVersion: "{{$etcdVersion}}"
+      quotaBackendBytes: {{$quotaBackendBytes}}
+      storageSize: "{{$storageSize}}"
+      storageClass: "{{$storageClass}}"
+
+{{if $init}}
+- name: Create initial baseline etcd keys
+  module:
+    path: modules/init/config.yaml
+    params:
+      qps: {{$initQps}}
+      concurrency: {{$initConcurrency}}
+      keyCount: {{$keyCount}}
+      payloadType: {{$payloadType}}
+      keyPrefix: {{$keyPrefix}}
+      timeout: {{$initTimeout}}
+{{end}}
 
 - name: Start etcd write workload generators
   module:
@@ -40,6 +69,8 @@ steps:
       keyCount: {{$keyCount}}
       payloadType: {{$payloadType}}
       compactInterval: {{$compactInterval}}
+      compactPhysical: {{$compactPhysical}}
+      defragInterval: {{$defragInterval}}
       keyPrefix: {{$keyPrefix}}
 
 - name: Start etcd write throughput and latency measurements
@@ -67,4 +98,3 @@ steps:
     params:
       action: delete
       replicas: 0
-

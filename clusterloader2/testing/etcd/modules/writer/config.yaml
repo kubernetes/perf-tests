@@ -8,6 +8,8 @@
 {{$keyCount := DefaultParam .keyCount 10000}}
 {{$payloadType := DefaultParam .payloadType "pod"}}
 {{$compactInterval := DefaultParam .compactInterval "150s"}}
+{{$compactPhysical := DefaultParam .compactPhysical true}}
+{{$defragInterval := DefaultParam .defragInterval "0s"}}
 {{$keyPrefix := DefaultParam .keyPrefix "/registry/pods/default/pod-"}}
 {{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
 
@@ -43,6 +45,8 @@ steps:
         KeyCount: {{$keyCount}}
         PayloadType: {{$payloadType}}
         CompactInterval: {{$compactInterval}}
+        CompactPhysical: {{$compactPhysical}}
+        DefragInterval: {{$defragInterval}}
         KeyPrefix: {{$keyPrefix}}
         Endpoints: {{$endpoints}}
 
@@ -53,3 +57,4 @@ steps:
     - Identifier: WaitForRunningEtcdWriterDeployments
     Params:
       action: gather
+

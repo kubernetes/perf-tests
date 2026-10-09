@@ -188,6 +188,29 @@ steps:
         aggregations:
         - Max
 
+  - Identifier: EtcdDBSpaceOverheadPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdDBSpaceOverhead
+      metricVersion: v1
+      unit: ratio
+      queries:
+      - name: TotalToInUseRatio
+        query: max(etcd_mvcc_db_total_size_in_bytes{job="etcd-cluster-0"} / clamp_min(etcd_mvcc_db_total_size_in_use_in_bytes{job="etcd-cluster-0"}, 1))
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+      - name: BytesPerKey
+        query: max(etcd_mvcc_db_total_size_in_bytes{job="etcd-cluster-0"} / clamp_min(etcd_debugging_mvcc_keys_total{job="etcd-cluster-0"}, 1))
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+
   - Identifier: EtcdCompactWindowPrometheus
     Method: GenericPrometheusQuery
     Params:
@@ -203,6 +226,44 @@ steps:
         - Perc90
         - Perc50
         - Avg
+
+  - Identifier: EtcdCompactionDurationPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdCompactionDuration
+      metricVersion: v1
+      unit: ms
+      queries:
+      - name: CompactionCount
+        query: sum(increase(etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_count{job="etcd-cluster-0"}[%v]))
+      - name: CompactedKeys
+        query: sum(increase(etcd_debugging_mvcc_db_compaction_keys_total{job="etcd-cluster-0"}[%v]))
+      - name: AvgTotalDurationMs
+        query: sum(increase(etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_sum{job="etcd-cluster-0"}[%v])) / clamp_min(sum(increase(etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_count{job="etcd-cluster-0"}[%v])), 1)
+      - name: P99TotalDurationMs
+        query: histogram_quantile(0.99, sum(rate(etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+      - name: TotalPauseDurationMs
+        query: sum(increase(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_sum{job="etcd-cluster-0"}[%v]))
+      - name: P99PauseDurationMs
+        query: histogram_quantile(0.99, sum(rate(etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+
+  - Identifier: EtcdDefragDurationPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdDefragDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: DefragCount
+        query: sum(increase(etcd_disk_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+      - name: AvgDefragDurationSeconds
+        query: sum(increase(etcd_disk_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v])) / clamp_min(sum(increase(etcd_disk_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v])), 1)
+      - name: TotalDefragDurationSeconds
+        query: sum(increase(etcd_disk_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v]))
+      - name: P99DefragDurationSeconds
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_defrag_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
 
   # === Go Runtime ===
   - Identifier: GoAllocationsBytesRatePrometheus

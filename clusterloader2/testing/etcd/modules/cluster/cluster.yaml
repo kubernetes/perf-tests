@@ -1,6 +1,9 @@
-{{$replicas := DefaultParam .Replicas 3}}
+{{$replicas := DefaultParam .Replicas 1}}
 {{$version := DefaultParam .Version "3.5.15-0"}}
 {{$imageRegistry := DefaultParam .EtcdImageRegistry "registry.k8s.io/etcd"}}
+{{$quotaBackendBytes := DefaultParam .QuotaBackendBytes 34359738368}}
+{{$storageSize := DefaultParam .StorageSize ""}}
+{{$storageClass := DefaultParam .StorageClass ""}}
 
 apiVersion: operator.etcd.io/v1alpha1
 kind: EtcdCluster
@@ -10,3 +13,12 @@ spec:
   size: {{$replicas}}
   version: "{{$version}}"
   imageRegistry: "{{$imageRegistry}}"
+  etcdOptions:
+  - "--quota-backend-bytes={{$quotaBackendBytes}}"
+{{if $storageSize}}
+  storageSpec:
+    volumeSizeRequest: "{{$storageSize}}"
+{{if $storageClass}}
+    storageClassName: "{{$storageClass}}"
+{{end}}
+{{end}}

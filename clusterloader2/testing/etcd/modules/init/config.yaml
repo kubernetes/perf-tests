@@ -1,0 +1,54 @@
+## Input params
+{{$qps := DefaultParam .qps 0}}
+{{$concurrency := DefaultParam .concurrency 50}}
+{{$keyCount := DefaultParam .keyCount 10000}}
+{{$payloadType := DefaultParam .payloadType "pod"}}
+{{$keyPrefix := DefaultParam .keyPrefix "/registry/pods/default/pod-"}}
+{{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
+{{$timeout := DefaultParam .timeout "15m"}}
+
+steps:
+- name: Start waiting for initial etcd keys job
+  measurements:
+  - Method: WaitForFinishedJobs
+    Identifier: WaitForEtcdInitJob
+    Params:
+      action: start
+      labelSelector: group = benchmark-init
+
+- name: Create initial etcd keys job
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: etcd-init
+      objectTemplatePath: modules/init/job.yaml
+      templateFillMap:
+        Qps: {{$qps}}
+        Concurrency: {{$concurrency}}
+        KeyCount: {{$keyCount}}
+        PayloadType: {{$payloadType}}
+        KeyPrefix: {{$keyPrefix}}
+        Endpoints: {{$endpoints}}
+
+- name: Wait for initial etcd keys job to finish
+  measurements:
+  - Method: WaitForFinishedJobs
+    Identifier: WaitForEtcdInitJob
+    Params:
+      action: gather
+      timeout: {{$timeout}}
+
+- name: Delete initial etcd keys job
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 0
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: etcd-init
+      objectTemplatePath: modules/init/job.yaml

@@ -1,0 +1,107 @@
+# Kubelet measurements (opt-in, observability only; never fails the test).
+# Requires PROMETHEUS_SCRAPE_KUBELETS=true so the kubelet ServiceMonitor scrapes
+# /metrics and /metrics/cadvisor (job="kubelet"), and CL2_PROMETHEUS_KUBELET_KEEP_ONLY_DRA unset.
+# Sized for clusters up to ~1000 nodes; the per-node quantiles are cheap at that scale.
+# perf-dash picks these up automatically under GenericMeasurements, keyed by metricName,
+# so metricName must not contain '_'.
+
+## Input params
+# Valid actions: "start", "gather"
+{{$action := .action}}
+
+{{$ENABLE_KUBELET_MEASUREMENTS := DefaultParam .CL2_ENABLE_KUBELET_MEASUREMENTS false}}
+# Runtime operations the load test is guaranteed to exercise. Bounding the list keeps
+# cardinality low and avoids zero-rate operation types.
+{{$KUBELET_RUNTIME_OPERATION_TYPES := DefaultParam .CL2_KUBELET_RUNTIME_OPERATION_TYPES "create_container|start_container|stop_container|remove_container|run_podsandbox|stop_podsandbox|remove_podsandbox|container_status|podsandbox_status|list_containers|list_podsandbox|image_status"}}
+
+{{if $ENABLE_KUBELET_MEASUREMENTS}}
+steps:
+- name: "{{$action}}ing kubelet measurements"
+  measurements:
+  - Identifier: KubeletMemory
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeletMemory
+      metricVersion: v1
+      unit: MiB
+      queries:
+      - name: AvgNodeRSS
+        query: avg(avg_over_time(process_resident_memory_bytes{job="kubelet"}[%v])) / 1048576
+      - name: Perc50NodePeakRSS
+        query: quantile(0.50, max_over_time(process_resident_memory_bytes{job="kubelet"}[%v])) / 1048576
+      - name: Perc90NodePeakRSS
+        query: quantile(0.90, max_over_time(process_resident_memory_bytes{job="kubelet"}[%v])) / 1048576
+      - name: Perc99NodePeakRSS
+        query: quantile(0.99, max_over_time(process_resident_memory_bytes{job="kubelet"}[%v])) / 1048576
+      - name: MaxNodePeakRSS
+        query: max(max_over_time(process_resident_memory_bytes{job="kubelet"}[%v])) / 1048576
+      - name: Perc50NodePeakHeapInUse
+        query: quantile(0.50, max_over_time(go_memstats_heap_inuse_bytes{job="kubelet"}[%v])) / 1048576
+      # cAdvisor view of the kubelet's own cgroup (systemd driver, kubelet.service).
+      - name: Perc50NodePeakWorkingSet
+        query: quantile(0.50, max_over_time(container_memory_working_set_bytes{job="kubelet", id="/system.slice/kubelet.service"}[%v])) / 1048576
+  - Identifier: KubeletCPU
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeletCPU
+      metricVersion: v1
+      unit: cores
+      queries:
+      - name: AvgNodeCPU
+        query: avg(rate(process_cpu_seconds_total{job="kubelet"}[%v]))
+      - name: Perc50NodeCPU
+        query: quantile(0.50, rate(process_cpu_seconds_total{job="kubelet"}[%v]))
+      - name: Perc90NodeCPU
+        query: quantile(0.90, rate(process_cpu_seconds_total{job="kubelet"}[%v]))
+      - name: Perc99NodeCPU
+        query: quantile(0.99, rate(process_cpu_seconds_total{job="kubelet"}[%v]))
+      - name: MaxNodeCPU
+        query: max(rate(process_cpu_seconds_total{job="kubelet"}[%v]))
+      # Burst indicator: median over nodes of the peak 2m rate seen during the test.
+      - name: Perc50NodePeakCPU2m
+        query: quantile(0.50, max_over_time(rate(process_cpu_seconds_total{job="kubelet"}[2m])[%v:30s]))
+  - Identifier: KubeletPLEGRelistLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeletPLEGRelistLatency
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc50
+        query: histogram_quantile(0.50, sum by (le) (rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet"}[%v])))
+      - name: Perc99
+        query: histogram_quantile(0.99, sum by (le) (rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet"}[%v])))
+      - name: Perc99WorstNode
+        query: max(histogram_quantile(0.99, sum by (le, node) (rate(kubelet_pleg_relist_duration_seconds_bucket{job="kubelet"}[%v]))))
+  - Identifier: KubeletPodStartSLI
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeletPodStartSLI
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: Perc50
+        query: histogram_quantile(0.50, sum by (le) (rate(kubelet_pod_start_sli_duration_seconds_bucket{job="kubelet"}[%v])))
+      - name: Perc99
+        query: histogram_quantile(0.99, sum by (le) (rate(kubelet_pod_start_sli_duration_seconds_bucket{job="kubelet"}[%v])))
+      - name: Perc99IncludingImagePull
+        query: histogram_quantile(0.99, sum by (le) (rate(kubelet_pod_start_total_duration_seconds_bucket{job="kubelet"}[%v])))
+  - Identifier: KubeletRuntimeOpsLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: KubeletRuntimeOpsLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - operation_type
+      queries:
+      - name: Perc50
+        query: histogram_quantile(0.50, sum by (le, operation_type) (rate(kubelet_runtime_operations_duration_seconds_bucket{job="kubelet", operation_type=~"{{$KUBELET_RUNTIME_OPERATION_TYPES}}"}[%v])))
+      - name: Perc99
+        query: histogram_quantile(0.99, sum by (le, operation_type) (rate(kubelet_runtime_operations_duration_seconds_bucket{job="kubelet", operation_type=~"{{$KUBELET_RUNTIME_OPERATION_TYPES}}"}[%v])))
+{{end}}

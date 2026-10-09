@@ -14,7 +14,7 @@ steps:
     Method: APIResponsivenessPrometheus
     Params:
       action: {{$action}}
-      enableViolations: false
+      enableViolations: true
       useSimpleLatencyQuery: true
 
   # === Benchmark ===

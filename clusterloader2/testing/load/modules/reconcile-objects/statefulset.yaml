@@ -1,4 +1,6 @@
 {{$EnablePVs := DefaultParam .CL2_ENABLE_PVS true}}
+{{$PVSize := DefaultParam .CL2_PV_SIZE "100Mi"}}
+{{$PVStorageClass := DefaultParam .CL2_PV_STORAGE_CLASS ""}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 {{$podPayloadSize := DefaultParam .CL2_STATEFULSET_POD_PAYLOAD_SIZE 0}}
 {{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
@@ -159,7 +161,10 @@ spec:
         name: pv
       spec:
         accessModes: [ "ReadWriteOnce" ]
+        {{if $PVStorageClass}}
+        storageClassName: {{$PVStorageClass}}
+        {{end}}
         resources:
           requests:
-            storage: 100Mi
+            storage: {{$PVSize}}
   {{end}}

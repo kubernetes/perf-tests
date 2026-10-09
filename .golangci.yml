@@ -23,6 +23,11 @@ linters:
       locale: US
     govet:
       check-shadowing: false
+      # The lint image's Go 1.26 toolchain runs the inline analyzer against the go 1.25
+      # modules on this branch and flags ioutil calls that the newer standard library
+      # marks //go:fix inline. Nothing to fix on a release branch; skip the analyzer.
+      disable:
+        - inline
       settings:
         printf:
           funcs:

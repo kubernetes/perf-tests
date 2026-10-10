@@ -1,5 +1,5 @@
 # The source of the image is at https://github.com/kubernetes/perf-tests/tree/master/util-images/request-benchmark
-{{$cpu := DefaultParam .cpu "1250m"}}
+{{$cpu := DefaultParam .cpu "6"}}
 {{$mode := DefaultParam .Mode "http"}}
 {{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.21"}}
 # http mode streams responses to io.Discard, so 32Mi is plenty. informer mode
@@ -7,7 +7,6 @@
 # so it needs a much larger limit that scales with .Count.
 {{$memory := DefaultParam .memory "32Mi"}}
 {{if eq $mode "informer"}}
-{{$cpu = DefaultParam .cpu "6"}}
 {{$memory = DefaultParam .memory "12Gi"}}
 {{end}}
 

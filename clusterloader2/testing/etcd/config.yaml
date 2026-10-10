@@ -1,7 +1,7 @@
 # Etcd Write Throughput & Storage Benchmark with Operator and Builtin Prometheus Metrics
 {{$etcdReplicas := DefaultParam .CL2_ETCD_REPLICAS 1}}
-{{$etcdVersion := DefaultParam .CL2_ETCD_VERSION "3.5.15-0"}}
-{{$quotaBackendBytes := DefaultParam .CL2_ETCD_QUOTA_BACKEND_BYTES 34359738368}}
+{{$etcdVersion := DefaultParam .CL2_ETCD_VERSION "3.7.2-0"}}
+{{$quotaBackendBytes := DefaultParam .CL2_ETCD_QUOTA_BACKEND_BYTES "34359738368"}}
 {{$storageSize := DefaultParam .CL2_ETCD_STORAGE_SIZE ""}}
 {{$storageClass := DefaultParam .CL2_ETCD_STORAGE_CLASS ""}}
 
@@ -41,7 +41,7 @@ steps:
     params:
       etcdReplicas: {{$etcdReplicas}}
       etcdVersion: "{{$etcdVersion}}"
-      quotaBackendBytes: {{$quotaBackendBytes}}
+      quotaBackendBytes: "{{$quotaBackendBytes}}"
       storageSize: "{{$storageSize}}"
       storageClass: "{{$storageClass}}"
 

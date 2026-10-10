@@ -1,7 +1,7 @@
 {{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$Env := DefaultParam .Env ""}}
 {{$DaemonSetSurge := DefaultParam .CL2_DS_SURGE (MaxInt 10 (DivideInt .Nodes 20))}} # 5% of nodes, but not less than 10
-{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION "kubelite.io/simulated"}}
 
 {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}

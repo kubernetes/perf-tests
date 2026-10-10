@@ -1,7 +1,7 @@
 {{$replicas := DefaultParam .Replicas 1}}
 {{$version := DefaultParam .Version "3.5.15-0"}}
 {{$imageRegistry := DefaultParam .EtcdImageRegistry "registry.k8s.io/etcd"}}
-{{$quotaBackendBytes := DefaultParam .QuotaBackendBytes 34359738368}}
+{{$quotaBackendBytes := DefaultParam .QuotaBackendBytes "34359738368"}}
 {{$storageSize := DefaultParam .StorageSize ""}}
 {{$storageClass := DefaultParam .StorageClass ""}}
 

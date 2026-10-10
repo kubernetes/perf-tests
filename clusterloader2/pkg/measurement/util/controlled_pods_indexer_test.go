@@ -144,7 +144,8 @@ func newMockedControlledPodsIndexer(ctx context.Context, t *testing.T, client *f
 	informerFactory := informers.NewSharedInformerFactory(client, 0 /* resyncPeriod */)
 	podsInformer := informerFactory.Core().V1().Pods()
 	rsInformer := informerFactory.Apps().V1().ReplicaSets()
-	p, err := NewControlledPodsIndexer(podsInformer, rsInformer)
+	revisionsInformer := informerFactory.Apps().V1().ControllerRevisions()
+	p, err := NewControlledPodsIndexer(podsInformer, rsInformer, revisionsInformer)
 	if err != nil {
 		t.Fatalf("failed to create ControlledPodsIndexer instance: %v", err)
 	}

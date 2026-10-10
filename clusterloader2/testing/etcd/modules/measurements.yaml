@@ -15,7 +15,7 @@ steps:
       unit: requests
       queries:
       - name: TotalPutRequests
-        query: sum(increase(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[%v]))
+        query: sum(increase(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put",grpc_code="OK"}[%v]))
         requireSamples: true
       - name: TotalWALFsyncs
         query: sum(increase(etcd_disk_wal_fsync_duration_seconds_count{job="etcd-cluster-0"}[%v]))
@@ -33,7 +33,7 @@ steps:
       unit: ops/s
       queries:
       - name: PutThroughput
-        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put"}[1m]))
+        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put",grpc_code="OK"}[1m]))
         requireSamples: true
         aggregations:
         - Min
@@ -85,7 +85,7 @@ steps:
       dimensions:
       - type
       queries:
-      - query: sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0", success="false"}[1m])) / sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0"}[1m]))
+      - query: (sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0", success="false"}[1m])) or (0 * sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0"}[1m])))) / (sum by (type) (rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0"}[1m])) > 0)
         aggregations:
         - Max
         - Perc99
@@ -219,7 +219,7 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - query: max((etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"} - etcd_debugging_mvcc_compact_revision{job="etcd-cluster-0"}) / rate(etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"}[5m]))
+      - query: max((etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"} - etcd_debugging_mvcc_compact_revision{job="etcd-cluster-0"}) / (rate(etcd_debugging_mvcc_current_revision{job="etcd-cluster-0"}[5m]) > 0))
         aggregations:
         - Max
         - Perc99

@@ -1,7 +1,7 @@
 ## Input params
 {{$etcdReplicas := DefaultParam .etcdReplicas 1}}
-{{$etcdVersion := DefaultParam .etcdVersion "3.5.15-0"}}
-{{$quotaBackendBytes := DefaultParam .quotaBackendBytes 34359738368}}
+{{$etcdVersion := DefaultParam .etcdVersion "3.7.2-0"}}
+{{$quotaBackendBytes := DefaultParam .quotaBackendBytes "34359738368"}}
 {{$storageSize := DefaultParam .storageSize ""}}
 {{$storageClass := DefaultParam .storageClass ""}}
 {{$clusterName := "etcd-cluster-0"}}
@@ -34,7 +34,7 @@ steps:
         Replicas: {{$etcdReplicas}}
         Version: "{{$etcdVersion}}"
         EtcdImageRegistry: "registry.k8s.io/etcd"
-        QuotaBackendBytes: {{$quotaBackendBytes}}
+        QuotaBackendBytes: "{{$quotaBackendBytes}}"
         StorageSize: "{{$storageSize}}"
         StorageClass: "{{$storageClass}}"
 

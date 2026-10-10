@@ -1,5 +1,7 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  DetectCacheInconsistency: false
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -7,14 +9,34 @@ nodes:
     kind: ClusterConfiguration
     apiServer:
       extraArgs:
+        contention-profiling: "true"
+        delete-collection-workers: "16"
+        etcd-compaction-interval: "150s"
+        profiling: "true"
         v: "3"
     controllerManager:
       extraArgs:
+        authorization-always-allow-paths: "/healthz,/readyz,/livez,/metrics"
         bind-address: "0.0.0.0"
+        contention-profiling: "true"
+        kube-api-burst: "100"
+        kube-api-qps: "100"
+        min-resync-period: "12h"
+        profiling: "true"
+        v: "2"
     scheduler:
       extraArgs:
+        authorization-always-allow-paths: "/healthz,/readyz,/livez,/metrics"
         bind-address: "0.0.0.0"
+        contention-profiling: "true"
+        kube-api-burst: "100"
+        kube-api-qps: "100"
+        profiling: "true"
+        v: "2"
     etcd:
       local:
         extraArgs:
+          enable-pprof: "true"
           listen-metrics-urls: "http://0.0.0.0:2382"
+          quota-backend-bytes: "17179869184"
+          watch-progress-notify-interval: "5s"

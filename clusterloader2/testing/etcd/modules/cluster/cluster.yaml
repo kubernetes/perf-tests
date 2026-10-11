@@ -14,7 +14,7 @@ spec:
   version: "{{$version}}"
   imageRegistry: "{{$imageRegistry}}"
   etcdOptions:
-  - "--quota-backend-bytes={{AddInt $quotaBackendBytes 0}}"
+  - "--quota-backend-bytes={{$quotaBackendBytes}}"
   - "--metrics=extensive"
 {{if $storageSize}}
   storageSpec:

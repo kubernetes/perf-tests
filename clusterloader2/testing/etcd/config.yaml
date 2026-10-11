@@ -24,7 +24,6 @@
 name: etcd-write-throughput
 namespace:
   number: 1
-  deleteAutomanagedNamespaces: false
 tuningSets:
 - name: Sequence
   parallelismLimitedLoad:

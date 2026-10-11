@@ -257,13 +257,13 @@ steps:
       unit: s
       queries:
       - name: DefragCount
-        query: sum(increase(etcd_disk_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v]))
+        query: sum(increase(etcd_disk_backend_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v]))
       - name: AvgDefragDurationSeconds
-        query: sum(increase(etcd_disk_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v])) / clamp_min(sum(increase(etcd_disk_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v])), 1)
+        query: sum(increase(etcd_disk_backend_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v])) / clamp_min(sum(increase(etcd_disk_backend_defrag_duration_seconds_count{job="etcd-cluster-0"}[%v])), 1)
       - name: TotalDefragDurationSeconds
-        query: sum(increase(etcd_disk_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v]))
+        query: sum(increase(etcd_disk_backend_defrag_duration_seconds_sum{job="etcd-cluster-0"}[%v]))
       - name: P99DefragDurationSeconds
-        query: histogram_quantile(0.99, sum(rate(etcd_disk_defrag_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
+        query: histogram_quantile(0.99, sum(rate(etcd_disk_backend_defrag_duration_seconds_bucket{job="etcd-cluster-0"}[%v])) by (le))
 
   # === Go Runtime ===
   - Identifier: GoAllocationsBytesRatePrometheus

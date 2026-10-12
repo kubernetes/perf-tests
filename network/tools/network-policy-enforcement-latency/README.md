@@ -123,7 +123,8 @@ spec:
      matchLabels:
        test: np-test-client
   namespaceSelector:
-    any: true
+    matchNames:
+    - net-policy-test
 ```
 
 ## Build and Push the Images

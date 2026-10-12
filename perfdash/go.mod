@@ -21,7 +21,7 @@ require (
 	cloud.google.com/go/iam v1.2.2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.2
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.21 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.33.6
+	github.com/aws/aws-sdk-go-v2/config v1.33.8
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.8
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.2 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.5 // indirect

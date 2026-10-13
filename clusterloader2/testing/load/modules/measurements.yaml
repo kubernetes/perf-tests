@@ -284,6 +284,10 @@ steps:
     path: modules/dns-performance-metrics.yaml
     params:
       action: {{$action}}
+- module:
+    path: modules/kubelet-measurements.yaml
+    params:
+      action: {{$action}}
 
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
 - module:

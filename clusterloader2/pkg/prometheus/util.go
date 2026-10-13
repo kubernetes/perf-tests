@@ -34,6 +34,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
 
 const allTargets = -1
@@ -63,7 +65,7 @@ func CheckAllTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, s
 func CheckTargetsReady(ctx context.Context, k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int, logPrometheusError bool) (bool, error) {
 	reader, err := k8sClient.CoreV1().
 		Services(namespace).
-		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
+		ProxyGet(prom.InClusterProxyScheme(), prom.InClusterServiceName(), "9090", "api/v1/targets", nil /*params*/).
 		Stream(ctx)
 	if err != nil {
 		// This might happen if prometheus server is temporary down, log error but don't return it.
@@ -132,7 +134,7 @@ func makeSnapshot(k8sClient kubernetes.Interface, config *restclient.Config, fil
 		Namespace(namespace).
 		Resource("services").
 		SubResource("proxy").
-		Name(net.JoinSchemeNamePort("http", "prometheus-k8s", "9090")).
+		Name(net.JoinSchemeNamePort(prom.InClusterProxyScheme(), prom.InClusterServiceName(), "9090")).
 		Suffix("api/v1/admin/tsdb/snapshot").
 		DoRaw(context.TODO())
 	if err != nil {
@@ -146,7 +148,7 @@ func makeSnapshot(k8sClient kubernetes.Interface, config *restclient.Config, fil
 
 	klog.V(2).Infof("Snapshot made: %v", response)
 
-	svc, err := k8sClient.CoreV1().Services(namespace).Get(context.TODO(), "prometheus-k8s", metav1.GetOptions{})
+	svc, err := k8sClient.CoreV1().Services(namespace).Get(context.TODO(), prom.InClusterServiceName(), metav1.GetOptions{})
 	labelSelector := labels.Set(svc.Spec.Selector).AsSelector().String()
 	pods, err := k8sClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 

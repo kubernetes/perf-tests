@@ -9,6 +9,8 @@
 {{$PROMETHEUS_PVC_STORAGE_CLASS := DefaultParam .PROMETHEUS_PVC_STORAGE_CLASS "ssd"}}
 {{$PROMETHEUS_MEMORY_REQUEST := DefaultParam .PROMETHEUS_MEMORY_REQUEST "10Gi"}}
 {{$PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR := DefaultParam .CL2_PROMETHEUS_KUBELET_MEMORY_SCALE_FACTOR 10}}
+{{$PROMETHEUS_BASE_IMAGE := DefaultParam .CL2_PROMETHEUS_BASE_IMAGE "gcr.io/k8s-testimages/quay.io/prometheus/prometheus"}}
+{{$PROMETHEUS_VERSION := DefaultParam .CL2_PROMETHEUS_VERSION "v2.40.0"}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -20,7 +22,7 @@ metadata:
 spec:
   logLevel: debug
   enableAdminAPI: true
-  baseImage: gcr.io/k8s-testimages/quay.io/prometheus/prometheus
+  baseImage: {{$PROMETHEUS_BASE_IMAGE}}
   nodeSelector:
     kubernetes.io/os: linux
     {{StructuralData $PROMETHEUS_NODE_SELECTOR}}
@@ -68,7 +70,7 @@ spec:
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}
   priorityClassName: system-node-critical
-  version: v2.40.0
+  version: {{$PROMETHEUS_VERSION}}
   retention: 7d
   {{if $PROMETHEUS_PVC_ENABLED}}
   # We add node tolerations for control-plane nodes in Azure Windows test jobs which do not support Google PD

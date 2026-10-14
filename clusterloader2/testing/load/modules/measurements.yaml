@@ -109,6 +109,7 @@ steps:
       queries:
       - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
         aggregations:
+        - Max
         - Perc99
         - Perc90
         - Perc50

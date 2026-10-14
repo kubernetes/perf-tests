@@ -245,7 +245,7 @@ func getOrCreate(dataItems map[string]*measurementutil.DataItem, key, unit strin
 	return dataItem
 }
 
-func (g *genericQueryGatherer) validateSample(q GenericQuery, val float64) error {
+func (g *genericQueryGatherer) validateSample(sampleName string, q GenericQuery, val float64) error {
 	thresholdMsg := "none"
 	if q.Threshold != nil {
 		thresholdMsg = fmt.Sprintf("%v (upper bound)", *q.Threshold)
@@ -253,13 +253,13 @@ func (g *genericQueryGatherer) validateSample(q GenericQuery, val float64) error
 			thresholdMsg = fmt.Sprintf("%v (lower bound)", *q.Threshold)
 		}
 	}
-	klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, q.Name, val, thresholdMsg)
+	klog.V(2).Infof("metric: %v: %v, value: %v, threshold: %v", g.MetricName, sampleName, val, thresholdMsg)
 	if q.Threshold != nil {
 		if q.LowerBound && val < *q.Threshold {
-			return errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample below threshold: want: greater or equal than %v, got: %v", *q.Threshold, val))
+			return errors.NewMetricViolationError(sampleName, fmt.Sprintf("sample below threshold: want: greater or equal than %v, got: %v", *q.Threshold, val))
 		}
 		if !q.LowerBound && val > *q.Threshold {
-			return errors.NewMetricViolationError(q.Name, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", *q.Threshold, val))
+			return errors.NewMetricViolationError(sampleName, fmt.Sprintf("sample above threshold: want: less or equal than %v, got: %v", *q.Threshold, val))
 		}
 	}
 	return nil
@@ -305,6 +305,10 @@ func (g *genericQueryGatherer) gatherAggregatedQuery(q GenericQuery, executor Qu
 			} else {
 				dataItem.Data[dataKey] = val
 			}
+
+			if err := g.validateSample(dataKey, q, val); err != nil {
+				*errs = append(*errs, err)
+			}
 		}
 	}
 	return nil
@@ -346,7 +350,7 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 				dataItem.Data[q.Name] = val
 			}
 
-			if err := g.validateSample(q, val); err != nil {
+			if err := g.validateSample(q.Name, q, val); err != nil {
 				errs = append(errs, err)
 			}
 		}

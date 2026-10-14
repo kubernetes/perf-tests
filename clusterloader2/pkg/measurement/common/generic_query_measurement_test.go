@@ -526,6 +526,83 @@ func TestGather(t *testing.T) {
 			},
 		},
 		{
+			desc: "aggregated query with threshold satisfied",
+			params: map[string]interface{}{
+				"metricName":    "AggSatisfied",
+				"metricVersion": "v1",
+				"unit":          "s",
+				"queries": []map[string]interface{}{
+					{
+						"query":     "rate(my_metric[1m])",
+						"threshold": 50,
+						"aggregations": []interface{}{
+							"Perc99",
+							"Perc50",
+							"Max",
+						},
+					},
+				},
+			},
+			matrices: map[string]model.Matrix{
+				"(rate(my_metric[1m]))[60s:30s]": {
+					{
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 10.0},
+							{Timestamp: 30000, Value: 30.0},
+						},
+					},
+				},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Unit: "s",
+					Data: map[string]float64{
+						"Perc99": computePrometheusQuantile(0.99, []float64{10, 30}),
+						"Perc50": 20.0,
+						"Max":    30.0,
+					},
+				},
+			},
+		},
+		{
+			desc: "aggregated query with sample above threshold",
+			params: map[string]interface{}{
+				"metricName":    "AggViolation",
+				"metricVersion": "v1",
+				"unit":          "s",
+				"queries": []map[string]interface{}{
+					{
+						"query":     "rate(my_metric[1m])",
+						"threshold": 25,
+						"aggregations": []interface{}{
+							"Perc50",
+							"Max",
+						},
+					},
+				},
+			},
+			matrices: map[string]model.Matrix{
+				"(rate(my_metric[1m]))[60s:30s]": {
+					{
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 10.0},
+							{Timestamp: 30000, Value: 30.0},
+						},
+					},
+				},
+			},
+			wantErr: "sample above threshold: want: less or equal than 25, got: 30",
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Unit: "s",
+					Data: map[string]float64{
+						"Perc50": 20.0,
+						"Max":    30.0,
+					},
+				},
+			},
+		},
+		{
 			desc: "invalid aggregation name fails configuration",
 			params: map[string]interface{}{
 				"metricName":    "InvalidAgg",

@@ -48,6 +48,10 @@
 {{$NETWORK_PROGRAMMING_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_PROGRAMMING_LATENCY_THRESHOLD "30s"}}
 {{$NETWORK_LATENCY_THRESHOLD := DefaultParam .CL2_NETWORK_LATENCY_THRESHOLD "0s"}}
 {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD := DefaultParam .CL2_SINGLE_RESOURCE_API_LATENCY_THRESHOLD "1s"}}
+{{$ENABLE_VIOLATIONS_FOR_WATCH_CACHE_LAG := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_WATCH_CACHE_LAG true}}
+{{$WATCH_CACHE_LAG_THRESHOLD := DefaultParam .CL2_WATCH_CACHE_LAG_THRESHOLD 90}}
+{{$ENABLE_VIOLATIONS_FOR_INFORMER_CACHE_LAG := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_INFORMER_CACHE_LAG true}}
+{{$INFORMER_CACHE_LAG_THRESHOLD := DefaultParam .CL2_INFORMER_CACHE_LAG_THRESHOLD 90}}
 
 # Probe measurements shared parameter
 {{$PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT := DefaultParam .CL2_PROBE_MEASUREMENTS_CHECK_PROBES_READY_TIMEOUT "15m"}}
@@ -70,6 +74,7 @@ steps:
     Method: GenericPrometheusQuery
     Params:
       action: {{$action}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_WATCH_CACHE_LAG}}
       metricName: WatchCacheLag
       metricVersion: v1
       unit: s
@@ -80,6 +85,7 @@ steps:
         - Perc99
         - Perc90
         - Perc50
+        threshold: {{$WATCH_CACHE_LAG_THRESHOLD}}
   - Identifier: WatchCacheReadWaitLatency
     Method: GenericPrometheusQuery
     Params:
@@ -101,6 +107,7 @@ steps:
     Method: GenericPrometheusQuery
     Params:
       action: {{$action}}
+      enableViolations: {{$ENABLE_VIOLATIONS_FOR_INFORMER_CACHE_LAG}}
       metricName: InformerCacheLag
       metricVersion: v1
       unit: s
@@ -113,6 +120,7 @@ steps:
         - Perc99
         - Perc90
         - Perc50
+        threshold: {{$INFORMER_CACHE_LAG_THRESHOLD}}
   - Identifier: APIResponsivenessPrometheusSimple
     Method: APIResponsivenessPrometheus
     Params:

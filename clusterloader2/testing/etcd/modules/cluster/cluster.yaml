@@ -2,8 +2,8 @@
 {{$version := DefaultParam .Version "3.7.2-0"}}
 {{$imageRegistry := DefaultParam .EtcdImageRegistry "registry.k8s.io/etcd"}}
 {{$quotaBackendBytes := DefaultParam .QuotaBackendBytes "34359738368"}}
-{{$storageSize := DefaultParam .StorageSize ""}}
-{{$storageClass := DefaultParam .StorageClass ""}}
+{{$storageSize := DefaultParam .StorageSize "64Gi"}}
+{{$storageClass := DefaultParam .StorageClass "ssd"}}
 
 apiVersion: operator.etcd.io/v1alpha1
 kind: EtcdCluster

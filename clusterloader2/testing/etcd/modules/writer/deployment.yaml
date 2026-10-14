@@ -2,11 +2,10 @@
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
 {{$qps := DefaultParam .Qps 100}}
-{{$concurrency := DefaultParam .Concurrency 10}}
-{{$keyCount := DefaultParam .KeyCount 10000}}
+{{$keyCount := DefaultParam .KeyCount 150000}}
 {{$keyPrefix := DefaultParam .KeyPrefix "/registry/pods/default/pod-"}}
 {{$payloadType := DefaultParam .PayloadType "pod"}}
-{{$compactInterval := DefaultParam .CompactInterval "150s"}}
+{{$compactInterval := DefaultParam .CompactInterval "90s"}}
 {{$compactPhysical := DefaultParam .CompactPhysical true}}
 {{$defragInterval := DefaultParam .DefragInterval "0s"}}
 {{$cpu := DefaultParam .cpu "500m"}}
@@ -37,7 +36,7 @@ spec:
         - etcd-put
         - --endpoints={{$endpoints}}
         - --qps={{$qps}}
-        - --concurrency={{$concurrency}}
+        - --concurrency=10
         - --key-count={{$keyCount}}
         - --key-prefix={{$keyPrefix}}
         - --payload-type={{$payloadType}}

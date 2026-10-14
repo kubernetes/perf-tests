@@ -1,9 +1,8 @@
 {{$image := DefaultParam .CL2_BENCHMARK_IMAGE "gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.23"}}
 {{$imagePullPolicy := DefaultParam .CL2_IMAGE_PULL_POLICY "IfNotPresent"}}
 {{$endpoints := DefaultParam .Endpoints "http://etcd-cluster-0:2379"}}
-{{$qps := DefaultParam .Qps 0}}
-{{$concurrency := DefaultParam .Concurrency 50}}
-{{$keyCount := DefaultParam .KeyCount 10000}}
+{{$qps := DefaultParam .Qps 1000}}
+{{$keyCount := DefaultParam .KeyCount 150000}}
 {{$keyPrefix := DefaultParam .KeyPrefix "/registry/pods/default/pod-"}}
 {{$payloadType := DefaultParam .PayloadType "pod"}}
 {{$cpu := DefaultParam .cpu "1000m"}}
@@ -32,7 +31,7 @@ spec:
         - etcd-put
         - --endpoints={{$endpoints}}
         - --qps={{$qps}}
-        - --concurrency={{$concurrency}}
+        - --concurrency=10
         - --key-count={{$keyCount}}
         - --total-writes={{$keyCount}}
         - --key-prefix={{$keyPrefix}}

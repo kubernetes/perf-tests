@@ -1,7 +1,6 @@
 ## Input params
-{{$qps := DefaultParam .qps 0}}
-{{$concurrency := DefaultParam .concurrency 50}}
-{{$keyCount := DefaultParam .keyCount 10000}}
+{{$qps := DefaultParam .qps 1000}}
+{{$keyCount := DefaultParam .keyCount 150000}}
 {{$payloadType := DefaultParam .payloadType "pod"}}
 {{$keyPrefix := DefaultParam .keyPrefix "/registry/pods/default/pod-"}}
 {{$endpoints := DefaultParam .endpoints "http://etcd-cluster-0:2379"}}
@@ -28,7 +27,6 @@ steps:
       objectTemplatePath: modules/init/job.yaml
       templateFillMap:
         Qps: {{$qps}}
-        Concurrency: {{$concurrency}}
         KeyCount: {{$keyCount}}
         PayloadType: {{$payloadType}}
         KeyPrefix: {{$keyPrefix}}

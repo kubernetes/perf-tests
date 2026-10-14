@@ -2,8 +2,8 @@
 {{$etcdReplicas := DefaultParam .etcdReplicas 1}}
 {{$etcdVersion := DefaultParam .etcdVersion "3.7.2-0"}}
 {{$quotaBackendBytes := DefaultParam .quotaBackendBytes "34359738368"}}
-{{$storageSize := DefaultParam .storageSize ""}}
-{{$storageClass := DefaultParam .storageClass ""}}
+{{$storageSize := DefaultParam .storageSize "64Gi"}}
+{{$storageClass := DefaultParam .storageClass "ssd"}}
 {{$clusterName := "etcd-cluster-0"}}
 
 steps:

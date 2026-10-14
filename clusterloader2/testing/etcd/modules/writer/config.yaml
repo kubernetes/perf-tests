@@ -2,12 +2,11 @@
 # Valid actions: "create", "delete"
 {{$action := DefaultParam .action "create"}}
 {{$namePrefix := DefaultParam .namePrefix "etcd-writer-"}}
-{{$replicas := DefaultParam .replicas 3}}
-{{$qps := DefaultParam .qps 200}}
-{{$concurrency := DefaultParam .concurrency 10}}
-{{$keyCount := DefaultParam .keyCount 10000}}
+{{$replicas := DefaultParam .replicas 10}}
+{{$qps := DefaultParam .qps 100}}
+{{$keyCount := DefaultParam .keyCount 150000}}
 {{$payloadType := DefaultParam .payloadType "pod"}}
-{{$compactInterval := DefaultParam .compactInterval "150s"}}
+{{$compactInterval := DefaultParam .compactInterval "90s"}}
 {{$compactPhysical := DefaultParam .compactPhysical true}}
 {{$defragInterval := DefaultParam .defragInterval "0s"}}
 {{$keyPrefix := DefaultParam .keyPrefix "/registry/pods/default/pod-"}}
@@ -41,7 +40,6 @@ steps:
       templateFillMap:
         Replicas: {{$replicas}}
         Qps: {{$qps}}
-        Concurrency: {{$concurrency}}
         KeyCount: {{$keyCount}}
         PayloadType: {{$payloadType}}
         CompactInterval: {{$compactInterval}}

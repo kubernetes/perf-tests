@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -24,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/perftype"
@@ -45,14 +48,16 @@ type Downloader struct {
 	MetricsBkt              MetricsBucket
 	Options                 *DownloaderOptions
 	allowParsersForAllTests bool
+	thanosIngester          *ThanosIngester
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bool) *Downloader {
+func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bool, thanosIngester *ThanosIngester) *Downloader {
 	return &Downloader{
 		MetricsBkt:              bkt,
 		Options:                 opt,
 		allowParsersForAllTests: allowAllParsers,
+		thanosIngester:          thanosIngester,
 	}
 }
 
@@ -146,7 +151,8 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	defer wg.Done()
 	buildNumbers, err := g.MetricsBkt.GetBuildNumbers(job)
 	if err != nil {
-		panic(err)
+		klog.Errorf("Error getting build numbers for %v: %v", job, err)
+		return
 	}
 
 	buildsToFetch := tests.BuildsCount
@@ -158,8 +164,26 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
+		var buildTime time.Time
+		if g.thanosIngester != nil {
+			if g.thanosIngester.HasBuild(tests.Prefix, buildNumber) {
+				continue
+			}
+			var err error
+			buildTime, err = g.getBuildTimestamp(job, buildNumber)
+			if err != nil {
+				klog.Errorf("Error getting start time for %s build %d: %v", job, buildNumber, err)
+				continue
+			}
+		}
+
 		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
+		target := result
+		if g.thanosIngester != nil {
+			target = make(JobToCategoryData)
+		}
+
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
 				for _, testDescription := range testDescriptions {
@@ -191,13 +215,41 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 							trimmed := strings.TrimPrefix(metricsFileName, filePrefix+" ")
 							testLabel = strings.Split(trimmed, "_")[0]
 						}
-						buildData := getBuildData(result, tests.Prefix, resultCategory, testLabel, job, resultLock)
+						buildData := getBuildData(target, tests.Prefix, resultCategory, testLabel, job, resultLock)
 						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
 				}
 			}
 		}
+
+		if g.thanosIngester != nil {
+			if err := g.thanosIngester.IngestBuild(context.Background(), tests.Prefix, buildNumber, target[tests.Prefix], buildTime); err != nil {
+				klog.Errorf("Error ingesting %s build %d to Thanos: %v", job, buildNumber, err)
+			}
+		}
 	}
+	if g.thanosIngester != nil {
+		if err := g.thanosIngester.CompactJobBlocks(context.Background(), tests.Prefix, buildsToFetch); err != nil {
+			klog.Errorf("Error compacting Thanos blocks for %s: %v", tests.Prefix, err)
+		}
+	}
+}
+
+func (g *Downloader) getBuildTimestamp(job string, buildNumber int) (time.Time, error) {
+	startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json")
+	if err != nil {
+		return time.Time{}, fmt.Errorf("reading started.json: %w", err)
+	}
+	var started struct {
+		Timestamp int64 `json:"timestamp"`
+	}
+	if err := json.Unmarshal(startedBytes, &started); err != nil {
+		return time.Time{}, fmt.Errorf("unmarshaling started.json: %w", err)
+	}
+	if started.Timestamp <= 0 {
+		return time.Time{}, fmt.Errorf("invalid timestamp %d in started.json", started.Timestamp)
+	}
+	return time.Unix(started.Timestamp, 0), nil
 }
 
 func (g *Downloader) artifactName(jobAttrs Tests, file string) string {

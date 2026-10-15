@@ -61,7 +61,19 @@ var (
 	awsRegion = pflag.String("aws-region", "us-west-2", "AWS region of the S3 bucket")
 
 	allowParsersForAllTests = pflag.Bool("allow-parsers-matching-all-tests", true, "Allow parsers for common measurement matching any test name")
+
+	// Thanos Backend flags
+	thanosMode     = pflag.Bool("thanos-mode", false, "Enable Thanos TSDB block storage and PromQL query backend")
+	thanosQueryURL = pflag.String("thanos-query-url", "http://127.0.0.1:10902", "URL of thanos-query HTTP endpoint")
+	thanosTSDBDir  = pflag.String("thanos-tsdb-dir", "/tmp/thanos/prometheus", "Local directory where TSDB blocks are created and stored")
 )
+
+type metricsHandler interface {
+	ServeJobNames(http.ResponseWriter, *http.Request)
+	ServeCategoryNames(http.ResponseWriter, *http.Request)
+	ServeMetricNames(http.ResponseWriter, *http.Request)
+	ServeBuildsData(http.ResponseWriter, *http.Request)
+}
 
 func initDownloaderOptions() {
 	pflag.StringVar(&options.Mode, "mode", gcsMode, "Storage provider from which to download metrics from. Options are 's3' or 'gcs'. The default is 'gcs'.")
@@ -110,7 +122,18 @@ func run() error {
 		return fmt.Errorf("error creating metrics bucket downloader: %v", err)
 	}
 
-	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests)
+	var ingester *ThanosIngester
+	var thanosClient *ThanosClient
+	if *thanosMode {
+		klog.Infof("Thanos backend mode enabled. TSDB dir: %s, Thanos Query URL: %s", *thanosTSDBDir, *thanosQueryURL)
+		ingester = NewThanosIngester(*thanosTSDBDir)
+		if err := ingester.Bootstrap(); err != nil {
+			return fmt.Errorf("bootstrapping Thanos ingester: %w", err)
+		}
+		thanosClient = NewThanosClient(*thanosQueryURL)
+	}
+	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests, ingester)
+
 	result := make(JobToCategoryData)
 
 	if !*www {
@@ -144,11 +167,15 @@ func run() error {
 	}()
 
 	klog.Infof("Starting server...")
+	var handler metricsHandler = &result
+	if *thanosMode {
+		handler = thanosClient
+	}
 	http.Handle("/", noCache(http.FileServer(http.Dir(*wwwDir))))
-	http.HandleFunc("/jobnames", result.ServeJobNames)
-	http.HandleFunc("/metriccategorynames", result.ServeCategoryNames)
-	http.HandleFunc("/metricnames", result.ServeMetricNames)
-	http.HandleFunc("/buildsdata", result.ServeBuildsData)
+	http.HandleFunc("/jobnames", handler.ServeJobNames)
+	http.HandleFunc("/metriccategorynames", handler.ServeCategoryNames)
+	http.HandleFunc("/metricnames", handler.ServeMetricNames)
+	http.HandleFunc("/buildsdata", handler.ServeBuildsData)
 	http.HandleFunc("/config", serveConfig)
 	http.HandleFunc("/readyz", func(res http.ResponseWriter, _ *http.Request) {
 		if !ready.Load() {

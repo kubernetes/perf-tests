@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,10 +38,7 @@ import (
 )
 
 func TestThanosIngestAndClientServing(t *testing.T) {
-	tempTSDB, err := os.MkdirTemp("", "thanos_tsdb_test_*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempTSDB)
-
+	tempTSDB := t.TempDir()
 	ingester := NewThanosIngester(tempTSDB)
 
 	categoryMap := make(CategoryToMetricData)
@@ -69,10 +67,9 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	}
 
 	buildTime := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
-	err = ingester.IngestBuild(context.Background(), "benchmark-write-throughput", 101, categoryMap, buildTime)
+	err := ingester.IngestBuild(context.Background(), "benchmark-write-throughput", 101, categoryMap, buildTime)
 	require.NoError(t, err)
 
-	// Verify TSDB block directory was created
 	entries, err := os.ReadDir(tempTSDB)
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
@@ -89,13 +86,12 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	}
 	assert.True(t, foundMeta, "expected at least one TSDB block directory with meta.json")
 
-	// Test ThanosClient against mock Thanos HTTP API
 	mockThanosServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		match := r.URL.Query().Get("match[]")
 		switch r.URL.Path {
 		case "/api/v1/label/job/values":
-			if match == "" || match == `{__name__="perfdash_metric"}` {
+			if match == `{__name__="perfdash_metric"}` {
 				_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
 					Status: "success",
 					Data:   []string{"benchmark-write-throughput"},
@@ -155,7 +151,6 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 
 	client := NewThanosClient(mockThanosServer.URL)
 
-	// Test /jobnames
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/jobnames", nil)
 	client.ServeJobNames(rec, req)
@@ -164,7 +159,6 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &jobNames))
 	assert.Equal(t, []string{"benchmark-write-throughput"}, jobNames)
 
-	// Test /metriccategorynames
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/metriccategorynames?jobname=benchmark-write-throughput", nil)
 	client.ServeCategoryNames(rec, req)
@@ -173,7 +167,6 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &categories))
 	assert.Equal(t, []string{"APIServer"}, categories)
 
-	// Test /metricnames
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/metricnames?jobname=benchmark-write-throughput&metriccategoryname=APIServer", nil)
 	client.ServeMetricNames(rec, req)
@@ -182,7 +175,6 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &metricNames))
 	assert.Equal(t, []string{"Latency"}, metricNames)
 
-	// Test /buildsdata
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/buildsdata?jobname=benchmark-write-throughput&metriccategoryname=APIServer&metricname=Latency", nil)
 	client.ServeBuildsData(rec, req)
@@ -199,6 +191,41 @@ func TestThanosIngestAndClientServing(t *testing.T) {
 	assert.True(t, hasSub, "expected empty Subresource label key to be preserved")
 	assert.Equal(t, "", subVal)
 	assert.Equal(t, 50.0, items[0].Data["Perc99"])
+
+	// Verify missing required query parameters return 400 Bad Request
+	for _, path := range []string{
+		"/metriccategorynames",
+		"/metricnames?jobname=benchmark-write-throughput",
+		"/buildsdata?jobname=benchmark-write-throughput&metriccategoryname=APIServer",
+	} {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest("GET", path, nil)
+		switch {
+		case strings.HasPrefix(path, "/metriccategorynames"):
+			client.ServeCategoryNames(rec, req)
+		case strings.HasPrefix(path, "/metricnames"):
+			client.ServeMetricNames(rec, req)
+		default:
+			client.ServeBuildsData(rec, req)
+		}
+		assert.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for %s", path)
+	}
+
+	// Verify invalid build timestamp is rejected
+	err = ingester.IngestBuild(context.Background(), "benchmark-write-throughput", 102, categoryMap, time.Time{})
+	assert.Error(t, err)
+
+	// Verify 0-sample build is marked ingested so it is not re-downloaded on subsequent syncs
+	emptyCategoryMap := make(CategoryToMetricData)
+	err = ingester.IngestBuild(context.Background(), "benchmark-write-throughput", 103, emptyCategoryMap, buildTime)
+	require.NoError(t, err)
+	assert.True(t, ingester.HasBuild("benchmark-write-throughput", 103))
+
+	// Verify parsePromSampleValue rejects malformed sample tuples
+	_, err = parsePromSampleValue([]interface{}{1790180000.0})
+	assert.Error(t, err)
+	_, err = parsePromSampleValue([]interface{}{1790180000.0, "not-a-float"})
+	assert.Error(t, err)
 }
 
 func TestDownloaderThanosIngestionIntegration(t *testing.T) {
@@ -220,12 +247,17 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 		},
 	}
 
-	tempTSDB, err := os.MkdirTemp("", "thanos_downloader_test_*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempTSDB)
+	tempTSDB := t.TempDir()
+
+	// Create an orphaned staging directory and verify Bootstrap removes it.
+	orphanDir := filepath.Join(tempTSDB, ".staging-block-orphan")
+	require.NoError(t, os.MkdirAll(orphanDir, 0755))
 
 	ingester := NewThanosIngester(tempTSDB)
-	ingester.Bootstrap(context.Background())
+	require.NoError(t, ingester.Bootstrap())
+	_, statErr := os.Stat(orphanDir)
+	assert.True(t, os.IsNotExist(statErr), "expected Bootstrap to remove orphaned staging directory")
+
 	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false, ingester)
 
 	result := make(JobToCategoryData)
@@ -256,7 +288,7 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 
 	// Verify a restarted ThanosIngester discovers the on-disk block and skips duplicate ingestion.
 	restartedIngester := NewThanosIngester(tempTSDB)
-	restartedIngester.Bootstrap(context.Background())
+	require.NoError(t, restartedIngester.Bootstrap())
 	assert.True(t, restartedIngester.HasBuild("benchmark etcd write throughput", 101))
 
 	// Ingest builds 102 and 103 with BuildsCount=2 and verify build 101 is pruned during compaction.
@@ -280,6 +312,25 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 102))
 	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 103))
 
+	// Now ingest build 104 into the already-compacted 2-build block [102, 103] with BuildsCount=2,
+	// exercising partial-block pruning (deleteBuildsFromBlock on [102, 103] to drop 102 while keeping 103).
+	bucket.builds = []int{101, 102, 103, 104}
+	bucket.files[joinStringsAndInts(job, 104, artifactPath)] = bucket.files[joinStringsAndInts(job, 101, artifactPath)]
+	bucket.files[joinStringsAndInts(job, 104, startedPath)] = []byte(`{"timestamp": 1790190800}`)
+
+	wg.Add(1)
+	downloader.getJobData(&wg, result, &mu, job, Tests{
+		Prefix:       "benchmark etcd write throughput",
+		Descriptions: performanceDescriptions,
+		BuildsCount:  2,
+		ArtifactsDir: "artifacts",
+	})
+	wg.Wait()
+
+	assert.False(t, ingester.HasBuild("benchmark etcd write throughput", 102), "expired build 102 should be pruned from compacted block")
+	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 103))
+	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 104))
+
 	entries, err = os.ReadDir(tempTSDB)
 	require.NoError(t, err)
 	var compactedDir string
@@ -291,7 +342,7 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 	require.NotEmpty(t, compactedDir)
 	meta, err := readBlockMeta(compactedDir)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"102", "103"}, meta.Thanos.Builds)
+	assert.Equal(t, []string{"103", "104"}, meta.Thanos.Builds)
 
 	pb, err := tsdb.OpenBlock(log.NewNopLogger(), compactedDir, nil)
 	require.NoError(t, err)
@@ -299,10 +350,63 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 	q, err := tsdb.NewBlockQuerier(pb, pb.MinTime(), pb.MaxTime())
 	require.NoError(t, err)
 	defer q.Close()
-	ss, err := q.Select(labels.NewEqualMatcher("build", "101"))
+	ss, err := q.Select(labels.NewEqualMatcher("build", "102"))
 	require.NoError(t, err)
-	assert.False(t, ss.Next(), "expected 0 series for pruned build 101 in compacted TSDB block")
-	ss103, err := q.Select(labels.NewEqualMatcher("build", "103"))
+	assert.False(t, ss.Next(), "expected 0 series for pruned build 102 in compacted TSDB block")
+	ss104, err := q.Select(labels.NewEqualMatcher("build", "104"))
 	require.NoError(t, err)
-	assert.True(t, ss103.Next(), "expected series for retained build 103 in compacted TSDB block")
+	assert.True(t, ss104.Next(), "expected series for retained build 104 in compacted TSDB block")
+}
+
+func TestLabelEncodingRoundTripAndConcurrentCompaction(t *testing.T) {
+	item := perftype.DataItem{
+		Unit: "ms",
+		Labels: map[string]string{
+			"job":               "etcd",
+			"invalid-prom-name": "val1",
+			"perfdash_lbl_raw":  "val2",
+			"Subresource":       "",
+		},
+		Data: map[string]float64{"Perc50": 1.0},
+	}
+	encoded := encodeSeriesLabels("gce-5000Nodes", "ci-kubernetes-e2e-gce-scale-performance-5000", "APIServer", "Latency", "101", "Perc50", item)
+	decoded := decodeSeriesLabels(encoded.Map())
+	assert.Equal(t, item.Labels, decoded)
+
+	// Verify concurrent IngestBuild + CompactJobBlocks for the same jobPrefix is race-free and leaves 1 block.
+	tempTSDB := t.TempDir()
+	ingester := NewThanosIngester(tempTSDB)
+
+	var wg sync.WaitGroup
+	for i := 1; i <= 4; i++ {
+		wg.Add(1)
+		go func(buildNum int) {
+			defer wg.Done()
+			bStr := fmt.Sprintf("%d", buildNum)
+			catMap := CategoryToMetricData{
+				"Cat": MetricToBuildData{
+					"Met": &BuildData{
+						Job: "prow-job",
+						Builds: NewBuilds(map[string][]perftype.DataItem{
+							bStr: {{Unit: "s", Data: map[string]float64{"Perc99": float64(buildNum)}}},
+						}),
+					},
+				},
+			}
+			ts := time.Unix(int64(1790000000+buildNum*3600), 0)
+			require.NoError(t, ingester.IngestBuild(context.Background(), "shared-prefix", buildNum, catMap, ts))
+			require.NoError(t, ingester.CompactJobBlocks(context.Background(), "shared-prefix", 3))
+		}(i)
+	}
+	wg.Wait()
+
+	entries, err := os.ReadDir(tempTSDB)
+	require.NoError(t, err)
+	blocks := 0
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			blocks++
+		}
+	}
+	assert.Equal(t, 1, blocks, "expected concurrent compactions on shared prefix to produce 1 block")
 }

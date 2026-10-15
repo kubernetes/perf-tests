@@ -84,10 +84,12 @@ spec:
         volumeMounts:
         - name: thanos-tsdb
           mountPath: /prometheus
+          readOnly: true
         - name: thanos-cache
           mountPath: /tmp/thanos/cache
         - name: thanos-config
           mountPath: /etc/thanos
+          readOnly: true
         ports:
         - name: store-grpc
           containerPort: 10901

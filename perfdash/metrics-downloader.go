@@ -164,8 +164,17 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
-		if g.thanosIngester != nil && g.thanosIngester.HasBuild(tests.Prefix, buildNumber) {
-			continue
+		var buildTime time.Time
+		if g.thanosIngester != nil {
+			if g.thanosIngester.HasBuild(tests.Prefix, buildNumber) {
+				continue
+			}
+			var err error
+			buildTime, err = g.getBuildTimestamp(job, buildNumber)
+			if err != nil {
+				klog.Errorf("Error getting start time for %s build %d: %v", job, buildNumber, err)
+				continue
+			}
 		}
 
 		cache := newArtifactsCache(g.MetricsBkt)
@@ -214,7 +223,6 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		}
 
 		if g.thanosIngester != nil {
-			buildTime := g.getBuildTimestamp(job, buildNumber)
 			if err := g.thanosIngester.IngestBuild(context.Background(), tests.Prefix, buildNumber, target[tests.Prefix], buildTime); err != nil {
 				klog.Errorf("Error ingesting %s build %d to Thanos: %v", job, buildNumber, err)
 			}
@@ -227,16 +235,21 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	}
 }
 
-func (g *Downloader) getBuildTimestamp(job string, buildNumber int) time.Time {
-	if startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json"); err == nil {
-		var started struct {
-			Timestamp int64 `json:"timestamp"`
-		}
-		if json.Unmarshal(startedBytes, &started) == nil && started.Timestamp > 0 {
-			return time.Unix(started.Timestamp, 0)
-		}
+func (g *Downloader) getBuildTimestamp(job string, buildNumber int) (time.Time, error) {
+	startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json")
+	if err != nil {
+		return time.Time{}, fmt.Errorf("reading started.json: %w", err)
 	}
-	return time.Now().UTC()
+	var started struct {
+		Timestamp int64 `json:"timestamp"`
+	}
+	if err := json.Unmarshal(startedBytes, &started); err != nil {
+		return time.Time{}, fmt.Errorf("unmarshaling started.json: %w", err)
+	}
+	if started.Timestamp <= 0 {
+		return time.Time{}, fmt.Errorf("invalid timestamp %d in started.json", started.Timestamp)
+	}
+	return time.Unix(started.Timestamp, 0), nil
 }
 
 func (g *Downloader) artifactName(jobAttrs Tests, file string) string {

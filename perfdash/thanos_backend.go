@@ -40,72 +40,188 @@ import (
 	"k8s.io/kubernetes/test/e2e/perftype"
 )
 
+const (
+	defaultHeadChunkRangeMS = 2 * 60 * 60 * 1000
+	compactionChunkRangeMS  = 10 * 365 * 24 * 60 * 60 * 1000
+	compactionBatchSize     = 25
+	metricNameLabelValue    = "perfdash_metric"
+
+	// emptyLabelValueSentinel preserves empty label values (such as Subresource="")
+	// across Prometheus TSDB, which otherwise drops labels with empty values.
+	emptyLabelValueSentinel = "__perfdash_empty__"
+	encodedLabelKeyPrefix   = "perfdash_lbl_"
+)
+
 // ThanosIngester writes Prow build metrics into native Thanos TSDB blocks.
 type ThanosIngester struct {
-	tsdbDir        string
-	mu             sync.Mutex
+	tsdbDir string
+	logger  log.Logger
+
+	// mu guards ingestedBuilds and jobLocks across concurrent job downloader goroutines.
+	mu             sync.RWMutex
 	ingestedBuilds map[string]bool
+	jobLocks       map[string]*sync.Mutex
 }
 
 // NewThanosIngester creates a new ThanosIngester.
 func NewThanosIngester(tsdbDir string) *ThanosIngester {
+	if abs, err := filepath.Abs(tsdbDir); err == nil {
+		tsdbDir = abs
+	}
 	return &ThanosIngester{
 		tsdbDir:        tsdbDir,
+		logger:         klogAdapter{},
 		ingestedBuilds: make(map[string]bool),
+		jobLocks:       make(map[string]*sync.Mutex),
 	}
 }
 
-// Bootstrap indexes existing TSDB blocks on disk and compacts multi-block jobs.
-func (ti *ThanosIngester) Bootstrap(ctx context.Context) {
+// Bootstrap indexes existing TSDB blocks on disk so previously ingested builds are skipped.
+func (ti *ThanosIngester) Bootstrap() error {
+	files, err := os.ReadDir(ti.tsdbDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading tsdb dir %s: %w", ti.tsdbDir, err)
+	}
+
 	ti.mu.Lock()
 	defer ti.mu.Unlock()
 
-	jobCounts := ti.loadExistingBlocksLocked()
-	for job, count := range jobCounts {
-		if count > 1 {
-			if err := ti.compactJobBlocksLocked(ctx, job, 0); err != nil {
-				klog.Errorf("Compacting blocks for job %s failed: %v", job, err)
+	for _, file := range files {
+		if !file.IsDir() {
+			continue
+		}
+		blockDir := filepath.Join(ti.tsdbDir, file.Name())
+		if strings.HasPrefix(file.Name(), ".staging-") {
+			if removeErr := os.RemoveAll(blockDir); removeErr != nil {
+				klog.Warningf("Removing orphaned staging directory %s: %v", blockDir, removeErr)
+			}
+			continue
+		}
+		if strings.HasPrefix(file.Name(), ".") {
+			continue
+		}
+		meta, err := readBlockMeta(blockDir)
+		if err != nil {
+			klog.Warningf("Skipping unreadable block metadata in %s: %v", blockDir, err)
+			continue
+		}
+		jobPrefix := meta.Thanos.Labels["job"]
+		if jobPrefix == "" {
+			continue
+		}
+		for _, b := range meta.Thanos.Builds {
+			if b != "" {
+				ti.ingestedBuilds[buildKey(jobPrefix, b)] = true
 			}
 		}
 	}
+	return nil
 }
 
 // HasBuild reports whether the specified job and build number have already been ingested.
-func (ti *ThanosIngester) HasBuild(job string, buildNumber int) bool {
-	ti.mu.Lock()
-	defer ti.mu.Unlock()
-	return ti.ingestedBuilds[fmt.Sprintf("%s/%d", job, buildNumber)]
+func (ti *ThanosIngester) HasBuild(jobPrefix string, buildNumber int) bool {
+	ti.mu.RLock()
+	defer ti.mu.RUnlock()
+	return ti.ingestedBuilds[buildKey(jobPrefix, strconv.Itoa(buildNumber))]
 }
 
 // IngestBuild writes metric samples for a single build into a native Thanos TSDB block.
-func (ti *ThanosIngester) IngestBuild(ctx context.Context, job string, buildNumber int, categoryMap CategoryToMetricData, buildTimestamp time.Time) error {
-	if err := os.MkdirAll(ti.tsdbDir, 0755); err != nil {
-		return fmt.Errorf("creating tsdb dir %s: %w", ti.tsdbDir, err)
+func (ti *ThanosIngester) IngestBuild(ctx context.Context, jobPrefix string, buildNumber int, categoryMap CategoryToMetricData, buildTimestamp time.Time) error {
+	timestampMS := buildTimestamp.UnixMilli()
+	if timestampMS <= 0 {
+		return fmt.Errorf("invalid build timestamp %v for %s build %d", buildTimestamp, jobPrefix, buildNumber)
 	}
 
-	tsdbDirAbs, err := filepath.Abs(ti.tsdbDir)
+	jmu := ti.jobMutex(jobPrefix)
+	jmu.Lock()
+	defer jmu.Unlock()
+
+	buildStr := strconv.Itoa(buildNumber)
+	head, prowJob, sampleCount, err := ti.buildTSDBHead(jobPrefix, buildStr, categoryMap, timestampMS)
 	if err != nil {
-		return fmt.Errorf("resolving abs path for %s: %w", ti.tsdbDir, err)
+		return err
+	}
+	if head == nil {
+		ti.markBuildIngested(jobPrefix, buildStr)
+		return nil
+	}
+	defer func() {
+		if closeErr := head.Close(); closeErr != nil {
+			klog.Warningf("Closing TSDB head for %s build %s: %v", jobPrefix, buildStr, closeErr)
+		}
+	}()
+
+	blockULID, err := ti.writeTSDBBlock(ctx, head, jobPrefix, prowJob, buildStr)
+	if err != nil {
+		return err
 	}
 
-	logger := log.NewNopLogger()
-	head, err := tsdb.NewHead(nil, logger, nil, 2*60*60*1000)
+	ti.markBuildIngested(jobPrefix, buildStr)
+	klog.Infof("Created Thanos TSDB block for %s build %s: %s (%d samples)", jobPrefix, buildStr, blockULID, sampleCount)
+	return nil
+}
+
+// CompactJobBlocks merges all TSDB blocks belonging to jobPrefix into a single TSDB block
+// and prunes builds older than the newest maxBuildsToKeep when maxBuildsToKeep > 0.
+func (ti *ThanosIngester) CompactJobBlocks(ctx context.Context, jobPrefix string, maxBuildsToKeep int) error {
+	jmu := ti.jobMutex(jobPrefix)
+	jmu.Lock()
+	defer jmu.Unlock()
+
+	blocks, buildSet, prowJob, err := listJobBlocks(ti.tsdbDir, jobPrefix)
 	if err != nil {
-		return fmt.Errorf("creating TSDB Head: %w", err)
+		return err
 	}
-	defer head.Close()
+
+	needsTombstoneCleanup := false
+	if maxBuildsToKeep > 0 && len(buildSet) > maxBuildsToKeep {
+		blocks, needsTombstoneCleanup, err = ti.pruneExpiredBuilds(blocks, buildSet, jobPrefix, maxBuildsToKeep)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(blocks) == 0 || (len(blocks) == 1 && !needsTombstoneCleanup) {
+		return nil
+	}
+
+	return ti.mergeJobBlocks(ctx, jobPrefix, prowJob, blocks, buildSet, needsTombstoneCleanup)
+}
+
+func (ti *ThanosIngester) jobMutex(jobPrefix string) *sync.Mutex {
+	ti.mu.Lock()
+	defer ti.mu.Unlock()
+	m, ok := ti.jobLocks[jobPrefix]
+	if !ok {
+		m = &sync.Mutex{}
+		ti.jobLocks[jobPrefix] = m
+	}
+	return m
+}
+
+func (ti *ThanosIngester) buildTSDBHead(jobPrefix, buildStr string, categoryMap CategoryToMetricData, timestampMS int64) (*tsdb.Head, string, int, error) {
+	head, err := tsdb.NewHead(nil, ti.logger, nil, defaultHeadChunkRangeMS)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("creating TSDB Head: %w", err)
+	}
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			if closeErr := head.Close(); closeErr != nil {
+				klog.Warningf("Closing TSDB head on abort: %v", closeErr)
+			}
+		}
+	}()
+
 	if err := head.Init(0); err != nil {
-		return fmt.Errorf("initializing TSDB Head: %w", err)
+		return nil, "", 0, fmt.Errorf("initializing TSDB Head: %w", err)
 	}
 
 	app := head.Appender()
-	timestampMS := buildTimestamp.UnixMilli()
-	if timestampMS <= 0 {
-		timestampMS = time.Now().UTC().UnixMilli()
-	}
-
-	buildStr := strconv.Itoa(buildNumber)
-	prowJob := job
+	prowJob := jobPrefix
 	sampleCount := 0
 	seenSeries := make(map[string]bool)
 
@@ -119,15 +235,19 @@ func (ti *ThanosIngester) IngestBuild(ctx context.Context, job string, buildNumb
 					if math.IsNaN(val) || math.IsInf(val, 0) {
 						continue
 					}
-					lset := encodeSeriesLabels(job, prowJob, category, metricName, buildStr, streamName, item)
+					lset := encodeSeriesLabels(jobPrefix, prowJob, category, metricName, buildStr, streamName, item)
 					seriesKey := lset.String()
 					if seenSeries[seriesKey] {
+						klog.Warningf("Skipping duplicate series in %s build %s: %s", jobPrefix, buildStr, seriesKey)
 						continue
 					}
 					seenSeries[seriesKey] = true
 
 					if _, err := app.Add(lset, timestampMS, val); err != nil {
-						return fmt.Errorf("appending sample to TSDB: %w", err)
+						if rbErr := app.Rollback(); rbErr != nil {
+							klog.Warningf("Rolling back TSDB appender: %v", rbErr)
+						}
+						return nil, "", 0, fmt.Errorf("appending sample to TSDB: %w", err)
 					}
 					sampleCount++
 				}
@@ -136,279 +256,293 @@ func (ti *ThanosIngester) IngestBuild(ctx context.Context, job string, buildNumb
 	}
 
 	if sampleCount == 0 {
-		return nil
+		if rbErr := app.Rollback(); rbErr != nil {
+			klog.Warningf("Rolling back empty TSDB appender: %v", rbErr)
+		}
+		return nil, "", 0, nil
 	}
 
 	if err := app.Commit(); err != nil {
-		return fmt.Errorf("committing TSDB appender: %w", err)
+		return nil, "", 0, fmt.Errorf("committing TSDB appender: %w", err)
 	}
 
-	ti.mu.Lock()
-	defer ti.mu.Unlock()
+	succeeded = true
+	return head, prowJob, sampleCount, nil
+}
 
-	stagingDir, err := os.MkdirTemp(tsdbDirAbs, ".staging-block-*")
+func (ti *ThanosIngester) writeTSDBBlock(ctx context.Context, head *tsdb.Head, jobPrefix, prowJob, buildStr string) (string, error) {
+	if err := os.MkdirAll(ti.tsdbDir, 0755); err != nil {
+		return "", fmt.Errorf("creating tsdb dir %s: %w", ti.tsdbDir, err)
+	}
+
+	stagingDir, err := os.MkdirTemp(ti.tsdbDir, ".staging-block-*")
 	if err != nil {
-		return fmt.Errorf("creating staging dir: %w", err)
+		return "", fmt.Errorf("creating staging dir: %w", err)
 	}
 	defer os.RemoveAll(stagingDir)
 
-	compactor, err := tsdb.NewLeveledCompactor(ctx, nil, logger, []int64{2 * 60 * 60 * 1000}, nil)
+	compactor, err := tsdb.NewLeveledCompactor(ctx, nil, ti.logger, []int64{defaultHeadChunkRangeMS}, nil)
 	if err != nil {
-		return fmt.Errorf("creating TSDB compactor: %w", err)
+		return "", fmt.Errorf("creating TSDB compactor: %w", err)
 	}
 
 	blockULID, err := compactor.Write(stagingDir, head, head.MinTime(), head.MaxTime()+1, nil)
 	if err != nil {
-		return fmt.Errorf("writing TSDB block: %w", err)
+		return "", fmt.Errorf("writing TSDB block: %w", err)
 	}
 
 	stagingBlockDir := filepath.Join(stagingDir, blockULID.String())
 	err = writeBlockMeta(stagingBlockDir, thanosMeta{
 		Labels: map[string]string{
-			"job":      job,
+			"job":      jobPrefix,
 			"prow_job": prowJob,
 		},
 		Builds: []string{buildStr},
 		Source: "perfdash-ingest",
 	})
 	if err != nil {
+		return "", err
+	}
+
+	finalBlockDir := filepath.Join(ti.tsdbDir, blockULID.String())
+	if err := os.Rename(stagingBlockDir, finalBlockDir); err != nil {
+		return "", fmt.Errorf("moving staged block to %s: %w", finalBlockDir, err)
+	}
+
+	return blockULID.String(), nil
+}
+
+func (ti *ThanosIngester) markBuildIngested(jobPrefix, buildStr string) {
+	ti.mu.Lock()
+	defer ti.mu.Unlock()
+	ti.ingestedBuilds[buildKey(jobPrefix, buildStr)] = true
+}
+
+func (ti *ThanosIngester) unmarkBuildsIngested(jobPrefix string, expiredBuilds map[string]bool) {
+	ti.mu.Lock()
+	defer ti.mu.Unlock()
+	for exp := range expiredBuilds {
+		delete(ti.ingestedBuilds, buildKey(jobPrefix, exp))
+	}
+}
+
+func buildKey(jobPrefix, buildStr string) string {
+	return fmt.Sprintf("%s/%s", jobPrefix, buildStr)
+}
+
+func listJobBlocks(tsdbDir, jobPrefix string) ([]jobBlockInfo, map[string]bool, string, error) {
+	files, err := os.ReadDir(tsdbDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, jobPrefix, nil
+		}
+		return nil, nil, "", err
+	}
+
+	var blocks []jobBlockInfo
+	buildSet := make(map[string]bool)
+	prowJob := jobPrefix
+
+	for _, file := range files {
+		if !file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+			continue
+		}
+		blockDir := filepath.Join(tsdbDir, file.Name())
+		meta, err := readBlockMeta(blockDir)
+		if err != nil {
+			klog.Warningf("Skipping unreadable block metadata in %s: %v", blockDir, err)
+			continue
+		}
+		if meta.Thanos.Labels["job"] != jobPrefix {
+			continue
+		}
+		if pj := meta.Thanos.Labels["prow_job"]; pj != "" {
+			prowJob = pj
+		}
+		var blockBuilds []string
+		for _, b := range meta.Thanos.Builds {
+			if b != "" {
+				buildSet[b] = true
+				blockBuilds = append(blockBuilds, b)
+			}
+		}
+		blocks = append(blocks, jobBlockInfo{
+			dir:     blockDir,
+			minTime: meta.MinTime,
+			builds:  blockBuilds,
+			thanos:  meta.Thanos,
+		})
+	}
+	return blocks, buildSet, prowJob, nil
+}
+
+func (ti *ThanosIngester) pruneExpiredBuilds(blocks []jobBlockInfo, buildSet map[string]bool, jobPrefix string, maxBuildsToKeep int) ([]jobBlockInfo, bool, error) {
+	expiredSet := findExpiredBuilds(buildSet, maxBuildsToKeep)
+	var keptBlocks []jobBlockInfo
+	needsTombstoneCleanup := false
+
+	for _, b := range blocks {
+		var expiredInBlock []string
+		var remainingInBlock []string
+		for _, buildStr := range b.builds {
+			if expiredSet[buildStr] {
+				expiredInBlock = append(expiredInBlock, buildStr)
+			} else {
+				remainingInBlock = append(remainingInBlock, buildStr)
+			}
+		}
+		if len(expiredInBlock) > 0 && len(expiredInBlock) == len(b.builds) {
+			if err := os.RemoveAll(b.dir); err != nil {
+				return nil, false, fmt.Errorf("removing expired block %s: %w", b.dir, err)
+			}
+			continue
+		}
+		if len(expiredInBlock) > 0 {
+			updatedThanos := b.thanos
+			updatedThanos.Builds = remainingInBlock
+			if err := ti.deleteBuildsFromBlock(b.dir, expiredInBlock, updatedThanos); err != nil {
+				return nil, false, err
+			}
+			b.builds = remainingInBlock
+			b.thanos = updatedThanos
+			needsTombstoneCleanup = true
+		}
+		keptBlocks = append(keptBlocks, b)
+	}
+
+	for exp := range expiredSet {
+		delete(buildSet, exp)
+	}
+	ti.unmarkBuildsIngested(jobPrefix, expiredSet)
+	return keptBlocks, needsTombstoneCleanup, nil
+}
+
+func (ti *ThanosIngester) deleteBuildsFromBlock(blockDir string, expiredBuilds []string, updatedThanos thanosMeta) error {
+	pb, err := tsdb.OpenBlock(ti.logger, blockDir, nil)
+	if err != nil {
+		return fmt.Errorf("opening block %s to prune expired builds: %w", blockDir, err)
+	}
+	for _, exp := range expiredBuilds {
+		if err := pb.Delete(pb.MinTime(), pb.MaxTime(), labels.NewEqualMatcher("build", exp)); err != nil {
+			_ = pb.Close()
+			return fmt.Errorf("deleting expired build %s from %s: %w", exp, blockDir, err)
+		}
+	}
+	if err := pb.Close(); err != nil {
+		return fmt.Errorf("closing block %s after pruning builds: %w", blockDir, err)
+	}
+	// tsdb.Block.Delete rewrites meta.json from tsdb.BlockMeta without the thanos extension,
+	// so re-apply the updated thanos metadata before returning.
+	return writeBlockMeta(blockDir, updatedThanos)
+}
+
+func findExpiredBuilds(buildSet map[string]bool, maxBuildsToKeep int) map[string]bool {
+	if maxBuildsToKeep <= 0 || len(buildSet) <= maxBuildsToKeep {
+		return nil
+	}
+	all := make([]string, 0, len(buildSet))
+	for b := range buildSet {
+		all = append(all, b)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		ni, errI := strconv.Atoi(all[i])
+		nj, errJ := strconv.Atoi(all[j])
+		if errI == nil && errJ == nil {
+			return ni > nj
+		}
+		return all[i] > all[j]
+	})
+	expired := make(map[string]bool)
+	for _, b := range all[maxBuildsToKeep:] {
+		expired[b] = true
+	}
+	return expired
+}
+
+func (ti *ThanosIngester) mergeJobBlocks(ctx context.Context, jobPrefix, prowJob string, blocks []jobBlockInfo, buildSet map[string]bool, needsTombstoneCleanup bool) error {
+	sort.Slice(blocks, func(i, j int) bool {
+		return blocks[i].minTime < blocks[j].minTime
+	})
+
+	stagingDir, err := os.MkdirTemp(ti.tsdbDir, ".staging-compact-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stagingDir)
+
+	compactor, err := tsdb.NewLeveledCompactor(ctx, nil, ti.logger, []int64{compactionChunkRangeMS}, nil)
+	if err != nil {
 		return err
 	}
 
-	finalBlockDir := filepath.Join(tsdbDirAbs, blockULID.String())
-	if err := os.Rename(stagingBlockDir, finalBlockDir); err != nil {
-		return fmt.Errorf("moving staged block to %s: %w", finalBlockDir, err)
+	currentDirs := make([]string, len(blocks))
+	for i, b := range blocks {
+		currentDirs[i] = b.dir
 	}
 
-	ti.ingestedBuilds[fmt.Sprintf("%s/%d", job, buildNumber)] = true
-
-	klog.Infof("Created Thanos TSDB block for %s build %s: %s (%d samples)", job, buildStr, blockULID.String(), sampleCount)
-	return nil
-}
-
-// CompactJobBlocks merges all TSDB blocks belonging to targetJob into a single TSDB block
-// and prunes builds older than the newest maxBuilds when maxBuilds > 0.
-func (ti *ThanosIngester) CompactJobBlocks(ctx context.Context, targetJob string, maxBuilds int) error {
-	ti.mu.Lock()
-	defer ti.mu.Unlock()
-	return ti.compactJobBlocksLocked(ctx, targetJob, maxBuilds)
-}
-
-// ThanosClient queries Thanos Query API for perfdash metrics.
-type ThanosClient struct {
-	queryURL string
-	client   *http.Client
-}
-
-// NewThanosClient creates a new ThanosClient.
-func NewThanosClient(queryURL string) *ThanosClient {
-	return &ThanosClient{
-		queryURL: strings.TrimRight(queryURL, "/"),
-		client:   &http.Client{Timeout: 30 * time.Second},
-	}
-}
-
-// ServeJobNames serves /jobnames from Thanos.
-func (tc *ThanosClient) ServeJobNames(res http.ResponseWriter, req *http.Request) {
-	tc.serveDistinctLabel(res, req, "", "job")
-}
-
-// ServeCategoryNames serves /metriccategorynames from Thanos.
-func (tc *ThanosClient) ServeCategoryNames(res http.ResponseWriter, req *http.Request) {
-	jobname, ok := getURLParam(req, "jobname")
-	if !ok || jobname == "" {
-		return
-	}
-	tc.serveDistinctLabel(res, req, fmt.Sprintf(`{__name__="perfdash_metric",job=%q}`, jobname), "category")
-}
-
-// ServeMetricNames serves /metricnames from Thanos.
-func (tc *ThanosClient) ServeMetricNames(res http.ResponseWriter, req *http.Request) {
-	jobname, ok := getURLParam(req, "jobname")
-	if !ok || jobname == "" {
-		return
-	}
-	categoryname, ok := getURLParam(req, "metriccategoryname")
-	if !ok || categoryname == "" {
-		return
-	}
-	tc.serveDistinctLabel(res, req, fmt.Sprintf(`{__name__="perfdash_metric",job=%q,category=%q}`, jobname, categoryname), "metric")
-}
-
-// ServeBuildsData serves /buildsdata reconstructed from Thanos PromQL queries.
-func (tc *ThanosClient) ServeBuildsData(res http.ResponseWriter, req *http.Request) {
-	jobname, ok := getURLParam(req, "jobname")
-	if !ok || jobname == "" {
-		return
-	}
-	categoryname, ok := getURLParam(req, "metriccategoryname")
-	if !ok || categoryname == "" {
-		return
-	}
-	metricname, ok := getURLParam(req, "metricname")
-	if !ok || metricname == "" {
-		return
-	}
-
-	query := fmt.Sprintf(`last_over_time(perfdash_metric{job=%q,category=%q,metric=%q}[10y])`, jobname, categoryname, metricname)
-	queryResp, err := tc.QueryPromQL(query)
-	if err != nil {
-		klog.Errorf("Thanos ServeBuildsData query failed: %v", err)
-		serveHTTPObject(res, req, &BuildData{Job: jobname, Version: "v1", Builds: NewBuilds(nil)})
-		return
-	}
-
-	resolvedProwJob := jobname
-	buildsMap := make(map[string]map[string]*perftype.DataItem)
-	for _, result := range queryResp.Data.Result {
-		build := result.Metric["build"]
-		stream := result.Metric["percentile"]
-		if build == "" || stream == "" {
-			continue
+	if len(currentDirs) == 1 && needsTombstoneCleanup {
+		uid, err := compactor.Compact(stagingDir, currentDirs, nil)
+		if err != nil {
+			return fmt.Errorf("cleaning tombstones for %s: %w", jobPrefix, err)
 		}
-		if pj := result.Metric["prow_job"]; pj != "" {
-			resolvedProwJob = pj
-		}
+		currentDirs = []string{filepath.Join(stagingDir, uid.String())}
+	}
 
-		otherLabels := decodeSeriesLabels(result.Metric)
-		groupKey := createMapID(otherLabels)
-		var floatVal float64
-		if len(result.Value) >= 2 {
-			if strVal, ok := result.Value[1].(string); ok {
-				floatVal, _ = strconv.ParseFloat(strVal, 64)
+	for len(currentDirs) > 1 {
+		var nextDirs []string
+		for i := 0; i < len(currentDirs); i += compactionBatchSize {
+			end := i + compactionBatchSize
+			if end > len(currentDirs) {
+				end = len(currentDirs)
 			}
-		}
-
-		if _, ok := buildsMap[build]; !ok {
-			buildsMap[build] = make(map[string]*perftype.DataItem)
-		}
-		dataItem, exists := buildsMap[build][groupKey]
-		if !exists {
-			var itemLabels map[string]string
-			if len(otherLabels) > 0 {
-				itemLabels = otherLabels
+			batch := currentDirs[i:end]
+			if len(batch) == 1 {
+				nextDirs = append(nextDirs, batch[0])
+				continue
 			}
-			dataItem = &perftype.DataItem{
-				Data:   make(map[string]float64),
-				Unit:   result.Metric["unit"],
-				Labels: itemLabels,
+			uid, err := compactor.Compact(stagingDir, batch, nil)
+			if err != nil {
+				return fmt.Errorf("compacting batch for %s: %w", jobPrefix, err)
 			}
-			buildsMap[build][groupKey] = dataItem
+			nextDirs = append(nextDirs, filepath.Join(stagingDir, uid.String()))
 		}
-		dataItem.Data[stream] = floatVal
+		currentDirs = nextDirs
 	}
 
-	resultBuilds := make(map[string][]perftype.DataItem, len(buildsMap))
-	for build, groupMap := range buildsMap {
-		items := make([]perftype.DataItem, 0, len(groupMap))
-		for _, item := range groupMap {
-			items = append(items, *item)
-		}
-		resultBuilds[build] = items
-	}
+	compactedBlockDir := currentDirs[0]
+	finalULID := filepath.Base(compactedBlockDir)
 
-	serveHTTPObject(res, req, &BuildData{
-		Job:     resolvedProwJob,
-		Version: "v1",
-		Builds:  NewBuilds(resultBuilds),
+	allBuilds := make([]string, 0, len(buildSet))
+	for b := range buildSet {
+		allBuilds = append(allBuilds, b)
+	}
+	sort.Strings(allBuilds)
+
+	err = writeBlockMeta(compactedBlockDir, thanosMeta{
+		Labels: map[string]string{
+			"job":      jobPrefix,
+			"prow_job": prowJob,
+		},
+		Builds: allBuilds,
+		Source: "perfdash-ingest",
 	})
-}
-
-// QueryLabelValues queries /api/v1/label/<labelName>/values with an optional match[] selector.
-func (tc *ThanosClient) QueryLabelValues(matchExpr, labelKey string) ([]string, error) {
-	u := fmt.Sprintf("%s/api/v1/label/%s/values?start=0&end=9999999999",
-		tc.queryURL, url.PathEscape(labelKey))
-	if matchExpr != "" {
-		u += "&match[]=" + url.QueryEscape(matchExpr)
-	}
-	resp, err := tc.client.Get(u)
 	if err != nil {
-		return nil, fmt.Errorf("querying thanos label values: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading label values response: %w", err)
-	}
-	var labelResp promLabelValuesResponse
-	if err := json.Unmarshal(body, &labelResp); err != nil {
-		return nil, fmt.Errorf("unmarshaling label values response: %w", err)
-	}
-	if labelResp.Status != "success" {
-		return nil, fmt.Errorf("thanos label values error: %s", labelResp.Error)
-	}
-	sort.Strings(labelResp.Data)
-	return labelResp.Data, nil
-}
-
-// QueryPromQL executes a PromQL query against Thanos Query.
-func (tc *ThanosClient) QueryPromQL(queryStr string) (*promQueryResponse, error) {
-	u := fmt.Sprintf("%s/api/v1/query?query=%s", tc.queryURL, url.QueryEscape(queryStr))
-	resp, err := tc.client.Get(u)
-	if err != nil {
-		return nil, fmt.Errorf("querying thanos promql: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading promql response: %w", err)
+		return err
 	}
 
-	var queryResp promQueryResponse
-	if err := json.Unmarshal(body, &queryResp); err != nil {
-		return nil, fmt.Errorf("unmarshaling promql response: %w", err)
+	finalBlockDir := filepath.Join(ti.tsdbDir, finalULID)
+	if err := os.Rename(compactedBlockDir, finalBlockDir); err != nil {
+		return err
 	}
-	if queryResp.Status != "success" {
-		return nil, fmt.Errorf("thanos query error: %s", queryResp.Error)
+
+	for _, orig := range blocks {
+		if err := os.RemoveAll(orig.dir); err != nil {
+			klog.Warningf("Removing compacted source block %s: %v", orig.dir, err)
+		}
 	}
-	return &queryResp, nil
-}
 
-func (tc *ThanosClient) serveDistinctLabel(res http.ResponseWriter, req *http.Request, matchExpr, labelKey string) {
-	out, err := tc.QueryLabelValues(matchExpr, labelKey)
-	if err != nil {
-		klog.Errorf("Thanos label values query (%s) failed: %v", matchExpr, err)
-		serveHTTPObject(res, req, []string{})
-		return
-	}
-	serveHTTPObject(res, req, &out)
-}
-
-type promLabelValuesResponse struct {
-	Status string   `json:"status"`
-	Data   []string `json:"data"`
-	Error  string   `json:"error,omitempty"`
-}
-
-type promQueryResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Value  []interface{}     `json:"value"`
-		} `json:"result"`
-	} `json:"data"`
-	Error string `json:"error,omitempty"`
-}
-
-type blockMeta struct {
-	MinTime int64      `json:"minTime"`
-	Thanos  thanosMeta `json:"thanos"`
-}
-
-type thanosMeta struct {
-	Labels map[string]string `json:"labels"`
-	Builds []string          `json:"builds,omitempty"`
-	Source string            `json:"source,omitempty"`
-}
-
-type jobBlockInfo struct {
-	dir     string
-	minTime int64
-	builds  []string
+	klog.Infof("Compacted %d blocks for job %s into %s (%d builds)", len(blocks), jobPrefix, finalULID, len(allBuilds))
+	return nil
 }
 
 func readBlockMeta(blockDir string) (*blockMeta, error) {
@@ -432,11 +566,15 @@ func writeBlockMeta(blockDir string, meta thanosMeta) error {
 	if err != nil {
 		return fmt.Errorf("reading meta.json: %w", err)
 	}
-	var metaObj map[string]interface{}
+	var metaObj map[string]json.RawMessage
 	if err := json.Unmarshal(metaBytes, &metaObj); err != nil {
 		return fmt.Errorf("unmarshaling meta.json: %w", err)
 	}
-	metaObj["thanos"] = meta
+	thanosBytes, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("marshaling thanos metadata: %w", err)
+	}
+	metaObj["thanos"] = thanosBytes
 	updatedBytes, err := json.MarshalIndent(metaObj, "", "\t")
 	if err != nil {
 		return fmt.Errorf("marshaling meta.json: %w", err)
@@ -447,227 +585,230 @@ func writeBlockMeta(blockDir string, meta thanosMeta) error {
 	return nil
 }
 
-func (ti *ThanosIngester) loadExistingBlocksLocked() map[string]int {
-	jobCounts := make(map[string]int)
-	files, err := os.ReadDir(ti.tsdbDir)
-	if err != nil {
-		return jobCounts
+// ThanosClient queries Thanos Query API for perfdash metrics.
+type ThanosClient struct {
+	queryURL string
+	client   *http.Client
+}
+
+// NewThanosClient creates a new ThanosClient.
+func NewThanosClient(queryURL string) *ThanosClient {
+	return &ThanosClient{
+		queryURL: strings.TrimRight(queryURL, "/"),
+		client:   &http.Client{Timeout: 30 * time.Second},
 	}
-	for _, file := range files {
-		if !file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+}
+
+// ServeJobNames serves /jobnames from Thanos.
+func (tc *ThanosClient) ServeJobNames(res http.ResponseWriter, req *http.Request) {
+	tc.serveDistinctLabel(res, req, fmt.Sprintf(`{__name__=%q}`, metricNameLabelValue), "job")
+}
+
+// ServeCategoryNames serves /metriccategorynames from Thanos.
+func (tc *ThanosClient) ServeCategoryNames(res http.ResponseWriter, req *http.Request) {
+	jobname, ok := getURLParam(req, "jobname")
+	if !ok || jobname == "" {
+		http.Error(res, "missing required parameter: jobname", http.StatusBadRequest)
+		return
+	}
+	tc.serveDistinctLabel(res, req, fmt.Sprintf(`{__name__=%q,job=%q}`, metricNameLabelValue, jobname), "category")
+}
+
+// ServeMetricNames serves /metricnames from Thanos.
+func (tc *ThanosClient) ServeMetricNames(res http.ResponseWriter, req *http.Request) {
+	jobname, ok := getURLParam(req, "jobname")
+	if !ok || jobname == "" {
+		http.Error(res, "missing required parameter: jobname", http.StatusBadRequest)
+		return
+	}
+	categoryname, ok := getURLParam(req, "metriccategoryname")
+	if !ok || categoryname == "" {
+		http.Error(res, "missing required parameter: metriccategoryname", http.StatusBadRequest)
+		return
+	}
+	tc.serveDistinctLabel(res, req, fmt.Sprintf(`{__name__=%q,job=%q,category=%q}`, metricNameLabelValue, jobname, categoryname), "metric")
+}
+
+// ServeBuildsData serves /buildsdata reconstructed from Thanos PromQL queries.
+func (tc *ThanosClient) ServeBuildsData(res http.ResponseWriter, req *http.Request) {
+	jobname, ok := getURLParam(req, "jobname")
+	if !ok || jobname == "" {
+		http.Error(res, "missing required parameter: jobname", http.StatusBadRequest)
+		return
+	}
+	categoryname, ok := getURLParam(req, "metriccategoryname")
+	if !ok || categoryname == "" {
+		http.Error(res, "missing required parameter: metriccategoryname", http.StatusBadRequest)
+		return
+	}
+	metricname, ok := getURLParam(req, "metricname")
+	if !ok || metricname == "" {
+		http.Error(res, "missing required parameter: metricname", http.StatusBadRequest)
+		return
+	}
+
+	query := fmt.Sprintf(`last_over_time(%s{job=%q,category=%q,metric=%q}[10y])`, metricNameLabelValue, jobname, categoryname, metricname)
+	queryResp, err := tc.QueryPromQL(req.Context(), query)
+	if err != nil {
+		klog.Errorf("Thanos ServeBuildsData query failed: %v", err)
+		http.Error(res, fmt.Sprintf("querying builds data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// PerfDash keys API queries by tests.Prefix (jobname), whereas BuildData.Job holds the
+	// underlying Prow job name (stored in the prow_job label) so clicking a point in the UI
+	// opens the corresponding Prow GCS build log directory.
+	prowJobName := jobname
+	foundProwJob := false
+	buildsMap := make(map[string]map[string]*perftype.DataItem)
+	for _, result := range queryResp.Data.Result {
+		build := result.Metric["build"]
+		stream := result.Metric["percentile"]
+		if build == "" || stream == "" {
 			continue
 		}
-		meta, err := readBlockMeta(filepath.Join(ti.tsdbDir, file.Name()))
+		if pj := result.Metric["prow_job"]; pj != "" && !foundProwJob {
+			prowJobName = pj
+			foundProwJob = true
+		}
+
+		floatVal, err := parsePromSampleValue(result.Value)
 		if err != nil {
+			klog.Errorf("Skipping invalid sample value for job %s build %s metric %s: %v", jobname, build, metricname, err)
 			continue
 		}
-		job := meta.Thanos.Labels["job"]
-		if job == "" {
-			continue
+
+		otherLabels := decodeSeriesLabels(result.Metric)
+		groupKey := createMapID(otherLabels)
+
+		if _, ok := buildsMap[build]; !ok {
+			buildsMap[build] = make(map[string]*perftype.DataItem)
 		}
-		jobCounts[job]++
-		for _, b := range meta.Thanos.Builds {
-			if b != "" {
-				ti.ingestedBuilds[fmt.Sprintf("%s/%s", job, b)] = true
+		dataItem, exists := buildsMap[build][groupKey]
+		if !exists {
+			var itemLabels map[string]string
+			if len(otherLabels) > 0 {
+				itemLabels = otherLabels
 			}
+			dataItem = &perftype.DataItem{
+				Data:   make(map[string]float64),
+				Unit:   result.Metric["unit"],
+				Labels: itemLabels,
+			}
+			buildsMap[build][groupKey] = dataItem
 		}
+		dataItem.Data[stream] = floatVal
 	}
-	return jobCounts
+
+	resultBuilds := make(map[string][]perftype.DataItem, len(buildsMap))
+	for build, groupMap := range buildsMap {
+		groupKeys := make([]string, 0, len(groupMap))
+		for k := range groupMap {
+			groupKeys = append(groupKeys, k)
+		}
+		sort.Strings(groupKeys)
+		items := make([]perftype.DataItem, 0, len(groupKeys))
+		for _, k := range groupKeys {
+			items = append(items, *groupMap[k])
+		}
+		resultBuilds[build] = items
+	}
+
+	serveHTTPObject(res, req, &BuildData{
+		Job:     prowJobName,
+		Version: "v1",
+		Builds:  NewBuilds(resultBuilds),
+	})
 }
 
-func (ti *ThanosIngester) compactJobBlocksLocked(ctx context.Context, targetJob string, maxBuilds int) error {
-	tsdbDirAbs, err := filepath.Abs(ti.tsdbDir)
+// QueryLabelValues queries /api/v1/label/<labelName>/values with an optional match[] selector.
+func (tc *ThanosClient) QueryLabelValues(ctx context.Context, matchExpr, labelKey string) ([]string, error) {
+	u := fmt.Sprintf("%s/api/v1/label/%s/values?start=0&end=9999999999",
+		tc.queryURL, url.PathEscape(labelKey))
+	if matchExpr != "" {
+		u += "&match[]=" + url.QueryEscape(matchExpr)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("creating label values request: %w", err)
 	}
-	files, err := os.ReadDir(tsdbDirAbs)
+	resp, err := tc.client.Do(httpReq)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("querying thanos label values: %w", err)
 	}
+	defer resp.Body.Close()
 
-	var blocks []jobBlockInfo
-	buildSet := make(map[string]bool)
-	prowJob := targetJob
-
-	for _, file := range files {
-		if !file.IsDir() || strings.HasPrefix(file.Name(), ".") {
-			continue
-		}
-		blockDir := filepath.Join(tsdbDirAbs, file.Name())
-		meta, err := readBlockMeta(blockDir)
-		if err != nil || meta.Thanos.Labels["job"] != targetJob {
-			continue
-		}
-		if pj := meta.Thanos.Labels["prow_job"]; pj != "" {
-			prowJob = pj
-		}
-		var blockBuilds []string
-		for _, b := range meta.Thanos.Builds {
-			if b != "" {
-				buildSet[b] = true
-				blockBuilds = append(blockBuilds, b)
-			}
-		}
-		blocks = append(blocks, jobBlockInfo{
-			dir:     blockDir,
-			minTime: meta.MinTime,
-			builds:  blockBuilds,
-		})
-	}
-
-	logger := log.NewNopLogger()
-	needsTombstoneCleanup := false
-	if maxBuilds > 0 && len(buildSet) > maxBuilds {
-		expiredSet := findExpiredBuilds(buildSet, maxBuilds)
-		var keptBlocks []jobBlockInfo
-		for _, b := range blocks {
-			var expiredInBlock []string
-			for _, buildStr := range b.builds {
-				if expiredSet[buildStr] {
-					expiredInBlock = append(expiredInBlock, buildStr)
-				}
-			}
-			if len(expiredInBlock) > 0 && len(expiredInBlock) == len(b.builds) {
-				_ = os.RemoveAll(b.dir)
-				continue
-			}
-			if len(expiredInBlock) > 0 {
-				pb, err := tsdb.OpenBlock(logger, b.dir, nil)
-				if err != nil {
-					return fmt.Errorf("opening block %s to prune expired builds: %w", b.dir, err)
-				}
-				for _, exp := range expiredInBlock {
-					if err := pb.Delete(pb.MinTime(), pb.MaxTime(), labels.NewEqualMatcher("build", exp)); err != nil {
-						_ = pb.Close()
-						return fmt.Errorf("deleting expired build %s from %s: %w", exp, b.dir, err)
-					}
-				}
-				_ = pb.Close()
-				needsTombstoneCleanup = true
-			}
-			keptBlocks = append(keptBlocks, b)
-		}
-		blocks = keptBlocks
-		for exp := range expiredSet {
-			delete(buildSet, exp)
-			delete(ti.ingestedBuilds, fmt.Sprintf("%s/%s", targetJob, exp))
-		}
-	}
-
-	if len(blocks) == 0 || (len(blocks) == 1 && !needsTombstoneCleanup) {
-		return nil
-	}
-
-	sort.Slice(blocks, func(i, j int) bool {
-		return blocks[i].minTime < blocks[j].minTime
-	})
-
-	stagingDir, err := os.MkdirTemp(tsdbDirAbs, ".staging-compact-*")
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("reading label values response: %w", err)
 	}
-	defer os.RemoveAll(stagingDir)
-
-	compactor, err := tsdb.NewLeveledCompactor(ctx, nil, logger, []int64{10 * 365 * 24 * 60 * 60 * 1000}, nil)
-	if err != nil {
-		return err
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("thanos label values returned status %d: %s", resp.StatusCode, string(body))
 	}
-
-	currentDirs := make([]string, len(blocks))
-	for i, b := range blocks {
-		currentDirs[i] = b.dir
+	var labelResp promLabelValuesResponse
+	if err := json.Unmarshal(body, &labelResp); err != nil {
+		return nil, fmt.Errorf("unmarshaling label values response: %w", err)
 	}
-
-	if len(currentDirs) == 1 && needsTombstoneCleanup {
-		uid, err := compactor.Compact(stagingDir, currentDirs, nil)
-		if err != nil {
-			return fmt.Errorf("cleaning tombstones for %s: %w", targetJob, err)
-		}
-		currentDirs = []string{filepath.Join(stagingDir, uid.String())}
+	if labelResp.Status != "success" {
+		return nil, fmt.Errorf("thanos label values error: %s", labelResp.Error)
 	}
-
-	const batchSize = 25
-	for len(currentDirs) > 1 {
-		var nextDirs []string
-		for i := 0; i < len(currentDirs); i += batchSize {
-			end := i + batchSize
-			if end > len(currentDirs) {
-				end = len(currentDirs)
-			}
-			batch := currentDirs[i:end]
-			if len(batch) == 1 {
-				nextDirs = append(nextDirs, batch[0])
-				continue
-			}
-			uid, err := compactor.Compact(stagingDir, batch, nil)
-			if err != nil {
-				return fmt.Errorf("compacting batch for %s: %w", targetJob, err)
-			}
-			nextDirs = append(nextDirs, filepath.Join(stagingDir, uid.String()))
-		}
-		currentDirs = nextDirs
-	}
-
-	compactedBlockDir := currentDirs[0]
-	finalULID := filepath.Base(compactedBlockDir)
-
-	allBuilds := make([]string, 0, len(buildSet))
-	for b := range buildSet {
-		allBuilds = append(allBuilds, b)
-	}
-	sort.Strings(allBuilds)
-
-	err = writeBlockMeta(compactedBlockDir, thanosMeta{
-		Labels: map[string]string{
-			"job":      targetJob,
-			"prow_job": prowJob,
-		},
-		Builds: allBuilds,
-		Source: "perfdash-ingest",
-	})
-	if err != nil {
-		return err
-	}
-
-	finalBlockDir := filepath.Join(tsdbDirAbs, finalULID)
-	if err := os.Rename(compactedBlockDir, finalBlockDir); err != nil {
-		return err
-	}
-
-	for _, orig := range blocks {
-		_ = os.RemoveAll(orig.dir)
-	}
-
-	klog.Infof("Compacted %d blocks for job %s into %s (%d builds)", len(blocks), targetJob, finalULID, len(allBuilds))
-	return nil
+	sort.Strings(labelResp.Data)
+	return labelResp.Data, nil
 }
 
-func findExpiredBuilds(buildSet map[string]bool, maxBuilds int) map[string]bool {
-	all := make([]string, 0, len(buildSet))
-	for b := range buildSet {
-		all = append(all, b)
+// QueryPromQL executes a PromQL query against Thanos Query.
+func (tc *ThanosClient) QueryPromQL(ctx context.Context, queryStr string) (*promQueryResponse, error) {
+	u := fmt.Sprintf("%s/api/v1/query?query=%s", tc.queryURL, url.QueryEscape(queryStr))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating promql request: %w", err)
 	}
-	sort.Slice(all, func(i, j int) bool {
-		ni, errI := strconv.Atoi(all[i])
-		nj, errJ := strconv.Atoi(all[j])
-		if errI == nil && errJ == nil {
-			return ni > nj
-		}
-		return all[i] > all[j]
-	})
-	expired := make(map[string]bool)
-	for _, b := range all[maxBuilds:] {
-		expired[b] = true
+	resp, err := tc.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("querying thanos promql: %w", err)
 	}
-	return expired
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading promql response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("thanos query returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var queryResp promQueryResponse
+	if err := json.Unmarshal(body, &queryResp); err != nil {
+		return nil, fmt.Errorf("unmarshaling promql response: %w", err)
+	}
+	if queryResp.Status != "success" {
+		return nil, fmt.Errorf("thanos query error: %s", queryResp.Error)
+	}
+	return &queryResp, nil
 }
 
-// emptyLabelValueSentinel preserves empty label values (such as Subresource="")
-// across Prometheus TSDB, which otherwise drops labels with empty values.
-const (
-	emptyLabelValueSentinel = "__perfdash_empty__"
-	encodedLabelKeyPrefix   = "perfdash_lbl_"
-)
+func (tc *ThanosClient) serveDistinctLabel(res http.ResponseWriter, req *http.Request, matchExpr, labelKey string) {
+	out, err := tc.QueryLabelValues(req.Context(), matchExpr, labelKey)
+	if err != nil {
+		klog.Errorf("Thanos label values query (%s) failed: %v", matchExpr, err)
+		http.Error(res, fmt.Sprintf("querying label %s: %v", labelKey, err), http.StatusInternalServerError)
+		return
+	}
+	serveHTTPObject(res, req, &out)
+}
+
+// parsePromSampleValue extracts the float64 metric value from a Prometheus
+// instant vector sample tuple: [ <unix_timestamp_float>, "<sample_value_string>" ].
+func parsePromSampleValue(sampleTuple []interface{}) (float64, error) {
+	if len(sampleTuple) != 2 {
+		return 0, fmt.Errorf("expected [timestamp, value] tuple of length 2, got %d elements", len(sampleTuple))
+	}
+	strVal, ok := sampleTuple[1].(string)
+	if !ok {
+		return 0, fmt.Errorf("expected string sample value at index 1, got %T", sampleTuple[1])
+	}
+	return strconv.ParseFloat(strVal, 64)
+}
 
 var reservedTSDBLabels = map[string]bool{
 	"__name__":   true,
@@ -680,10 +821,10 @@ var reservedTSDBLabels = map[string]bool{
 	"unit":       true,
 }
 
-func encodeSeriesLabels(job, prowJob, category, metricName, buildStr, streamName string, item perftype.DataItem) labels.Labels {
+func encodeSeriesLabels(jobPrefix, prowJob, category, metricName, buildStr, streamName string, item perftype.DataItem) labels.Labels {
 	lblsMap := map[string]string{
-		"__name__":   "perfdash_metric",
-		"job":        job,
+		"__name__":   metricNameLabelValue,
+		"job":        jobPrefix,
 		"prow_job":   prowJob,
 		"category":   category,
 		"metric":     metricName,
@@ -744,4 +885,47 @@ func isValidPromLabelName(s string) bool {
 		}
 	}
 	return true
+}
+
+type klogAdapter struct{}
+
+func (klogAdapter) Log(keyvals ...interface{}) error {
+	klog.Infoln(keyvals...)
+	return nil
+}
+
+type promLabelValuesResponse struct {
+	Status string   `json:"status"`
+	Data   []string `json:"data"`
+	Error  string   `json:"error,omitempty"`
+}
+
+type promQueryResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		ResultType string `json:"resultType"`
+		Result     []struct {
+			Metric map[string]string `json:"metric"`
+			Value  []interface{}     `json:"value"`
+		} `json:"result"`
+	} `json:"data"`
+	Error string `json:"error,omitempty"`
+}
+
+type blockMeta struct {
+	MinTime int64      `json:"minTime"`
+	Thanos  thanosMeta `json:"thanos"`
+}
+
+type thanosMeta struct {
+	Labels map[string]string `json:"labels"`
+	Builds []string          `json:"builds,omitempty"`
+	Source string            `json:"source,omitempty"`
+}
+
+type jobBlockInfo struct {
+	dir     string
+	minTime int64
+	builds  []string
+	thanos  thanosMeta
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -24,9 +25,11 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +48,17 @@ const (
 	compactionChunkRangeMS  = 10 * 365 * 24 * 60 * 60 * 1000
 	compactionBatchSize     = 25
 	metricNameLabelValue    = "perfdash_metric"
+
+	defaultLabelQueryStart = "0"
+	defaultLabelQueryEnd   = "9999999999"
+	// perfdashJobLabelQueryStart (2001-09-09T01:46:40Z) bounds unfiltered "job" label queries
+	// to real Prow build timestamps so Thanos Store skips 2000-01-01 snapshot blocks and reads
+	// external "job" labels in ~3ms without scanning inner scrape "job" labels.
+	perfdashJobLabelQueryStart = "1000000000"
+	buildsLookbackWindow       = "10y"
+	seriesCacheTTL             = 30 * time.Second
+	maxSeriesCacheEntries      = 256
+	maxSeriesFormBodyBytes     = 64 * 1024
 
 	// emptyLabelValueSentinel preserves empty label values (such as Subresource="")
 	// across Prometheus TSDB, which otherwise drops labels with empty values.
@@ -586,16 +600,80 @@ func writeBlockMeta(blockDir string, meta thanosMeta) error {
 
 // ThanosClient queries Thanos Query API for perfdash metrics.
 type ThanosClient struct {
-	queryURL string
-	client   *http.Client
+	queryURL       string
+	client         *http.Client
+	seriesMu       sync.Mutex
+	seriesCache    map[string]seriesCacheEntry
+	seriesInflight map[string]*inflightSeriesCall
 }
 
 // NewThanosClient creates a new ThanosClient.
 func NewThanosClient(queryURL string) *ThanosClient {
 	return &ThanosClient{
-		queryURL: strings.TrimRight(queryURL, "/"),
-		client:   &http.Client{Timeout: 30 * time.Second},
+		queryURL:       strings.TrimRight(queryURL, "/"),
+		client:         &http.Client{Timeout: 30 * time.Second},
+		seriesCache:    make(map[string]seriesCacheEntry),
+		seriesInflight: make(map[string]*inflightSeriesCall),
 	}
+}
+
+// PrometheusProxyHandler returns an http.Handler that proxies Prometheus HTTP API
+// requests to Thanos Query while optimizing high-cardinality perfdash_metric
+// metadata queries (/api/v1/series and /api/v1/label/job/values) for Grafana 6.2.0.
+func (tc *ThanosClient) PrometheusProxyHandler() http.Handler {
+	targetURL, err := url.Parse(tc.queryURL)
+	var proxy *httputil.ReverseProxy
+	if err == nil {
+		proxy = httputil.NewSingleHostReverseProxy(targetURL)
+		origDirector := proxy.Director
+		proxy.Director = func(req *http.Request) {
+			origDirector(req)
+			req.Host = targetURL.Host
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && (r.URL.Path == "/api/v1/labels" || (strings.HasPrefix(r.URL.Path, "/api/v1/label/") && strings.HasSuffix(r.URL.Path, "/values"))) {
+			q := r.URL.Query()
+			if q.Get("start") == "" {
+				r = r.Clone(r.Context())
+				start := defaultLabelQueryStart
+				if r.URL.Path == "/api/v1/label/job/values" && q.Get("match[]") == "" {
+					start = perfdashJobLabelQueryStart
+				}
+				q.Set("start", start)
+				q.Set("end", defaultLabelQueryEnd)
+				r.URL.RawQuery = q.Encode()
+			}
+		}
+
+		if r.URL.Path == "/api/v1/series" && (r.Method == http.MethodGet || r.Method == http.MethodPost) {
+			if matchExpr, ok := extractSeriesMatchParam(r); ok {
+				if matchers, ok := parsePerfdashSeriesSelector(matchExpr); ok {
+					body, err := tc.getOrComputeSeries(r.Context(), matchExpr, matchers)
+					if err != nil {
+						klog.Errorf("PrometheusProxyHandler series query (%s) failed: %v", matchExpr, err)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusBadGateway)
+						_ = json.NewEncoder(w).Encode(promSeriesResponse{
+							Status: "error",
+							Error:  err.Error(),
+						})
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write(body)
+					return
+				}
+			}
+		}
+
+		if proxy == nil {
+			http.Error(w, "invalid thanos query URL", http.StatusInternalServerError)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	})
 }
 
 // ServeJobNames serves /jobnames from Thanos.
@@ -646,7 +724,7 @@ func (tc *ThanosClient) ServeBuildsData(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	query := fmt.Sprintf(`last_over_time(%s{job=%q,category=%q,metric=%q}[10y])`, metricNameLabelValue, jobname, categoryname, metricname)
+	query := fmt.Sprintf(`last_over_time(%s{job=%q,category=%q,metric=%q}[%s])`, metricNameLabelValue, jobname, categoryname, metricname, buildsLookbackWindow)
 	queryResp, err := tc.QueryPromQL(req.Context(), query)
 	if err != nil {
 		klog.Errorf("Thanos ServeBuildsData query failed: %v", err)
@@ -722,8 +800,12 @@ func (tc *ThanosClient) ServeBuildsData(res http.ResponseWriter, req *http.Reque
 
 // QueryLabelValues queries /api/v1/label/<labelName>/values with an optional match[] selector.
 func (tc *ThanosClient) QueryLabelValues(ctx context.Context, matchExpr, labelKey string) ([]string, error) {
-	u := fmt.Sprintf("%s/api/v1/label/%s/values?start=0&end=9999999999",
-		tc.queryURL, url.PathEscape(labelKey))
+	start := defaultLabelQueryStart
+	if labelKey == "job" && matchExpr == "" {
+		start = perfdashJobLabelQueryStart
+	}
+	u := fmt.Sprintf("%s/api/v1/label/%s/values?start=%s&end=%s",
+		tc.queryURL, url.PathEscape(labelKey), start, defaultLabelQueryEnd)
 	if matchExpr != "" {
 		u += "&match[]=" + url.QueryEscape(matchExpr)
 	}
@@ -794,6 +876,205 @@ func (tc *ThanosClient) serveDistinctLabel(res http.ResponseWriter, req *http.Re
 		return
 	}
 	serveHTTPObject(res, req, &out)
+}
+
+func (tc *ThanosClient) getOrComputeSeries(ctx context.Context, matchExpr string, matchers map[string]string) ([]byte, error) {
+	tc.seriesMu.Lock()
+	now := time.Now()
+	if entry, ok := tc.seriesCache[matchExpr]; ok && now.Before(entry.expiresAt) {
+		tc.seriesMu.Unlock()
+		return entry.data, nil
+	}
+	if call, ok := tc.seriesInflight[matchExpr]; ok {
+		tc.seriesMu.Unlock()
+		select {
+		case <-call.done:
+			return call.data, call.err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	call := &inflightSeriesCall{done: make(chan struct{})}
+	tc.seriesInflight[matchExpr] = call
+	tc.seriesMu.Unlock()
+
+	// Run upstream series computation on an independent timeout context so that a single
+	// canceled HTTP request does not abort the shared result for other concurrent waiters.
+	go func() {
+		computeCtx, cancel := context.WithTimeout(context.Background(), tc.client.Timeout)
+		defer cancel()
+		body, err := tc.computeSeries(computeCtx, matchers)
+
+		tc.seriesMu.Lock()
+		if err == nil {
+			now := time.Now()
+			tc.evictExpiredSeriesCacheLocked(now)
+			tc.seriesCache[matchExpr] = seriesCacheEntry{
+				data:      body,
+				expiresAt: now.Add(seriesCacheTTL),
+			}
+		}
+		delete(tc.seriesInflight, matchExpr)
+		call.data = body
+		call.err = err
+		close(call.done)
+		tc.seriesMu.Unlock()
+	}()
+
+	select {
+	case <-call.done:
+		return call.data, call.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// computeSeries resolves Grafana 6.2.0's /api/v1/series?match[]=perfdash_metric{...}
+// variable discovery queries without scanning full TSDB postings across all blocks:
+//   - Level 1 (no job filter): reads Thanos external block label "job" via /api/v1/label/job/values.
+//   - Level 2 (job only): reads "category" values for that job block via /api/v1/label/category/values.
+//   - Level 3 (job + category): reads "metric" values via /api/v1/label/metric/values.
+//   - Level 4 (job + category + metric): deduplicates dynamic item labels across builds via PromQL.
+func (tc *ThanosClient) computeSeries(ctx context.Context, matchers map[string]string) ([]byte, error) {
+	seriesData := make([]map[string]string, 0)
+	job, hasJob := matchers["job"]
+	category, hasCategory := matchers["category"]
+	metric, hasMetric := matchers["metric"]
+
+	switch {
+	case !hasJob:
+		vals, err := tc.QueryLabelValues(ctx, "", "job")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"job":      v,
+			})
+		}
+	case !hasCategory:
+		selector := fmt.Sprintf(`%s{job=%q}`, metricNameLabelValue, job)
+		vals, err := tc.QueryLabelValues(ctx, selector, "category")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"category": v,
+			})
+		}
+	case !hasMetric:
+		selector := fmt.Sprintf(`%s{job=%q,category=%q}`, metricNameLabelValue, job, category)
+		vals, err := tc.QueryLabelValues(ctx, selector, "metric")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"metric":   v,
+			})
+		}
+	default:
+		promQL := fmt.Sprintf(`count without (build, prow_job) (last_over_time(%s{job=%q,category=%q,metric=%q}[%s]))`,
+			metricNameLabelValue, job, category, metric, buildsLookbackWindow)
+		queryResp, err := tc.QueryPromQL(ctx, promQL)
+		if err != nil {
+			return nil, err
+		}
+		for _, res := range queryResp.Data.Result {
+			m := make(map[string]string, len(res.Metric)+1)
+			for k, v := range res.Metric {
+				if v == emptyLabelValueSentinel {
+					continue
+				}
+				m[k] = v
+			}
+			m["__name__"] = metricNameLabelValue
+			seriesData = append(seriesData, m)
+		}
+	}
+	return json.Marshal(promSeriesResponse{
+		Status: "success",
+		Data:   seriesData,
+	})
+}
+
+func (tc *ThanosClient) evictExpiredSeriesCacheLocked(now time.Time) {
+	for k, v := range tc.seriesCache {
+		if !now.Before(v.expiresAt) {
+			delete(tc.seriesCache, k)
+		}
+	}
+	if len(tc.seriesCache) >= maxSeriesCacheEntries {
+		tc.seriesCache = make(map[string]seriesCacheEntry)
+	}
+}
+
+func extractSeriesMatchParam(r *http.Request) (string, bool) {
+	if matches := r.URL.Query()["match[]"]; len(matches) > 0 {
+		return matches[0], len(matches) == 1
+	}
+	if r.Method == http.MethodPost && r.Body != nil {
+		bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, maxSeriesFormBodyBytes+1))
+		r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), r.Body))
+		if err == nil && len(bodyBytes) <= maxSeriesFormBodyBytes {
+			if vals, err := url.ParseQuery(string(bodyBytes)); err == nil {
+				if matches := vals["match[]"]; len(matches) > 0 {
+					return matches[0], len(matches) == 1
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+var (
+	perfdashSelectorRe = regexp.MustCompile(`^\s*perfdash_metric\s*(?:\{\s*([^{}]*?)\s*\})?\s*$`)
+	labelMatcherRe     = regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"$`)
+)
+
+func parsePerfdashSeriesSelector(matchExpr string) (map[string]string, bool) {
+	m := perfdashSelectorRe.FindStringSubmatch(matchExpr)
+	if m == nil {
+		return nil, false
+	}
+	matchers := make(map[string]string)
+	body := strings.TrimSpace(m[1])
+	if body == "" {
+		return matchers, true
+	}
+	for _, part := range strings.Split(body, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		kv := labelMatcherRe.FindStringSubmatch(part)
+		if kv == nil {
+			return nil, false
+		}
+		key := kv[1]
+		if key != "job" && key != "category" && key != "metric" {
+			return nil, false
+		}
+		if _, dup := matchers[key]; dup {
+			return nil, false
+		}
+		unquoted, err := strconv.Unquote(`"` + kv[2] + `"`)
+		if err != nil {
+			return nil, false
+		}
+		matchers[key] = unquoted
+	}
+	_, hasJob := matchers["job"]
+	_, hasCategory := matchers["category"]
+	_, hasMetric := matchers["metric"]
+	if (hasCategory && !hasJob) || (hasMetric && (!hasJob || !hasCategory)) {
+		return nil, false
+	}
+	return matchers, true
 }
 
 // parsePromSampleValue extracts the float64 metric value from a Prometheus
@@ -897,6 +1178,23 @@ type promLabelValuesResponse struct {
 	Status string   `json:"status"`
 	Data   []string `json:"data"`
 	Error  string   `json:"error,omitempty"`
+}
+
+type promSeriesResponse struct {
+	Status string              `json:"status"`
+	Data   []map[string]string `json:"data"`
+	Error  string              `json:"error,omitempty"`
+}
+
+type seriesCacheEntry struct {
+	data      []byte
+	expiresAt time.Time
+}
+
+type inflightSeriesCall struct {
+	done chan struct{}
+	data []byte
+	err  error
 }
 
 type promQueryResponse struct {

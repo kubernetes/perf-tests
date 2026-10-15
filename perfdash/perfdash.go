@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -115,14 +116,15 @@ func run() error {
 		return fmt.Errorf("error creating metrics bucket downloader: %v", err)
 	}
 
-	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests)
+	var ingester *ThanosIngester
 	var thanosClient *ThanosClient
 	if *thanosMode {
 		klog.Infof("Thanos backend mode enabled. TSDB dir: %s, Thanos Query URL: %s", *thanosTSDBDir, *thanosQueryURL)
-		ingester := NewThanosIngester(*thanosTSDBDir)
-		downloader.SetThanosIngester(ingester)
+		ingester = NewThanosIngester(*thanosTSDBDir)
+		ingester.Bootstrap(context.Background())
 		thanosClient = NewThanosClient(*thanosQueryURL)
 	}
+	downloader := NewDownloader(options, metricsBucket, *allowParsersForAllTests, ingester)
 
 	result := make(JobToCategoryData)
 

@@ -70,7 +70,6 @@ spec:
             cpu: "3"
             memory: 40Gi
           limits:
-            cpu: "3"
             memory: 40Gi
       - name: thanos-store
         image: quay.io/thanos/thanos:v0.31.0
@@ -105,7 +104,6 @@ spec:
             cpu: "500m"
             memory: 2Gi
           limits:
-            cpu: "2"
             memory: 4Gi
       - name: thanos-query
         image: quay.io/thanos/thanos:v0.31.0
@@ -132,7 +130,6 @@ spec:
             cpu: "500m"
             memory: 2Gi
           limits:
-            cpu: "2"
             memory: 4Gi
       restartPolicy: Always
 ---

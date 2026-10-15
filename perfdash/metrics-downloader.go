@@ -52,17 +52,13 @@ type Downloader struct {
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bool) *Downloader {
+func NewDownloader(opt *DownloaderOptions, bkt MetricsBucket, allowAllParsers bool, thanosIngester *ThanosIngester) *Downloader {
 	return &Downloader{
 		MetricsBkt:              bkt,
 		Options:                 opt,
 		allowParsersForAllTests: allowAllParsers,
+		thanosIngester:          thanosIngester,
 	}
-}
-
-// SetThanosIngester sets the ThanosIngester for persistent TSDB block writes.
-func (g *Downloader) SetThanosIngester(ti *ThanosIngester) {
-	g.thanosIngester = ti
 }
 
 // TODO(random-liu): Only download and update new data each time.
@@ -165,22 +161,19 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	}
 	klog.Infof("Builds to fetch for %v: %v", job, buildsToFetch)
 
-	jobKey := tests.Prefix
-	if jobKey == "" {
-		jobKey = job
-	}
-
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
-		if g.thanosIngester != nil && g.thanosIngester.HasBuild(jobKey, buildNumber) {
+		if g.thanosIngester != nil && g.thanosIngester.HasBuild(tests.Prefix, buildNumber) {
 			continue
 		}
 
 		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
-		buildResult := make(JobToCategoryData)
-		var buildLock sync.Mutex
+		target := result
+		if g.thanosIngester != nil {
+			target = make(JobToCategoryData)
+		}
 
 		for categoryLabel, categoryMap := range tests.Descriptions {
 			for testLabel, testDescriptions := range categoryMap {
@@ -213,13 +206,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 							trimmed := strings.TrimPrefix(metricsFileName, filePrefix+" ")
 							testLabel = strings.Split(trimmed, "_")[0]
 						}
-
-						var buildData *BuildData
-						if g.thanosIngester == nil {
-							buildData = getBuildData(result, jobKey, resultCategory, testLabel, job, resultLock)
-						} else {
-							buildData = getBuildData(buildResult, jobKey, resultCategory, testLabel, job, &buildLock)
-						}
+						buildData := getBuildData(target, tests.Prefix, resultCategory, testLabel, job, resultLock)
 						testDescription.Parser(testDataResponse, buildNumber, buildData)
 					}
 				}
@@ -227,28 +214,29 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		}
 
 		if g.thanosIngester != nil {
-			var buildTime time.Time
-			if startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json"); err == nil {
-				var started struct {
-					Timestamp int64 `json:"timestamp"`
-				}
-				if json.Unmarshal(startedBytes, &started) == nil && started.Timestamp > 0 {
-					buildTime = time.Unix(started.Timestamp, 0)
-				}
-			}
-			if buildTime.IsZero() {
-				buildTime = time.Now().UTC()
-			}
-			if err := g.thanosIngester.IngestBuild(context.Background(), jobKey, buildNumber, buildResult[jobKey], buildTime); err != nil {
+			buildTime := g.getBuildTimestamp(job, buildNumber)
+			if err := g.thanosIngester.IngestBuild(context.Background(), tests.Prefix, buildNumber, target[tests.Prefix], buildTime); err != nil {
 				klog.Errorf("Error ingesting %s build %d to Thanos: %v", job, buildNumber, err)
 			}
 		}
 	}
 	if g.thanosIngester != nil {
-		if err := g.thanosIngester.CompactJobBlocks(context.Background(), jobKey); err != nil {
-			klog.Errorf("Error compacting Thanos blocks for %s: %v", jobKey, err)
+		if err := g.thanosIngester.CompactJobBlocks(context.Background(), tests.Prefix, buildsToFetch); err != nil {
+			klog.Errorf("Error compacting Thanos blocks for %s: %v", tests.Prefix, err)
 		}
 	}
+}
+
+func (g *Downloader) getBuildTimestamp(job string, buildNumber int) time.Time {
+	if startedBytes, err := g.MetricsBkt.ReadFile(job, buildNumber, "started.json"); err == nil {
+		var started struct {
+			Timestamp int64 `json:"timestamp"`
+		}
+		if json.Unmarshal(startedBytes, &started) == nil && started.Timestamp > 0 {
+			return time.Unix(started.Timestamp, 0)
+		}
+	}
+	return time.Now().UTC()
 }
 
 func (g *Downloader) artifactName(jobAttrs Tests, file string) string {

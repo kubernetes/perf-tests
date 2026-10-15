@@ -28,6 +28,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/prometheus/tsdb"
+	"github.com/prometheus/tsdb/labels"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/kubernetes/test/e2e/perftype"
@@ -222,8 +225,8 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 	defer os.RemoveAll(tempTSDB)
 
 	ingester := NewThanosIngester(tempTSDB)
-	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false)
-	downloader.SetThanosIngester(ingester)
+	ingester.Bootstrap(context.Background())
+	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false, ingester)
 
 	result := make(JobToCategoryData)
 	var wg sync.WaitGroup
@@ -253,5 +256,53 @@ func TestDownloaderThanosIngestionIntegration(t *testing.T) {
 
 	// Verify a restarted ThanosIngester discovers the on-disk block and skips duplicate ingestion.
 	restartedIngester := NewThanosIngester(tempTSDB)
+	restartedIngester.Bootstrap(context.Background())
 	assert.True(t, restartedIngester.HasBuild("benchmark etcd write throughput", 101))
+
+	// Ingest builds 102 and 103 with BuildsCount=2 and verify build 101 is pruned during compaction.
+	bucket.builds = []int{101, 102, 103}
+	for _, b := range []int{102, 103} {
+		bucket.files[joinStringsAndInts(job, b, artifactPath)] = bucket.files[joinStringsAndInts(job, 101, artifactPath)]
+	}
+	bucket.files[joinStringsAndInts(job, 102, startedPath)] = []byte(`{"timestamp": 1790183600}`)
+	bucket.files[joinStringsAndInts(job, 103, startedPath)] = []byte(`{"timestamp": 1790187200}`)
+
+	wg.Add(1)
+	downloader.getJobData(&wg, result, &mu, job, Tests{
+		Prefix:       "benchmark etcd write throughput",
+		Descriptions: performanceDescriptions,
+		BuildsCount:  2,
+		ArtifactsDir: "artifacts",
+	})
+	wg.Wait()
+
+	assert.False(t, ingester.HasBuild("benchmark etcd write throughput", 101), "expired build 101 should be pruned")
+	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 102))
+	assert.True(t, ingester.HasBuild("benchmark etcd write throughput", 103))
+
+	entries, err = os.ReadDir(tempTSDB)
+	require.NoError(t, err)
+	var compactedDir string
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			compactedDir = filepath.Join(tempTSDB, entry.Name())
+		}
+	}
+	require.NotEmpty(t, compactedDir)
+	meta, err := readBlockMeta(compactedDir)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"102", "103"}, meta.Thanos.Builds)
+
+	pb, err := tsdb.OpenBlock(log.NewNopLogger(), compactedDir, nil)
+	require.NoError(t, err)
+	defer pb.Close()
+	q, err := tsdb.NewBlockQuerier(pb, pb.MinTime(), pb.MaxTime())
+	require.NoError(t, err)
+	defer q.Close()
+	ss, err := q.Select(labels.NewEqualMatcher("build", "101"))
+	require.NoError(t, err)
+	assert.False(t, ss.Next(), "expected 0 series for pruned build 101 in compacted TSDB block")
+	ss103, err := q.Select(labels.NewEqualMatcher("build", "103"))
+	require.NoError(t, err)
+	assert.True(t, ss103.Next(), "expected series for retained build 103 in compacted TSDB block")
 }

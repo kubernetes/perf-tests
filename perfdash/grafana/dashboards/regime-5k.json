@@ -1,0 +1,474 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "5k-node failure-anatomy and SLO regime board backed by Thanos Query (perfdash_metric). Surfaces cluster WATCHLIST/LIST pods latency against the 30s SLO, read vs write verb p99 breakdown, kube-apiserver peak memory, and mutating request throughput.",
+  "editable": false,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PerfDash Explorer (All Jobs & Metrics)",
+      "tooltip": "Open the main PerfDash cascading explorer dashboard",
+      "type": "link",
+      "url": "/d/perfdash-grafana?from=now-90d&to=now"
+    }
+  ],
+  "panels": [
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Thanos",
+      "description": "p50, p90, and p99 of cluster/namespace WATCHLIST & LIST pods against the 30s read SLO threshold.",
+      "fill": 1,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {},
+      "percentage": false,
+      "pointradius": 3,
+      "points": true,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": "Thanos",
+          "expr": "max without (build, prow_job) (last_over_time(perfdash_metric{job=\"$job\",category=\"APIServer\",metric=\"LoadResponsiveness_PrometheusSimple\",Resource=\"pods\",Verb=~\"WATCHLIST|LIST\"}[$__interval])) > 0",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{Verb}} {{Scope}} {{percentile}} ({{job}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 30000
+        }
+      ],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Pods WATCHLIST / LIST Latency \u2014 $job (30s SLO)",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ms",
+          "label": "Latency",
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Thanos",
+      "description": "Request latency p99 by verb (worst resource per verb), log scale. Contrasts read verbs (WATCHLIST/LIST/GET) vs mutating verbs (POST/PUT/PATCH/DELETE).",
+      "fill": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "id": 2,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": true,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {},
+      "percentage": false,
+      "pointradius": 3,
+      "points": true,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": "Thanos",
+          "expr": "max by (Verb, job) (last_over_time(perfdash_metric{job=\"$job\",category=\"APIServer\",metric=\"LoadResponsiveness_PrometheusSimple\",Verb=~\"GET|LIST|WATCHLIST|POST|PUT|PATCH|DELETE\",percentile=\"Perc99\"}[$__interval])) > 0",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{Verb}} p99 ({{job}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 30000
+        }
+      ],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Request Latency p99 by Verb \u2014 Reads vs Writes",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ms",
+          "label": "p99 Latency",
+          "logBase": 10,
+          "max": null,
+          "min": "1",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Thanos",
+      "description": "kube-apiserver peak memory (p99 of ResourceUsageSummary samples), in MiB.",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 3,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": true,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {},
+      "percentage": false,
+      "pointradius": 3,
+      "points": true,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": "Thanos",
+          "expr": "max without (build, prow_job) (last_over_time(perfdash_metric{job=\"$job\",category=\"E2E\",metric=\"LoadResources\",Resource=\"memory\",percentile=\"99\",PodName=~\".*kube-apiserver$\"}[$__interval]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{PodName}} ({{job}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "kube-apiserver Peak Memory (p99)",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "mbytes",
+          "label": "Memory",
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Thanos",
+      "description": "Total mutating request count per build by verb (POST, PUT, PATCH, DELETE), summed across resources.",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 4,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {},
+      "percentage": false,
+      "pointradius": 3,
+      "points": true,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": "Thanos",
+          "expr": "max without (build, prow_job) (sum by (Verb, job, prow_job, build) (last_over_time(perfdash_metric{job=\"$job\",category=\"APIServer\",metric=\"LoadRequestCount_PrometheusSimple\",Verb=~\"POST|PUT|PATCH|DELETE\",percentile=\"RequestCount\"}[$__interval])))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{Verb}} ({{job}})",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Mutating Request Throughput by Verb (Total Request Count per Build)",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": "Requests / Build",
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 18,
+  "style": "dark",
+  "tags": [
+    "perfdash",
+    "thanos",
+    "scale",
+    "5k"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "gce-5000Nodes",
+          "value": "gce-5000Nodes"
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(job)",
+        "includeAll": false,
+        "label": "Scale Job",
+        "name": "job",
+        "options": [],
+        "query": "label_values(job)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d",
+      "90d"
+    ]
+  },
+  "timezone": "",
+  "title": "5k Scale \u2014 Failure Anatomy (Thanos Regime Board)",
+  "uid": "regime-5k-gce",
+  "version": 1
+}

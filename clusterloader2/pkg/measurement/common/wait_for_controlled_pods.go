@@ -145,6 +145,9 @@ type failedPod struct {
 }
 
 func toFailedPods(ps *measurementutil.PodsStatus, controlledBy string) []failedPod {
+	if ps == nil {
+		return nil
+	}
 	failedPods := make([]failedPod, 0, len(ps.Info))
 	for _, pod := range ps.Info {
 		failedPods = append(failedPods, failedPod{
@@ -372,13 +375,13 @@ func (w *waitForControlledPodsRunningMeasurement) gather(syncTimeout time.Durati
 		klog.Errorf("Timed out %ss: %s", w.kind, strings.Join(timedOutObjects, ", "))
 		return failedPods, fmt.Errorf("%d objects timed out: %ss: %s", numberTimeout, w.kind, strings.Join(timedOutObjects, ", "))
 	}
-	if objectKeys.Len() != numberRunning {
-		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
-		return failedPods, fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
-	}
 	if numberFailed > 0 {
 		klog.Errorf("%s: failed status for %d %ss: %s", w, numberFailed, w.kind, failedErrList.String())
 		return failedPods, fmt.Errorf("failed objects statuses: %v", failedErrList.String())
+	}
+	if objectKeys.Len() != numberRunning {
+		klog.Errorf("%s: incorrect objects number: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)
+		return failedPods, fmt.Errorf("incorrect objects number: %d/%d %ss are running with all pods", numberRunning, objectKeys.Len(), w.kind)
 	}
 
 	klog.V(2).Infof("%s: %d/%d %ss are running with all pods", w, numberRunning, objectKeys.Len(), w.kind)

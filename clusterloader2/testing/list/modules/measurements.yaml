@@ -42,19 +42,19 @@ steps:
         threshold: {{$APISERVER_MEMORY_THRESHOLD_MEGABYTES}}
         requireSamples: false
         lowerBound: false
-  - Identifier: APIServerHeapInuse
+  - Identifier: APIServerGCLiveHeap
     Method: GenericPrometheusQuery
     Params:
       action: {{$action}}
-      metricName: kube-apiserver heap inuse
+      metricName: kube-apiserver live heap after GC
       metricVersion: v1
       unit: MiB
       queries:
-      - name: MaxHeapInuse
+      - name: MaxLastGCLiveHeap
         query: |
           max_over_time(
           sum(
-            go_memstats_heap_inuse_bytes{job="master",endpoint="apiserver"}
+            go_gc_heap_live_bytes{job="master",endpoint="apiserver"}
             / 1024 / 1024
           )[%v:])
         requireSamples: false

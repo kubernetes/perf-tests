@@ -559,14 +559,6 @@ var (
 				Parser:           parseContainerRestarts,
 			}},
 		},
-		"GenericMeasurements": {
-			"GenericMeasurements": []TestDescription{{
-				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
-				Parser:                      parsePerfData,
-				FetchMetricNameFromArtifact: true,
-				MatchAllTests:               true,
-			}},
-		},
 	}
 
 	// benchmarkDescriptions contains metrics exported by test/integration/scheduler_perf
@@ -592,14 +584,6 @@ var (
 				Name:             "benchmark",
 				OutputFilePrefix: "NetworkPerformance",
 				Parser:           parsePerfData,
-			}},
-		},
-		"GenericMeasurements": {
-			"GenericMeasurements": []TestDescription{{
-				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
-				Parser:                      parsePerfData,
-				FetchMetricNameFromArtifact: true,
-				MatchAllTests:               true,
 			}},
 		},
 	}
@@ -789,14 +773,6 @@ var (
 				Parser:           parseRequestCountData,
 			}},
 		},
-		"GenericMeasurements": {
-			"GenericMeasurements": []TestDescription{{
-				OutputFilePrefix:            GenericPrometheusQueryMeasurementName,
-				Parser:                      parsePerfData,
-				FetchMetricNameFromArtifact: true,
-				MatchAllTests:               true,
-			}},
-		},
 	}
 
 	jobTypeToDescriptions = map[string]TestDescriptions{
@@ -814,6 +790,12 @@ var (
 		"benchmarkWriteThroughput": benchmarkWriteThroughputDescriptions,
 	}
 )
+
+func init() {
+	for _, descriptions := range jobTypeToDescriptions {
+		descriptions["GenericMeasurements"] = genericDescriptions["GenericMeasurements"]
+	}
+}
 
 // Minimal subset of the prow config definition at k8s.io/test-infra/prow/config
 type config struct {

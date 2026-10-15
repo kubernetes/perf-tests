@@ -14,4 +14,7 @@ spec:
   - name: status
     port: 80
     targetPort: status
+  - name: grafana
+    port: 3000
+    targetPort: grafana-http
   type: ClusterIP

@@ -170,6 +170,7 @@ func run() error {
 	var handler metricsHandler = &result
 	if *thanosMode {
 		handler = thanosClient
+		http.Handle("/prometheus/", http.StripPrefix("/prometheus", thanosClient.PrometheusProxyHandler()))
 	}
 	http.Handle("/", noCache(http.FileServer(http.Dir(*wwwDir))))
 	http.HandleFunc("/jobnames", handler.ServeJobNames)

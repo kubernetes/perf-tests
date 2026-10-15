@@ -410,3 +410,238 @@ func TestLabelEncodingRoundTripAndConcurrentCompaction(t *testing.T) {
 	}
 	assert.Equal(t, 1, blocks, "expected concurrent compactions on shared prefix to produce 1 block")
 }
+
+func TestPrometheusProxyHandler(t *testing.T) {
+	var mu sync.Mutex
+	counts := make(map[string]int)
+
+	mockThanos := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		counts[r.URL.Path]++
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		match := r.URL.Query().Get("match[]")
+		switch r.URL.Path {
+		case "/api/v1/label/job/values":
+			assert.Equal(t, "", match)
+			assert.Equal(t, perfdashJobLabelQueryStart, r.URL.Query().Get("start"))
+			assert.Equal(t, defaultLabelQueryEnd, r.URL.Query().Get("end"))
+			_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
+				Status: "success",
+				Data:   []string{"gce-5000Nodes", "gce-100Nodes"},
+			})
+			return
+		case "/api/v1/label/run/values":
+			assert.Equal(t, defaultLabelQueryStart, r.URL.Query().Get("start"))
+			assert.Equal(t, defaultLabelQueryEnd, r.URL.Query().Get("end"))
+			_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
+				Status: "success",
+				Data:   []string{"run-101"},
+			})
+			return
+		case "/api/v1/label/category/values":
+			if match == `perfdash_metric{job="gce-5000Nodes"}` {
+				_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
+					Status: "success",
+					Data:   []string{"APIServer", "E2E"},
+				})
+				return
+			}
+		case "/api/v1/label/metric/values":
+			if match == `perfdash_metric{job="gce-5000Nodes",category="APIServer"}` {
+				_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
+					Status: "success",
+					Data:   []string{"LoadResponsiveness_PrometheusSimple"},
+				})
+				return
+			}
+		case "/api/v1/query":
+			q := r.URL.Query().Get("query")
+			if q == `count without (build, prow_job) (last_over_time(perfdash_metric{job="gce-5000Nodes",category="APIServer",metric="LoadResponsiveness_PrometheusSimple"}[10y]))` {
+				resp := promQueryResponse{Status: "success"}
+				resp.Data.ResultType = "vector"
+				resp.Data.Result = []struct {
+					Metric map[string]string `json:"metric"`
+					Value  []interface{}     `json:"value"`
+				}{
+					{
+						Metric: map[string]string{
+							"job":         "gce-5000Nodes",
+							"category":    "APIServer",
+							"metric":      "LoadResponsiveness_PrometheusSimple",
+							"Resource":    "pods",
+							"Subresource": emptyLabelValueSentinel,
+							"Verb":        "WATCHLIST",
+							"percentile":  "Perc99",
+							"unit":        "ms",
+						},
+						Value: []interface{}{1790180000.0, "43"},
+					},
+				}
+				_ = json.NewEncoder(w).Encode(resp)
+				return
+			}
+		case "/api/v1/series":
+			if match == `apiserver_request_total{run="run-123"}` || match == `perfdash_metric{prow_job="foo"}` {
+				_ = json.NewEncoder(w).Encode(promSeriesResponse{
+					Status: "success",
+					Data: []map[string]string{
+						{"__name__": "apiserver_request_total", "resource": "pods", "verb": "GET"},
+					},
+				})
+				return
+			}
+		case "/api/v1/query_range":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer mockThanos.Close()
+
+	client := NewThanosClient(mockThanos.URL)
+	handler := http.StripPrefix("/prometheus", client.PrometheusProxyHandler())
+
+	// 0. /api/v1/label/job/values and /api/v1/label/run/values intercepts add appropriate start/end
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/prometheus/api/v1/label/job/values", nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var jobLabelsResp promLabelValuesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &jobLabelsResp))
+	assert.Equal(t, []string{"gce-5000Nodes", "gce-100Nodes"}, jobLabelsResp.Data)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/prometheus/api/v1/label/run/values", nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var runLabelsResp promLabelValuesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &runLabelsResp))
+	assert.Equal(t, []string{"run-101"}, runLabelsResp.Data)
+
+	// 1. /api/v1/series Case 1: match[]=perfdash_metric (no job=)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/prometheus/api/v1/series?match[]=perfdash_metric", nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var seriesResp promSeriesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &seriesResp))
+	assert.Equal(t, []map[string]string{
+		{"__name__": "perfdash_metric", "job": "gce-100Nodes"},
+		{"__name__": "perfdash_metric", "job": "gce-5000Nodes"},
+	}, seriesResp.Data)
+
+	// 2. /api/v1/series Case 2: match[]=perfdash_metric{job="..."} (no category=)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, `/prometheus/api/v1/series?match[]=perfdash_metric%7Bjob%3D%22gce-5000Nodes%22%7D`, nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	seriesResp = promSeriesResponse{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &seriesResp))
+	assert.Equal(t, []map[string]string{
+		{"__name__": "perfdash_metric", "category": "APIServer"},
+		{"__name__": "perfdash_metric", "category": "E2E"},
+	}, seriesResp.Data)
+
+	// 3. /api/v1/series Case 3: match[]=perfdash_metric{job="...",category="..."} (no metric=)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, `/prometheus/api/v1/series?match[]=perfdash_metric%7Bjob%3D%22gce-5000Nodes%22%2Ccategory%3D%22APIServer%22%7D`, nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	seriesResp = promSeriesResponse{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &seriesResp))
+	assert.Equal(t, []map[string]string{
+		{"__name__": "perfdash_metric", "metric": "LoadResponsiveness_PrometheusSimple"},
+	}, seriesResp.Data)
+
+	// 4. /api/v1/series Case 4: match[]=perfdash_metric{job="...",category="...",metric="..."} + cache + empty sentinel stripping
+	for i := 0; i < 5; i++ {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodGet, `/prometheus/api/v1/series?match[]=perfdash_metric%7Bjob%3D%22gce-5000Nodes%22%2Ccategory%3D%22APIServer%22%2Cmetric%3D%22LoadResponsiveness_PrometheusSimple%22%7D`, nil)
+		handler.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+		seriesResp = promSeriesResponse{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &seriesResp))
+		require.Len(t, seriesResp.Data, 1)
+		assert.Equal(t, "perfdash_metric", seriesResp.Data[0]["__name__"])
+		assert.Equal(t, "pods", seriesResp.Data[0]["Resource"])
+		assert.Equal(t, "WATCHLIST", seriesResp.Data[0]["Verb"])
+		_, hasEmptySubresource := seriesResp.Data[0]["Subresource"]
+		assert.False(t, hasEmptySubresource, "expected empty label sentinel to be stripped from series response")
+	}
+	mu.Lock()
+	assert.Equal(t, 1, counts["/api/v1/query"], "expected 5 identical Case 4 series calls to hit the cache and execute only 1 PromQL query")
+	mu.Unlock()
+
+	// 5. POST /api/v1/series with form-encoded match[]
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/prometheus/api/v1/series", strings.NewReader("match[]=perfdash_metric"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// 6. Passthrough non-perfdash_metric /api/v1/series, non-hierarchical perfdash_metric{prow_job="foo"}, and /api/v1/query_range
+	for _, rawURL := range []string{
+		`/prometheus/api/v1/series?match[]=apiserver_request_total%7Brun%3D%22run-123%22%7D`,
+		`/prometheus/api/v1/series?match[]=perfdash_metric%7Bprow_job%3D%22foo%22%7D`,
+	} {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodGet, rawURL, nil)
+		handler.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+		seriesResp = promSeriesResponse{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &seriesResp))
+		require.Len(t, seriesResp.Data, 1)
+		assert.Equal(t, "apiserver_request_total", seriesResp.Data[0]["__name__"])
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, `/prometheus/api/v1/query_range?query=up`, nil)
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	// 7. Singleflight cancellation isolation: leader canceling ctx does not abort concurrent follower.
+	started := make(chan struct{})
+	release := make(chan struct{})
+	slowThanos := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(promLabelValuesResponse{
+			Status: "success",
+			Data:   []string{"gce-5000Nodes"},
+		})
+	}))
+	defer slowThanos.Close()
+
+	slowClient := NewThanosClient(slowThanos.URL)
+	slowHandler := http.StripPrefix("/prometheus", slowClient.PrometheusProxyHandler())
+
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	recLeader := httptest.NewRecorder()
+	go func() {
+		defer wg.Done()
+		reqA := httptest.NewRequest(http.MethodGet, "/prometheus/api/v1/series?match[]=perfdash_metric", nil).WithContext(leaderCtx)
+		slowHandler.ServeHTTP(recLeader, reqA)
+	}()
+
+	<-started
+	recFollower := httptest.NewRecorder()
+	go func() {
+		defer wg.Done()
+		reqB := httptest.NewRequest(http.MethodGet, "/prometheus/api/v1/series?match[]=perfdash_metric", nil)
+		slowHandler.ServeHTTP(recFollower, reqB)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+	cancelLeader()
+	close(release)
+	wg.Wait()
+
+	assert.Equal(t, http.StatusBadGateway, recLeader.Code)
+	assert.Equal(t, http.StatusOK, recFollower.Code)
+}

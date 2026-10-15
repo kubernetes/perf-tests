@@ -1,4 +1,4 @@
-{{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
+{{$TOLERATION := DefaultParam .CL2_TOLERATION "kubelite.io/simulated"}}
 {{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$podPayloadSize := DefaultParam .CL2_JOB_POD_PAYLOAD_SIZE 0}}
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}

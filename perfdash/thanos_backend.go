@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -24,6 +25,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -585,18 +587,201 @@ func writeBlockMeta(blockDir string, meta thanosMeta) error {
 	return nil
 }
 
+type seriesCacheEntry struct {
+	data      []byte
+	expiresAt time.Time
+}
+
+type inflightSeriesCall struct {
+	done chan struct{}
+	data []byte
+	err  error
+}
+
 // ThanosClient queries Thanos Query API for perfdash metrics.
 type ThanosClient struct {
-	queryURL string
-	client   *http.Client
+	queryURL       string
+	client         *http.Client
+	seriesMu       sync.Mutex
+	seriesCache    map[string]seriesCacheEntry
+	seriesInflight map[string]*inflightSeriesCall
 }
 
 // NewThanosClient creates a new ThanosClient.
 func NewThanosClient(queryURL string) *ThanosClient {
 	return &ThanosClient{
-		queryURL: strings.TrimRight(queryURL, "/"),
-		client:   &http.Client{Timeout: 30 * time.Second},
+		queryURL:       strings.TrimRight(queryURL, "/"),
+		client:         &http.Client{Timeout: 30 * time.Second},
+		seriesCache:    make(map[string]seriesCacheEntry),
+		seriesInflight: make(map[string]*inflightSeriesCall),
 	}
+}
+
+type promSeriesResponse struct {
+	Status string              `json:"status"`
+	Data   []map[string]string `json:"data"`
+	Error  string              `json:"error,omitempty"`
+}
+
+// PrometheusProxyHandler returns an http.Handler that proxies Prometheus HTTP API
+// requests to Thanos Query while optimizing high-cardinality perfdash_metric
+// metadata queries (/api/v1/series and /api/v1/label/job/values) for Grafana 6.2.0.
+func (tc *ThanosClient) PrometheusProxyHandler() http.Handler {
+	targetURL, err := url.Parse(tc.queryURL)
+	var proxy *httputil.ReverseProxy
+	if err == nil {
+		proxy = httputil.NewSingleHostReverseProxy(targetURL)
+		origDirector := proxy.Director
+		proxy.Director = func(req *http.Request) {
+			origDirector(req)
+			req.Host = targetURL.Host
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/label/job/values" && r.Method == http.MethodGet {
+			q := r.URL.Query()
+			if q.Get("start") == "" {
+				q.Set("start", "1000000000")
+				q.Set("end", "9999999999")
+				r.URL.RawQuery = q.Encode()
+			}
+		}
+
+		if r.URL.Path == "/api/v1/series" && (r.Method == http.MethodGet || r.Method == http.MethodPost) {
+			matchExpr := extractSeriesMatchParam(r)
+			if strings.Contains(matchExpr, metricNameLabelValue) {
+				body, err := tc.getOrComputeSeries(r.Context(), matchExpr)
+				if err != nil {
+					klog.Errorf("PrometheusProxyHandler series query (%s) failed: %v", matchExpr, err)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadGateway)
+					_ = json.NewEncoder(w).Encode(promSeriesResponse{
+						Status: "error",
+						Error:  err.Error(),
+					})
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write(body)
+				return
+			}
+		}
+
+		if proxy == nil {
+			http.Error(w, "invalid thanos query URL", http.StatusInternalServerError)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	})
+}
+
+func extractSeriesMatchParam(r *http.Request) string {
+	if matches := r.URL.Query()["match[]"]; len(matches) > 0 {
+		return matches[0]
+	}
+	if r.Method == http.MethodPost && r.Body != nil {
+		bodyBytes, err := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		if err == nil {
+			if vals, err := url.ParseQuery(string(bodyBytes)); err == nil {
+				if matches := vals["match[]"]; len(matches) > 0 {
+					return matches[0]
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (tc *ThanosClient) getOrComputeSeries(ctx context.Context, matchExpr string) ([]byte, error) {
+	tc.seriesMu.Lock()
+	if entry, ok := tc.seriesCache[matchExpr]; ok && time.Now().Before(entry.expiresAt) {
+		tc.seriesMu.Unlock()
+		return entry.data, nil
+	}
+	if call, ok := tc.seriesInflight[matchExpr]; ok {
+		tc.seriesMu.Unlock()
+		<-call.done
+		return call.data, call.err
+	}
+	call := &inflightSeriesCall{done: make(chan struct{})}
+	tc.seriesInflight[matchExpr] = call
+	tc.seriesMu.Unlock()
+
+	body, err := tc.computeSeries(ctx, matchExpr)
+
+	tc.seriesMu.Lock()
+	if err == nil {
+		tc.seriesCache[matchExpr] = seriesCacheEntry{
+			data:      body,
+			expiresAt: time.Now().Add(30 * time.Second),
+		}
+	}
+	delete(tc.seriesInflight, matchExpr)
+	call.data = body
+	call.err = err
+	close(call.done)
+	tc.seriesMu.Unlock()
+
+	return body, err
+}
+
+func (tc *ThanosClient) computeSeries(ctx context.Context, matchExpr string) ([]byte, error) {
+	seriesData := make([]map[string]string, 0)
+	switch {
+	case !strings.Contains(matchExpr, "job="):
+		vals, err := tc.QueryLabelValues(ctx, "", "job")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"job":      v,
+			})
+		}
+	case !strings.Contains(matchExpr, "category="):
+		vals, err := tc.QueryLabelValues(ctx, matchExpr, "category")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"category": v,
+			})
+		}
+	case !strings.Contains(matchExpr, "metric="):
+		vals, err := tc.QueryLabelValues(ctx, matchExpr, "metric")
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vals {
+			seriesData = append(seriesData, map[string]string{
+				"__name__": metricNameLabelValue,
+				"metric":   v,
+			})
+		}
+	default:
+		promQL := fmt.Sprintf("count without (build, prow_job) (last_over_time(%s[10y]))", matchExpr)
+		queryResp, err := tc.QueryPromQL(ctx, promQL)
+		if err != nil {
+			return nil, err
+		}
+		for _, res := range queryResp.Data.Result {
+			m := make(map[string]string, len(res.Metric)+1)
+			for k, v := range res.Metric {
+				m[k] = v
+			}
+			m["__name__"] = metricNameLabelValue
+			seriesData = append(seriesData, m)
+		}
+	}
+	return json.Marshal(promSeriesResponse{
+		Status: "success",
+		Data:   seriesData,
+	})
 }
 
 // ServeJobNames serves /jobnames from Thanos.

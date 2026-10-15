@@ -30,7 +30,7 @@ spec:
 {{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/watch-list:v0.0.4
+          image: gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.23
           resources:
             requests:
               memory: "16Gi"
@@ -45,12 +45,12 @@ spec:
             - name: KUBERNETES_SERVICE_PORT
               value: "443"
 {{end}}
-          command: [ "watch-list" ]
           args:
+            - "informer"
             - "--alsologtostderr=true"
             - "--v=4"
-            - "--timeout=100h"
             - "--count=1"
+            - "--content-type=proto"
             - "--enableWatchListFeature={{.EnableWatchListFeature}}"
             - "--api-version=v1"
             - "--resource=pods"

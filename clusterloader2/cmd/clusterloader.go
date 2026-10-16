@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -27,6 +28,8 @@ import (
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -261,6 +264,63 @@ func createReportDir() error {
 	return nil
 }
 
+// redactedKubeConfig returns the kubeconfig at path with every credential
+// replaced, so that it is safe to log.
+func redactedKubeConfig(path string) (string, error) {
+	kubeConfig, err := clientcmd.LoadFromFile(path)
+	if err != nil {
+		return "", err
+	}
+	// Covers tokens, passwords and client keys.
+	if err := clientcmdapi.RedactSecrets(kubeConfig); err != nil {
+		return "", err
+	}
+	// Omits inline certificate data, which is noise in a log.
+	clientcmdapi.ShortenConfig(kubeConfig)
+	// Neither of the above touches auth-provider config (e.g. OIDC id-token and
+	// refresh-token), exec plugin args and env (e.g. --client-secret=...) or
+	// userinfo in cluster URLs (e.g. http://user:password@proxy:3128), all of
+	// which can carry credentials.
+	for _, authInfo := range kubeConfig.AuthInfos {
+		if authInfo.AuthProvider != nil {
+			for k := range authInfo.AuthProvider.Config {
+				authInfo.AuthProvider.Config[k] = "REDACTED"
+			}
+		}
+		if authInfo.Exec != nil {
+			for i := range authInfo.Exec.Args {
+				authInfo.Exec.Args[i] = "REDACTED"
+			}
+			for i := range authInfo.Exec.Env {
+				authInfo.Exec.Env[i].Value = "REDACTED"
+			}
+		}
+	}
+	for _, cluster := range kubeConfig.Clusters {
+		cluster.Server = redactURLUserinfo(cluster.Server)
+		cluster.ProxyURL = redactURLUserinfo(cluster.ProxyURL)
+	}
+	content, err := clientcmd.Write(*kubeConfig)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+// redactURLUserinfo drops the user and password from rawURL. A URL that does
+// not parse is redacted whole, since it may still hold credentials.
+func redactURLUserinfo(rawURL string) string {
+	if rawURL == "" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "REDACTED"
+	}
+	u.User = nil
+	return u.String()
+}
+
 func printTestStart(name string) {
 	klog.V(0).Infof(dashLine)
 	klog.V(0).Infof("Running %v", name)
@@ -312,12 +372,12 @@ func main() {
 	}
 
 	klog.V(2).Infof("KubeConfigPath: %v", clusterLoaderConfig.ClusterConfig.KubeConfigPath)
-	if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" {
-		content, err := os.ReadFile(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
+	if clusterLoaderConfig.ClusterConfig.KubeConfigPath != "" && klog.V(2).Enabled() {
+		content, err := redactedKubeConfig(clusterLoaderConfig.ClusterConfig.KubeConfigPath)
 		if err != nil {
 			klog.Errorf("Error reading kubeconfig: %v", err)
 		} else {
-			klog.V(2).Infof("KubeConfig content:\n%s", string(content))
+			klog.V(2).Infof("KubeConfig content (credentials redacted):\n%s", content)
 		}
 	}
 	mclient, err := framework.NewMultiClientSet(clusterLoaderConfig.ClusterConfig.KubeConfigPath, 1)

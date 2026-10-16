@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"k8s.io/perf-tests/clusterloader2/api"
@@ -60,5 +62,122 @@ func TestDumpTestConfigUsesScenarioIdentifier(t *testing.T) {
 		if _, err := os.Stat(filePath); err != nil {
 			t.Errorf("expected config artifact %q: %v", filePath, err)
 		}
+	}
+}
+
+func TestRedactedKubeConfig(t *testing.T) {
+	const kubeConfigTemplate = `apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+%s
+contexts:
+- name: test
+  context:
+    cluster: test
+    user: test
+current-context: test
+users:
+- name: test
+  user:
+%s
+`
+	const defaultCluster = "    server: https://test.example.com:6443"
+	const defaultUser = "    username: admin"
+
+	tests := []struct {
+		name        string
+		cluster     string
+		user        string
+		wantMissing []string
+		wantPresent []string
+	}{
+		{
+			name:        "no credentials",
+			wantPresent: []string{"server: https://test.example.com:6443", "current-context: test", "username: admin"},
+		},
+		{
+			name:        "bearer token",
+			user:        "    token: secret-token",
+			wantMissing: []string{"secret-token"},
+			wantPresent: []string{"token: REDACTED"},
+		},
+		{
+			name:        "basic auth password",
+			user:        "    username: admin\n    password: secret-password",
+			wantMissing: []string{"secret-password"},
+			wantPresent: []string{"username: admin"},
+		},
+		{
+			name:        "client certificate and key data",
+			user:        "    client-certificate-data: c2VjcmV0LWNlcnQ=\n    client-key-data: c2VjcmV0LWtleQ==",
+			wantMissing: []string{"c2VjcmV0LWNlcnQ=", "c2VjcmV0LWtleQ=="},
+		},
+		{
+			name:        "certificate authority data",
+			cluster:     defaultCluster + "\n    certificate-authority-data: c2VjcmV0LWNh",
+			wantMissing: []string{"c2VjcmV0LWNh"},
+		},
+		{
+			name:        "auth provider config",
+			user:        "    auth-provider:\n      name: oidc\n      config:\n        id-token: secret-id-token\n        refresh-token: secret-refresh-token",
+			wantMissing: []string{"secret-id-token", "secret-refresh-token"},
+			wantPresent: []string{"name: oidc"},
+		},
+		{
+			name:        "exec plugin args and env",
+			user:        "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: get-token\n      args:\n      - --client-secret=secret-client-secret\n      env:\n      - name: API_KEY\n        value: secret-api-key",
+			wantMissing: []string{"secret-client-secret", "secret-api-key"},
+			wantPresent: []string{"command: get-token", "name: API_KEY"},
+		},
+		{
+			name:        "proxy url userinfo",
+			cluster:     defaultCluster + "\n    proxy-url: http://proxyuser:secret-proxy-password@proxy.example.com:3128",
+			wantMissing: []string{"proxyuser", "secret-proxy-password"},
+			wantPresent: []string{"proxy-url: http://proxy.example.com:3128"},
+		},
+		{
+			name:        "unparsable proxy url",
+			cluster:     defaultCluster + "\n    proxy-url: http://proxyuser:secret-proxy-password@proxy.example.com:bad-port",
+			wantMissing: []string{"proxyuser", "secret-proxy-password"},
+			wantPresent: []string{"proxy-url: REDACTED"},
+		},
+		{
+			name:        "server url userinfo",
+			cluster:     "    server: https://serveruser:secret-server-password@test.example.com:6443",
+			wantMissing: []string{"serveruser", "secret-server-password"},
+			wantPresent: []string{"server: https://test.example.com:6443"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster, user := tt.cluster, tt.user
+			if cluster == "" {
+				cluster = defaultCluster
+			}
+			if user == "" {
+				user = defaultUser
+			}
+			path := filepath.Join(t.TempDir(), "kubeconfig")
+			if err := os.WriteFile(path, []byte(fmt.Sprintf(kubeConfigTemplate, cluster, user)), 0600); err != nil {
+				t.Fatalf("writing kubeconfig: %v", err)
+			}
+
+			got, err := redactedKubeConfig(path)
+			if err != nil {
+				t.Fatalf("redactedKubeConfig() error = %v", err)
+			}
+			for _, s := range tt.wantMissing {
+				if strings.Contains(got, s) {
+					t.Errorf("redactedKubeConfig() contains %q, want it redacted:\n%s", s, got)
+				}
+			}
+			for _, s := range tt.wantPresent {
+				if !strings.Contains(got, s) {
+					t.Errorf("redactedKubeConfig() is missing %q:\n%s", s, got)
+				}
+			}
+		})
 	}
 }

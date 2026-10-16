@@ -172,6 +172,17 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: gather
+
+- name: Dump list benchmark pod logs
+  measurements:
+  - Identifier: DumpListBenchmarkPodLogs
+    Method: Exec
+    Params:
+      timeout: 10m
+      command:
+      - /bin/bash
+      - testing/list/dump-pod-logs.sh
+      - ${ARTIFACTS}/list-benchmark-pod-logs
 - module:
     path: modules/list-benchmark.yaml
     params:

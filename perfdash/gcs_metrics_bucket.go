@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -88,7 +87,8 @@ func (b *GCSMetricsBucket) GetBuildNumbers(job string) ([]int, error) {
 		build = strings.TrimSuffix(build, "/")
 		buildNo, err := strconv.Atoi(build)
 		if err != nil {
-			return nil, fmt.Errorf("unknown build name convention: %s", build)
+			klog.Warningf("Skipping non-numeric build directory in %s: %s", job, build)
+			continue
 		}
 		builds = append(builds, buildNo)
 	}

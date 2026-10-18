@@ -35,7 +35,11 @@ spec:
         configMap:
           name: grafana-dashboard-provider
       # Create from checked-in JSON files before applying:
-      # kubectl -n perfdash create configmap grafana-dashboards --from-file=perfdash/grafana/dashboards/
+      # kubectl -n perfdash create configmap grafana-dashboards \
+      #   --from-file=perfdash/grafana/dashboards/ \
+      #   --from-file=perflens/config/grafana/dashboards/apiserver_metrics.json \
+      #   --from-file=perflens/config/grafana/dashboards/write_throughput.json \
+      #   --from-file=perflens/config/grafana/dashboards/node_exporter.json
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
@@ -57,6 +61,8 @@ spec:
           -   --thanos-mode=true
           -   --thanos-query-url=http://127.0.0.1:10902
           -   --thanos-tsdb-dir=/prometheus
+          -   --snapshot-jobs=gce-5000Nodes,gce-5000Nodes-experimental
+          -   --snapshot-builds=10
         imagePullPolicy: Always
         ports:
         - name: status
@@ -81,6 +87,7 @@ spec:
             cpu: "3"
             memory: 8Gi
           limits:
+            cpu: "3"
             memory: 8Gi
       - name: thanos-store
         image: quay.io/thanos/thanos:v0.31.0

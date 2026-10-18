@@ -9455,14 +9455,14 @@
       {
         "current": {},
         "datasource": "Prometheus",
-        "definition": "label_values(node_uname_info, run)",
+        "definition": "label_values(run)",
         "hide": 0,
         "includeAll": false,
         "label": "Scale Run",
         "multi": false,
         "name": "run",
         "options": [],
-        "query": "label_values(node_uname_info, run)",
+        "query": "label_values(run)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -9486,8 +9486,8 @@
     ]
   },
   "time": {
-    "from": "now-7d",
-    "to": "now"
+    "from": "2000-01-01T00:00:00.000Z",
+    "to": "2000-01-01T02:30:00.000Z"
   },
   "timepicker": {},
   "timezone": "browser",

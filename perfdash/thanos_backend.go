@@ -71,10 +71,12 @@ type ThanosIngester struct {
 	tsdbDir string
 	logger  log.Logger
 
-	// mu guards ingestedBuilds and jobLocks across concurrent job downloader goroutines.
-	mu             sync.RWMutex
-	ingestedBuilds map[string]bool
-	jobLocks       map[string]*sync.Mutex
+	// mu guards ingestedBuilds, ingestedSnapshots, noSnapshotBuilds, and jobLocks across concurrent job downloader goroutines.
+	mu                sync.RWMutex
+	ingestedBuilds    map[string]bool
+	ingestedSnapshots map[string]bool
+	noSnapshotBuilds  map[string]bool
+	jobLocks          map[string]*sync.Mutex
 }
 
 // NewThanosIngester creates a new ThanosIngester.
@@ -83,10 +85,12 @@ func NewThanosIngester(tsdbDir string) *ThanosIngester {
 		tsdbDir = abs
 	}
 	return &ThanosIngester{
-		tsdbDir:        tsdbDir,
-		logger:         klogAdapter{},
-		ingestedBuilds: make(map[string]bool),
-		jobLocks:       make(map[string]*sync.Mutex),
+		tsdbDir:           tsdbDir,
+		logger:            klogAdapter{},
+		ingestedBuilds:    make(map[string]bool),
+		ingestedSnapshots: make(map[string]bool),
+		noSnapshotBuilds:  make(map[string]bool),
+		jobLocks:          make(map[string]*sync.Mutex),
 	}
 }
 
@@ -120,6 +124,14 @@ func (ti *ThanosIngester) Bootstrap() error {
 		meta, err := readBlockMeta(blockDir)
 		if err != nil {
 			klog.Warningf("Skipping unreadable block metadata in %s: %v", blockDir, err)
+			continue
+		}
+		if meta.Thanos.Source == snapshotBlockSource {
+			perflensJob := meta.Thanos.Labels["perflens_job"]
+			runName := meta.Thanos.Labels["run"]
+			if perflensJob != "" && runName != "" {
+				ti.ingestedSnapshots[snapshotKey(perflensJob, runName)] = true
+			}
 			continue
 		}
 		jobPrefix := meta.Thanos.Labels["job"]
@@ -366,7 +378,7 @@ func listJobBlocks(tsdbDir, jobPrefix string) ([]jobBlockInfo, map[string]bool, 
 			klog.Warningf("Skipping unreadable block metadata in %s: %v", blockDir, err)
 			continue
 		}
-		if meta.Thanos.Labels["job"] != jobPrefix {
+		if meta.Thanos.Source == snapshotBlockSource || meta.Thanos.Labels["job"] != jobPrefix {
 			continue
 		}
 		if pj := meta.Thanos.Labels["prow_job"]; pj != "" {
@@ -1211,6 +1223,7 @@ type promQueryResponse struct {
 
 type blockMeta struct {
 	MinTime int64      `json:"minTime"`
+	MaxTime int64      `json:"maxTime"`
 	Thanos  thanosMeta `json:"thanos"`
 }
 

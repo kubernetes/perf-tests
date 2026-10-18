@@ -52,5 +52,6 @@ services:
     volumes:
       - ./provisioning:/etc/grafana/provisioning:ro
       - ./dashboards:/var/lib/grafana/dashboards:ro
+      - ../../perflens/config/grafana/dashboards:/var/lib/grafana/dashboards/perflens:ro
     depends_on:
       - thanos-query

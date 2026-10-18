@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path"
 	"path/filepath"
 	"sort"
@@ -40,7 +41,9 @@ type DownloaderOptions struct {
 	DefaultBuildsCount int
 	// Development-only flag.
 	// Overrides build count from "perfDashBuildsCount" label with DefaultBuildsCount.
-	OverrideBuildCount bool
+	OverrideBuildCount  bool
+	SnapshotJobs        []string
+	SnapshotBuildsCount int
 }
 
 // Downloader that gets data about results from a storage service (GCS) repository.
@@ -162,6 +165,7 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 	klog.Infof("Builds to fetch for %v: %v", job, buildsToFetch)
 
 	sort.Sort(sort.Reverse(sort.IntSlice(buildNumbers)))
+	cache := newArtifactsCache(g.MetricsBkt)
 	for index := 0; index < buildsToFetch && index < len(buildNumbers); index++ {
 		buildNumber := buildNumbers[index]
 		var buildTime time.Time
@@ -177,7 +181,6 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 			}
 		}
 
-		cache := newArtifactsCache(g.MetricsBkt)
 		klog.Infof("Fetching %s build %v...", job, buildNumber)
 		target := result
 		if g.thanosIngester != nil {
@@ -232,7 +235,20 @@ func (g *Downloader) getJobData(wg *sync.WaitGroup, result JobToCategoryData, re
 		if err := g.thanosIngester.CompactJobBlocks(context.Background(), tests.Prefix, buildsToFetch); err != nil {
 			klog.Errorf("Error compacting Thanos blocks for %s: %v", tests.Prefix, err)
 		}
+		g.syncJobSnapshots(context.Background(), job, tests, buildNumbers, buildsToFetch, &cache)
 	}
+}
+
+func (g *Downloader) shouldIngestSnapshots(jobPrefix string) bool {
+	if g.Options == nil || jobPrefix == "" {
+		return false
+	}
+	for _, sj := range g.Options.SnapshotJobs {
+		if strings.TrimSpace(sj) == jobPrefix {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Downloader) getBuildTimestamp(job string, buildNumber int) (time.Time, error) {
@@ -287,6 +303,7 @@ type MetricsBucket interface {
 	ListFilesInBuild(job string, buildNumber int, prefix string) ([]string, error)
 	GetFilePrefix(job string, buildNumber int, prefix string) string
 	ReadFile(job string, buildNumber int, path string) ([]byte, error)
+	OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error)
 }
 
 func joinStringsAndInts(pathElements ...interface{}) string {

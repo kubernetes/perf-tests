@@ -127,11 +127,16 @@ func (b *GCSMetricsBucket) GetFilePrefix(job string, buildNumber int, prefix str
 	return joinStringsAndInts(b.logPath, job, buildNumber, prefix)
 }
 
-// ReadFile reads the file contents from the GCS bucket.
-func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+// OpenFile opens a streaming reader for a file in the GCS bucket.
+func (b *GCSMetricsBucket) OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	filePath := joinStringsAndInts(b.logPath, job, buildNumber, path)
-	rc, err := b.bucket.Object(filePath).NewReader(ctx)
+	return b.bucket.Object(filePath).NewReader(ctx)
+}
+
+// ReadFile reads the file contents from the GCS bucket.
+func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+	rc, err := b.OpenFile(job, buildNumber, path)
 	if err != nil {
 		return nil, err
 	}

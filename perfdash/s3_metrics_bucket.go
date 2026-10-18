@@ -110,8 +110,8 @@ func (s *S3MetricsBucket) GetFilePrefix(job string, buildNumber int, prefix stri
 	return joinStringsAndInts(s.logPath, job, buildNumber, prefix)
 }
 
-// ReadFile reads the file contents from the S3 bucket.
-func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+// OpenFile opens a streaming reader for a file in the S3 bucket.
+func (s *S3MetricsBucket) OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error) {
 	filePath := joinStringsAndInts(s.logPath, job, buildNumber, path)
 
 	resp, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
@@ -121,7 +121,15 @@ func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]
 	if err != nil {
 		return nil, err
 	}
+	return resp.Body, nil
+}
 
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+// ReadFile reads the file contents from the S3 bucket.
+func (s *S3MetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+	rc, err := s.OpenFile(job, buildNumber, path)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	return io.ReadAll(rc)
 }

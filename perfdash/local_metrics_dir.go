@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -95,6 +96,12 @@ func (b *LocalMetricsDirectory) ListFilesInBuild(job string, buildNumber int, pr
 func (b *LocalMetricsDirectory) GetFilePrefix(job string, buildNumber int, prefix string) string {
 	p := joinStringsAndInts(b.dirPath, filePathSeparator, job, filePathSeparator, buildNumber, prefix)
 	return p
+}
+
+// OpenFile opens a streaming reader for a file in a local artifacts directory.
+func (b *LocalMetricsDirectory) OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error) {
+	filePath := joinStringsAndInts(b.dirPath, filePathSeparator, job, filePathSeparator, buildNumber, path)
+	return os.Open(filePath)
 }
 
 // ReadFile reads the file contents from a local artifacts directory.

@@ -83,6 +83,8 @@ func initDownloaderOptions() {
 	pflag.StringArrayVar(&options.ConfigPaths, "configPath", []string{}, "Paths/urls to the prow config")
 	pflag.StringArrayVar(&options.GithubConfigDirs, "githubConfigDir", []string{}, "Github API url to the prow config directory, all configs from this dir will be used."+
 		"To specify more than one dir, this arg shall be specified multiple times, one time for each dir.")
+	pflag.StringSliceVar(&options.SnapshotJobs, "snapshot-jobs", []string{"gce-5000Nodes", "gce-5000Nodes-experimental"}, "Job prefixes for which to automatically ingest Prometheus TSDB snapshots into Thanos")
+	pflag.IntVar(&options.SnapshotBuildsCount, "snapshot-builds", 10, "Number of latest builds per snapshot-enabled job for which to retain Prometheus TSDB snapshots")
 }
 
 func main() {

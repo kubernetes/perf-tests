@@ -1,5 +1,6 @@
 {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
-  
+{{$NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST_NAMESPACE := DefaultParam .CL2_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST_NAMESPACE "net-policy-test"}}
+
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
@@ -17,5 +18,10 @@ spec:
      matchLabels:
        test: np-test-client
   namespaceSelector:
+  {{ if $NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST_NAMESPACE }}
+    matchNames:
+      - {{ $NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST_NAMESPACE }}
+  {{ else }}
     any: true
+  {{ end }}
 {{end}}

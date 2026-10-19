@@ -17,7 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -305,7 +308,19 @@ func (f *fakeMetricsBucket) GetFilePrefix(job string, buildNumber int, prefix st
 }
 
 func (f *fakeMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
-	return f.files[joinStringsAndInts(job, buildNumber, path)], nil
+	data, ok := f.files[joinStringsAndInts(job, buildNumber, path)]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return data, nil
+}
+
+func (f *fakeMetricsBucket) OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error) {
+	data, err := f.ReadFile(job, buildNumber, path)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
 func Test_getJobDataGenericMeasurementsWithMatchAllTests(t *testing.T) {
@@ -324,7 +339,7 @@ func Test_getJobDataGenericMeasurementsWithMatchAllTests(t *testing.T) {
 		},
 	}
 
-	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false)
+	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false, nil)
 	result := make(JobToCategoryData)
 	var wg sync.WaitGroup
 	var mu sync.Mutex

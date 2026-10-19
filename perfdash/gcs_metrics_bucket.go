@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -88,7 +87,8 @@ func (b *GCSMetricsBucket) GetBuildNumbers(job string) ([]int, error) {
 		build = strings.TrimSuffix(build, "/")
 		buildNo, err := strconv.Atoi(build)
 		if err != nil {
-			return nil, fmt.Errorf("unknown build name convention: %s", build)
+			klog.Warningf("Skipping non-numeric build directory in %s: %s", job, build)
+			continue
 		}
 		builds = append(builds, buildNo)
 	}
@@ -127,11 +127,16 @@ func (b *GCSMetricsBucket) GetFilePrefix(job string, buildNumber int, prefix str
 	return joinStringsAndInts(b.logPath, job, buildNumber, prefix)
 }
 
-// ReadFile reads the file contents from the GCS bucket.
-func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+// OpenFile opens a streaming reader for a file in the GCS bucket.
+func (b *GCSMetricsBucket) OpenFile(job string, buildNumber int, path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	filePath := joinStringsAndInts(b.logPath, job, buildNumber, path)
-	rc, err := b.bucket.Object(filePath).NewReader(ctx)
+	return b.bucket.Object(filePath).NewReader(ctx)
+}
+
+// ReadFile reads the file contents from the GCS bucket.
+func (b *GCSMetricsBucket) ReadFile(job string, buildNumber int, path string) ([]byte, error) {
+	rc, err := b.OpenFile(job, buildNumber, path)
 	if err != nil {
 		return nil, err
 	}

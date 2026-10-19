@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -26,10 +23,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -67,10 +61,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}} {{verb}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         },
         {
           "expr": "sum by (resource,  subresource, verb, scope) (rate(apiserver_request_duration_seconds_count{resource=~\"$resource\",verb=\"PATCH\", subresource!=\"\", run=~\"^$run\"}[1m]))",
@@ -78,10 +69,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}/{{subresource}} {{verb}}",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -130,10 +118,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -171,10 +156,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -223,10 +205,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -264,10 +243,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [
@@ -325,10 +301,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -366,10 +339,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}} {{verb}} {{code}} ",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         },
         {
           "expr": "sum by (resource, verb, subresource, code) (rate(apiserver_request_total{resource=~\"$resource\", verb=\"PATCH\", code!~\"2..\", run=~\"^$run\"}[1m]))\n/ ignoring(code) group_left\nsum by (resource, verb, subresource) (rate(apiserver_request_total{resource=~\"$resource\", verb=\"PATCH\", run=~\"^$run\"}[1m]))",
@@ -377,10 +347,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}/{{subresource}} {{verb}} {{code}}",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -429,10 +396,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -470,10 +434,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -522,10 +483,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -563,10 +521,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{name}} {{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [
@@ -624,10 +579,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -665,10 +617,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}} {{verb}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         },
         {
           "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{resource=~\"$resource\",verb=\"PATCH\",subresource!=\"\", run=~\"^$run\"}[1m])) by (resource,  subresource, verb, scope, le))",
@@ -676,10 +625,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}/{{subresource}} {{verb}}",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -728,10 +674,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -769,10 +712,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -821,10 +761,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 8,
@@ -862,10 +799,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{pod}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -927,10 +861,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 9,
@@ -968,10 +899,7 @@
           "intervalFactor": 1,
           "legendFormat": "p99 {{resource}} {{operation}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -1020,10 +948,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 9,
@@ -1061,10 +986,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -1113,10 +1035,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 9,
@@ -1154,10 +1073,7 @@
           "intervalFactor": 1,
           "legendFormat": "total",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         },
         {
           "expr": "etcd_mvcc_db_total_size_in_use_in_bytes{run=~\"^$run\"}",
@@ -1165,10 +1081,7 @@
           "intervalFactor": 1,
           "legendFormat": "usage",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         },
         {
           "expr": "etcd_server_quota_backend_bytes{run=~\"^$run\"}",
@@ -1176,10 +1089,7 @@
           "intervalFactor": 1,
           "legendFormat": "quota",
           "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -1228,10 +1138,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 9,
@@ -1269,10 +1176,7 @@
           "intervalFactor": 1,
           "legendFormat": "p99 {{type}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -1321,10 +1225,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "datasource": "Prometheus",
       "fill": 1,
       "gridPos": {
         "h": 9,
@@ -1362,10 +1263,7 @@
           "intervalFactor": 1,
           "legendFormat": "{{resource}}",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "datasource": "Prometheus"
         }
       ],
       "thresholds": [],
@@ -1425,10 +1323,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(run)",
         "hide": 0,
         "includeAll": false,
@@ -1450,10 +1345,7 @@
           "text": "pods",
           "value": "pods"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(apiserver_request_total{run=~\"^$run$\"}, resource)",
         "hide": 0,
         "includeAll": true,
@@ -1471,8 +1363,8 @@
     ]
   },
   "time": {
-    "from": "2026-08-05T19:20:55.755Z",
-    "to": "2026-08-05T19:28:50.514Z"
+    "from": "2000-01-01T00:00:00.000Z",
+    "to": "2000-01-01T02:30:00.000Z"
   },
   "timepicker": {
     "refresh_intervals": [

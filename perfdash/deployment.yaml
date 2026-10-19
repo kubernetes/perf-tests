@@ -20,6 +20,25 @@ spec:
       labels:
         app: perfdash
     spec:
+      volumes:
+      - name: thanos-tsdb
+        emptyDir: {}
+      - name: thanos-cache
+        emptyDir: {}
+      - name: thanos-config
+        configMap:
+          name: thanos-bucket-config
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboard-provider
+        configMap:
+          name: grafana-dashboard-provider
+      # Create from checked-in JSON files before applying:
+      # kubectl -n perfdash create configmap grafana-dashboards --from-file=perfdash/grafana/dashboards/
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
       containers:
       - name: perfdash
         image: gcr.io/k8s-staging-perf-tests/perfdash:2.63
@@ -35,10 +54,16 @@ spec:
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/kubernetes-sigs/sig-windows
           -   --githubConfigDir=https://api.github.com/repos/kubernetes/test-infra/contents/config/jobs/etcd
           -   --allow-parsers-matching-all-tests=false
+          -   --thanos-mode=true
+          -   --thanos-query-url=http://127.0.0.1:10902
+          -   --thanos-tsdb-dir=/prometheus
         imagePullPolicy: Always
         ports:
         - name: status
           containerPort: 8080
+        volumeMounts:
+        - name: thanos-tsdb
+          mountPath: /prometheus
         livenessProbe:
           httpGet:
             path: /
@@ -54,8 +79,184 @@ spec:
         resources:
           requests:
             cpu: "3"
-            memory: 40Gi
+            memory: 8Gi
           limits:
             cpu: "3"
-            memory: 40Gi
+            memory: 8Gi
+      - name: thanos-store
+        image: quay.io/thanos/thanos:v0.31.0
+        command:
+          - store
+          - --objstore.config-file=/etc/thanos/bucket.yml
+          - --data-dir=/tmp/thanos/cache
+          - --sync-block-duration=30s
+          - --store.enable-index-header-lazy-reader
+          - --log.level=warn
+          - --grpc-address=127.0.0.1:10901
+          - --http-address=0.0.0.0:10903
+        volumeMounts:
+        - name: thanos-tsdb
+          mountPath: /prometheus
+          readOnly: true
+        - name: thanos-cache
+          mountPath: /tmp/thanos/cache
+        - name: thanos-config
+          mountPath: /etc/thanos
+          readOnly: true
+        ports:
+        - name: store-grpc
+          containerPort: 10901
+        - name: store-http
+          containerPort: 10903
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 10903
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 2Gi
+          limits:
+            memory: 4Gi
+      - name: thanos-query
+        image: quay.io/thanos/thanos:v0.31.0
+        command:
+          - query
+          - --http-address=0.0.0.0:10902
+          - --grpc-address=127.0.0.1:10904
+          - --endpoint=127.0.0.1:10901
+          - --query.lookback-delta=15m
+          - --log.level=warn
+        ports:
+        - name: query-http
+          containerPort: 10902
+        - name: query-grpc
+          containerPort: 10904
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 10902
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 2Gi
+          limits:
+            memory: 4Gi
+      - name: grafana
+        image: grafana/grafana:6.2.0
+        ports:
+        - name: grafana-http
+          containerPort: 3000
+        env:
+        - name: GF_SERVER_HTTP_ADDR
+          value: "0.0.0.0"
+        - name: GF_SERVER_HTTP_PORT
+          value: "3000"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+          value: "Viewer"
+        - name: GF_AUTH_DISABLE_LOGIN_FORM
+          value: "true"
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_SECURITY_ALLOW_EMBEDDING
+          value: "true"
+        - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+          value: "/var/lib/grafana/dashboards/perfdash.json"
+        volumeMounts:
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
+          readOnly: true
+        - name: grafana-dashboard-provider
+          mountPath: /etc/grafana/provisioning/dashboards
+          readOnly: true
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          timeoutSeconds: 2
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          periodSeconds: 10
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: "250m"
+            memory: 256Mi
+          limits:
+            memory: 512Mi
       restartPolicy: Always
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thanos-bucket-config
+  namespace: perfdash
+data:
+  bucket.yml: |
+    type: FILESYSTEM
+    config:
+      directory: "/prometheus"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: perfdash
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Thanos
+        uid: thanos
+        type: prometheus
+        access: proxy
+        url: http://127.0.0.1:8080/prometheus
+        isDefault: true
+        editable: false
+        version: 2
+        jsonData:
+          httpMethod: GET
+          timeInterval: "30s"
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://127.0.0.1:8080/prometheus
+        isDefault: false
+        editable: false
+        version: 2
+        jsonData:
+          httpMethod: GET
+          timeInterval: "30s"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: perfdash
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: perfdash
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: true
+        allowUiUpdates: false
+        updateIntervalSeconds: 10
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false

@@ -324,7 +324,7 @@ func Test_getJobDataGenericMeasurementsWithMatchAllTests(t *testing.T) {
 		},
 	}
 
-	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false)
+	downloader := NewDownloader(&DownloaderOptions{DefaultBuildsCount: 1}, bucket, false, nil)
 	result := make(JobToCategoryData)
 	var wg sync.WaitGroup
 	var mu sync.Mutex

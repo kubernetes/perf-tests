@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  thanos-store:
+    image: quay.io/thanos/thanos:v0.31.0
+    container_name: perfdash-thanos-store
+    network_mode: host
+    restart: on-failure
+    user: root
+    volumes:
+      - ${THANOS_TSDB_DIR:-/tmp/thanos/prometheus}:/prometheus
+      - ./thanos-bucket.yml:/etc/thanos/bucket.yml:ro
+    command:
+      - store
+      - --objstore.config-file=/etc/thanos/bucket.yml
+      - --data-dir=/tmp/thanos/cache
+      - --sync-block-duration=10s
+      - --store.enable-index-header-lazy-reader
+      - --log.level=warn
+      - --grpc-address=127.0.0.1:10901
+      - --http-address=0.0.0.0:10903
+
+  thanos-query:
+    image: quay.io/thanos/thanos:v0.31.0
+    container_name: perfdash-thanos-query
+    network_mode: host
+    restart: on-failure
+    command:
+      - query
+      - --http-address=0.0.0.0:10902
+      - --grpc-address=127.0.0.1:10904
+      - --endpoint=127.0.0.1:10901
+      - --query.lookback-delta=15m
+      - --log.level=warn
+    depends_on:
+      - thanos-store
+
+  grafana:
+    image: grafana/grafana:6.2.0
+    container_name: perfdash-grafana
+    network_mode: host
+    restart: on-failure
+    environment:
+      - GF_SERVER_HTTP_ADDR=0.0.0.0
+      - GF_SERVER_HTTP_PORT=${GRAFANA_PORT:-3000}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/perfdash.json
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - thanos-query

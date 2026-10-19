@@ -1,0 +1,580 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "PerfDash Grafana dashboard backed by Thanos TSDB and Thanos Query (perfdash_metric) with cascading template variables ($job, $category, $metric, $percentile, and dynamic label filters).",
+  "editable": false,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Thanos",
+      "description": "Cross-build performance trends from Thanos TSDB.",
+      "fill": 1,
+      "gridPos": {
+        "h": 21,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": true,
+        "min": true,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {},
+      "percentage": false,
+      "pointradius": 3,
+      "points": true,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": "Thanos",
+          "expr": "label_replace(max without (build, prow_job) (last_over_time(perfdash_metric{job=\"$job\", category=\"$category\", metric=\"$metric\", percentile=~\"$percentile\", endpoint=~\"^($endpoint|)$\", Resource=~\"^($Resource|)$\", resource=~\"^($resource|)$\", Verb=~\"^($Verb|)$\", Scope=~\"^($Scope|)$\", Subresource=~\"^($Subresource|)$\", PodName=~\"^($PodName|)$\", Operation=~\"^($Operation|)$\", TestName=~\"^($TestName|)$\", name=~\"^($name|)$\", stage=~\"^($stage|)$\", instance=~\"^($instance|)$\", metricName=~\"^($metricName|)$\", operation_type=~\"^($operation_type|)$\"}[$__interval])), \"Subresource\", \"\", \"Subresource\", \"__perfdash_empty__\")",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{percentile}} {{Resource}} {{Subresource}} {{Verb}} {{Scope}} {{endpoint}} {{resource}} {{PodName}} {{Operation}} {{TestName}} {{name}} {{stage}} {{type}} {{instance}} {{metricName}} {{operation_type}} {{unit}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "$job \u2014 $category / $metric",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 18,
+  "style": "dark",
+  "tags": [
+    "perfdash",
+    "thanos",
+    "scalability"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "gce-5000Nodes",
+          "value": "gce-5000Nodes"
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(job)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": "label_values(job)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "APIServer",
+          "value": "APIServer"
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\"}, category)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Category",
+        "multi": false,
+        "name": "category",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\"}, category)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "LoadResponsiveness_PrometheusSimple",
+          "value": "LoadResponsiveness_PrometheusSimple"
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\"}, metric)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Metric",
+        "multi": false,
+        "name": "metric",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\"}, metric)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, percentile)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Percentile",
+        "multi": true,
+        "name": "percentile",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, percentile)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Resource)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Resource",
+        "multi": true,
+        "name": "Resource",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Resource)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Verb)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Verb",
+        "multi": true,
+        "name": "Verb",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Verb)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Scope)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Scope",
+        "multi": true,
+        "name": "Scope",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Scope)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Subresource)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Subresource",
+        "multi": true,
+        "name": "Subresource",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Subresource)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, PodName)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "PodName",
+        "multi": true,
+        "name": "PodName",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, PodName)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Operation)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Operation",
+        "multi": true,
+        "name": "Operation",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, Operation)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, TestName)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "TestName",
+        "multi": true,
+        "name": "TestName",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, TestName)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, endpoint)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "endpoint",
+        "multi": true,
+        "name": "endpoint",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, endpoint)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, resource)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "resource",
+        "multi": true,
+        "name": "resource",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, resource)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "name",
+        "multi": true,
+        "name": "name",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, name)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, stage)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "stage",
+        "multi": true,
+        "name": "stage",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, stage)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, instance)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, metricName)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "metricName",
+        "multi": true,
+        "name": "metricName",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, metricName)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": "Thanos",
+        "definition": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, operation_type)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "operation_type",
+        "multi": true,
+        "name": "operation_type",
+        "options": [],
+        "query": "label_values(perfdash_metric{job=\"$job\",category=\"$category\",metric=\"$metric\"}, operation_type)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d",
+      "90d"
+    ]
+  },
+  "timezone": "",
+  "title": "PerfDash \u2014 Kubernetes Scalability & Performance (Thanos)",
+  "uid": "perfdash-grafana",
+  "version": 1
+}

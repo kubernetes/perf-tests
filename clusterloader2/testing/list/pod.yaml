@@ -1,4 +1,9 @@
 {{$group := DefaultParam .group .Name}}
+{{$RealisticPodSizeKB := DefaultParam .CL2_REALISTIC_POD_SIZE_KB 10}}
+{{if and (ne $RealisticPodSizeKB 10) (ne $RealisticPodSizeKB 20)}}
+  {{DivideInt 1 0}}
+{{end}}
+{{$RealisticPod20KB := eq $RealisticPodSizeKB 20}}
 
 apiVersion: v1
 kind: Pod
@@ -27,12 +32,73 @@ metadata:
 spec:
   schedulerName: "do-not-schedule"
   initContainers:
-  - name: init-0
-    image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
+  {{range $i := Loop 2}}
+  - name: init-{{$i}}
+    image: {{$.ImageRegistry}}/e2e-test-images/agnhost:2.53
     command: ["/bin/sh", "-c", "sleep 1"]
-  - name: init-1
-    image: {{.ImageRegistry}}/e2e-test-images/agnhost:2.53
-    command: ["/bin/sh", "-c", "sleep 1"]
+    {{if $RealisticPod20KB}}
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          resource: limits.cpu
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          resource: limits.memory
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=75.0"
+    - name: REDIS_URL
+      value: "redis://main:6379/0"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: NODE_ENV
+      value: "prod"
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    volumeMounts:
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
+  {{end}}
   containers:
   - name: main
     image: {{.ImageRegistry}}/pause:3.9
@@ -71,6 +137,12 @@ spec:
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    {{end}}
     resources:
       requests:
         cpu: 5m
@@ -80,6 +152,24 @@ spec:
       name: configmap
     - mountPath: /var/secret
       name: secret
+    {{if $RealisticPod20KB}}
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
   - name: sidecar
     image: {{.ImageRegistry}}/pause:3.9
     env:
@@ -117,10 +207,39 @@ spec:
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    {{end}}
     resources:
       requests:
         cpu: 5m
         memory: 20M
+    {{if $RealisticPod20KB}}
+    volumeMounts:
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
   volumes:
   - name: configmap
     configMap:
@@ -130,3 +249,21 @@ spec:
     secret:
       secretName: {{.Name}}
       optional: true
+  {{if $RealisticPod20KB}}
+  - name: cache
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+  - name: data
+    emptyDir: {}
+  - name: work
+    emptyDir: {}
+  - name: state
+    emptyDir: {}
+  - name: scratch
+    emptyDir: {}
+  - name: spool
+    emptyDir: {}
+  {{end}}

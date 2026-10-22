@@ -79,7 +79,7 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max(apiserver_watch_cache_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - apiserver_watch_cache_resource_version{resource="pods"}) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
         aggregations:
         - Max
         - Perc99
@@ -114,7 +114,7 @@ steps:
       dimensions:
       - name
       queries:
-      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - max by (name) (informer_store_resource_version{resource="pods"})) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
+      - query: ((scalar(max(etcd_debugging_mvcc_current_revision)) - informer_store_resource_version{resource="pods"}) / scalar(max(deriv(etcd_debugging_mvcc_current_revision[30s])) > 0))
         aggregations:
         - Max
         - Perc99
@@ -232,12 +232,11 @@ steps:
       dimensions:
       - container
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
-      - name: Perc90
-        query: quantile_over_time(0.90, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
-      - name: Perc50
-        query: quantile_over_time(0.50, sum by (container) (rate(container_cpu_usage_seconds_total[1m]))[%v:])
+      - query: sum by (container, pod, instance) (rate(container_cpu_usage_seconds_total[1m]))
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
   - Identifier: ContainerMemory
     Method: GenericPrometheusQuery
     Params:
@@ -248,12 +247,11 @@ steps:
       dimensions:
       - container
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
-      - name: Perc90
-        query: quantile_over_time(0.90, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
-      - name: Perc50
-        query: quantile_over_time(0.50, sum by (container) (container_memory_working_set_bytes / 1024 / 1024)[%v:])
+      - query: sum by (container, pod, instance) (container_memory_working_set_bytes / 1024 / 1024)
+        aggregations:
+        - Perc99
+        - Perc90
+        - Perc50
 {{end}}
 {{if $ENABLE_TERMINATED_WATCHES_MEASUREMENT}}
   - Identifier: TerminatedWatchesMetrics
@@ -354,10 +352,10 @@ steps:
       - resource
       - group
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
-      - name: max
-        query: max_over_time(sum by (group, resource) (apiserver_resource_size_estimate_bytes / 1024 / 1024)[%v:])
+      - query: apiserver_resource_size_estimate_bytes / 1024 / 1024
+        aggregations:
+        - Perc99
+        - max
   - Identifier: ObjectCount
     Method: GenericPrometheusQuery
     Params:
@@ -369,10 +367,10 @@ steps:
       - resource
       - group
       queries:
-      - name: Perc99
-        query: quantile_over_time(0.99, sum by (group, resource) (apiserver_resource_objects)[%v:])
-      - name: max
-        query: max_over_time(sum by (group, resource) (apiserver_resource_objects)[%v:])
+      - query: apiserver_resource_objects
+        aggregations:
+        - Perc99
+        - max
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

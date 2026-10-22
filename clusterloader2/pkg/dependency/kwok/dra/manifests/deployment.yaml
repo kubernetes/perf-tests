@@ -1,0 +1,92 @@
+---
+# Source: kwok/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kwok-controller
+  namespace: kwok-system
+  labels:
+    helm.sh/chart: kwok-0.2.0
+    app.kubernetes.io/name: kwok
+    app.kubernetes.io/instance: kwok-controller
+    app.kubernetes.io/version: "v0.7.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kwok
+      app.kubernetes.io/instance: kwok-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kwok
+        app.kubernetes.io/instance: kwok-controller
+    spec:
+      serviceAccountName: kwok-controller
+      restartPolicy: Always
+      containers:
+      - name: kwok
+        image: "registry.k8s.io/kwok/kwok:v0.7.0"
+        args:
+        - --config=/root/.kwok/kwok.yaml
+        - --node-ip=$(POD_IP)
+        env:
+          
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          {}
+        livenessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /healthz
+            port: 10247
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 10247
+            scheme: HTTP
+          initialDelaySeconds: 2
+          periodSeconds: 20
+          timeoutSeconds: 2
+        startupProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 10247
+            scheme: HTTP
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          timeoutSeconds: 2
+        volumeMounts:
+        - name: kwok-config
+          subPath: kwok.yaml
+          mountPath: /root/.kwok/kwok.yaml
+          readOnly: true
+        resources:
+          {}
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+      hostNetwork: false
+      volumes:
+      - name: kwok-config
+        configMap:
+          name: kwok-controller

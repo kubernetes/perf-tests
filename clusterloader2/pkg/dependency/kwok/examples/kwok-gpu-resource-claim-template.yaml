@@ -1,0 +1,12 @@
+apiVersion: resource.k8s.io/v1beta2
+kind: ResourceClaimTemplate
+metadata:
+  name: kwok-gpu-claim-template
+spec:
+  spec:
+    devices:
+      requests:
+      - name: gpu
+        exactly: 
+          deviceClassName: cl2-gpu.kwok.x-k8s.io
+          count: 1

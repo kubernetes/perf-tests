@@ -291,20 +291,33 @@ func (g *genericQueryGatherer) gatherAggregatedQuery(q GenericQuery, executor Qu
 		return nil
 	}
 
+	type streamGroup struct {
+		labels map[string]string
+		values []model.SamplePair
+	}
+	groups := make(map[string]*streamGroup)
+	var groupOrder []string
 	for _, stream := range matrix {
 		k, labels := key(stream.Metric, g.Dimensions)
-		dataItem := getOrCreate(dataItems, k, g.Unit, labels)
+		grp, exists := groups[k]
+		if !exists {
+			grp = &streamGroup{labels: labels}
+			groups[k] = grp
+			groupOrder = append(groupOrder, k)
+		}
+		grp.values = append(grp.values, stream.Values...)
+	}
+
+	for _, k := range groupOrder {
+		grp := groups[k]
+		dataItem := getOrCreate(dataItems, k, g.Unit, grp.labels)
 		for _, agg := range q.Aggregations {
-			val, err := computeAggregation(agg, stream.Values)
+			val, err := computeAggregation(agg, grp.values)
 			if err != nil {
 				return err
 			}
 			dataKey := metricDataKey(q.Name, agg)
-			if prevVal, exists := dataItem.Data[dataKey]; exists {
-				*errs = append(*errs, errors.NewMetricViolationError(dataKey, fmt.Sprintf("too many samples for %s: query returned %v and %v, expected single value.", k, val, prevVal)))
-			} else {
-				dataItem.Data[dataKey] = val
-			}
+			dataItem.Data[dataKey] = val
 
 			if err := g.validateSample(dataKey, q, val); err != nil {
 				*errs = append(*errs, err)

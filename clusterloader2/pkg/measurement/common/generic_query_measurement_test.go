@@ -603,6 +603,119 @@ func TestGather(t *testing.T) {
 			},
 		},
 		{
+			desc: "aggregated query calculates aggregations over all members for same dimension",
+			params: map[string]interface{}{
+				"metricName":    "ObjectCount",
+				"metricVersion": "v1",
+				"unit":          "count",
+				"dimensions": []interface{}{
+					"resource",
+					"group",
+				},
+				"queries": []map[string]interface{}{
+					{
+						"query": "apiserver_resource_objects",
+						"aggregations": []interface{}{
+							"Perc99",
+							"Perc50",
+							"max",
+							"Min",
+							"Avg",
+						},
+					},
+				},
+			},
+			matrices: map[string]model.Matrix{
+				"(apiserver_resource_objects)[60s:30s]": {
+					{
+						Metric: model.Metric{
+							model.LabelName("instance"): model.LabelValue("apiserver-1"),
+							model.LabelName("resource"): model.LabelValue("pods"),
+							model.LabelName("group"):    model.LabelValue(""),
+						},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 100},
+							{Timestamp: 30000, Value: 110},
+						},
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("instance"): model.LabelValue("apiserver-2"),
+							model.LabelName("resource"): model.LabelValue("pods"),
+							model.LabelName("group"):    model.LabelValue(""),
+						},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 100},
+							{Timestamp: 30000, Value: 120},
+						},
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("instance"): model.LabelValue("apiserver-3"),
+							model.LabelName("resource"): model.LabelValue("pods"),
+							model.LabelName("group"):    model.LabelValue(""),
+						},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 100},
+							{Timestamp: 30000, Value: 130},
+						},
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("instance"): model.LabelValue("apiserver-1"),
+							model.LabelName("resource"): model.LabelValue("deployments"),
+							model.LabelName("group"):    model.LabelValue("apps"),
+						},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 10},
+							{Timestamp: 30000, Value: 20},
+						},
+					},
+					{
+						Metric: model.Metric{
+							model.LabelName("instance"): model.LabelValue("apiserver-2"),
+							model.LabelName("resource"): model.LabelValue("deployments"),
+							model.LabelName("group"):    model.LabelValue("apps"),
+						},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 10},
+							{Timestamp: 30000, Value: 30},
+						},
+					},
+				},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{
+						"resource": "pods",
+						"group":    "",
+					},
+					Unit: "count",
+					Data: map[string]float64{
+						"Perc99": computePrometheusQuantile(0.99, []float64{100, 110, 100, 120, 100, 130}),
+						"Perc50": computePrometheusQuantile(0.50, []float64{100, 110, 100, 120, 100, 130}),
+						"max":    130.0,
+						"Min":    100.0,
+						"Avg":    110.0,
+					},
+				},
+				{
+					Labels: map[string]string{
+						"resource": "deployments",
+						"group":    "apps",
+					},
+					Unit: "count",
+					Data: map[string]float64{
+						"Perc99": computePrometheusQuantile(0.99, []float64{10, 20, 10, 30}),
+						"Perc50": computePrometheusQuantile(0.50, []float64{10, 20, 10, 30}),
+						"max":    30.0,
+						"Min":    10.0,
+						"Avg":    17.5,
+					},
+				},
+			},
+		},
+		{
 			desc: "invalid aggregation name fails configuration",
 			params: map[string]interface{}{
 				"metricName":    "InvalidAgg",

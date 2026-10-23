@@ -70,6 +70,79 @@ steps:
       customThresholds: {{YamlQuote $CUSTOM_API_CALL_THRESHOLDS 4}}
       singleResourceThreshold: {{$SINGLE_RESOURCE_API_LATENCY_THRESHOLD}}
 {{end}}
+  - Identifier: ActiveWatchRequests
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: ActiveWatchRequests
+      metricVersion: v1
+      unit: watches
+      dimensions:
+      - resource
+      queries:
+      - query: sum by (resource) (apiserver_longrunning_requests{verb="WATCH"})
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: WatchEventsDispatchLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchEventsDispatchLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      - stage
+      queries:
+      - query: histogram_quantile(0.99, sum(rate(apiserver_watch_events_dispatch_duration_seconds_bucket{resource="pods",stage!="total"}[1m])) by (resource, stage, le))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: WatchCacheEventsDispatchedRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchCacheEventsDispatchedRate
+      metricVersion: v1
+      unit: ops
+      dimensions:
+      - resource
+      queries:
+      - query: sum by (resource) (rate(apiserver_watch_cache_events_dispatched_total[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
+  - Identifier: WatchDataRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: WatchDataRate
+      metricVersion: v1
+      unit: Bps
+      dimensions:
+      - resource
+      queries:
+      - query: sum by (resource) (rate(apiserver_watch_events_sizes_sum[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
   - Identifier: WatchCacheLag
     Method: GenericPrometheusQuery
     Params:
@@ -97,6 +170,42 @@ steps:
       - resource
       queries:
       - query: histogram_quantile(0.99, sum by (resource, le) (rate(apiserver_watch_cache_read_wait_seconds_bucket{resource="pods"}[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: InformerQueuedItems
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: InformerQueuedItems
+      metricVersion: v1
+      unit: items
+      dimensions:
+      - resource
+      - endpoint
+      queries:
+      - query: informer_queued_items{resource="pods"}
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: InformerProcessingLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: InformerProcessingLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      - endpoint
+      queries:
+      - query: histogram_quantile(0.99, sum(rate(informer_processing_latency_seconds_bucket{resource="pods"}[1m])) by (resource, endpoint, le))
         aggregations:
         - Max
         - Perc99
@@ -371,6 +480,454 @@ steps:
         aggregations:
         - Perc99
         - max
+  # === APF ===
+  - Identifier: APFRejectedRequestsRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRejectedRequestsRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - priority_level
+      - flow_schema
+      - reason
+      queries:
+      - query: sum by (priority_level, flow_schema, reason) (rate(apiserver_flowcontrol_rejected_requests_total[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFDispatchedRequestsRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFDispatchedRequestsRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (rate(apiserver_flowcontrol_dispatched_requests_total[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
+  - Identifier: APFCurrentInQueueRequests
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentInQueueRequests
+      metricVersion: v1
+      unit: requests
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (apiserver_flowcontrol_current_inqueue_requests)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFCurrentExecutingSeats
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentExecutingSeats
+      metricVersion: v1
+      unit: seats
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (apiserver_flowcontrol_current_executing_seats)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFCurrentLimitSeats
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentLimitSeats
+      metricVersion: v1
+      unit: seats
+      dimensions:
+      - priority_level
+      queries:
+      - query: apiserver_flowcontrol_current_limit_seats
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFRequestWaitDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRequestWaitDuration
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - priority_level
+      - flow_schema
+      - executed
+      queries:
+      - query: histogram_quantile(0.99, sum by (priority_level, flow_schema, executed, le) (rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFRequestExecutionDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRequestExecutionDuration
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: histogram_quantile(0.99, sum by (priority_level, flow_schema, le) (rate(apiserver_flowcontrol_request_execution_seconds_bucket[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  # === Etcd & Storage ===
+  - Identifier: StorageUpdateConflictRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: StorageUpdateConflictRate
+      metricVersion: v1
+      unit: ops
+      dimensions:
+      - operation
+      - resource
+      queries:
+      - query: sum by (operation, resource) (rate(etcd_request_errors_total{reason="Conflict"}[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: StorageUpdateConflictRatio
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: StorageUpdateConflictRatio
+      metricVersion: v1
+      unit: ratio
+      dimensions:
+      - operation
+      - resource
+      queries:
+      - query: sum by (operation, resource) (rate(etcd_request_errors_total{reason="Conflict"}[1m])) / sum by (operation, resource) (rate(etcd_requests_total[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: EtcdClientLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdClientLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - resource
+      - operation
+      queries:
+      - query: histogram_quantile(0.99, sum by (resource, operation, le) (rate(etcd_request_duration_seconds_bucket{resource="pods"}[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: EtcdServerLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdServerLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - type
+      queries:
+      - query: histogram_quantile(0.99, sum by (type, le) (rate(etcd_server_request_duration_seconds_bucket[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: EtcdServerRequestRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdServerRequestRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - type
+      queries:
+      - query: sum by (type) (rate(etcd_server_request_duration_seconds_count[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
+  - Identifier: EtcdDBSize
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdDBSize
+      metricVersion: v1
+      unit: B
+      queries:
+      - name: Total
+        query: etcd_mvcc_db_total_size_in_bytes
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+      - name: InUse
+        query: etcd_mvcc_db_total_size_in_use_in_bytes
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+      - name: Quota
+        query: etcd_server_quota_backend_bytes
+        aggregations:
+        - Max
+  - Identifier: EtcdCompactWindow
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: EtcdCompactWindow
+      metricVersion: v1
+      unit: s
+      queries:
+      - query: (etcd_debugging_mvcc_current_revision - etcd_debugging_mvcc_compact_revision) / (rate(etcd_debugging_mvcc_current_revision[5m]) > 0)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  # === Go Runtime ===
+  - Identifier: GoAllocationsBytesRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoAllocationsBytesRate
+      metricVersion: v1
+      unit: Bps
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_memstats_alloc_bytes_total{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoAllocationsMallocsRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoAllocationsMallocsRate
+      metricVersion: v1
+      unit: ops
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_memstats_mallocs_total{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoMutexWaitTime
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoMutexWaitTime
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_sync_mutex_wait_total_seconds_total{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoGCDurationRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCDurationRate
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_gc_duration_seconds_sum{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoSchedLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoSchedLatency
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - endpoint
+      queries:
+      - query: histogram_quantile(0.99, sum(rate(go_sched_latencies_seconds_bucket{job="master"}[1m])) by (endpoint, le))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoUserCPURate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoUserCPURate
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_cpu_classes_user_cpu_seconds_total{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoGCMarkAssistCPURate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCMarkAssistCPURate
+      metricVersion: v1
+      unit: cores
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_cpu_classes_gc_mark_assist_cpu_seconds_total{job="master"}[1m])
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoRunnableGoroutines
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoRunnableGoroutines
+      metricVersion: v1
+      unit: goroutines
+      dimensions:
+      - endpoint
+      queries:
+      - query: go_sched_goroutines_runnable_goroutines{job="master"}
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoNextGCBytes
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoNextGCBytes
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - endpoint
+      queries:
+      - query: go_memstats_next_gc_bytes{job="master"}
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
+  - Identifier: GoGCSaturation
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoGCSaturation
+      metricVersion: v1
+      unit: ratio
+      dimensions:
+      - endpoint
+      queries:
+      - query: rate(go_memstats_alloc_bytes_total{job="master"}[1m]) * (100 + go_gc_gogc_percent{job="master"}) / (8192 * go_gc_gogc_percent{job="master"}) / 1.7e6
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: GoHeapInuseBytes
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: GoHeapInuseBytes
+      metricVersion: v1
+      unit: B
+      dimensions:
+      - endpoint
+      queries:
+      - query: go_memstats_heap_inuse_bytes{job="master"}
+        aggregations:
+        - Max
+        - Perc99
+        - Avg
+        - Min
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

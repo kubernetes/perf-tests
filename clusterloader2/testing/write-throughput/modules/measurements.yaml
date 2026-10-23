@@ -245,6 +245,137 @@ steps:
         - Perc99
         - Max
 
+  # === APF ===
+  - Identifier: APFRejectedRequestsRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRejectedRequestsRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - priority_level
+      - flow_schema
+      - reason
+      queries:
+      - query: sum by (priority_level, flow_schema, reason) (rate(apiserver_flowcontrol_rejected_requests_total[1m]))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFDispatchedRequestsRatePrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFDispatchedRequestsRate
+      metricVersion: v1
+      unit: reqps
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (rate(apiserver_flowcontrol_dispatched_requests_total[1m]))
+        aggregations:
+        - Min
+        - Perc10
+        - Perc50
+        - Avg
+        - Perc90
+        - Perc99
+        - Max
+  - Identifier: APFCurrentInQueueRequestsPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentInQueueRequests
+      metricVersion: v1
+      unit: requests
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (apiserver_flowcontrol_current_inqueue_requests)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFCurrentExecutingSeatsPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentExecutingSeats
+      metricVersion: v1
+      unit: seats
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: sum by (priority_level, flow_schema) (apiserver_flowcontrol_current_executing_seats)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFCurrentLimitSeatsPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFCurrentLimitSeats
+      metricVersion: v1
+      unit: seats
+      dimensions:
+      - priority_level
+      queries:
+      - query: max by (priority_level) (apiserver_flowcontrol_current_limit_seats)
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFRequestWaitDurationPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRequestWaitDuration
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - priority_level
+      - flow_schema
+      - executed
+      queries:
+      - query: histogram_quantile(0.99, sum by (priority_level, flow_schema, executed, le) (rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+  - Identifier: APFRequestExecutionDurationPrometheus
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: APFRequestExecutionDuration
+      metricVersion: v1
+      unit: s
+      dimensions:
+      - priority_level
+      - flow_schema
+      queries:
+      - query: histogram_quantile(0.99, sum by (priority_level, flow_schema, le) (rate(apiserver_flowcontrol_request_execution_seconds_bucket[1m])))
+        aggregations:
+        - Max
+        - Perc99
+        - Perc90
+        - Perc50
+        - Avg
+
   # === Watch Delay ===
   - Identifier: WatchEventsDispatchLatencyPrometheus
     Method: GenericPrometheusQuery

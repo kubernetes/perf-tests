@@ -20,23 +20,8 @@ steps:
     Params:
       action: pauseSystemPodMetrics
 
-- name: Start WatchCacheInitializationDuration measurement
+- name: Start WatchCacheInitializationDurationMax measurement
   measurements:
-  - Identifier: WatchCacheInitializationDuration
-    Method: GenericPrometheusQuery
-    Params:
-      action: start
-      metricName: Watch Cache Initialization Duration
-      metricVersion: v1
-      unit: s
-      dimensions:
-      - resource
-      - instance
-      queries:
-      - name: InitDuration
-        query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_sum) / (sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count) > 0)
-      - name: InitCount
-        query: sum by (resource, instance) (apiserver_watch_cache_initialization_duration_seconds_count)
   - Identifier: WatchCacheInitializationDurationMax
     Method: GenericPrometheusQuery
     Params:
@@ -65,12 +50,8 @@ steps:
     Params:
       duration: {{$SETTLE_DURATION}}
 
-- name: Gather WatchCacheInitializationDuration measurement
+- name: Gather WatchCacheInitializationDurationMax measurement
   measurements:
-  - Identifier: WatchCacheInitializationDuration
-    Method: GenericPrometheusQuery
-    Params:
-      action: gather
   - Identifier: WatchCacheInitializationDurationMax
     Method: GenericPrometheusQuery
     Params:

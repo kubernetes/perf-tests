@@ -566,7 +566,7 @@ steps:
       dimensions:
       - priority_level
       queries:
-      - query: apiserver_flowcontrol_current_limit_seats
+      - query: sum by (priority_level) (apiserver_flowcontrol_current_limit_seats)
         aggregations:
         - Max
         - Perc99

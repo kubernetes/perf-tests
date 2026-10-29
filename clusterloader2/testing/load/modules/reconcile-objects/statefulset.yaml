@@ -101,33 +101,11 @@ spec:
           value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
         - name: SPRING_APPLICATION_JSON
           value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+        {{if $EnablePVs}}
         volumeMounts:
-          {{if $EnablePVs}}
           - name: pv
             mountPath: /var/pv
-          {{end}}
-          - mountPath: /var/cache
-            name: cache
-          - mountPath: /var/logs
-            name: logs
-          - mountPath: /var/tmp
-            name: tmp
-          - mountPath: /var/data
-            name: data
-          - mountPath: /var/work
-            name: work
-          - mountPath: /var/state
-            name: state
-          - mountPath: /var/scratch
-            name: scratch
-          - mountPath: /var/spool
-            name: spool
-          - mountPath: /var/backups
-            name: backups
-          {{if not $EnablePVs}}
-          - mountPath: /var/opt
-            name: opt
-          {{end}}
+        {{end}}
         {{end}}
       {{end}}
       containers:
@@ -181,36 +159,10 @@ spec:
           requests:
             cpu: 5m
             memory: 20M
-        {{if or $EnablePVs $RealisticPod20KB}}
+        {{if $EnablePVs}}
         volumeMounts:
-          {{if $EnablePVs}}
           - name: pv
             mountPath: /var/pv
-          {{end}}
-          {{if $RealisticPod20KB}}
-          - mountPath: /var/cache
-            name: cache
-          - mountPath: /var/logs
-            name: logs
-          - mountPath: /var/tmp
-            name: tmp
-          - mountPath: /var/data
-            name: data
-          - mountPath: /var/work
-            name: work
-          - mountPath: /var/state
-            name: state
-          - mountPath: /var/scratch
-            name: scratch
-          - mountPath: /var/spool
-            name: spool
-          - mountPath: /var/backups
-            name: backups
-          {{if not $EnablePVs}}
-          - mountPath: /var/opt
-            name: opt
-          {{end}}
-          {{end}}
         {{end}}
       - name: sidecar
         image: {{.ImageRegistry}}/pause:3.9
@@ -259,60 +211,12 @@ spec:
           requests:
             cpu: 5m
             memory: 20M
-        {{if $RealisticPod20KB}}
+        {{if and $RealisticPod20KB $EnablePVs}}
         volumeMounts:
-          {{if $EnablePVs}}
           - name: pv
             mountPath: /var/pv
-          {{end}}
-          - mountPath: /var/cache
-            name: cache
-          - mountPath: /var/logs
-            name: logs
-          - mountPath: /var/tmp
-            name: tmp
-          - mountPath: /var/data
-            name: data
-          - mountPath: /var/work
-            name: work
-          - mountPath: /var/state
-            name: state
-          - mountPath: /var/scratch
-            name: scratch
-          - mountPath: /var/spool
-            name: spool
-          - mountPath: /var/backups
-            name: backups
-          {{if not $EnablePVs}}
-          - mountPath: /var/opt
-            name: opt
-          {{end}}
         {{end}}
-      {{if $RealisticPod20KB}}
-      volumes:
-      - name: cache
-        emptyDir: {}
-      - name: logs
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
-      - name: data
-        emptyDir: {}
-      - name: work
-        emptyDir: {}
-      - name: state
-        emptyDir: {}
-      - name: scratch
-        emptyDir: {}
-      - name: spool
-        emptyDir: {}
-      - name: backups
-        emptyDir: {}
-      {{if not $EnablePVs}}
-      - name: opt
-        emptyDir: {}
-      {{end}}
-      {{end}}
+      # TODO(https://github.com/kubernetes/perf-tests/issues/4520): Add emptyDir volumes once WaitForControlledPodsRunning supports volumes with volumeClaimTemplates.
 {{else}}
       containers:
       - name: {{.Name}}

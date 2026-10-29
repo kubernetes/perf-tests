@@ -167,6 +167,12 @@ cmd_download() {
       gcloud storage cp -n "${gcs_path}" "${local_file}"
   done
 
+  # ClusterLoader2 logs its step markers to the job level build-log.txt, which is
+  # a sibling of artifacts/ rather than a member of it. Ingest anchors the run's
+  # timeline on the first step, so fetch it when the job published one.
+  gcloud storage cp -n "${PREFIX%/artifacts}/build-log.txt" "${DEST_DIR}/build-log.txt" 2>/dev/null \
+    || echo "    Note: no build-log.txt, ingest will anchor on the start of scraped data"
+
   ABS_RUN_DIR="$(cd "${DEST_DIR}" && pwd)"
   echo "==> Download complete for Build ID ${BUILD_ID}."
   echo "    Saved to: ${ABS_RUN_DIR}"

@@ -10,6 +10,9 @@
   "liveNow": false,
   "panels": [
     {
+      "columns": [],
+      "datasource": "Prometheus",
+      "fontSize": "100%",
       "gridPos": {
         "h": 30,
         "w": 24,
@@ -17,115 +20,120 @@
         "y": 0
       },
       "id": 1,
-      "title": "Kubernetes Scalability SLO Verification Report ($run)",
-      "type": "table",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "links": [],
+      "pageSize": null,
+      "scroll": true,
+      "showHeader": true,
+      "sort": {
+        "col": 6,
+        "desc": false
       },
+      "styles": [
+        {
+          "alias": "Time",
+          "dateFormat": "YYYY-MM-DD HH:mm:ss",
+          "pattern": "Time",
+          "type": "hidden"
+        },
+        {
+          "alias": "",
+          "pattern": "__name__",
+          "type": "hidden"
+        },
+        {
+          "alias": "",
+          "pattern": "instance",
+          "type": "hidden"
+        },
+        {
+          "alias": "",
+          "pattern": "job",
+          "type": "hidden"
+        },
+        {
+          "alias": "",
+          "pattern": "run",
+          "type": "hidden"
+        },
+        {
+          "alias": "SLO Category",
+          "pattern": "slo",
+          "type": "string"
+        },
+        {
+          "alias": "Resource",
+          "pattern": "resource",
+          "type": "string"
+        },
+        {
+          "alias": "Verb",
+          "pattern": "verb",
+          "type": "string"
+        },
+        {
+          "alias": "Threshold",
+          "pattern": "target",
+          "type": "string"
+        },
+        {
+          "alias": "Measured",
+          "pattern": "actual",
+          "type": "string"
+        },
+        {
+          "alias": "Status",
+          "colorMode": "value",
+          "colors": [
+            "rgba(245, 54, 54, 0.9)",
+            "rgba(50, 172, 45, 0.97)",
+            "rgba(237, 129, 40, 0.89)"
+          ],
+          "decimals": 0,
+          "mappingType": 1,
+          "pattern": "Value",
+          "thresholds": [
+            "1"
+          ],
+          "type": "string",
+          "unit": "short",
+          "valueMaps": [
+            {
+              "text": "\ud83d\udd34 FAIL",
+              "value": "0"
+            },
+            {
+              "text": "\ud83d\udfe2 PASS",
+              "value": "1"
+            }
+          ]
+        }
+      ],
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "last_over_time(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\", verb=~\"$verb\"}[100y])",
           "format": "table",
-          "instant": true,
-          "range": false,
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "instance": true,
-              "job": true,
-              "run": true
-            },
-            "indexByName": {
-              "slo": 0,
-              "resource": 1,
-              "verb": 2,
-              "target": 3,
-              "actual": 4,
-              "Value": 5
-            },
-            "renameByName": {
-              "Value": "Status",
-              "actual": "Measured",
-              "resource": "Resource",
-              "slo": "SLO Category",
-              "target": "Threshold",
-              "verb": "Verb"
-            }
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "🔴 FAIL"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "🟢 PASS"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
+      "title": "Kubernetes Scalability SLO Verification Report ($run)",
+      "transform": "table",
+      "type": "table"
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 38,
+  "schemaVersion": 18,
   "style": "dark",
-  "tags": ["perflens", "slo"],
+  "tags": [
+    "perflens",
+    "slo"
+  ],
   "templating": {
     "list": [
       {
         "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(k8s_slo_status, run)",
         "hide": 0,
         "includeAll": false,
@@ -133,10 +141,7 @@
         "multi": false,
         "name": "run",
         "options": [],
-        "query": {
-          "query": "label_values(k8s_slo_status, run)",
-          "refId": "StandardVariableQuery"
-        },
+        "query": "label_values(k8s_slo_status, run)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -154,10 +159,7 @@
             "$__all"
           ]
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(k8s_slo_status{run=~\"$run\"}, slo)",
         "hide": 0,
         "includeAll": true,
@@ -165,10 +167,7 @@
         "multi": true,
         "name": "slo",
         "options": [],
-        "query": {
-          "query": "label_values(k8s_slo_status{run=~\"$run\"}, slo)",
-          "refId": "StandardVariableQuery"
-        },
+        "query": "label_values(k8s_slo_status{run=~\"$run\"}, slo)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -186,10 +185,7 @@
             "$__all"
           ]
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\"}, resource)",
         "hide": 0,
         "includeAll": true,
@@ -197,10 +193,7 @@
         "multi": true,
         "name": "resource",
         "options": [],
-        "query": {
-          "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\"}, resource)",
-          "refId": "StandardVariableQuery"
-        },
+        "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\"}, resource)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -218,10 +211,7 @@
             "$__all"
           ]
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\"}, verb)",
         "hide": 0,
         "includeAll": true,
@@ -229,10 +219,7 @@
         "multi": true,
         "name": "verb",
         "options": [],
-        "query": {
-          "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\"}, verb)",
-          "refId": "StandardVariableQuery"
-        },
+        "query": "label_values(k8s_slo_status{run=~\"$run\", slo=~\"$slo\", resource=~\"$resource\"}, verb)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,

@@ -119,6 +119,10 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, &template); err != nil {
 		return nil, goerrors.Errorf("failed to parse spec.template as v1.PodTemplateSpec")
 	}
+	claimNames, err := volumeClaimTemplateNames(obj)
+	if err != nil {
+		return nil, err
+	}
 
 	cache := make(map[podCacheKey]error)
 	var mu sync.Mutex
@@ -133,8 +137,15 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 		mu.Unlock()
 
 		var err error
-		if !equality.Semantic.DeepDerivative(template.Spec, pod.Spec) {
-			err = &lazySpecDiffError{template.Spec, pod.Spec}
+		expected, actual := template.Spec, pod.Spec
+		if len(claimNames) > 0 {
+			expectedCopy := expected.DeepCopy()
+			actualCopy := actual.DeepCopy()
+			alignStatefulSetClaimVolumes(expectedCopy, actualCopy, claimNames)
+			expected, actual = *expectedCopy, *actualCopy
+		}
+		if !equality.Semantic.DeepDerivative(expected, actual) {
+			err = &lazySpecDiffError{expected, actual}
 		}
 
 		mu.Lock()
@@ -142,6 +153,69 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 		mu.Unlock()
 		return err
 	}, nil
+}
+
+// volumeClaimTemplateNames returns StatefulSet volumeClaimTemplates names.
+// The controller inserts one volume per claim in front of the pod template
+// volumes; other controllers do not have this field.
+func volumeClaimTemplateNames(obj *unstructured.Unstructured) ([]string, error) {
+	raw, found, err := unstructured.NestedSlice(obj.UnstructuredContent(), "spec", "volumeClaimTemplates")
+	if err != nil || !found {
+		return nil, err
+	}
+	names := make([]string, 0, len(raw))
+	for _, item := range raw {
+		claim, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _, nameErr := unstructured.NestedString(claim, "metadata", "name")
+		if nameErr != nil {
+			return nil, nameErr
+		}
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}
+
+// alignStatefulSetClaimVolumes makes the template and pod volume lists line up
+// with StatefulSet updateStorage. Claim volumes are prepended, in template
+// order. The expected claim volume leaves ClaimName empty: the real name
+// includes the pod ordinal, and DeepDerivative ignores zero fields.
+func alignStatefulSetClaimVolumes(template, pod *corev1.PodSpec, claimNames []string) {
+	if len(claimNames) == 0 {
+		return
+	}
+	claimed := make(map[string]struct{}, len(claimNames))
+	for _, name := range claimNames {
+		claimed[name] = struct{}{}
+	}
+	byName := make(map[string]corev1.Volume, len(claimNames))
+	rest := make([]corev1.Volume, 0, len(pod.Volumes))
+	for _, volume := range pod.Volumes {
+		if _, ok := claimed[volume.Name]; ok {
+			byName[volume.Name] = volume
+			continue
+		}
+		rest = append(rest, volume)
+	}
+	front := make([]corev1.Volume, 0, len(claimNames))
+	expected := make([]corev1.Volume, 0, len(claimNames)+len(template.Volumes))
+	for _, name := range claimNames {
+		expected = append(expected, corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{},
+			},
+		})
+		if volume, ok := byName[name]; ok {
+			front = append(front, volume)
+		}
+	}
+	pod.Volumes = append(front, rest...)
+	template.Volumes = append(expected, template.Volumes...)
 }
 
 // GetSpecFromRuntimeObject returns spec of given runtime object.

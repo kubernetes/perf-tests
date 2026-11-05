@@ -269,6 +269,16 @@ func getFloat64(dict map[string]interface{}, key string) (float64, error) {
 	if ok {
 		return floatValue, nil
 	}
+	// YAML configs decode integer params (e.g. `threshold: 1`) as int
+	// rather than float64, so accept integer kinds mirroring getInt.
+	switch intValue := value.(type) {
+	case int:
+		return float64(intValue), nil
+	case int32:
+		return float64(intValue), nil
+	case int64:
+		return float64(intValue), nil
+	}
 	stringValue, ok := value.(string)
 	if ok {
 		if f, err := strconv.ParseFloat(stringValue, 64); err == nil {

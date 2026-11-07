@@ -18,6 +18,7 @@ package common
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 
@@ -731,6 +732,129 @@ func TestGather(t *testing.T) {
 				},
 			},
 			wantConfigureErr: "invalid percentile aggregation",
+		},
+		{
+			desc: "aggregated query ignores NaN and Inf sample values",
+			params: map[string]interface{}{
+				"metricName":    "StorageWriteAmplification",
+				"metricVersion": "v1",
+				"unit":          "ratio",
+				"dimensions": []interface{}{
+					"resource",
+				},
+				"queries": []map[string]interface{}{
+					{
+						"query": "sum by (resource) (rate(etcd_requests_total[1m])) / sum by (resource) (rate(etcd_requests_ok[1m]))",
+						"aggregations": []interface{}{
+							"Max",
+							"Perc99",
+							"Perc50",
+							"Avg",
+						},
+					},
+				},
+			},
+			matrices: map[string]model.Matrix{
+				"(sum by (resource) (rate(etcd_requests_total[1m])) / sum by (resource) (rate(etcd_requests_ok[1m])))[60s:30s]": {
+					{
+						Metric: model.Metric{model.LabelName("resource"): model.LabelValue("pods")},
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: 1.0},
+							{Timestamp: 30000, Value: model.SampleValue(math.Inf(1))},
+							{Timestamp: 60000, Value: model.SampleValue(math.Inf(-1))},
+							{Timestamp: 90000, Value: model.SampleValue(math.NaN())},
+							{Timestamp: 120000, Value: 3.0},
+						},
+					},
+				},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{
+						"resource": "pods",
+					},
+					Unit: "ratio",
+					Data: map[string]float64{
+						"Max":    3.0,
+						"Perc99": computePrometheusQuantile(0.99, []float64{1.0, 3.0}),
+						"Perc50": 2.0,
+						"Avg":    2.0,
+					},
+				},
+			},
+		},
+		{
+			desc: "aggregated query with only Inf and NaN values and requireSamples",
+			params: map[string]interface{}{
+				"metricName":    "AllNonFinite",
+				"metricVersion": "v1",
+				"unit":          "ratio",
+				"queries": []map[string]interface{}{
+					{
+						"query":          "a / b",
+						"requireSamples": true,
+						"aggregations": []interface{}{
+							"Max",
+							"Avg",
+						},
+					},
+				},
+			},
+			matrices: map[string]model.Matrix{
+				"(a / b)[60s:30s]": {
+					{
+						Values: []model.SamplePair{
+							{Timestamp: 0, Value: model.SampleValue(math.Inf(1))},
+							{Timestamp: 30000, Value: model.SampleValue(math.NaN())},
+						},
+					},
+				},
+			},
+			wantErr: "no samples",
+		},
+		{
+			desc: "instant query ignores NaN and Inf sample values",
+			params: map[string]interface{}{
+				"metricName":    "InstantNonFinite",
+				"metricVersion": "v1",
+				"unit":          "ratio",
+				"dimensions": []interface{}{
+					"resource",
+				},
+				"queries": []map[string]interface{}{
+					{
+						"name":  "ratio",
+						"query": "ratio_query[%v]",
+					},
+				},
+			},
+			samples: map[string][]*model.Sample{
+				"ratio_query[60s]": {
+					{
+						Metric: model.Metric{model.LabelName("resource"): model.LabelValue("pods")},
+						Value:  model.SampleValue(math.Inf(1)),
+					},
+					{
+						Metric: model.Metric{model.LabelName("resource"): model.LabelValue("configmaps")},
+						Value:  model.SampleValue(math.NaN()),
+					},
+					{
+						Metric: model.Metric{model.LabelName("resource"): model.LabelValue("secrets")},
+						Value:  model.SampleValue(1.5),
+					},
+				},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Labels: map[string]string{
+						"resource": "secrets",
+					},
+					Unit: "ratio",
+					Data: map[string]float64{
+						"ratio": 1.5,
+					},
+				},
+			},
 		},
 	}
 

@@ -279,17 +279,6 @@ func (g *genericQueryGatherer) gatherAggregatedQuery(q GenericQuery, executor Qu
 	if err != nil {
 		return err
 	}
-	if len(matrix) == 0 {
-		qLabel := q.Name
-		if qLabel == "" {
-			qLabel = strings.Join(q.Aggregations, ",")
-		}
-		if q.RequireSamples {
-			*errs = append(*errs, errors.NewMetricViolationError(qLabel, fmt.Sprintf("query returned no samples for %v", g.MetricName)))
-		}
-		klog.Warningf("query returned no samples for %v: %v", g.MetricName, qLabel)
-		return nil
-	}
 
 	type streamGroup struct {
 		labels map[string]string
@@ -299,13 +288,29 @@ func (g *genericQueryGatherer) gatherAggregatedQuery(q GenericQuery, executor Qu
 	var groupOrder []string
 	for _, stream := range matrix {
 		k, labels := key(stream.Metric, g.Dimensions)
-		grp, exists := groups[k]
-		if !exists {
-			grp = &streamGroup{labels: labels}
-			groups[k] = grp
-			groupOrder = append(groupOrder, k)
+		for _, pair := range stream.Values {
+			if !isFiniteSampleValue(pair.Value) {
+				continue
+			}
+			grp, exists := groups[k]
+			if !exists {
+				grp = &streamGroup{labels: labels}
+				groups[k] = grp
+				groupOrder = append(groupOrder, k)
+			}
+			grp.values = append(grp.values, pair)
 		}
-		grp.values = append(grp.values, stream.Values...)
+	}
+	if len(groupOrder) == 0 {
+		qLabel := q.Name
+		if qLabel == "" {
+			qLabel = strings.Join(q.Aggregations, ",")
+		}
+		if q.RequireSamples {
+			*errs = append(*errs, errors.NewMetricViolationError(qLabel, fmt.Sprintf("query returned no samples for %v", g.MetricName)))
+		}
+		klog.Warningf("query returned no samples for %v: %v", g.MetricName, qLabel)
+		return nil
 	}
 
 	for _, k := range groupOrder {
@@ -343,7 +348,14 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 			return nil, err
 		}
 
-		if len(samples) == 0 {
+		var finiteSamples []*model.Sample
+		for _, sample := range samples {
+			if isFiniteSampleValue(sample.Value) {
+				finiteSamples = append(finiteSamples, sample)
+			}
+		}
+
+		if len(finiteSamples) == 0 {
 			if q.RequireSamples {
 				errs = append(errs, errors.NewMetricViolationError(q.Name, fmt.Sprintf("query returned no samples for %v", g.MetricName)))
 			}
@@ -351,7 +363,7 @@ func (g *genericQueryGatherer) Gather(executor QueryExecutor, startTime, endTime
 			continue
 		}
 
-		for _, sample := range samples {
+		for _, sample := range finiteSamples {
 			k, labels := key(sample.Metric, g.Dimensions)
 			dataItem := getOrCreate(dataItems, k, g.Unit, labels)
 
@@ -406,4 +418,9 @@ func (g *genericQueryGatherer) createSummary(metricName string, dataItems map[st
 	}
 	// Replace '_' by spaces as '_' is used as delimiter to extract metricName from file name
 	return measurement.CreateSummary(genericPrometheusQueryMeasurementName+" "+metricName, "json", content), nil
+}
+
+func isFiniteSampleValue(v model.SampleValue) bool {
+	fv := float64(v)
+	return !math.IsNaN(fv) && !math.IsInf(fv, 0)
 }

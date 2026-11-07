@@ -158,7 +158,7 @@ func (e *PrometheusQueryExecutor) Query(query string, queryTime time.Time) ([]*m
 
 	var resultSamples []*model.Sample
 	for _, sample := range samples {
-		if !math.IsNaN(float64(sample.Value)) {
+		if isFiniteSampleValue(sample.Value) {
 			resultSamples = append(resultSamples, sample)
 		}
 	}
@@ -182,7 +182,7 @@ func (e *PrometheusQueryExecutor) QueryMatrix(query string, queryTime time.Time)
 	for _, stream := range matrix {
 		var validValues []model.SamplePair
 		for _, pair := range stream.Values {
-			if !math.IsNaN(float64(pair.Value)) {
+			if isFiniteSampleValue(pair.Value) {
 				validValues = append(validValues, pair)
 			}
 		}
@@ -195,6 +195,11 @@ func (e *PrometheusQueryExecutor) QueryMatrix(query string, queryTime time.Time)
 	}
 	klog.V(4).Infof("Got %d sample streams", len(resultMatrix))
 	return resultMatrix, nil
+}
+
+func isFiniteSampleValue(v model.SampleValue) bool {
+	fv := float64(v)
+	return !math.IsNaN(fv) && !math.IsInf(fv, 0)
 }
 
 // UnmarshalJSON unmarshals json into promResponseData structure.

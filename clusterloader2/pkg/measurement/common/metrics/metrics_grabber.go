@@ -19,11 +19,11 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 
 	"k8s.io/klog/v2"
 )
@@ -57,26 +57,6 @@ type Grabber struct {
 	registeredMaster          bool
 }
 
-// deprecatedMightBeMasterNode returns true if given node is a registered master.
-// This code must not be updated to use node role labels, since node role labels
-// may not change behavior of the system.
-// It has been copied from https://github.com/kubernetes/kubernetes/blob/9e991415386e4cf155a24b1da15becaa390438d8/test/e2e/system/system_utils.go#L27
-// as it has been used in future k8s versions.
-// TODO(mborsz): Remove dependency on this function.
-func deprecatedMightBeMasterNode(nodeName string) bool {
-	// We are trying to capture "master(-...)?$" regexp.
-	// However, using regexp.MatchString() results even in more than 35%
-	// of all space allocations in ControllerManager spent in this function.
-	// That's why we are trying to be a bit smarter.
-	if strings.HasSuffix(nodeName, "master") {
-		return true
-	}
-	if len(nodeName) >= 10 {
-		return strings.HasSuffix(nodeName[:len(nodeName)-3], "master-")
-	}
-	return false
-}
-
 // NewMetricsGrabber returns new metrics which are initialized.
 func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets bool, scheduler bool, controllers bool, apiServer bool, clusterAutoscaler bool) (*Grabber, error) {
 	registeredMaster := false
@@ -89,7 +69,7 @@ func NewMetricsGrabber(c clientset.Interface, ec clientset.Interface, kubelets b
 		klog.Warning("Can't find any Nodes in the API server to grab metrics from")
 	}
 	for _, node := range nodeList.Items {
-		if deprecatedMightBeMasterNode(node.Name) {
+		if util.IsControlPlaneNode(&node) {
 			registeredMaster = true
 			masterName = node.Name
 			break

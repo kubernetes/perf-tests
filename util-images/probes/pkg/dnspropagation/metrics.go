@@ -40,8 +40,40 @@ var (
 		Name:      "dns_lookup_errors_total",
 		Help:      "Counter of the total number of DNS lookup errors.",
 	}, []string{"namespace", "service", "podName"})
+
+	// The stage gauges split dns_propagation_seconds of each sampled pod into the parts below.
+	// Ready times have second resolution, so stages that start at Ready include up to 1s of rounding.
+
+	// DNSPropagationPodSeenSeconds is the time from the pod's Ready transition until the prober saw the pod Ready.
+	DNSPropagationPodSeenSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: common.ProbeNamespace,
+		Name:      "dns_propagation_pod_seen_seconds",
+		Help:      "Gauge of the time (in seconds) from the pod's Ready transition until the prober saw the pod Ready.",
+	}, []string{"namespace", "service", "podName"})
+	// DNSPropagationEndpointSeconds is the time from the pod's Ready transition until the prober saw the pod as a
+	// ready endpoint of the service.
+	DNSPropagationEndpointSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: common.ProbeNamespace,
+		Name:      "dns_propagation_endpoint_seconds",
+		Help:      "Gauge of the time (in seconds) from the pod's Ready transition until the prober saw the pod as a ready endpoint of the service.",
+	}, []string{"namespace", "service", "podName"})
+	// DNSPropagationAfterEndpointSeconds is the time from the prober seeing the endpoint until the first successful
+	// lookup. It is negative when DNS resolved before the prober saw the endpoint.
+	DNSPropagationAfterEndpointSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: common.ProbeNamespace,
+		Name:      "dns_propagation_after_endpoint_seconds",
+		Help:      "Gauge of the time (in seconds) from the prober seeing the pod as a ready endpoint until the first successful lookup.",
+	}, []string{"namespace", "service", "podName"})
+	// DNSPropagationLookupSeconds is the time from the prober seeing the pod Ready until the first successful lookup.
+	DNSPropagationLookupSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: common.ProbeNamespace,
+		Name:      "dns_propagation_lookup_seconds",
+		Help:      "Gauge of the time (in seconds) from the prober seeing the pod Ready until the first successful lookup.",
+	}, []string{"namespace", "service", "podName"})
 )
 
 func init() {
-	prometheus.MustRegister(DNSPropagationSeconds, DNSPropagationCount, DNSLookupErrors)
+	prometheus.MustRegister(DNSPropagationSeconds, DNSPropagationCount, DNSLookupErrors,
+		DNSPropagationPodSeenSeconds, DNSPropagationEndpointSeconds, DNSPropagationAfterEndpointSeconds,
+		DNSPropagationLookupSeconds)
 }

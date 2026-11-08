@@ -26,6 +26,14 @@ go run cmd/main.go --mode=ping-server --metric-bind-address=:8070 --ping-server-
 ### DNS Propagation
 This probe exports the `dns_propagation_seconds` metric. It measures the DNS propagation time for a given StatefulSet. This is calculated as the average difference between each pod's "running" and "discoverable" timestamps.
 
+It also splits that time into stages for each sampled pod:
+- `dns_propagation_pod_seen_seconds`: from the pod's Ready transition until the prober sees the pod Ready.
+- `dns_propagation_endpoint_seconds`: from the pod's Ready transition until the prober sees the pod as a ready endpoint of the service.
+- `dns_propagation_after_endpoint_seconds`: from the prober seeing the endpoint until the first successful lookup.
+- `dns_propagation_lookup_seconds`: from the prober seeing the pod Ready until the first successful lookup.
+
+With `--enable-latency-logging`, the probe also logs one JSON line per sampled pod.
+
 #### Running locally
 This probe is designed to run within a Kubernetes cluster and cannot be executed locally.
 

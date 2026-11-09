@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: prober
-          image: {{.ImageRegistry}}/perf-tests/probes:v0.0.7
+          image: {{.ImageRegistry}}/perf-tests/probes:v0.0.11
           args:
             - --metric-bind-address=:8080
             - --mode=dns-propagation
@@ -29,6 +29,7 @@ spec:
             - --dns-propagation-probe-interval=100ms
             - --dns-propagation-probe-pod-count={{.DNSPropagationProbePodCount}}
             - --dns-propagation-probe-sample-count={{.DNSPropagationProbeSampleCount}}
+            - --enable-latency-logging=true
             - --logtostderr=true
             - --log_file=/var/log/cl2-dns-propagation.log
           resources:

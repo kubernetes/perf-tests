@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	go.etcd.io/etcd/client/v3 v3.7.3
 	k8s.io/api v0.0.0-20261105044833-c96aa7872647
-	k8s.io/apimachinery v0.0.0-20261105044403-e2d4a107c3eb
+	k8s.io/apimachinery v0.38.0-alpha.3
 	k8s.io/client-go v0.0.0-20261105045359-675830c068e6
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/yaml v1.6.0

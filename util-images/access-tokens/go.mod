@@ -3,7 +3,7 @@ module k8s.io/perf-tests/access-tokens
 go 1.26.4
 
 require (
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	k8s.io/apimachinery v0.37.2
 	k8s.io/client-go v0.37.2
 	k8s.io/klog/v2 v2.140.0

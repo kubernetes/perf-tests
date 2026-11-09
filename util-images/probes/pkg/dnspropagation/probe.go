@@ -123,6 +123,8 @@ func runProbe(client kubernetes.Interface) {
 	for _, idx := range indices {
 		targetPods[fmt.Sprintf("%s-%d", *statefulSet, idx)] = struct{}{}
 	}
+	tracker := newStageTracker(targetPods)
+	startEndpointSliceInformer(client, tracker)
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -179,6 +181,7 @@ func runProbe(client kubernetes.Interface) {
 		delete(targetPods, pod.Name)
 		remaining := len(targetPods)
 		mu.Unlock()
+		tracker.podSeen(pod.Name, readyTime, time.Now())
 
 		url := fmt.Sprintf("%s.%s.%s.%s.%s.%s", pod.Name, *service, *namespace, "svc", *clusterDomain, *suffix)
 
@@ -187,6 +190,7 @@ func runProbe(client kubernetes.Interface) {
 			defer wg.Done()
 
 			duration := probeDNSUntilResolved(url, podName, readyTime, *interval)
+			tracker.resolved(podName, readyTime.Add(duration))
 			ch <- DNSPodPropagationResult{
 				podName:  podName,
 				duration: duration,

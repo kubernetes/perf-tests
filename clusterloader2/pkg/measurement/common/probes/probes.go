@@ -84,6 +84,14 @@ var (
 		Manifests:        "dnsPropagation/*.yaml",
 		ProbeLabelValues: []string{"dns-propagation-prober"},
 		ProberType:       "propagation",
+		// Stages of probes_dns_propagation_seconds, reported next to it for debugging. Thresholds
+		// apply only to the main query.
+		BreakdownQueries: []breakdownQuery{
+			{Name: "PodSeen", Query: "max_over_time(probes_dns_propagation_pod_seen_seconds[%v])"},
+			{Name: "EndpointReady", Query: "max_over_time(probes_dns_propagation_endpoint_seconds[%v])"},
+			{Name: "DNSAfterEndpoint", Query: "max_over_time(probes_dns_propagation_after_endpoint_seconds[%v])"},
+			{Name: "Lookup", Query: "max_over_time(probes_dns_propagation_lookup_seconds[%v])"},
+		},
 	}
 
 	//go:embed manifests
@@ -116,6 +124,14 @@ type proberConfig struct {
 	Manifests        string
 	ProbeLabelValues []string
 	ProberType       string
+	BreakdownQueries []breakdownQuery
+}
+
+// breakdownQuery is a propagation query whose percentiles are logged and added to the summary
+// without a threshold.
+type breakdownQuery struct {
+	Name  string
+	Query string
 }
 
 func createProber(config proberConfig) measurement.Measurement {
@@ -275,11 +291,34 @@ func (p *probesMeasurement) gather(params map[string]interface{}) (measurement.S
 	}
 	klog.V(2).Infof("%s:%s got %v%s", p, prefix, latency, suffix)
 
-	summary, err := p.createSummary(*latency)
+	dataItems := []measurementutil.DataItem{latency.ToPerfData(p.String())}
+	for _, b := range p.config.BreakdownQueries {
+		item, err := p.gatherBreakdown(executor, b, measurementEnd)
+		if err != nil {
+			klog.Warningf("%s: cannot gather breakdown %s: %v", p, b.Name, err)
+			continue
+		}
+		dataItems = append(dataItems, item)
+	}
+
+	summary, err := p.createSummary(dataItems)
 	if err != nil {
 		return nil, err
 	}
 	return summary, violation
+}
+
+func (p *probesMeasurement) gatherBreakdown(executor *measurementutil.PrometheusQueryExecutor, b breakdownQuery, measurementEnd time.Time) (measurementutil.DataItem, error) {
+	samples, err := executor.Query(prepareQuery(b.Query, p.startTime, measurementEnd), measurementEnd)
+	if err != nil {
+		return measurementutil.DataItem{}, err
+	}
+	latency, err := NewPropagationMetricPrometheus(samples)
+	if err != nil {
+		return measurementutil.DataItem{}, err
+	}
+	klog.V(2).Infof("%s breakdown %s: %v (%d samples)", p, b.Name, latency, len(samples))
+	return latency.ToPerfData(p.String() + b.Name), nil
 }
 
 func (p *probesMeasurement) createProbesObjects() error {
@@ -332,10 +371,10 @@ func (p *probesMeasurement) checkProbesReady(ctx context.Context) (bool, error) 
 	return prometheus.CheckAllTargetsReady(ctx, p.framework.GetClientSets().GetClient(), selector, expectedTargets, logPrometheusError)
 }
 
-func (p *probesMeasurement) createSummary(latency measurementutil.LatencyMetric) (measurement.Summary, error) {
+func (p *probesMeasurement) createSummary(dataItems []measurementutil.DataItem) (measurement.Summary, error) {
 	content, err := util.PrettyPrintJSON(&measurementutil.PerfData{
 		Version:   p.config.MetricVersion,
-		DataItems: []measurementutil.DataItem{latency.ToPerfData(p.String())},
+		DataItems: dataItems,
 	})
 	if err != nil {
 		return nil, err

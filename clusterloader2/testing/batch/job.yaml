@@ -1,3 +1,5 @@
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -13,6 +15,7 @@ spec:
       labels:
         group: test-pod
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - name: {{.Name}}
         image: gcr.io/k8s-staging-perf-tests/sleep:v0.0.3

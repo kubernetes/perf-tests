@@ -17,11 +17,19 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"sort"
+	"strings"
 	"testing"
 	"testing/fstest"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/perf-tests/clusterloader2/api"
 )
 
@@ -272,6 +280,363 @@ metadata:
 		}
 		if objs[1].GetName() != "test-app-svc" || objs[1].GetKind() != "Service" {
 			t.Errorf("expected test-app-svc (Service), got %s (%s)", objs[1].GetName(), objs[1].GetKind())
+		}
+	})
+}
+
+var podProducingKinds = map[string]bool{
+	"Pod":                   true,
+	"SandboxTemplate":       true,
+	"CronJob":               true,
+	"Deployment":            true,
+	"StatefulSet":           true,
+	"DaemonSet":             true,
+	"Job":                   true,
+	"ReplicationController": true,
+	"ReplicaSet":            true,
+}
+
+var excludedSchedulerNameTemplates = map[string]string{
+	"testing/list/pod.yaml":                                                                 "intentional non-existent scheduler",
+	"testing/watch-list/pod.yaml":                                                           "intentional non-existent scheduler",
+	"testing/write-throughput/modules/initial-pods/pod.yaml":                                "intentional non-existent scheduler",
+	"testing/etcd/modules/operator/etcd-operator.yaml":                                      "test infra operator deployment",
+	"testing/density/scheduler/custom-scheduler-metrics/deployment-custom-schd-sample.yaml": "sample manifest",
+}
+
+var topLevelKindPattern = regexp.MustCompile(`(?m)^kind:[ \t]*([^\s#]+)`)
+
+func getSchedulerName(obj *unstructured.Unstructured) (string, bool, error) {
+	if obj == nil {
+		return "", false, nil
+	}
+	switch obj.GetKind() {
+	case "Pod":
+		return unstructured.NestedString(obj.Object, "spec", "schedulerName")
+	case "SandboxTemplate":
+		return unstructured.NestedString(obj.Object, "spec", "podTemplate", "spec", "schedulerName")
+	case "CronJob":
+		return unstructured.NestedString(obj.Object, "spec", "jobTemplate", "spec", "template", "spec", "schedulerName")
+	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicationController", "ReplicaSet":
+		return unstructured.NestedString(obj.Object, "spec", "template", "spec", "schedulerName")
+	default:
+		return "", false, nil
+	}
+}
+
+func discoverSchedulerNameTemplates(t *testing.T, fsys fs.FS) []string {
+	t.Helper()
+	for excludedPath := range excludedSchedulerNameTemplates {
+		if _, err := fs.Stat(fsys, excludedPath); err != nil {
+			t.Fatalf("excluded template %s does not exist on disk: %v", excludedPath, err)
+		}
+	}
+
+	var templates []string
+	err := fs.WalkDir(fsys, "testing", func(relPath string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		// fs.WalkDir marks symlinks with ModeSymlink rather than regular files; resolve via Stat.
+		if d.Type()&fs.ModeSymlink != 0 {
+			info, err := fs.Stat(fsys, relPath)
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+		}
+		if path.Ext(relPath) != ".yaml" {
+			return nil
+		}
+		data, err := fs.ReadFile(fsys, relPath)
+		if err != nil {
+			return err
+		}
+		for _, match := range topLevelKindPattern.FindAllSubmatch(data, -1) {
+			kind := strings.Trim(string(match[1]), `"'`)
+			if podProducingKinds[kind] {
+				if _, excluded := excludedSchedulerNameTemplates[relPath]; !excluded {
+					templates = append(templates, relPath)
+				}
+				break
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to walk testing templates: %v", err)
+	}
+	sort.Strings(templates)
+	return templates
+}
+
+func defaultMapping() map[string]interface{} {
+	return map[string]interface{}{
+		"ApiVersion":             "v1",
+		"BaseName":               "test-base",
+		"CompletionReplicas":     1,
+		"Completions":            1,
+		"ContentType":            "application/json",
+		"Count":                  1,
+		"CPUMilli":               100,
+		"CpuRequest":             "10m",
+		"Duration":               "1m",
+		"EnableWatchList":        false,
+		"EnableWatchListFeature": false,
+		"Group":                  "test-group",
+		"Image":                  "registry.k8s.io/pause:3.9",
+		"ImageRegistry":          "registry.k8s.io",
+		"Index":                  0,
+		"Inflight":               1,
+		"Memory":                 "20Mi",
+		"MemoryRequest":          "20Mi",
+		"Mode":                   "Indexed",
+		"Name":                   "test-obj",
+		"Namespace":              "test-ns",
+		"Nodes":                  1,
+		"NumReplicas":            1,
+		"PodCount":               1,
+		"Provisioner":            "test-provisioner",
+		"Qps":                    1,
+		"QPS":                    1,
+		"QpsPerWorker":           float64(1),
+		"Replicas":               1,
+		"ReplicasMax":            1,
+		"ReplicasMin":            1,
+		"Resource":               "pods",
+		"Sleep":                  "1s",
+		"StorageClass":           "standard",
+		"SvcName":                "test-svc",
+		"Tokens":                 1,
+		"Uri":                    "/api/v1/pods",
+		"VolSize":                "1Gi",
+		"VolumesPerPod":          1,
+	}
+}
+
+func TestGetSchedulerName(t *testing.T) {
+	tests := []struct {
+		name      string
+		obj       *unstructured.Unstructured
+		wantName  string
+		wantFound bool
+		wantErr   bool
+	}{
+		{
+			name: "Pod with schedulerName",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "Pod",
+					"spec": map[string]interface{}{"schedulerName": "custom"},
+				},
+			},
+			wantName:  "custom",
+			wantFound: true,
+		},
+		{
+			name: "Pod without schedulerName",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "Pod",
+					"spec": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name: "SandboxTemplate with schedulerName",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "SandboxTemplate",
+					"spec": map[string]interface{}{
+						"podTemplate": map[string]interface{}{
+							"spec": map[string]interface{}{"schedulerName": "custom"},
+						},
+					},
+				},
+			},
+			wantName:  "custom",
+			wantFound: true,
+		},
+		{
+			name: "CronJob with schedulerName",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "CronJob",
+					"spec": map[string]interface{}{
+						"jobTemplate": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"template": map[string]interface{}{
+									"spec": map[string]interface{}{"schedulerName": "custom"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantName:  "custom",
+			wantFound: true,
+		},
+		{
+			name: "Deployment with schedulerName",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "Deployment",
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{"schedulerName": "default-scheduler"},
+						},
+					},
+				},
+			},
+			wantName:  "default-scheduler",
+			wantFound: true,
+		},
+		{
+			name: "non-pod kind ignored",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{"kind": "Service"},
+			},
+		},
+		{
+			name:    "non-map spec returns error",
+			obj:     &unstructured.Unstructured{Object: map[string]interface{}{"kind": "Pod", "spec": "invalid"}},
+			wantErr: true,
+		},
+		{
+			name: "non-string schedulerName returns error",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind": "Pod",
+					"spec": map[string]interface{}{"schedulerName": int64(123)},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotName, gotFound, err := getSchedulerName(tc.obj)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("getSchedulerName() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if gotFound != tc.wantFound || gotName != tc.wantName {
+				t.Errorf("getSchedulerName() = (%q, %v), want (%q, %v)", gotName, gotFound, tc.wantName, tc.wantFound)
+			}
+		})
+	}
+}
+
+func TestTemplateSchedulerNameSupport(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get wd: %v", err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "../.."))
+	fsys := os.DirFS(repoRoot)
+	tp := NewTemplateProvider(fsys)
+
+	templates := discoverSchedulerNameTemplates(t, fsys)
+	if len(templates) < 40 {
+		t.Fatalf("expected at least 40 workload templates, discovered %d", len(templates))
+	}
+
+	schedulerCases := []struct {
+		name          string
+		schedulerName string
+		wantScheduler string
+	}{
+		{name: "unset", wantScheduler: "default-scheduler"},
+		{name: "custom", schedulerName: "custom-test-scheduler", wantScheduler: "custom-test-scheduler"},
+	}
+
+	for _, relPath := range templates {
+		t.Run(relPath, func(t *testing.T) {
+			for _, tc := range schedulerCases {
+				t.Run(tc.name, func(t *testing.T) {
+					mapping := defaultMapping()
+					if tc.schedulerName != "" {
+						mapping["CL2_SCHEDULER_NAME"] = tc.schedulerName
+					}
+					rendered, err := tp.getMappedTemplate(relPath, mapping)
+					if err != nil {
+						t.Fatalf("getMappedTemplate failed for %s: %v", relPath, err)
+					}
+					if bytes.Contains(rendered, []byte("<no value>")) {
+						t.Errorf("rendered template %s contains <no value> placeholder:\n%s", relPath, string(rendered))
+					}
+					objs, err := tp.TemplateToObjects(relPath, mapping)
+					if err != nil {
+						t.Fatalf("TemplateToObjects failed for %s: %v", relPath, err)
+					}
+					if len(objs) == 0 {
+						t.Fatalf("TemplateToObjects returned 0 objects for %s", relPath)
+					}
+					podObjCount := 0
+					for _, obj := range objs {
+						if !podProducingKinds[obj.GetKind()] {
+							continue
+						}
+						podObjCount++
+						sName, exists, err := getSchedulerName(obj)
+						if err != nil {
+							t.Fatalf("error getting schedulerName in %s: %v", relPath, err)
+						}
+						if !exists || sName != tc.wantScheduler {
+							t.Errorf("expected schedulerName %q, got exists=%v name=%q in %s", tc.wantScheduler, exists, sName, relPath)
+						}
+					}
+					if podObjCount == 0 {
+						t.Errorf("expected at least 1 pod-producing object in %s", relPath)
+					}
+				})
+			}
+		})
+	}
+
+	const podStartupLatencyModule = "testing/load/modules/pod-startup-latency.yaml"
+	t.Run(podStartupLatencyModule, func(t *testing.T) {
+		for _, tc := range schedulerCases {
+			t.Run(tc.name, func(t *testing.T) {
+				mapping := map[string]interface{}{
+					"namespaces":            1,
+					"minPodsInSmallCluster": 1,
+					"image":                 "registry.k8s.io/pause:3.9",
+				}
+				if tc.schedulerName != "" {
+					mapping["CL2_SCHEDULER_NAME"] = tc.schedulerName
+				}
+				rendered, err := tp.getMappedTemplate(podStartupLatencyModule, mapping)
+				if err != nil {
+					t.Fatalf("getMappedTemplate failed: %v", err)
+				}
+				if bytes.Contains(rendered, []byte("<no value>")) {
+					t.Errorf("rendered module contains <no value> placeholder:\n%s", string(rendered))
+				}
+				var mod api.Module
+				if err := tp.TemplateInto(podStartupLatencyModule, mapping, &mod); err != nil {
+					t.Fatalf("TemplateInto failed: %v", err)
+				}
+				foundGather := false
+				for _, step := range mod.Steps {
+					for _, m := range step.Measurements {
+						if m.Method == "PodStartupLatency" && m.Params["action"] == "gather" {
+							foundGather = true
+							if got := m.Params["schedulerName"]; got != tc.wantScheduler {
+								t.Errorf("PodStartupLatency gather schedulerName = %v, want %q", got, tc.wantScheduler)
+							}
+						}
+					}
+				}
+				if !foundGather {
+					t.Fatalf("PodStartupLatency gather measurement not found in %s", podStartupLatencyModule)
+				}
+			})
 		}
 	})
 }

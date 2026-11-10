@@ -1,3 +1,5 @@
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: v1
 kind: ReplicationController
 metadata:
@@ -14,6 +16,7 @@ spec:
         name: {{.Name}}
         group: {{.Group}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       # Do not automount default service account, to eliminate its impact.
       automountServiceAccountToken: false
       nodeSelector:

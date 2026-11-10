@@ -1,3 +1,5 @@
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,6 +18,7 @@ spec:
         group: baseline-pod
         job-type: long-running
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       restartPolicy: Never
       containers:
       - name: {{.Name}}

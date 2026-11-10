@@ -9,6 +9,8 @@
 {{end}}
 {{$RealisticPod20KB := and $RealisticPod (eq $RealisticPodSizeKB 20)}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -49,6 +51,7 @@ spec:
         argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
 {{end}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}

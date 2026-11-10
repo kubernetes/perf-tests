@@ -16,53 +16,10 @@ limitations under the License.
 
 package ingest
 
-import (
-	"io"
-	"os"
-	"path/filepath"
-)
-
 type nopLogger struct{}
 
 func (nopLogger) Log(keyvals ...interface{}) error {
 	return nil
-}
-
-func copyDir(src, dst string) error {
-	if src == dst {
-		return nil
-	}
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		targetPath := filepath.Join(dst, rel)
-		if info.IsDir() {
-			return os.MkdirAll(targetPath, info.Mode())
-		}
-		return copyFile(path, targetPath)
-	})
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	return err
 }
 
 func mergeMap(m1, m2 map[string]string) map[string]string {

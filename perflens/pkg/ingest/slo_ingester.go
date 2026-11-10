@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +27,6 @@ import (
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/thanos-io/thanos/pkg/block/metadata"
 )
 
 // SLOIngester processes ClusterLoader2 summary JSON files and ingests SLO metrics into Thanos TSDB.
@@ -41,17 +38,17 @@ func NewSLOIngester() *SLOIngester {
 }
 
 // Ingest implements the ingestion entrypoint for SLO metrics.
-func (i *SLOIngester) Ingest(ctx context.Context, runDir string, runName string, tsdbDir string, omDir string) error {
+func (i *SLOIngester) Ingest(ctx context.Context, runDir string, runName string, tsdbDir string, omDir string, tb *Timebase) error {
 	entries, err := i.ingestBuildMetrics(runDir)
 	if err != nil {
 		return fmt.Errorf("ingesting SLO metrics from %s: %w", runDir, err)
 	}
 
-	if _, err := i.generateOpenMetricsFile(runName, entries, omDir); err != nil {
+	if _, err := i.generateOpenMetricsFile(runName, entries, omDir, tb); err != nil {
 		return fmt.Errorf("generating OpenMetrics file: %w", err)
 	}
 
-	if err := i.createThanosTSDBBlock(ctx, tsdbDir, runName, entries); err != nil {
+	if err := i.createThanosTSDBBlock(ctx, tsdbDir, runName, entries, tb); err != nil {
 		return fmt.Errorf("creating Thanos TSDB block: %w", err)
 	}
 
@@ -151,13 +148,18 @@ func (i *SLOIngester) ingestBuildMetrics(runDir string) ([]SLOEntry, error) {
 	return allEntries, nil
 }
 
-func (i *SLOIngester) generateOpenMetricsFile(runName string, entries []SLOEntry, omDir string) (string, error) {
+func (i *SLOIngester) generateOpenMetricsFile(runName string, entries []SLOEntry, omDir string, tb *Timebase) (string, error) {
 	if err := os.MkdirAll(omDir, 0755); err != nil {
 		return "", err
 	}
 	omFile := filepath.Join(omDir, fmt.Sprintf("openmetrics_%s.txt", runName))
 
+	// The text artifact is the wall clock view, so it keeps the run's real start
+	// time even when the TSDB block is normalized.
 	timestampSec := time.Now().UTC().Unix()
+	if tb != nil && tb.Known {
+		timestampSec = tb.StartMS / 1000
+	}
 	var builder strings.Builder
 	builder.WriteString("# HELP k8s_slo_status Status of K8s SLO evaluation (1 = PASS, 0 = FAIL)\n")
 	builder.WriteString("# TYPE k8s_slo_status gauge\n")
@@ -190,82 +192,67 @@ func (i *SLOIngester) generateOpenMetricsFile(runName string, entries []SLOEntry
 	return omFile, nil
 }
 
-func (i *SLOIngester) createThanosTSDBBlock(ctx context.Context, tsdbDir string, runName string, entries []SLOEntry) error {
-	if err := os.MkdirAll(tsdbDir, 0755); err != nil {
-		return err
-	}
-
-	tsdbDirAbs, err := filepath.Abs(tsdbDir)
-	if err != nil {
-		return err
-	}
+// createThanosTSDBBlock writes the run's SLO verdicts as a constant line spanning
+// the run's normalized window. An SLO entry summarizes the whole run, so it holds
+// over the run's own window rather than being stamped at ingest time. That also
+// lands the SLO block on the same axis as the run's snapshot and log blocks.
+func (i *SLOIngester) createThanosTSDBBlock(ctx context.Context, tsdbDir string, runName string, entries []SLOEntry, tb *Timebase) error {
+	startMS := tb.NormalizedStart()
+	endMS := tb.NormalizedEnd()
 
 	fmt.Println("Writing TSDB block and injecting Thanos metadata via github.com/thanos-io/thanos Go package...")
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	bw, err := tsdb.NewBlockWriter(logger, tsdbDirAbs, 2*60*60*1000)
-	if err != nil {
-		return fmt.Errorf("creating TSDB BlockWriter: %w", err)
+	if _, err := removeRunBlocks(tsdbDir, runName, sourceSLO); err != nil {
+		return err
 	}
-	defer bw.Close()
 
-	app := bw.Appender(ctx)
-	timestampMS := time.Now().UTC().UnixMilli()
+	blockULID, err := writeThanosBlock(ctx, tsdbDir, runName, sourceSLO,
+		blockSizeForSpan(startMS, endMS),
+		func(bw *tsdb.BlockWriter) error {
+			app := bw.Appender(ctx)
 
-	for _, e := range entries {
-		lblsStatus := labels.FromMap(map[string]string{
-			"__name__": "k8s_slo_status",
-			"run":      runName,
-			"slo":      e.SLO,
-			"resource": e.Resource,
-			"verb":     e.Verb,
-			"target":   e.Target,
-			"actual":   e.Actual,
+			appendAt := func(lbls labels.Labels, value float64) error {
+				return appendRunSpan(app, lbls, startMS, endMS, value)
+			}
+
+			for _, e := range entries {
+				lblsStatus := labels.FromMap(map[string]string{
+					"__name__": "k8s_slo_status",
+					"run":      runName,
+					"slo":      e.SLO,
+					"resource": e.Resource,
+					"verb":     e.Verb,
+					"target":   e.Target,
+					"actual":   e.Actual,
+				})
+				if err := appendAt(lblsStatus, float64(e.Status)); err != nil {
+					return fmt.Errorf("appending status sample to TSDB: %w", err)
+				}
+
+				lblsBase := map[string]string{
+					"run":      runName,
+					"slo":      e.SLO,
+					"resource": e.Resource,
+					"verb":     e.Verb,
+				}
+
+				lblsMeas := labels.FromMap(mergeMap(lblsBase, map[string]string{"__name__": "k8s_slo_measurement"}))
+				if err := appendAt(lblsMeas, e.ActualVal); err != nil {
+					return fmt.Errorf("appending measurement sample to TSDB: %w", err)
+				}
+
+				lblsTarget := labels.FromMap(mergeMap(lblsBase, map[string]string{"__name__": "k8s_slo_target"}))
+				if err := appendAt(lblsTarget, e.TargetVal); err != nil {
+					return fmt.Errorf("appending target sample to TSDB: %w", err)
+				}
+			}
+
+			return app.Commit()
 		})
-		if _, err := app.Append(0, lblsStatus, timestampMS, float64(e.Status)); err != nil {
-			return fmt.Errorf("appending status sample to TSDB: %w", err)
-		}
-
-		lblsBase := map[string]string{
-			"run":      runName,
-			"slo":      e.SLO,
-			"resource": e.Resource,
-			"verb":     e.Verb,
-		}
-
-		lblsMeas := labels.FromMap(mergeMap(lblsBase, map[string]string{"__name__": "k8s_slo_measurement"}))
-		if _, err := app.Append(0, lblsMeas, timestampMS, e.ActualVal); err != nil {
-			return fmt.Errorf("appending measurement sample to TSDB: %w", err)
-		}
-
-		lblsTarget := labels.FromMap(mergeMap(lblsBase, map[string]string{"__name__": "k8s_slo_target"}))
-		if _, err := app.Append(0, lblsTarget, timestampMS, e.TargetVal); err != nil {
-			return fmt.Errorf("appending target sample to TSDB: %w", err)
-		}
-	}
-
-	if err := app.Commit(); err != nil {
-		return fmt.Errorf("committing TSDB appender: %w", err)
-	}
-
-	blockULID, err := bw.Flush(ctx)
 	if err != nil {
-		return fmt.Errorf("writing TSDB block: %w", err)
+		return err
 	}
 
-	blockDir := filepath.Join(tsdbDirAbs, blockULID.String())
-	thanosMeta := metadata.Thanos{
-		Labels: map[string]string{
-			"run": runName,
-		},
-		Source: metadata.SourceType("perflens-ingest"),
-	}
-
-	oldLogger := nopLogger{}
-	if _, err := metadata.InjectThanos(oldLogger, blockDir, thanosMeta, nil); err != nil {
-		return fmt.Errorf("injecting Thanos metadata into block %s: %w", blockULID.String(), err)
-	}
-
-	fmt.Printf("Native Thanos TSDB block created & injected successfully: ULID %s in %s\n", blockULID.String(), tsdbDirAbs)
+	fmt.Printf("Native Thanos TSDB block created & injected successfully: ULID %s in %s\n", blockULID, tsdbDir)
 	return nil
 }
 

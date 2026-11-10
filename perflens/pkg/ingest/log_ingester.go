@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -32,7 +31,6 @@ import (
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/thanos-io/thanos/pkg/block/metadata"
 )
 
 var defaultLatencyBuckets = []float64{0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0}
@@ -46,7 +44,7 @@ func NewLogIngester() *LogIngester {
 }
 
 // Ingest parses apiserver trace logs in runDir and generates OpenMetrics & Thanos TSDB block.
-func (l *LogIngester) Ingest(ctx context.Context, runDir string, runName string, tsdbDir string, omDir string) error {
+func (l *LogIngester) Ingest(ctx context.Context, runDir string, runName string, tsdbDir string, omDir string, tb *Timebase) error {
 	logFiles, err := findAPIServerLogFiles(runDir)
 	if err != nil || len(logFiles) == 0 {
 		return fmt.Errorf("no kube-apiserver log files found in %s", runDir)
@@ -64,7 +62,7 @@ func (l *LogIngester) Ingest(ctx context.Context, runDir string, runName string,
 		return fmt.Errorf("processing logs and writing OpenMetrics: %w", err)
 	}
 
-	if err := createThanosTSDBBlockFromOpenMetrics(ctx, tsdbDir, runName, omFile); err != nil {
+	if err := createThanosTSDBBlockFromOpenMetrics(ctx, tsdbDir, runName, omFile, tb); err != nil {
 		return fmt.Errorf("creating Thanos TSDB block for logs: %w", err)
 	}
 
@@ -538,32 +536,79 @@ func convertToEpoch(dateStr, tsStr string) int64 {
 	return t.Unix()
 }
 
-func createThanosTSDBBlockFromOpenMetrics(ctx context.Context, tsdbDir string, runName string, openmetricsFilePath string) error {
+// createThanosTSDBBlockFromOpenMetrics writes the parsed log traces into a TSDB
+// block, shifting sample timestamps by the run's offset so the log block stays
+// aligned with the run's snapshot and SLO blocks.
+func createThanosTSDBBlockFromOpenMetrics(ctx context.Context, tsdbDir string, runName string, openmetricsFilePath string, tb *Timebase) error {
+	minMS, maxMS, err := openMetricsTimeRange(openmetricsFilePath, runName, tb)
+	if err != nil {
+		return err
+	}
+
+	samplesCount := 0
+	if _, err := removeRunBlocks(tsdbDir, runName, sourceLogs); err != nil {
+		return err
+	}
+
+	blockULID, err := writeThanosBlock(ctx, tsdbDir, runName, sourceLogs,
+		blockSizeForSpan(minMS, maxMS),
+		func(bw *tsdb.BlockWriter) error {
+			app := bw.Appender(ctx)
+			err := scanOpenMetricsSamples(openmetricsFilePath, runName, tb, func(lblsMap map[string]string, value float64, tsMS int64) error {
+				if _, err := app.Append(0, labels.FromMap(lblsMap), tsMS, value); err != nil {
+					return fmt.Errorf("appending sample %s to TSDB: %w", lblsMap["__name__"], err)
+				}
+				samplesCount++
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			return app.Commit()
+		})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Native Thanos TSDB block for log traces created successfully: ULID %s in %s (%d samples)\n", blockULID, tsdbDir, samplesCount)
+	return nil
+}
+
+// openMetricsTimeRange is a first pass over the generated file, needed because
+// the TSDB head only accepts samples once its chunk range is known to cover them.
+func openMetricsTimeRange(openmetricsFilePath string, runName string, tb *Timebase) (int64, int64, error) {
+	var minMS, maxMS int64
+	found := false
+
+	err := scanOpenMetricsSamples(openmetricsFilePath, runName, tb, func(_ map[string]string, _ float64, tsMS int64) error {
+		if !found || tsMS < minMS {
+			minMS = tsMS
+		}
+		if !found || tsMS > maxMS {
+			maxMS = tsMS
+		}
+		found = true
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	if !found {
+		return 0, 0, fmt.Errorf("no valid samples parsed from %s", openmetricsFilePath)
+	}
+	return minMS, maxMS, nil
+}
+
+func scanOpenMetricsSamples(openmetricsFilePath string, runName string, tb *Timebase, visit func(lblsMap map[string]string, value float64, tsMS int64) error) error {
 	file, err := os.Open(openmetricsFilePath)
 	if err != nil {
 		return fmt.Errorf("opening openmetrics file %s: %w", openmetricsFilePath, err)
 	}
 	defer file.Close()
 
-	tsdbDirAbs, err := filepath.Abs(tsdbDir)
-	if err != nil {
-		return err
-	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	bw, err := tsdb.NewBlockWriter(logger, tsdbDirAbs, 2*60*60*1000)
-	if err != nil {
-		return fmt.Errorf("creating TSDB BlockWriter: %w", err)
-	}
-	defer bw.Close()
-
-	app := bw.Appender(ctx)
-
 	scanner := bufio.NewScanner(file)
 	buf := make([]byte, 1024*1024)
 	scanner.Buffer(buf, 16*1024*1024)
-
-	samplesCount := 0
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -577,40 +622,11 @@ func createThanosTSDBBlockFromOpenMetrics(ctx context.Context, tsdbDir string, r
 		}
 		lblsMap["__name__"] = name
 
-		if _, err := app.Append(0, labels.FromMap(lblsMap), tsMS, valFloat); err != nil {
-			return fmt.Errorf("appending sample %s to TSDB: %w", name, err)
+		if err := visit(lblsMap, valFloat, tb.Shift(tsMS)); err != nil {
+			return err
 		}
-		samplesCount++
 	}
-
-	if samplesCount == 0 {
-		return fmt.Errorf("no valid samples parsed from %s", openmetricsFilePath)
-	}
-
-	if err := app.Commit(); err != nil {
-		return fmt.Errorf("committing TSDB appender: %w", err)
-	}
-
-	blockULID, err := bw.Flush(ctx)
-	if err != nil {
-		return fmt.Errorf("writing TSDB block: %w", err)
-	}
-
-	blockDir := filepath.Join(tsdbDirAbs, blockULID.String())
-	thanosMeta := metadata.Thanos{
-		Labels: map[string]string{
-			"run": runName,
-		},
-		Source: metadata.SourceType("perflens-log-ingest"),
-	}
-
-	nopLog := nopLogger{}
-	if _, err := metadata.InjectThanos(nopLog, blockDir, thanosMeta, nil); err != nil {
-		return fmt.Errorf("injecting Thanos metadata into block %s: %w", blockULID.String(), err)
-	}
-
-	fmt.Printf("Native Thanos TSDB block for log traces created successfully: ULID %s in %s (%d samples)\n", blockULID.String(), tsdbDirAbs, samplesCount)
-	return nil
+	return scanner.Err()
 }
 
 func parseOpenMetricsSampleLine(line string, runName string) (string, map[string]string, float64, int64, error) {

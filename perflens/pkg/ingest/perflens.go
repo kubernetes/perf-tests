@@ -25,7 +25,7 @@ import (
 )
 
 // Run executes the metric ingestion pipeline for a given build ID, mode, and artifacts root directory.
-func Run(buildID string, mode string, artifactsDir string) error {
+func Run(buildID string, mode string, artifactsDir string, normalizeTime bool) error {
 	rawBuildID := strings.TrimPrefix(buildID, "run-")
 	runName := "run-" + rawBuildID
 
@@ -41,9 +41,21 @@ func Run(buildID string, mode string, artifactsDir string) error {
 	ctx := context.Background()
 	modeLower := strings.ToLower(mode)
 
+	// One Timebase for the whole run. Every ingester shifts by this same offset,
+	// otherwise the run's blocks would desync against each other.
+	timebase := NewTimebase(runDir, runName, normalizeTime)
+	fmt.Println(timebase.Describe())
+	if normalizeTime && !timebase.Known {
+		fmt.Fprintf(os.Stderr, "Warning: could not determine the wall clock window of %s, ingesting without normalization\n", runName)
+	}
+
+	if err := writeRunTimebaseBlock(ctx, tsdbDir, timebase); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning/Info: %v\n", err)
+	}
+
 	if modeLower == "slo" || modeLower == "all" {
 		sloIngester := NewSLOIngester()
-		if err := sloIngester.Ingest(ctx, runDir, runName, tsdbDir, omDir); err != nil {
+		if err := sloIngester.Ingest(ctx, runDir, runName, tsdbDir, omDir, timebase); err != nil {
 			fmt.Fprintf(os.Stderr, "Error ingesting SLO metrics for build %s: %v\n", buildID, err)
 			if modeLower != "all" {
 				return err
@@ -53,14 +65,14 @@ func Run(buildID string, mode string, artifactsDir string) error {
 
 	if modeLower == "prometheus-metrics" || modeLower == "prometheus" || modeLower == "all" {
 		promIngester := NewPrometheusIngester()
-		if err := promIngester.Ingest(ctx, runDir, runName, tsdbDir); err != nil {
+		if err := promIngester.Ingest(ctx, runDir, runName, tsdbDir, timebase); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning/Info: Prometheus snapshot ingestion for build %s: %v\n", buildID, err)
 		}
 	}
 
 	if modeLower == "log-metrics" || modeLower == "logs" || modeLower == "all" {
 		logIngester := NewLogIngester()
-		if err := logIngester.Ingest(ctx, runDir, runName, tsdbDir, omDir); err != nil {
+		if err := logIngester.Ingest(ctx, runDir, runName, tsdbDir, omDir, timebase); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning/Info: Log trace ingestion for build %s: %v\n", buildID, err)
 		}
 	}

@@ -3,6 +3,7 @@ REQUEST_BENCHMARK_DIR ?= ../../../util-images/request-benchmark
 CONFIG ?= ./config.yaml
 REPORT_DIR ?= ./report
 OPERATOR_MANIFEST ?= ./operator/etcd-operator.yaml
+STORAGE_CLASS ?= ssd
 .PHONY: image load-image cluster test test-local clean clean-report
 
 image:
@@ -24,6 +25,7 @@ test:
 	CL2_ENABLE_CONTAINER_RESOURCES_MEASUREMENT=true \
 	CL2_PROMETHEUS_TOLERATE_MASTER=true \
 	CL2_BENCHMARK_IMAGE=$(IMAGE_NAME) \
+	CL2_ETCD_STORAGE_CLASS=$(STORAGE_CLASS) \
 	go run ./cmd/clusterloader.go --provider kind -v=2 \
 		--testconfig ./testing/etcd/$(CONFIG) \
 		--kubeconfig $(HOME)/.kube/config \

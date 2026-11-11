@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/dgryski/go-onlinestats v0.0.0-20170612111826-1c7d19468768
 	github.com/golang/glog v1.2.5
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	k8s.io/contrib v0.0.0-20190411182844-89f6948e2457
 	k8s.io/kubernetes v1.37.2
 )

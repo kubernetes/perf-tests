@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    group: benchmark-defrag
+spec:
+  completions: 1
+  parallelism: 1
+  # Disable retries at both Job and Pod levels to avoid a second defrag attempt.
+  backoffLimit: 0
+  # Allow startup time in addition to the 5m RPC timeout.
+  activeDeadlineSeconds: 360
+  template:
+    metadata:
+      labels:
+        group: benchmark-defrag
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: defrag
+        image: registry.k8s.io/etcd:{{.EtcdVersion}}
+        command: ["/usr/local/bin/etcdctl"]
+        args:
+        - --endpoints=http://etcd-cluster-0:2379
+        - --command-timeout=5m
+        - defrag
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi

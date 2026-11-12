@@ -1,0 +1,135 @@
+# Single-member defrag under a continuous etcd write workload.
+{{$etcdVersion := DefaultParam .CL2_ETCD_VERSION "3.7.2-0"}}
+{{$quotaBackendBytes := DefaultParam .CL2_ETCD_QUOTA_BACKEND_BYTES "34359738368"}}
+{{$storageSize := DefaultParam .CL2_ETCD_STORAGE_SIZE "64Gi"}}
+{{$storageClass := DefaultParam .CL2_ETCD_STORAGE_CLASS "ssd"}}
+
+{{$init := DefaultParam .CL2_ETCD_INIT true}}
+{{$initQps := DefaultParam .CL2_ETCD_INIT_QPS 1000}}
+{{$initTimeout := DefaultParam .CL2_ETCD_INIT_TIMEOUT "15m"}}
+
+{{$writerReplicas := DefaultParam .CL2_ETCD_WRITER_REPLICAS 10}}
+{{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 100}}
+{{$keyCount := DefaultParam .CL2_ETCD_KEY_COUNT 150000}}
+{{$payloadType := DefaultParam .CL2_ETCD_PAYLOAD_TYPE "pod"}}
+{{$compactInterval := DefaultParam .CL2_ETCD_COMPACT_INTERVAL "90s"}}
+{{$compactPhysical := DefaultParam .CL2_ETCD_COMPACT_PHYSICAL true}}
+{{$defrag := DefaultParam .CL2_ETCD_DEFRAG_ONCE true}}
+{{$keyPrefix := DefaultParam .CL2_ETCD_KEY_PREFIX "/registry/pods/default/pod-"}}
+{{$phaseDuration := DefaultParam .CL2_ETCD_DEFRAG_PHASE_DURATION "5m"}}
+
+name: etcd-single-member-defrag
+namespace:
+  number: 1
+tuningSets:
+- name: Sequence
+  parallelismLimitedLoad:
+    parallelismLimit: 50
+
+steps:
+- name: Install official etcd operator
+  module:
+    path: modules/operator/config.yaml
+
+- name: Create operator-managed etcd cluster
+  module:
+    path: modules/cluster/config.yaml
+    params:
+      # Multi-member defrag needs coordination; keep this scenario single-member.
+      etcdReplicas: 1
+      etcdVersion: "{{$etcdVersion}}"
+      quotaBackendBytes: "{{$quotaBackendBytes}}"
+      storageSize: "{{$storageSize}}"
+      storageClass: "{{$storageClass}}"
+
+{{if $init}}
+- name: Create initial baseline etcd keys
+  module:
+    path: modules/init/config.yaml
+    params:
+      qps: {{$initQps}}
+      keyCount: {{$keyCount}}
+      payloadType: {{$payloadType}}
+      keyPrefix: {{$keyPrefix}}
+      timeout: {{$initTimeout}}
+{{end}}
+
+- name: Start etcd write workload generators
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: create
+      replicas: {{$writerReplicas}}
+      qps: {{$writerQps}}
+      keyCount: {{$keyCount}}
+      payloadType: {{$payloadType}}
+      compactInterval: {{$compactInterval}}
+      compactPhysical: {{$compactPhysical}}
+      defragInterval: "0s" # Only the maintenance Job should trigger defrag.
+      keyPrefix: {{$keyPrefix}}
+
+# Fill the 1m rate windows before starting the baseline measurement.
+- name: Warm up write workload
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 1m
+
+- name: Measure before defrag
+  module:
+    path: modules/defrag/phase.yaml
+    params:
+      metricPrefix: BeforeDefrag
+      duration: {{$phaseDuration}}
+
+- name: Start defrag and recovery measurements
+  module:
+    path: modules/defrag/workload-measurements.yaml
+    params:
+      action: start
+      metricPrefix: DefragWindow
+
+{{if $defrag}}
+- name: Defragment the single member once
+  module:
+    path: modules/defrag/config.yaml
+    params:
+      etcdVersion: "{{$etcdVersion}}"
+{{end}}
+
+# Include immediate recovery in DefragWindow. Two minutes allow the 1m rate
+# windows and 5s scrapes to clear before measuring the steady-state aftermath.
+- name: Observe recovery and collect completed defrag metrics
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: 2m
+
+- name: Gather defrag and recovery measurements
+  module:
+    path: modules/defrag/workload-measurements.yaml
+    params:
+      action: gather
+      metricPrefix: DefragWindow
+
+{{if $defrag}}
+- name: Verify and report the single defrag operation
+  module:
+    path: modules/defrag/measurements.yaml
+{{end}}
+
+- name: Measure after defrag
+  module:
+    path: modules/defrag/phase.yaml
+    params:
+      metricPrefix: AfterDefrag
+      duration: {{$phaseDuration}}
+
+- name: Teardown etcd write workload generators
+  module:
+    path: modules/writer/config.yaml
+    params:
+      action: delete
+      replicas: 0

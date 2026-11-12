@@ -1,0 +1,24 @@
+{{$metricPrefix := .metricPrefix}}
+{{$duration := .duration}}
+
+steps:
+- name: Start {{$metricPrefix}} measurements
+  module:
+    path: modules/defrag/workload-measurements.yaml
+    params:
+      action: start
+      metricPrefix: {{$metricPrefix}}
+
+- name: Run {{$metricPrefix}} workload
+  measurements:
+  - Identifier: Wait
+    Method: Sleep
+    Params:
+      duration: {{$duration}}
+
+- name: Gather {{$metricPrefix}} measurements
+  module:
+    path: modules/defrag/workload-measurements.yaml
+    params:
+      action: gather
+      metricPrefix: {{$metricPrefix}}

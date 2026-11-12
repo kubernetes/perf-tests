@@ -1,0 +1,35 @@
+{{$etcdVersion := .etcdVersion}}
+
+steps:
+- name: Create single-member defrag job
+  phases:
+  - tuningSet: Sequence
+    replicasPerNamespace: 1
+    namespaceRange:
+      min: 1
+      max: 1
+    objectBundle:
+    - basename: etcd-defrag
+      objectTemplatePath: modules/defrag/job.yaml
+      templateFillMap:
+        EtcdVersion: "{{$etcdVersion}}"
+
+# Require success, not merely termination. Failed defrags must fail the test.
+- name: Wait for successful defrag
+  measurements:
+  - Identifier: WaitForEtcdDefrag
+    Method: WaitForGenericK8sObjects
+    Params:
+      objectGroup: batch
+      objectVersion: v1
+      objectResource: jobs
+      namespaceRange:
+        min: 1
+        max: 1
+      labelSelector: group = benchmark-defrag
+      minDesiredObjectCount: 1
+      successfulConditions: [Complete=True]
+      failedConditions: [Failed=True]
+      maxFailedObjectCount: 0
+      refreshInterval: 1s
+      timeout: 7m

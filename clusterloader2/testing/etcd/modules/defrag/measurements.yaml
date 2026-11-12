@@ -1,0 +1,46 @@
+# On a fresh cluster, exactly one defrag makes the cumulative sum its duration.
+# Read counters after recovery; increase() would extrapolate the operation count.
+steps:
+- name: Start single-defrag result measurement
+  measurements:
+  - Identifier: EtcdSingleDefragCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: EtcdSingleDefragCount
+      metricVersion: v1
+      unit: operations
+      queries:
+      - name: Count
+        query: sum(etcd_disk_backend_defrag_duration_seconds_count{job="etcd-cluster-0"})
+        requireSamples: true
+      # The threshold is an upper bound; zero deviation requires one defrag.
+      - name: DeviationFromOne
+        query: abs(sum(etcd_disk_backend_defrag_duration_seconds_count{job="etcd-cluster-0"}) - 1)
+        requireSamples: true
+        threshold: 0
+  - Identifier: EtcdSingleDefragDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: EtcdSingleDefragDuration
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: BackendDurationSeconds
+        query: sum(etcd_disk_backend_defrag_duration_seconds_sum{job="etcd-cluster-0"})
+        requireSamples: true
+
+# Enable violations so missing samples and an incorrect count fail the run.
+- name: Gather single-defrag result
+  measurements:
+  - Identifier: EtcdSingleDefragCount
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      enableViolations: true
+  - Identifier: EtcdSingleDefragDuration
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      enableViolations: true

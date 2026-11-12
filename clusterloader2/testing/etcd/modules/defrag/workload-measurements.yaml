@@ -1,0 +1,69 @@
+{{$action := .action}}
+{{$metricPrefix := .metricPrefix}}
+
+# Prefix names so Perfdash keeps each phase's results separate.
+# requireSamples and enableViolations together make missing metrics fail the run.
+steps:
+- name: "{{$action}} {{$metricPrefix}} workload measurements"
+  measurements:
+  - Identifier: {{$metricPrefix}}EtcdWriteThroughput
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      metricName: {{$metricPrefix}}EtcdWriteThroughput
+      metricVersion: v1
+      unit: ops/s
+      queries:
+      - name: PutThroughput
+        query: sum(rate(grpc_server_handled_total{job="etcd-cluster-0",grpc_method="Put",grpc_code="OK"}[1m]))
+        requireSamples: true
+        aggregations: [Min, Avg, Max]
+
+  - Identifier: {{$metricPrefix}}EtcdServerLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      metricName: {{$metricPrefix}}EtcdServerLatency
+      metricVersion: v1
+      unit: s
+      queries:
+      - name: PutP99
+        # Exclude windows with no completed requests: their p99 is undefined.
+        query: histogram_quantile(0.99, sum by (le) (rate(etcd_server_request_duration_seconds_bucket{job="etcd-cluster-0",type="Put"}[1m]))) and (sum(rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0",type="Put"}[1m])) > 0)
+        requireSamples: true
+        aggregations: [Avg, Max]
+
+  - Identifier: {{$metricPrefix}}EtcdServerErrorRate
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      metricName: {{$metricPrefix}}EtcdServerErrorRate
+      metricVersion: v1
+      unit: percentunit
+      queries:
+      - name: PutErrors
+        # A missing failure series means zero only when Put samples exist.
+        query: (sum(rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0",type="Put",success="false"}[1m])) or (0 * sum(rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0",type="Put"}[1m])))) / (sum(rate(etcd_server_request_duration_seconds_count{job="etcd-cluster-0",type="Put"}[1m])) > 0)
+        requireSamples: true
+        aggregations: [Avg, Max]
+
+  - Identifier: {{$metricPrefix}}EtcdDBSize
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      enableViolations: true
+      metricName: {{$metricPrefix}}EtcdDBSize
+      metricVersion: v1
+      unit: B
+      queries:
+      - name: Total
+        query: max(etcd_mvcc_db_total_size_in_bytes{job="etcd-cluster-0"})
+        requireSamples: true
+        aggregations: [Min, Max, Last]
+      - name: InUse
+        query: max(etcd_mvcc_db_total_size_in_use_in_bytes{job="etcd-cluster-0"})
+        requireSamples: true
+        aggregations: [Min, Max, Last]

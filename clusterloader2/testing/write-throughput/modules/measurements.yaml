@@ -163,7 +163,7 @@ steps:
       dimensions:
       - resource
       queries:
-      - query: sum by (resource) (rate(etcd_requests_total{resource="pods", operation=~"update|updateGet"}[1m])) / (sum by (resource) (rate(etcd_requests_total{resource="pods", operation="update"}[1m])) - (sum by (resource) (rate(etcd_request_errors_total{resource="pods", operation="update"}[1m])) or sum by (resource) (0 * rate(etcd_requests_total{resource="pods", operation="update"}[1m]))))
+      - query: sum by (resource) (rate(etcd_requests_total{resource="pods", operation=~"update|updateGet"}[1m])) / ((sum by (resource) (rate(etcd_requests_total{resource="pods", operation="update"}[1m])) - (sum by (resource) (rate(etcd_request_errors_total{resource="pods", operation="update"}[1m])) or sum by (resource) (0 * rate(etcd_requests_total{resource="pods", operation="update"}[1m])))) > 0)
         aggregations:
         - Max
         - Perc99
@@ -600,7 +600,7 @@ steps:
       metricVersion: v1
       unit: s
       queries:
-      - query: max((etcd_debugging_mvcc_current_revision - etcd_debugging_mvcc_compact_revision) / rate(etcd_debugging_mvcc_current_revision[5m]))
+      - query: max((etcd_debugging_mvcc_current_revision - etcd_debugging_mvcc_compact_revision) / (rate(etcd_debugging_mvcc_current_revision[5m]) > 0))
         aggregations:
         - Max
         - Perc99

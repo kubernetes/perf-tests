@@ -19,7 +19,7 @@ spec:
         - name: prober
           image: {{.ImageRegistry}}/perf-tests/probes:v0.0.7
           args:
-            - --metric-bind-address=0.0.0.0:8080
+            - --metric-bind-address=:8080
             - --mode=dns-propagation
             - --dns-propagation-probe-stateful-set={{.DNSPropagationProbeStatefulSet}}
             - --dns-propagation-probe-service={{.DNSPropagationProbeService}}

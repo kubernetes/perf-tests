@@ -19,9 +19,9 @@ spec:
         - name: ping-server
           image: {{.ImageRegistry}}/perf-tests/probes:v0.0.7
           args:
-            - --metric-bind-address=0.0.0.0:8080
+            - --metric-bind-address=:8080
             - --mode=ping-server
-            - --ping-server-bind-address=0.0.0.0:8081
+            - --ping-server-bind-address=:8081
             - --logtostderr=false
             - --log_file=/var/log/cl2-ping-server.log
           resources:

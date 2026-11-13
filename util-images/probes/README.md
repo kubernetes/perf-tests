@@ -20,7 +20,7 @@ This probe doesn't export any metrics, it's needed for the **Ping Client** to wo
 
 #### Running locally
 ```
-go run cmd/main.go --mode=ping-server --metric-bind-address=:8070 --ping-server-bind-address=0.0.0.0:8081 --stderrthreshold=INFO
+go run cmd/main.go --mode=ping-server --metric-bind-address=:8070 --ping-server-bind-address=:8081 --stderrthreshold=INFO
 ```
 
 ### DNS Propagation

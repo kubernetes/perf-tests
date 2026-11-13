@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	metricAddress = flag.String("metric-bind-address", "0.0.0.0:8080", "The address to serve the Prometheus metrics on.")
+	metricAddress = flag.String("metric-bind-address", ":8080", "The address to serve the Prometheus metrics on.")
 	mode          = flag.String("mode", "", "Mode that should be run. Supported values: ping-server, ping-client, dns, kube-client")
 )
 

@@ -30,7 +30,7 @@ spec:
 {{end}}
       containers:
         - name: {{.Name}}
-          image: gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.23
+          image: gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.24
           resources:
             requests:
               memory: "16Gi"

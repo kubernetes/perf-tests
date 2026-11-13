@@ -294,6 +294,40 @@ var job = &batch.Job{
 	},
 }
 
+var statefulsetWithVolumes = &apps.StatefulSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName,
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: apps.StatefulSetSpec{
+		Replicas: &defaultReplicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: simpleLabel,
+		},
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: simpleLabel,
+			},
+			Spec: func() v1.PodSpec {
+				podSpec := resourcePodSpec("", "50M", "0.5", nil, nil)
+				podSpec.Volumes = []v1.Volume{
+					{
+						Name:         "cache",
+						VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+					},
+				}
+				return podSpec
+			}(),
+		},
+		VolumeClaimTemplates: []v1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "pv"},
+			},
+		},
+	},
+}
+
 // pod is a sample pod that can be created for replicationcontroller,
 // replicaset, deployment, job (NOT daemonset).
 var pod = &corev1.Pod{
@@ -312,6 +346,36 @@ var daemonsetPod = &corev1.Pod{
 		ResourceVersion: defaultResourceVersion,
 	},
 	Spec: alterPodSpec(resourcePodSpec("", "50M", "0.5", simpleLabel, affinity)),
+}
+
+var statefulsetPod = &corev1.Pod{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:            controllerName + "-0",
+		Namespace:       testNamespace,
+		ResourceVersion: defaultResourceVersion,
+	},
+	Spec: func() v1.PodSpec {
+		podSpec := alterPodSpec(resourcePodSpec("", "50M", "0.5", nil, nil))
+		podSpec.Volumes = []v1.Volume{
+			{
+				Name: "pv",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "pv-" + controllerName + "-0",
+					},
+				},
+			},
+			{
+				Name:         "cache",
+				VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+			},
+			{
+				Name:         "kube-api-access",
+				VolumeSource: v1.VolumeSource{Projected: &v1.ProjectedVolumeSource{}},
+			},
+		}
+		return podSpec
+	}(),
 }
 
 func resourcePodSpec(nodeName, memory, cpu string, nodeSelector map[string]string, affinity *v1.Affinity) v1.PodSpec {
@@ -603,6 +667,11 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 			name: "job, positive",
 			obj:  job,
 			pod:  pod,
+		},
+		{
+			name: "statefulset with volumeClaimTemplates and volumes, positive",
+			obj:  statefulsetWithVolumes,
+			pod:  statefulsetPod,
 		},
 		{
 			name:    "no spec.template",

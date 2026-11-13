@@ -119,6 +119,11 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(templateMap, &template); err != nil {
 		return nil, goerrors.Errorf("failed to parse spec.template as v1.PodTemplateSpec")
 	}
+	if len(template.Spec.Volumes) > 0 {
+		if err := addStatefulSetVolumeClaimTemplates(obj, &template.Spec); err != nil {
+			return nil, err
+		}
+	}
 
 	cache := make(map[podCacheKey]error)
 	var mu sync.Mutex
@@ -142,6 +147,42 @@ func getIsPodUpdatedPodPredicateFromUnstructured(obj *unstructured.Unstructured)
 		mu.Unlock()
 		return err
 	}, nil
+}
+
+// addStatefulSetVolumeClaimTemplates prepends volumeClaimTemplates volumes to
+// spec.Volumes to match the StatefulSet controller's updateStorage ordering,
+// leaving ClaimName empty so DeepDerivative matches any per-pod PVC claim name.
+func addStatefulSetVolumeClaimTemplates(obj *unstructured.Unstructured, spec *corev1.PodSpec) error {
+	claims, found, err := unstructured.NestedSlice(obj.UnstructuredContent(), "spec", "volumeClaimTemplates")
+	if err != nil || !found || len(claims) == 0 {
+		return err
+	}
+	claimNames := make(map[string]bool, len(claims))
+	newVolumes := make([]corev1.Volume, 0, len(claims)+len(spec.Volumes))
+	for _, rawClaim := range claims {
+		claimMap, ok := rawClaim.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _, err := unstructured.NestedString(claimMap, "metadata", "name")
+		if err != nil || name == "" {
+			return err
+		}
+		claimNames[name] = true
+		newVolumes = append(newVolumes, corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{},
+			},
+		})
+	}
+	for _, v := range spec.Volumes {
+		if !claimNames[v.Name] {
+			newVolumes = append(newVolumes, v)
+		}
+	}
+	spec.Volumes = newVolumes
+	return nil
 }
 
 // GetSpecFromRuntimeObject returns spec of given runtime object.

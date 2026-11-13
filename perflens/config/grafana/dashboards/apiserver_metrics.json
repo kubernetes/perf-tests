@@ -19,296 +19,268 @@
         "y": 0
       },
       "id": 100,
+      "panels": [],
       "title": "SLO Metrics",
-      "type": "row",
-      "panels": []
+      "type": "row"
     },
     {
+      "datasource": "Prometheus",
+      "fill": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
       "id": 1,
-      "title": "P99 Get Latency | Resource Scope",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=\"GET\", scope=\"resource\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
-          "legendFormat": "{{resource}}",
-          "range": true,
-          "refId": "A"
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{resource}}"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1.0
-              }
-            ]
-          },
-          "softMax": 1.0,
-          "min": 0
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 1.0,
+          "yaxis": "left"
         }
-      },
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
+      ],
+      "title": "P99 Get Latency | Resource Scope",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
         }
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 12,
-        "h": 8
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     },
     {
+      "datasource": "Prometheus",
+      "fill": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
       "id": 24,
-      "title": "P99 List Latency | Namespace Scope",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=\"LIST\", scope=\"namespace\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
-          "legendFormat": "{{resource}}",
-          "range": true,
-          "refId": "A"
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{resource}}"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 5.0
-              }
-            ]
-          },
-          "softMax": 5.0,
-          "min": 0
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 5.0,
+          "yaxis": "left"
         }
-      },
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
+      ],
+      "title": "P99 List Latency | Namespace Scope",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
         }
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 12,
-        "h": 8
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     },
     {
-      "id": 25,
-      "title": "P99 List Latency | Cluster Scope",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=\"LIST\", scope=\"cluster\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
-          "legendFormat": "{{resource}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 30.0
-              }
-            ]
-          },
-          "softMax": 30.0,
-          "min": 0
-        }
-      },
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "x": 0,
         "y": 9,
         "w": 12,
         "h": 8
+      },
+      "id": 25,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 2,
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=\"LIST\", scope=\"cluster\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{resource}}"
+        }
+      ],
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 30.0,
+          "yaxis": "left"
+        }
+      ],
+      "title": "P99 List Latency | Cluster Scope",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     },
     {
-      "id": 2,
-      "title": "P99 Write Latency",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=~\"POST|PUT|PATCH|DELETE|APPLY\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource, verb))",
-          "legendFormat": "{{resource}} - {{verb}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1.0
-              }
-            ]
-          },
-          "softMax": 1.0,
-          "min": 0
-        }
-      },
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "x": 12,
         "y": 9,
         "w": 12,
         "h": 8
+      },
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 2,
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_sli_duration_seconds_bucket{verb=~\"POST|PUT|PATCH|DELETE|APPLY\", resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource, verb))",
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{resource}} - {{verb}}"
+        }
+      ],
+      "thresholds": [
+        {
+          "colorMode": "critical",
+          "fill": false,
+          "line": true,
+          "op": "gt",
+          "value": 1.0,
+          "yaxis": "left"
+        }
+      ],
+      "title": "P99 Write Latency",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     },
     {
@@ -320,361 +292,339 @@
         "y": 17
       },
       "id": 101,
+      "panels": [],
       "title": "Additional API & Cluster Metrics",
-      "type": "row",
-      "panels": []
+      "type": "row"
     },
     {
+      "datasource": "Prometheus",
+      "fill": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
       "id": 5,
-      "title": "Request Volume by Verb",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "sum(rate(apiserver_request_total{resource=~\"$resource\",verb=~\"$verb\", run=~\"^$run\"}[1m])) by (verb)",
-          "legendFormat": "{{verb}}",
-          "range": true,
+          "format": "time_series",
           "refId": "A",
-          "format": "time_series"
+          "legendFormat": "{{verb}}"
         }
       ],
+      "title": "Request Volume by Verb",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 18,
         "w": 12,
         "h": 8
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        }
-      },
-      "transformations": []
-    },
-    {
       "id": 6,
-      "title": "Request Volume by Resource",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "sum(rate(apiserver_request_total{resource=~\"$resource\",verb=~\"$verb\", run=~\"^$run\"}[1m])) by (resource)",
-          "legendFormat": "{{resource}}",
-          "range": true,
+          "format": "time_series",
           "refId": "A",
-          "format": "time_series"
+          "legendFormat": "{{resource}}"
         }
       ],
+      "title": "Request Volume by Resource",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
-        "x": 12,
-        "y": 18,
+        "x": 0,
+        "y": 26,
         "w": 12,
         "h": 8
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        }
-      },
-      "transformations": []
-    },
-    {
       "id": 7,
-      "title": "HTTP Errors",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "sum(rate(apiserver_request_total{code!~\"2..|3..\",resource=~\"$resource\",verb=~\"$verb\", run=~\"^$run\"}[1m])) by (code, resource, verb)",
-          "legendFormat": "HTTP {{code}} - {{resource}} ({{verb}})",
-          "range": true,
-          "refId": "A"
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "HTTP {{code}} - {{resource}} ({{verb}})"
         }
       ],
+      "title": "HTTP Errors",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 26,
         "w": 12,
         "h": 8
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        }
-      },
-      "transformations": []
-    },
-    {
       "id": 8,
-      "title": "Watch Terminations",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
+          "datasource": "Prometheus",
           "expr": "sum(rate(apiserver_terminated_watchers_total{resource=~\"$resource\", run=~\"^$run\"}[1m])) by (resource)",
-          "legendFormat": "{{resource}}",
-          "range": true,
-          "refId": "A"
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{resource}}"
         }
       ],
-      "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "reqps"
+      "title": "Watch Terminations",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
         },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
         }
-      },
-      "transformations": []
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     },
     {
-      "id": 9,
-      "title": "watchCache Lock Wait Time",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(apiserver_watch_cache_read_wait_seconds_bucket{resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
-          "legendFormat": "{{resource}}",
-          "range": true,
-          "refId": "A",
-          "format": "time_series"
-        }
-      ],
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "x": 0,
         "y": 34,
         "w": 12,
         "h": 8
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "s"
-        },
-        "overrides": []
+      "id": 9,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        }
-      },
-      "transformations": []
-    },
-    {
-      "id": 17,
-      "title": "APF Queue Length",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "lines": true,
+      "linewidth": 2,
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (priority_level) (apiserver_flowcontrol_current_inqueue_requests{run=~\"^$run\"})",
-          "legendFormat": "{{priority_level}}",
-          "range": true,
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(apiserver_watch_cache_read_wait_seconds_bucket{resource=~\"$resource\", run=~\"^$run\"}[1m])) by (le, resource))",
+          "format": "time_series",
           "refId": "A",
-          "format": "time_series"
+          "legendFormat": "{{resource}}"
         }
       ],
+      "title": "watchCache Lock Wait Time",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "x": 12,
         "y": 34,
         "w": 12,
         "h": 8
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "barAlignment": 0,
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "unit": "short"
-        },
-        "overrides": []
+      "id": 17,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
       },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
+      "lines": true,
+      "linewidth": 2,
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum by (priority_level) (apiserver_flowcontrol_current_inqueue_requests{run=~\"^$run\"})",
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{priority_level}}"
         }
-      },
-      "transformations": []
+      ],
+      "title": "APF Queue Length",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     },
     {
       "collapsed": false,
@@ -685,105 +635,123 @@
         "y": 42
       },
       "id": 200,
+      "panels": [],
       "title": "API Server Log Traces",
-      "type": "row",
-      "panels": []
+      "type": "row"
     },
     {
-      "id": 101,
-      "title": "Slow Trace Duration (99th Percentile)",
-      "type": "timeseries",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false
-          },
-          "unit": "s"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(apiserver_log_traces_duration_seconds_bucket{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (le, name, step, resource))",
-          "legendFormat": "{{name}} - {{step}} - {{resource}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
         "y": 43
+      },
+      "id": 201,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 2,
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(apiserver_log_traces_duration_seconds_bucket{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (le, name, step, resource))",
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{name}} - {{step}} - {{resource}}"
+        }
+      ],
+      "title": "Slow Trace Duration (99th Percentile)",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     },
     {
-      "id": 102,
-      "title": "Slow Trace Occurrence Rate",
-      "type": "timeseries",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "spanNulls": false
-          },
-          "unit": "reqps"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(apiserver_log_traces_duration_seconds_count{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (name, step, resource)",
-          "legendFormat": "{{name}} - {{step}} - {{resource}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": false,
-          "displayMode": "hidden"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": "Prometheus",
+      "fill": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
         "y": 43
+      },
+      "id": 202,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 2,
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(apiserver_log_traces_duration_seconds_count{resource=~\"$resource\", step=~\"$step\", run=~\"^$run$\"}[1m])) by (name, step, resource)",
+          "format": "time_series",
+          "refId": "A",
+          "legendFormat": "{{name}} - {{step}} - {{resource}}"
+        }
+      ],
+      "title": "Slow Trace Occurrence Rate",
+      "type": "graph",
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": 0,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
       }
     }
   ],
   "refresh": "",
-  "schemaVersion": 38,
+  "schemaVersion": 18,
   "style": "dark",
   "tags": [
     "kubernetes",
@@ -793,10 +761,7 @@
   "templating": {
     "list": [
       {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(run)",
         "hide": 0,
         "includeAll": false,
@@ -813,10 +778,7 @@
       },
       {
         "allValue": ".*",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(apiserver_request_total, resource)",
         "hide": 0,
         "includeAll": true,
@@ -833,10 +795,7 @@
       },
       {
         "allValue": ".*",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(apiserver_request_total, verb)",
         "hide": 0,
         "includeAll": true,
@@ -858,10 +817,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
+        "datasource": "Prometheus",
         "definition": "label_values(apiserver_log_traces_duration_seconds_bucket{run=~\"^$run$\"}, step)",
         "hide": 0,
         "includeAll": true,

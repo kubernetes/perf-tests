@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import unittest
 import yaml
 
@@ -33,12 +34,35 @@ class DataTest(unittest.TestCase):
 
   def test_result_db(self):
     results = yaml.safe_load(open('fixtures/results.yaml'))
+    results['params']['pod_name'] = 'dns-perf-client-1'
 
     self.db.put(results)
-    res = self.db.get_results(1234, 0)
+    res = self.db.get_results(1234, 0, 'dns-perf-client-1')
     self.assertEqual(727354, res['queries_sent'])
     self.db.put(results) # dup
 
     self.assertRaises(
         Exception,
         lambda: self.db.put(results, ignore_if_dup=False))
+
+  def test_histograms_keep_pod_name(self):
+    results = yaml.safe_load(open('fixtures/results.yaml'))
+    histogram_count = len(results['data']['histogram'])
+
+    for pod_name in ['dns-perf-client-1', 'dns-perf-client-2']:
+      pod_results = copy.deepcopy(results)
+      pod_results['params']['pod_name'] = pod_name
+      self.db.put(pod_results)
+
+    rows = self.db.c.execute(
+        'SELECT pod_name, COUNT(*) FROM histograms GROUP BY pod_name').fetchall()
+    self.assertEqual(
+        [('dns-perf-client-1', histogram_count),
+         ('dns-perf-client-2', histogram_count)],
+        rows)
+
+    join_count = self.db.c.execute(
+        'SELECT COUNT(*) FROM histograms h JOIN results r '
+        'ON h.run_id = r.run_id AND h.run_subid = r.run_subid '
+        'AND h.pod_name = r.pod_name').fetchone()[0]
+    self.assertEqual(2 * histogram_count, join_count)

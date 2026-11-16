@@ -352,6 +352,10 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			return err
 		}
 	}
+	if err := ensureOperatorCreatedPrometheus(rootClusterClientSet, operatorCheckInterval, operatorCreateDeadline); err != nil {
+		dumpAdditionalLogsOnPrometheusSetupFailure(rootClusterClientSet)
+		return err
+	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
 		dumpAdditionalLogsOnPrometheusSetupFailure(rootClusterClientSet)
 		return err

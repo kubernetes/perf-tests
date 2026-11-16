@@ -30,7 +30,7 @@ fi
 # Find all directories with go.mod file,
 # exluding go.mod from vendor/ and _logviewer
 MODULE_BASED=$(find . -type d -name vendor -prune \
-  -o -type f -name go.mod -printf "%h\n" \
+  -o -type f -name go.mod -exec dirname {} \; \
   | sort -u \
   | grep -v -E $(printf -- "-e %s\n" "${EXCLUDE_PATHS[@]}"))
 

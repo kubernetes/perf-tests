@@ -13,11 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package prometheus
 
 import (
+	"context"
 	"testing"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,19 +27,20 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 )
 
-func TestEnsureOperatorCreatedPrometheus(t *testing.T) {
+func TestOperatorWatchdog(t *testing.T) {
 	statefulSet := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: prometheusStatefulSet}}
 
 	tests := []struct {
 		name string
 		// createAfterRestarts is the number of operator restarts after which the StatefulSet appears; -1 means never.
 		createAfterRestarts int
+		checks              int
 		wantRestarts        int
-		wantErr             bool
 	}{
-		{name: "created without a restart", createAfterRestarts: 0, wantRestarts: 0},
-		{name: "created after two restarts", createAfterRestarts: 2, wantRestarts: 2},
-		{name: "never created", createAfterRestarts: -1, wantRestarts: operatorRestartLimit, wantErr: true},
+		{name: "created at once", createAfterRestarts: 0, checks: 10, wantRestarts: 0},
+		{name: "not yet a minute", createAfterRestarts: -1, checks: 2, wantRestarts: 0},
+		{name: "created after one restart", createAfterRestarts: 1, checks: 10, wantRestarts: 1},
+		{name: "never created", createAfterRestarts: -1, checks: 30, wantRestarts: operatorRestartLimit},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -55,9 +57,11 @@ func TestEnsureOperatorCreatedPrometheus(t *testing.T) {
 				return true, nil, nil
 			})
 
-			err := ensureOperatorCreatedPrometheus(c, time.Millisecond, 20*time.Millisecond)
-			if (err != nil) != tc.wantErr {
-				t.Fatalf("got error %v, want error: %v", err, tc.wantErr)
+			w := &operatorWatchdog{}
+			for range tc.checks {
+				if err := w.check(context.Background(), c); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if restarts != tc.wantRestarts {
 				t.Errorf("got %d restarts, want %d", restarts, tc.wantRestarts)

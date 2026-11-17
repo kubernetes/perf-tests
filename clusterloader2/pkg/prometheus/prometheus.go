@@ -352,10 +352,6 @@ func (pc *Controller) SetUpPrometheusStack() error {
 			return err
 		}
 	}
-	if err := ensureOperatorCreatedPrometheus(rootClusterClientSet, operatorCheckInterval, operatorCreateDeadline); err != nil {
-		dumpAdditionalLogsOnPrometheusSetupFailure(rootClusterClientSet)
-		return err
-	}
 	if err := pc.waitForPrometheusToBeHealthy(); err != nil {
 		dumpAdditionalLogsOnPrometheusSetupFailure(rootClusterClientSet)
 		return err
@@ -622,12 +618,16 @@ func (pc *Controller) runNodeExporter() error {
 
 func (pc *Controller) waitForPrometheusToBeHealthy() error {
 	klog.V(2).Info("Waiting for Prometheus stack to become healthy...")
+	watchdog := &operatorWatchdog{}
 	return wait.PollImmediate(
 		checkPrometheusReadyInterval,
 		pc.readyTimeout,
 		func() (bool, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), checkPrometheusReadyInterval)
 			defer cancel()
+			if err := watchdog.check(ctx, pc.framework.GetClientSets().GetClient()); err != nil {
+				klog.Warningf("prometheus-operator check failed: %v", err)
+			}
 			done, err := pc.isPrometheusReady(ctx)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
 				return done, nil

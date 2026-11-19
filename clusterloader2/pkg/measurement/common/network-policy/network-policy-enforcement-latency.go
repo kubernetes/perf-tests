@@ -20,12 +20,14 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -54,6 +56,7 @@ https://github.com/kubernetes/perf-tests/tree/master/network/tools/network-polic
 
 const (
 	networkPolicyEnforcementName = "NetworkPolicyEnforcement"
+	kubernetesServiceName        = "kubernetes"
 	netPolicyTestNamespace       = "net-policy-test"
 	netPolicyTestClientName      = "np-test-client"
 	policyCreationTest           = "policy-creation"
@@ -111,6 +114,7 @@ type networkPolicyEnforcementMeasurement struct {
 	// testClientNodeSelectorValue is value key for the node label on which the
 	// test client pods should run.
 	testClientNodeSelectorValue string
+	isIPv6                      bool
 }
 
 // Execute - Available actions:
@@ -351,30 +355,89 @@ func (nps *networkPolicyEnforcementMeasurement) runPolicyCreationTest(depTemplat
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() error {
+	// Get kube-apiserver addresses and ports to allow connections to it from the
+	// test client pods. It's needed since network policies are denying connections
+	// with all endpoints that are not in the specified Labels / CIDR range.
+	// The kubernetes Service is single-stack in the cluster's primary IP family,
+	// so all its endpoints share one address type, which also selects the IP
+	// family of the load policies.
+	var endpointSlices *discoveryv1.EndpointSliceList
+	listEndpointSlices := func() error {
+		var err error
+		endpointSlices, err = nps.k8sClient.DiscoveryV1().EndpointSlices(corev1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", discoveryv1.LabelServiceName, kubernetesServiceName),
+		})
+		return err
+	}
+	if err := client.RetryWithExponentialBackOff(client.RetryFunction(listEndpointSlices)); err != nil {
+		return fmt.Errorf("failed to list kube-apiserver EndpointSlices: %v", err)
+	}
+
+	addrCount := 0
+	portCount := 0
+	for _, slice := range endpointSlices.Items {
+		for _, endpoint := range slice.Endpoints {
+			addrCount += len(endpoint.Addresses)
+		}
+		portCount += len(slice.Ports)
+	}
+
+	kubeAPIServerCIDRs := make([]string, 0, addrCount)
+	seenCIDRs := make(map[string]struct{}, addrCount)
+	ports := make([]int32, 0, 2+portCount)
+	ports = append(ports, 443, 80)
+	seenPorts := make(map[int32]struct{}, 2+portCount)
+	seenPorts[443] = struct{}{}
+	seenPorts[80] = struct{}{}
+
+	for _, slice := range endpointSlices.Items {
+		if slice.AddressType != discoveryv1.AddressTypeIPv4 && slice.AddressType != discoveryv1.AddressTypeIPv6 {
+			continue
+		}
+		for _, endpoint := range slice.Endpoints {
+			if endpoint.Conditions.Ready != nil && !*endpoint.Conditions.Ready {
+				continue
+			}
+			for _, addr := range endpoint.Addresses {
+				cidr, _, err := getAPIServerCIDR(addr)
+				if err != nil {
+					return err
+				}
+				if len(kubeAPIServerCIDRs) == 0 {
+					nps.isIPv6 = slice.AddressType == discoveryv1.AddressTypeIPv6
+				}
+				if _, ok := seenCIDRs[cidr]; !ok {
+					seenCIDRs[cidr] = struct{}{}
+					kubeAPIServerCIDRs = append(kubeAPIServerCIDRs, cidr)
+				}
+			}
+		}
+		for _, p := range slice.Ports {
+			if p.Port == nil || *p.Port <= 0 || (p.Protocol != nil && *p.Protocol != corev1.ProtocolTCP) {
+				continue
+			}
+			if _, ok := seenPorts[*p.Port]; !ok {
+				seenPorts[*p.Port] = struct{}{}
+				ports = append(ports, *p.Port)
+			}
+		}
+	}
+	if len(kubeAPIServerCIDRs) == 0 {
+		return fmt.Errorf("kube-apiserver EndpointSlices do not have a ready IP address")
+	}
+
 	policyName := "allow-egress-apiserver"
 	if policy, err := nps.k8sClient.NetworkingV1().NetworkPolicies(nps.testClientNamespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err == nil && policy != nil {
 		klog.Warningf("Attempting to create %q network policy, but it already exists", policyName)
 		return nil
 	}
 
-	// Get kube-apiserver IP address to allow connections to it from the test
-	// client pods. It's needed since network policies are denying connections
-	// with all endpoints that are not in the specified Labels / CIDR range.
-	endpoints, err := nps.k8sClient.CoreV1().Endpoints(corev1.NamespaceDefault).Get(context.TODO(), "kubernetes", metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get kube-apiserver Endpoints object: %v", err)
-	}
-
-	if len(endpoints.Subsets) == 0 || len(endpoints.Subsets[0].Addresses) == 0 {
-		return fmt.Errorf("kube-apiserver Endpoints object does not have an IP address")
-	}
-
-	kubeAPIServerIP := endpoints.Subsets[0].Addresses[0].IP
 	templateMap := map[string]interface{}{
-		"Name":            policyName,
-		"Namespace":       nps.testClientNamespace,
-		"TestClientLabel": netPolicyTestClientName,
-		"kubeAPIServerIP": kubeAPIServerIP,
+		"Name":               policyName,
+		"Namespace":          nps.testClientNamespace,
+		"TestClientLabel":    netPolicyTestClientName,
+		"Ports":              ports,
+		"KubeAPIServerCIDRs": kubeAPIServerCIDRs,
 	}
 
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, policyEgressApiserverFilePath, templateMap); err != nil {
@@ -452,8 +515,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 	limiter := rate.NewLimiter(rate.Limit(policyLoadQPS), policyLoadQPS)
 
 	for nsIdx, ns := range nps.targetNamespaces {
-		octet := nsIdx % 256
-		baseCidr := fmt.Sprintf("10.0.%d.0/24", octet)
+		baseCidr := getBaseCIDR(nsIdx, nps.isIPv6)
 
 		for depIdx := 0; depIdx < policiesPerNs; depIdx++ {
 			// This will be the same as "small-deployment-0".."small-deployment-50",
@@ -551,4 +613,27 @@ func (nps *networkPolicyEnforcementMeasurement) Dispose() {
 	if err := nps.cleanUp(); err != nil {
 		klog.Errorf("Failed to clean up, error: %v", err)
 	}
+}
+
+// getAPIServerCIDR returns the single-address CIDR of the kube-apiserver IP and
+// whether the address is IPv6.
+func getAPIServerCIDR(ip string) (string, bool, error) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "", false, fmt.Errorf("invalid kube-apiserver IP address %q: %v", ip, err)
+	}
+	if addr.Zone() != "" {
+		return "", false, fmt.Errorf("kube-apiserver IP address %q must not have a zone", ip)
+	}
+	addr = addr.Unmap()
+	return netip.PrefixFrom(addr, addr.BitLen()).String(), addr.Is6(), nil
+}
+
+// getBaseCIDR returns the CIDR used by the load policies of a namespace.
+func getBaseCIDR(nsIdx int, isIPv6 bool) string {
+	octet := byte(nsIdx % 256)
+	if isIPv6 {
+		return netip.PrefixFrom(netip.AddrFrom16([16]byte{0xfd, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, octet}), 64).String()
+	}
+	return netip.PrefixFrom(netip.AddrFrom4([4]byte{10, 0, octet, 0}), 24).String()
 }

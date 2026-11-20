@@ -10,7 +10,7 @@
 {{$initTimeout := DefaultParam .CL2_ETCD_INIT_TIMEOUT "15m"}}
 
 {{$writerReplicas := DefaultParam .CL2_ETCD_WRITER_REPLICAS 10}}
-{{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 100}}
+{{$writerQps := DefaultParam .CL2_ETCD_WRITER_QPS 200}}
 {{$keyCount := DefaultParam .CL2_ETCD_KEY_COUNT 150000}}
 {{$payloadType := DefaultParam .CL2_ETCD_PAYLOAD_TYPE "pod"}}
 {{$compactInterval := DefaultParam .CL2_ETCD_COMPACT_INTERVAL "90s"}}

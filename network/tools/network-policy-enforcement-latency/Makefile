@@ -2,11 +2,11 @@ REGISTRY ?= gcr.io/k8s-staging-perf-tests/network-policy-enforcement-latency
 
 POD_CREATION_IMAGE_NAME ?= pod-creation-reachability-latency
 POD_CREATION_PATH ?= $(POD_CREATION_IMAGE_NAME)
-POD_CREATION_VERSION ?= v0.0.1
+POD_CREATION_VERSION ?= v0.0.2
 
 POLICY_CREATION_IMAGE_NAME ?= policy-creation-enforcement-latency
 POLICY_CREATION_PATH ?= $(POLICY_CREATION_IMAGE_NAME)
-POLICY_CREATION_VERSION ?= v0.0.1
+POLICY_CREATION_VERSION ?= v0.0.2
 
 all: push_pod_creation push_policy_creation
 

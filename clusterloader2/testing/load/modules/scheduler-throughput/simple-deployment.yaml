@@ -6,6 +6,8 @@
 {{$Image := DefaultParam .Image (Concat .ImageRegistry "/pause:3.9")}}
 {{$TOLERATION := DefaultParam .CL2_TOLERATION ""}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,6 +28,7 @@ spec:
         svc: {{.SvcName}}-{{.Index}}
 {{end}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - env:
         - name: ENV_VAR

@@ -3,6 +3,8 @@
 {{$cpu := DefaultParam .cpu "200m"}}
 {{$memory := DefaultParam .memory "100Mi"}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +22,7 @@ spec:
         name: {{.Name}}
         group: benchmark-write
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - name: write-generator
         image: {{$image}}

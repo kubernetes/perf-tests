@@ -2,6 +2,8 @@
 {{$cpu := DefaultParam .CL2_BENCHMARK_POD_CPU (AddInt .Inflight 1)}}
 {{$memory := DefaultParam .CL2_BENCHMARK_POD_MEMORY "100Mi"}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +21,7 @@ spec:
         name: {{.Name}}
         group: benchmark
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - name: {{.Name}}
         image: {{$image}}

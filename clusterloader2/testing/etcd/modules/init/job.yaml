@@ -8,6 +8,8 @@
 {{$cpu := DefaultParam .cpu "1000m"}}
 {{$memory := DefaultParam .memory "512Mi"}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -22,6 +24,7 @@ spec:
         name: {{.Name}}
         group: benchmark-init
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       restartPolicy: OnFailure
       containers:
       - name: etcd-init

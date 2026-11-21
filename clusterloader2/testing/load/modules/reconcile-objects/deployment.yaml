@@ -24,6 +24,8 @@
 {{end}}
 {{$RealisticPod20KB := and $RealisticPod (eq $RealisticPodSizeKB 20)}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,6 +74,7 @@ spec:
         argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
 {{end}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}

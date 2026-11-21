@@ -1,3 +1,5 @@
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,6 +17,7 @@ spec:
         name: {{.Name}}
         group: {{.Group}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

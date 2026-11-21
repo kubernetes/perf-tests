@@ -5,6 +5,8 @@
 {{$resource := DefaultParam .Resource "pods"}}
 {{$watchesPerReplica := DefaultParam .WatchesPerReplica 1}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,6 +24,7 @@ spec:
         name: {{.Name}}
         group: benchmark-watch
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - name: watch-generator
         image: {{$image}}

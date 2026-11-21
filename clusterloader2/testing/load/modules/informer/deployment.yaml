@@ -1,6 +1,9 @@
 {{$TolerateControlPlane := DefaultParam .CL2_INFORMER_TOLERATE_CONTROL_PLANE false}}
 {{$RunOnControlPlane := DefaultParam .RunOnControlPlane false}}
 {{$DisableCompression := DefaultParam .DisableCompression false}}
+{{$Cpu := DefaultParam .CL2_INFORMER_CPU "6"}}
+{{$Memory := DefaultParam .CL2_INFORMER_MEMORY "16Gi"}}
+{{$GoMemLimit := DefaultParam .CL2_INFORMER_GOMEMLIMIT "14GiB"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -33,13 +36,15 @@ spec:
           image: gcr.io/k8s-staging-perf-tests/perf-tests-util/request-benchmark:v0.0.24
           resources:
             requests:
-              memory: "16Gi"
-              cpu: "6"
+              memory: "{{$Memory}}"
+              cpu: "{{$Cpu}}"
             limits:
-              memory: "16Gi"
-              cpu: "6"
-{{if $RunOnControlPlane}}
+              memory: "{{$Memory}}"
+              cpu: "{{$Cpu}}"
           env:
+            - name: GOMEMLIMIT
+              value: "{{$GoMemLimit}}"
+{{if $RunOnControlPlane}}
             - name: KUBERNETES_SERVICE_HOST
               value: "127.0.0.1"
             - name: KUBERNETES_SERVICE_PORT

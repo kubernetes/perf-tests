@@ -3,7 +3,7 @@ module k8s.io/perf-tests/request-benchmark
 go 1.27.0
 
 require (
-	go.etcd.io/etcd/client/v3 v3.7.3
+	go.etcd.io/etcd/client/v3 v3.7.4
 	k8s.io/api v0.0.0-20261105044833-c96aa7872647
 	k8s.io/apimachinery v0.0.0-20261105044403-e2d4a107c3eb
 	k8s.io/client-go v0.0.0-20261105045359-675830c068e6
@@ -31,8 +31,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.etcd.io/etcd/api/v3 v3.7.3 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.7.3 // indirect
+	go.etcd.io/etcd/api/v3 v3.7.4 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.7.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect

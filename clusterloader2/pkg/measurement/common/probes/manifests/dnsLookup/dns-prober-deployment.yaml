@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: dns
-          image: {{.ImageRegistry}}/perf-tests/probes:v0.0.7
+          image: {{.ImageRegistry}}/perf-tests/probes:v0.0.11
           args:
             - --metric-bind-address=:8080
             - --mode=dns

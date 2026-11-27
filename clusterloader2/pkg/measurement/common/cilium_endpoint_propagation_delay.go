@@ -106,7 +106,7 @@ func (c *cepPropagationDelayGatherer) gatherCepPropagationDelay(executor QueryEx
 	}
 
 	extractSampleData := func(sample *model.Sample) (string, string, int) {
-		return sample.Timestamp.String(), string(sample.Metric["le"]), int(math.Round(float64(sample.Value)))
+		return sample.Timestamp.String(), measurementutil.NormalizeBucketLabel(sample.Metric["le"]), int(math.Round(float64(sample.Value)))
 	}
 
 	result := make(cepPropagationDelayMetricMap)

@@ -54,6 +54,15 @@ func TestCiliumEndpointPropagationDelayMeasurement(t *testing.T) {
 			},
 		},
 		{
+			name:               "float_le_slo_pass",
+			hasError:           false,
+			testSeriesFile:     "float_le_slo_pass.yaml",
+			testSeriesDuration: 100 * time.Minute,
+			config: &measurement.Config{
+				Params: map[string]interface{}{},
+			},
+		},
+		{
 			name:               "custom_slo_pass",
 			hasError:           false,
 			testSeriesFile:     "default_slo_pass.yaml",

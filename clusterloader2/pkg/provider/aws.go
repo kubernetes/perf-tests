@@ -31,16 +31,19 @@ type AWSProvider struct {
 func NewAWSProvider(_ map[string]string) Provider {
 	return &AWSProvider{
 		features: Features{
-			ShouldPrometheusScrapeApiserverOnly: true,
-			ShouldScrapeKubeProxy:               true,
-			SupportAccessAPIServerPprofEndpoint: true,
+			SupportWindowsNodeScraping:          true,
+			SupportProbe:                        true,
+			SupportSSHToMaster:                  true,
+			SupportImagePreload:                 true,
+			SupportSnapshotPrometheusDisk:       true,
+			SupportNodeKiller:                   true,
 			SupportEnablePrometheusServer:       true,
 			SupportGrabMetricsFromKubelets:      true,
-			SupportImagePreload:                 true,
-			SupportProbe:                        true,
-			SupportResourceUsageMetering:        true,
-			SupportSSHToMaster:                  true,
+			SupportAccessAPIServerPprofEndpoint: true,
 			SupportKubeStateMetrics:             true,
+			SupportMetricsServerMetrics:         true,
+			SupportResourceUsageMetering:        true,
+			ShouldScrapeKubeProxy:               true,
 		},
 	}
 }

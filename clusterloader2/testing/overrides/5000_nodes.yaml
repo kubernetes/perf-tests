@@ -1,1 +1,1 @@
-NODE_MODE: masterandnondaemons
+# Placeholder so this stays a valid non-empty --testoverrides target.

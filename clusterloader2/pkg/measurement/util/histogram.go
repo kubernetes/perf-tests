@@ -83,6 +83,17 @@ func NewHistogram(labels map[string]string) *Histogram {
 	}
 }
 
+// NormalizeBucketLabel returns the "le" label value in the shortest float form
+// (e.g. "600" rather than "600.0"). Prometheus 3 stores "le" values as floats,
+// while Prometheus 2 keeps them as exposed by the target.
+func NormalizeBucketLabel(le model.LabelValue) string {
+	upper, err := strconv.ParseFloat(string(le), 64)
+	if err != nil {
+		return string(le)
+	}
+	return strconv.FormatFloat(upper, 'g', -1, 64)
+}
+
 // ConvertSampleToBucket converts prometheus sample into HistogramVec bucket.
 func ConvertSampleToBucket(sample *model.Sample, h *HistogramVec) {
 	labels := make(map[string]string)

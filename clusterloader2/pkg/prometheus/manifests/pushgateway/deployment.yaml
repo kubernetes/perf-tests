@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: pushgateway
-        image: gcr.io/k8s-staging-perf-tests/pushgateway:v1.4.2
+        image: quay.io/prometheus/pushgateway:v1.11.4
         args:
         - --log.level=warn
         ports:

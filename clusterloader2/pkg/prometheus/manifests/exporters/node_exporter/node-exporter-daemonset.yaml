@@ -16,14 +16,14 @@ spec:
     spec:
       containers:
         - name: prometheus-node-exporter
-          image: gcr.io/k8s-testimages/quay.io/prometheus/node-exporter:v1.0.1
+          image: quay.io/prometheus/node-exporter:v1.13.1
           imagePullPolicy: "IfNotPresent"
           args:
             - --path.sysfs=/host/sys
             - --path.rootfs=/host/root
             - --no-collector.wifi
             - --no-collector.hwmon
-            - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/pods/.+)($|/)
+            - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/pods/.+)($|/)
             - --collector.netstat.fields=^.*$
             - --collector.qdisc
           ports:

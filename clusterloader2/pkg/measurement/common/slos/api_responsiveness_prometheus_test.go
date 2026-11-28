@@ -144,6 +144,13 @@ func TestAPIResponsivenessSLOFailures(t *testing.T) {
 			testSeriesDuration: 10 * time.Minute,
 		},
 		{
+			name:               "above_slow_count_failure_float_le",
+			hasError:           true,
+			allowedSlow:        1,
+			testSeriesFile:     "above_slow_count_failure_float_le.yaml",
+			testSeriesDuration: 10 * time.Minute,
+		},
+		{
 			name:               "mutating_slo_failure",
 			hasError:           true,
 			testSeriesFile:     "mutating_slo_failure.yaml",

@@ -67,12 +67,15 @@ const (
 	// watchListLatencyQuery placeholders must be replaced with (1) quantile (2) query window size
 	watchListLatencyQuery = "histogram_quantile(%.2f, sum(rate(%v_bucket{}[%v])) by (group, version, resource, scope, le))"
 
+	// The le matchers below accept both "1" and "1.0": Prometheus 3 stores le
+	// values as floats, while Prometheus 2 keeps them as exposed by the target.
+
 	// exclude all buckets of 1s and shorter
-	filterGetAndMutating = `verb!~"WATCH|LIST", subresource!="proxy", le="1"`
+	filterGetAndMutating = `verb!~"WATCH|LIST", subresource!="proxy", le=~"1(\\.0)?"`
 	// exclude all buckets below or equal 5s
-	filterNamespaceList = `scope!="cluster", verb="LIST", le="5"`
+	filterNamespaceList = `scope!="cluster", verb="LIST", le=~"5(\\.0)?"`
 	// exclude all buckets below or equal 30s
-	filterClusterList = `scope="cluster", verb="LIST", le="30"`
+	filterClusterList = `scope="cluster", verb="LIST", le=~"30(\\.0)?"`
 
 	latencyWindowSize = 5 * time.Minute
 

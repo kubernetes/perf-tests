@@ -152,7 +152,7 @@ func (g *negLatencyGatherer) gatherMetrics(executor QueryExecutor, startTime, en
 		}
 
 		for _, sample := range samples {
-			bucket, value := string(sample.Metric["le"]), int(math.Round(float64(sample.Value)))
+			bucket, value := measurementutil.NormalizeBucketLabel(sample.Metric["le"]), int(math.Round(float64(sample.Value)))
 			if _, ok := result[metricName]; !ok {
 				result[metricName] = make(map[string]int)
 			}

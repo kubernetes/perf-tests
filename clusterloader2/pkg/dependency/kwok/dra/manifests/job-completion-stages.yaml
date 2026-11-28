@@ -1,0 +1,84 @@
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: job-complete-short
+spec:
+  resourceRef:
+    apiGroup: v1
+    kind: Pod
+  selector:
+    matchExpressions:
+    - key: '.metadata.ownerReferences.[].kind'
+      operator: 'In'
+      values: ['Job']
+    - key: '.metadata.labels.job-type'
+      operator: 'In'
+      values: ['short-lived']
+    - key: '.status.phase'
+      operator: 'In'
+      values: ['Running']
+  delay:
+    durationMilliseconds: {{.CL2_JOB_RUNNING_TIME_MS | DefaultParam 30000}}
+  next:
+    statusTemplate: |
+      {{print "{{ $now := Now }}"}}
+      {{print "{{ $root := . }}"}}
+      containerStatuses:
+      {{print "{{ range $index, $item := .spec.containers }}"}}
+      - image: {{print "{{ $item.image | Quote }}"}}
+        name: {{print "{{ $item.name | Quote }}"}}
+        ready: false
+        restartCount: 0
+        started: false
+        state:
+          terminated:
+            exitCode: 0
+            finishedAt: {{print "{{ $now | Quote }}"}}
+            reason: Completed
+            startedAt: {{print "{{ $now | Quote }}"}}
+      {{print "{{ end }}"}}
+      phase: Succeeded
+  immediateNextStage: true
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: job-complete-long
+spec:
+  resourceRef:
+    apiGroup: v1
+    kind: Pod
+  selector:
+    matchExpressions:
+    - key: '.metadata.ownerReferences.[].kind'
+      operator: 'In'
+      values: ['Job']
+    - key: '.metadata.labels.job-type'
+      operator: 'In'
+      values: ['long-running']
+    - key: '.status.phase'
+      operator: 'In'
+      values: ['Running']
+  delay:
+    durationMilliseconds: {{.CL2_LONG_JOB_RUNNING_TIME_MS | DefaultParam 3600000}}
+  next:
+    statusTemplate: |
+      {{print "{{ $now := Now }}"}}
+      {{print "{{ $root := . }}"}}
+      containerStatuses:
+      {{print "{{ range $index, $item := .spec.containers }}"}}
+      - image: {{print "{{ $item.image | Quote }}"}}
+        name: {{print "{{ $item.name | Quote }}"}}
+        ready: false
+        restartCount: 0
+        started: false
+        state:
+          terminated:
+            exitCode: 0
+            finishedAt: {{print "{{ $now | Quote }}"}}
+            reason: Completed
+            startedAt: {{print "{{ $now | Quote }}"}}
+      {{print "{{ end }}"}}
+      phase: Succeeded
+  immediateNextStage: true 

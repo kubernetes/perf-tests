@@ -1,0 +1,71 @@
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: pod-ready
+spec:
+  next:
+    statusTemplate: |
+      {{print "{{ $now := Now }}"}}
+
+      conditions:
+      - lastTransitionTime: {{print "{{ $now | Quote }}"}}
+        status: "True"
+        type: Initialized
+      - lastTransitionTime: {{print "{{ $now | Quote }}"}}
+        status: "True"
+        type: Ready
+      - lastTransitionTime: {{print "{{ $now | Quote }}"}}
+        status: "True"
+        type: ContainersReady
+      {{print "{{ range .spec.readinessGates }}"}}
+      - lastTransitionTime: {{print "{{ $now | Quote }}"}}
+        status: "True"
+        type: {{print "{{ .conditionType | Quote }}"}}
+      {{print "{{ end }}"}}
+
+      containerStatuses:
+      {{print "{{ range .spec.containers }}"}}
+      - image: {{print "{{ .image | Quote }}"}}
+        name: {{print "{{ .name | Quote }}"}}
+        ready: true
+        restartCount: 0
+        state:
+          running:
+            startedAt: {{print "{{ $now | Quote }}"}}
+      {{print "{{ end }}"}}
+
+      initContainerStatuses:
+      {{print "{{ range .spec.initContainers }}"}}
+      - image: {{print "{{ .image | Quote }}"}}
+        name: {{print "{{ .name | Quote }}"}}
+        ready: true
+        restartCount: 0
+        {{print "{{ if eq .restartPolicy \"Always\" }}"}}
+        started: true
+        state:
+          running:
+            startedAt: {{print "{{ $now | Quote }}"}}
+        {{print "{{ else }}"}}
+        state:
+          terminated:
+            exitCode: 0
+            finishedAt: {{print "{{ $now | Quote }}"}}
+            reason: Completed
+            startedAt: {{print "{{ $now | Quote }}"}}
+        {{print "{{ end }}"}}
+      {{print "{{ end }}"}}
+
+      hostIP: {{print "{{ NodeIPWith .spec.nodeName | Quote }}"}}
+      podIP: {{print "{{ PodIPWith .spec.nodeName ( or .spec.hostNetwork false ) ( or .metadata.uid \"\" ) ( or .metadata.name \"\" ) ( or .metadata.namespace \"\" ) | Quote }}"}}
+      phase: Running
+      startTime: {{print "{{ $now | Quote }}"}}
+  resourceRef:
+    apiGroup: v1
+    kind: Pod
+  selector:
+    matchExpressions:
+    - key: .metadata.deletionTimestamp
+      operator: DoesNotExist
+    - key: .status.podIP
+      operator: DoesNotExist

@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -634,6 +635,72 @@ func TestGetIsPodUpdatedPredicateFromRuntimeObject(t *testing.T) {
 				t.Errorf("pred(tc.pod) = %v; want %v", noWhitespace(gotErrString), noWhitespace(tc.wantfullCompareError))
 			}
 		})
+	}
+}
+
+func TestStatefulSetClaimVolumesCountAsUpdated(t *testing.T) {
+	template := resourcePodSpec("", "50M", "0.5", nil, nil)
+	template.Volumes = []v1.Volume{{
+		Name:         "data",
+		VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+	}}
+	sts := &apps.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            controllerName,
+			Namespace:       testNamespace,
+			ResourceVersion: defaultResourceVersion,
+		},
+		Spec: apps.StatefulSetSpec{
+			Replicas: &defaultReplicas,
+			Selector: &metav1.LabelSelector{MatchLabels: simpleLabel},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: simpleLabel},
+				Spec:       template,
+			},
+			VolumeClaimTemplates: []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{Name: "www"},
+			}},
+		},
+	}
+	claimVol := v1.Volume{
+		Name: "www",
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: "www-foobar-0"},
+		},
+	}
+	dataVol := template.Volumes[0]
+	withClaim := func(uid types.UID, volumes ...v1.Volume) *corev1.Pod {
+		spec := alterPodSpec(template)
+		spec.Volumes = volumes
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            controllerName + "-0",
+				Namespace:       testNamespace,
+				UID:             uid,
+				ResourceVersion: defaultResourceVersion,
+			},
+			Spec: spec,
+		}
+	}
+
+	obj := &unstructured.Unstructured{}
+	if err := scheme.Scheme.Convert(sts, obj, nil); err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	pred, err := runtimeobjects.GetIsPodUpdatedPredicateFromRuntimeObject(obj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pred(withClaim("uid-front", claimVol, dataVol)); err != nil {
+		t.Fatalf("prepended claim volume reported stale: %v", err)
+	}
+	if err := pred(withClaim("uid-back", dataVol, claimVol)); err != nil {
+		t.Fatalf("claim volume after the template volume reported stale: %v", err)
+	}
+	stale := withClaim("uid-stale", claimVol, dataVol)
+	stale.Spec.Containers[0].Image = "gcr.io/some-project/some-image-diff"
+	if err := pred(stale); err == nil {
+		t.Fatal("expected image mismatch to fail")
 	}
 }
 

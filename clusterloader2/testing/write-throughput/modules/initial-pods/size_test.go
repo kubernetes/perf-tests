@@ -37,27 +37,81 @@ func TestPodSize(t *testing.T) {
 	tmpl, err := template.New("pod").Funcs(config.GetFuncs(nil)).Parse(podTemplate)
 	require.NoError(t, err)
 
-	var rendered bytes.Buffer
-	err = tmpl.Execute(&rendered, map[string]interface{}{
-		"Name": "bench-pod-0",
-	})
-	require.NoError(t, err)
-
-	var strictPod corev1.Pod
-	err = yaml.UnmarshalStrict(rendered.Bytes(), &strictPod)
-	require.NoError(t, err, "YAML contains unknown or unparsed fields")
+	testCases := []struct {
+		name         string
+		params       map[string]interface{}
+		expectedSize int
+		expectErr    bool
+	}{
+		{
+			name: "default (10KB)",
+			params: map[string]interface{}{
+				"Name": "bench-pod-0",
+			},
+			expectedSize: 10276,
+		},
+		{
+			name: "10KB",
+			params: map[string]interface{}{
+				"Name":                      "bench-pod-0",
+				"CL2_REALISTIC_POD_SIZE_KB": 10,
+			},
+			expectedSize: 10276,
+		},
+		{
+			name: "20KB",
+			params: map[string]interface{}{
+				"Name":                      "bench-pod-0",
+				"CL2_REALISTIC_POD_SIZE_KB": 20,
+			},
+			expectedSize: 19860,
+		},
+		{
+			name: "30KB",
+			params: map[string]interface{}{
+				"Name":                      "bench-pod-0",
+				"CL2_REALISTIC_POD_SIZE_KB": 30,
+			},
+			expectedSize: 29906,
+		},
+		{
+			name: "unsupported size",
+			params: map[string]interface{}{
+				"Name":                      "bench-pod-0",
+				"CL2_REALISTIC_POD_SIZE_KB": 40,
+			},
+			expectErr: true,
+		},
+	}
 
 	decoder := scheme.Codecs.UniversalDeserializer()
-	obj, _, err := decoder.Decode(rendered.Bytes(), nil, nil)
-	require.NoError(t, err)
-
-	pod, ok := obj.(*corev1.Pod)
-	require.True(t, ok, "decoded object must be *corev1.Pod")
-
 	protoSerializer := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
-	var buf bytes.Buffer
-	err = protoSerializer.Encode(pod, &buf)
-	require.NoError(t, err)
 
-	require.Equal(t, 10276, buf.Len())
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var rendered bytes.Buffer
+			err := tmpl.Execute(&rendered, tc.params)
+			if tc.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			var strictPod corev1.Pod
+			err = yaml.UnmarshalStrict(rendered.Bytes(), &strictPod)
+			require.NoError(t, err, "YAML contains unknown or unparsed fields")
+
+			obj, _, err := decoder.Decode(rendered.Bytes(), nil, nil)
+			require.NoError(t, err)
+
+			pod, ok := obj.(*corev1.Pod)
+			require.True(t, ok, "decoded object must be *corev1.Pod")
+
+			var buf bytes.Buffer
+			err = protoSerializer.Encode(pod, &buf)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedSize, buf.Len())
+		})
+	}
 }

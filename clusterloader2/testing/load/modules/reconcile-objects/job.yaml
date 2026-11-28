@@ -4,10 +4,11 @@
 {{$RuntimeClassName := DefaultParam .CL2_RUNTIME_CLASS_NAME nil}}
 {{$RealisticPod := DefaultParam .CL2_REALISTIC_POD false}}
 {{$RealisticPodSizeKB := DefaultParam .CL2_REALISTIC_POD_SIZE_KB 10}}
-{{if and (ne $RealisticPodSizeKB 10) (ne $RealisticPodSizeKB 20)}}
+{{if and (ne $RealisticPodSizeKB 10) (ne $RealisticPodSizeKB 20) (ne $RealisticPodSizeKB 30)}}
   {{DivideInt 1 0}}
 {{end}}
-{{$RealisticPod20KB := and $RealisticPod (eq $RealisticPodSizeKB 20)}}
+{{$RealisticPod20KB := and $RealisticPod (ge $RealisticPodSizeKB 20)}}
+{{$RealisticPod30KB := and $RealisticPod (eq $RealisticPodSizeKB 30)}}
 
 apiVersion: batch/v1
 kind: Job
@@ -36,6 +37,18 @@ spec:
         app.kubernetes.io/part-of: "ecommerce-platform"
         env: "production"
         track: "canary"
+        {{if $RealisticPod30KB}}
+        app.kubernetes.io/managed-by: "argocd"
+        app.kubernetes.io/created-by: "platform-controller"
+        team.example.io/owner: "checkout-payments"
+        team.example.io/cost-center: "cc-4821-commerce"
+        service.istio.io/canonical-name: "payment-service"
+        service.istio.io/canonical-revision: "v2.1.4"
+        security.example.io/data-tier: "pci-restricted"
+        observability.example.io/slo-tier: "tier-1-critical"
+        deploy.example.io/release-channel: "stable-us-east1"
+        topology.example.io/workload-pool: "general-compute"
+        {{end}}
       annotations:
         prometheus.io/scrape: "false"
         prometheus.io/port: "8080"
@@ -47,6 +60,23 @@ spec:
         fluentbit.io/parser: "json"
         argocd.argoproj.io/hook: "PreSync"
         argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
+        {{if $RealisticPod30KB}}
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true,"terminationDrainDuration":"15s","concurrency":2,"tracing":{"zipkin":{"address":"otel-collector.monitoring.svc:9411"},"sampling":10.0}}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","istio-envoy","istio-podinfo"],"revision":"asm-1-24"}'
+        instrumentation.opentelemetry.io/container-names: "main,sidecar"
+        autoscaling.knative.dev/min-scale: "2"
+        autoscaling.knative.dev/max-scale: "50"
+        argocd.argoproj.io/tracking-id: "payment-service-prod:apps/Deployment:ecommerce-platform/payment-service-primary"
+        argocd.argoproj.io/sync-options: "Prune=true,ApplyOutOfSyncOnly=true,RespectIgnoreDifferences=true"
+        vault.hashicorp.com/agent-inject-secret-db: "secret/data/production/ecommerce/payment-service/postgres-primary"
+        vault.hashicorp.com/agent-inject-template-db: '{{`{{- with secret "secret/data/production/ecommerce/payment-service/postgres-primary" -}}postgresql://{{ .Data.data.username }}:{{ .Data.data.password }}@pg-rw.db.svc:5432/payments{{- end -}}`}}'
+        security.cloud.example.io/workload-identity: "payment-service-sa@prod-ecommerce-platform.iam.gserviceaccount.com"
+        networking.gke.io/default-interface: "eth0"
+        checksum/configmap-application: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        checksum/secret-credentials: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+        kubectl.kubernetes.io/default-container: "main"
+        compliance.example.io/audit-policy: '{"pciDssScope":"cde-in-scope","piiClassification":"high","retentionDays":365,"encryptionMode":"envelope-kms"}'
+        {{end}}
 {{end}}
     spec:
       {{if $RuntimeClassName}}
@@ -124,6 +154,23 @@ spec:
       containers:
       - name: main
         image: {{.ImageRegistry}}/pause:3.9
+        {{if $RealisticPod30KB}}
+        args:
+        - "--http-listen-addr=0.0.0.0:8080"
+        - "--grpc-listen-addr=0.0.0.0:9090"
+        - "--metrics-listen-addr=0.0.0.0:9091"
+        - "--config-file=/var/configmap/application.yaml"
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        - name: metrics
+          containerPort: 9091
+          protocol: TCP
+        {{end}}
         env:
         - name: POD_NAME
           valueFrom:
@@ -164,6 +211,50 @@ spec:
           value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
         - name: SPRING_APPLICATION_JSON
           value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+        {{end}}
+        {{if $RealisticPod30KB}}
+        - name: APP_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-credentials
+              key: username
+              optional: true
+        - name: APP_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-credentials
+              key: password
+              optional: true
+        - name: APP_API_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              name: payment-signing-secret
+              key: hmac-sha256
+              optional: true
+        - name: APP_TLS_KEY_PASSPHRASE
+          valueFrom:
+            secretKeyRef:
+              name: payment-tls-cert
+              key: passphrase
+              optional: true
+        - name: APP_DATABASE_PRIMARY_DSN
+          value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&connect_timeout=5"
+        - name: APP_DATABASE_REPLICA_DSN
+          value: "postgresql://pg-replica.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&target_session_attrs=read-only"
+        - name: APP_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-0.broker.messaging.svc.cluster.local:9093,kafka-1.broker.messaging.svc.cluster.local:9093"
+        - name: APP_KAFKA_CONSUMER_CONFIG
+          value: '{"group.id":"payment-ledger-v2","auto.offset.reset":"earliest","enable.auto.commit":false,"max.poll.records":500}'
+        - name: APP_OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "https://otel-collector.monitoring.svc.cluster.local:4317"
+        - name: APP_HTTP_CLIENT_TIMEOUTS
+          value: '{"dialTimeout":"2s","tlsHandshakeTimeout":"3s","responseHeaderTimeout":"10s","idleConnTimeout":"90s"}'
+        - name: APP_FEATURE_FLAGS_JSON
+          value: '{"enableAsyncSettlement":true,"enableIdempotencyCache":true,"enableFraudScoringV3":true,"maxRetryAttempts":4}'
+        - name: APP_LEDGER_UPSTREAM_GRPC
+          value: "dns:///ledger-writer.ecommerce-core.svc.cluster.local:9090"
+        - name: APP_CACHE_CLUSTER_NODES
+          value: "valkey-shard-0.cache.svc:6379,valkey-shard-1.cache.svc:6379,valkey-shard-2.cache.svc:6379"
         {{end}}
         resources:
           requests:
@@ -194,6 +285,20 @@ spec:
         {{end}}
       - name: sidecar
         image: {{.ImageRegistry}}/pause:3.9
+        {{if $RealisticPod30KB}}
+        args:
+        - "--proxy-admin-port=15000"
+        - "--proxy-stats-port=15090"
+        - "--drain-duration=15s"
+        - "--service-cluster=payment-service.ecommerce"
+        ports:
+        - name: proxy-admin
+          containerPort: 15000
+          protocol: TCP
+        - name: proxy-stats
+          containerPort: 15090
+          protocol: TCP
+        {{end}}
         {{if $RealisticPod20KB}}
         env:
         - name: POD_NAME
@@ -234,6 +339,50 @@ spec:
           value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
         - name: SPRING_APPLICATION_JSON
           value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+        {{if $RealisticPod30KB}}
+        - name: PROXY_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-credentials
+              key: username
+              optional: true
+        - name: PROXY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-credentials
+              key: password
+              optional: true
+        - name: PROXY_API_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              name: payment-signing-secret
+              key: hmac-sha256
+              optional: true
+        - name: PROXY_TLS_KEY_PASSPHRASE
+          valueFrom:
+            secretKeyRef:
+              name: payment-tls-cert
+              key: passphrase
+              optional: true
+        - name: PROXY_DATABASE_PRIMARY_DSN
+          value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&connect_timeout=5"
+        - name: PROXY_DATABASE_REPLICA_DSN
+          value: "postgresql://pg-replica.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&target_session_attrs=read-only"
+        - name: PROXY_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-0.broker.messaging.svc.cluster.local:9093,kafka-1.broker.messaging.svc.cluster.local:9093"
+        - name: PROXY_KAFKA_CONSUMER_CONFIG
+          value: '{"group.id":"payment-ledger-v2","auto.offset.reset":"earliest","enable.auto.commit":false,"max.poll.records":500}'
+        - name: PROXY_OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "https://otel-collector.monitoring.svc.cluster.local:4317"
+        - name: PROXY_HTTP_CLIENT_TIMEOUTS
+          value: '{"dialTimeout":"2s","tlsHandshakeTimeout":"3s","responseHeaderTimeout":"10s","idleConnTimeout":"90s"}'
+        - name: PROXY_FEATURE_FLAGS_JSON
+          value: '{"enableAsyncSettlement":true,"enableIdempotencyCache":true,"enableFraudScoringV3":true,"maxRetryAttempts":4}'
+        - name: PROXY_LEDGER_UPSTREAM_GRPC
+          value: "dns:///ledger-writer.ecommerce-core.svc.cluster.local:9090"
+        - name: PROXY_CACHE_CLUSTER_NODES
+          value: "valkey-shard-0.cache.svc:6379,valkey-shard-1.cache.svc:6379,valkey-shard-2.cache.svc:6379"
+        {{end}}
         {{end}}
         resources:
           requests:
@@ -302,6 +451,54 @@ spec:
 {{end}}
       restartPolicy: OnFailure
       terminationGracePeriodSeconds: 1
+      {{if $RealisticPod30KB}}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - e2-medium
+                - e2-standard-2
+                - e2-standard-4
+                - e2-standard-8
+                - n2-standard-4
+                - n2-standard-8
+                - n2-standard-16
+                - n2-standard-32
+                - c3-standard-4
+                - c3-standard-8
+                - c3-standard-22
+                - c3-standard-44
+                - c4-standard-8
+                - c4-standard-16
+                - c4d-standard-8
+                - c4d-standard-16
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - us-east1-b
+                - us-east1-c
+                - us-east1-d
+      {{end}}
       # Add not-ready/unreachable tolerations for 15 minutes so that node
       # failure doesn't trigger pod deletion.
       tolerations:
@@ -313,6 +510,18 @@ spec:
           operator: "Exists"
           effect: "NoExecute"
           tolerationSeconds: 900
+        {{if $RealisticPod30KB}}
+        - key: "workload.example.io/dedicated"
+          operator: "Equal"
+          value: "payments"
+          effect: "NoSchedule"
+        - key: "workload.example.io/spot-capacity"
+          operator: "Exists"
+          effect: "PreferNoSchedule"
+        - key: "topology.kubernetes.io/zone-rebalance"
+          operator: "Exists"
+          effect: "PreferNoSchedule"
+        {{end}}
         {{if $TOLERATION}}
         - key: {{$TOLERATION}}
           operator: Exists

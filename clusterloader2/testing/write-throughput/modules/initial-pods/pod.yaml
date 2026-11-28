@@ -1,3 +1,9 @@
+{{$RealisticPodSizeKB := DefaultParam .CL2_REALISTIC_POD_SIZE_KB 10}}
+{{if and (ne $RealisticPodSizeKB 10) (ne $RealisticPodSizeKB 20) (ne $RealisticPodSizeKB 30)}}
+  {{DivideInt 1 0}}
+{{end}}
+{{$RealisticPod20KB := ge $RealisticPodSizeKB 20}}
+{{$RealisticPod30KB := eq $RealisticPodSizeKB 30}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -12,6 +18,18 @@ metadata:
     env: "production"
     track: "canary"
     pod-template-hash: 5d96b5bcbc
+    {{if $RealisticPod30KB}}
+    app.kubernetes.io/managed-by: "argocd"
+    app.kubernetes.io/created-by: "platform-controller"
+    team.example.io/owner: "checkout-payments"
+    team.example.io/cost-center: "cc-4821-commerce"
+    service.istio.io/canonical-name: "payment-service"
+    service.istio.io/canonical-revision: "v2.1.4"
+    security.example.io/data-tier: "pci-restricted"
+    observability.example.io/slo-tier: "tier-1-critical"
+    deploy.example.io/release-channel: "stable-us-east1"
+    topology.example.io/workload-pool: "general-compute"
+    {{end}}
   annotations:
     prometheus.io/scrape: "false"
     prometheus.io/port: "8080"
@@ -23,6 +41,23 @@ metadata:
     fluentbit.io/parser: "json"
     argocd.argoproj.io/hook: "PreSync"
     argocd.argoproj.io/hook-delete-policy: "HookSucceeded"
+    {{if $RealisticPod30KB}}
+    proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true,"terminationDrainDuration":"15s","concurrency":2,"tracing":{"zipkin":{"address":"otel-collector.monitoring.svc:9411"},"sampling":10.0}}'
+    sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","istio-envoy","istio-podinfo"],"revision":"asm-1-24"}'
+    instrumentation.opentelemetry.io/container-names: "main,sidecar"
+    autoscaling.knative.dev/min-scale: "2"
+    autoscaling.knative.dev/max-scale: "50"
+    argocd.argoproj.io/tracking-id: "payment-service-prod:apps/Deployment:ecommerce-platform/payment-service-primary"
+    argocd.argoproj.io/sync-options: "Prune=true,ApplyOutOfSyncOnly=true,RespectIgnoreDifferences=true"
+    vault.hashicorp.com/agent-inject-secret-db: "secret/data/production/ecommerce/payment-service/postgres-primary"
+    vault.hashicorp.com/agent-inject-template-db: '{{`{{- with secret "secret/data/production/ecommerce/payment-service/postgres-primary" -}}postgresql://{{ .Data.data.username }}:{{ .Data.data.password }}@pg-rw.db.svc:5432/payments{{- end -}}`}}'
+    security.cloud.example.io/workload-identity: "payment-service-sa@prod-ecommerce-platform.iam.gserviceaccount.com"
+    networking.gke.io/default-interface: "eth0"
+    checksum/configmap-application: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    checksum/secret-credentials: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+    kubectl.kubernetes.io/default-container: "main"
+    compliance.example.io/audit-policy: '{"pciDssScope":"cde-in-scope","piiClassification":"high","retentionDays":365,"encryptionMode":"envelope-kms"}'
+    {{end}}
   managedFields:
   - apiVersion: v1
     fieldsType: FieldsV1
@@ -93,31 +128,151 @@ metadata:
           .: {}
           f:argocd.argoproj.io/hook: {}
           f:argocd.argoproj.io/hook-delete-policy: {}
+          {{if $RealisticPod30KB}}
+          f:argocd.argoproj.io/sync-options: {}
+          f:argocd.argoproj.io/tracking-id: {}
+          f:autoscaling.knative.dev/max-scale: {}
+          f:autoscaling.knative.dev/min-scale: {}
+          f:checksum/configmap-application: {}
+          f:checksum/secret-credentials: {}
+          {{end}}
           f:cluster-autoscaler.kubernetes.io/safe-to-evict: {}
+          {{if $RealisticPod30KB}}
+          f:compliance.example.io/audit-policy: {}
+          {{end}}
           f:fluentbit.io/parser: {}
+          {{if $RealisticPod30KB}}
+          f:instrumentation.opentelemetry.io/container-names: {}
+          f:kubectl.kubernetes.io/default-container: {}
+          f:networking.gke.io/default-interface: {}
+          {{end}}
           f:prometheus.io/path: {}
           f:prometheus.io/port: {}
           f:prometheus.io/scrape: {}
+          {{if $RealisticPod30KB}}
+          f:proxy.istio.io/config: {}
+          f:security.cloud.example.io/workload-identity: {}
+          {{end}}
           f:sidecar.istio.io/inject: {}
+          {{if $RealisticPod30KB}}
+          f:sidecar.istio.io/status: {}
+          {{end}}
           f:vault.hashicorp.com/agent-inject: {}
+          {{if $RealisticPod30KB}}
+          f:vault.hashicorp.com/agent-inject-secret-db: {}
+          f:vault.hashicorp.com/agent-inject-template-db: {}
+          {{end}}
           f:vault.hashicorp.com/role: {}
         f:labels:
           .: {}
           f:app.kubernetes.io/component: {}
+          {{if $RealisticPod30KB}}
+          f:app.kubernetes.io/created-by: {}
+          {{end}}
           f:app.kubernetes.io/instance: {}
+          {{if $RealisticPod30KB}}
+          f:app.kubernetes.io/managed-by: {}
+          {{end}}
           f:app.kubernetes.io/name: {}
           f:app.kubernetes.io/part-of: {}
           f:app.kubernetes.io/version: {}
+          {{if $RealisticPod30KB}}
+          f:deploy.example.io/release-channel: {}
+          {{end}}
           f:env: {}
           f:group: {}
+          {{if $RealisticPod30KB}}
+          f:observability.example.io/slo-tier: {}
+          {{end}}
           f:pod-template-hash: {}
+          {{if $RealisticPod30KB}}
+          f:security.example.io/data-tier: {}
+          f:service.istio.io/canonical-name: {}
+          f:service.istio.io/canonical-revision: {}
+          f:team.example.io/cost-center: {}
+          f:team.example.io/owner: {}
+          f:topology.example.io/workload-pool: {}
+          {{end}}
           f:track: {}
       f:spec:
+        {{if $RealisticPod30KB}}
+        f:affinity:
+          .: {}
+          f:nodeAffinity:
+            .: {}
+            f:preferredDuringSchedulingIgnoredDuringExecution: {}
+            f:requiredDuringSchedulingIgnoredDuringExecution: {}
+        {{end}}
         f:containers:
           k:{"name":"main"}:
             .: {}
+            {{if $RealisticPod30KB}}
+            f:args: {}
+            {{end}}
             f:env:
               .: {}
+              {{if $RealisticPod30KB}}
+              k:{"name":"APP_API_SIGNING_KEY"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"APP_CACHE_CLUSTER_NODES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_DATABASE_PRIMARY_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_DATABASE_REPLICA_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_DB_PASSWORD"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"APP_DB_USERNAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"APP_FEATURE_FLAGS_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_HTTP_CLIENT_TIMEOUTS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_KAFKA_BOOTSTRAP_SERVERS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_KAFKA_CONSUMER_CONFIG"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_LEDGER_UPSTREAM_GRPC"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_OTEL_EXPORTER_OTLP_ENDPOINT"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"APP_TLS_KEY_PASSPHRASE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              {{end}}
               k:{"name":"GOMAXPROCS"}:
                 .: {}
                 f:name: {}
@@ -144,6 +299,12 @@ metadata:
                 f:valueFrom:
                   .: {}
                   f:fieldRef: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"OTEL_RESOURCE_ATTRIBUTES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"POD_IP"}:
                 .: {}
                 f:name: {}
@@ -170,9 +331,34 @@ metadata:
                 .: {}
                 f:name: {}
                 f:value: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"SPRING_APPLICATION_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
             f:image: {}
             f:imagePullPolicy: {}
             f:name: {}
+            {{if $RealisticPod30KB}}
+            f:ports:
+              .: {}
+              k:{"containerPort":8080,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+              k:{"containerPort":9090,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+              k:{"containerPort":9091,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            {{end}}
             f:resources:
               .: {}
               f:requests:
@@ -183,21 +369,64 @@ metadata:
             f:terminationMessagePolicy: {}
             f:volumeMounts:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/cache"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/configmap"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/data"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/logs"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
                 f:readOnly: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/scratch"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/secret"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/spool"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/state"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/tmp"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/work"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
           k:{"name":"sidecar"}:
             .: {}
+            {{if $RealisticPod30KB}}
+            f:args: {}
+            {{end}}
             f:env:
               .: {}
               k:{"name":"GOMAXPROCS"}:
@@ -226,6 +455,12 @@ metadata:
                 f:valueFrom:
                   .: {}
                   f:fieldRef: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"OTEL_RESOURCE_ATTRIBUTES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"POD_IP"}:
                 .: {}
                 f:name: {}
@@ -244,6 +479,68 @@ metadata:
                 f:valueFrom:
                   .: {}
                   f:fieldRef: {}
+              {{if $RealisticPod30KB}}
+              k:{"name":"PROXY_API_SIGNING_KEY"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"PROXY_CACHE_CLUSTER_NODES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_DATABASE_PRIMARY_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_DATABASE_REPLICA_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_DB_PASSWORD"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"PROXY_DB_USERNAME"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              k:{"name":"PROXY_FEATURE_FLAGS_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_HTTP_CLIENT_TIMEOUTS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_KAFKA_BOOTSTRAP_SERVERS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_KAFKA_CONSUMER_CONFIG"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_LEDGER_UPSTREAM_GRPC"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_OTEL_EXPORTER_OTLP_ENDPOINT"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"PROXY_TLS_KEY_PASSPHRASE"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:secretKeyRef: {}
+              {{end}}
               k:{"name":"PYTHONUNBUFFERED"}:
                 .: {}
                 f:name: {}
@@ -252,9 +549,29 @@ metadata:
                 .: {}
                 f:name: {}
                 f:value: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"SPRING_APPLICATION_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
             f:image: {}
             f:imagePullPolicy: {}
             f:name: {}
+            {{if $RealisticPod30KB}}
+            f:ports:
+              .: {}
+              k:{"containerPort":15000,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+              k:{"containerPort":15090,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            {{end}}
             f:resources:
               .: {}
               f:requests:
@@ -265,11 +582,55 @@ metadata:
             f:terminationMessagePolicy: {}
             f:volumeMounts:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/cache"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/configmap"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/data"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/logs"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
                 f:readOnly: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/scratch"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/secret"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/spool"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/state"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/tmp"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/work"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
         f:dnsPolicy: {}
         f:enableServiceLinks: {}
         f:initContainers:
@@ -279,6 +640,36 @@ metadata:
             f:command: {}
             f:env:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"INIT_CONFIG_BOOTSTRAP_URLS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"INIT_DB_MIGRATION_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"INIT_DB_MIGRATION_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"NODE_ENV"}:
                 .: {}
                 f:name: {}
@@ -289,6 +680,12 @@ metadata:
                 f:valueFrom:
                   .: {}
                   f:fieldRef: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"OTEL_RESOURCE_ATTRIBUTES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"POD_IP"}:
                 .: {}
                 f:name: {}
@@ -315,24 +712,113 @@ metadata:
                 .: {}
                 f:name: {}
                 f:value: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"SPRING_APPLICATION_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
             f:image: {}
             f:imagePullPolicy: {}
             f:name: {}
+            {{if $RealisticPod20KB}}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            {{else}}
             f:resources: {}
+            {{end}}
             f:terminationMessagePath: {}
             f:terminationMessagePolicy: {}
             f:volumeMounts:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/cache"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/configmap"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/data"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/logs"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
                 f:readOnly: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/scratch"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/secret"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/spool"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/state"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/tmp"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/work"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
           k:{"name":"init-1"}:
             .: {}
             f:command: {}
             f:env:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"GOMAXPROCS"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"GOMEMLIMIT"}:
+                .: {}
+                f:name: {}
+                f:valueFrom:
+                  .: {}
+                  f:resourceFieldRef: {}
+              k:{"name":"INIT_CONFIG_BOOTSTRAP_URLS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"INIT_DB_MIGRATION_DSN"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"INIT_DB_MIGRATION_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              k:{"name":"JAVA_TOOL_OPTIONS"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"NODE_ENV"}:
                 .: {}
                 f:name: {}
@@ -343,6 +829,12 @@ metadata:
                 f:valueFrom:
                   .: {}
                   f:fieldRef: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"OTEL_RESOURCE_ATTRIBUTES"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
               k:{"name":"POD_IP"}:
                 .: {}
                 f:name: {}
@@ -369,19 +861,78 @@ metadata:
                 .: {}
                 f:name: {}
                 f:value: {}
+              {{if $RealisticPod20KB}}
+              k:{"name":"SPRING_APPLICATION_JSON"}:
+                .: {}
+                f:name: {}
+                f:value: {}
+              {{end}}
             f:image: {}
             f:imagePullPolicy: {}
             f:name: {}
+            {{if $RealisticPod20KB}}
+            f:resources:
+              .: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            {{else}}
             f:resources: {}
+            {{end}}
             f:terminationMessagePath: {}
             f:terminationMessagePolicy: {}
             f:volumeMounts:
               .: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/cache"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/configmap"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/data"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/logs"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
               k:{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount"}:
                 .: {}
                 f:mountPath: {}
                 f:name: {}
                 f:readOnly: {}
+              {{if $RealisticPod20KB}}
+              k:{"mountPath":"/var/scratch"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/secret"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/spool"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/state"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/tmp"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              k:{"mountPath":"/var/work"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+              {{end}}
         f:nodeSelector: {}
         f:preemptionPolicy: {}
         f:priority: {}
@@ -394,6 +945,12 @@ metadata:
         f:tolerations: {}
         f:volumes:
           .: {}
+          {{if $RealisticPod20KB}}
+          k:{"name":"cache"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          {{end}}
           k:{"name":"configmap"}:
             .: {}
             f:configMap:
@@ -402,6 +959,12 @@ metadata:
               f:name: {}
               f:optional: {}
             f:name: {}
+          {{if $RealisticPod20KB}}
+          k:{"name":"data"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          {{end}}
           k:{"name":"kube-api-access-lsjvf"}:
             .: {}
             f:name: {}
@@ -409,6 +972,16 @@ metadata:
               .: {}
               f:defaultMode: {}
               f:sources: {}
+          {{if $RealisticPod20KB}}
+          k:{"name":"logs"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          k:{"name":"scratch"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          {{end}}
           k:{"name":"secret"}:
             .: {}
             f:name: {}
@@ -417,6 +990,24 @@ metadata:
               f:defaultMode: {}
               f:optional: {}
               f:secretName: {}
+          {{if $RealisticPod20KB}}
+          k:{"name":"spool"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          k:{"name":"state"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          k:{"name":"tmp"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          k:{"name":"work"}:
+            .: {}
+            f:emptyDir: {}
+            f:name: {}
+          {{end}}
     manager: clusterloader
     operation: Update
     time: "2026-09-22T14:09:32Z"
@@ -433,6 +1024,54 @@ spec:
   schedulerName: "non-existent-scheduler"
   nodeSelector:
     kubernetes.io/hostname: "non-existent-node"
+  {{if $RealisticPod30KB}}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/os
+            operator: In
+            values:
+            - linux
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+            - arm64
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        preference:
+          matchExpressions:
+          - key: node.kubernetes.io/instance-type
+            operator: In
+            values:
+            - e2-medium
+            - e2-standard-2
+            - e2-standard-4
+            - e2-standard-8
+            - n2-standard-4
+            - n2-standard-8
+            - n2-standard-16
+            - n2-standard-32
+            - c3-standard-4
+            - c3-standard-8
+            - c3-standard-22
+            - c3-standard-44
+            - c4-standard-8
+            - c4-standard-16
+            - c4d-standard-8
+            - c4d-standard-16
+      - weight: 20
+        preference:
+          matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - us-east1-b
+            - us-east1-c
+            - us-east1-d
+  {{end}}
   initContainers:
   - name: init-0
     image: registry.k8s.io/e2e-test-images/agnhost:2.53
@@ -459,16 +1098,73 @@ spec:
         fieldRef:
           apiVersion: v1
           fieldPath: status.podIP
+    {{if $RealisticPod20KB}}
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          divisor: "0"
+          resource: limits.cpu
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          divisor: "0"
+          resource: limits.memory
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=75.0"
+    {{end}}
     - name: REDIS_URL
       value: "redis://main:6379/0"
     - name: PYTHONUNBUFFERED
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    - name: INIT_DB_MIGRATION_DSN
+      value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&application_name=schema-migrator"
+    - name: INIT_DB_MIGRATION_OPTIONS
+      value: '{"lockTimeout":"30s","statementTimeout":"5m","validateChecksums":true,"baselineOnMigrate":false,"outOfOrder":false,"targetVersion":"20260915.04"}'
+    - name: INIT_CONFIG_BOOTSTRAP_URLS
+      value: "https://config-bootstrap.ecommerce-core.svc.cluster.local:8443/v2/bundles/payment-service,https://schema-registry.messaging.svc.cluster.local:8081"
+    {{end}}
+    {{if $RealisticPod20KB}}
+    resources:
+      requests:
+        cpu: 5m
+        memory: 20M
+    {{else}}
     resources: {}
+    {{end}}
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
     volumeMounts:
+    {{if $RealisticPod20KB}}
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
       name: kube-api-access-lsjvf
       readOnly: true
@@ -497,16 +1193,73 @@ spec:
         fieldRef:
           apiVersion: v1
           fieldPath: status.podIP
+    {{if $RealisticPod20KB}}
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          divisor: "0"
+          resource: limits.cpu
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          containerName: init-0
+          divisor: "0"
+          resource: limits.memory
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=75.0"
+    {{end}}
     - name: REDIS_URL
       value: "redis://main:6379/0"
     - name: PYTHONUNBUFFERED
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    - name: INIT_DB_MIGRATION_DSN
+      value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&application_name=schema-migrator"
+    - name: INIT_DB_MIGRATION_OPTIONS
+      value: '{"lockTimeout":"30s","statementTimeout":"5m","validateChecksums":true,"baselineOnMigrate":false,"outOfOrder":false,"targetVersion":"20260915.04"}'
+    - name: INIT_CONFIG_BOOTSTRAP_URLS
+      value: "https://config-bootstrap.ecommerce-core.svc.cluster.local:8443/v2/bundles/payment-service,https://schema-registry.messaging.svc.cluster.local:8081"
+    {{end}}
+    {{if $RealisticPod20KB}}
+    resources:
+      requests:
+        cpu: 5m
+        memory: 20M
+    {{else}}
     resources: {}
+    {{end}}
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
     volumeMounts:
+    {{if $RealisticPod20KB}}
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
       name: kube-api-access-lsjvf
       readOnly: true
@@ -514,6 +1267,23 @@ spec:
   - name: main
     image: registry.k8s.io/pause:3.9
     imagePullPolicy: IfNotPresent
+    {{if $RealisticPod30KB}}
+    args:
+    - "--http-listen-addr=0.0.0.0:8080"
+    - "--grpc-listen-addr=0.0.0.0:9090"
+    - "--metrics-listen-addr=0.0.0.0:9091"
+    - "--config-file=/var/configmap/application.yaml"
+    ports:
+    - name: http
+      containerPort: 8080
+      protocol: TCP
+    - name: grpc
+      containerPort: 9090
+      protocol: TCP
+    - name: metrics
+      containerPort: 9091
+      protocol: TCP
+    {{end}}
     env:
     - name: POD_NAME
       valueFrom:
@@ -555,6 +1325,56 @@ spec:
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    {{end}}
+    {{if $RealisticPod30KB}}
+    - name: APP_DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: payment-db-credentials
+          key: username
+          optional: true
+    - name: APP_DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: payment-db-credentials
+          key: password
+          optional: true
+    - name: APP_API_SIGNING_KEY
+      valueFrom:
+        secretKeyRef:
+          name: payment-signing-secret
+          key: hmac-sha256
+          optional: true
+    - name: APP_TLS_KEY_PASSPHRASE
+      valueFrom:
+        secretKeyRef:
+          name: payment-tls-cert
+          key: passphrase
+          optional: true
+    - name: APP_DATABASE_PRIMARY_DSN
+      value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&connect_timeout=5"
+    - name: APP_DATABASE_REPLICA_DSN
+      value: "postgresql://pg-replica.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&target_session_attrs=read-only"
+    - name: APP_KAFKA_BOOTSTRAP_SERVERS
+      value: "kafka-0.broker.messaging.svc.cluster.local:9093,kafka-1.broker.messaging.svc.cluster.local:9093"
+    - name: APP_KAFKA_CONSUMER_CONFIG
+      value: '{"group.id":"payment-ledger-v2","auto.offset.reset":"earliest","enable.auto.commit":false,"max.poll.records":500}'
+    - name: APP_OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "https://otel-collector.monitoring.svc.cluster.local:4317"
+    - name: APP_HTTP_CLIENT_TIMEOUTS
+      value: '{"dialTimeout":"2s","tlsHandshakeTimeout":"3s","responseHeaderTimeout":"10s","idleConnTimeout":"90s"}'
+    - name: APP_FEATURE_FLAGS_JSON
+      value: '{"enableAsyncSettlement":true,"enableIdempotencyCache":true,"enableFraudScoringV3":true,"maxRetryAttempts":4}'
+    - name: APP_LEDGER_UPSTREAM_GRPC
+      value: "dns:///ledger-writer.ecommerce-core.svc.cluster.local:9090"
+    - name: APP_CACHE_CLUSTER_NODES
+      value: "valkey-shard-0.cache.svc:6379,valkey-shard-1.cache.svc:6379,valkey-shard-2.cache.svc:6379"
+    {{end}}
     resources:
       requests:
         cpu: 5m
@@ -566,12 +1386,44 @@ spec:
       name: configmap
     - mountPath: /var/secret
       name: secret
+    {{if $RealisticPod20KB}}
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
       name: kube-api-access-lsjvf
       readOnly: true
   - name: sidecar
     image: registry.k8s.io/pause:3.9
     imagePullPolicy: IfNotPresent
+    {{if $RealisticPod30KB}}
+    args:
+    - "--proxy-admin-port=15000"
+    - "--proxy-stats-port=15090"
+    - "--drain-duration=15s"
+    - "--service-cluster=payment-service.ecommerce"
+    ports:
+    - name: proxy-admin
+      containerPort: 15000
+      protocol: TCP
+    - name: proxy-stats
+      containerPort: 15090
+      protocol: TCP
+    {{end}}
     env:
     - name: POD_NAME
       valueFrom:
@@ -613,6 +1465,56 @@ spec:
       value: "1"
     - name: NODE_ENV
       value: "prod"
+    {{if $RealisticPod20KB}}
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "service.name=payment-service,service.namespace=ecommerce-platform,service.version=v2.1.4,deployment.environment=production,cloud.provider=gcp,cloud.platform=gcp_kubernetes_engine,k8s.cluster.name=prod-us-east1-main"
+    - name: SPRING_APPLICATION_JSON
+      value: '{"server":{"port":8080,"shutdown":"graceful"},"spring":{"lifecycle":{"timeout-per-shutdown-phase":"30s"},"datasource":{"hikari":{"maximum-pool-size":32,"minimum-idle":8,"connection-timeout":5000,"idle-timeout":300000,"max-lifetime":1800000}}}}'
+    {{end}}
+    {{if $RealisticPod30KB}}
+    - name: PROXY_DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: payment-db-credentials
+          key: username
+          optional: true
+    - name: PROXY_DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: payment-db-credentials
+          key: password
+          optional: true
+    - name: PROXY_API_SIGNING_KEY
+      valueFrom:
+        secretKeyRef:
+          name: payment-signing-secret
+          key: hmac-sha256
+          optional: true
+    - name: PROXY_TLS_KEY_PASSPHRASE
+      valueFrom:
+        secretKeyRef:
+          name: payment-tls-cert
+          key: passphrase
+          optional: true
+    - name: PROXY_DATABASE_PRIMARY_DSN
+      value: "postgresql://pg-primary.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&connect_timeout=5"
+    - name: PROXY_DATABASE_REPLICA_DSN
+      value: "postgresql://pg-replica.ecommerce-db.svc.cluster.local:5432/payments?sslmode=verify-full&target_session_attrs=read-only"
+    - name: PROXY_KAFKA_BOOTSTRAP_SERVERS
+      value: "kafka-0.broker.messaging.svc.cluster.local:9093,kafka-1.broker.messaging.svc.cluster.local:9093"
+    - name: PROXY_KAFKA_CONSUMER_CONFIG
+      value: '{"group.id":"payment-ledger-v2","auto.offset.reset":"earliest","enable.auto.commit":false,"max.poll.records":500}'
+    - name: PROXY_OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "https://otel-collector.monitoring.svc.cluster.local:4317"
+    - name: PROXY_HTTP_CLIENT_TIMEOUTS
+      value: '{"dialTimeout":"2s","tlsHandshakeTimeout":"3s","responseHeaderTimeout":"10s","idleConnTimeout":"90s"}'
+    - name: PROXY_FEATURE_FLAGS_JSON
+      value: '{"enableAsyncSettlement":true,"enableIdempotencyCache":true,"enableFraudScoringV3":true,"maxRetryAttempts":4}'
+    - name: PROXY_LEDGER_UPSTREAM_GRPC
+      value: "dns:///ledger-writer.ecommerce-core.svc.cluster.local:9090"
+    - name: PROXY_CACHE_CLUSTER_NODES
+      value: "valkey-shard-0.cache.svc:6379,valkey-shard-1.cache.svc:6379,valkey-shard-2.cache.svc:6379"
+    {{end}}
     resources:
       requests:
         cpu: 5m
@@ -620,6 +1522,28 @@ spec:
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
     volumeMounts:
+    {{if $RealisticPod20KB}}
+    - mountPath: /var/configmap
+      name: configmap
+    - mountPath: /var/secret
+      name: secret
+    - mountPath: /var/cache
+      name: cache
+    - mountPath: /var/logs
+      name: logs
+    - mountPath: /var/tmp
+      name: tmp
+    - mountPath: /var/data
+      name: data
+    - mountPath: /var/work
+      name: work
+    - mountPath: /var/state
+      name: state
+    - mountPath: /var/scratch
+      name: scratch
+    - mountPath: /var/spool
+      name: spool
+    {{end}}
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
       name: kube-api-access-lsjvf
       readOnly: true
@@ -641,6 +1565,18 @@ spec:
     key: node.kubernetes.io/unreachable
     operator: Exists
     tolerationSeconds: 900
+  {{if $RealisticPod30KB}}
+  - effect: NoSchedule
+    key: workload.example.io/dedicated
+    operator: Equal
+    value: payments
+  - effect: PreferNoSchedule
+    key: workload.example.io/spot-capacity
+    operator: Exists
+  - effect: PreferNoSchedule
+    key: topology.kubernetes.io/zone-rebalance
+    operator: Exists
+  {{end}}
   volumes:
   - name: configmap
     configMap:
@@ -652,6 +1588,24 @@ spec:
       secretName: small-deployment-0
       defaultMode: 420
       optional: true
+  {{if $RealisticPod20KB}}
+  - name: cache
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+  - name: data
+    emptyDir: {}
+  - name: work
+    emptyDir: {}
+  - name: state
+    emptyDir: {}
+  - name: scratch
+    emptyDir: {}
+  - name: spool
+    emptyDir: {}
+  {{end}}
   - name: kube-api-access-lsjvf
     projected:
       defaultMode: 420

@@ -5,6 +5,8 @@
 {{$Memory := DefaultParam .CL2_INFORMER_MEMORY "16Gi"}}
 {{$GoMemLimit := DefaultParam .CL2_INFORMER_GOMEMLIMIT "14GiB"}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +22,7 @@ spec:
       labels:
         group: informer
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
 {{if or $TolerateControlPlane $RunOnControlPlane}}
       tolerations:
         - key: node-role.kubernetes.io/control-plane

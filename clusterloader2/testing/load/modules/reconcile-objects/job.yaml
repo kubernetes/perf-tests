@@ -10,6 +10,8 @@
 {{$RealisticPod20KB := and $RealisticPod (ge $RealisticPodSizeKB 20)}}
 {{$RealisticPod30KB := and $RealisticPod (eq $RealisticPodSizeKB 30)}}
 
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -79,6 +81,7 @@ spec:
         {{end}}
 {{end}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       {{if $RuntimeClassName}}
       runtimeClassName: {{$RuntimeClassName}}
       {{end}}

@@ -5,6 +5,8 @@
 {{$provisioner := .Provisioner}}
 {{$storageclass := .StorageClass}}
 {{$volsize := .VolSize}}
+{{$SCHEDULER_NAME := DefaultParam .CL2_SCHEDULER_NAME "default-scheduler"}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,6 +24,7 @@ spec:
         group: {{.Group}}
         name: {{.Name}}
     spec:
+      schedulerName: {{$SCHEDULER_NAME}}
       containers:
       - name: {{.Name}}
         image: {{.ImageRegistry}}/pause:3.9

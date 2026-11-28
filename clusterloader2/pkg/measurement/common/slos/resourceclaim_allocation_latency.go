@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
@@ -64,6 +65,7 @@ func createResourceClaimAllocationLatencyMeasurement() measurement.Measurement {
 		entries:          measurementutil.NewObjectTransitionTimes(resourceClaimAllocationLatencyMeasurementName),
 		queue:            workqueue.NewTyped[*claimEventData](),
 		podCreationTimes: make(map[string]time.Time),
+		clock:            clock.RealClock{},
 	}
 }
 
@@ -90,6 +92,7 @@ type resourceClaimAllocationLatencyMeasurement struct {
 	podCreationTimes map[string]time.Time
 	podCacheLock     sync.RWMutex
 	podGetCalls      int64
+	clock            clock.Clock
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) Execute(cfg *measurement.Config) ([]measurement.Summary, error) {
@@ -179,7 +182,9 @@ func (m *resourceClaimAllocationLatencyMeasurement) start(c clientset.Interface)
 }
 
 func (m *resourceClaimAllocationLatencyMeasurement) addEvent(_, obj interface{}) {
-	event := &claimEventData{obj: obj, recvTime: time.Now()}
+	// Capture the receive time in the informer callback, before the event enters the
+	// workqueue, so queue latency does not affect the measurement.
+	event := &claimEventData{obj: obj, recvTime: m.clock.Now()}
 	m.queue.Add(event)
 }
 
@@ -188,10 +193,12 @@ func (m *resourceClaimAllocationLatencyMeasurement) addPodEvent(_, obj interface
 	if !ok || pod == nil || !usesResourceClaimTemplate(pod) {
 		return
 	}
+	// Capture the watch-stream receive time for nanosecond precision.
+	recvTime := m.clock.Now()
 	key := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 	m.podCacheLock.Lock()
 	if _, exists := m.podCreationTimes[key]; !exists {
-		m.podCreationTimes[key] = pod.CreationTimestamp.Time
+		m.podCreationTimes[key] = recvTime
 	}
 	m.podCacheLock.Unlock()
 }
@@ -233,9 +240,10 @@ func (m *resourceClaimAllocationLatencyMeasurement) processEvent(ev *claimEventD
 		}
 	}
 
-	// Record creation time once per claim.
+	// Record the watch-stream receive time as createPhase for nanosecond precision.
+	// Using claim.CreationTimestamp.Time would give only second-level granularity.
 	if _, found := m.entries.Get(key, createPhase); !found {
-		m.entries.Set(key, createPhase, claim.CreationTimestamp.Time)
+		m.entries.Set(key, createPhase, ev.recvTime)
 	}
 
 	// Record allocation time when status becomes non-empty.

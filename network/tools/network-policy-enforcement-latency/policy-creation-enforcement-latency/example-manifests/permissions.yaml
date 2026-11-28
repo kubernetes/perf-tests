@@ -48,5 +48,6 @@ spec:
       protocol: TCP
     to:
     - ipBlock:
-        # Use "kubectl get endpoints --namespace default kubernetes" to get the IP address of kube-apiserver.
-        cidr: {{.kubeAPIServerIP}}/32
+        # Use "kubectl get endpointslices --namespace default -l kubernetes.io/service-name=kubernetes" to get the IP address of kube-apiserver.
+        # Use a /32 prefix for an IPv4 address and a /128 prefix for an IPv6 address.
+        cidr: {{.kubeAPIServerCIDR}}

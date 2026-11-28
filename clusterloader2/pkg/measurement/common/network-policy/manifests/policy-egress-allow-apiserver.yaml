@@ -13,10 +13,12 @@ spec:
   - Egress
   egress:
   - ports:
-    - port: 443
+    {{range .Ports}}
+    - port: {{.}}
       protocol: TCP
-    - port: 80
-      protocol: TCP
+    {{end}}
     to:
+    {{range .KubeAPIServerCIDRs}}
     - ipBlock:
-        cidr: {{.kubeAPIServerIP}}/32
+        cidr: {{.}}
+    {{end}}

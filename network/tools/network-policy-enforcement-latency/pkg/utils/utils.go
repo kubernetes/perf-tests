@@ -21,23 +21,34 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 )
 
 const (
-	requestTimeoutSeconds = 1
-	highestPortNumber     = 65535
-	NameIndex             = "name"
-	MaxRetryBackoff       = 5 * time.Minute
+	requestTimeoutSeconds      = 1
+	highestPortNumber          = 65535
+	NameIndex                  = "name"
+	MaxRetryBackoff            = 5 * time.Minute
+	defaultInformerSyncTimeout = 2 * time.Minute
+	protobufMediaType          = "application/vnd.kubernetes.protobuf"
+	protobufAcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 )
 
 type BoolMapWithLock struct {
@@ -72,9 +83,15 @@ type BaseTestClientConfig struct {
 	HostConfig   *HostConfig
 	TargetConfig *TargetConfig
 
-	MainStopChan  chan os.Signal
-	MetricsServer *http.Server
-	K8sClient     *clientset.Clientset
+	MainStopChan        chan os.Signal
+	StopCh              chan struct{}
+	InformerSyncTimeout time.Duration
+	ProbeFunc           func(target *TargetSpec) error
+	MetricsServer       *http.Server
+	K8sClient           *clientset.Clientset
+
+	initStopOnce sync.Once
+	stopOnce     sync.Once
 }
 
 // HostConfig holds information about the pod specification where the
@@ -131,8 +148,48 @@ func CreateBaseTestClientConfig(stopChan chan os.Signal) (*BaseTestClientConfig,
 		MainStopChan: stopChan,
 		K8sClient:    k8sClient,
 	}
+	config.InitStopChannel()
 
 	return config, nil
+}
+
+// InitStopChannel sets up StopCh so a single OS signal on MainStopChan closes
+// StopCh and wakes all active informers, probe goroutines, and WaitUntilStopped.
+func (c *BaseTestClientConfig) InitStopChannel() {
+	c.initStopOnce.Do(func() {
+		if c.StopCh == nil {
+			c.StopCh = make(chan struct{})
+		}
+		if c.InformerSyncTimeout <= 0 {
+			c.InformerSyncTimeout = defaultInformerSyncTimeout
+		}
+		if c.MainStopChan != nil {
+			go func() {
+				select {
+				case <-c.MainStopChan:
+					c.Stop()
+				case <-c.StopCh:
+				}
+			}()
+		}
+	})
+}
+
+// Stop closes StopCh once.
+func (c *BaseTestClientConfig) Stop() {
+	c.InitStopChannel()
+	c.stopOnce.Do(func() {
+		close(c.StopCh)
+	})
+}
+
+// WaitUntilStopped blocks until StopCh is closed so the test client pod stays
+// running for Prometheus scraping without restarting until pod deletion.
+func (c *BaseTestClientConfig) WaitUntilStopped() {
+	c.InitStopChannel()
+	klog.Info("Going into idle state")
+	<-c.StopCh
+	klog.Info("Exiting idle state")
 }
 
 // VerifyHostConfig ensures that host configuration is valid.
@@ -176,21 +233,32 @@ func ShutDownMetricsServer(ctx context.Context, metricsServer *http.Server) {
 	}
 }
 
+// NewCurlProbe returns a probe that sends one curl request to target. curl runs
+// without a shell so that bracketed IPv6 addresses are not expanded as globs.
+func NewCurlProbe(target *TargetSpec) func(*TargetSpec) error {
+	command := curlCommand(target.IP, target.Port)
+	klog.Infof("Sending requests %q", strings.Join(command, " "))
+	return func(*TargetSpec) error {
+		_, err := runCommand(command)
+		return err
+	}
+}
+
+func curlCommand(ip string, port int) []string {
+	return []string{"curl", "-g", "--connect-timeout", strconv.Itoa(requestTimeoutSeconds), net.JoinHostPort(ip, strconv.Itoa(port))}
+}
+
 // RecordFirstSuccessfulRequest sends curl requests continuously to the provided
-// target IP and target port from the test client config, at 1 second intervals,
-// until the first successful response. It records the latency between the
-// provided start time in the targetSpec, and the time of the first successful
-// response.
+// target IP and target port from the test client config, until the first
+// successful response. It records the latency between the provided start time
+// in the targetSpec, and the time of the first successful response.
 func RecordFirstSuccessfulRequest(target *TargetSpec, stopChan chan os.Signal, successFunc func(*TargetSpec, time.Time)) {
 	if target == nil || len(target.IP) == 0 {
 		klog.Warningf("Skipping a target for policy enforcement latency. Target needs to have IP address and port specified. Target: %v", target)
 		return
 	}
 
-	request := fmt.Sprintf("curl --connect-timeout %d %s:%d", requestTimeoutSeconds, target.IP, target.Port)
-	command := []string{"sh", "-c", "-x", request}
-	klog.Infof("Sending requests %q", request)
-
+	probe := NewCurlProbe(target)
 	for {
 		select {
 		case <-stopChan:
@@ -198,10 +266,37 @@ func RecordFirstSuccessfulRequest(target *TargetSpec, stopChan chan os.Signal, s
 		default:
 		}
 
-		_, err := runCommand(command)
 		// CURL command returns errors for requests denied by a policy, or when the
 		// IP is unreachable. Everything else is considered a success.
-		if err != nil {
+		if err := probe(target); err != nil {
+			continue
+		}
+
+		successFunc(target, time.Now())
+		return
+	}
+}
+
+// RecordFirstSuccessfulRequestUntilStop probes target until the first success
+// or until stopCh is closed. When probeFunc is nil, it uses the default 1s-timeout curl probe.
+func RecordFirstSuccessfulRequestUntilStop(target *TargetSpec, stopCh <-chan struct{}, probeFunc func(*TargetSpec) error, successFunc func(*TargetSpec, time.Time)) {
+	if target == nil || len(target.IP) == 0 {
+		klog.Warningf("Skipping a target for policy enforcement latency. Target needs to have IP address and port specified. Target: %v", target)
+		return
+	}
+
+	if probeFunc == nil {
+		probeFunc = NewCurlProbe(target)
+	}
+
+	for {
+		select {
+		case <-stopCh:
+			return
+		default:
+		}
+
+		if err := probeFunc(target); err != nil {
 			continue
 		}
 
@@ -217,7 +312,62 @@ func NewK8sClient() (*clientset.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientset.NewForConfig(config)
+	return NewK8sClientFromConfig(config)
+}
+
+// NewK8sClientFromConfig builds a Clientset configured to negotiate Protobuf
+// with JSON fallback for built-in Kubernetes resources.
+func NewK8sClientFromConfig(config *rest.Config) (*clientset.Clientset, error) {
+	cfg := rest.CopyConfig(config)
+	cfg.AcceptContentTypes = protobufAcceptContentTypes
+	cfg.ContentType = protobufMediaType
+	return clientset.NewForConfig(cfg)
+}
+
+// WaitForInformerSync blocks until all informers sync, stopCh closes, or timeout elapses.
+func WaitForInformerSync(stopCh <-chan struct{}, timeout time.Duration, cacheSyncs ...cache.InformerSynced) bool {
+	ctx, cancel := context.WithTimeout(wait.ContextForChannel(stopCh), timeout)
+	defer cancel()
+	return cache.WaitForCacheSync(ctx.Done(), cacheSyncs...)
+}
+
+// TrimPod retains only the ObjectMeta identity/timestamp fields and PodIP used
+// by the latency informers before inserting Pod objects into the cache.
+func TrimPod(obj interface{}) (interface{}, error) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return obj, nil
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              pod.Name,
+			Namespace:         pod.Namespace,
+			UID:               pod.UID,
+			ResourceVersion:   pod.ResourceVersion,
+			CreationTimestamp: pod.CreationTimestamp,
+		},
+		Status: corev1.PodStatus{
+			PodIP: pod.Status.PodIP,
+		},
+	}, nil
+}
+
+// TrimNetworkPolicy retains only the ObjectMeta identity/timestamp fields used
+// by the latency informer before inserting NetworkPolicy objects into the cache.
+func TrimNetworkPolicy(obj interface{}) (interface{}, error) {
+	np, ok := obj.(*networkingv1.NetworkPolicy)
+	if !ok {
+		return obj, nil
+	}
+	return &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              np.Name,
+			Namespace:         np.Namespace,
+			UID:               np.UID,
+			ResourceVersion:   np.ResourceVersion,
+			CreationTimestamp: np.CreationTimestamp,
+		},
+	}, nil
 }
 
 // Retry runs a function until it succeeds, with specified number of attempts

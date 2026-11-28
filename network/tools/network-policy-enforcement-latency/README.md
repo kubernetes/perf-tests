@@ -53,8 +53,12 @@ requires correct setup of network policies in the cluster, where one policy that
 denies traffic exists before traffic to the pod starts, and a new policy that
 allows it is created during the traffic.
 
-1. List pods that match the provided namespace and label selector.
-2. Start sending traffic to target pods.
+1. Stream target pods matching the provided namespace and label selector via a
+   `WatchList` pod informer with watch bookmarking, and watch the allow
+   `NetworkPolicy` (`-AllowPolicyName` in `-HostNamespace`) via a
+   field-selected `WatchList` informer.
+2. Start sending traffic to up to `-MaxTargets` target pods once the initial
+   watch bookmark sync completes.
 3. Record the first request with a successful (non-error) response. CURL command
    returns errors for requests denied by a policy, or when the IP is
    unreachable.
@@ -64,10 +68,9 @@ allows it is created during the traffic.
        client pod records the time of the first response to a curl request that
        doesn't return an error (requests denied by the policy return errors).
     2. `policy_create_time`: Taken from the network policy's ObjectMeta field
-       CreationTimestamp. The test client pod gets the network policy that
-       allows egress from the kube-apiserver, based on the
-       namespace `testClientNamespace` and name `allowPolicyName` specified in
-       the test client config.
+       CreationTimestamp received over the `NetworkPolicy` watch stream for
+       namespace `-HostNamespace` and name `-AllowPolicyName` specified in the
+       test client flags.
 
 Measures the metrics by connecting to the target pods:
 
@@ -147,15 +150,15 @@ pods to it.\
 This is needed because there will be Egress network policies affecting test
 client pods, which means all connections that are not specified in network
 policies will be denied.\
-Replace the `{{.kubeAPIServerIP}}` field in `permissions.yaml` file with the
-endpoint's IP address.
+Replace the `{{.kubeAPIServerCIDR}}` field in `permissions.yaml` file with the
+endpoint's IP address and a `/32` prefix for IPv4 or a `/128` prefix for IPv6.
 
 ```
-kubectl get endpoints --namespace default kubernetes
+kubectl get endpointslices --namespace default -l kubernetes.io/service-name=kubernetes
 
 Example output:
-NAME         ENDPOINTS       AGE
-kubernetes   10.26.0.2:443   1d
+NAME         ADDRESSTYPE   PORTS   ENDPOINTS   AGE
+kubernetes   IPv4          443     10.26.0.2   1d
 ```
 
 ### Pod creation reachability latency
